@@ -1,0 +1,241 @@
+/* Organization Card Styles */
+.organization-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.organization-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--primary, #5570F1);
+}
+
+.organization-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.organization-logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--primary-light, rgba(85, 112, 241, 0.1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.organization-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.logo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary, #5570F1);
+  font-size: 1.5rem;
+}
+
+.organization-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.organization-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary, #374151);
+  margin: 0 0 8px 0;
+  line-height: 1.3;
+}
+
+.organization-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.organization-type {
+  background: var(--primary-light, rgba(85, 112, 241, 0.1));
+  color: var(--primary, #5570F1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.organization-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.organization-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.organization-card:hover .organization-actions {
+  opacity: 1;
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--card-bg, #ffffff);
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: var(--primary-light, rgba(85, 112, 241, 0.1));
+  color: var(--primary, #5570F1);
+  border-color: var(--primary, #5570F1);
+}
+
+.organization-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.organization-description {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  margin: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.organization-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.detail-item i {
+  width: 12px;
+  color: var(--primary, #5570F1);
+}
+
+.detail-item a {
+  color: var(--primary, #5570F1);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.detail-item a:hover {
+  color: var(--secondary, #524c9c);
+}
+
+.organization-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--bg-primary, #f8fafc);
+  border-radius: 8px;
+  border-left: 3px solid var(--primary, #5570F1);
+}
+
+.contact-person,
+.contact-email {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.contact-person i,
+.contact-email i {
+  width: 12px;
+  color: var(--primary, #5570F1);
+}
+
+.contact-email a {
+  color: var(--primary, #5570F1);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.contact-email a:hover {
+  color: var(--secondary, #524c9c);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .organization-card {
+    padding: 16px;
+  }
+  
+  .organization-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .organization-logo {
+    align-self: flex-start;
+  }
+  
+  .organization-actions {
+    opacity: 1;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+  
+  .organization-meta {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  
+  .organization-details {
+    gap: 6px;
+  }
+  
+  .organization-contact {
+    padding: 8px;
+  }
+}
