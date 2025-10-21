@@ -15,7 +15,23 @@ import ProjectManagement from '../Pages/ProjectManagement';
 import './MainLayout.css';
 
 const MainLayout: React.FC = () => {
-  const { state, setCurrentPage } = useAppContext();
+  const { state, setCurrentPage, setShowingPageType } = useAppContext();
+
+  React.useEffect(() => {
+    setShowingPageType('edu');
+  }, []);
+
+  // Effet séparé pour gérer les changements de showingPageType
+  React.useEffect(() => {
+    const root = document.documentElement;
+    console.log("Current showingPageType:", state.showingPageType);
+
+    if (state.showingPageType === "pro") {
+      root.style.setProperty("--primary", "#5570F1"); // bleu pro
+    } else {
+      root.style.setProperty("--primary", "#10b981"); // autre couleur
+    }
+  }, [state.showingPageType]); // Cette dépendance permet de réagir aux changements de showingPageType
 
   const renderCurrentPage = () => {
     switch (state.currentPage) {

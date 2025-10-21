@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { AppState, PageType, FilterOptions, Member, Project, Event, Badge, Notification, MembershipRequest, BadgeAttribution } from '../types';
+import { AppState, PageType, ShowingPageType, FilterOptions, Member, Project, Event, Badge, Notification, MembershipRequest, BadgeAttribution } from '../types';
 import { mockMembers, mockProjects, mockEvents, mockBadges, mockNotifications, mockMembershipRequests } from '../data/mockData';
 
 interface AppContextType {
   state: AppState;
+  setShowingPageType: (ShowingPageType: ShowingPageType) => void;
   setCurrentPage: (page: PageType) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setFilters: (filters: FilterOptions) => void;
@@ -29,6 +30,7 @@ interface AppContextType {
 }
 
 type AppAction =
+  | { type: 'SET_SHOWING_PAGE_TYPE'; payload: ShowingPageType }
   | { type: 'SET_CURRENT_PAGE'; payload: PageType }
   | { type: 'SET_THEME'; payload: 'light' | 'dark' }
   | { type: 'SET_FILTERS'; payload: FilterOptions }
@@ -53,6 +55,7 @@ type AppAction =
   | { type: 'CLEAR_FILTERS' };
 
 const initialState: AppState = {
+  showingPageType: 'pro',
   currentPage: 'dashboard',
   user: {
     id: '1',
@@ -76,6 +79,12 @@ const initialState: AppState = {
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
+    case 'SET_SHOWING_PAGE_TYPE':
+      if (action.payload === 'pro' || action.payload === 'edu') {
+        return { ...state, showingPageType: action.payload };
+      }
+      return state;
+
     case 'SET_CURRENT_PAGE':
       return { ...state, currentPage: action.payload };
     
@@ -244,6 +253,10 @@ interface AppProviderProps {
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
+  const setShowingPageType = (ShowingPageType: ShowingPageType) => {
+    dispatch({ type: 'SET_SHOWING_PAGE_TYPE', payload: ShowingPageType });
+  }
+
   const setCurrentPage = (page: PageType) => {
     dispatch({ type: 'SET_CURRENT_PAGE', payload: page });
   };
@@ -333,6 +346,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   };
 
   const value: AppContextType = {
+    setShowingPageType,
     state,
     setCurrentPage,
     setTheme,
