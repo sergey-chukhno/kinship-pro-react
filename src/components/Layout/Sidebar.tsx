@@ -9,7 +9,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
-  const { state } = useAppContext();
+  const { state , setShowingPageType } = useAppContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const navigationItems = [
@@ -27,7 +27,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   return (
     <aside className="sidebar" role="navigation" aria-label="Sidebar">
       <div className="sidebar-header">
-        <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo" />
+        {state.showingPageType === "pro" && <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo" />}
+        {state.showingPageType !== "pro" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo" />}
       </div>
       
       <nav className="side-nav">
@@ -74,6 +75,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       </nav>
       
       <div className="sidebar-footer">
+        <div className="kinship-selector">
+          <select
+            className="kinship-select"
+            value={state.showingPageType}
+            onChange={(e) => setShowingPageType(e.target.value as 'pro' | 'edu')}
+          >
+            <option value="pro">Kinship Pro</option>
+            <option value="edu">Kinship Edu</option>
+          </select>
+        </div>
+
         <div className={`user-profile dropdown ${isDropdownOpen ? 'open' : ''}`} id="adminDropdown">
           <img src={state.user.avatar} alt="Profile" className="avatar" />
           <div className="user-info">
