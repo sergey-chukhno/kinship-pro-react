@@ -80,7 +80,7 @@ const initialState: AppState = {
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_SHOWING_PAGE_TYPE':
-      if (['pro', 'edu', 'teacher'].includes(action.payload)) {
+      if (['pro', 'edu', 'teacher', 'user'].includes(action.payload)) {
         return { ...state, showingPageType: action.payload };
       }
       return state;

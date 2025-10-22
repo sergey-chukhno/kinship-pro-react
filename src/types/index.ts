@@ -193,7 +193,7 @@ export interface DashboardStats {
 
 export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'membership-requests' | 'project-management';
 
-export type ShowingPageType = 'pro' | 'edu' | 'teacher';
+export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';
 
 export interface AppState {
   showingPageType: ShowingPageType;
