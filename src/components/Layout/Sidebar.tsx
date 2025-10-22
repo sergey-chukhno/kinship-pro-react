@@ -12,7 +12,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const { state , setShowingPageType } = useAppContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const navigationItems = state.showingPageType !== "teacher" && state.showingPageType !== "user" ? [
+  const navigationItems = state.showingPageType !== "teacher" ? [
     { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
     { id: 'members' as PageType, label: 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
