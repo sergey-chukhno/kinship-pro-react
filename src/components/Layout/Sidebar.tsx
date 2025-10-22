@@ -12,7 +12,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const { state , setShowingPageType } = useAppContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const navigationItems = [
+  const navigationItems = state.showingPageType !== "teacher" && state.showingPageType !== "user" ? [
+    { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
+    { id: 'members' as PageType, label: 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
+    { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
+    { id: 'projects' as PageType, label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
+    { id: 'badges' as PageType, label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
+    { id: 'analytics' as PageType, label: 'Analytics', icon: '/icons_logo/Icon=Analytics.svg' },
+    { id: 'network' as PageType, label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' }
+  ] : [
     { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
     { id: 'members' as PageType, label: 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
@@ -80,11 +88,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           <select
             className="kinship-select"
             value={state.showingPageType}
-            onChange={(e) => setShowingPageType(e.target.value as 'pro' | 'edu' | 'teacher')}
+            onChange={(e) => setShowingPageType(e.target.value as 'pro' | 'edu' | 'teacher' | 'user')}
           >
             <option value="pro">Kinship Pro</option>
             <option value="edu">Kinship Edu</option>
             <option value="teacher">Kinship Teacher</option>
+            <option value="user">Kinship User</option>
           </select>
         </div>
 
