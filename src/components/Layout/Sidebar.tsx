@@ -28,7 +28,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     <aside className="sidebar" role="navigation" aria-label="Sidebar">
       <div className="sidebar-header">
         {state.showingPageType === "pro" && <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo" />}
-        {state.showingPageType !== "pro" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo" />}
+        {state.showingPageType === "edu" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo" />}
+        {state.showingPageType === "teacher" && <img src="/icons_logo/Property 1=Logo Kinship teacher.svg" alt="Kinship Teacher" className="sidebar-logo" />}
       </div>
       
       <nav className="side-nav">
@@ -79,10 +80,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           <select
             className="kinship-select"
             value={state.showingPageType}
-            onChange={(e) => setShowingPageType(e.target.value as 'pro' | 'edu')}
+            onChange={(e) => setShowingPageType(e.target.value as 'pro' | 'edu' | 'teacher')}
           >
             <option value="pro">Kinship Pro</option>
             <option value="edu">Kinship Edu</option>
+            <option value="teacher">Kinship Teacher</option>
           </select>
         </div>
 

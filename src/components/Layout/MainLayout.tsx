@@ -18,7 +18,7 @@ const MainLayout: React.FC = () => {
   const { state, setCurrentPage, setShowingPageType } = useAppContext();
 
   React.useEffect(() => {
-    setShowingPageType('edu');
+    setShowingPageType('teacher');
   }, []);
 
   // Effet séparé pour gérer les changements de showingPageType
@@ -28,8 +28,12 @@ const MainLayout: React.FC = () => {
 
     if (state.showingPageType === "pro") {
       root.style.setProperty("--primary", "#5570F1"); // bleu pro
-    } else {
+    }
+    else if (state.showingPageType === "edu") {
       root.style.setProperty("--primary", "#10b981"); // autre couleur
+    }
+    else if (state.showingPageType === "teacher") {
+      root.style.setProperty("--primary", "#ffa600ff"); // autre couleur
     }
   }, [state.showingPageType]); // Cette dépendance permet de réagir aux changements de showingPageType
 
