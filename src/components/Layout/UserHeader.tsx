@@ -23,7 +23,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
 
   return (
     <header className="user-header">
-      <div className="user-header-left" onClick={() => onPageChange('dashboard')}>
+      <div className="user-header-left" onClick={() => onPageChange('projects')}>
         <img src="./icons_logo/Property 1=Logo Kinship user.svg" alt="Logo" className="user-logo" />
       </div>
 
