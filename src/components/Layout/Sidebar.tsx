@@ -12,23 +12,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const { state , setShowingPageType } = useAppContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const navigationItems = state.showingPageType !== "teacher" ? [
+  const navigationItems = [
     { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
     { id: 'members' as PageType, label: 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
     { id: 'projects' as PageType, label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
     { id: 'badges' as PageType, label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
-    { id: 'analytics' as PageType, label: 'Analytics', icon: '/icons_logo/Icon=Analytics.svg' },
-    { id: 'network' as PageType, label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' }
-  ] : [
-    { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
-    { id: 'members' as PageType, label: 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
-    { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
-    { id: 'projects' as PageType, label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
-    { id: 'badges' as PageType, label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
-    { id: 'analytics' as PageType, label: 'Analytics', icon: '/icons_logo/Icon=Analytics.svg' },
+    ...(state.showingPageType !== 'teacher'
+      ? [{ id: 'analytics' as PageType, label: 'Analytics', icon: '/icons_logo/Icon=Analytics.svg' }]
+      : []),
     { id: 'network' as PageType, label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' }
   ];
+
 
   const unreadNotifications = state.notifications.filter(n => !n.isRead).length;
 
