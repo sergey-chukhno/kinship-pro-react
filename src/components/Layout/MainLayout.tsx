@@ -72,10 +72,21 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="app-container" data-theme={state.theme}>
-      <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
-      <main className="dashboard app-layout">
-        {renderCurrentPage()}
-      </main>
+      {/* Header affiché uniquement en mode "user" */}
+      {state.showingPageType === 'user' && (
+        <UserHeader currentPage={state.currentPage} onPageChange={setCurrentPage} />
+      )}
+
+      <div className="app-body">
+        {/* Sidebar affichée uniquement si pas en mode "user" */}
+        {state.showingPageType !== 'user' && (
+          <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
+        )}
+
+        <main className="dashboard app-layout">
+          {renderCurrentPage()}
+        </main>
+      </div>
     </div>
   );
 };

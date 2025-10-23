@@ -18,6 +18,43 @@
   flex-direction: column;
 }
 
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* le header en haut */
+.user-header {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+/* le contenu principal prend le reste de l’espace */
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* sidebar à gauche, contenu à droite */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+/* zone principale scrollable */
+.app-layout {
+  flex: 1;
+  overflow-y: auto;
+  background-color: #f9fafb;
+  padding: 1rem 2rem;
+}
+
+
 /* Theme toggle */
 /* .theme-toggle {
   position: fixed;
