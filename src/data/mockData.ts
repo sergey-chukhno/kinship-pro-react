@@ -1,4 +1,4 @@
-import { Member, Project, Event, Badge, Notification, User, DashboardStats, MembershipRequest } from '../types';
+import { Member, Project, Event, Badge, Notification, User, DashboardStats, MembershipRequest, OrganizationList } from '../types';
 
 export const mockUser: User = {
   id: '1',
@@ -878,5 +878,22 @@ export const mockMembershipRequests: MembershipRequest[] = [
     requestedDate: '2024-01-16',
     status: 'pending',
     assignedRole: 'Membre'
+  }
+];
+
+export const mockOrganizationLists: OrganizationList[] = [
+  {
+    id: '1',
+    name: 'Partenaires locaux',
+    isAdmin: true,
+  },
+  {    id: '2',
+    name: 'Fournisseurs',
+    isAdmin: false,
+  },
+  {
+    id: '3',
+    name: 'Bénévoles réguliers',
+    isAdmin: true,
   }
 ];

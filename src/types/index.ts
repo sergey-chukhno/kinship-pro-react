@@ -210,3 +210,9 @@ export interface AppState {
   theme: 'light' | 'dark';
   selectedProject: Project | null;
 }
+
+export interface OrganizationList {
+  id: string;
+  name: string;
+  isAdmin: boolean;
+}
