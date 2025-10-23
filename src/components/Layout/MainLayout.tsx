@@ -36,6 +36,7 @@ const MainLayout: React.FC = () => {
       root.style.setProperty("--hover-primary", "#e59400ff");
     }
     else if (state.showingPageType === "user") {
+      setCurrentPage('projects'); // Rediriger vers 'projects' pour user
       root.style.setProperty("--primary", "#db087cff"); // rose pour user
       root.style.setProperty("--hover-primary", "#b20666ff");
     }
@@ -72,20 +73,20 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="app-container" data-theme={state.theme}>
-      {/* Header affiché uniquement en mode "user" */}
       {state.showingPageType === 'user' && (
         <UserHeader currentPage={state.currentPage} onPageChange={setCurrentPage} />
       )}
 
-      <div className="app-body">
-        {/* Sidebar affichée uniquement si pas en mode "user" */}
+      <div
+        className={`app-body ${
+          state.showingPageType === 'user' ? 'no-sidebar' : 'with-sidebar'
+        }`}
+      >
         {state.showingPageType !== 'user' && (
           <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
         )}
 
-        <main className="dashboard app-layout">
-          {renderCurrentPage()}
-        </main>
+        <main className="dashboard app-layout">{renderCurrentPage()}</main>
       </div>
     </div>
   );

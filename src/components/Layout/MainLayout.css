@@ -1,58 +1,59 @@
-/* Main Layout Styles */
-.app-container {
-  display: flex;
-  min-height: 100vh;
-  background: var(--bg-primary, #f8fafc);
-}
-
-.dashboard {
-  flex: 1;
-  margin-left: 280px;
-  padding: 0;
-  background: var(--bg-primary, #f8fafc);
-  min-height: 100vh;
-}
-
-.app-layout {
-  display: flex;
-  flex-direction: column;
-}
-
 .app-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
 }
 
-/* le header en haut */
+/* Le header utilisateur reste en haut, hors du flux principal */
 .user-header {
-  flex-shrink: 0;
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
-/* le contenu principal prend le reste de l’espace */
+/* Le corps de l’app (sidebar + contenu) */
 .app-body {
-  display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-/* sidebar à gauche, contenu à droite */
-.sidebar {
-  width: 260px;
-  flex-shrink: 0;
+/* ===== Mode avec sidebar ===== */
+.app-body.with-sidebar {
+  display: flex;
+  flex-direction: row;
   height: 100%;
 }
 
-/* zone principale scrollable */
-.app-layout {
+.app-body.with-sidebar .sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  position: relative; /* <-- IMPORTANT : garde la sidebar dans le flux */
+  z-index: 1; /* reste au-dessus du fond, mais pas du contenu */
+}
+
+.app-body.with-sidebar .app-layout {
   flex: 1;
   overflow-y: auto;
-  background-color: #f9fafb;
+  background: #f9fafb;
+  padding: 1rem 2rem;
+  z-index: 0;
+}
+
+/* ===== Mode sans sidebar ===== */
+.app-body.no-sidebar {
+  display: block;
+  height: 100%;
+}
+
+.app-body.no-sidebar .app-layout {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  background: #f9fafb;
   padding: 1rem 2rem;
 }
+
 
 
 /* Theme toggle */
