@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './Sidebar.css';
+import { mockOrganizationLists } from '../../data/mockData';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -11,10 +12,11 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const { state , setShowingPageType } = useAppContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const organisations = mockOrganizationLists;
 
   const navigationItems = [
     { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
-    { id: 'members' as PageType, label: 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
+    { id: 'members' as PageType, label: state.showingPageType === 'teacher' ? 'Classe' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
     { id: 'projects' as PageType, label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
     { id: 'badges' as PageType, label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
@@ -111,6 +113,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 <div style={{ fontWeight: 700 }}>{state.user.name}</div>
                 <div style={{ fontSize: '.85rem', color: 'var(--text-light)' }}>{state.user.email}</div>
               </div>
+            </div>
+            <div className="org-section">
+              <div className="org-title">Mes organisations</div>
+              {organisations.map((org) => (
+                <div
+                  key={org.id}
+                  className="org-item"
+                  onClick={() => console.log(`Switch to organization ${org.name}`)}
+                >
+                  <span>{org.name}</span>
+                  {org.isAdmin && <span className="admin-tag">Admin</span>}
+                </div>
+              ))}
             </div>
             <a href="#" className="menu-item" onClick={(e) => { e.preventDefault(); onPageChange('settings'); }}>
               <i className="fas fa-cog"></i> Paramètres

@@ -130,6 +130,7 @@
 }
 
 .user-profile {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -187,20 +188,25 @@
 
 .user-profile .dropdown-menu {
   position: absolute;
-  top: -200px;
-  left: -20px;
-  right: -20px;
+  left: 100%;
+  top: 0;
+  transform: translateX(8px);
   background: #fff;
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 12px;
-  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.18);
-  padding: 20px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.15);
+  padding: 14px;
   display: none;
   flex-direction: column;
   gap: 8px;
-  z-index: 1000;
-  min-width: 280px;
+  z-index: 2000;
+  min-width: 260px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  top: auto;
+  bottom: 0;
 }
+
 
 .user-profile.open .dropdown-menu {
   display: flex;
