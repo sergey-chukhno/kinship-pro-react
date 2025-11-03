@@ -216,3 +216,10 @@ export interface OrganizationList {
   name: string;
   isAdmin: boolean;
 }
+
+export interface ClassList {
+  id: string;
+  name: string;
+  teacher: string;
+  studentCount: number;
+}

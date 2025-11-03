@@ -1,4 +1,4 @@
-import { Member, Project, Event, Badge, Notification, User, DashboardStats, MembershipRequest, OrganizationList } from '../types';
+import { Member, Project, Event, Badge, Notification, User, DashboardStats, MembershipRequest, OrganizationList, ClassList } from '../types';
 
 export const mockUser: User = {
   id: '1',
@@ -895,5 +895,26 @@ export const mockOrganizationLists: OrganizationList[] = [
     id: '3',
     name: 'Bénévoles réguliers',
     isAdmin: true,
+  }
+];
+
+export const mockClassLists: ClassList[] = [
+  {
+    id: '1',
+    name: 'Promotion 2024',
+    teacher: 'Mme Dupont',
+    studentCount: 25
+  },
+  {
+    id: '2',
+    name: 'Promotion 2023',
+    teacher: 'M. Martin',
+    studentCount: 30
+  },
+  {
+    id: '3',
+    name: 'Promotion 2022',
+    teacher: 'Mme Leroy',
+    studentCount: 28
   }
 ];
