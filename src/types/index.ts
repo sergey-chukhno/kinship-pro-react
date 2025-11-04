@@ -191,7 +191,7 @@ export interface DashboardStats {
   upcomingEvents: number;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'membership-requests' | 'project-management';
+export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'membership-requests' | 'project-management' | 'Auth';
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';
 

@@ -14,6 +14,7 @@ import MembershipRequests from '../Pages/MembershipRequests';
 import ProjectManagement from '../Pages/ProjectManagement';
 import './MainLayout.css';
 import UserHeader from './UserHeader';
+import AuthPage from '../Pages/AuthPage';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage, setShowingPageType } = useAppContext();
@@ -44,6 +45,8 @@ const MainLayout: React.FC = () => {
 
   const renderCurrentPage = () => {
     switch (state.currentPage) {
+      case 'Auth':
+        return <AuthPage />;
       case 'dashboard':
         return <Dashboard />;
       case 'members':
@@ -73,7 +76,7 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="app-container" data-theme={state.theme}>
-      {state.showingPageType === 'user' && (
+      {state.showingPageType === 'user' && state.currentPage !== 'Auth' && (
         <UserHeader currentPage={state.currentPage} onPageChange={setCurrentPage} />
       )}
 
@@ -82,7 +85,7 @@ const MainLayout: React.FC = () => {
           state.showingPageType === 'user' ? 'no-sidebar' : 'with-sidebar'
         }`}
       >
-        {state.showingPageType !== 'user' && (
+        {state.showingPageType !== 'user' && state.currentPage !== 'Auth' && (
           <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
         )}
 

@@ -56,7 +56,8 @@ type AppAction =
 
 const initialState: AppState = {
   showingPageType: 'pro',
-  currentPage: 'dashboard',
+  // currentPage: 'dashboard',
+  currentPage: 'Auth',
   user: {
     id: '1',
     name: 'Patrick Saoula',
