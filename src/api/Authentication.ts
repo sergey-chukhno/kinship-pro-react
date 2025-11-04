@@ -124,3 +124,15 @@ export function submitCompanyRegistration(formData: formData) {
         }
     });
 }
+
+export function getCurrentUser() {
+    return axiosClient.get('/api/v1/auth/me');
+}
+
+export function refreshToken() {
+    return axiosClient.post('/api/v1/auth/refresh');
+}
+
+export function logout() {
+    return axiosClient.post('/api/v1/auth/logout');
+}
