@@ -13,8 +13,8 @@ interface formData {
     proposeWorkshop?: boolean;
     showMySkills?: boolean;
     availability?: string;
-    selectedSkills?: string[];
-    selectedSubSkills?: string[];
+    selectedSkills?: number[];
+    selectedSubSkills?: number[];
     selectedSchools?: string[];
     selectedCompanies?: string[];
     schoolName?: string;
@@ -23,12 +23,16 @@ interface formData {
     schoolZipCode?: string;
     companyName?: string;
     companyDescription?: string;
-    companyTypeId?: string;
+    companyTypeId?: number;
     companyZipCode?: string;
     companyCity?: string;
-    siretNumber?: string;
-    companyEmail?: string;
+    referentPhoneNumber?: string;
+    acceptPrivacyPolicy?: boolean;
     parentCompanyId?: string;
+    branchRequestToCompanyId?: number;
+    childFirstName?: string;
+    childLastName?: string;
+    childBirthday?: string;
 }
 
 export function login(email: string, password: string) {
@@ -39,25 +43,31 @@ export function submitPersonalUserRegistration(formData: formData) {
     return axiosClient.post('/api/v1/auth/register', {
         registration_type: "personal_user",  // ← Explicitly set
         user: {
-        email: formData.email,              // Non-academic
-        password: formData.password,
-        password_confirmation: formData.passwordConfirmation,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        birthday: formData.birthday,
-        role: formData.role,                // parent, grand-parent, voluntary, etc.
-        job: formData.job,
-        take_trainee: formData.takeTrainee,
-        propose_workshop: formData.proposeWorkshop,
-        show_my_skills: formData.showMySkills
+            email: formData.email,              // Non-academic
+            password: formData.password,
+            password_confirmation: formData.passwordConfirmation,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            birthday: formData.birthday,
+            role: formData.role,                // parent, grand-parent, voluntary, etc.
+            job: formData.job,
+            take_trainee: false,
+            propose_workshop: true,
+            show_my_skills: true,
+            accept_privacy_policy: formData.acceptPrivacyPolicy || false
         },
         availability: formData.availability,
         skills: {
-        skill_ids: formData.selectedSkills,
-        sub_skill_ids: formData.selectedSubSkills
+            skill_ids: formData.selectedSkills,
+            sub_skill_ids: formData.selectedSubSkills
         },
         join_school_ids: formData.selectedSchools,
-        join_company_ids: formData.selectedCompanies
+        join_company_ids: formData.selectedCompanies,
+        children_info: {
+            first_name: formData.childFirstName,
+            last_name: formData.childLastName,
+            birthday: formData.childBirthday,
+        }
     });
 }
 
@@ -65,14 +75,15 @@ export function submitTeacherRegistration(formData: formData) {
     return axiosClient.post('/api/v1/auth/register', {
         registration_type: "teacher",        // ← Explicitly set
         user: {
-        email: formData.email,              // MUST be academic
-        password: formData.password,
-        password_confirmation: formData.passwordConfirmation,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        birthday: formData.birthday,
-        role: formData.role,                // school_teacher, college_lycee_professor, etc.
-        show_my_skills: formData.showMySkills
+            email: formData.email,              // MUST be academic
+            password: formData.password,
+            password_confirmation: formData.passwordConfirmation,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            birthday: formData.birthday,
+            role: formData.role,                // school_teacher, college_lycee_professor, etc.
+            show_my_skills: true,
+            accept_privacy_policy: formData.acceptPrivacyPolicy || false
         },
         availability: formData.availability,
         join_school_ids: formData.selectedSchools
@@ -83,19 +94,20 @@ export function submitSchoolRegistration(formData: formData) {
     return axiosClient.post('/api/v1/auth/register', {
         registration_type: "school",         // ← Explicitly set
         user: {
-        email: formData.email,              // MUST be academic
-        password: formData.password,
-        password_confirmation: formData.passwordConfirmation,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        birthday: formData.birthday,
-        role: formData.role                 // school_director, principal, etc.
+            email: formData.email,              // MUST be academic
+            password: formData.password,
+            password_confirmation: formData.passwordConfirmation,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            birthday: formData.birthday,
+            role: formData.role,                 // school_director, principal, etc.
+            accept_privacy_policy: formData.acceptPrivacyPolicy
         },
         school: {
-        name: formData.schoolName,
-        address: formData.schoolAddress,
-        city: formData.schoolCity,
-        zip_code: formData.schoolZipCode
+            name: formData.schoolName,
+            city: formData.schoolCity,
+            zip_code: formData.schoolZipCode,
+            referent_phone_number: formData.referentPhoneNumber || null
         }
     });
 }
@@ -104,23 +116,23 @@ export function submitCompanyRegistration(formData: formData) {
     return axiosClient.post('/api/v1/auth/register', {
         registration_type: "company",        // ← Explicitly set
         user: {
-        email: formData.email,              // Any email (NOT academic)
-        password: formData.password,
-        password_confirmation: formData.passwordConfirmation,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        birthday: formData.birthday,
-        role: formData.role                 // company_director, association_president, etc.
+            email: formData.email,              // Any email (NOT academic)
+            password: formData.password,
+            password_confirmation: formData.passwordConfirmation,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            birthday: formData.birthday,
+            role: formData.role,          // company_director, association_president, etc.
+            accept_privacy_policy: formData.acceptPrivacyPolicy
         },
         company: {
-        name: formData.companyName,
-        description: formData.companyDescription,
-        company_type_id: formData.companyTypeId,
-        zip_code: formData.companyZipCode,
-        city: formData.companyCity,
-        siret_number: formData.siretNumber,
-        email: formData.companyEmail,
-        branch_request_to_company_id: formData.parentCompanyId  // Optional
+            name: formData.companyName,
+            description: formData.companyDescription,
+            company_type_id: formData.companyTypeId,
+            zip_code: formData.companyZipCode,
+            city: formData.companyCity,
+            referent_phone_number: formData.referentPhoneNumber || null,
+            branch_request_to_company_id: formData.parentCompanyId || null // Optional
         }
     });
 }

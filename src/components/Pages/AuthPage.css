@@ -1,203 +1,275 @@
-/* ===============================
-   STRUCTURE GLOBALE
-   =============================== */
+/* AuthPage Styles - Pleine page */
 
 .auth-page {
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: linear-gradient(135deg, #6d28d9, #2563eb);
-    font-family: 'Inter', system-ui, sans-serif;
-    position: relative;
-    overflow: hidden;
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0;
+  overflow-y: auto;
 }
-
-/* Effet de particules légères */
-.auth-page::before {
-    content: "";
-    position: absolute;
-    width: 250%;
-    height: 250%;
-    background: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
-    background-size: 40px 40px;
-    animation: moveGrid 40s linear infinite;
-}
-
-@keyframes moveGrid {
-    from { transform: translate(0, 0); }
-    to { transform: translate(-200px, -200px); }
-}
-
-/* ===============================
-   CONTENEUR PRINCIPAL
-   =============================== */
 
 .auth-container {
-    position: relative;
-    background: rgba(255, 255, 255, 0.15);
-    border: 1px solid rgba(255,255,255,0.25);
-    backdrop-filter: blur(15px);
-    border-radius: 20px;
-    padding: 50px 40px 40px;
-    width: 380px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-    color: #111827;
-    animation: fadeIn 0.5s ease;
+  background: white;
+  width: 100%;
+  min-height: 100vh;
+  box-shadow: none;
+  overflow-y: auto;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+.auth-content {
+  padding: 60px 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
-/* ===============================
-   ONGLET DE NAVIGATION (login / register)
-   =============================== */
-
-.auth-tabs {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 20px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 10px;
-    overflow: hidden;
+/* Formulaire de login centré en une seule colonne */
+.login-form-wrapper {
+  width: 100%;
+  max-width: 500px;
+  margin: 80px auto;
 }
 
-.auth-tabs button {
-    flex: 1;
-    padding: 12px;
-    background: transparent;
-    border: none;
-    color: #f1f5f9;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
+.login-title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #1f2937;
+  text-align: center;
+  margin-bottom: 40px;
 }
 
-.auth-tabs button.active {
-    background: rgba(255,255,255,0.3);
-    color: #111827;
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
 }
 
-.auth-tabs button:hover:not(.active) {
-    background: rgba(255,255,255,0.15);
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-/* ===============================
-   FORMULAIRES
-   =============================== */
-
-.auth-form {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+.form-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
 }
 
-.auth-form input, 
-.auth-form select {
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid rgba(0,0,0,0.1);
-    background: rgba(255,255,255,0.8);
-    font-size: 15px;
-    color: #111827;
-    transition: border 0.2s, box-shadow 0.2s, background 0.3s;
+.form-input {
+  width: 100%;
+  padding: 16px 18px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  background: white;
 }
 
-.auth-form input:focus, 
-.auth-form select:focus {
-    outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.25);
-    background: #fff;
+.form-input:focus {
+  outline: none;
+  border-color: #5b7cff;
+  box-shadow: 0 0 0 4px rgba(91, 124, 255, 0.1);
 }
 
-/* ===============================
-   BOUTONS
-   =============================== */
-
-button.submit-btn {
-    background: linear-gradient(90deg, #2563eb, #7c3aed);
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-weight: 600;
-    letter-spacing: 0.4px;
-    transition: transform 0.2s, box-shadow 0.2s;
+.submit-button {
+  width: 100%;
+  padding: 18px;
+  background: #5b7cff;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 8px;
 }
 
-button.submit-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(37,99,235,0.4);
+.submit-button:hover {
+  background: #4a6de5;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(91, 124, 255, 0.4);
 }
 
-/* ===============================
-   SÉLECTION DU TYPE D'INSCRIPTION
-   =============================== */
-
-.role-selector {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.submit-button:active {
+  transform: translateY(0);
 }
 
-.role-selector button {
-    background: rgba(255,255,255,0.8);
-    color: #111827;
-    border: 1px solid rgba(0,0,0,0.1);
-    border-radius: 10px;
-    padding: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.25s ease;
+.toggle-button {
+  width: 100%;
+  padding: 16px;
+  background: transparent;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.role-selector button:hover {
-    background: #2563eb;
-    color: white;
+.toggle-button:hover {
+  border-color: #5b7cff;
+  color: #5b7cff;
+  background: #f0f4ff;
 }
 
-.role-selector button:active {
-    transform: scale(0.98);
+.back-to-login {
+  width: 100%;
+  max-width: 500px;
+  margin: 40px auto 0;
+  padding: 16px;
+  background: transparent;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: block;
 }
 
-/* ===============================
-   LIENS ET PETIT TEXTE
-   =============================== */
-
-.return-link {
-    background: none;
-    border: none;
-    color: #2563eb;
-    font-size: 0.9rem;
-    cursor: pointer;
-    padding: 0;
-    margin-bottom: 10px;
-    text-align: left;
+.back-to-login:hover {
+  border-color: #5b7cff;
+  color: #5b7cff;
+  background: #f0f4ff;
 }
 
-.return-link:hover {
-    text-decoration: underline;
+/* Grille de sélection des types d'inscription 2x2 */
+.register-type-grid {
+  width: 100%;
+  max-width: 1000px;
+  margin: 40px auto;
 }
 
-/* ===============================
-   RESPONSIVE
-   =============================== */
+.register-title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #1f2937;
+  text-align: center;
+  margin-bottom: 60px;
+}
 
-@media (max-width: 480px) {
-    .auth-container {
-        width: 90%;
-        padding: 32px 20px;
-    }
+.register-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 40px;
+  width: 100%;
+}
 
-    .auth-tabs {
-        flex-direction: column;
-    }
+.register-type-button {
+  padding: 50px 40px;
+  border: 3px solid #e5e7eb;
+  border-radius: 20px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 260px;
+}
 
-    .auth-tabs button {
-        border-bottom: 1px solid rgba(255,255,255,0.2);
-    }
+.register-type-button:hover {
+  border-color: #5b7cff;
+  background: #f0f4ff;
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(91, 124, 255, 0.25);
+}
+
+.register-type-icon {
+  font-size: 72px;
+  margin-bottom: 12px;
+}
+
+.register-type-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.register-type-description {
+  font-size: 15px;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* Bouton back dans les formulaires */
+.form-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: transparent;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 30px;
+}
+
+.form-back-button:hover {
+  border-color: #5b7cff;
+  color: #5b7cff;
+  background: #f0f4ff;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .auth-content {
+    padding: 40px 40px;
+  }
+
+  .register-grid {
+    gap: 30px;
+  }
+
+  .register-type-button {
+    padding: 40px 30px;
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 768px) {
+  .auth-content {
+    padding: 30px 24px;
+  }
+
+  .register-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .register-type-button {
+    padding: 35px 25px;
+    min-height: 200px;
+  }
+
+  .login-title,
+  .register-title {
+    font-size: 28px;
+  }
+
+  .register-type-icon {
+    font-size: 60px;
+  }
+
+  .register-type-title {
+    font-size: 22px;
+  }
 }

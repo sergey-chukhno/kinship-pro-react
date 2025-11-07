@@ -1,238 +1,199 @@
-import React, { useState } from "react";
-import './AuthPage.css';
-import {login} from '../../api/Authentication';
+"use client"
 
-type RegisterType = "user" | "teacher" | "school" | "";
+import type React from "react"
+import { useState } from "react"
+import "./AuthPage.css"
+import { login } from "../../api/Authentication"
+import PersonalUserRegisterForm from "../RegisterForm/PersonalUserRegisterForm"
+import TeacherRegisterForm from "../RegisterForm/TeacherRegisterForm"
+import CompanyRegisterForm from "../RegisterForm/CompanyRegisterForm"
+import SchoolRegisterForm from "../RegisterForm/SchoolRegisterForm"
+import { useAppContext } from '../../context/AppContext';
 
-interface RegisterData {
-    name: string;
-    email: string;
-    password: string;
-    confirmPassword: string;
-    subject?: string;
-    schoolName?: string;
-    companyName?: string;
-}
+type RegisterType = "user" | "teacher" | "school" | "company" | ""
 
 interface LoginData {
-    email: string;
-    password: string;
-    }
+  email: string
+  password: string
+}
 
 const AuthPage: React.FC = () => {
-    const [isLogin, setIsLogin] = useState(true);
-    const [registerType, setRegisterType] = useState<RegisterType>("");
-    const [loginData, setLoginData] = useState<LoginData>({
-        email: "",
-        password: "",
-    });
-    const [registerData, setRegisterData] = useState<RegisterData>({
-        name: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-    });
+  const [isLogin, setIsLogin] = useState(true)
+  const [registerType, setRegisterType] = useState<RegisterType>("")
+  const [loginData, setLoginData] = useState<LoginData>({
+    email: "",
+    password: "",
+  })
+  const { setCurrentPage, setShowingPageType } = useAppContext()
 
-    const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setLoginData({ ...loginData, [name]: value });
-    };
+  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setLoginData({ ...loginData, [name]: value })
+  }
 
-    const handleRegisterChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-    ) => {
-        const { name, value } = e.target;
-        setRegisterData({ ...registerData, [name]: value });
-    };
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("Login:", loginData)
+    const loginDataQuery = login(loginData.email, loginData.password)
+    loginDataQuery
+      .then((response) => {
+        console.log("Login successful:", response.data)
+        if (response.data.token) {
+          localStorage.setItem("jwt_token", response.data.token)
+          if (response.data.user.available_contexts.user_dashboard) {
+            setShowingPageType("user")
+            setCurrentPage("projects")
+            alert("Connexion réussie en tant qu'utilisateur (simulation)")
+          }
+          else if (response.data.user.available_contexts.teacher_dashboard) {
+            setShowingPageType("teacher")
+            setCurrentPage("dashboard")
+            alert("Connexion réussie en tant qu'enseignant (simulation)")
+          }
+          else if (response.data.user.available_contexts.schools?.length > 0) {
+            setShowingPageType("edu")
+            setCurrentPage("dashboard")
+            alert("Connexion réussie en tant qu'établissement (simulation)")
+          }
+          else if (response.data.user.available_contexts.companies?.length > 0) {
+            setShowingPageType("pro");
+            setCurrentPage("dashboard");
+            alert("Connexion réussie en tant qu'entreprise (simulation)");
+          }
+        } else {
+          alert("Échec de la connexion (simulation)")
+        }
+      })
+      .catch((error) => {
+        console.error("Login error:", error)
+        alert("Erreur de connexion (simulation)")
+      })
+  }
 
-    const handleLoginSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        console.log("Login:", loginData);
-        login(loginData.email, loginData.password);
-    };
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("Register type:", registerType)
+    alert(`Inscription ${registerType} réussie (simulation)`)
+  }
 
-    const handleRegisterSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        console.log("Register type:", registerType);
-        console.log("Register data:", registerData);
-        alert(`Inscription ${registerType} réussie (simulation)`);
-    };
-
-    const renderRegisterForm = () => {
+  const renderRegisterForm = () => {
     if (!registerType) {
-        return (
-            <div className="flex flex-col gap-3">
-            <p className="text-center">Choisissez votre type d'inscription :</p>
-            <button
-                onClick={() => setRegisterType("user")}
-            >
-                Utilisateur
+      return (
+        <div className="register-type-grid">
+          <h2 className="register-title">Choisissez votre type d'inscription</h2>
+          <div className="register-grid">
+            <button className="register-type-button" onClick={() => setRegisterType("user")}>
+              <div className="register-type-icon">👤</div>
+              <div className="register-type-title">Utilisateur</div>
+              <div className="register-type-description">Créez un compte personnel</div>
             </button>
-            <button
-                onClick={() => setRegisterType("teacher")}
-                className="p-2 bg-green-500 text-white rounded hover:bg-green-600 transition"
-            >
-                Enseignant
+            <button className="register-type-button" onClick={() => setRegisterType("teacher")}>
+              <div className="register-type-icon">👨‍🏫</div>
+              <div className="register-type-title">Enseignant</div>
+              <div className="register-type-description">Inscription pour enseignants</div>
             </button>
-            <button
-                onClick={() => setRegisterType("school")}
-                className="p-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition"
-            >
-                École / Compagnie
+            <button className="register-type-button" onClick={() => setRegisterType("school")}>
+              <div className="register-type-icon">🏫</div>
+              <div className="register-type-title">École</div>
+              <div className="register-type-description">Inscription pour établissements</div>
             </button>
-            </div>
-        );
+            <button className="register-type-button" onClick={() => setRegisterType("company")}>
+              <div className="register-type-icon">🏢</div>
+              <div className="register-type-title">Entreprise</div>
+              <div className="register-type-description">Inscription pour entreprises</div>
+            </button>
+          </div>
+        </div>
+      )
     }
 
     return (
-        <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-3 mt-4">
-            <button
-            type="button"
-            onClick={() => setRegisterType("")}
-            className="text-sm text-blue-500 hover:underline mb-2 self-start"
-            >
-            ← Retour au choix
-            </button>
+      <div>
+        <button className="form-back-button" onClick={() => setRegisterType("")}>
+          ← Retour au choix du type
+        </button>
+        {registerType === "user" && <PersonalUserRegisterForm />}
+        {registerType === "teacher" && <TeacherRegisterForm />}
+        {registerType === "company" && <CompanyRegisterForm />}
+        {registerType === "school" && <SchoolRegisterForm />}
+      </div>
+    )
+  }
 
-            <input
-            type="text"
-            name="name"
-            placeholder="Nom complet"
-            value={registerData.name}
-            onChange={handleRegisterChange}
-            required
-            className="border rounded p-2"
-            />
-            <input
+  const renderLoginForm = () => (
+    <div className="login-form-wrapper">
+      <h2 className="login-title">Connexion</h2>
+      <form onSubmit={handleLoginSubmit} className="login-form">
+        <div className="form-field">
+          <label className="form-label">Adresse email</label>
+          <input
             type="email"
             name="email"
-            placeholder="Adresse email"
-            value={registerData.email}
-            onChange={handleRegisterChange}
-            required
-            className="border rounded p-2"
-            />
-            <input
-            type="password"
-            name="password"
-            placeholder="Mot de passe"
-            value={registerData.password}
-            onChange={handleRegisterChange}
-            required
-            className="border rounded p-2"
-            />
-            <input
-            type="password"
-            name="confirmPassword"
-            placeholder="Confirmer le mot de passe"
-            value={registerData.confirmPassword}
-            onChange={handleRegisterChange}
-            required
-            className="border rounded p-2"
-            />
-
-            {registerType === "teacher" && (
-            <input
-                type="text"
-                name="subject"
-                placeholder="Matière enseignée"
-                value={registerData.subject || ""}
-                onChange={handleRegisterChange}
-                className="border rounded p-2"
-            />
-            )}
-
-            {registerType === "school" && (
-            <>
-                <input
-                type="text"
-                name="schoolName"
-                placeholder="Nom de l'école"
-                value={registerData.schoolName || ""}
-                onChange={handleRegisterChange}
-                className="border rounded p-2"
-                />
-                <input
-                type="text"
-                name="companyName"
-                placeholder="Nom de la compagnie (si applicable)"
-                value={registerData.companyName || ""}
-                onChange={handleRegisterChange}
-                className="border rounded p-2"
-                />
-            </>
-            )}
-
-            <button
-            type="submit"
-            className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition"
-            >
-            S'inscrire
-            </button>
-        </form>
-        );
-    };
-
-    const renderLoginForm = () => (
-        <form onSubmit={handleLoginSubmit} className="flex flex-col gap-3 mt-4">
-        <input
-            type="email"
-            name="email"
-            placeholder="Adresse email"
+            placeholder="votre@email.com"
             value={loginData.email}
             onChange={handleLoginChange}
             required
-            className="border rounded p-2"
-        />
-        <input
+            className="form-input"
+          />
+        </div>
+
+        <div className="form-field">
+          <label className="form-label">Mot de passe</label>
+          <input
             type="password"
             name="password"
-            placeholder="Mot de passe"
+            placeholder="••••••••"
             value={loginData.password}
             onChange={handleLoginChange}
             required
-            className="border rounded p-2"
-        />
-        <button
-            type="submit"
-            className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition"
-        >
-            Se connecter
-        </button>
-        </form>
-    );
-
-    return (
-        <div className="auth-page">
-            <div className="auth-container">
-                <div className="auth-tabs">
-                <button
-                    className={isLogin ? "active" : ""}
-                    onClick={() => {
-                    setIsLogin(true);
-                    setRegisterType("");
-                    }}
-                >
-                    Connexion
-                </button>
-                <button
-                    className={!isLogin ? "active" : ""}
-                    onClick={() => setIsLogin(false)}
-                >
-                    Inscription
-                </button>
-                </div>
-
-                <div className="auth-content">
-                {isLogin ? (
-                    renderLoginForm()
-                ) : (
-                    renderRegisterForm()
-                )}
-                </div>
-            </div>
+            className="form-input"
+          />
         </div>
-    );
-};
 
-export default AuthPage;
+        <button type="submit" className="submit-button">
+          Se connecter
+        </button>
+
+        <button
+          type="button"
+          className="toggle-button"
+          onClick={() => {
+            setIsLogin(false)
+            setRegisterType("")
+          }}
+        >
+          Pas encore de compte ? S'inscrire
+        </button>
+      </form>
+    </div>
+  )
+
+  return (
+    <div className="auth-page">
+      <div className="auth-container">
+        <div className="auth-content">
+          {isLogin ? (
+            renderLoginForm()
+          ) : (
+            <>
+              {renderRegisterForm()}
+              {!registerType && (
+                <button
+                  className="back-to-login"
+                  onClick={() => {
+                    setIsLogin(true)
+                    setRegisterType("")
+                  }}
+                >
+                  Déjà un compte ? Se connecter
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default AuthPage
