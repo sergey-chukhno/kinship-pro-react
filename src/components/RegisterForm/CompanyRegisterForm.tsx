@@ -12,7 +12,9 @@ const tradFR = {
   other: "Autre",
 }
 
-const CompanyRegisterForm: React.FC = () => {
+const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const [currentStep, setCurrentStep] = useState(1)
+
   const [user, setUser] = useState({
     email: "",
     password: "",
@@ -20,7 +22,7 @@ const CompanyRegisterForm: React.FC = () => {
     firstName: "",
     lastName: "",
     birthday: "",
-    role: "company_director",
+    role: "",
     acceptPrivacyPolicy: false,
   })
 
@@ -34,14 +36,12 @@ const CompanyRegisterForm: React.FC = () => {
     branchRequestToCompanyId: undefined,
   })
 
-  // Stocke les rôles retournés par l'API
   const [companyRoles, setCompanyRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
-  // Charge les rôles dès le montage
   React.useEffect(() => {
     const fetchRoles = async () => {
       try {
-        const response = await getCompanyRoles() // Peut être un appel axios/fetch
+        const response = await getCompanyRoles()
         if (response && Array.isArray(response.data)) {
           setCompanyRoles(response.data)
         } else if (response?.data?.data) {
@@ -67,12 +67,34 @@ const CompanyRegisterForm: React.FC = () => {
     setCompany((prev) => ({
       ...prev,
       [name]:
-        name === "company_type_id"
+        name === "companyTypeId"
           ? Number(value)
-          : name === "branch_request_to_company_id" && value === ""
+          : name === "branchRequestToCompanyId" && value === ""
             ? undefined
             : value,
     }))
+  }
+
+  const isStep1Valid = () => {
+    return user.firstName && user.lastName && user.email && user.password && user.passwordConfirmation && user.birthday
+  }
+
+  const isStep2Valid = () => {
+    return user.role !== ""
+  }
+
+  const isStep3Valid = () => {
+    return company.companyName && company.companyCity && company.companyZipCode
+  }
+
+  const handleNext = () => {
+    if (currentStep === 1 && isStep1Valid()) {
+      setCurrentStep(2)
+    } else if (currentStep === 2 && isStep2Valid()) {
+      setCurrentStep(3)
+    } else if (currentStep === 3 && isStep3Valid()) {
+      setCurrentStep(4)
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -81,7 +103,6 @@ const CompanyRegisterForm: React.FC = () => {
       ...user,
       ...company,
     }
-    console.log("Données du formulaire :", formData)
     submitCompanyRegistration(formData)
       .then((response) => {
         console.log("Inscription réussie :", response)
@@ -94,220 +115,254 @@ const CompanyRegisterForm: React.FC = () => {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="form-container"
-      style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px" }}
-    >
-      <h2 className="form-title" style={{ gridColumn: "1 / -1" }}>
-        Inscription Entreprise
-      </h2>
-
-      {/* --- USER INFO --- */}
-      <div className="form-field">
-        <label className="form-label">Prénom *</label>
-        <input
-          type="text"
-          name="firstName"
-          placeholder="Votre prénom"
-          value={user.firstName}
-          onChange={handleUserChange}
-          required
-          className="form-input"
-        />
+    <form onSubmit={handleSubmit} className="form-container">
+      <div className="form-header">
+        <button type="button" onClick={onBack} className="back-button">
+          ← Retour
+        </button>
+        <h2 className="form-title">Inscription Entreprise</h2>
       </div>
 
-      <div className="form-field">
-        <label className="form-label">Nom *</label>
-        <input
-          type="text"
-          name="lastName"
-          placeholder="Votre nom"
-          value={user.lastName}
-          onChange={handleUserChange}
-          required
-          className="form-input"
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Email professionnel *</label>
-        <input
-          type="email"
-          name="email"
-          placeholder="votre@email-entreprise.fr"
-          value={user.email}
-          onChange={handleUserChange}
-          required
-          className="form-input"
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Mot de passe *</label>
-        <input
-          type="password"
-          name="password"
-          placeholder="••••••••"
-          value={user.password}
-          onChange={handleUserChange}
-          required
-          className="form-input"
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Confirmation *</label>
-        <input
-          type="password"
-          name="passwordConfirmation"
-          placeholder="••••••••"
-          value={user.passwordConfirmation}
-          onChange={handleUserChange}
-          required
-          className="form-input"
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Date de naissance *</label>
-        <input
-          type="date"
-          name="birthday"
-          value={user.birthday}
-          onChange={handleUserChange}
-          required
-          className="form-input"
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Rôle *</label>
-        <select name="role" value={user.role} onChange={handleUserChange} required className="form-select">
-          <option value="">-- Choisir un rôle --</option>
-          {companyRoles.map((role) => (
-            <option key={role.value} value={role.value}>
-              {tradFR[role.value as keyof typeof tradFR] || role.value}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* --- COMPANY INFO --- */}
-      <fieldset className="form-fieldset" style={{ gridColumn: "1 / -1" }}>
-        <legend className="form-legend">Informations de l'entreprise</legend>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px" }}>
+      <div className={`form-step ${currentStep >= 1 ? "visible" : ""}`}>
+        <h3 className="step-title">Mes Informations personnelles</h3>
+        <div className="grid">
           <div className="form-field">
-            <label className="form-label">Nom de l'entreprise *</label>
+            <label className="form-label">Mon Prénom *</label>
             <input
               type="text"
-              name="companyName"
-              placeholder="Nom de votre entreprise"
-              value={company.companyName}
-              onChange={handleCompanyChange}
+              name="firstName"
+              placeholder="Votre prénom"
+              value={user.firstName}
+              onChange={handleUserChange}
               required
               className="form-input"
             />
           </div>
 
           <div className="form-field">
-            <label className="form-label">Type d'entreprise</label>
-            <select
-              name="companyTypeId"
-              value={company.companyTypeId}
-              onChange={handleCompanyChange}
-              className="form-select"
-            >
-              <option value={1}>Entreprise</option>
-              <option value={2}>Établissement éducatif</option>
-              <option value={3}>Association</option>
-            </select>
-          </div>
-
-          <div className="form-field" style={{ gridColumn: "1 / -1" }}>
-            <label className="form-label">Description</label>
-            <textarea
-              name="companyDescription"
-              placeholder="Description de l'entreprise"
-              value={company.companyDescription}
-              onChange={handleCompanyChange}
-              rows={3}
-              className="form-textarea"
-            />
-          </div>
-
-          <div className="form-field">
-            <label className="form-label">Ville *</label>
+            <label className="form-label">Mon Nom *</label>
             <input
               type="text"
-              name="companyCity"
-              placeholder="Ville"
-              value={company.companyCity}
-              onChange={handleCompanyChange}
+              name="lastName"
+              placeholder="Votre nom"
+              value={user.lastName}
+              onChange={handleUserChange}
               required
               className="form-input"
             />
           </div>
 
           <div className="form-field">
-            <label className="form-label">Code postal *</label>
+            <label className="form-label">Ma Date de naissance *</label>
             <input
-              type="text"
-              name="companyZipCode"
-              placeholder="Code postal"
-              value={company.companyZipCode}
-              onChange={handleCompanyChange}
+              type="date"
+              name="birthday"
+              value={user.birthday}
+              onChange={handleUserChange}
+              required
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-field full-width">
+            <label className="form-label">Email professionnel *</label>
+            <input
+              type="email"
+              name="email"
+              placeholder="votre@email-entreprise.fr"
+              value={user.email}
+              onChange={handleUserChange}
               required
               className="form-input"
             />
           </div>
 
           <div className="form-field">
-            <label className="form-label">Téléphone du référent</label>
+            <label className="form-label">Mot de passe *</label>
             <input
-              type="text"
-              name="referentPhoneNumber"
-              placeholder="+33 6 12 34 56 78"
-              value={company.referentPhoneNumber}
-              onChange={handleCompanyChange}
+              type="password"
+              name="password"
+              placeholder="••••••••"
+              value={user.password}
+              onChange={handleUserChange}
+              required
               className="form-input"
             />
           </div>
 
           <div className="form-field">
-            <label className="form-label">ID entreprise mère (optionnel)</label>
+            <label className="form-label">Confirmation du mot de passe *</label>
             <input
-              type="number"
-              name="branchRequestToCompanyId"
-              placeholder="ID de l'entreprise mère"
-              value={company.branchRequestToCompanyId ?? ""}
-              onChange={handleCompanyChange}
+              type="password"
+              name="passwordConfirmation"
+              placeholder="••••••••"
+              value={user.passwordConfirmation}
+              onChange={handleUserChange}
+              required
               className="form-input"
             />
           </div>
         </div>
-      </fieldset>
+      </div>
 
-      <label className="form-privacy-label" style={{ gridColumn: "1 / -1" }}>
-        <input
-          type="checkbox"
-          name="acceptPrivacyPolicy"
-          checked={user.acceptPrivacyPolicy}
-          onChange={(e) =>
-            setUser((prev) => ({
-              ...prev,
-              acceptPrivacyPolicy: e.target.checked,
-            }))
-          }
-          required
-        />
-        J'accepte la politique de confidentialité
-      </label>
+      {currentStep >= 2 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Je suis un(e) :</h3>
+          <div className="role-grid">
+            {companyRoles.map((role) => (
+              <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name="role"
+                  value={role.value}
+                  checked={user.role === role.value}
+                  onChange={handleUserChange}
+                  required
+                />
+                <span className="role-label">{tradFR[role.value as keyof typeof tradFR] || role.value}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
-      <button type="submit" className="form-button purple" style={{ gridColumn: "1 / -1" }}>
-        S'inscrire
-      </button>
+      {currentStep >= 3 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Informations de l'entreprise</h3>
+          <div className="grid">
+            <div className="form-field">
+              <label className="form-label">Nom de l'entreprise *</label>
+              <input
+                type="text"
+                name="companyName"
+                placeholder="Nom de votre entreprise"
+                value={company.companyName}
+                onChange={handleCompanyChange}
+                required
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Type d'entreprise</label>
+              <select
+                name="companyTypeId"
+                value={company.companyTypeId}
+                onChange={handleCompanyChange}
+                className="form-select"
+              >
+                <option value={1}>Entreprise</option>
+                <option value={2}>Établissement éducatif</option>
+                <option value={3}>Association</option>
+              </select>
+            </div>
+
+            <div className="form-field full-width">
+              <label className="form-label">Description</label>
+              <textarea
+                name="companyDescription"
+                placeholder="Description de l'entreprise"
+                value={company.companyDescription}
+                onChange={handleCompanyChange}
+                rows={3}
+                className="form-textarea"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Ville *</label>
+              <input
+                type="text"
+                name="companyCity"
+                placeholder="Ville"
+                value={company.companyCity}
+                onChange={handleCompanyChange}
+                required
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Code postal *</label>
+              <input
+                type="text"
+                name="companyZipCode"
+                placeholder="Code postal"
+                value={company.companyZipCode}
+                onChange={handleCompanyChange}
+                required
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Téléphone du référent</label>
+              <input
+                type="text"
+                name="referentPhoneNumber"
+                placeholder="+33 6 12 34 56 78"
+                value={company.referentPhoneNumber}
+                onChange={handleCompanyChange}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">ID entreprise mère (optionnel)</label>
+              <input
+                type="number"
+                name="branchRequestToCompanyId"
+                placeholder="ID de l'entreprise mère"
+                value={company.branchRequestToCompanyId ?? ""}
+                onChange={handleCompanyChange}
+                className="form-input"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {currentStep >= 4 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Politique de confidentialité</h3>
+          <label className="checkbox-toggle">
+            <input
+              type="checkbox"
+              name="acceptPrivacyPolicy"
+              checked={user.acceptPrivacyPolicy}
+              onChange={(e) =>
+                setUser((prev) => ({
+                  ...prev,
+                  acceptPrivacyPolicy: e.target.checked,
+                }))
+              }
+              required
+            />
+            <span>J'accepte la politique de confidentialité *</span>
+          </label>
+        </div>
+      )}
+
+      <div className="form-actions">
+        {currentStep < 4 ? (
+          <button
+            type="button"
+            onClick={handleNext}
+            className="form-button purple"
+            disabled={
+              (currentStep === 1 && !isStep1Valid()) ||
+              (currentStep === 2 && !isStep2Valid()) ||
+              (currentStep === 3 && !isStep3Valid())
+            }
+          >
+            Suivant
+          </button>
+        ) : (
+          <button type="submit" className="form-button purple" disabled={!user.acceptPrivacyPolicy}>
+            S'inscrire
+          </button>
+        )}
+      </div>
     </form>
   )
 }

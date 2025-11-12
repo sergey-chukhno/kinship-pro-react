@@ -8,7 +8,8 @@ import PersonalUserRegisterForm from "../RegisterForm/PersonalUserRegisterForm"
 import TeacherRegisterForm from "../RegisterForm/TeacherRegisterForm"
 import CompanyRegisterForm from "../RegisterForm/CompanyRegisterForm"
 import SchoolRegisterForm from "../RegisterForm/SchoolRegisterForm"
-import { useAppContext } from '../../context/AppContext';
+import { useAppContext } from "../../context/AppContext"
+
 
 type RegisterType = "user" | "teacher" | "school" | "company" | ""
 
@@ -18,7 +19,7 @@ interface LoginData {
 }
 
 const AuthPage: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true)
+  const [isLogin, setIsLogin] = useState(false)
   const [registerType, setRegisterType] = useState<RegisterType>("")
   const [loginData, setLoginData] = useState<LoginData>({
     email: "",
@@ -70,37 +71,52 @@ const AuthPage: React.FC = () => {
       })
   }
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Register type:", registerType)
-    alert(`Inscription ${registerType} réussie (simulation)`)
+  const navigateToRegisterType = (type: RegisterType) => {
+    setIsLogin(false)
+    setRegisterType(type)
+  }
+
+  const handleBackToSelection = () => {
+    setRegisterType("")
   }
 
   const renderRegisterForm = () => {
     if (!registerType) {
       return (
         <div className="register-type-grid">
-          <h2 className="register-title">Choisissez votre type d'inscription</h2>
           <div className="register-grid">
-            <button className="register-type-button" onClick={() => setRegisterType("user")}>
-              <div className="register-type-icon">👤</div>
-              <div className="register-type-title">Utilisateur</div>
-              <div className="register-type-description">Créez un compte personnel</div>
+            {/* Teacher en haut à gauche */}
+            <button className="register-type-card register-teacher" onClick={() => setRegisterType("teacher")}>
+              <h3 className="register-card-title">Enseignant</h3>
+              <p className="register-card-description">
+                Créez votre profil d'enseignant et partagez vos compétences avec votre réseau
+              </p>
+              <button className="register-card-button register-teacher-button">Je veux découvrir l'outil</button>
             </button>
-            <button className="register-type-button" onClick={() => setRegisterType("teacher")}>
-              <div className="register-type-icon">👨‍🏫</div>
-              <div className="register-type-title">Enseignant</div>
-              <div className="register-type-description">Inscription pour enseignants</div>
+
+            <button className="register-type-card register-user" onClick={() => setRegisterType("user")}>
+              <h3 className="register-card-title">Personal User</h3>
+              <p className="register-card-description">
+                Inscrivez-vous en tant qu'utilisateur personnel pour accéder à toutes les fonctionnalités de la
+                plateforme
+              </p>
+              <button className="register-card-button register-user-button">Je veux découvrir l'outil</button>
             </button>
-            <button className="register-type-button" onClick={() => setRegisterType("school")}>
-              <div className="register-type-icon">🏫</div>
-              <div className="register-type-title">École</div>
-              <div className="register-type-description">Inscription pour établissements</div>
+
+            <button className="register-type-card register-partner" onClick={() => setRegisterType("school")}>
+              <h3 className="register-card-title">Ecole</h3>
+              <p className="register-card-description">
+                Enregistrez votre établissement scolaire et connectez-vous avec la communauté
+              </p>
+              <button className="register-card-button register-partner-button">Je veux découvrir l'outil</button>
             </button>
-            <button className="register-type-button" onClick={() => setRegisterType("company")}>
-              <div className="register-type-icon">🏢</div>
-              <div className="register-type-title">Entreprise</div>
-              <div className="register-type-description">Inscription pour entreprises</div>
+
+            <button className="register-type-card register-volunteer" onClick={() => setRegisterType("company")}>
+              <h3 className="register-card-title">Organisation</h3>
+              <p className="register-card-description">
+                Inscrivez votre entreprise et proposez des opportunités de collaboration
+              </p>
+              <button className="register-card-button register-volunteer-button">Je veux découvrir l'outil</button>
             </button>
           </div>
         </div>
@@ -109,13 +125,10 @@ const AuthPage: React.FC = () => {
 
     return (
       <div>
-        <button className="form-back-button" onClick={() => setRegisterType("")}>
-          ← Retour au choix du type
-        </button>
-        {registerType === "user" && <PersonalUserRegisterForm />}
-        {registerType === "teacher" && <TeacherRegisterForm />}
-        {registerType === "company" && <CompanyRegisterForm />}
-        {registerType === "school" && <SchoolRegisterForm />}
+        {registerType === "user" && <PersonalUserRegisterForm onBack={handleBackToSelection} />}
+        {registerType === "teacher" && <TeacherRegisterForm onBack={handleBackToSelection} />}
+        {registerType === "company" && <CompanyRegisterForm onBack={handleBackToSelection} />}
+        {registerType === "school" && <SchoolRegisterForm onBack={handleBackToSelection} />}
       </div>
     )
   }
@@ -170,27 +183,40 @@ const AuthPage: React.FC = () => {
 
   return (
     <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-content">
-          {isLogin ? (
-            renderLoginForm()
-          ) : (
-            <>
-              {renderRegisterForm()}
-              {!registerType && (
-                <button
-                  className="back-to-login"
-                  onClick={() => {
-                    setIsLogin(true)
-                    setRegisterType("")
-                  }}
-                >
-                  Déjà un compte ? Se connecter
-                </button>
-              )}
-            </>
-          )}
+      <header className="auth-header">
+        <div className="auth-header-content">
+          <div className="auth-header-logo">
+            <img className="auth-header-logo-image" src="Kinship_logo.png" alt="Kinship Logo" />
+          </div>
+
+          <nav className="auth-header-nav">
+            <button className="auth-header-link" onClick={() => navigateToRegisterType("teacher")}>
+              Pour les enseignants
+            </button>
+            <button className="auth-header-link" onClick={() => navigateToRegisterType("user")}>
+              Pour les utilisateurs
+            </button>
+            <button className="auth-header-link" onClick={() => navigateToRegisterType("company")}>
+              Pour les entreprises
+            </button>
+            <button className="auth-header-link" onClick={() => navigateToRegisterType("school")}>
+              Pour les écoles
+            </button>
+            <button
+              className="auth-header-button"
+              onClick={() => {
+                setIsLogin(true)
+                setRegisterType("")
+              }}
+            >
+              Je me connecte
+            </button>
+          </nav>
         </div>
+      </header>
+
+      <div className="auth-container">
+        <div className="auth-content">{isLogin ? renderLoginForm() : <>{renderRegisterForm()}</>}</div>
       </div>
     </div>
   )

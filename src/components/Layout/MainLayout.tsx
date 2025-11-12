@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import Sidebar from './Sidebar';
 import Dashboard from '../Pages/Dashboard';
@@ -15,12 +15,15 @@ import ProjectManagement from '../Pages/ProjectManagement';
 import './MainLayout.css';
 import UserHeader from './UserHeader';
 import AuthPage from '../Pages/AuthPage';
+import { useAuthInit } from '../../hooks/useAuthInit';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage, setShowingPageType } = useAppContext();
 
+  // useAuthInit();
+
   // Gérer les changements de showingPageType
-  React.useEffect(() => {
+  useEffect(() => {
     const root = document.documentElement;
     console.log("Current showingPageType:", state.showingPageType);
 
@@ -42,6 +45,16 @@ const MainLayout: React.FC = () => {
       root.style.setProperty("--hover-primary", "#b20666ff");
     }
   }, [state.showingPageType]); // Cette dépendance permet de réagir aux changements de showingPageType
+
+  /*
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setCurrentPage('Auth');
+    };
+    window.addEventListener('unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('unauthorized', handleUnauthorized);
+  }, [setCurrentPage]);
+  */
 
   const renderCurrentPage = () => {
     switch (state.currentPage) {

@@ -46,7 +46,14 @@ const tradFR: Record<string, string> = {
   other: "Autre",
 }
 
-const PersonalUserRegisterForm: React.FC = () => {
+const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const [currentStep, setCurrentStep] = useState(1)
+  const [showSkills, setShowSkills] = useState(false)
+  const [showAvailability, setShowAvailability] = useState(false)
+  const [showSchools, setShowSchools] = useState(false)
+  const [showCompanies, setShowCompanies] = useState(false)
+  const [showChildren, setShowChildren] = useState(false)
+
   const [user, setUser] = useState({
     email: "",
     password: "",
@@ -73,7 +80,6 @@ const PersonalUserRegisterForm: React.FC = () => {
     selectedSubSkills: [],
   })
 
-  // skillList et skillSubList stockent des ids en number systématiquement
   const [skillList, setSkillList] = useState<{ id: number; name: string }[]>([])
   const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; parent_skill_id: number }[]>([])
   const [companies, setCompanies] = useState<{ id: number; name: string }[]>([])
@@ -81,21 +87,13 @@ const PersonalUserRegisterForm: React.FC = () => {
 
   const [schoolQuery, setSchoolQuery] = useState("")
   const [companyQuery, setCompanyQuery] = useState("")
-
-  const handleSelectSchool = (id: number) => {
-    setSelectedSchools((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]))
-  }
-
-  const handleSelectCompany = (id: number) => {
-    setSelectedCompanies((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]))
-  }
-
-  const filteredSchools = schools.filter((s) => s.name.toLowerCase().includes(schoolQuery.toLowerCase()))
-
-  const filteredCompanies = companies.filter((c) => c.name.toLowerCase().includes(companyQuery.toLowerCase()))
-
-  // Stocke les rôles retournés par l’API
+  const [selectedSchools, setSelectedSchools] = useState<number[]>([])
+  const [selectedCompanies, setSelectedCompanies] = useState<number[]>([])
+  const [childrenInfo, setChildrenInfo] = useState<ChildInfo[]>([])
   const [personalUserRoles, setPersonalUserRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
+
+  const [selectedSchoolsList, setSelectedSchoolsList] = useState<{ id: number; name: string }[]>([])
+  const [selectedCompaniesList, setSelectedCompaniesList] = useState<{ id: number; name: string }[]>([])
 
   useEffect(() => {
     const fetchSkills = async () => {
@@ -103,7 +101,6 @@ const PersonalUserRegisterForm: React.FC = () => {
         const response = await getSkills()
         const data = response?.data?.data ?? response?.data ?? response ?? []
         if (Array.isArray(data)) {
-          // Normalise les ids en number
           const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
           setSkillList(normalized)
         }
@@ -120,7 +117,6 @@ const PersonalUserRegisterForm: React.FC = () => {
         const response = await getCompanies()
         const data = response?.data?.data ?? response?.data ?? response ?? []
         if (Array.isArray(data)) {
-          // Normalise les ids en number
           const normalized = data.map((c: any) => ({ id: Number(c.id), name: c.name }))
           setCompanies(normalized)
         }
@@ -137,7 +133,6 @@ const PersonalUserRegisterForm: React.FC = () => {
         const response = await getSchools()
         const data = response?.data?.data ?? response?.data ?? response ?? []
         if (Array.isArray(data)) {
-          // Normalise les ids en number
           const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
           setSchools(normalized)
         }
@@ -148,8 +143,6 @@ const PersonalUserRegisterForm: React.FC = () => {
     fetchSchools()
   }, [])
 
-  // Charge toutes les sous-compétences pour les skills connus.
-  // Se relance automatiquement quand skillList change.
   useEffect(() => {
     if (skillList.length === 0) {
       setSkillSubList([])
@@ -164,14 +157,12 @@ const PersonalUserRegisterForm: React.FC = () => {
           const resp = await getSubSkills(skill.id)
           const data = resp?.data ?? resp ?? {}
 
-          // ✅ ton cas concret : sous-compétences dans data.sub_skills
           const subSkills = Array.isArray(data.sub_skills)
             ? data.sub_skills
             : Array.isArray(data.skill?.sub_skills)
               ? data.skill.sub_skills
               : []
 
-          // normalise
           return subSkills.map((s: any) => ({
             id: Number(s.id),
             name: s.name,
@@ -183,7 +174,6 @@ const PersonalUserRegisterForm: React.FC = () => {
         const flattened = results.flat()
 
         if (mounted) setSkillSubList(flattened)
-        console.log("Sous-compétences chargées :", flattened)
       } catch (error) {
         console.error("Erreur lors du chargement des sous-compétences :", error)
       }
@@ -208,10 +198,6 @@ const PersonalUserRegisterForm: React.FC = () => {
     }
     fetchRoles()
   }, [])
-
-  const [selectedSchools, setSelectedSchools] = useState<number[]>([])
-  const [selectedCompanies, setSelectedCompanies] = useState<number[]>([])
-  const [childrenInfo, setChildrenInfo] = useState<ChildInfo[]>([])
 
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -254,7 +240,6 @@ const PersonalUserRegisterForm: React.FC = () => {
     setChildrenInfo((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // toggle skill : coche/décoche la skill et si décoche supprime les subskills liés
   const toggleSkill = (skillId: number) => {
     setSkills((prev) => {
       const already = prev.selectedSkills.includes(skillId)
@@ -263,11 +248,9 @@ const PersonalUserRegisterForm: React.FC = () => {
 
       if (already) {
         newSkillIds = newSkillIds.filter((id) => id !== skillId)
-        // retirer toutes les sous-skills liées
         const related = skillSubList.filter((s) => s.parent_skill_id === skillId).map((s) => s.id)
         newSubIds = newSubIds.filter((id) => !related.includes(id))
       } else {
-        // ajouter la skill (si pas déjà)
         if (!newSkillIds.includes(skillId)) newSkillIds.push(skillId)
       }
 
@@ -275,7 +258,6 @@ const PersonalUserRegisterForm: React.FC = () => {
     })
   }
 
-  // toggle subskill : coche/décoche la sous-skill, si coche -> coche aussi le parent
   const toggleSubSkill = (subSkillId: number, parentId: number) => {
     setSkills((prev) => {
       const already = prev.selectedSubSkills.includes(subSkillId)
@@ -291,6 +273,68 @@ const PersonalUserRegisterForm: React.FC = () => {
 
       return { selectedSkills: newSkillIds, selectedSubSkills: newSubIds }
     })
+  }
+
+  const handleAddSchool = (schoolId: number) => {
+    const school = schools.find((s) => s.id === schoolId)
+    if (school && !selectedSchoolsList.some((s) => s.id === schoolId)) {
+      setSelectedSchoolsList((prev) => [...prev, school])
+      setSelectedSchools((prev) => [...prev, schoolId])
+      setSchoolQuery("")
+    }
+  }
+
+  const handleRemoveSchool = (schoolId: number) => {
+    setSelectedSchoolsList((prev) => prev.filter((s) => s.id !== schoolId))
+    setSelectedSchools((prev) => prev.filter((id) => id !== schoolId))
+  }
+
+  const handleAddCompany = (companyId: number) => {
+    const company = companies.find((c) => c.id === companyId)
+    if (company && !selectedCompaniesList.some((c) => c.id === companyId)) {
+      setSelectedCompaniesList((prev) => [...prev, company])
+      setSelectedCompanies((prev) => [...prev, companyId])
+      setCompanyQuery("")
+    }
+  }
+
+  const handleRemoveCompany = (companyId: number) => {
+    setSelectedCompaniesList((prev) => prev.filter((c) => c.id !== companyId))
+    setSelectedCompanies((prev) => prev.filter((id) => id !== companyId))
+  }
+
+  const filteredSchools = schools.filter((s) => s.name.toLowerCase().includes(schoolQuery.toLowerCase()))
+  const filteredCompanies = companies.filter((c) => c.name.toLowerCase().includes(companyQuery.toLowerCase()))
+
+  const isStep1Valid = () => {
+    return user.firstName && user.lastName && user.email && user.password && user.passwordConfirmation && user.birthday
+  }
+
+  const isStep2Valid = () => {
+    return user.role !== ""
+  }
+
+  const handleNext = () => {
+    if (currentStep === 1 && isStep1Valid()) {
+      setCurrentStep(2)
+    } else if (currentStep === 2 && isStep2Valid()) {
+      setCurrentStep(3)
+    } else if (currentStep === 3) {
+      if (showSkills && skills.selectedSkills.length === 0) return
+      setCurrentStep(4)
+    } else if (currentStep === 4) {
+      if (showAvailability && !Object.values(availability).some(Boolean)) return
+      setCurrentStep(5)
+    } else if (currentStep === 5) {
+      if (showSchools && selectedSchoolsList.length === 0) return
+      setCurrentStep(6)
+    } else if (currentStep === 6) {
+      if (showCompanies && selectedCompaniesList.length === 0) return
+      setCurrentStep(7)
+    } else if (currentStep === 7) {
+      if (showChildren && childrenInfo.length === 0) return
+      setCurrentStep(8)
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -316,273 +360,397 @@ const PersonalUserRegisterForm: React.FC = () => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="pur-form grid grid-cols-2 gap-4">
-      <h2 className="pur-title" style={{ gridColumn: "1 / -1" }}>
-        Inscription Utilisateur Personnel
-      </h2>
-
-      <div className="form-field">
-        <label className="form-label">Prénom *</label>
-        <input
-          className="pur-input"
-          type="text"
-          name="firstName"
-          placeholder="Votre prénom"
-          value={user.firstName}
-          onChange={handleUserChange}
-          required
-        />
+    <form onSubmit={handleSubmit} className="pur-form">
+      <div className="form-header">
+        <button type="button" onClick={onBack} className="back-button">
+          ← Retour
+        </button>
+        <h2 className="pur-title">Inscription Utilisateur Personnel</h2>
       </div>
 
-      <div className="form-field">
-        <label className="form-label">Nom *</label>
-        <input
-          className="pur-input"
-          type="text"
-          name="lastName"
-          placeholder="Votre nom"
-          value={user.lastName}
-          onChange={handleUserChange}
-          required
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Email *</label>
-        <input
-          className="pur-input"
-          type="email"
-          name="email"
-          placeholder="votre@email.com"
-          value={user.email}
-          onChange={handleUserChange}
-          required
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Mot de passe *</label>
-        <input
-          className="pur-input"
-          type="password"
-          name="password"
-          placeholder="••••••••"
-          value={user.password}
-          onChange={handleUserChange}
-          required
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Confirmation *</label>
-        <input
-          className="pur-input"
-          type="password"
-          name="passwordConfirmation"
-          placeholder="••••••••"
-          value={user.passwordConfirmation}
-          onChange={handleUserChange}
-          required
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Date de naissance *</label>
-        <input
-          className="pur-input"
-          type="date"
-          name="birthday"
-          value={user.birthday}
-          onChange={handleUserChange}
-          required
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Métier</label>
-        <input
-          className="pur-input"
-          type="text"
-          name="job"
-          placeholder="Votre métier"
-          value={user.job}
-          onChange={handleUserChange}
-        />
-      </div>
-
-      <div className="form-field">
-        <label className="form-label">Rôle *</label>
-        <select className="pur-select" name="role" value={user.role} onChange={handleUserChange} required>
-          <option value="">-- Choisir un rôle --</option>
-          {personalUserRoles.map((role) => (
-            <option key={role.value} value={role.value}>
-              {tradFR[role.value] || role.value}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="pur-field" style={{ gridColumn: "1 / -1" }}>
-        <label className="pur-label">Compétences :</label>
-        <div className="pur-skill-list">
-          {skillList.map((skill) => {
-            const skillId = Number(skill.id)
-            const isSelected = skills.selectedSkills.includes(skillId)
-            const relatedSubs = skillSubList.filter((s) => s.parent_skill_id === skillId)
-
-            return (
-              <div key={skillId} className="pur-skill-group">
-                <button
-                  type="button"
-                  onClick={() => toggleSkill(skillId)}
-                  className={`pur-skill ${isSelected ? "pur-skill--selected" : ""}`}
-                >
-                  {skill.name}
-                </button>
-
-                {/* n'affiche les sous-skills que si le parent est sélectionné */}
-                {isSelected && relatedSubs.length > 0 && (
-                  <div className="pur-subskill-list">
-                    {relatedSubs.map((sub) => {
-                      const isSubSelected = skills.selectedSubSkills.includes(sub.id)
-                      return (
-                        <button
-                          key={sub.id}
-                          type="button"
-                          onClick={() => toggleSubSkill(sub.id, sub.parent_skill_id)}
-                          className={`pur-skill pur-skill--sub ${isSubSelected ? "pur-skill--selected" : ""}`}
-                        >
-                          {sub.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <fieldset className="pur-fieldset" style={{ gridColumn: "1 / -1" }}>
-        <legend className="pur-legend">Disponibilités</legend>
-        <div className="pur-availability">
-          {Object.keys(availability).map((day) => (
-            <label key={day} className="pur-availability-item">
-              <input
-                type="checkbox"
-                name={day}
-                checked={(availability as any)[day]}
-                onChange={handleAvailabilityChange}
-              />
-              <span className="pur-capitalize">{day}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="pur-fieldset" style={{ gridColumn: "1 / -1" }}>
-        <legend className="pur-legend">Écoles</legend>
-        <input
-          type="text"
-          className="pur-input"
-          placeholder="Rechercher une école..."
-          value={schoolQuery}
-          onChange={(e) => setSchoolQuery(e.target.value)}
-        />
-        <div className="pur-search-list">
-          {filteredSchools.slice(0, 8).map((school) => (
-            <button
-              key={school.id}
-              type="button"
-              onClick={() => handleSelectSchool(school.id)}
-              className={`pur-skill ${selectedSchools.includes(school.id) ? "pur-skill--selected" : ""}`}
-            >
-              {school.name}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="pur-fieldset" style={{ gridColumn: "1 / -1" }}>
-        <legend className="pur-legend">Entreprises</legend>
-        <input
-          type="text"
-          className="pur-input"
-          placeholder="Rechercher une entreprise..."
-          value={companyQuery}
-          onChange={(e) => setCompanyQuery(e.target.value)}
-        />
-        <div className="pur-search-list">
-          {filteredCompanies.slice(0, 8).map((company) => (
-            <button
-              key={company.id}
-              type="button"
-              onClick={() => handleSelectCompany(company.id)}
-              className={`pur-skill ${selectedCompanies.includes(company.id) ? "pur-skill--selected" : ""}`}
-            >
-              {company.name}
-            </button>
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="pur-fieldset" style={{ gridColumn: "1 / -1" }}>
-        <legend className="pur-legend">Enfants</legend>
-        {childrenInfo.map((child, i) => (
-          <div key={i} className="pur-child-card">
+      {/* Step 1: Informations personnelles */}
+      <div className={`form-step ${currentStep >= 1 ? "visible" : ""}`}>
+        <h3 className="step-title">Mes Informations personnelles</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="form-field">
+            <label className="form-label">Mon Prénom *</label>
             <input
               className="pur-input"
               type="text"
-              name="childFirstName"
-              placeholder="Prénom"
-              value={child.childFirstName}
-              onChange={(e) => handleChildChange(i, e)}
+              name="firstName"
+              placeholder="Votre prénom"
+              value={user.firstName}
+              onChange={handleUserChange}
+              required
             />
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Mon Nom *</label>
             <input
               className="pur-input"
               type="text"
-              name="childLastName"
-              placeholder="Nom"
-              value={child.childLastName}
-              onChange={(e) => handleChildChange(i, e)}
+              name="lastName"
+              placeholder="Votre nom"
+              value={user.lastName}
+              onChange={handleUserChange}
+              required
             />
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Ma Date de naissance *</label>
             <input
               className="pur-input"
               type="date"
-              name="childBirthday"
-              value={child.childBirthday}
-              onChange={(e) => handleChildChange(i, e)}
+              name="birthday"
+              value={user.birthday}
+              onChange={handleUserChange}
+              required
             />
-            <button type="button" className="pur-link danger" onClick={() => handleRemoveChild(i)}>
-              Supprimer cet enfant
-            </button>
           </div>
-        ))}
-        <button type="button" className="pur-link" onClick={handleAddChild}>
-          + Ajouter un enfant
-        </button>
-      </fieldset>
 
-      <label className="flex items-center gap-2" style={{ gridColumn: "1 / -1" }}>
-        <input
-          type="checkbox"
-          name="acceptPrivacyPolicy"
-          checked={user.acceptPrivacyPolicy}
-          onChange={(e) =>
-            setUser((prev) => ({
-              ...prev,
-              acceptPrivacyPolicy: e.target.checked,
-            }))
-          }
-          required
-        />
-        J'accepte la politique de confidentialité
-      </label>
+          <div className="form-field">
+            <label className="form-label">Mon Métier</label>
+            <input
+              className="pur-input"
+              type="text"
+              name="job"
+              placeholder="Votre métier"
+              value={user.job}
+              onChange={handleUserChange}
+            />
+          </div>
 
-      <button type="submit" className="pur-button" style={{ gridColumn: "1 / -1" }}>
-        S'inscrire
-      </button>
+          <div className="form-field full-width">
+            <label className="form-label">Email Personnel *</label>
+            <input
+              className="pur-input"
+              type="email"
+              name="email"
+              placeholder="votre@email.com"
+              value={user.email}
+              onChange={handleUserChange}
+              required
+            />
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Mot de passe *</label>
+            <input
+              className="pur-input"
+              type="password"
+              name="password"
+              placeholder="••••••••"
+              value={user.password}
+              onChange={handleUserChange}
+              required
+            />
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Confirmation du mot de passe *</label>
+            <input
+              className="pur-input"
+              type="password"
+              name="passwordConfirmation"
+              placeholder="••••••••"
+              value={user.passwordConfirmation}
+              onChange={handleUserChange}
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Step 2: Rôle avec boutons radio en grille */}
+      {currentStep >= 2 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Je suis un(e) :</h3>
+          <div className="role-grid">
+            {personalUserRoles.map((role) => (
+              <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name="role"
+                  value={role.value}
+                  checked={user.role === role.value}
+                  onChange={handleUserChange}
+                  required
+                />
+                <span className="role-label">{tradFR[role.value] || role.value}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Compétences (step séparé avec toggle switch et grille 2 colonnes) */}
+      {currentStep >= 3 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Mes Compétences</h3>
+          <label className="toggle-switch-form">
+            <span>Je veux ajouter et montrer mes compétences</span>
+            <input type="checkbox" checked={showSkills} onChange={(e) => setShowSkills(e.target.checked)} />
+            <span className="toggle-slider"></span>
+          </label>
+
+          {showSkills && (
+            <div className="pur-field">
+              <div
+                className="skills-container"
+                style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px" }}
+              >
+                {skillList.map((skill) => {
+                  const skillId = Number(skill.id)
+                  const isSelected = skills.selectedSkills.includes(skillId)
+                  const relatedSubs = skillSubList.filter((s) => s.parent_skill_id === skillId)
+
+                  return (
+                    <div key={skillId} className="skill-category">
+                      <button
+                        type="button"
+                        onClick={() => toggleSkill(skillId)}
+                        className={`skill-main ${isSelected ? "skill-main--selected" : ""}`}
+                      >
+                        {skill.name}
+                      </button>
+
+                      {isSelected && relatedSubs.length > 0 && (
+                        <div className="subskills-container">
+                          {relatedSubs.map((sub) => {
+                            const isSubSelected = skills.selectedSubSkills.includes(sub.id)
+                            return (
+                              <button
+                                key={sub.id}
+                                type="button"
+                                onClick={() => toggleSubSkill(sub.id, sub.parent_skill_id)}
+                                className={`skill-sub ${isSubSelected ? "skill-sub--selected" : ""}`}
+                              >
+                                {sub.name}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 4: Disponibilités (step séparé avec toggle switch) */}
+      {currentStep >= 4 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Mes Disponibilités</h3>
+          <label className="toggle-switch-form">
+            <span>Je veux ajouter mes disponibilités</span>
+            <input type="checkbox" checked={showAvailability} onChange={(e) => setShowAvailability(e.target.checked)} />
+            <span className="toggle-slider"></span>
+          </label>
+
+          {showAvailability && (
+            <fieldset className="pur-fieldset">
+              <div className="pur-availability">
+                {Object.keys(availability).map((day) => (
+                  <label key={day} className="pur-availability-item">
+                    <input
+                      type="checkbox"
+                      name={day}
+                      checked={(availability as any)[day]}
+                      onChange={handleAvailabilityChange}
+                    />
+                    <span className="pur-capitalize">{day}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+        </div>
+      )}
+
+      {/* Step 5: Écoles (step séparé avec toggle switch) */}
+      {currentStep >= 5 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Je demande mon rattachement à un Établissement Scolaire</h3>
+          <label className="toggle-switch-form">
+            <span>Je demande mon rattachement à un établissement scolaire</span>
+            <input type="checkbox" checked={showSchools} onChange={(e) => setShowSchools(e.target.checked)} />
+            <span className="toggle-slider"></span>
+          </label>
+
+          {showSchools && (
+            <fieldset className="pur-fieldset">
+              <input
+                type="text"
+                className="pur-input"
+                placeholder="Rechercher une école..."
+                value={schoolQuery}
+                onChange={(e) => setSchoolQuery(e.target.value)}
+              />
+              {schoolQuery && (
+                <div className="search-suggestions">
+                  {filteredSchools.slice(0, 5).map((school) => (
+                    <div key={school.id} className="suggestion-item" onClick={() => handleAddSchool(school.id)}>
+                      {school.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="selected-list">
+                {selectedSchoolsList.map((school) => (
+                  <div key={school.id} className="selected-item">
+                    <span>{school.name}</span>
+                    <button type="button" onClick={() => handleRemoveSchool(school.id)} className="remove-btn">
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+          )}
+        </div>
+      )}
+
+      {/* Step 6: Entreprises (step séparé avec toggle switch) */}
+      {currentStep >= 6 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Mes Organisations</h3>
+          <label className="toggle-switch-form">
+            <span>Je demande mon rattachement à une organisation</span>
+            <input type="checkbox" checked={showCompanies} onChange={(e) => setShowCompanies(e.target.checked)} />
+            <span className="toggle-slider"></span>
+          </label>
+
+          {showCompanies && (
+            <fieldset className="pur-fieldset">
+              <input
+                type="text"
+                className="pur-input"
+                placeholder="Rechercher une entreprise..."
+                value={companyQuery}
+                onChange={(e) => setCompanyQuery(e.target.value)}
+              />
+              {companyQuery && (
+                <div className="search-suggestions">
+                  {filteredCompanies.slice(0, 5).map((company) => (
+                    <div key={company.id} className="suggestion-item" onClick={() => handleAddCompany(company.id)}>
+                      {company.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="selected-list">
+                {selectedCompaniesList.map((company) => (
+                  <div key={company.id} className="selected-item">
+                    <span>{company.name}</span>
+                    <button type="button" onClick={() => handleRemoveCompany(company.id)} className="remove-btn">
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+          )}
+        </div>
+      )}
+
+      {/* Step 7: Enfants (step séparé avec toggle switch) */}
+      {currentStep >= 7 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Mes Enfants</h3>
+          <label className="toggle-switch-form">
+            <span>Je veux ajouter mes enfants</span>
+            <input type="checkbox" checked={showChildren} onChange={(e) => setShowChildren(e.target.checked)} />
+            <span className="toggle-slider"></span>
+          </label>
+
+          {showChildren && (
+            <fieldset className="pur-fieldset">
+              {childrenInfo.map((child, i) => (
+                <div key={i} className="pur-child-card">
+                  <input
+                    className="pur-input"
+                    type="text"
+                    name="childFirstName"
+                    placeholder="Prénom"
+                    value={child.childFirstName}
+                    onChange={(e) => handleChildChange(i, e)}
+                  />
+                  <input
+                    className="pur-input"
+                    type="text"
+                    name="childLastName"
+                    placeholder="Nom"
+                    value={child.childLastName}
+                    onChange={(e) => handleChildChange(i, e)}
+                  />
+                  <input
+                    className="pur-input"
+                    type="date"
+                    name="childBirthday"
+                    value={child.childBirthday}
+                    onChange={(e) => handleChildChange(i, e)}
+                  />
+                  <button type="button" className="pur-link danger" onClick={() => handleRemoveChild(i)}>
+                    Supprimer
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="pur-link" onClick={handleAddChild}>
+                + Ajouter un enfant
+              </button>
+            </fieldset>
+          )}
+        </div>
+      )}
+
+      {/* Step 8: Politique de confidentialité (step séparé) */}
+      {currentStep >= 8 && (
+        <label className="checkbox-toggle">
+          <input
+            type="checkbox"
+            name="acceptPrivacyPolicy"
+            checked={user.acceptPrivacyPolicy}
+            onChange={(e) =>
+              setUser((prev) => ({
+                ...prev,
+                acceptPrivacyPolicy: e.target.checked,
+              }))
+            }
+            required
+          />
+          <span>J'accepte la politique de confidentialité *</span>
+        </label>
+      )}
+
+      <div className="form-actions">
+        {currentStep < 8 ? (
+          <button
+            type="button"
+            onClick={handleNext}
+            className="pur-button"
+            disabled={
+              (currentStep === 1 && !isStep1Valid()) ||
+              (currentStep === 2 && !isStep2Valid()) ||
+              (currentStep === 3 && showSkills && skills.selectedSkills.length === 0) ||
+              (currentStep === 4 && showAvailability && !Object.values(availability).some(Boolean)) ||
+              (currentStep === 5 && showSchools && selectedSchoolsList.length === 0) ||
+              (currentStep === 6 && showCompanies && selectedCompaniesList.length === 0) ||
+              (currentStep === 7 && showChildren && childrenInfo.length === 0)
+            }
+          >
+            Suivant
+          </button>
+        ) : (
+          <button type="submit" className="pur-button" disabled={!user.acceptPrivacyPolicy}>
+            S'inscrire
+          </button>
+        )}
+      </div>
     </form>
   )
 }
