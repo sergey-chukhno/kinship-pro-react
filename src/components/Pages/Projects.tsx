@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { mockProjects } from '../../data/mockData';
 import { Project } from '../../types';
-import ProjectCard from '../Projects/ProjectCard';
 import ProjectModal from '../Modals/ProjectModal';
+import ProjectCard from '../Projects/ProjectCard';
 import './Projects.css';
 
 const Projects: React.FC = () => {
@@ -52,14 +51,14 @@ const Projects: React.FC = () => {
     setSelectedProject(null);
   };
 
-  const handleAssignBadge = () => {
-    // This will be handled by the BadgeAssignmentModal
-    console.log('Assign badge for project:', selectedProject?.title);
-  };
+  // const handleAssignBadge = () => {
+  //   // This will be handled by the BadgeAssignmentModal
+  //   console.log('Assign badge for project:', selectedProject?.title);
+  // };
 
-  const handleCopyLink = () => {
-    console.log('Copy link for project:', selectedProject?.title);
-  };
+  // const handleCopyLink = () => {
+  //   console.log('Copy link for project:', selectedProject?.title);
+  // };
 
   const handleExportProjects = () => {
     console.log('Export projects');

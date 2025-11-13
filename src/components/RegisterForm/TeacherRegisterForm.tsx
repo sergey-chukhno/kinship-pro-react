@@ -52,16 +52,16 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [selectedSchoolsList, setSelectedSchoolsList] = useState<{ id: number; name: string }[]>([])
   const [teacherRoles, setTeacherRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
-  const handleSelectSchool = (id: number) => {
-    const school = schools.find((s) => s.id === id)
-    if (school) {
-      if (selectedSchoolsList.some((s) => s.id === id)) {
-        setSelectedSchoolsList((prev) => prev.filter((s) => s.id !== id))
-      } else {
-        setSelectedSchoolsList((prev) => [...prev, school])
-      }
-    }
-  }
+  // const handleSelectSchool = (id: number) => {
+  //   const school = schools.find((s) => s.id === id)
+  //   if (school) {
+  //     if (selectedSchoolsList.some((s) => s.id === id)) {
+  //       setSelectedSchoolsList((prev) => prev.filter((s) => s.id !== id))
+  //     } else {
+  //       setSelectedSchoolsList((prev) => [...prev, school])
+  //     }
+  //   }
+  // }
 
   useEffect(() => {
     const fetchSchools = async () => {

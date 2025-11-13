@@ -1,24 +1,23 @@
 import React, { useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import Sidebar from './Sidebar';
-import Dashboard from '../Pages/Dashboard';
-import Members from '../Pages/Members';
-import Events from '../Pages/Events';
-import Projects from '../Pages/Projects';
-import Badges from '../Pages/Badges';
 import Analytics from '../Pages/Analytics';
+import AuthPage from '../Pages/AuthPage';
+import Badges from '../Pages/Badges';
+import Dashboard from '../Pages/Dashboard';
+import Events from '../Pages/Events';
+import Members from '../Pages/Members';
+import MembershipRequests from '../Pages/MembershipRequests';
 import Network from '../Pages/Network';
 import Notifications from '../Pages/Notifications';
-import Settings from '../Pages/Settings';
-import MembershipRequests from '../Pages/MembershipRequests';
 import ProjectManagement from '../Pages/ProjectManagement';
+import Projects from '../Pages/Projects';
+import Settings from '../Pages/Settings';
 import './MainLayout.css';
+import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
-import AuthPage from '../Pages/AuthPage';
-import { useAuthInit } from '../../hooks/useAuthInit';
 
 const MainLayout: React.FC = () => {
-  const { state, setCurrentPage, setShowingPageType } = useAppContext();
+  const { state, setCurrentPage} = useAppContext();
 
   // useAuthInit();
 

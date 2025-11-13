@@ -62,10 +62,10 @@ const SubscriptionManagement: React.FC = () => {
     setBillingCycle(cycle);
   };
 
-  const handleUpgrade = () => {
-    // TODO: Implement plan upgrade
-    console.log('Upgrade plan');
-  };
+  // const handleUpgrade = () => {
+  //   // TODO: Implement plan upgrade
+  //   console.log('Upgrade plan');
+  // };
 
   const handleDowngrade = () => {
     // TODO: Implement plan downgrade

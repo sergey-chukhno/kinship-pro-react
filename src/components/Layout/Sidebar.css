@@ -241,6 +241,12 @@
   color: var(--text-primary, #374151);
   font-size: 0.9rem;
   transition: background-color 0.2s ease;
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
 }
 
 .menu-item:hover {

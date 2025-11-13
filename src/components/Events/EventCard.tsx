@@ -13,14 +13,14 @@ interface EventCardProps {
 const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, onDelete }) => {
   const [showAllParticipants, setShowAllParticipants] = useState(false);
   
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-  };
+  // const formatDate = (dateString: string) => {
+  //   const date = new Date(dateString);
+  //   return date.toLocaleDateString('fr-FR', {
+  //     day: 'numeric',
+  //     month: 'long',
+  //     year: 'numeric'
+  //   });
+  // };
 
   const toggleParticipants = (e: React.MouseEvent) => {
     e.stopPropagation();
