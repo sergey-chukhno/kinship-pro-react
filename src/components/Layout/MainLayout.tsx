@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import Analytics from '../Pages/Analytics';
 import AuthPage from '../Pages/AuthPage';
@@ -46,6 +47,7 @@ const MainLayout: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]); // Cette dépendance permet de réagir aux changements de showingPageType
 
+
   /*
   useEffect(() => {
     const handleUnauthorized = () => {
@@ -89,21 +91,33 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="app-container" data-theme={state.theme}>
-      {state.showingPageType === 'user' && state.currentPage !== 'Auth' && (
-        <UserHeader currentPage={state.currentPage} onPageChange={setCurrentPage} />
-      )}
+      <Routes>
+        {/* Routes d'authentification */}
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="/register" element={<AuthPage />} />
+        <Route path="/register/:registerType" element={<AuthPage />} />
+        
+        {/* Routes principales de l'application */}
+        <Route path="*" element={
+          <>
+            {state.showingPageType === 'user' && state.currentPage !== 'Auth' && (
+              <UserHeader currentPage={state.currentPage} onPageChange={setCurrentPage} />
+            )}
 
-      <div
-        className={`app-body ${
-          state.showingPageType === 'user' ? 'no-sidebar' : 'with-sidebar'
-        }`}
-      >
-        {state.showingPageType !== 'user' && state.currentPage !== 'Auth' && (
-          <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
-        )}
+            <div
+              className={`app-body ${
+                state.showingPageType === 'user' ? 'no-sidebar' : 'with-sidebar'
+              }`}
+            >
+              {state.showingPageType !== 'user' && state.currentPage !== 'Auth' && (
+                <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
+              )}
 
-        <main className="dashboard app-layout">{renderCurrentPage()}</main>
-      </div>
+              <main className="dashboard app-layout">{renderCurrentPage()}</main>
+            </div>
+          </>
+        } />
+      </Routes>
     </div>
   );
 };
