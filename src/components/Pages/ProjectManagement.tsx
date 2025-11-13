@@ -382,14 +382,14 @@ const ProjectManagement: React.FC = () => {
     return participants.find(p => p.id === participantId);
   };
 
-  const getAvailableParticipants = (excludeTeamId?: string) => {
-    if (!excludeTeamId) return participants;
+  // const getAvailableParticipants = (excludeTeamId?: string) => {
+  //   if (!excludeTeamId) return participants;
     
-    const team = teams.find(t => t.id === excludeTeamId);
-    if (!team) return participants;
+  //   const team = teams.find(t => t.id === excludeTeamId);
+  //   if (!team) return participants;
     
-    return participants.filter(p => !team.members.includes(p.id));
-  };
+  //   return participants.filter(p => !team.members.includes(p.id));
+  // };
 
   const getFilteredParticipants = () => {
     const available = participants.filter(participant => 

@@ -6,7 +6,7 @@ import UserPermissions from './UserPermissions';
 import './UserManagement.css';
 
 const UserManagement: React.FC = () => {
-  const { state, addMember, updateMember, deleteMember } = useAppContext();
+  const { addMember, updateMember, deleteMember } = useAppContext();
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isUserFormOpen, setIsUserFormOpen] = useState(false);
   const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
