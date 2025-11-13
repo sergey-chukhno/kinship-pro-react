@@ -19,8 +19,6 @@ import UserHeader from './UserHeader';
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
 
-  // useAuthInit();
-
   // Gérer les changements de showingPageType
   useEffect(() => {
     const root = document.documentElement;
@@ -45,16 +43,6 @@ const MainLayout: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]); // Cette dépendance permet de réagir aux changements de showingPageType
-
-  /*
-  useEffect(() => {
-    const handleUnauthorized = () => {
-      setCurrentPage('Auth');
-    };
-    window.addEventListener('unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('unauthorized', handleUnauthorized);
-  }, [setCurrentPage]);
-  */
 
   const renderCurrentPage = () => {
     switch (state.currentPage) {
