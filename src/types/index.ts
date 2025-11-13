@@ -191,9 +191,12 @@ export interface DashboardStats {
   upcomingEvents: number;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'membership-requests' | 'project-management';
+export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'membership-requests' | 'project-management' | 'Auth';
+
+export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';
 
 export interface AppState {
+  showingPageType: ShowingPageType;
   currentPage: PageType;
   user: User;
   members: Member[];
@@ -206,4 +209,17 @@ export interface AppState {
   filters: FilterOptions;
   theme: 'light' | 'dark';
   selectedProject: Project | null;
+}
+
+export interface OrganizationList {
+  id: string;
+  name: string;
+  isAdmin: boolean;
+}
+
+export interface ClassList {
+  id: string;
+  name: string;
+  teacher: string;
+  studentCount: number;
 }

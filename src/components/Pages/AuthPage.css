@@ -1,0 +1,414 @@
+/* AuthPage Styles - Pleine page */
+
+.auth-page {
+  min-height: 100vh;
+  width: 100%;
+  background: #f9fafb;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Nouveau header de navigation */
+.auth-header {
+  width: 100%;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.auth-header-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.auth-header-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.auth-header-logo-text {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.auth-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.auth-header-link {
+  font-size: 15px;
+  font-weight: 500;
+  color: #374151;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 8px 0;
+  position: relative;
+}
+
+.auth-header-link:hover {
+  color: #5b7cff;
+}
+
+.auth-header-link::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #5b7cff;
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+
+.auth-header-link:hover::after {
+  transform: scaleX(1);
+}
+
+.auth-header-button {
+  padding: 12px 28px;
+  background: #ff9f43;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(255, 159, 67, 0.3);
+}
+
+.auth-header-button:hover {
+  background: #ff8f20;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 159, 67, 0.4);
+}
+
+.auth-container {
+  background: white;
+  width: 100%;
+  flex: 1;
+}
+
+.auth-content {
+  padding: 80px 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+/* Formulaire de login centré en une seule colonne */
+.login-form-wrapper {
+  width: 100%;
+  max-width: 500px;
+  margin: 80px auto;
+}
+
+.login-title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #1f2937;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-input {
+  width: 100%;
+  padding: 16px 18px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #5b7cff;
+  box-shadow: 0 0 0 4px rgba(91, 124, 255, 0.1);
+}
+
+.submit-button {
+  width: 100%;
+  padding: 18px;
+  background: #5b7cff;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+}
+
+.submit-button:hover {
+  background: #4a6de5;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(91, 124, 255, 0.4);
+}
+
+.submit-button:active {
+  transform: translateY(0);
+}
+
+.toggle-button {
+  width: 100%;
+  padding: 16px;
+  background: transparent;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-button:hover {
+  border-color: #5b7cff;
+  color: #5b7cff;
+  background: #f0f4ff;
+}
+
+/* Nouvelle grille 2x2 pour les types d'inscription avec style de l'image */
+.register-type-grid {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.register-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px;
+  width: 100%;
+}
+
+.register-type-card {
+  padding: 48px 40px;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  min-height: 280px;
+  text-align: left;
+}
+
+.register-type-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+}
+
+.register-user {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.register-volunteer {
+  background: #fdf4ff;
+  border-color: #f0abfc;
+}
+
+.register-teacher {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.register-partner {
+  background: #fdf4ff;
+  border-color: #f0abfc;
+}
+
+.register-card-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.register-card-description {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #4b5563;
+  margin: 0;
+  flex: 1;
+}
+
+.register-card-button {
+  padding: 14px 28px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: white;
+  margin-top: auto;
+}
+
+.register-user-button {
+  background: #0ea5e9;
+}
+
+.register-user-button:hover {
+  background: #0284c7;
+}
+
+.register-volunteer-button {
+  background: #a855f7;
+}
+
+.register-volunteer-button:hover {
+  background: #9333ea;
+}
+
+.register-teacher-button {
+  background: #f59e0b;
+}
+
+.register-teacher-button:hover {
+  background: #d97706;
+}
+
+.register-partner-button {
+  background: #a855f7;
+}
+
+.register-partner-button:hover {
+  background: #9333ea;
+}
+
+/* Bouton back dans les formulaires */
+.form-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: transparent;
+  color: #6b7280;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 30px;
+}
+
+.form-back-button:hover {
+  border-color: #5b7cff;
+  color: #5b7cff;
+  background: #f0f4ff;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .auth-header-content {
+    padding: 16px 40px;
+  }
+
+  .auth-header-nav {
+    gap: 20px;
+  }
+
+  .auth-content {
+    padding: 60px 40px;
+  }
+
+  .register-grid {
+    gap: 24px;
+  }
+
+  .register-type-card {
+    padding: 36px 32px;
+    min-height: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .auth-header-content {
+    padding: 12px 24px;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .auth-header-nav {
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .auth-header-button {
+    width: 100%;
+  }
+
+  .auth-content {
+    padding: 40px 24px;
+  }
+
+  .register-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .register-type-card {
+    padding: 32px 28px;
+    min-height: 220px;
+  }
+
+  .login-title {
+    font-size: 28px;
+  }
+
+  .register-card-title {
+    font-size: 24px;
+  }
+}
+
+.auth-header-logo-image {
+  width: 80;
+  height: 40px;
+}

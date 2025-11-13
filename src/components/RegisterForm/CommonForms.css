@@ -1,0 +1,581 @@
+/* Common Form Styles for All Registration Forms */
+
+/* Layout pleine page pour les formulaires avec steps */
+.form-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px;
+  background: white;
+}
+
+/* Ajout du header avec bouton back */
+.form-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.back-button {
+  padding: 12px 20px;
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.back-button:hover {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.form-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+/* Styles pour les steps */
+.form-step {
+  margin-bottom: 40px;
+  padding: 32px;
+  background: #f9fafb;
+  border-radius: 16px;
+  border: 2px solid #e5e7eb;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.4s ease;
+}
+
+.form-step.visible {
+  opacity: 1;
+  max-height: none;
+  overflow: visible;
+}
+
+.step-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 24px 0;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+/* Grid layout pour les champs */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+/* Labels au-dessus des champs avec un meilleur espacement */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Classe pour champs pleine largeur (email) */
+.form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+/* Inputs plus grands et mieux espacés */
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  background: white;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #5b7cff;
+  box-shadow: 0 0 0 4px rgba(91, 124, 255, 0.1);
+}
+
+/* Toggle Switch (Interrupteur Oui/Non) pour remplacer les checkboxes */
+.toggle-switch-form {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  margin: 16px 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-switch-form:hover {
+  border-color: #5b7cff;
+  background: #f0f4ff;
+}
+
+.toggle-switch-form > span:first-child {
+  font-size: 15px;
+  font-weight: 500;
+  color: #374151;
+  flex: 1;
+}
+
+.toggle-switch-form input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.toggle-slider {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+  background: #d1d5db;
+  border-radius: 34px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch-form input[type="checkbox"]:checked ~ .toggle-slider {
+  background: #5b7cff;
+}
+
+.toggle-switch-form input[type="checkbox"]:checked ~ .toggle-slider::before {
+  transform: translateX(24px);
+}
+
+/* Styles pour les boutons radio en grille (Rôles) */
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.role-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 24px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 80px;
+}
+
+.role-option:hover {
+  border-color: #5b7cff;
+  background: #f0f4ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(91, 124, 255, 0.15);
+}
+
+.role-option.selected {
+  border-color: #5b7cff;
+  background: #5b7cff;
+  color: white;
+  box-shadow: 0 4px 12px rgba(91, 124, 255, 0.3);
+}
+
+.role-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.role-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: inherit;
+  text-align: center;
+}
+
+.role-option.selected .role-label {
+  color: white;
+}
+
+/* Checkbox toggle pour sections optionnelles */
+.checkbox-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  cursor: pointer;
+  margin: 16px 0;
+  transition: all 0.2s ease;
+}
+
+.checkbox-toggle:hover {
+  border-color: #5b7cff;
+  background: #f0f4ff;
+}
+
+.checkbox-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #5b7cff;
+}
+
+.checkbox-toggle span {
+  font-size: 15px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* Fieldsets prennent toute la largeur avec un meilleur style */
+.form-fieldset {
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  background: white;
+  margin: 16px 0;
+}
+
+.form-legend {
+  font-weight: 600;
+  color: #1f2937;
+  padding: 0 12px;
+  font-size: 16px;
+}
+
+.form-checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.form-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #374151;
+  font-size: 15px;
+}
+
+.form-checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #5b7cff;
+}
+
+.form-checkbox-label span {
+  text-transform: capitalize;
+}
+
+.form-privacy-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 15px;
+  color: #374151;
+}
+
+.form-privacy-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #5b7cff;
+}
+
+/* Suggestions de recherche */
+.search-suggestions {
+  position: relative;
+  max-height: 240px;
+  overflow-y: auto;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  margin-top: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.suggestion-item {
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 15px;
+  color: #374151;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover {
+  background: #f0f4ff;
+  color: #5b7cff;
+}
+
+/* Liste des éléments sélectionnés */
+.selected-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 10px;
+  min-height: 60px;
+}
+
+.selected-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 24px;
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.remove-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  color: #ef4444;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.remove-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* Form actions avec bouton dynamique */
+.form-actions {
+  margin-top: 32px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+/* Boutons plus grands et mieux stylisés */
+.form-button {
+  padding: 16px 48px;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.form-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.form-button:active {
+  transform: translateY(0);
+}
+
+.form-button:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.form-button.primary {
+  background: #5b7cff;
+}
+
+.form-button.primary:hover {
+  background: #4a6de5;
+  box-shadow: 0 8px 20px rgba(91, 124, 255, 0.4);
+}
+
+/* Ajout du bouton secondaire pour "Précédent" */
+.form-button.secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 2px solid #e5e7eb;
+}
+
+.form-button.secondary:hover {
+  background: #e5e7eb;
+  color: #1f2937;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.form-button.success {
+  background: #10b981;
+}
+
+.form-button.success:hover {
+  background: #059669;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.form-button.warning {
+  background: #f59e0b;
+}
+
+.form-button.warning:hover {
+  background: #d97706;
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+}
+
+.form-button.purple {
+  background: #8b5cf6;
+}
+
+.form-button.purple:hover {
+  background: #7c3aed;
+  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+}
+
+/* Scrollbar Styling */
+.search-suggestions::-webkit-scrollbar {
+  width: 6px;
+}
+
+.search-suggestions::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.search-suggestions::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+.search-suggestions::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .grid {
+    gap: 20px;
+  }
+
+  .form-title {
+    font-size: 24px;
+  }
+
+  .step-title {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-container {
+    padding: 20px;
+  }
+
+  .form-step {
+    padding: 24px;
+  }
+
+  .form-title {
+    font-size: 22px;
+  }
+
+  .step-title {
+    font-size: 18px;
+  }
+
+  .form-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .form-fieldset {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .form-title {
+    font-size: 22px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    padding: 12px 14px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-button {
+    width: 100%;
+  }
+}
