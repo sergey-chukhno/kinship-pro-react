@@ -44,22 +44,18 @@ const AuthPage: React.FC = () => {
           if (response.data.user.available_contexts.user_dashboard) {
             setShowingPageType("user")
             setCurrentPage("projects")
-            alert("Connexion réussie en tant qu'utilisateur (simulation)")
           }
           else if (response.data.user.available_contexts.teacher_dashboard) {
             setShowingPageType("teacher")
             setCurrentPage("dashboard")
-            alert("Connexion réussie en tant qu'enseignant (simulation)")
           }
           else if (response.data.user.available_contexts.schools?.length > 0) {
             setShowingPageType("edu")
             setCurrentPage("dashboard")
-            alert("Connexion réussie en tant qu'établissement (simulation)")
           }
           else if (response.data.user.available_contexts.companies?.length > 0) {
             setShowingPageType("pro");
             setCurrentPage("dashboard");
-            alert("Connexion réussie en tant qu'entreprise (simulation)");
           }
         } else {
           alert("Échec de la connexion (simulation)")
@@ -165,17 +161,6 @@ const AuthPage: React.FC = () => {
 
         <button type="submit" className="submit-button">
           Se connecter
-        </button>
-
-        <button
-          type="button"
-          className="toggle-button"
-          onClick={() => {
-            setIsLogin(false)
-            setRegisterType("")
-          }}
-        >
-          Pas encore de compte ? S'inscrire
         </button>
       </form>
     </div>

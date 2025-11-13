@@ -8,6 +8,9 @@ import ContactModal from '../Modals/ContactModal';
 import './Members.css';
 import { mockClassLists } from '../../data/mockData';
 import ClassCard from '../Class/ClassCard';
+import { getCompanyUserProfile } from '../../api/User';
+import { getCurrentUser } from '../../api/Authentication';
+import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Menbers';
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
@@ -23,9 +26,62 @@ const Members: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'members' | 'class'>('members');
 
   const dropdownRef = useRef<HTMLDivElement>(null);
-
   const classLists = mockClassLists;
-  const members = state.members;
+  const [members, setMembers] = useState<Member[]>([]);
+
+  // --- Fetch des membres avec profil complet ---
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const currentUser = await getCurrentUser();
+        const companyId = currentUser.data.available_contexts.companies[0].id;
+
+        const membersRes = await getCompanyMembersAccepted(companyId);
+        const basicMembers = membersRes.data.data;
+
+        const detailedMembers = await Promise.all(
+          basicMembers.map(async (m: any) => {
+            try {
+              const profileRes = await getCompanyUserProfile(m.id, companyId);
+              const profile = profileRes.data;
+
+              const member: Member = {
+                id: m.id.toString(),
+                firstName: profile.first_name,
+                lastName: profile.last_name,
+                fullName: `${profile.first_name} ${profile.last_name}`,
+                email: profile.email,
+                profession: profile.job || '',
+                roles: [profile.role || m.role_in_company || ''],
+                skills: profile.skills?.map((s: any) => s.name) || [],
+                availability: profile.project_members?.flatMap((p: any) => p.project.skills.map((s: any) => s.name)) || [],
+                avatar: m.avatar_url || '',
+                isTrusted: profile.certify || false,
+                badges: profile.badges_received?.map((b: any) => b.badge.id.toString()) || [],
+                organization: profile.company_name || '',
+                canProposeStage: !!profile.role_additional_information?.includes('stage'),
+                canProposeAtelier: !!profile.role_additional_information?.includes('atelier'),
+              };
+
+              return member;
+            } catch (err) {
+              console.warn(`Erreur chargement profil membre ${m.id}:`, err);
+              return null;
+            }
+          })
+        );
+
+        const validMembers = detailedMembers.filter((m): m is Member => m !== null);
+        setMembers(validMembers);
+      } catch (err) {
+        console.error('Erreur récupération membres:', err);
+      }
+    };
+
+    fetchMembers();
+  }, []);
+
+  // --- Filtres dynamiques ---
   const allCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
   const allAvailabilities = Array.from(new Set(members.flatMap(m => m.availability)));
 
@@ -42,8 +98,7 @@ const Members: React.FC = () => {
   const filteredMembers = members.filter(member => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
-      member.firstName.toLowerCase().includes(term) ||
-      member.lastName.toLowerCase().includes(term) ||
+      member.fullName?.toLowerCase().includes(term) ||
       member.email.toLowerCase().includes(term) ||
       member.skills.some(skill => skill.toLowerCase().includes(term));
     const matchesRole = !roleFilter || member.roles.includes(roleFilter);
@@ -90,16 +145,10 @@ const Members: React.FC = () => {
               </button>
               {isImportExportOpen && (
                 <div className="dropdown-menu">
-                  <button
-                    className="dropdown-item"
-                    onClick={() => handleImportExport('import')}
-                  >
+                  <button className="dropdown-item" onClick={() => handleImportExport('import')}>
                     <i className="fas fa-upload"></i> Importer
                   </button>
-                  <button
-                    className="dropdown-item"
-                    onClick={() => handleImportExport('export')}
-                  >
+                  <button className="dropdown-item" onClick={() => handleImportExport('export')}>
                     <i className="fas fa-download"></i> Exporter
                   </button>
                 </div>
@@ -196,12 +245,7 @@ const Members: React.FC = () => {
 
           <div className="members-grid">
             {filteredMembers.map((member) => {
-              const mockBadgeCount = member.badges?.length || 0;
-              const attributedBadgeCount = state.badgeAttributions.filter(
-                a => a.participantId === member.id
-              ).length;
-              const totalBadgeCount = mockBadgeCount + attributedBadgeCount;
-              
+              const totalBadgeCount = member.badges?.length || 0;
               return (
                 <MemberCard
                   key={member.id}
@@ -235,8 +279,6 @@ const Members: React.FC = () => {
           </div>
         </div>
       )}
-
-
 
       {selectedMember && (
         <MemberModal

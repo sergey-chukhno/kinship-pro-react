@@ -65,19 +65,6 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
             </div>
           </div>
         )}
-
-        <div className="kinship-selector">
-          <select
-            className="kinship-select"
-            value={state.showingPageType}
-            onChange={(e) => setShowingPageType(e.target.value as 'pro' | 'edu' | 'teacher' | 'user')}
-          >
-            <option value="pro">Kinship Pro</option>
-            <option value="edu">Kinship Edu</option>
-            <option value="teacher">Kinship Teacher</option>
-            <option value="user">Kinship User</option>
-          </select>
-        </div>
       </div>
     </header>
   );
