@@ -43,6 +43,7 @@ const MainLayout: React.FC = () => {
       root.style.setProperty("--primary", "#db087cff"); // rose pour user
       root.style.setProperty("--hover-primary", "#b20666ff");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]); // Cette dépendance permet de réagir aux changements de showingPageType
 
   /*
