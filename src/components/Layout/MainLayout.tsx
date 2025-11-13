@@ -20,8 +20,6 @@ import { useAuthInit } from '../../hooks/useAuthInit';
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage, setShowingPageType } = useAppContext();
 
-  // useAuthInit();
-
   // Gérer les changements de showingPageType
   useEffect(() => {
     const root = document.documentElement;
@@ -45,16 +43,6 @@ const MainLayout: React.FC = () => {
       root.style.setProperty("--hover-primary", "#b20666ff");
     }
   }, [state.showingPageType]); // Cette dépendance permet de réagir aux changements de showingPageType
-
-  /*
-  useEffect(() => {
-    const handleUnauthorized = () => {
-      setCurrentPage('Auth');
-    };
-    window.addEventListener('unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('unauthorized', handleUnauthorized);
-  }, [setCurrentPage]);
-  */
 
   const renderCurrentPage = () => {
     switch (state.currentPage) {
