@@ -1,24 +1,24 @@
 import React, { useEffect } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
-import Sidebar from './Sidebar';
-import Dashboard from '../Pages/Dashboard';
-import Members from '../Pages/Members';
-import Events from '../Pages/Events';
-import Projects from '../Pages/Projects';
-import Badges from '../Pages/Badges';
 import Analytics from '../Pages/Analytics';
+import AuthPage from '../Pages/AuthPage';
+import Badges from '../Pages/Badges';
+import Dashboard from '../Pages/Dashboard';
+import Events from '../Pages/Events';
+import Members from '../Pages/Members';
+import MembershipRequests from '../Pages/MembershipRequests';
 import Network from '../Pages/Network';
 import Notifications from '../Pages/Notifications';
-import Settings from '../Pages/Settings';
-import MembershipRequests from '../Pages/MembershipRequests';
 import ProjectManagement from '../Pages/ProjectManagement';
+import Projects from '../Pages/Projects';
+import Settings from '../Pages/Settings';
 import './MainLayout.css';
+import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
-import AuthPage from '../Pages/AuthPage';
-import { useAuthInit } from '../../hooks/useAuthInit';
 
 const MainLayout: React.FC = () => {
-  const { state, setCurrentPage, setShowingPageType } = useAppContext();
+  const { state, setCurrentPage} = useAppContext();
 
   // useAuthInit();
 
@@ -44,7 +44,9 @@ const MainLayout: React.FC = () => {
       root.style.setProperty("--primary", "#db087cff"); // rose pour user
       root.style.setProperty("--hover-primary", "#b20666ff");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]); // Cette dépendance permet de réagir aux changements de showingPageType
+
 
   /*
   useEffect(() => {
@@ -89,21 +91,33 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="app-container" data-theme={state.theme}>
-      {state.showingPageType === 'user' && state.currentPage !== 'Auth' && (
-        <UserHeader currentPage={state.currentPage} onPageChange={setCurrentPage} />
-      )}
+      <Routes>
+        {/* Routes d'authentification */}
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="/register" element={<AuthPage />} />
+        <Route path="/register/:registerType" element={<AuthPage />} />
+        
+        {/* Routes principales de l'application */}
+        <Route path="*" element={
+          <>
+            {state.showingPageType === 'user' && state.currentPage !== 'Auth' && (
+              <UserHeader currentPage={state.currentPage} onPageChange={setCurrentPage} />
+            )}
 
-      <div
-        className={`app-body ${
-          state.showingPageType === 'user' ? 'no-sidebar' : 'with-sidebar'
-        }`}
-      >
-        {state.showingPageType !== 'user' && state.currentPage !== 'Auth' && (
-          <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
-        )}
+            <div
+              className={`app-body ${
+                state.showingPageType === 'user' ? 'no-sidebar' : 'with-sidebar'
+              }`}
+            >
+              {state.showingPageType !== 'user' && state.currentPage !== 'Auth' && (
+                <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
+              )}
 
-        <main className="dashboard app-layout">{renderCurrentPage()}</main>
-      </div>
+              <main className="dashboard app-layout">{renderCurrentPage()}</main>
+            </div>
+          </>
+        } />
+      </Routes>
     </div>
   );
 };

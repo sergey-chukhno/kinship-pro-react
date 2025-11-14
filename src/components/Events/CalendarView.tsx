@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Event } from '../../types';
 import './CalendarView.css';
 
@@ -99,7 +99,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+    // const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
 
@@ -192,7 +192,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   const renderDayView = () => {
-    const dayEvents = getEventsForDate(viewDate);
+    // const dayEvents = getEventEventsForDate(viewDate);
     const hours = Array.from({ length: 24 }, (_, i) => i);
     
     return (

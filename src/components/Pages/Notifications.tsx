@@ -6,7 +6,7 @@ import NotificationCard from '../Notifications/NotificationCard';
 import './Notifications.css';
 
 const Notifications: React.FC = () => {
-  const { state, markNotificationAsRead } = useAppContext();
+  const { markNotificationAsRead } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'event' | 'project' | 'badge' | 'system'>('all');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'read' | 'unread'>('all');

@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useParams, useNavigate, useLocation } from "react-router-dom"
 import "./AuthPage.css"
 import { login } from "../../api/Authentication"
 import PersonalUserRegisterForm from "../RegisterForm/PersonalUserRegisterForm"
@@ -19,6 +20,10 @@ interface LoginData {
 }
 
 const AuthPage: React.FC = () => {
+  const { registerType: urlRegisterType } = useParams<{ registerType?: string }>()
+  const navigate = useNavigate()
+  const location = useLocation()
+
   const [isLogin, setIsLogin] = useState(false)
   const [registerType, setRegisterType] = useState<RegisterType>("")
   const [loginData, setLoginData] = useState<LoginData>({
@@ -26,6 +31,20 @@ const AuthPage: React.FC = () => {
     password: "",
   })
   const { setCurrentPage, setShowingPageType } = useAppContext()
+
+  // Synchroniser le type de formulaire avec l'URL
+  useEffect(() => {
+    if (location.pathname === "/login") {
+      setIsLogin(true)
+      setRegisterType("")
+    } else if (location.pathname === "/register") {
+      setIsLogin(false)
+      setRegisterType("")
+    } else if (urlRegisterType && ["user", "teacher", "school", "company"].includes(urlRegisterType)) {
+      setIsLogin(false)
+      setRegisterType(urlRegisterType as RegisterType)
+    }
+  }, [location.pathname, urlRegisterType])
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -68,12 +87,11 @@ const AuthPage: React.FC = () => {
   }
 
   const navigateToRegisterType = (type: RegisterType) => {
-    setIsLogin(false)
-    setRegisterType(type)
+    navigate(`/register/${type}`)
   }
 
   const handleBackToSelection = () => {
-    setRegisterType("")
+    navigate("/register")
   }
 
   const renderRegisterForm = () => {
@@ -82,37 +100,37 @@ const AuthPage: React.FC = () => {
         <div className="register-type-grid">
           <div className="register-grid">
             {/* Teacher en haut à gauche */}
-            <button className="register-type-card register-teacher" onClick={() => setRegisterType("teacher")}>
+            <button className="register-type-card register-teacher" onClick={() => navigateToRegisterType("teacher")}>
               <h3 className="register-card-title">Enseignant</h3>
               <p className="register-card-description">
                 Créez votre profil d'enseignant et partagez vos compétences avec votre réseau
               </p>
-              <button className="register-card-button register-teacher-button">Je veux découvrir l'outil</button>
+              <button className="register-card-button register-teacher-button" type="button">Je veux découvrir l'outil</button>
             </button>
 
-            <button className="register-type-card register-user" onClick={() => setRegisterType("user")}>
+            <button className="register-type-card register-user" onClick={() => navigateToRegisterType("user")}>
               <h3 className="register-card-title">Personal User</h3>
               <p className="register-card-description">
                 Inscrivez-vous en tant qu'utilisateur personnel pour accéder à toutes les fonctionnalités de la
                 plateforme
               </p>
-              <button className="register-card-button register-user-button">Je veux découvrir l'outil</button>
+              <button className="register-card-button register-user-button" type="button">Je veux découvrir l'outil</button>
             </button>
 
-            <button className="register-type-card register-partner" onClick={() => setRegisterType("school")}>
+            <button className="register-type-card register-partner" onClick={() => navigateToRegisterType("school")}>
               <h3 className="register-card-title">Ecole</h3>
               <p className="register-card-description">
                 Enregistrez votre établissement scolaire et connectez-vous avec la communauté
               </p>
-              <button className="register-card-button register-partner-button">Je veux découvrir l'outil</button>
+              <button className="register-card-button register-partner-button" type="button">Je veux découvrir l'outil</button>
             </button>
 
-            <button className="register-type-card register-volunteer" onClick={() => setRegisterType("company")}>
+            <button className="register-type-card register-volunteer" onClick={() => navigateToRegisterType("company")}>
               <h3 className="register-card-title">Organisation</h3>
               <p className="register-card-description">
                 Inscrivez votre entreprise et proposez des opportunités de collaboration
               </p>
-              <button className="register-card-button register-volunteer-button">Je veux découvrir l'outil</button>
+              <button className="register-card-button register-volunteer-button" type="button">Je veux découvrir l'outil</button>
             </button>
           </div>
         </div>
@@ -162,6 +180,16 @@ const AuthPage: React.FC = () => {
         <button type="submit" className="submit-button">
           Se connecter
         </button>
+
+        <button
+          type="button"
+          className="toggle-button"
+          onClick={() => {
+            navigate("/register")
+          }}
+        >
+          Pas encore de compte ? S'inscrire
+        </button>
       </form>
     </div>
   )
@@ -171,7 +199,9 @@ const AuthPage: React.FC = () => {
       <header className="auth-header">
         <div className="auth-header-content">
           <div className="auth-header-logo">
-            <img className="auth-header-logo-image" src="Kinship_logo.png" alt="Kinship Logo" />
+            <a href="/">
+              <img className="auth-header-logo-image" src="/Kinship_logo.png" alt="Kinship Logo" />
+            </a>
           </div>
 
           <nav className="auth-header-nav">
@@ -190,8 +220,7 @@ const AuthPage: React.FC = () => {
             <button
               className="auth-header-button"
               onClick={() => {
-                setIsLogin(true)
-                setRegisterType("")
+                navigate("/login")
               }}
             >
               Je me connecte

@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { AppState, PageType, ShowingPageType, FilterOptions, Member, Project, Event, Badge, Notification, MembershipRequest, BadgeAttribution } from '../types';
-import { mockMembers, mockProjects, mockEvents, mockBadges, mockNotifications, mockMembershipRequests } from '../data/mockData';
+import React, { createContext, ReactNode, useContext, useReducer } from 'react';
+import { mockBadges, mockEvents, mockMembers, mockMembershipRequests, mockNotifications, mockProjects } from '../data/mockData';
+import { AppState, Badge, BadgeAttribution, Event, FilterOptions, Member, PageType, Project, ShowingPageType } from '../types';
 
 interface AppContextType {
   state: AppState;

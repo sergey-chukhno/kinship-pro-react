@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { useAppContext } from '../../context/AppContext';
-import OrganizationCard from '../Network/OrganizationCard';
-import PartnershipModal from '../Modals/PartnershipModal';
 import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
+import PartnershipModal from '../Modals/PartnershipModal';
+import OrganizationCard from '../Network/OrganizationCard';
 import './Network.css';
 
 interface Organization {
@@ -21,7 +20,7 @@ interface Organization {
 }
 
 const Network: React.FC = () => {
-  const { state } = useAppContext();
+  // const { state } = useAppContext();
   const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');

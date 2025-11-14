@@ -19,13 +19,13 @@ const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete 
     return '#6b7280';
   };
 
-  const getLevelIcon = (level: string) => {
-    if (level.includes('Niveau 1')) return 'fas fa-seedling';
-    if (level.includes('Niveau 2')) return 'fas fa-leaf';
-    if (level.includes('Niveau 3')) return 'fas fa-tree';
-    if (level.includes('Niveau 4')) return 'fas fa-crown';
-    return 'fas fa-award';
-  };
+  // const getLevelIcon = (level: string) => {
+  //   if (level.includes('Niveau 1')) return 'fas fa-seedling';
+  //   if (level.includes('Niveau 2')) return 'fas fa-leaf';
+  //   if (level.includes('Niveau 3')) return 'fas fa-tree';
+  //   if (level.includes('Niveau 4')) return 'fas fa-crown';
+  //   return 'fas fa-award';
+  // };
 
   return (
     <div className="badge-card-vertical" onClick={onClick}>

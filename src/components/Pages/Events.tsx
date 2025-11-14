@@ -112,10 +112,10 @@ const Events: React.FC = () => {
     console.log('Export events');
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    // TODO: Show notification
-  };
+  // const handleCopyLink = () => {
+  //   navigator.clipboard.writeText(window.location.href);
+  //   // TODO: Show notification
+  // };
 
   return (
     <section className="events-container with-sidebar">

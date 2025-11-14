@@ -114,12 +114,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 </div>
               ))}
             </div>
-            <a href="#" className="menu-item" onClick={(e) => { e.preventDefault(); onPageChange('settings'); }}>
+            <button type="button" className="menu-item" onClick={() => onPageChange('settings')}>
               <i className="fas fa-cog"></i> Paramètres
-            </a>
-            <a href="#" className="menu-item">
+            </button>
+            <button type="button" className="menu-item" onClick={() => console.log('Logout')}>
               <i className="fas fa-sign-out-alt"></i> Se déconnecter
-            </a>
+            </button>
           </div>
         </div>
       </div>

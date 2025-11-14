@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MembershipRequest } from '../../types';
+import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import RolePill from '../UI/RolePill';
 import './MembershipRequests.css';

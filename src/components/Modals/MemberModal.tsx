@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Member, Badge, BadgeAttribution } from '../../types';
 import { useAppContext } from '../../context/AppContext';
-import RolePill from '../UI/RolePill';
 import { mockBadges } from '../../data/mockData';
+import { Badge, Member } from '../../types';
+import RolePill from '../UI/RolePill';
 import './Modal.css';
 
 interface MemberModalProps {
@@ -50,7 +50,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
     };
     return descriptions[title] || 'BADGE ATTRIBUÉ POUR RECONNAÎTRE LES COMPÉTENCES DÉVELOPPÉES DANS CE DOMAINE.';
   };
-  const [showAllBadges, setShowAllBadges] = useState(false);
+  // const [showAllBadges, setShowAllBadges] = useState(false);
   const [expandedDescriptions, setExpandedDescriptions] = useState<{ [key: string]: boolean }>({});
   const [showAllBadgeGroups, setShowAllBadgeGroups] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -72,7 +72,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
     canProposeStage: member.canProposeStage || false,
     canProposeAtelier: member.canProposeAtelier || false
   });
-  const BADGES_LIMIT = 6; // Show only 6 badges initially
+  // const BADGES_LIMIT = 6; // Show only 6 badges initially
 
   const getRoleColor = (role: string) => {
     switch (role) {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { mockMembers } from '../../data/mockData';
 import { Member } from '../../types';
 import './Modal.css';

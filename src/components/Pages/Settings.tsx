@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { useAppContext } from '../../context/AppContext';
-import UserManagement from '../Settings/UserManagement';
 import SubscriptionManagement from '../Settings/SubscriptionManagement';
+import UserManagement from '../Settings/UserManagement';
 import './Settings.css';
 
 const Settings: React.FC = () => {
-  const { state } = useAppContext();
+  // const { state } = useAppContext();
   const [activeTab, setActiveTab] = useState<'users' | 'subscription'>('users');
 
   const handleTabChange = (tab: 'users' | 'subscription') => {

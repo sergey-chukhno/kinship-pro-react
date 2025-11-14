@@ -441,6 +441,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
       setAvailableTitles([]);
     }
     setTitle('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [series, level, domain]);
 
   // Update badge preview when selection changes
@@ -482,6 +483,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
         detailedDescription: ""
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [series, level, domain, title]);
 
   // Update available savoir-faires for TouKouLeur series
@@ -492,6 +494,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
       setAvailableSavoirFaires([]);
     }
     setSavoirFaire('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [series, level, title]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
