@@ -1,8 +1,10 @@
 "use client"
 
 import React, { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { getCompanyRoles } from "../../api/RegistrationRessource"
 import { submitCompanyRegistration } from "../../api/Authentication"
+import { privatePolicy } from "../../data/PrivacyPolicy"
 import "./CommonForms.css"
 
 const tradFR = {
@@ -25,6 +27,9 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     role: "",
     acceptPrivacyPolicy: false,
   })
+
+  const longPolicyText = privatePolicy
+  const navigate = useNavigate()
 
   const [company, setCompany] = useState({
     companyName: "",
@@ -120,7 +125,23 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <button type="button" onClick={onBack} className="back-button">
           ← Retour
         </button>
-        <h2 className="form-title">Inscription Entreprise</h2>
+        <h2 className="form-title">Inscription Organisation</h2>
+      </div>
+
+      <div className="form-step visible">
+        <p>
+          Cette application se conforme au Règlement Européen sur la Protection des Données Personnelles et à la loi informatique et Libertés du Nº78-17 du 6 janvier 1978.
+          Responsable des traitements : DASEN pour les écoles publiques ou chef d'établissement pour les écoles privées. Traitements réalisés par Kinship en qualité de sous-traitant.
+        </p>
+        <p>
+          Vous pouvez exercer vos droits sur les données qui vous concernent auprès du responsable des traitements.
+        </p>
+        <p>
+          Vous pouvez également interpeller la <a href="https://www.cnil.fr/fr">CNIL</a> en tant qu'autorité de contrôle.
+        </p>
+        <p>
+          Plus de détails sur le portail : <a href="/privacy-policy">Politique de protection des données de Kinship</a>
+        </p>
       </div>
 
       <div className={`form-step ${currentStep >= 1 ? "visible" : ""}`}>
@@ -325,6 +346,19 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       {currentStep >= 4 && (
         <div className="form-step visible">
           <h3 className="step-title">Politique de confidentialité</h3>
+          <div className="privacy-policy-scroll-box">
+            <pre>{longPolicyText}</pre>
+            <button
+              type="button"
+              onClick={() => {
+                navigate("/CGU")
+              }}
+              className="pur-button"
+            >
+              CGU
+            </button>
+          </div>
+
           <label className="checkbox-toggle">
             <input
               type="checkbox"

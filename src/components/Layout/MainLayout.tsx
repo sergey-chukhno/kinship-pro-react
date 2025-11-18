@@ -96,7 +96,10 @@ const MainLayout: React.FC = () => {
         <Route path="/login" element={<AuthPage />} />
         <Route path="/register" element={<AuthPage />} />
         <Route path="/register/:registerType" element={<AuthPage />} />
-        
+        <Route path="/privacy-policy" element={<AuthPage />} />
+        <Route path='/CGU' element={<AuthPage/>}/>
+
+
         {/* Routes principales de l'application */}
         <Route path="*" element={
           <>
@@ -113,7 +116,9 @@ const MainLayout: React.FC = () => {
                 <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
               )}
 
-              <main className="dashboard app-layout">{renderCurrentPage()}</main>
+              <main className="dashboard app-layout">
+                {renderCurrentPage()}
+              </main>
             </div>
           </>
         } />

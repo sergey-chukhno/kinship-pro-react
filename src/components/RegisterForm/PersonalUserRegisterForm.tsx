@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   getSkills,
   getSubSkills,
@@ -11,6 +12,7 @@ import {
 } from "../../api/RegistrationRessource"
 import { submitPersonalUserRegistration } from "../../api/Authentication"
 import "./PersonalUserRegisterForm.css"
+import { privatePolicy } from "../../data/PrivacyPolicy"
 
 interface ChildInfo {
   childFirstName: string
@@ -36,6 +38,14 @@ interface SkillsState {
   selectedSubSkills: number[]
 }
 
+interface PasswordCriteria {
+  minLength: boolean
+  lowercase: boolean
+  uppercase: boolean
+  specialChar: boolean
+  match: boolean
+}
+
 const tradFR: Record<string, string> = {
   parent: "Parent",
   grand_parent: "Grand-parent",
@@ -44,15 +54,25 @@ const tradFR: Record<string, string> = {
   tutor: "Tuteur",
   employee: "Salarié",
   other: "Autre",
+  monday: "Lundi",
+  tuesday: "Mardi",
+  wednesday: "Mercredi",
+  thursday: "Jeudi",
+  friday: "Vendredi",
 }
 
+const longPolicyText = privatePolicy
+
 const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  // ... (tous vos états et hooks useState/useEffect restent les mêmes) ...
   const [currentStep, setCurrentStep] = useState(1)
   const [showSkills, setShowSkills] = useState(false)
   const [showAvailability, setShowAvailability] = useState(false)
   const [showSchools, setShowSchools] = useState(false)
   const [showCompanies, setShowCompanies] = useState(false)
   const [showChildren, setShowChildren] = useState(false)
+
+  const navigate = useNavigate()
 
   const [user, setUser] = useState({
     email: "",
@@ -64,6 +84,9 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     role: "",
     job: "",
     acceptPrivacyPolicy: false,
+    proposeWorkshop: false, // <- NOUVEAU
+    takeTrainee: false, // <- NOUVEAU
+    companyName: ""
   })
 
   const [availability, setAvailability] = useState<availability>({
@@ -78,6 +101,13 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   const [skills, setSkills] = useState<SkillsState>({
     selectedSkills: [],
     selectedSubSkills: [],
+  })
+  const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
+    minLength: false,
+    lowercase: false,
+    uppercase: false,
+    specialChar: false,
+    match: false,
   })
 
   const [skillList, setSkillList] = useState<{ id: number; name: string }[]>([])
@@ -94,6 +124,26 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
 
   const [selectedSchoolsList, setSelectedSchoolsList] = useState<{ id: number; name: string }[]>([])
   const [selectedCompaniesList, setSelectedCompaniesList] = useState<{ id: number; name: string }[]>([])
+
+  // ⬇️ AJOUT : useEffect pour la validation du mot de passe
+  useEffect(() => {
+    const { password, passwordConfirmation } = user
+
+    const minLength = password.length >= 8
+    const lowercase = /[a-z]/.test(password)
+    const uppercase = /[A-Z]/.test(password)
+    const specialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    // Le match n'est vrai que si les deux sont identiques ET que le champ n'est pas vide
+    const match = password.length > 0 && password === passwordConfirmation
+
+    setPasswordCriteria({
+      minLength,
+      lowercase,
+      uppercase,
+      specialChar,
+      match,
+    })
+  }, [user.password, user.passwordConfirmation])
 
   useEffect(() => {
     const fetchSkills = async () => {
@@ -200,12 +250,21 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   }, [])
 
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target
-    setUser((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
-    }))
-  }
+      const { name, value, type } = e.target
+      let finalValue: string | boolean = value
+
+      if (type === "checkbox") {
+        finalValue = (e.target as HTMLInputElement).checked
+      } else if (type === "radio" && (value === "true" || value === "false")) {
+        // Convertit les chaînes "true"/"false" des radios en booléens
+        finalValue = value === "true"
+      }
+
+      setUser((prev) => ({
+        ...prev,
+        [name]: finalValue,
+      }))
+    }
 
   const handleAvailabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target
@@ -315,10 +374,10 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   }
 
   const handleNext = () => {
-    if (currentStep === 1 && isStep1Valid()) {
-      setCurrentStep(2)
-    } else if (currentStep === 2 && isStep2Valid()) {
+    if (currentStep === 2 && isStep1Valid()) {
       setCurrentStep(3)
+    } else if (currentStep === 1 && isStep2Valid()) {
+      setCurrentStep(2)
     } else if (currentStep === 3) {
       if (showSkills && skills.selectedSkills.length === 0) return
       setCurrentStep(4)
@@ -333,7 +392,9 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       setCurrentStep(7)
     } else if (currentStep === 7) {
       if (showChildren && childrenInfo.length === 0) return
-      setCurrentStep(8)
+      setCurrentStep(8) // <- Va à la nouvelle étape 8
+    } else if (currentStep === 8) {
+      setCurrentStep(9) // <- Va à la politique de confidentialité (étape 9)
     }
   }
 
@@ -368,8 +429,49 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         <h2 className="pur-title">Inscription Utilisateur Personnel</h2>
       </div>
 
-      {/* Step 1: Informations personnelles */}
-      <div className={`form-step ${currentStep >= 1 ? "visible" : ""}`}>
+      <div className="form-step visible">
+        <p>
+          Cette application se conforme au Règlement Européen sur la Protection des Données Personnelles et à la loi
+          informatique et Libertés du Nº78-17 du 6 janvier 1978. Responsable des traitements : DASEN pour les écoles
+          publiques ou chef d'établissement pour les écoles privées. Traitements réalisés par Kinship en qualité de
+          sous-traitant.
+        </p>
+        <p>
+          Vous pouvez exercer vos droits sur les données qui vous concernent auprès du responsable des traitements.
+        </p>
+        <p>
+          Vous pouvez également interpeller la <a href="https://www.cnil.fr/fr">CNIL</a> en tant qu'autorité de contrôle.
+        </p>
+        <p>
+          Plus de détails sur le portail : <a href="/privacy-policy">Politique de protection des données de Kinship</a>
+        </p>
+      </div>
+
+      {/* Step 1: Rôle avec boutons radio en grille */}
+      {currentStep >= 1 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Je suis un(e) :</h3>
+          <div className="role-grid">
+            {personalUserRoles.map((role) => (
+              <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name="role"
+                  value={role.value}
+                  checked={user.role === role.value}
+                  onChange={handleUserChange}
+                  required
+                />
+                <span className="role-label">{tradFR[role.value] || role.value}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+
+      {/* Step 2: Informations personnelles */}
+      <div className={`form-step ${currentStep >= 2 ? "visible" : ""}`}>
         <h3 className="step-title">Mes Informations personnelles</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="form-field">
@@ -408,19 +510,10 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               onChange={handleUserChange}
               required
             />
+            <p>Vous devez avoir plus de 13 ans pour vous inscrire</p>
           </div>
 
-          <div className="form-field">
-            <label className="form-label">Mon Métier</label>
-            <input
-              className="pur-input"
-              type="text"
-              name="job"
-              placeholder="Votre métier"
-              value={user.job}
-              onChange={handleUserChange}
-            />
-          </div>
+
 
           <div className="form-field full-width">
             <label className="form-label">Email Personnel *</label>
@@ -460,33 +553,34 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               required
             />
           </div>
+
+          <div className="password-criteria-list">
+            <ul>
+              <li className={passwordCriteria.minLength ? 'valid' : 'invalid'}>
+                {passwordCriteria.minLength ? '✅' : '❌'} 8 caractères minimum
+              </li>
+              <li className={passwordCriteria.lowercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.lowercase ? '✅' : '❌'} Une lettre minuscule
+              </li>
+              <li className={passwordCriteria.uppercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.uppercase ? '✅' : '❌'} Une lettre majuscule
+              </li>
+              <li className={passwordCriteria.specialChar ? 'valid' : 'invalid'}>
+                {passwordCriteria.specialChar ? '✅' : '❌'} Un caractère spécial (!@#...)
+              </li>
+              {/* On n'affiche le critère de match que si l'utilisateur a commencé à taper la confirmation */}
+              {(user.password.length > 0 || user.passwordConfirmation.length > 0) && (
+                <li className={passwordCriteria.match ? 'valid' : 'invalid'}>
+                  {passwordCriteria.match ? '✅' : '❌'} Les mots de passe sont identiques
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
 
-      {/* Step 2: Rôle avec boutons radio en grille */}
-      {currentStep >= 2 && (
-        <div className="form-step visible">
-          <h3 className="step-title">Je suis un(e) :</h3>
-          <div className="role-grid">
-            {personalUserRoles.map((role) => (
-              <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
-                <input
-                  type="radio"
-                  name="role"
-                  value={role.value}
-                  checked={user.role === role.value}
-                  onChange={handleUserChange}
-                  required
-                />
-                <span className="role-label">{tradFR[role.value] || role.value}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Step 3: Compétences (step séparé avec toggle switch et grille 2 colonnes) */}
-      {currentStep >= 3 && (
+      {currentStep >= 1 && (
         <div className="form-step visible">
           <h3 className="step-title">Mes Compétences</h3>
           <label className="toggle-switch-form">
@@ -497,38 +591,39 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
 
           {showSkills && (
             <div className="pur-field">
-              <div
-                className="skills-container"
-                style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px" }}
-              >
+              <div className="skills-inline-container">
                 {skillList.map((skill) => {
                   const skillId = Number(skill.id)
                   const isSelected = skills.selectedSkills.includes(skillId)
                   const relatedSubs = skillSubList.filter((s) => s.parent_skill_id === skillId)
 
                   return (
-                    <div key={skillId} className="skill-category">
-                      <button
-                        type="button"
-                        onClick={() => toggleSkill(skillId)}
-                        className={`skill-main ${isSelected ? "skill-main--selected" : ""}`}
-                      >
-                        {skill.name}
-                      </button>
+                    <div key={skillId} className="skill-row">
+                      <label className={`skill-checkbox-inline ${isSelected ? 'selected' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSkill(skillId)}
+                        />
+                        <span className="skill-name-inline">{skill.name}</span>
+                      </label>
 
                       {isSelected && relatedSubs.length > 0 && (
-                        <div className="subskills-container">
+                        <div className="subskills-inline">
                           {relatedSubs.map((sub) => {
                             const isSubSelected = skills.selectedSubSkills.includes(sub.id)
                             return (
-                              <button
+                              <label
                                 key={sub.id}
-                                type="button"
-                                onClick={() => toggleSubSkill(sub.id, sub.parent_skill_id)}
-                                className={`skill-sub ${isSubSelected ? "skill-sub--selected" : ""}`}
+                                className={`subskill-checkbox-inline ${isSubSelected ? 'selected' : ''}`}
                               >
-                                {sub.name}
-                              </button>
+                                <input
+                                  type="checkbox"
+                                  checked={isSubSelected}
+                                  onChange={() => toggleSubSkill(sub.id, sub.parent_skill_id)}
+                                />
+                                <span className="subskill-name-inline">{sub.name}</span>
+                              </label>
                             )
                           })}
                         </div>
@@ -547,7 +642,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         <div className="form-step visible">
           <h3 className="step-title">Mes Disponibilités</h3>
           <label className="toggle-switch-form">
-            <span>Je veux ajouter mes disponibilités</span>
+            <span>Je suis disponible pour aider ou accompagner une organisation ou une école de mon réseau Kinship</span>
             <input type="checkbox" checked={showAvailability} onChange={(e) => setShowAvailability(e.target.checked)} />
             <span className="toggle-slider"></span>
           </label>
@@ -563,7 +658,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
                       checked={(availability as any)[day]}
                       onChange={handleAvailabilityChange}
                     />
-                    <span className="pur-capitalize">{day}</span>
+                    <span className="pur-capitalize">{tradFR[day]}</span>
                   </label>
                 ))}
               </div>
@@ -708,34 +803,137 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         </div>
       )}
 
-      {/* Step 8: Politique de confidentialité (step séparé) */}
       {currentStep >= 8 && (
-        <label className="checkbox-toggle">
-          <input
-            type="checkbox"
-            name="acceptPrivacyPolicy"
-            checked={user.acceptPrivacyPolicy}
-            onChange={(e) =>
-              setUser((prev) => ({
-                ...prev,
-                acceptPrivacyPolicy: e.target.checked,
-              }))
-            }
-            required
-          />
-          <span>J'accepte la politique de confidentialité *</span>
-        </label>
+        <div className="form-step visible">
+          <h3 className="step-title">Mes informations de réseau</h3>
+
+          <fieldset className="pur-fieldset">
+            <div className="form-field">
+              <label className="form-label">Profession</label>
+              <input
+                className="pur-input"
+                type="text"
+                name="job"
+                placeholder="Profession"
+                value={user.job}
+                onChange={handleUserChange}
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Nom de votre entreprise</label>
+              <input
+                className="pur-input"
+                type="text"
+                name="companyName"
+                placeholder="Profession"
+                value={user.companyName}
+                onChange={handleUserChange}
+              />
+            </div>
+
+            <div className="form-field" style={{ marginTop: "20px" }}>
+              <label className="form-label">
+                Est-ce que je souhaite proposer des ateliers de découverte professionnelle ?
+              </label>
+              <div className="radio-group-inline">
+                <label className="pur-radio-label">
+                  <input
+                    type="radio"
+                    name="proposeWorkshop"
+                    value="true"
+                    checked={user.proposeWorkshop === true}
+                    onChange={handleUserChange}
+                  />
+                  <span>Oui</span>
+                </label>
+                <label className="pur-radio-label">
+                  <input
+                    type="radio"
+                    name="proposeWorkshop"
+                    value="false"
+                    checked={user.proposeWorkshop === false}
+                    onChange={handleUserChange}
+                  />
+                  <span>Non</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="form-field" style={{ marginTop: "20px" }}>
+              <label className="form-label">
+                Est-ce que mon entreprise peut prendre des jeunes en stage ?
+              </label>
+              <div className="radio-group-inline">
+                <label className="pur-radio-label">
+                  <input
+                    type="radio"
+                    name="takeTrainee"
+                    value="true"
+                    checked={user.takeTrainee === true}
+                    onChange={handleUserChange}
+                  />
+                  <span>Oui</span>
+                </label>
+                <label className="pur-radio-label">
+                  <input
+                    type="radio"
+                    name="takeTrainee"
+                    value="false"
+                    checked={user.takeTrainee === false}
+                    onChange={handleUserChange}
+                  />
+                  <span>Non</span>
+                </label>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+      )}
+
+      {currentStep >= 9 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Politique de confidentialité</h3>
+          <div className="privacy-policy-scroll-box">
+            <pre>{longPolicyText}</pre>
+            <button
+              type="button"
+              onClick={() => {
+                navigate("/CGU")
+              }}
+              className="pur-button"
+            >
+              CGU
+            </button>
+          </div>
+
+          <label className="checkbox-toggle">
+            <input
+              type="checkbox"
+              name="acceptPrivacyPolicy"
+              checked={user.acceptPrivacyPolicy}
+              onChange={(e) =>
+                setUser((prev) => ({
+                  ...prev,
+                  acceptPrivacyPolicy: e.target.checked,
+                }))
+              }
+              required
+            />
+            <span>J'accepte la politique de confidentialité *</span>
+          </label>
+        </div>
       )}
 
       <div className="form-actions">
-        {currentStep < 8 ? (
+        {currentStep < 9 ? (
           <button
             type="button"
             onClick={handleNext}
             className="pur-button"
             disabled={
-              (currentStep === 1 && !isStep1Valid()) ||
-              (currentStep === 2 && !isStep2Valid()) ||
+              (currentStep === 2 && !isStep1Valid()) ||
+              (currentStep === 1 && !isStep2Valid()) ||
               (currentStep === 3 && showSkills && skills.selectedSkills.length === 0) ||
               (currentStep === 4 && showAvailability && !Object.values(availability).some(Boolean)) ||
               (currentStep === 5 && showSchools && selectedSchoolsList.length === 0) ||

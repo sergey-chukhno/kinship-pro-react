@@ -52,9 +52,10 @@ export function submitPersonalUserRegistration(formData: formData) {
             role: formData.role,                // parent, grand-parent, voluntary, etc.
             job: formData.job,
             take_trainee: false,
-            propose_workshop: true,
+            propose_workshop: formData.proposeWorkshop || false,
             show_my_skills: true,
-            accept_privacy_policy: formData.acceptPrivacyPolicy || false
+            accept_privacy_policy: formData.acceptPrivacyPolicy || false,
+            company_name: formData.companyName
         },
         availability: formData.availability,
         skills: {

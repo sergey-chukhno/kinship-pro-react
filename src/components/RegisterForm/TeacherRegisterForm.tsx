@@ -1,10 +1,12 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { getTeacherRoles, getSchools } from "../../api/RegistrationRessource"
 import { submitTeacherRegistration } from "../../api/Authentication"
 import "./CommonForms.css"
 import "./PersonalUserRegisterForm.css"
+import { privatePolicy } from "../../data/PrivacyPolicy"
 
 interface availability {
   monday: boolean
@@ -37,6 +39,9 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     role: "",
     acceptPrivacyPolicy: false,
   })
+
+  const longPolicyText = privatePolicy
+  const navigate = useNavigate()
 
   const [availability, setAvailability] = useState<availability>({
     monday: false,
@@ -170,6 +175,22 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           ← Retour
         </button>
         <h2 className="form-title">Inscription Enseignant</h2>
+      </div>
+
+      <div className="form-step visible">
+        <p>
+          Cette application se conforme au Règlement Européen sur la Protection des Données Personnelles et à la loi informatique et Libertés du Nº78-17 du 6 janvier 1978.
+          Responsable des traitements : DASEN pour les écoles publiques ou chef d'établissement pour les écoles privées. Traitements réalisés par Kinship en qualité de sous-traitant.
+        </p>
+        <p>
+          Vous pouvez exercer vos droits sur les données qui vous concernent auprès du responsable des traitements.
+        </p>
+        <p>
+          Vous pouvez également interpeller la <a href="https://www.cnil.fr/fr">CNIL</a> en tant qu'autorité de contrôle.
+        </p>
+        <p>
+          Plus de détails sur le portail : <a href="/privacy-policy">Politique de protection des données de Kinship</a>
+        </p>
       </div>
 
       {/* Step 1 */}
@@ -352,6 +373,21 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {/* Step 5 */}
       {currentStep >= 5 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Politique de confidentialité</h3>
+          <div className="privacy-policy-scroll-box">
+            <pre>{longPolicyText}</pre>
+            <button
+              type="button"
+              onClick={() => {
+                navigate("/CGU")
+              }}
+              className="pur-button"
+            >
+              CGU
+            </button>
+          </div>
+
           <label className="checkbox-toggle">
             <input
               type="checkbox"
@@ -367,6 +403,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             />
             <span>J'accepte la politique de confidentialité *</span>
           </label>
+        </div>
       )}
 
       <div className="form-actions">

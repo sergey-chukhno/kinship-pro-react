@@ -9,10 +9,12 @@ import PersonalUserRegisterForm from "../RegisterForm/PersonalUserRegisterForm"
 import TeacherRegisterForm from "../RegisterForm/TeacherRegisterForm"
 import CompanyRegisterForm from "../RegisterForm/CompanyRegisterForm"
 import SchoolRegisterForm from "../RegisterForm/SchoolRegisterForm"
+import PrivacyPolicy from "../RegisterForm/PrivacyPolicy"
+import CGU from "../RegisterForm/CGU"
 import { useAppContext } from "../../context/AppContext"
 
 
-type RegisterType = "user" | "teacher" | "school" | "company" | ""
+type RegisterType = "user" | "teacher" | "school" | "company" | "privacy-policy" | "CGU" |""
 
 interface LoginData {
   email: string
@@ -43,6 +45,10 @@ const AuthPage: React.FC = () => {
     } else if (urlRegisterType && ["user", "teacher", "school", "company"].includes(urlRegisterType)) {
       setIsLogin(false)
       setRegisterType(urlRegisterType as RegisterType)
+    } else if (location.pathname === "/privacy-policy"){
+      setRegisterType("privacy-policy")
+    } else if (location.pathname === "/CGU"){
+      setRegisterType("CGU")
     }
   }, [location.pathname, urlRegisterType])
 
@@ -63,18 +69,22 @@ const AuthPage: React.FC = () => {
           if (response.data.user.available_contexts.user_dashboard) {
             setShowingPageType("user")
             setCurrentPage("projects")
+            navigate("/projects")
           }
           else if (response.data.user.available_contexts.teacher_dashboard) {
             setShowingPageType("teacher")
             setCurrentPage("dashboard")
+            navigate("/dashboard")
           }
           else if (response.data.user.available_contexts.schools?.length > 0) {
             setShowingPageType("edu")
             setCurrentPage("dashboard")
+            navigate("/dashboard")
           }
           else if (response.data.user.available_contexts.companies?.length > 0) {
             setShowingPageType("pro");
             setCurrentPage("dashboard");
+            navigate("/dashboard")
           }
         } else {
           alert("Échec de la connexion (simulation)")
@@ -100,37 +110,36 @@ const AuthPage: React.FC = () => {
         <div className="register-type-grid">
           <div className="register-grid">
             {/* Teacher en haut à gauche */}
-            <button className="register-type-card register-teacher" onClick={() => navigateToRegisterType("teacher")}>
-              <h3 className="register-card-title">Enseignant</h3>
-              <p className="register-card-description">
-                Créez votre profil d'enseignant et partagez vos compétences avec votre réseau
-              </p>
-              <button className="register-card-button register-teacher-button" type="button">Je veux découvrir l'outil</button>
-            </button>
-
             <button className="register-type-card register-user" onClick={() => navigateToRegisterType("user")}>
-              <h3 className="register-card-title">Personal User</h3>
+              <h3 className="register-card-title">Je suis un Parent, un Volontaire...</h3>
               <p className="register-card-description">
-                Inscrivez-vous en tant qu'utilisateur personnel pour accéder à toutes les fonctionnalités de la
-                plateforme
+                Devenez le partenaire idéal de l'école de vos enfants et mettez vos compétences, votre temps et votre réseau au service de vos enfants
               </p>
               <button className="register-card-button register-user-button" type="button">Je veux découvrir l'outil</button>
             </button>
 
-            <button className="register-type-card register-partner" onClick={() => navigateToRegisterType("school")}>
-              <h3 className="register-card-title">Ecole</h3>
+            <button className="register-type-card register-teacher" onClick={() => navigateToRegisterType("teacher")}>
+              <h3 className="register-card-title">Je suis un Enseignant</h3>
               <p className="register-card-description">
-                Enregistrez votre établissement scolaire et connectez-vous avec la communauté
+                Favorisez le passage à l'action de vos idées et de vos projets grace à la digitalisation de votre réseau local (parents d'élèves, partenaires associatifs et professionnels)
               </p>
-              <button className="register-card-button register-partner-button" type="button">Je veux découvrir l'outil</button>
+              <button className="register-card-button register-teacher-button" type="button">Je veux découvrir l'outil</button>
             </button>
 
             <button className="register-type-card register-volunteer" onClick={() => navigateToRegisterType("company")}>
-              <h3 className="register-card-title">Organisation</h3>
+              <h3 className="register-card-title">Je suis une Organisation, un Partenaire, un Professionnel...</h3>
               <p className="register-card-description">
-                Inscrivez votre entreprise et proposez des opportunités de collaboration
+                Valorisez vos activités en proposant des ateliers de découverte dans votre réseau ou en prenant des élèves en stage. Valoriser les compétences de vos membres.
               </p>
               <button className="register-card-button register-volunteer-button" type="button">Je veux découvrir l'outil</button>
+            </button>
+
+            <button className="register-type-card register-partner" onClick={() => navigateToRegisterType("school")}>
+              <h3 className="register-card-title">Je suis un Etablissement</h3>
+              <p className="register-card-description">
+                Créez votre réseau local en fédérant votre communauté (parents, associations, entreprises) et pilotez votre établissement en outillant votre équipe pour gérer les projets et mesurer l’impact sur les soft skills mobilisées par vos élèves.
+              </p>
+              <button className="register-card-button register-partner-button" type="button">Je veux découvrir l'outil</button>
             </button>
           </div>
         </div>
@@ -143,6 +152,8 @@ const AuthPage: React.FC = () => {
         {registerType === "teacher" && <TeacherRegisterForm onBack={handleBackToSelection} />}
         {registerType === "company" && <CompanyRegisterForm onBack={handleBackToSelection} />}
         {registerType === "school" && <SchoolRegisterForm onBack={handleBackToSelection} />}
+        {location.pathname.includes("/privacy-policy") && <PrivacyPolicy />}
+        {location.pathname.includes("/CGU") && <CGU />}
       </div>
     )
   }
