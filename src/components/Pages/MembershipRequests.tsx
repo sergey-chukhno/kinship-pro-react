@@ -1,14 +1,118 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import RolePill from '../UI/RolePill';
 import './MembershipRequests.css';
+import { getCompanyUserProfile } from '../../api/User';
+import { getCurrentUser } from '../../api/Authentication';
+import { acceptMember, getCompanyMembersPending } from '../../api/CompanyDashboard/Menbers';
+
+interface MembershipRequest {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  profession: string;
+  avatar: string;
+  requestedDate: string;
+  skills: string[];
+  availability: string[];
+  assignedRole: string;
+  status: 'pending';
+}
 
 const MembershipRequests: React.FC = () => {
-  const { state, acceptMembershipRequest, rejectMembershipRequest, updateMembershipRequestRole, setCurrentPage } = useAppContext();
+  const { acceptMembershipRequest, rejectMembershipRequest, updateMembershipRequestRole, setCurrentPage } = useAppContext();
+  const [requests, setRequests] = useState<MembershipRequest[]>([]);
   const [selectedRole, setSelectedRole] = useState<{ [key: string]: string }>({});
   const [openDropdowns, setOpenDropdowns] = useState<{ [key: string]: boolean }>({});
+  const [loading, setLoading] = useState(true);
+  
+  // 1. Ajout de l'état pour stocker l'ID de l'entreprise
+  const [companyId, setCompanyId] = useState<number | null>(null);
 
-  const pendingRequests = state.membershipRequests.filter(req => req.status === 'pending');
+  // --- Fetch des membres en attente (Pending) ---
+  useEffect(() => {
+    const fetchPendingMembers = async () => {
+      try {
+        setLoading(true);
+        const currentUser = await getCurrentUser();
+        const cId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+
+        if (!cId) return;
+
+        // 2. Sauvegarde de l'ID dans le state pour l'utiliser plus tard (dans handleAccept)
+        setCompanyId(cId);
+
+        // Récupération de la liste des membres en attente
+        const pendingRes = await getCompanyMembersPending(cId);
+        const basicPendingList = pendingRes.data.data || pendingRes.data || [];
+
+        const detailedRequests = await Promise.all(
+          basicPendingList.map(async (m: any) => {
+            try {
+              const profileRes = await getCompanyUserProfile(m.id, cId);
+              const profile = profileRes.data.data || profileRes.data;
+
+              // Traitement disponibilité
+              const availData = profile.availability || {};
+              const availabilityList: string[] = [];
+              if (availData.monday) availabilityList.push('Lundi');
+              if (availData.tuesday) availabilityList.push('Mardi');
+              if (availData.wednesday) availabilityList.push('Mercredi');
+              if (availData.thursday) availabilityList.push('Jeudi');
+              if (availData.friday) availabilityList.push('Vendredi');
+              if (availData.saturday) availabilityList.push('Samedi');
+              if (availData.sunday) availabilityList.push('Dimanche');
+              if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
+
+              // Traitement rôle
+              let rawRole = profile.role_in_company || m.role_in_company || 'Membre';
+              const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
+
+              return {
+                id: (profile.id || m.id).toString(),
+                firstName: profile.first_name,
+                lastName: profile.last_name,
+                email: profile.email,
+                profession: profile.job || 'Non renseigné',
+                avatar: profile.avatar_url || m.avatar_url || '',
+                requestedDate: profile.joined_at || new Date().toISOString(),
+                skills: profile.skills?.map((s: any) => s.name || s) || [],
+                availability: availabilityList,
+                assignedRole: displayRole,
+                status: 'pending'
+              } as MembershipRequest;
+
+            } catch (err) {
+              console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
+              return {
+                id: m.id.toString(),
+                firstName: m.first_name || 'Utilisateur',
+                lastName: m.last_name || '',
+                email: m.email || '',
+                profession: '',
+                avatar: m.avatar_url || '',
+                requestedDate: new Date().toISOString(),
+                skills: [],
+                availability: [],
+                assignedRole: 'Membre',
+                status: 'pending'
+              } as MembershipRequest;
+            }
+          })
+        );
+
+        const validRequests = detailedRequests.filter((r): r is MembershipRequest => r !== null);
+        setRequests(validRequests);
+      } catch (err) {
+        console.error('Erreur lors de la récupération des demandes:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPendingMembers();
+  }, []);
 
   const handleRoleChange = (requestId: string, role: string) => {
     setSelectedRole(prev => ({ ...prev, [requestId]: role }));
@@ -26,12 +130,32 @@ const MembershipRequests: React.FC = () => {
     setOpenDropdowns(prev => ({ ...prev, [requestId]: false }));
   };
 
-  const handleAccept = (requestId: string) => {
-    acceptMembershipRequest(requestId);
+  // 3. Correction de la fonction handleAccept
+  const handleAccept = async (requestId: string) => {
+    if (!companyId) {
+      console.error("ID de l'entreprise manquant");
+      return;
+    }
+
+    try {
+      // Appel API avec les deux IDs requis
+      await acceptMember(companyId, Number(requestId));
+
+      // Mise à jour locale de l'interface (suppression de la carte)
+      setRequests(prev => prev.filter(req => req.id !== requestId));
+    } catch (error) {
+      console.error("Erreur lors de l'acceptation du membre:", error);
+      alert("Une erreur est survenue lors de l'acceptation.");
+    }
   };
 
-  const handleReject = (requestId: string) => {
-    rejectMembershipRequest(requestId);
+  const handleReject = async (requestId: string) => {
+    try {
+      await rejectMembershipRequest(requestId);
+      setRequests(prev => prev.filter(req => req.id !== requestId));
+    } catch (error) {
+      console.error("Erreur lors du rejet:", error);
+    }
   };
 
   const getRoleColor = (role: string) => {
@@ -46,6 +170,7 @@ const MembershipRequests: React.FC = () => {
 
   return (
     <section className="membership-requests-container with-sidebar">
+      {/* ... Le reste du JSX reste identique ... */}
       <div className="membership-requests-header">
         <div className="section-title-left">
           <button 
@@ -61,7 +186,9 @@ const MembershipRequests: React.FC = () => {
       </div>
 
       <div className="membership-requests-content">
-        {pendingRequests.length === 0 ? (
+        {loading ? (
+          <div className="loading-state">Chargement des demandes...</div>
+        ) : requests.length === 0 ? (
           <div className="no-requests">
             <div className="no-requests-icon">
               <i className="fas fa-check-circle"></i>
@@ -71,7 +198,7 @@ const MembershipRequests: React.FC = () => {
           </div>
         ) : (
           <div className="requests-grid">
-            {pendingRequests.map((request) => (
+            {requests.map((request) => (
               <div key={request.id} className="request-card">
                 <div className="request-header">
                   <div className="request-avatar">
@@ -88,22 +215,30 @@ const MembershipRequests: React.FC = () => {
                 <div className="request-skills">
                   <h4>Compétences</h4>
                   <div className="skills-list">
-                    {request.skills.map((skill, index) => (
-                      <span key={index} className="skill-pill">
-                        {skill}
-                      </span>
-                    ))}
+                    {request.skills.length > 0 ? (
+                      request.skills.map((skill, index) => (
+                        <span key={index} className="skill-pill">
+                          {skill}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="no-data">Aucune compétence renseignée</span>
+                    )}
                   </div>
                 </div>
 
                 <div className="request-availability">
                   <h4>Disponibilités</h4>
                   <div className="availability-list">
-                    {request.availability.map((day, index) => (
-                      <span key={index} className="availability-pill">
-                        {day}
-                      </span>
-                    ))}
+                    {request.availability.length > 0 ? (
+                      request.availability.map((day, index) => (
+                        <span key={index} className="availability-pill">
+                          {day}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="no-data">Non spécifié</span>
+                    )}
                   </div>
                 </div>
 

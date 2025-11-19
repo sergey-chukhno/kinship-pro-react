@@ -89,25 +89,25 @@ const MemberCard: React.FC<MemberCardProps> = ({
               <div className="role-dropdown">
                 <div 
                   className={`role-option ${role === 'Admin' ? 'selected' : ''}`} 
-                  onClick={(e) => handleRoleSelect('Admin', e)}
+                  onClick={(e) => handleRoleSelect('admin', e)}
                 >
                   Admin
                 </div>
                 <div 
                   className={`role-option ${role === 'Référent' ? 'selected' : ''}`} 
-                  onClick={(e) => handleRoleSelect('Référent', e)}
+                  onClick={(e) => handleRoleSelect('referent', e)}
                 >
                   Référent
                 </div>
                 <div 
                   className={`role-option ${role === 'Membre' ? 'selected' : ''}`} 
-                  onClick={(e) => handleRoleSelect('Membre', e)}
+                  onClick={(e) => handleRoleSelect('member', e)}
                 >
                   Membre
                 </div>
                 <div 
                   className={`role-option ${role === 'Intervenant' ? 'selected' : ''}`} 
-                  onClick={(e) => handleRoleSelect('Intervenant', e)}
+                  onClick={(e) => handleRoleSelect('intervenant', e)}
                 >
                   Intervenant
                 </div>

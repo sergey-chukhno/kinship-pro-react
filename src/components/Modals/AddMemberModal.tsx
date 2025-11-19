@@ -1,11 +1,28 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Member } from '../../types';
 import './Modal.css';
+import { submitPersonalUserRegistration, getCurrentUser } from '../../api/Authentication';
+import { getSkills, getPersonalUserRoles } from '../../api/RegistrationRessource'; // 1. Import fetch roles
 
 interface AddMemberModalProps {
   onClose: () => void;
   onAdd: (member: Omit<Member, 'id'>) => void;
 }
+
+// Traduction identique à celle de PersonalUserRegisterForm.tsx pour l'affichage
+const tradFR: Record<string, string> = {
+  parent: "Parent",
+  grand_parent: "Grand-parent",
+  children: "Enfant",
+  voluntary: "Volontaire",
+  tutor: "Tuteur",
+  employee: "Salarié",
+  other: "Autre",
+  // Garder des fallbacks pour l'ancien système au cas où
+  admin: "Admin",
+  referent: "Référent", 
+  member: "Membre"
+};
 
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
   const [formData, setFormData] = useState({
@@ -13,7 +30,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
     lastName: '',
     email: '',
     profession: '',
-    roles: ['Membre'],
+    roles: [] as string[], // Sera rempli par le select
     skills: [] as string[],
     availability: [] as string[],
     avatar: '',
@@ -28,43 +45,67 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [isUsingDefaultAvatar, setIsUsingDefaultAvatar] = useState<boolean>(true);
+  
+  // State pour les données API
+  const [apiSkills, setApiSkills] = useState<{id: number, name: string}[]>([]);
+  const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]); // 2. State roles
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Correct competencies list from HTML dashboard
-  const competencies = [
-    'Informatique et Numériques',
-    'Créativité',
-    'Leadership',
-    'Collaboration',
-    'Innovation',
-    'Arts & Culture',
-    'Sport et initiation',
-    'Théâtre et communication',
-    'Journalisme et média',
-    'Cuisine et ses techniques',
-    'Bricolage & Jardinage',
-    'Danse et musique',
-    'Gestion et Formation',
-    'Audiovisuel & Cinéma',
-    'Fabrication d\'objets',
-    'Multilangues'
-  ];
+  // Chargement des Skills ET des Roles au montage
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // 1. Fetch Skills
+        const skillsRes = await getSkills();
+        const skillsData = skillsRes?.data?.data ?? skillsRes?.data ?? skillsRes ?? [];
+        if (Array.isArray(skillsData)) {
+          setApiSkills(skillsData.map((s: any) => ({ id: Number(s.id), name: s.name })));
+        }
+
+        // 2. Fetch Roles
+        const rolesRes = await getPersonalUserRoles();
+        const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
+        if (Array.isArray(rolesData)) {
+          setApiRoles(rolesData);
+          // Sélectionner le premier rôle par défaut si disponible
+          if (rolesData.length > 0) {
+            setFormData(prev => ({ ...prev, roles: [rolesData[0].value] }));
+          }
+        }
+      } catch (error) {
+        console.error("Erreur chargement données (skills/roles)", error);
+      }
+    };
+    fetchData();
+  }, []);
 
   const disponibilites = [
-    'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'
+    'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Autre'
   ];
 
-  // Generate default avatar based on role
+  const dayMapping: Record<string, string> = {
+    'Lundi': 'monday', 
+    'Mardi': 'tuesday', 
+    'Mercredi': 'wednesday',
+    'Jeudi': 'thursday', 
+    'Vendredi': 'friday', 
+    'Autre': 'other'
+  };
+
+  // Mise à jour de la génération d'avatar pour accepter les clés dynamiques
   const generateDefaultAvatar = (role: string, firstName: string, lastName: string) => {
-    const colors = {
-      'Admin': '#a855f7',        // Purple for Admin
-      'Référent': '#22c55e',     // Green for Référent  
-      'Membre': '#3b82f6',       // Blue for Membre
-      'Intervenant': '#fb923c'   // Orange for Intervenant
+    // Mapping de couleurs basique selon les rôles courants
+    const colors: Record<string, string> = {
+      'voluntary': '#3b82f6', // Bleu (Volontaire/Membre)
+      'employee': '#fb923c',  // Orange
+      'parent': '#22c55e',    // Vert
+      'tutor': '#a855f7',     // Violet
+      'default': '#6b7280'    // Gris par défaut
     };
     
     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-    const color = colors[role as keyof typeof colors] || colors['Membre'];
+    const color = colors[role] || colors['default'];
     
     return `data:image/svg+xml;base64,${btoa(`
       <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
@@ -82,16 +123,22 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
       
-      // Update avatar preview when role, firstName, or lastName changes and we're using default avatar
+      // Mise à jour de l'avatar si on change le nom/rôle
       if (isUsingDefaultAvatar && (name === 'roles' || name === 'firstName' || name === 'lastName')) {
         const firstName = name === 'firstName' ? value : formData.firstName;
         const lastName = name === 'lastName' ? value : formData.lastName;
-        const role = name === 'roles' ? value : formData.roles[0];
+        // Pour le select multiple 'roles', value est la valeur unique sélectionnée ici
+        const role = name === 'roles' ? value : (formData.roles[0] || 'voluntary');
         
         if (firstName && lastName) {
           const newAvatar = generateDefaultAvatar(role, firstName, lastName);
           setAvatarPreview(newAvatar);
         }
+      }
+      
+      // Cas spécifique pour le select qui renvoie une string unique mais qu'on stocke en array pour le UserType Member
+      if (name === 'roles') {
+         setFormData(prev => ({ ...prev, roles: [value] }));
       }
     }
   };
@@ -112,18 +159,18 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
 
   const handleResetToDefaultAvatar = () => {
     if (formData.firstName && formData.lastName) {
-      const defaultAvatar = generateDefaultAvatar(formData.roles[0], formData.firstName, formData.lastName);
+      const defaultAvatar = generateDefaultAvatar(formData.roles[0] || 'voluntary', formData.firstName, formData.lastName);
       setAvatarPreview(defaultAvatar);
       setFormData(prev => ({ ...prev, avatar: '' }));
       setIsUsingDefaultAvatar(true);
     }
   };
 
-  const handleSkillToggle = (skill: string) => {
+  const handleSkillToggle = (skillName: string) => {
     setSelectedSkills(prev => {
-      const newSkills = prev.includes(skill) 
-        ? prev.filter(s => s !== skill)
-        : [...prev, skill];
+      const newSkills = prev.includes(skillName) 
+        ? prev.filter(s => s !== skillName)
+        : [...prev, skillName];
       setFormData(prevData => ({ ...prevData, skills: newSkills }));
       return newSkills;
     });
@@ -139,40 +186,98 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const generateStrongPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "A1!";
+    for (let i = 0; i < 10; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
     if (!formData.firstName || !formData.lastName) {
       alert('Prénom et nom sont obligatoires');
       return;
     }
-    
     if (selectedSkills.length === 0) {
       alert('Veuillez sélectionner au moins une compétence');
       return;
     }
-    
     if (selectedAvailability.length === 0) {
       alert('Veuillez sélectionner au moins une disponibilité');
       return;
     }
 
-    // Generate default avatar if no avatar selected
-    const finalAvatar = formData.avatar || generateDefaultAvatar(
-      formData.roles[0], 
-      formData.firstName, 
-      formData.lastName
-    );
+    try {
+      // 1. Récupération Organisation
+      const currentUser = await getCurrentUser();
+      const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
 
-    const memberData = {
-      ...formData,
-      avatar: finalAvatar,
-      skills: selectedSkills,
-      availability: selectedAvailability
-    };
+      // 2. Disponibilités
+      const apiAvailability = {
+        monday: false, tuesday: false, wednesday: false, thursday: false, friday: false, other: false
+      };
+      selectedAvailability.forEach(day => {
+        const key = dayMapping[day];
+        if (key) (apiAvailability as any)[key] = true;
+      });
 
-    onAdd(memberData);
+      // 3. Compétences
+      const skillIds = apiSkills
+        .filter(apiSkill => selectedSkills.includes(apiSkill.name))
+        .map(s => s.id);
+
+      // 4. Password & Rôle
+      const tempPassword = generateStrongPassword();
+      const selectedRole = formData.roles[0] || 'voluntary'; // Fallback
+
+      const apiPayload = {
+        email: formData.email || `temp.${Date.now()}@kinship.placeholder`,
+        hasTemporaryEmail: !formData.email,
+        password: tempPassword,
+        passwordConfirmation: tempPassword,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        birthday: "2000-01-01",
+        role: selectedRole, // Utilisation du rôle dynamique
+        job: formData.profession,
+        companyName: formData.organization,
+        proposeWorkshop: formData.canProposeAtelier,
+        takeTrainee: formData.canProposeStage,
+        acceptPrivacyPolicy: true,
+        availability: apiAvailability,
+        selectedSkills: skillIds,
+        selectedSubSkills: [],
+        selectedCompanies: companyId ? [String(companyId)] : [] 
+      };
+
+      // 5. Envoi
+      await submitPersonalUserRegistration(apiPayload);
+
+      const finalAvatar = formData.avatar || generateDefaultAvatar(
+        selectedRole, 
+        formData.firstName, 
+        formData.lastName
+      );
+
+      const memberData = {
+        ...formData,
+        avatar: finalAvatar,
+        skills: selectedSkills,
+        availability: selectedAvailability
+      };
+
+      onAdd(memberData);
+      alert("Membre ajouté avec succès !");
+      onClose();
+
+    } catch (error) {
+      console.error("Erreur lors de l'ajout du membre", error);
+      alert("Erreur lors de l'enregistrement ou de la récupération de l'organisation.");
+    }
   };
 
   return (
@@ -186,7 +291,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="modal-body">
-          {/* Avatar Selection */}
+          {/* Avatar Section */}
           <div className="form-section">
             <h3>Photo de profil</h3>
             <div className="avatar-selection">
@@ -227,10 +332,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
                   style={{ display: 'none' }}
                 />
                 <p className="avatar-note">
-                  {isUsingDefaultAvatar 
-                    ? "Avatar par défaut généré selon le rôle sélectionné"
-                    : "Si aucune photo n'est sélectionnée, un avatar par défaut sera généré selon le rôle"
-                  }
+                  Avatar par défaut généré selon le rôle sélectionné
                 </p>
               </div>
             </div>
@@ -299,19 +401,25 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
               />
             </div>
 
+            {/* Remplacement du Select Statique par les données de l'API */}
             <div className="form-group">
               <label htmlFor="roles">Rôle</label>
               <select
                 id="roles"
                 name="roles"
-                value={formData.roles[0]}
-                onChange={(e) => setFormData(prev => ({ ...prev, roles: [e.target.value] }))}
+                value={formData.roles[0] || ''}
+                onChange={handleInputChange}
                 className="form-select"
               >
-                <option value="Membre">Membre</option>
-                <option value="Référent">Référent</option>
-                <option value="Admin">Admin</option>
-                <option value="Intervenant">Intervenant</option>
+                {apiRoles.length > 0 ? (
+                  apiRoles.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {tradFR[role.value] || role.value}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Chargement...</option>
+                )}
               </select>
             </div>
           </div>
@@ -320,17 +428,21 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
             <h3>Compétences *</h3>
             <p className="section-description">Sélectionnez au moins une compétence</p>
             <div className="competencies-grid">
-              {competencies.map((competency) => (
-                <label key={competency} className="competency-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedSkills.includes(competency)}
-                    onChange={() => handleSkillToggle(competency)}
-                  />
-                  <span className="checkmark"></span>
-                  <span className="competency-label">{competency}</span>
-                </label>
-              ))}
+              {apiSkills.length > 0 ? (
+                apiSkills.map((skill) => (
+                  <label key={skill.id} className="competency-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedSkills.includes(skill.name)}
+                      onChange={() => handleSkillToggle(skill.name)}
+                    />
+                    <span className="checkmark"></span>
+                    <span className="competency-label">{skill.name}</span>
+                  </label>
+                ))
+              ) : (
+                <p>Chargement des compétences...</p>
+              )}
             </div>
             {selectedSkills.length > 0 && (
               <div className="selected-skills">

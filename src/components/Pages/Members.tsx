@@ -8,6 +8,9 @@ import ContactModal from '../Modals/ContactModal';
 import './Members.css';
 import { mockClassLists } from '../../data/mockData';
 import ClassCard from '../Class/ClassCard';
+import { getCompanyUserProfile } from '../../api/User';
+import { getCurrentUser } from '../../api/Authentication';
+import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Menbers';
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
@@ -23,9 +26,104 @@ const Members: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'members' | 'class'>('members');
 
   const dropdownRef = useRef<HTMLDivElement>(null);
-
   const classLists = mockClassLists;
-  const members = state.members;
+  const [members, setMembers] = useState<Member[]>([]);
+
+  // --- Fetch des membres avec profil complet ---
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const currentUser = await getCurrentUser();
+        const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+
+        if (!companyId) return;
+
+        // Récupération de la liste de base
+        const membersRes = await getCompanyMembersAccepted(companyId);
+        // Gestion de la structure { data: { data: [...] } } ou { data: [...] } selon axios
+        const basicMembers = membersRes.data.data || membersRes.data || [];
+
+        const detailedMembers = await Promise.all(
+          basicMembers.map(async (m: any) => {
+            try {
+              const profileRes = await getCompanyUserProfile(m.id, companyId);
+              
+              // --- CORRECTION ICI ---
+              // On accède à profileRes.data.data car votre JSON est encapsulé dans une clé "data"
+              const profile = profileRes.data.data || profileRes.data;
+
+              // --- TRAITEMENT DE LA DISPONIBILITÉ ---
+              const availData = profile.availability || {};
+              const availabilityList: string[] = [];
+              if (availData.monday) availabilityList.push('Lundi');
+              if (availData.tuesday) availabilityList.push('Mardi');
+              if (availData.wednesday) availabilityList.push('Mercredi');
+              if (availData.thursday) availabilityList.push('Jeudi');
+              if (availData.friday) availabilityList.push('Vendredi');
+              if (availData.saturday) availabilityList.push('Samedi');
+              if (availData.sunday) availabilityList.push('Dimanche');
+              if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
+
+              // --- TRAITEMENT DES ROLES ---
+              let rawRole = profile.role_in_company || m.role_in_company || 'Membre';
+              const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
+
+              // --- MAPPING ---
+              // Note: On vérifie profile.first_name au lieu de m.first_name
+              return {
+                id: (profile.id || m.id).toString(),
+                firstName: profile.first_name, // Sera "jon"
+                lastName: profile.last_name,   // Sera "doe"
+                fullName: profile.full_name || `${profile.first_name} ${profile.last_name}`, // Sera "jon doe"
+                email: profile.email,
+                profession: profile.role_in_system || '',
+                roles: [displayRole],
+                skills: profile.skills?.map((s: any) => s.name || s) || [],
+                availability: availabilityList,
+                avatar: profile.avatar_url || m.avatar_url || '',
+                isTrusted: profile.status === 'confirmed',
+                badges: profile.badges?.data?.map((b: any) => b.id?.toString()) || [],
+                organization: '',
+                canProposeStage: false,
+                canProposeAtelier: false,
+              } as Member;
+
+            } catch (err) {
+              console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
+              
+              // FALLBACK (si l'appel API échoue)
+              return {
+                id: m.id.toString(),
+                firstName: m.first_name || 'Utilisateur',
+                lastName: m.last_name || '',
+                fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
+                email: m.email || '',
+                profession: m.job || '',
+                roles: [m.role_in_company || 'Membre'],
+                skills: [],
+                availability: [],
+                avatar: m.avatar_url || '',
+                isTrusted: false,
+                badges: [],
+                organization: '',
+                canProposeStage: false,
+                canProposeAtelier: false,
+              } as Member;
+            }
+          })
+        );
+
+        const validMembers = detailedMembers.filter((m): m is Member => m !== null);
+        setMembers(validMembers);
+      } catch (err) {
+        console.error('Erreur critique récupération liste membres:', err);
+      }
+    };
+
+    fetchMembers();
+  }, []);
+
+  // --- Filtres dynamiques ---
   const allCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
   const allAvailabilities = Array.from(new Set(members.flatMap(m => m.availability)));
 
@@ -42,8 +140,7 @@ const Members: React.FC = () => {
   const filteredMembers = members.filter(member => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
-      member.firstName.toLowerCase().includes(term) ||
-      member.lastName.toLowerCase().includes(term) ||
+      member.fullName?.toLowerCase().includes(term) ||
       member.email.toLowerCase().includes(term) ||
       member.skills.some(skill => skill.toLowerCase().includes(term));
     const matchesRole = !roleFilter || member.roles.includes(roleFilter);
@@ -69,6 +166,32 @@ const Members: React.FC = () => {
 
   const handleMembershipRequests = () => setCurrentPage('membership-requests');
 
+  const handleRoleChange = async (member: Member, newRole: string) => {
+  try {
+    const currentUser = await getCurrentUser();
+    const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+
+    if (!companyId) {
+      console.error("Impossible : aucun companyId trouvé.");
+      return;
+    }
+
+    // Mise à jour dans le backend
+    await updateCompanyMemberRole(companyId, Number(member.id), newRole);
+
+    // Mise à jour dans ton state local
+    setMembers(prev =>
+      prev.map(m =>
+        m.id === member.id ? { ...m, roles: [newRole] } : m
+      )
+    );
+
+  } catch (err) {
+    console.error("Erreur lors de la mise à jour du rôle :", err);
+  }
+};
+
+
   return (
     <section className="members-container with-sidebar">
       {/* Header */}
@@ -90,16 +213,10 @@ const Members: React.FC = () => {
               </button>
               {isImportExportOpen && (
                 <div className="dropdown-menu">
-                  <button
-                    className="dropdown-item"
-                    onClick={() => handleImportExport('import')}
-                  >
+                  <button className="dropdown-item" onClick={() => handleImportExport('import')}>
                     <i className="fas fa-upload"></i> Importer
                   </button>
-                  <button
-                    className="dropdown-item"
-                    onClick={() => handleImportExport('export')}
-                  >
+                  <button className="dropdown-item" onClick={() => handleImportExport('export')}>
                     <i className="fas fa-download"></i> Exporter
                   </button>
                 </div>
@@ -151,6 +268,7 @@ const Members: React.FC = () => {
               >
                 <option value="">Tous les rôles</option>
                 <option value="Admin">Admin</option>
+                <option value="Superadmin">Superadmin</option>
                 <option value="Référent">Référent</option>
                 <option value="Membre">Membre</option>
                 <option value="Intervenant">Intervenant</option>
@@ -186,22 +304,12 @@ const Members: React.FC = () => {
             <button className="view-btn" onClick={handleMembershipRequests}>
               <i className="fas fa-user-plus"></i>
               Gérer demandes d'adhésion
-              {state.membershipRequests.filter(req => req.status === 'pending').length > 0 && (
-                <span className="count-pill">
-                  {state.membershipRequests.filter(req => req.status === 'pending').length}
-                </span>
-              )}
             </button>
           </div>
 
           <div className="members-grid">
             {filteredMembers.map((member) => {
-              const mockBadgeCount = member.badges?.length || 0;
-              const attributedBadgeCount = state.badgeAttributions.filter(
-                a => a.participantId === member.id
-              ).length;
-              const totalBadgeCount = mockBadgeCount + attributedBadgeCount;
-              
+              const totalBadgeCount = member.badges?.length || 0;
               return (
                 <MemberCard
                   key={member.id}
@@ -212,7 +320,7 @@ const Members: React.FC = () => {
                     setContactEmail(member.email);
                     setIsContactModalOpen(true);
                   }}
-                  onRoleChange={(newRole) => updateMember(member.id, { roles: [newRole] })}
+                  onRoleChange={(newRole) => handleRoleChange(member, newRole)}
                 />
               );
             })}
@@ -235,8 +343,6 @@ const Members: React.FC = () => {
           </div>
         </div>
       )}
-
-
 
       {selectedMember && (
         <MemberModal

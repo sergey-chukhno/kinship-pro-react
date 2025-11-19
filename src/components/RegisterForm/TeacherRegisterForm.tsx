@@ -1,18 +1,24 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { getTeacherRoles, getSchools } from "../../api/RegistrationRessource"
+import { useNavigate } from "react-router-dom"
+import { getTeacherRoles, getSchools, getSkills, getSubSkills } from "../../api/RegistrationRessource"
 import { submitTeacherRegistration } from "../../api/Authentication"
 import "./CommonForms.css"
 import "./PersonalUserRegisterForm.css"
+import { privatePolicy } from "../../data/PrivacyPolicy"
 
-interface availability {
-  monday: boolean
-  tuesday: boolean
-  wednesday: boolean
-  thursday: boolean
-  friday: boolean
-  other: boolean
+interface PasswordCriteria {
+  minLength: boolean
+  lowercase: boolean
+  uppercase: boolean
+  specialChar: boolean
+  match: boolean
+}
+
+interface SkillsState {
+  selectedSkills: number[]
+  selectedSubSkills: number[]
 }
 
 const tradFR = {
@@ -26,6 +32,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState(1)
   const [showAvailability, setShowAvailability] = useState(false)
   const [showSchools, setShowSchools] = useState(false)
+  const [showSkills, setShowSkills] = useState(false)
 
   const [user, setUser] = useState({
     email: "",
@@ -38,14 +45,23 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     acceptPrivacyPolicy: false,
   })
 
-  const [availability, setAvailability] = useState<availability>({
-    monday: false,
-    tuesday: false,
-    wednesday: false,
-    thursday: false,
-    friday: false,
-    other: false,
+  const longPolicyText = privatePolicy
+  const navigate = useNavigate()
+
+  const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
+    minLength: false,
+    lowercase: false,
+    uppercase: false,
+    specialChar: false,
+    match: false,
   })
+
+  const [skills, setSkills] = useState<SkillsState>({
+    selectedSkills: [],
+    selectedSubSkills: [],
+  })
+  const [skillList, setSkillList] = useState<{ id: number; name: string }[]>([])
+  const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; parent_skill_id: number }[]>([])
 
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([])
   const [schoolQuery, setSchoolQuery] = useState("")
@@ -98,17 +114,91 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     fetchRoles()
   }, [])
 
+  // ⬇️ AJOUT : useEffect pour la validation du mot de passe
+  React.useEffect(() => {
+    const { password, passwordConfirmation } = user
+
+    const minLength = password.length >= 8
+    const lowercase = /[a-z]/.test(password)
+    const uppercase = /[A-Z]/.test(password)
+    const specialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    // Le match n'est vrai que si les deux sont identiques ET que le champ n'est pas vide
+    const match = password.length > 0 && password === passwordConfirmation
+
+    setPasswordCriteria({
+      minLength,
+      lowercase,
+      uppercase,
+      specialChar,
+      match,
+    })
+  }, [user.password, user.passwordConfirmation])
+
+    React.useEffect(() => {
+      const fetchSkills = async () => {
+        try {
+          const response = await getSkills()
+          const data = response?.data?.data ?? response?.data ?? response ?? []
+          if (Array.isArray(data)) {
+            const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
+            setSkillList(normalized)
+          }
+        } catch (error) {
+          console.error("Erreur lors du chargement des compétences :", error)
+        }
+      }
+      fetchSkills()
+    }, [])
+  
+    React.useEffect(() => {
+      if (skillList.length === 0) {
+        setSkillSubList([])
+        return
+      }
+  
+      let mounted = true
+  
+      const fetchAllSubSkills = async () => {
+        try {
+          const promises = skillList.map(async (skill) => {
+            const resp = await getSubSkills(skill.id)
+            const data = resp?.data ?? resp ?? {}
+  
+            const subSkills = Array.isArray(data.sub_skills)
+              ? data.sub_skills
+              : Array.isArray(data.skill?.sub_skills)
+                ? data.skill.sub_skills
+                : []
+  
+            return subSkills.map((s: any) => ({
+              id: Number(s.id),
+              name: s.name,
+              parent_skill_id: Number(skill.id),
+            }))
+          })
+  
+          const results = await Promise.all(promises)
+          const flattened = results.flat()
+  
+          if (mounted) setSkillSubList(flattened)
+        } catch (error) {
+          console.error("Erreur lors du chargement des sous-compétences :", error)
+        }
+      }
+  
+      fetchAllSubSkills()
+  
+      return () => {
+        mounted = false
+      }
+    }, [skillList])
+
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
     setUser((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }))
-  }
-
-  const handleAvailabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target
-    setAvailability((prev) => ({ ...prev, [name]: checked }))
   }
 
   const handleAddSchool = (schoolId: number) => {
@@ -121,6 +211,41 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const handleRemoveSchool = (schoolId: number) => {
     setSelectedSchoolsList((prev) => prev.filter((s) => s.id !== schoolId))
+  }
+
+  const toggleSkill = (skillId: number) => {
+    setSkills((prev) => {
+      const already = prev.selectedSkills.includes(skillId)
+      let newSkillIds = [...prev.selectedSkills]
+      let newSubIds = [...prev.selectedSubSkills]
+
+      if (already) {
+        newSkillIds = newSkillIds.filter((id) => id !== skillId)
+        const related = skillSubList.filter((s) => s.parent_skill_id === skillId).map((s) => s.id)
+        newSubIds = newSubIds.filter((id) => !related.includes(id))
+      } else {
+        if (!newSkillIds.includes(skillId)) newSkillIds.push(skillId)
+      }
+
+      return { selectedSkills: newSkillIds, selectedSubSkills: newSubIds }
+    })
+  }
+
+  const toggleSubSkill = (subSkillId: number, parentId: number) => {
+    setSkills((prev) => {
+      const already = prev.selectedSubSkills.includes(subSkillId)
+      let newSubIds = [...prev.selectedSubSkills]
+      const newSkillIds = [...prev.selectedSkills]
+
+      if (already) {
+        newSubIds = newSubIds.filter((id) => id !== subSkillId)
+      } else {
+        newSubIds.push(subSkillId)
+        if (!newSkillIds.includes(parentId)) newSkillIds.push(parentId)
+      }
+
+      return { selectedSkills: newSkillIds, selectedSubSkills: newSubIds }
+    })
   }
 
   const filteredSchools = schools.filter((s) => s.name.toLowerCase().includes(schoolQuery.toLowerCase()))
@@ -140,7 +265,8 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setCurrentStep(3)
     } else if (currentStep === 3 && (!showSchools || selectedSchoolsList.length > 0)) {
       setCurrentStep(4)
-    } else if (currentStep === 4 && (!showAvailability || Object.values(availability).some(Boolean))) {
+    } else if (currentStep === 4 ) {
+      if (showSkills && skills.selectedSkills.length === 0) return
       setCurrentStep(5)
     }
   }
@@ -149,7 +275,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     e.preventDefault()
     const formData = {
       ...user,
-      ...availability,
+      ...skills,
       selectedSchoolsList
     }
 
@@ -170,6 +296,22 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           ← Retour
         </button>
         <h2 className="form-title">Inscription Enseignant</h2>
+      </div>
+
+      <div className="form-step visible">
+        <p>
+          Cette application se conforme au Règlement Européen sur la Protection des Données Personnelles et à la loi informatique et Libertés du Nº78-17 du 6 janvier 1978.
+          Responsable des traitements : DASEN pour les écoles publiques ou chef d'établissement pour les écoles privées. Traitements réalisés par Kinship en qualité de sous-traitant.
+        </p>
+        <p>
+          Vous pouvez exercer vos droits sur les données qui vous concernent auprès du responsable des traitements.
+        </p>
+        <p>
+          Vous pouvez également interpeller la <a href="https://www.cnil.fr/fr">CNIL</a> en tant qu'autorité de contrôle.
+        </p>
+        <p>
+          Plus de détails sur le portail : <a href="/privacy-policy">Politique de protection des données de Kinship</a>
+        </p>
       </div>
 
       {/* Step 1 */}
@@ -252,6 +394,29 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               required
             />
           </div>
+
+          <div className="password-criteria-list">
+            <ul>
+              <li className={passwordCriteria.minLength ? 'valid' : 'invalid'}>
+                {passwordCriteria.minLength ? '✅' : '❌'} 8 caractères minimum
+              </li>
+              <li className={passwordCriteria.lowercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.lowercase ? '✅' : '❌'} Une lettre minuscule
+              </li>
+              <li className={passwordCriteria.uppercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.uppercase ? '✅' : '❌'} Une lettre majuscule
+              </li>
+              <li className={passwordCriteria.specialChar ? 'valid' : 'invalid'}>
+                {passwordCriteria.specialChar ? '✅' : '❌'} Un caractère spécial (!@#...)
+              </li>
+              {/* On n'affiche le critère de match que si l'utilisateur a commencé à taper la confirmation */}
+              {(user.password.length > 0 || user.passwordConfirmation.length > 0) && (
+                <li className={passwordCriteria.match ? 'valid' : 'invalid'}>
+                  {passwordCriteria.match ? '✅' : '❌'} Les mots de passe sont identiques
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -320,30 +485,58 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
       )}
 
-      {/* Step 4 */}
+      {/* Step 4: Compétences (step séparé avec toggle switch et grille 2 colonnes) */}
       {currentStep >= 4 && (
         <div className="form-step visible">
-          <h3 className="step-title">Mes Disponibilités</h3>
+          <h3 className="step-title">Mes Compétences</h3>
           <label className="toggle-switch-form">
-            <span>Je veux ajouter mes disponibilités</span>
-            <input type="checkbox" checked={showAvailability} onChange={(e) => setShowAvailability(e.target.checked)} />
+            <span>Je veux ajouter et montrer mes compétences</span>
+            <input type="checkbox" checked={showSkills} onChange={(e) => setShowSkills(e.target.checked)} />
             <span className="toggle-slider"></span>
           </label>
 
-          {showAvailability && (
-            <div className="form-fieldset">
-              <div className="form-checkbox-group">
-                {Object.keys(availability).map((day) => (
-                  <label key={day} className="form-checkbox-label">
-                    <input
-                      type="checkbox"
-                      name={day}
-                      checked={(availability as any)[day]}
-                      onChange={handleAvailabilityChange}
-                    />
-                    <span>{day}</span>
-                  </label>
-                ))}
+          {showSkills && (
+            <div className="pur-field">
+              <div className="skills-inline-container">
+                {skillList.map((skill) => {
+                  const skillId = Number(skill.id)
+                  const isSelected = skills.selectedSkills.includes(skillId)
+                  const relatedSubs = skillSubList.filter((s) => s.parent_skill_id === skillId)
+
+                  return (
+                    <div key={skillId} className="skill-row">
+                      <label className={`skill-checkbox-inline ${isSelected ? 'selected' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSkill(skillId)}
+                        />
+                        <span className="skill-name-inline">{skill.name}</span>
+                      </label>
+
+                      {isSelected && relatedSubs.length > 0 && (
+                        <div className="subskills-inline">
+                          {relatedSubs.map((sub) => {
+                            const isSubSelected = skills.selectedSubSkills.includes(sub.id)
+                            return (
+                              <label
+                                key={sub.id}
+                                className={`subskill-checkbox-inline ${isSubSelected ? 'selected' : ''}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSubSelected}
+                                  onChange={() => toggleSubSkill(sub.id, sub.parent_skill_id)}
+                                />
+                                <span className="subskill-name-inline">{sub.name}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -352,6 +545,21 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {/* Step 5 */}
       {currentStep >= 5 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Politique de confidentialité</h3>
+          <div className="privacy-policy-scroll-box">
+            <pre>{longPolicyText}</pre>
+            <button
+              type="button"
+              onClick={() => {
+                navigate("/CGU")
+              }}
+              className="pur-button"
+            >
+              CGU
+            </button>
+          </div>
+
           <label className="checkbox-toggle">
             <input
               type="checkbox"
@@ -367,6 +575,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             />
             <span>J'accepte la politique de confidentialité *</span>
           </label>
+        </div>
       )}
 
       <div className="form-actions">
@@ -379,7 +588,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               (currentStep === 1 && !isStep1Valid()) ||
               (currentStep === 2 && !isStep2Valid()) ||
               (currentStep === 3 && showSchools && selectedSchoolsList.length === 0) ||
-              (currentStep === 4 && showAvailability && !Object.values(availability).some(Boolean))
+              (currentStep === 4 && showSkills && skills.selectedSkills.length === 0)
             }
           >
             Suivant

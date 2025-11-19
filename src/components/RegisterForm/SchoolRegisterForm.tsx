@@ -2,9 +2,19 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { getSchoolRoles } from "../../api/RegistrationRessource"
 import { submitSchoolRegistration } from "../../api/Authentication"
 import "./CommonForms.css"
+import { privatePolicy } from "../../data/PrivacyPolicy"
+
+interface PasswordCriteria {
+  minLength: boolean
+  lowercase: boolean
+  uppercase: boolean
+  specialChar: boolean
+  match: boolean
+}
 
 const tradFR = {
   education_director: "Directeur académique",
@@ -27,14 +37,46 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     acceptPrivacyPolicy: false,
   })
 
+  const longPolicyText = privatePolicy
+  const navigate = useNavigate()
+
+  const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
+    minLength: false,
+    lowercase: false,
+    uppercase: false,
+    specialChar: false,
+    match: false,
+  })
+
   const [school, setSchool] = useState({
     schoolName: "",
     schoolCity: "",
     schoolZipCode: "",
     referentPhoneNumber: "",
+    uaiCode:""
   })
 
   const [schoolRoles, setSchoolRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
+
+    // ⬇️ AJOUT : useEffect pour la validation du mot de passe
+    useEffect(() => {
+      const { password, passwordConfirmation } = user
+  
+      const minLength = password.length >= 8
+      const lowercase = /[a-z]/.test(password)
+      const uppercase = /[A-Z]/.test(password)
+      const specialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+      // Le match n'est vrai que si les deux sont identiques ET que le champ n'est pas vide
+      const match = password.length > 0 && password === passwordConfirmation
+  
+      setPasswordCriteria({
+        minLength,
+        lowercase,
+        uppercase,
+        specialChar,
+        match,
+      })
+    }, [user.password, user.passwordConfirmation])
 
   useEffect(() => {
     const fetchRoles = async () => {
@@ -112,6 +154,22 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           ← Retour
         </button>
         <h2 className="form-title">Inscription École</h2>
+      </div>
+
+      <div className="form-step visible">
+        <p>
+          Cette application se conforme au Règlement Européen sur la Protection des Données Personnelles et à la loi informatique et Libertés du Nº78-17 du 6 janvier 1978.
+          Responsable des traitements : DASEN pour les écoles publiques ou chef d'établissement pour les écoles privées. Traitements réalisés par Kinship en qualité de sous-traitant.
+        </p>
+        <p>
+          Vous pouvez exercer vos droits sur les données qui vous concernent auprès du responsable des traitements.
+        </p>
+        <p>
+          Vous pouvez également interpeller la <a href="https://www.cnil.fr/fr">CNIL</a> en tant qu'autorité de contrôle.
+        </p>
+        <p>
+          Plus de détails sur le portail : <a href="/privacy-policy">Politique de protection des données de Kinship</a>
+        </p>
       </div>
 
       <div className={`form-step ${currentStep >= 1 ? "visible" : ""}`}>
@@ -193,6 +251,29 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               className="form-input"
             />
           </div>
+
+          <div className="password-criteria-list">
+            <ul>
+              <li className={passwordCriteria.minLength ? 'valid' : 'invalid'}>
+                {passwordCriteria.minLength ? '✅' : '❌'} 8 caractères minimum
+              </li>
+              <li className={passwordCriteria.lowercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.lowercase ? '✅' : '❌'} Une lettre minuscule
+              </li>
+              <li className={passwordCriteria.uppercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.uppercase ? '✅' : '❌'} Une lettre majuscule
+              </li>
+              <li className={passwordCriteria.specialChar ? 'valid' : 'invalid'}>
+                {passwordCriteria.specialChar ? '✅' : '❌'} Un caractère spécial (!@#...)
+              </li>
+              {/* On n'affiche le critère de match que si l'utilisateur a commencé à taper la confirmation */}
+              {(user.password.length > 0 || user.passwordConfirmation.length > 0) && (
+                <li className={passwordCriteria.match ? 'valid' : 'invalid'}>
+                  {passwordCriteria.match ? '✅' : '❌'} Les mots de passe sont identiques
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -271,26 +352,54 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 className="form-input"
               />
             </div>
+
+            <div className="form-field">
+              <label className="form-label">Code UAI</label>
+              <input
+                className="pur-input"
+                type="text"
+                name="uaiCode"
+                placeholder="Code UAI"
+                value={school.uaiCode}
+                onChange={handleSchoolChange}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {currentStep >= 4 && (
-        <label className="checkbox-toggle">
-          <input
-            type="checkbox"
-            name="acceptPrivacyPolicy"
-            checked={user.acceptPrivacyPolicy}
-            onChange={(e) =>
-              setUser((prev) => ({
-                ...prev,
-                acceptPrivacyPolicy: e.target.checked,
-              }))
-            }
-            required
-          />
-          <span>J'accepte la politique de confidentialité *</span>
-        </label>
+        <div className="form-step visible">
+          <h3 className="step-title">Politique de confidentialité</h3>
+          <div className="privacy-policy-scroll-box">
+            <pre>{longPolicyText}</pre>
+            <button
+              type="button"
+              onClick={() => {
+                navigate("/CGU")
+              }}
+              className="pur-button"
+            >
+              CGU
+            </button>
+          </div>
+
+          <label className="checkbox-toggle">
+            <input
+              type="checkbox"
+              name="acceptPrivacyPolicy"
+              checked={user.acceptPrivacyPolicy}
+              onChange={(e) =>
+                setUser((prev) => ({
+                  ...prev,
+                  acceptPrivacyPolicy: e.target.checked,
+                }))
+              }
+              required
+            />
+            <span>J'accepte la politique de confidentialité *</span>
+          </label>
+        </div>
       )}
 
       <div className="form-actions">

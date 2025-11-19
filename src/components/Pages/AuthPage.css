@@ -243,23 +243,23 @@
 }
 
 .register-user {
-  background: #f0f9ff;
-  border-color: #bae6fd;
+  background: #db087c1a;
+  border-color: #db087cff;
 }
 
 .register-volunteer {
-  background: #fdf4ff;
-  border-color: #f0abfc;
+  background: #556ff11a;
+  border-color: #5570F1;
 }
 
 .register-teacher {
-  background: #fffbeb;
-  border-color: #fde68a;
+  background: #0f9f6c26;
+  border-color: #10b981;
 }
 
 .register-partner {
-  background: #fdf4ff;
-  border-color: #f0abfc;
+  background: #0f9f6c26;
+  border-color: #10b981;
 }
 
 .register-card-title {
@@ -290,35 +290,35 @@
 }
 
 .register-user-button {
-  background: #0ea5e9;
+  background: #db087cff;
 }
 
 .register-user-button:hover {
-  background: #0284c7;
+  background: #b20666ff;
 }
 
 .register-volunteer-button {
-  background: #a855f7;
+  background: #5570F1;
 }
 
 .register-volunteer-button:hover {
-  background: #9333ea;
+  background: #4c63d2;
 }
 
 .register-teacher-button {
-  background: #f59e0b;
+  background: #10b981;
 }
 
 .register-teacher-button:hover {
-  background: #d97706;
+  background: #0f9f6d;
 }
 
 .register-partner-button {
-  background: #a855f7;
+  background: #10b981;
 }
 
 .register-partner-button:hover {
-  background: #9333ea;
+  background: #0f9f6d;
 }
 
 /* Bouton back dans les formulaires */
