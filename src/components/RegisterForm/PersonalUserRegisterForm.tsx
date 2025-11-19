@@ -64,7 +64,6 @@ const tradFR: Record<string, string> = {
 const longPolicyText = privatePolicy
 
 const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  // ... (tous vos états et hooks useState/useEffect restent les mêmes) ...
   const [currentStep, setCurrentStep] = useState(1)
   const [showSkills, setShowSkills] = useState(false)
   const [showAvailability, setShowAvailability] = useState(false)
@@ -580,7 +579,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       </div>
 
       {/* Step 3: Compétences (step séparé avec toggle switch et grille 2 colonnes) */}
-      {currentStep >= 1 && (
+      {currentStep >= 3 && (
         <div className="form-step visible">
           <h3 className="step-title">Mes Compétences</h3>
           <label className="toggle-switch-form">

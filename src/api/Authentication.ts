@@ -21,11 +21,15 @@ interface formData {
     schoolAddress?: string;
     schoolCity?: string;
     schoolZipCode?: string;
+    uaiCode?: string;
     companyName?: string;
     companyDescription?: string;
     companyTypeId?: number;
     companyZipCode?: string;
     companyCity?: string;
+    companyEmail?: string;
+    siretNumber?: number;
+    website?: string
     referentPhoneNumber?: string;
     acceptPrivacyPolicy?: boolean;
     parentCompanyId?: string;
@@ -51,7 +55,7 @@ export function submitPersonalUserRegistration(formData: formData) {
             birthday: formData.birthday,
             role: formData.role,                // parent, grand-parent, voluntary, etc.
             job: formData.job,
-            take_trainee: false,
+            take_trainee: formData.takeTrainee,
             propose_workshop: formData.proposeWorkshop || false,
             show_my_skills: true,
             accept_privacy_policy: formData.acceptPrivacyPolicy || false,
@@ -87,7 +91,11 @@ export function submitTeacherRegistration(formData: formData) {
             accept_privacy_policy: formData.acceptPrivacyPolicy || false
         },
         availability: formData.availability,
-        join_school_ids: formData.selectedSchools
+        join_school_ids: formData.selectedSchools,
+        skills: {
+            skill_ids: formData.selectedSkills,
+            sub_skill_ids: formData.selectedSubSkills
+        },
     });
 }
 
@@ -108,7 +116,8 @@ export function submitSchoolRegistration(formData: formData) {
             name: formData.schoolName,
             city: formData.schoolCity,
             zip_code: formData.schoolZipCode,
-            referent_phone_number: formData.referentPhoneNumber || null
+            referent_phone_number: formData.referentPhoneNumber || null,
+            uai_code: formData.uaiCode,
         }
     });
 }
@@ -128,13 +137,22 @@ export function submitCompanyRegistration(formData: formData) {
         },
         company: {
             name: formData.companyName,
+            show_my_skills: true,
             description: formData.companyDescription,
             company_type_id: formData.companyTypeId,
             zip_code: formData.companyZipCode,
             city: formData.companyCity,
             referent_phone_number: formData.referentPhoneNumber || null,
-            branch_request_to_company_id: formData.parentCompanyId || null // Optional
-        }
+            email:formData.companyEmail, // NEW
+            siret_number: formData.siretNumber, // NEW
+            website: formData.website, //NEW
+            take_trainee: formData.takeTrainee,
+            propose_workshop: formData.proposeWorkshop || false,
+        },
+        skills: {
+            skill_ids: formData.selectedSkills,
+            sub_skill_ids: formData.selectedSubSkills
+        },
     });
 }
 

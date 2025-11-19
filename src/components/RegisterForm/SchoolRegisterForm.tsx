@@ -8,6 +8,14 @@ import { submitSchoolRegistration } from "../../api/Authentication"
 import "./CommonForms.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
 
+interface PasswordCriteria {
+  minLength: boolean
+  lowercase: boolean
+  uppercase: boolean
+  specialChar: boolean
+  match: boolean
+}
+
 const tradFR = {
   education_director: "Directeur académique",
   principal: "Principal",
@@ -32,14 +40,43 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const longPolicyText = privatePolicy
   const navigate = useNavigate()
 
+  const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
+    minLength: false,
+    lowercase: false,
+    uppercase: false,
+    specialChar: false,
+    match: false,
+  })
+
   const [school, setSchool] = useState({
     schoolName: "",
     schoolCity: "",
     schoolZipCode: "",
     referentPhoneNumber: "",
+    uaiCode:""
   })
 
   const [schoolRoles, setSchoolRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
+
+    // ⬇️ AJOUT : useEffect pour la validation du mot de passe
+    useEffect(() => {
+      const { password, passwordConfirmation } = user
+  
+      const minLength = password.length >= 8
+      const lowercase = /[a-z]/.test(password)
+      const uppercase = /[A-Z]/.test(password)
+      const specialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+      // Le match n'est vrai que si les deux sont identiques ET que le champ n'est pas vide
+      const match = password.length > 0 && password === passwordConfirmation
+  
+      setPasswordCriteria({
+        minLength,
+        lowercase,
+        uppercase,
+        specialChar,
+        match,
+      })
+    }, [user.password, user.passwordConfirmation])
 
   useEffect(() => {
     const fetchRoles = async () => {
@@ -214,6 +251,29 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               className="form-input"
             />
           </div>
+
+          <div className="password-criteria-list">
+            <ul>
+              <li className={passwordCriteria.minLength ? 'valid' : 'invalid'}>
+                {passwordCriteria.minLength ? '✅' : '❌'} 8 caractères minimum
+              </li>
+              <li className={passwordCriteria.lowercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.lowercase ? '✅' : '❌'} Une lettre minuscule
+              </li>
+              <li className={passwordCriteria.uppercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.uppercase ? '✅' : '❌'} Une lettre majuscule
+              </li>
+              <li className={passwordCriteria.specialChar ? 'valid' : 'invalid'}>
+                {passwordCriteria.specialChar ? '✅' : '❌'} Un caractère spécial (!@#...)
+              </li>
+              {/* On n'affiche le critère de match que si l'utilisateur a commencé à taper la confirmation */}
+              {(user.password.length > 0 || user.passwordConfirmation.length > 0) && (
+                <li className={passwordCriteria.match ? 'valid' : 'invalid'}>
+                  {passwordCriteria.match ? '✅' : '❌'} Les mots de passe sont identiques
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -290,6 +350,18 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 value={school.referentPhoneNumber}
                 onChange={handleSchoolChange}
                 className="form-input"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Code UAI</label>
+              <input
+                className="pur-input"
+                type="text"
+                name="uaiCode"
+                placeholder="Code UAI"
+                value={school.uaiCode}
+                onChange={handleSchoolChange}
               />
             </div>
           </div>

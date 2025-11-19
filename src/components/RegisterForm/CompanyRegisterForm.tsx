@@ -2,10 +2,23 @@
 
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { getCompanyRoles } from "../../api/RegistrationRessource"
+import { getCompanyRoles, getSkills, getSubSkills } from "../../api/RegistrationRessource"
 import { submitCompanyRegistration } from "../../api/Authentication"
 import { privatePolicy } from "../../data/PrivacyPolicy"
 import "./CommonForms.css"
+
+interface PasswordCriteria {
+  minLength: boolean
+  lowercase: boolean
+  uppercase: boolean
+  specialChar: boolean
+  match: boolean
+}
+
+interface SkillsState {
+  selectedSkills: number[]
+  selectedSubSkills: number[]
+}
 
 const tradFR = {
   association_president: "Président d'association",
@@ -16,6 +29,7 @@ const tradFR = {
 
 const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState(1)
+  const [showSkills, setShowSkills] = useState(false)
 
   const [user, setUser] = useState({
     email: "",
@@ -38,10 +52,109 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     companyCity: "",
     companyZipCode: "",
     referentPhoneNumber: "",
-    branchRequestToCompanyId: undefined,
+    siretNumber: 0 ,
+    companyEmail:"",
+    website:"",
+    proposeWorkshop: false, // <- NOUVEAU
+    takeTrainee: false, // <- NOUVEAU
   })
 
+  const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
+    minLength: false,
+    lowercase: false,
+    uppercase: false,
+    specialChar: false,
+    match: false,
+  })
+
+  const [skills, setSkills] = useState<SkillsState>({
+    selectedSkills: [],
+    selectedSubSkills: [],
+  })
+
+  const [skillList, setSkillList] = useState<{ id: number; name: string }[]>([])
+  const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; parent_skill_id: number }[]>([])
+
   const [companyRoles, setCompanyRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
+
+  React.useEffect(() => {
+    const fetchSkills = async () => {
+      try {
+        const response = await getSkills()
+        const data = response?.data?.data ?? response?.data ?? response ?? []
+        if (Array.isArray(data)) {
+          const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
+          setSkillList(normalized)
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des compétences :", error)
+      }
+    }
+    fetchSkills()
+  }, [])
+
+  React.useEffect(() => {
+    if (skillList.length === 0) {
+      setSkillSubList([])
+      return
+    }
+
+    let mounted = true
+
+    const fetchAllSubSkills = async () => {
+      try {
+        const promises = skillList.map(async (skill) => {
+          const resp = await getSubSkills(skill.id)
+          const data = resp?.data ?? resp ?? {}
+
+          const subSkills = Array.isArray(data.sub_skills)
+            ? data.sub_skills
+            : Array.isArray(data.skill?.sub_skills)
+              ? data.skill.sub_skills
+              : []
+
+          return subSkills.map((s: any) => ({
+            id: Number(s.id),
+            name: s.name,
+            parent_skill_id: Number(skill.id),
+          }))
+        })
+
+        const results = await Promise.all(promises)
+        const flattened = results.flat()
+
+        if (mounted) setSkillSubList(flattened)
+      } catch (error) {
+        console.error("Erreur lors du chargement des sous-compétences :", error)
+      }
+    }
+
+    fetchAllSubSkills()
+
+    return () => {
+      mounted = false
+    }
+  }, [skillList])
+
+    // ⬇️ AJOUT : useEffect pour la validation du mot de passe
+    React.useEffect(() => {
+      const { password, passwordConfirmation } = user
+  
+      const minLength = password.length >= 8
+      const lowercase = /[a-z]/.test(password)
+      const uppercase = /[A-Z]/.test(password)
+      const specialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+      // Le match n'est vrai que si les deux sont identiques ET que le champ n'est pas vide
+      const match = password.length > 0 && password === passwordConfirmation
+  
+      setPasswordCriteria({
+        minLength,
+        lowercase,
+        uppercase,
+        specialChar,
+        match,
+      })
+    }, [user.password, user.passwordConfirmation])
 
   React.useEffect(() => {
     const fetchRoles = async () => {
@@ -62,6 +175,41 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     fetchRoles()
   }, [])
 
+  const toggleSkill = (skillId: number) => {
+    setSkills((prev) => {
+      const already = prev.selectedSkills.includes(skillId)
+      let newSkillIds = [...prev.selectedSkills]
+      let newSubIds = [...prev.selectedSubSkills]
+
+      if (already) {
+        newSkillIds = newSkillIds.filter((id) => id !== skillId)
+        const related = skillSubList.filter((s) => s.parent_skill_id === skillId).map((s) => s.id)
+        newSubIds = newSubIds.filter((id) => !related.includes(id))
+      } else {
+        if (!newSkillIds.includes(skillId)) newSkillIds.push(skillId)
+      }
+
+      return { selectedSkills: newSkillIds, selectedSubSkills: newSubIds }
+    })
+  }
+
+  const toggleSubSkill = (subSkillId: number, parentId: number) => {
+    setSkills((prev) => {
+      const already = prev.selectedSubSkills.includes(subSkillId)
+      let newSubIds = [...prev.selectedSubSkills]
+      const newSkillIds = [...prev.selectedSkills]
+
+      if (already) {
+        newSubIds = newSubIds.filter((id) => id !== subSkillId)
+      } else {
+        newSubIds.push(subSkillId)
+        if (!newSkillIds.includes(parentId)) newSkillIds.push(parentId)
+      }
+
+      return { selectedSkills: newSkillIds, selectedSubSkills: newSubIds }
+    })
+  }
+
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setUser((prev) => ({ ...prev, [name]: value }))
@@ -69,15 +217,26 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const handleCompanyChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setCompany((prev) => ({
-      ...prev,
-      [name]:
-        name === "companyTypeId"
-          ? Number(value)
-          : name === "branchRequestToCompanyId" && value === ""
-            ? undefined
-            : value,
-    }))
+    
+    setCompany((prev) => {
+      // Logique pour déterminer la nouvelle valeur
+      let newValue: string | number | boolean | undefined = value
+
+      if (name === "companyTypeId") {
+        newValue = Number(value)
+      } else if (name === "branchRequestToCompanyId" && value === "") {
+        newValue = undefined
+      } 
+      // AJOUT DE CETTE CONDITION : Conversion en booléen pour les radio buttons
+      else if (name === "proposeWorkshop" || name === "takeTrainee") {
+        newValue = value === "true"
+      }
+
+      return {
+        ...prev,
+        [name]: newValue,
+      }
+    })
   }
 
   const isStep1Valid = () => {
@@ -99,6 +258,11 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setCurrentStep(3)
     } else if (currentStep === 3 && isStep3Valid()) {
       setCurrentStep(4)
+    } else if (currentStep === 4){
+      if (showSkills && skills.selectedSkills.length === 0) return
+      setCurrentStep(5)
+    } else if (currentStep === 5){
+      setCurrentStep(6)
     }
   }
 
@@ -107,6 +271,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const formData = {
       ...user,
       ...company,
+      ...skills,
     }
     submitCompanyRegistration(formData)
       .then((response) => {
@@ -223,6 +388,29 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               className="form-input"
             />
           </div>
+
+          <div className="password-criteria-list">
+            <ul>
+              <li className={passwordCriteria.minLength ? 'valid' : 'invalid'}>
+                {passwordCriteria.minLength ? '✅' : '❌'} 8 caractères minimum
+              </li>
+              <li className={passwordCriteria.lowercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.lowercase ? '✅' : '❌'} Une lettre minuscule
+              </li>
+              <li className={passwordCriteria.uppercase ? 'valid' : 'invalid'}>
+                {passwordCriteria.uppercase ? '✅' : '❌'} Une lettre majuscule
+              </li>
+              <li className={passwordCriteria.specialChar ? 'valid' : 'invalid'}>
+                {passwordCriteria.specialChar ? '✅' : '❌'} Un caractère spécial (!@#...)
+              </li>
+              {/* On n'affiche le critère de match que si l'utilisateur a commencé à taper la confirmation */}
+              {(user.password.length > 0 || user.passwordConfirmation.length > 0) && (
+                <li className={passwordCriteria.match ? 'valid' : 'invalid'}>
+                  {passwordCriteria.match ? '✅' : '❌'} Les mots de passe sont identiques
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -329,12 +517,36 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
 
             <div className="form-field">
-              <label className="form-label">ID entreprise mère (optionnel)</label>
+              <label className="form-label">Numero de SIRET</label>
               <input
-                type="number"
-                name="branchRequestToCompanyId"
-                placeholder="ID de l'entreprise mère"
-                value={company.branchRequestToCompanyId ?? ""}
+                type="text"
+                name="siretNumber"
+                placeholder="Numero de SIRET"
+                value={company.siretNumber ?? ""}
+                onChange={handleCompanyChange}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Adresse email de l'organisation</label>
+              <input
+                type="email"
+                name="companyEmail"
+                placeholder="Email@example.com"
+                value={company.companyEmail ?? ""}
+                onChange={handleCompanyChange}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Site Internet de l'organisation</label>
+              <input
+                type="text"
+                name="website"
+                placeholder="https://"
+                value={company.website ?? ""}
                 onChange={handleCompanyChange}
                 className="form-input"
               />
@@ -343,7 +555,130 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
       )}
 
+      {/* Step 4: Compétences (step séparé avec toggle switch et grille 2 colonnes) */}
       {currentStep >= 4 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Mes Compétences</h3>
+          <label className="toggle-switch-form">
+            <span>Je veux ajouter et montrer mes compétences</span>
+            <input type="checkbox" checked={showSkills} onChange={(e) => setShowSkills(e.target.checked)} />
+            <span className="toggle-slider"></span>
+          </label>
+
+          {showSkills && (
+            <div className="pur-field">
+              <div className="skills-inline-container">
+                {skillList.map((skill) => {
+                  const skillId = Number(skill.id)
+                  const isSelected = skills.selectedSkills.includes(skillId)
+                  const relatedSubs = skillSubList.filter((s) => s.parent_skill_id === skillId)
+
+                  return (
+                    <div key={skillId} className="skill-row">
+                      <label className={`skill-checkbox-inline ${isSelected ? 'selected' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSkill(skillId)}
+                        />
+                        <span className="skill-name-inline">{skill.name}</span>
+                      </label>
+
+                      {isSelected && relatedSubs.length > 0 && (
+                        <div className="subskills-inline">
+                          {relatedSubs.map((sub) => {
+                            const isSubSelected = skills.selectedSubSkills.includes(sub.id)
+                            return (
+                              <label
+                                key={sub.id}
+                                className={`subskill-checkbox-inline ${isSubSelected ? 'selected' : ''}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSubSelected}
+                                  onChange={() => toggleSubSkill(sub.id, sub.parent_skill_id)}
+                                />
+                                <span className="subskill-name-inline">{sub.name}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentStep >= 5 && (
+        <div className="form-step visible">
+          <h3 className="step-title">Mes informations de réseau</h3>
+
+          <fieldset className="pur-fieldset">
+
+            <div className="form-field" style={{ marginTop: "20px" }}>
+              <label className="form-label">
+                Est-ce que je souhaite proposer des ateliers de découverte professionnelle ?
+              </label>
+              <div className="radio-group-inline">
+                <label className="pur-radio-label">
+                  <input
+                    type="radio"
+                    name="proposeWorkshop"
+                    value="true"
+                    checked={company.proposeWorkshop === true}
+                    onChange={handleCompanyChange}
+                  />
+                  <span>Oui</span>
+                </label>
+                <label className="pur-radio-label">
+                  <input
+                    type="radio"
+                    name="proposeWorkshop"
+                    value="false"
+                    checked={company.proposeWorkshop === false}
+                    onChange={handleCompanyChange}
+                  />
+                  <span>Non</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="form-field" style={{ marginTop: "20px" }}>
+              <label className="form-label">
+                Est-ce que mon entreprise peut prendre des jeunes en stage ?
+              </label>
+              <div className="radio-group-inline">
+                <label className="pur-radio-label">
+                  <input
+                    type="radio"
+                    name="takeTrainee"
+                    value="true"
+                    checked={company.takeTrainee === true}
+                    onChange={handleCompanyChange}
+                  />
+                  <span>Oui</span>
+                </label>
+                <label className="pur-radio-label">
+                  <input
+                    type="radio"
+                    name="takeTrainee"
+                    value="false"
+                    checked={company.takeTrainee === false}
+                    onChange={handleCompanyChange}
+                  />
+                  <span>Non</span>
+                </label>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+      )}
+
+      {currentStep >= 6 && (
         <div className="form-step visible">
           <h3 className="step-title">Politique de confidentialité</h3>
           <div className="privacy-policy-scroll-box">
@@ -378,7 +713,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       )}
 
       <div className="form-actions">
-        {currentStep < 4 ? (
+        {currentStep < 6 ? (
           <button
             type="button"
             onClick={handleNext}
@@ -386,7 +721,8 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             disabled={
               (currentStep === 1 && !isStep1Valid()) ||
               (currentStep === 2 && !isStep2Valid()) ||
-              (currentStep === 3 && !isStep3Valid())
+              (currentStep === 3 && !isStep3Valid()) ||
+              (currentStep === 4 && showSkills && skills.selectedSkills.length === 0)
             }
           >
             Suivant
