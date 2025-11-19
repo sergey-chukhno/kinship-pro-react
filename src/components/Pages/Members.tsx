@@ -10,7 +10,7 @@ import { mockClassLists } from '../../data/mockData';
 import ClassCard from '../Class/ClassCard';
 import { getCompanyUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
-import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Menbers';
+import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Menbers';
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
@@ -166,6 +166,32 @@ const Members: React.FC = () => {
 
   const handleMembershipRequests = () => setCurrentPage('membership-requests');
 
+  const handleRoleChange = async (member: Member, newRole: string) => {
+  try {
+    const currentUser = await getCurrentUser();
+    const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+
+    if (!companyId) {
+      console.error("Impossible : aucun companyId trouvé.");
+      return;
+    }
+
+    // Mise à jour dans le backend
+    await updateCompanyMemberRole(companyId, Number(member.id), newRole);
+
+    // Mise à jour dans ton state local
+    setMembers(prev =>
+      prev.map(m =>
+        m.id === member.id ? { ...m, roles: [newRole] } : m
+      )
+    );
+
+  } catch (err) {
+    console.error("Erreur lors de la mise à jour du rôle :", err);
+  }
+};
+
+
   return (
     <section className="members-container with-sidebar">
       {/* Header */}
@@ -294,7 +320,7 @@ const Members: React.FC = () => {
                     setContactEmail(member.email);
                     setIsContactModalOpen(true);
                   }}
-                  onRoleChange={(newRole) => updateMember(member.id, { roles: [newRole] })}
+                  onRoleChange={(newRole) => handleRoleChange(member, newRole)}
                 />
               );
             })}
