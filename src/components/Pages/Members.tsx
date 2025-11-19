@@ -34,39 +34,81 @@ const Members: React.FC = () => {
     const fetchMembers = async () => {
       try {
         const currentUser = await getCurrentUser();
-        const companyId = currentUser.data.available_contexts.companies[0].id;
+        const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
 
+        if (!companyId) return;
+
+        // Récupération de la liste de base
         const membersRes = await getCompanyMembersAccepted(companyId);
-        const basicMembers = membersRes.data.data;
+        // Gestion de la structure { data: { data: [...] } } ou { data: [...] } selon axios
+        const basicMembers = membersRes.data.data || membersRes.data || [];
 
         const detailedMembers = await Promise.all(
           basicMembers.map(async (m: any) => {
             try {
               const profileRes = await getCompanyUserProfile(m.id, companyId);
-              const profile = profileRes.data;
+              
+              // --- CORRECTION ICI ---
+              // On accède à profileRes.data.data car votre JSON est encapsulé dans une clé "data"
+              const profile = profileRes.data.data || profileRes.data;
 
-              const member: Member = {
-                id: m.id.toString(),
-                firstName: profile.first_name,
-                lastName: profile.last_name,
-                fullName: `${profile.first_name} ${profile.last_name}`,
+              // --- TRAITEMENT DE LA DISPONIBILITÉ ---
+              const availData = profile.availability || {};
+              const availabilityList: string[] = [];
+              if (availData.monday) availabilityList.push('Lundi');
+              if (availData.tuesday) availabilityList.push('Mardi');
+              if (availData.wednesday) availabilityList.push('Mercredi');
+              if (availData.thursday) availabilityList.push('Jeudi');
+              if (availData.friday) availabilityList.push('Vendredi');
+              if (availData.saturday) availabilityList.push('Samedi');
+              if (availData.sunday) availabilityList.push('Dimanche');
+              if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
+
+              // --- TRAITEMENT DES ROLES ---
+              let rawRole = profile.role_in_company || m.role_in_company || 'Membre';
+              const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
+
+              // --- MAPPING ---
+              // Note: On vérifie profile.first_name au lieu de m.first_name
+              return {
+                id: (profile.id || m.id).toString(),
+                firstName: profile.first_name, // Sera "jon"
+                lastName: profile.last_name,   // Sera "doe"
+                fullName: profile.full_name || `${profile.first_name} ${profile.last_name}`, // Sera "jon doe"
                 email: profile.email,
-                profession: profile.job || '',
-                roles: [profile.role || m.role_in_company || ''],
-                skills: profile.skills?.map((s: any) => s.name) || [],
-                availability: profile.project_members?.flatMap((p: any) => p.project.skills.map((s: any) => s.name)) || [],
-                avatar: m.avatar_url || '',
-                isTrusted: profile.certify || false,
-                badges: profile.badges_received?.map((b: any) => b.badge.id.toString()) || [],
-                organization: profile.company_name || '',
-                canProposeStage: !!profile.role_additional_information?.includes('stage'),
-                canProposeAtelier: !!profile.role_additional_information?.includes('atelier'),
-              };
+                profession: profile.role_in_system || '',
+                roles: [displayRole],
+                skills: profile.skills?.map((s: any) => s.name || s) || [],
+                availability: availabilityList,
+                avatar: profile.avatar_url || m.avatar_url || '',
+                isTrusted: profile.status === 'confirmed',
+                badges: profile.badges?.data?.map((b: any) => b.id?.toString()) || [],
+                organization: '',
+                canProposeStage: false,
+                canProposeAtelier: false,
+              } as Member;
 
-              return member;
             } catch (err) {
-              console.warn(`Erreur chargement profil membre ${m.id}:`, err);
-              return null;
+              console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
+              
+              // FALLBACK (si l'appel API échoue)
+              return {
+                id: m.id.toString(),
+                firstName: m.first_name || 'Utilisateur',
+                lastName: m.last_name || '',
+                fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
+                email: m.email || '',
+                profession: m.job || '',
+                roles: [m.role_in_company || 'Membre'],
+                skills: [],
+                availability: [],
+                avatar: m.avatar_url || '',
+                isTrusted: false,
+                badges: [],
+                organization: '',
+                canProposeStage: false,
+                canProposeAtelier: false,
+              } as Member;
             }
           })
         );
@@ -74,7 +116,7 @@ const Members: React.FC = () => {
         const validMembers = detailedMembers.filter((m): m is Member => m !== null);
         setMembers(validMembers);
       } catch (err) {
-        console.error('Erreur récupération membres:', err);
+        console.error('Erreur critique récupération liste membres:', err);
       }
     };
 
@@ -200,6 +242,7 @@ const Members: React.FC = () => {
               >
                 <option value="">Tous les rôles</option>
                 <option value="Admin">Admin</option>
+                <option value="Superadmin">Superadmin</option>
                 <option value="Référent">Référent</option>
                 <option value="Membre">Membre</option>
                 <option value="Intervenant">Intervenant</option>
@@ -235,11 +278,6 @@ const Members: React.FC = () => {
             <button className="view-btn" onClick={handleMembershipRequests}>
               <i className="fas fa-user-plus"></i>
               Gérer demandes d'adhésion
-              {state.membershipRequests.filter(req => req.status === 'pending').length > 0 && (
-                <span className="count-pill">
-                  {state.membershipRequests.filter(req => req.status === 'pending').length}
-                </span>
-              )}
             </button>
           </div>
 

@@ -12,7 +12,7 @@ interface formData {
     takeTrainee?: boolean;
     proposeWorkshop?: boolean;
     showMySkills?: boolean;
-    availability?: string;
+    availability?: any;
     selectedSkills?: number[];
     selectedSubSkills?: number[];
     selectedSchools?: string[];
@@ -37,6 +37,7 @@ interface formData {
     childFirstName?: string;
     childLastName?: string;
     childBirthday?: string;
+    hasTemporaryEmail?: boolean; // <--- NOUVEAU CHAMP
 }
 
 export function login(email: string, password: string) {
@@ -59,7 +60,8 @@ export function submitPersonalUserRegistration(formData: formData) {
             propose_workshop: formData.proposeWorkshop || false,
             show_my_skills: true,
             accept_privacy_policy: formData.acceptPrivacyPolicy || false,
-            company_name: formData.companyName
+            company_name: formData.companyName,
+            has_temporary_email: formData.hasTemporaryEmail
         },
         availability: formData.availability,
         skills: {

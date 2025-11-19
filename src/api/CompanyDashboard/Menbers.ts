@@ -19,3 +19,7 @@ export function removeCompanyMember(companyId: number, memberId: number) {
 export function updateCompanyMemberRole(companyId: number, memberId: number, newRole: string) {
     return axiosClient.put(`/api/v1/companies/${companyId}/members/${memberId}`, { role: newRole });
 }
+
+export function acceptMember(companyId: number, memberId: number) {
+    return axiosClient.put(`/api/v1/companies/${companyId}/members/${memberId}`, {status: "confirmed"});
+}
