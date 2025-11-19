@@ -29,7 +29,7 @@
 }
 
 .section-title {
-  display: flex;
+  display: row;
   align-items: center;
   gap: 12px;
   font-size: 1.1rem;
@@ -43,8 +43,8 @@
 }
 
 .association-logo {
-  height: 44px;
-  width: 44px;
+  height: 75px;
+  width: 75px;
   margin-left: 0;
   border-radius: 50%;
   object-fit: contain;
@@ -59,23 +59,41 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* --- MODIFICATION DE LA STRUCTURE --- */
+
 .dashboard-main-content {
+  display: flex;
+  flex-direction: row; /* Côte à côte */
+  align-items: flex-start;
+  gap: 24px;
+}
+
+/* Nouvelle classe pour la partie gauche */
+.dashboard-left-column {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 32px;
+  min-width: 0; /* Important pour la réactivité des graphiques */
 }
+
+/* --- FIN MODIFICATION STRUCTURE --- */
 
 .dashboard-stats {
   width: 100%;
 }
 
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
+  justify-content: center;
+  width: 100%;
 }
 
 .stat-card {
+  flex: 0 0 calc(33.333% - 13.333px);
+  min-width: 250px;
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 16px;
@@ -87,7 +105,22 @@
   transition: all 0.2s ease;
 }
 
-.stat-card:hover {
+.stat-card2 {
+  flex: 0 0 calc(50% - 10px);
+  min-width: 250px;
+  background: var(--primary, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.stat-card:hover,
+.stat-card2:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -100,6 +133,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .stat-icon img {
@@ -125,6 +159,21 @@
   margin-bottom: 8px;
 }
 
+/* Ces classes semblent inutilisées dans le JSX fourni, mais je les garde */
+.stat-value2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label2 {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #ffffff); /* J'ai mis en blanc pour le contraste si le fond est coloré */
+  margin-bottom: 8px;
+}
+
 .stat-change {
   font-size: 0.8rem;
   font-weight: 600;
@@ -132,22 +181,13 @@
   border-radius: 12px;
   display: inline-block;
 }
-
-.stat-change.positive {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.stat-change.neutral {
-  background: rgba(107, 114, 128, 0.1);
-  color: #6b7280;
-}
-
+/*
 .dashboard-charts {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 24px;
 }
+*/
 
 .chart-container {
   background: var(--card-bg, #ffffff);
@@ -155,6 +195,7 @@
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-width: 0; /* Important pour flex/grid */
 }
 
 .chart-header {
@@ -162,6 +203,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .chart-header h3 {
@@ -193,6 +236,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .chart-mock {
@@ -209,43 +253,24 @@
   align-items: end;
   gap: 12px;
   height: 160px;
+  width: 100%;
   margin-bottom: 16px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
-
-.chart-bars::-webkit-scrollbar {
-  height: 4px;
-}
-
-.chart-bars::-webkit-scrollbar-track {
-  background: var(--border, #e5e7eb);
-  border-radius: 2px;
-}
-
-.chart-bars::-webkit-scrollbar-thumb {
-  background: var(--primary, #5570F1);
-  border-radius: 2px;
-}
-
-.chart-bars::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-dark, #4c63d2);
+  justify-content: center; /* Espacement uniforme */
 }
 
 .chart-bar {
-  min-width: 32px;
-  width: 32px;
+  width: 100%;
+  max-width: 40px;
   border-radius: 6px 6px 0 0;
   transition: all 0.3s ease;
-  flex-shrink: 0;
-  /* Background color is set inline via style prop */
+  position: relative;
 }
 
 .chart-bar:hover {
   opacity: 0.8;
 }
 
-/* Chart Tooltip */
+/* Tooltip */
 .chart-tooltip {
   position: fixed;
   background: var(--card-bg, #ffffff);
@@ -271,14 +296,11 @@
 
 .chart-labels {
   display: flex;
-  gap: 12px;
+  width: 100%;
+  gap:29px;
+  justify-content: center;
   font-size: 0.8rem;
   color: var(--text-secondary, #6b7280);
-}
-
-.chart-labels span {
-  width: 32px;
-  text-align: center;
 }
 
 .pie-chart-mock {
@@ -291,7 +313,7 @@
     #f59e0b 270deg 342deg,
     #ef4444 342deg 360deg
   );
-  margin-right: 24px;
+  margin: 0 auto 16px auto;
 }
 
 .pie-legend {
@@ -304,15 +326,18 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--text-secondary, #6b7280);
 }
 
 .legend-color {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 2px;
+  flex-shrink: 0;
 }
+
+/* --- MODIFICATION ACTIVITÉ RÉCENTE --- */
 
 .recent-activity {
   background: var(--card-bg, #ffffff);
@@ -320,7 +345,14 @@
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  
+  /* Changements pour la sidebar */
+  width: 360px;
+  flex-shrink: 0;
+  align-self: flex-start; /* Empêche l'étirement vertical */
 }
+
+/* --- FIN MODIFICATION ACTIVITÉ RÉCENTE --- */
 
 .activity-header {
   display: flex;
@@ -344,7 +376,7 @@
 
 .activity-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Meilleur alignement si le texte est long */
   gap: 12px;
   padding: 12px;
   border-radius: 8px;
@@ -360,6 +392,7 @@
   height: 40px;
   border-radius: 50%;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .activity-avatar img {
@@ -376,24 +409,499 @@
   font-size: 0.9rem;
   color: var(--text-primary, #374151);
   margin-bottom: 4px;
+  line-height: 1.4;
 }
 
 .activity-time {
-  font-size: 0.8rem;
-  color: var(--text-secondary, #6b7280);
+  font-size: 0.75rem;
+  color: var(--text-secondary, #9ca3af);
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
+
+/* Breakpoint Tablette/Mobile : Tout repasse en colonne */
+@media (max-width: 1200px) {
+  .dashboard-main-content {
+    flex-direction: column;
+  }
+
+  .recent-activity {
+    width: 100%;
+    align-self: auto;
+  }
+}
+
+@media (max-width: 900px) {
   .dashboard-charts {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* Charts s'empilent */
   }
   
+  .pie-chart-mock {
+    margin: 0 auto 20px auto;
+  }
+}
+
+@media (max-width: 600px) {
   .stats-grid {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+  
+  .stat-card, .stat-card2 {
+    width: 100%;
+    flex: none;
   }
   
   .dashboard-main-layout {
     padding: 16px;
   }
+}
+
+/* Styles du nouveau bloc "Projet en cours" */
+.projects-in-progress-container {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.projects-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.projects-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.projects-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.projects-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary, #374151);
+  margin: 0;
+}
+
+/* Styles de la liste des projets */
+.project-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.project-item {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border, #f3f4f6);
+}
+
+.project-item:last-child {
+  border-bottom: none;
+}
+
+.project-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.project-name {
+  font-weight: 600;
+  color: var(--primary, #5570F1);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.project-dates {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 12px;
+}
+
+/* Styles des badges */
+.project-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.badge-inprogress {
+  background-color: #f3e8ff; /* Exemple de couleur douce pour "En cours" */
+  color: #7c3aed; /* Exemple de couleur texte pour "En cours" */
+}
+
+.badge-upcoming {
+  background-color: #d1fae5; /* Exemple de couleur douce pour "À venir" */
+  color: #059669; /* Exemple de couleur texte pour "À venir" */
+}
+
+/* Styles de la progression */
+.project-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar-wrapper {
+  flex: 1;
+  height: 6px;
+  background-color: var(--border, #e5e7eb);
+  border-radius: 3px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--primary, #5570F1);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  width: 0;
+}
+
+.progress-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary, #374151);
+  width: 30px; /* Aligner les pourcentages */
+  text-align: right;
+}
+
+/* Footer (Voir tous les projets) */
+.projects-footer {
+  text-align: left;
+  padding-top: 16px;
+}
+
+.btn-text {
+  background: none;
+  border: 1px solid var(--border, #e5e7eb); /* Ajout d'une bordure pour visualiser la taille */
+  color: var(--primary, #5570F1);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 0.95rem;
+  
+  /* --- MODIFICATIONS CLÉS --- */
+  display: block; /* Force le lien à prendre toute la largeur */
+  width: 100%; /* S'assurer qu'il prend 100% de son parent */
+  text-align: center; /* Centre le texte du bouton */
+  padding: 10px 16px; /* Ajuste le padding vertical pour un meilleur look */
+  /* --- FIN MODIFICATIONS CLÉS --- */
+  
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.btn-text:hover {
+  background-color: var(--bg-primary, #f3f4f6);
+}
+
+/* Modification de l'alignement de l'élément de projet */
+.project-item {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border, #f3f4f6);
+  /* On retire la marge basse de .project-dates qui n'est plus nécessaire */
+}
+
+/* Nouvelle div pour contenir la date et la progression sur une seule ligne */
+.project-details-row {
+  display: flex;
+  justify-content: space-between; /* Pousse les éléments aux extrémités */
+  align-items: center;
+}
+
+/* Styles des dates */
+.project-dates {
+  /* Réduit la taille de police pour un meilleur affichage sur une ligne */
+  font-size: 0.85rem;
+  color: var(--text-secondary, #6b7280);
+  /* On retire la marge du bas */
+}
+
+/* Styles de la progression (Conteneur Flexbox) */
+.project-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 40%; /* Donne une largeur pour la barre de progression */
+  min-width: 150px; /* Assure que la barre est toujours visible */
+}
+
+.progress-bar-wrapper {
+  flex: 1; /* Permet à la barre de prendre l'espace restant dans .project-progress */
+  height: 6px;
+  background-color: var(--border, #e5e7eb);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* Assurez-vous que .progress-value a une largeur définie pour l'alignement */
+.progress-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary, #374151);
+  width: 30px; 
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Fichier : Dashboard.css */
+
+/* --- NOUVELLE SECTION : Fusion Membres Récents + Activité --- */
+
+.members-overview-section {
+  display: flex;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden; /* Assure que les coins arrondis sont respectés */
+}
+
+/* Conteneur des Membres (Partie Gauche) */
+.recent-members-container {
+  /* On retire les styles de card pour ne pas avoir double bordure/ombre */
+  padding: 24px;
+  flex: 0 0 50%; /* Donne environ 45% de la largeur du bloc total */
+  border-right: 1px solid var(--border, #f3f4f6); /* Séparateur visuel */
+  box-shadow: none;
+  background: none;
+}
+
+.recent-members-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.recent-members-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary, #374151);
+  margin: 0;
+}
+
+.members-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Liste et items des membres */
+.member-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--bg-primary, #f8fafc);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.member-item:hover {
+  background-color: var(--bg-primary, #f8fafc);
+  /* Ajustements pour le hover sur une partie sans bordure visible */
+  margin: 0 -24px;
+  padding: 12px 24px;
+}
+/* Assurez-vous que le dernier élément n'a pas de bordure */
+.member-item:last-child {
+  border-bottom: none;
+}
+
+.member-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 2px solid var(--border, #ddd); 
+}
+
+.member-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.member-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary, #5570F1); 
+  margin-bottom: 2px;
+}
+
+.member-role {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+/* Footer Membres */
+.members-footer {
+  text-align: center;
+  padding-top: 16px;
+}
+
+.members-footer .btn-text {
+  border: none;
+  display: inline-block;
+  width: auto;
+  padding: 0;
+  text-align: center;
+}
+
+.members-footer .btn-text:hover {
+  background: none;
+  text-decoration: underline;
+}
+
+/* Conteneur du Graphique (Partie Droite) */
+.member-activity-chart {
+  flex: 1;
+  padding: 24px;
+  box-shadow: none; /* Retirer l'ombre et la bordure de .chart-container */
+  border: none;
+  display: flex;
+  flex-direction: column; /* Force les enfants à s'empiler verticalement */
+}
+
+.member-activity-chart .chart-header {
+  /* Styles pour afficher le titre ET les boutons d'activité côte à côte */
+  display: flex;
+  justify-content: space-between; /* Pousse les éléments aux extrémités */
+  align-items: center;
+  margin-bottom: 15px; /* Réduit l'espace entre l'en-tête et les boutons de période */
+  flex-wrap: wrap; /* Pour la réactivité */
+}
+
+.member-activity-chart .chart-header h3 {
+  /* Le texte "Activité des membres" est conservé */
+  font-size: 1.1rem; /* On revient à la taille standard pour le titre */
+  font-weight: 600;
+  color: var(--text-primary, #374151);
+  margin: 0; /* Suppression des marges inutiles */
+}
+
+/* Le sélecteur d'activité est maintenant un enfant direct de .chart-header et est aligné à droite */
+.member-activity-chart .activity-type-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 0; /* Supprimer la marge car il est dans le header */
+}
+
+/* Le sélecteur de période est maintenant géré par le flow normal et est aligné à droite de son conteneur */
+.member-activity-chart .period-selector {
+  display: flex;
+  gap: 8px;
+  /* Modification clé: aligner à droite du conteneur parent */
+  align-self: flex-end;
+  margin-bottom: 20px;
+}
+
+.chart-controls-and-graph {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.member-activity-chart .activity-type-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+
+/* Styles pour les boutons (Assurez-vous qu'ils sont bien stylés) */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background-color: var(--primary, #5570F1);
+    color: white;
+    border: 1px solid var(--primary, #5570F1);
+}
+
+.btn-outline {
+    background-color: white;
+    color: var(--text-primary, #374151);
+    border: 1px solid var(--border, #e5e7eb);
+}
+
+/* Ajustement du Chart pour qu'il prenne l'espace restant */
+.member-activity-chart .chart-placeholder {
+    flex: 1; /* Permet au placeholder de prendre l'espace restant */
+    min-height: 150px; /* S'assurer qu'il reste de la place pour le graphique */
+}
+
+/* Média queries pour la responsivité */
+@media (max-width: 1200px) {
+  /* Quand le dashboard passe en colonne (tablette/mobile), cette section passe aussi en colonne */
+  .members-overview-section {
+    flex-direction: column;
+  }
+  
+  .recent-members-container {
+    max-width: none;
+    flex: 1;
+    border-right: none;
+    border-bottom: 1px solid var(--border, #f3f4f6); /* Remettre le séparateur en bas */
+  }
+
+  /* Ajuster le hover sur mobile */
+  .member-item:hover {
+    margin: 0 -24px;
+    padding: 12px 24px;
+  }
+
+  .member-activity-chart {
+    flex: 1;
+    padding-top: 0; /* Pas de padding double */
+  }
+}
+
+@media (max-width: 600px) {
+  .member-activity-chart .activity-type-selector,
+  .member-activity-chart .period-selector {
+    flex-wrap: wrap;
+  }
+  
+  .member-item:hover {
+    margin: 0 -16px; /* Ajuster pour le padding du layout principal de 16px */
+    padding: 12px 16px;
+  }
+}
+
+.dashboard-right-column {
+  width: 360px; /* Taille fixe pour la colonne entière, comme l'ancienne activité récente */
+  flex-shrink: 0;
+  display: flex; /* Active flexbox pour que ses enfants s'empilent */
+  flex-direction: column;
+  gap: 32px; /* Espace entre la répartition des badges et l'activité récente */
+  align-self: flex-start; /* Empêche l'étirement vertical dans le main-content */
+  padding-top: 0; /* Assure le bon alignement avec la colonne de gauche */
+}
+
+.badge-distribution-chart {
+  /* Utilise les styles de .chart-container pour la carte */
+  /* S'assurer qu'il prend 100% de la largeur de la colonne */
+  width: 100%;
 }
