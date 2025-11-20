@@ -22,11 +22,22 @@ interface SkillsState {
 }
 
 const tradFR = {
-  school_teacher: "Professeur des écoles",
-  college_lycee_professor: "Professeur de collège/lycée",
-  teaching_staff: "Personnel enseignant",
+  primary_school_teacher: "Enseignant du primaire",
+  secondary_school_teacher: "Professeur de collège/lycée",
+  education_rectorate_personnel: "Personnel du rectorat",
+  administrative_staff: "Personnel administratif",
+  cpe_student_life: "Conseiller Principal d'Education (CPE)",
   other: "Autre",
 }
+
+const ROLE_ORDER = [
+  "primary_school_teacher",
+  "secondary_school_teacher",
+  "education_rectorate_personnel",
+  "administrative_staff",
+  "cpe_student_life",
+  "other",
+]
 
 const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState(1)
@@ -100,11 +111,35 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       try {
         const response = await getTeacherRoles()
         if (response && Array.isArray(response.data)) {
-          setTeacherRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setTeacherRoles(sortedData)
         } else if (response?.data?.data) {
-          setTeacherRoles(response.data.data)
+          const data = response.data.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setTeacherRoles(sortedData)
         } else if (response?.data) {
-          setTeacherRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setTeacherRoles(sortedData)
         }
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)

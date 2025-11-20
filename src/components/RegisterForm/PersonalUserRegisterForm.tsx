@@ -59,7 +59,25 @@ const tradFR: Record<string, string> = {
   wednesday: "Mercredi",
   thursday: "Jeudi",
   friday: "Vendredi",
+  eleve_primaire: "Elève du primaire",
+  collegien: "Collégien",
+  lyceen: "Lycéen",
+  etudiant: "Etudiant",
+  benevole: "Bénévole",
+  charge_de_mission: "Chargé(e) de mission",
 }
+
+const ROLE_ORDER = [
+  "eleve_primaire",
+  "collegien",
+  "lyceen",
+  "etudiant",
+  "parent",
+  "benevole",
+  "charge_de_mission",
+  "employee",
+  "other",
+]
 
 const longPolicyText = privatePolicy
 
@@ -240,7 +258,17 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       try {
         const response = await getPersonalUserRoles()
         const data = response?.data?.data ?? response?.data ?? response ?? []
-        if (Array.isArray(data)) setPersonalUserRoles(data)
+        if (Array.isArray(data)) {
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            // If not found, put at the end
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setPersonalUserRoles(sortedData)
+        }
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)
       }

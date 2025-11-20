@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom"
 import { getSchoolRoles } from "../../api/RegistrationRessource"
 import { submitSchoolRegistration } from "../../api/Authentication"
 import "./CommonForms.css"
+import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
 
 interface PasswordCriteria {
@@ -17,11 +18,22 @@ interface PasswordCriteria {
 }
 
 const tradFR = {
-  education_director: "Directeur académique",
+  directeur_ecole: "Directeur d'Ecole",
+  directeur_academique: "Directeur Académique",
   principal: "Principal",
-  school_director: "Directeur d'école",
+  proviseur: "Proviseur",
+  responsable_academique: "Responsable Académique",
   other: "Autre",
 }
+
+const ROLE_ORDER = [
+  "directeur_ecole",
+  "directeur_academique",
+  "principal",
+  "proviseur",
+  "responsable_academique",
+  "other",
+]
 
 const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState(1)
@@ -83,11 +95,35 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       try {
         const response = await getSchoolRoles()
         if (response && Array.isArray(response.data)) {
-          setSchoolRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setSchoolRoles(sortedData)
         } else if (response?.data?.data) {
-          setSchoolRoles(response.data.data)
+          const data = response.data.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setSchoolRoles(sortedData)
         } else if (response?.data) {
-          setSchoolRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setSchoolRoles(sortedData)
         }
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)

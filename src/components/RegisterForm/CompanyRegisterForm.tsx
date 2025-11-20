@@ -6,6 +6,7 @@ import { getCompanyRoles, getSkills, getSubSkills } from "../../api/Registration
 import { submitCompanyRegistration } from "../../api/Authentication"
 import { privatePolicy } from "../../data/PrivacyPolicy"
 import "./CommonForms.css"
+import "./PersonalUserRegisterForm.css"
 
 interface PasswordCriteria {
   minLength: boolean
@@ -21,11 +22,22 @@ interface SkillsState {
 }
 
 const tradFR = {
-  association_president: "Président d'association",
-  company_director: "Directeur d'entreprise",
-  organization_head: "Directeur d'organisation",
+  president_association: "Président d'Association",
+  president_fondation: "Président de Fondation",
+  directeur_organisation: "Directeur d'Organisation",
+  directeur_entreprise: "Directeur d'Entreprise",
+  responsable_rh_formation_secteur: "Responsable: RH, Formation, Secteur",
   other: "Autre",
 }
+
+const ROLE_ORDER = [
+  "president_association",
+  "president_fondation",
+  "directeur_organisation",
+  "directeur_entreprise",
+  "responsable_rh_formation_secteur",
+  "other",
+]
 
 const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState(1)
@@ -161,11 +173,35 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       try {
         const response = await getCompanyRoles()
         if (response && Array.isArray(response.data)) {
-          setCompanyRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setCompanyRoles(sortedData)
         } else if (response?.data?.data) {
-          setCompanyRoles(response.data.data)
+          const data = response.data.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setCompanyRoles(sortedData)
         } else if (response?.data) {
-          setCompanyRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setCompanyRoles(sortedData)
         }
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)
