@@ -8,9 +8,11 @@ import ContactModal from '../Modals/ContactModal';
 import './Members.css';
 import { mockClassLists } from '../../data/mockData';
 import ClassCard from '../Class/ClassCard';
-import { getCompanyUserProfile } from '../../api/User';
+import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Menbers';
+import { getSchoolMembersAccepted, updateSchoolMemberRole } from '../../api/SchoolDashboard/Menbers'
+
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
@@ -29,30 +31,41 @@ const Members: React.FC = () => {
   const classLists = mockClassLists;
   const [members, setMembers] = useState<Member[]>([]);
 
-  // --- Fetch des membres avec profil complet ---
+// --- Fetch des membres avec profil complet ---
   useEffect(() => {
     const fetchMembers = async () => {
       try {
         const currentUser = await getCurrentUser();
-        const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+        const isEdu = state.showingPageType === 'edu';
 
-        if (!companyId) return;
+        // 1. Bascule de l'ID (Company vs School)
+        const contextId = isEdu 
+          ? currentUser.data?.available_contexts?.schools?.[0]?.id 
+          : currentUser.data?.available_contexts?.companies?.[0]?.id;
 
-        // Récupération de la liste de base
-        const membersRes = await getCompanyMembersAccepted(companyId);
-        // Gestion de la structure { data: { data: [...] } } ou { data: [...] } selon axios
+        if (!contextId) return;
+
+        // 2. Bascule de l'appel API (Liste de base)
+        const membersRes = isEdu 
+          ? await getSchoolMembersAccepted(contextId)
+          : await getCompanyMembersAccepted(contextId);
+
         const basicMembers = membersRes.data.data || membersRes.data || [];
 
         const detailedMembers = await Promise.all(
           basicMembers.map(async (m: any) => {
             try {
-              const profileRes = await getCompanyUserProfile(m.id, companyId);
+              // 3. Bascule de la récupération du profil détaillé
+              // Note: Si vous n'avez pas getSchoolUserProfile, vérifiez si getCompanyUserProfile fonctionne avec un ID école, sinon il faudra créer cette fonction.
+              const profileRes = isEdu 
+                 ? await getSchoolUserProfile(m.id, contextId) // Hypothèse : cette fonction existe
+                 : await getCompanyUserProfile(m.id, contextId);
               
-              // --- CORRECTION ICI ---
-              // On accède à profileRes.data.data car votre JSON est encapsulé dans une clé "data"
               const profile = profileRes.data.data || profileRes.data;
 
-              // --- TRAITEMENT DE LA DISPONIBILITÉ ---
+              // ... (Logique de traitement availability, roles, mapping inchangée) ...
+              
+              // --- TRAITEMENT DE LA DISPONIBILITÉ (copie de votre code existant) ---
               const availData = profile.availability || {};
               const availabilityList: string[] = [];
               if (availData.monday) availabilityList.push('Lundi');
@@ -64,17 +77,14 @@ const Members: React.FC = () => {
               if (availData.sunday) availabilityList.push('Dimanche');
               if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
 
-              // --- TRAITEMENT DES ROLES ---
-              let rawRole = profile.role_in_company || m.role_in_company || 'Membre';
+              let rawRole = profile.role_in_company || m.role_in_company || profile.role_in_school || m.role_in_school || 'Membre';
               const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
 
-              // --- MAPPING ---
-              // Note: On vérifie profile.first_name au lieu de m.first_name
               return {
                 id: (profile.id || m.id).toString(),
-                firstName: profile.first_name, // Sera "jon"
-                lastName: profile.last_name,   // Sera "doe"
-                fullName: profile.full_name || `${profile.first_name} ${profile.last_name}`, // Sera "jon doe"
+                firstName: profile.first_name,
+                lastName: profile.last_name,
+                fullName: profile.full_name || `${profile.first_name} ${profile.last_name}`,
                 email: profile.email,
                 profession: profile.role_in_system || '',
                 roles: [displayRole],
@@ -90,16 +100,16 @@ const Members: React.FC = () => {
 
             } catch (err) {
               console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
-              
-              // FALLBACK (si l'appel API échoue)
+              // FALLBACK
               return {
+                 // ... (votre code fallback inchangé)
                 id: m.id.toString(),
                 firstName: m.first_name || 'Utilisateur',
                 lastName: m.last_name || '',
                 fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
                 email: m.email || '',
                 profession: m.job || '',
-                roles: [m.role_in_company || 'Membre'],
+                roles: [m.role_in_company || m.role_in_school || 'Membre'],
                 skills: [],
                 availability: [],
                 avatar: m.avatar_url || '',
@@ -121,7 +131,7 @@ const Members: React.FC = () => {
     };
 
     fetchMembers();
-  }, []);
+  }, [state.showingPageType]);
 
   // --- Filtres dynamiques ---
   const allCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
@@ -166,30 +176,38 @@ const Members: React.FC = () => {
 
   const handleMembershipRequests = () => setCurrentPage('membership-requests');
 
-  const handleRoleChange = async (member: Member, newRole: string) => {
-  try {
-    const currentUser = await getCurrentUser();
-    const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+const handleRoleChange = async (member: Member, newRole: string) => {
+    try {
+      const currentUser = await getCurrentUser();
+      const isEdu = state.showingPageType === 'edu';
 
-    if (!companyId) {
-      console.error("Impossible : aucun companyId trouvé.");
-      return;
+      // 1. Bascule ID pour le changement de rôle
+      const contextId = isEdu
+        ? currentUser.data?.available_contexts?.schools?.[0]?.id
+        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+
+      if (!contextId) {
+        console.error("Impossible : aucun ID de contexte trouvé.");
+        return;
+      }
+
+      // 2. Bascule API Update Role
+      if (isEdu) {
+          await updateSchoolMemberRole(contextId, Number(member.id), newRole);
+      } else {
+          await updateCompanyMemberRole(contextId, Number(member.id), newRole);
+      }
+
+      setMembers(prev =>
+        prev.map(m =>
+          m.id === member.id ? { ...m, roles: [newRole] } : m
+        )
+      );
+
+    } catch (err) {
+      console.error("Erreur lors de la mise à jour du rôle :", err);
     }
-
-    // Mise à jour dans le backend
-    await updateCompanyMemberRole(companyId, Number(member.id), newRole);
-
-    // Mise à jour dans ton state local
-    setMembers(prev =>
-      prev.map(m =>
-        m.id === member.id ? { ...m, roles: [newRole] } : m
-      )
-    );
-
-  } catch (err) {
-    console.error("Erreur lors de la mise à jour du rôle :", err);
-  }
-};
+  };
 
 
   return (

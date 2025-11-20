@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import RolePill from '../UI/RolePill';
 import './MembershipRequests.css';
-import { getCompanyUserProfile } from '../../api/User';
+import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
 import { acceptMember, getCompanyMembersPending } from '../../api/CompanyDashboard/Menbers';
+import { acceptSchoolMember, getSchoolMembersPending } from '../../api/SchoolDashboard/Menbers';
 
 interface MembershipRequest {
   id: string;
@@ -21,14 +22,14 @@ interface MembershipRequest {
 }
 
 const MembershipRequests: React.FC = () => {
-  const { acceptMembershipRequest, rejectMembershipRequest, updateMembershipRequestRole, setCurrentPage } = useAppContext();
-  const [requests, setRequests] = useState<MembershipRequest[]>([]);
+  const { state, acceptMembershipRequest, rejectMembershipRequest, updateMembershipRequestRole, setCurrentPage } = useAppContext();  const [requests, setRequests] = useState<MembershipRequest[]>([]);
   const [selectedRole, setSelectedRole] = useState<{ [key: string]: string }>({});
   const [openDropdowns, setOpenDropdowns] = useState<{ [key: string]: boolean }>({});
   const [loading, setLoading] = useState(true);
   
   // 1. Ajout de l'état pour stocker l'ID de l'entreprise
   const [companyId, setCompanyId] = useState<number | null>(null);
+  const [contextId, setContextId] = useState<number | null>(null);
 
   // --- Fetch des membres en attente (Pending) ---
   useEffect(() => {
@@ -36,21 +37,32 @@ const MembershipRequests: React.FC = () => {
       try {
         setLoading(true);
         const currentUser = await getCurrentUser();
-        const cId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+        const isEdu = state.showingPageType === 'edu';
+
+        // 1. Bascule ID
+        const cId = isEdu
+          ? currentUser.data?.available_contexts?.schools?.[0]?.id
+          : currentUser.data?.available_contexts?.companies?.[0]?.id;
 
         if (!cId) return;
 
-        // 2. Sauvegarde de l'ID dans le state pour l'utiliser plus tard (dans handleAccept)
-        setCompanyId(cId);
+        setContextId(cId);
 
-        // Récupération de la liste des membres en attente
-        const pendingRes = await getCompanyMembersPending(cId);
+        // 2. Bascule API Pending
+        const pendingRes = isEdu
+          ? await getSchoolMembersPending(cId)
+          : await getCompanyMembersPending(cId);
+
         const basicPendingList = pendingRes.data.data || pendingRes.data || [];
 
         const detailedRequests = await Promise.all(
           basicPendingList.map(async (m: any) => {
             try {
-              const profileRes = await getCompanyUserProfile(m.id, cId);
+              // Profil détaillé (School ou Company)
+              const profileRes = isEdu
+                ? await getSchoolUserProfile(m.id, cId)
+                : await getCompanyUserProfile(m.id, cId);
+                
               const profile = profileRes.data.data || profileRes.data;
 
               // Traitement disponibilité
@@ -65,8 +77,8 @@ const MembershipRequests: React.FC = () => {
               if (availData.sunday) availabilityList.push('Dimanche');
               if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
 
-              // Traitement rôle
-              let rawRole = profile.role_in_company || m.role_in_company || 'Membre';
+              // Traitement rôle (supporte les clés company et school)
+              let rawRole = profile.role_in_company || m.role_in_company || profile.role_in_school || m.role_in_school || 'Membre';
               const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
 
               return {
@@ -112,7 +124,7 @@ const MembershipRequests: React.FC = () => {
     };
 
     fetchPendingMembers();
-  }, []);
+  }, [state.showingPageType]); // Ajout dépendance
 
   const handleRoleChange = (requestId: string, role: string) => {
     setSelectedRole(prev => ({ ...prev, [requestId]: role }));
@@ -130,18 +142,22 @@ const MembershipRequests: React.FC = () => {
     setOpenDropdowns(prev => ({ ...prev, [requestId]: false }));
   };
 
-  // 3. Correction de la fonction handleAccept
+  // 3. Bascule API Accept
   const handleAccept = async (requestId: string) => {
-    if (!companyId) {
-      console.error("ID de l'entreprise manquant");
+    if (!contextId) {
+      console.error("ID du contexte manquant");
       return;
     }
 
     try {
-      // Appel API avec les deux IDs requis
-      await acceptMember(companyId, Number(requestId));
+      const isEdu = state.showingPageType === 'edu';
 
-      // Mise à jour locale de l'interface (suppression de la carte)
+      if (isEdu) {
+        await acceptSchoolMember(contextId, Number(requestId));
+      } else {
+        await acceptMember(contextId, Number(requestId));
+      }
+
       setRequests(prev => prev.filter(req => req.id !== requestId));
     } catch (error) {
       console.error("Erreur lors de l'acceptation du membre:", error);
