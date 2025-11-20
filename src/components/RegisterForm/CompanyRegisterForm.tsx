@@ -287,8 +287,8 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <form onSubmit={handleSubmit} className="form-container">
       <div className="form-header">
-        <button type="button" onClick={onBack} className="back-button">
-          ← Retour
+        <button type="button" onClick={onBack} className="back-button" title="Retour">
+          <i className="fas fa-arrow-left"></i>
         </button>
         <h2 className="form-title">Inscription Organisation</h2>
       </div>

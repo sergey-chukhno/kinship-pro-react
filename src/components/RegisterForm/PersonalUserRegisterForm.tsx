@@ -249,21 +249,21 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   }, [])
 
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      const { name, value, type } = e.target
-      let finalValue: string | boolean = value
+    const { name, value, type } = e.target
+    let finalValue: string | boolean = value
 
-      if (type === "checkbox") {
-        finalValue = (e.target as HTMLInputElement).checked
-      } else if (type === "radio" && (value === "true" || value === "false")) {
-        // Convertit les chaînes "true"/"false" des radios en booléens
-        finalValue = value === "true"
-      }
-
-      setUser((prev) => ({
-        ...prev,
-        [name]: finalValue,
-      }))
+    if (type === "checkbox") {
+      finalValue = (e.target as HTMLInputElement).checked
+    } else if (type === "radio" && (value === "true" || value === "false")) {
+      // Convertit les chaînes "true"/"false" des radios en booléens
+      finalValue = value === "true"
     }
+
+    setUser((prev) => ({
+      ...prev,
+      [name]: finalValue,
+    }))
+  }
 
   const handleAvailabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target
@@ -289,7 +289,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     const { name, value } = e.target
     setChildrenInfo((prev) => {
       const updated = [...prev]
-      ;(updated[index] as any)[name] = value
+        ; (updated[index] as any)[name] = value
       return updated
     })
   }
@@ -422,8 +422,8 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   return (
     <form onSubmit={handleSubmit} className="pur-form">
       <div className="form-header">
-        <button type="button" onClick={onBack} className="back-button">
-          ← Retour
+        <button type="button" onClick={onBack} className="back-button" title="Retour">
+          <i className="fas fa-arrow-left"></i>
         </button>
         <h2 className="pur-title">Inscription Utilisateur Personnel</h2>
       </div>

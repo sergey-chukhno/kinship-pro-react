@@ -134,64 +134,64 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     })
   }, [user.password, user.passwordConfirmation])
 
-    React.useEffect(() => {
-      const fetchSkills = async () => {
-        try {
-          const response = await getSkills()
-          const data = response?.data?.data ?? response?.data ?? response ?? []
-          if (Array.isArray(data)) {
-            const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
-            setSkillList(normalized)
-          }
-        } catch (error) {
-          console.error("Erreur lors du chargement des compétences :", error)
+  React.useEffect(() => {
+    const fetchSkills = async () => {
+      try {
+        const response = await getSkills()
+        const data = response?.data?.data ?? response?.data ?? response ?? []
+        if (Array.isArray(data)) {
+          const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
+          setSkillList(normalized)
         }
+      } catch (error) {
+        console.error("Erreur lors du chargement des compétences :", error)
       }
-      fetchSkills()
-    }, [])
-  
-    React.useEffect(() => {
-      if (skillList.length === 0) {
-        setSkillSubList([])
-        return
+    }
+    fetchSkills()
+  }, [])
+
+  React.useEffect(() => {
+    if (skillList.length === 0) {
+      setSkillSubList([])
+      return
+    }
+
+    let mounted = true
+
+    const fetchAllSubSkills = async () => {
+      try {
+        const promises = skillList.map(async (skill) => {
+          const resp = await getSubSkills(skill.id)
+          const data = resp?.data ?? resp ?? {}
+
+          const subSkills = Array.isArray(data.sub_skills)
+            ? data.sub_skills
+            : Array.isArray(data.skill?.sub_skills)
+              ? data.skill.sub_skills
+              : []
+
+          return subSkills.map((s: any) => ({
+            id: Number(s.id),
+            name: s.name,
+            parent_skill_id: Number(skill.id),
+          }))
+        })
+
+        const results = await Promise.all(promises)
+        const flattened = results.flat()
+
+        if (mounted) setSkillSubList(flattened)
+      } catch (error) {
+        console.error("Erreur lors du chargement des sous-compétences :", error)
       }
-  
-      let mounted = true
-  
-      const fetchAllSubSkills = async () => {
-        try {
-          const promises = skillList.map(async (skill) => {
-            const resp = await getSubSkills(skill.id)
-            const data = resp?.data ?? resp ?? {}
-  
-            const subSkills = Array.isArray(data.sub_skills)
-              ? data.sub_skills
-              : Array.isArray(data.skill?.sub_skills)
-                ? data.skill.sub_skills
-                : []
-  
-            return subSkills.map((s: any) => ({
-              id: Number(s.id),
-              name: s.name,
-              parent_skill_id: Number(skill.id),
-            }))
-          })
-  
-          const results = await Promise.all(promises)
-          const flattened = results.flat()
-  
-          if (mounted) setSkillSubList(flattened)
-        } catch (error) {
-          console.error("Erreur lors du chargement des sous-compétences :", error)
-        }
-      }
-  
-      fetchAllSubSkills()
-  
-      return () => {
-        mounted = false
-      }
-    }, [skillList])
+    }
+
+    fetchAllSubSkills()
+
+    return () => {
+      mounted = false
+    }
+  }, [skillList])
 
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -265,7 +265,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setCurrentStep(3)
     } else if (currentStep === 3 && (!showSchools || selectedSchoolsList.length > 0)) {
       setCurrentStep(4)
-    } else if (currentStep === 4 ) {
+    } else if (currentStep === 4) {
       if (showSkills && skills.selectedSkills.length === 0) return
       setCurrentStep(5)
     }
@@ -292,8 +292,8 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <form onSubmit={handleSubmit} className="form-container">
       <div className="form-header">
-        <button type="button" onClick={onBack} className="back-button">
-          ← Retour
+        <button type="button" onClick={onBack} className="back-button" title="Retour">
+          <i className="fas fa-arrow-left"></i>
         </button>
         <h2 className="form-title">Inscription Enseignant</h2>
       </div>
