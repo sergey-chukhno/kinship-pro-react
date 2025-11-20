@@ -250,18 +250,18 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const filteredSchools = schools.filter((s) => s.name.toLowerCase().includes(schoolQuery.toLowerCase()))
 
-  const isStep1Valid = () => {
+  const isPersonalInfoValid = () => {
     return user.firstName && user.lastName && user.email && user.password && user.passwordConfirmation && user.birthday
   }
 
-  const isStep2Valid = () => {
+  const isRoleValid = () => {
     return user.role !== ""
   }
 
   const handleNext = () => {
-    if (currentStep === 1 && isStep1Valid()) {
+    if (currentStep === 1 && isRoleValid()) {
       setCurrentStep(2)
-    } else if (currentStep === 2 && isStep2Valid()) {
+    } else if (currentStep === 2 && isPersonalInfoValid()) {
       setCurrentStep(3)
     } else if (currentStep === 3 && (!showSchools || selectedSchoolsList.length > 0)) {
       setCurrentStep(4)
@@ -314,8 +314,28 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </p>
       </div>
 
-      {/* Step 1 */}
+      {/* Step 1: Role Selection (Moved from Step 2) */}
       <div className={`form-step ${currentStep >= 1 ? "visible" : ""}`}>
+        <h3 className="step-title">Je suis un(e) :</h3>
+        <div className="role-grid">
+          {teacherRoles.map((role) => (
+            <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="role"
+                value={role.value}
+                checked={user.role === role.value}
+                onChange={handleUserChange}
+                required
+              />
+              <span className="role-label">{tradFR[role.value as keyof typeof tradFR] || role.value}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Step 2: Personal Information (Moved from Step 1) */}
+      <div className={`form-step ${currentStep >= 2 ? "visible" : ""}`}>
         <h3 className="step-title">Mes Informations personnelles</h3>
         <div className="grid">
           <div className="form-field">
@@ -419,28 +439,6 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </div>
         </div>
       </div>
-
-      {/* Step 2 */}
-      {currentStep >= 2 && (
-        <div className="form-step visible">
-          <h3 className="step-title">Je suis un(e) :</h3>
-          <div className="role-grid">
-            {teacherRoles.map((role) => (
-              <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
-                <input
-                  type="radio"
-                  name="role"
-                  value={role.value}
-                  checked={user.role === role.value}
-                  onChange={handleUserChange}
-                  required
-                />
-                <span className="role-label">{tradFR[role.value as keyof typeof tradFR] || role.value}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Step 3 */}
       {currentStep >= 3 && (
@@ -585,8 +583,8 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             onClick={handleNext}
             className="form-button success"
             disabled={
-              (currentStep === 1 && !isStep1Valid()) ||
-              (currentStep === 2 && !isStep2Valid()) ||
+              (currentStep === 1 && !isRoleValid()) ||
+              (currentStep === 2 && !isPersonalInfoValid()) ||
               (currentStep === 3 && showSchools && selectedSchoolsList.length === 0) ||
               (currentStep === 4 && showSkills && skills.selectedSkills.length === 0)
             }
