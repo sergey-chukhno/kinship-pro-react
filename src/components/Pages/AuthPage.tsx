@@ -223,7 +223,7 @@ const AuthPage: React.FC = () => {
               Pour les utilisateurs
             </button>
             <button className="auth-header-link" onClick={() => navigateToRegisterType("company")}>
-              Pour les entreprises & Asso
+              Pour les entreprises & asso
             </button>
             <button className="auth-header-link" onClick={() => navigateToRegisterType("school")}>
               Pour les écoles
