@@ -16,15 +16,6 @@ import { submitPersonalUserRegistration } from "../../api/Authentication"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
 
-interface ChildInfo {
-  childFirstName: string
-  childLastName: string
-  childBirthday: string
-  school_id?: number
-  school_name?: string
-  class_id?: number
-  class_name?: string
-}
 
 interface availability {
   monday: boolean
@@ -89,7 +80,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   const [showAvailability, setShowAvailability] = useState(false)
   const [showSchools, setShowSchools] = useState(false)
   const [showCompanies, setShowCompanies] = useState(false)
-  const [showChildren, setShowChildren] = useState(false)
+
 
   const navigate = useNavigate()
 
@@ -159,7 +150,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
 
   const [selectedSchools, setSelectedSchools] = useState<number[]>([])
   const [selectedCompanies, setSelectedCompanies] = useState<number[]>([])
-  const [childrenInfo, setChildrenInfo] = useState<ChildInfo[]>([])
+
   const [personalUserRoles, setPersonalUserRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
   const [selectedSchoolsList, setSelectedSchoolsList] = useState<{ id: number; name: string }[]>([])
@@ -298,33 +289,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     setAvailability((prev) => ({ ...prev, [name]: checked }))
   }
 
-  const handleAddChild = () => {
-    setChildrenInfo((prev) => [
-      ...prev,
-      {
-        childFirstName: "",
-        childLastName: "",
-        childBirthday: "",
-        school_id: undefined,
-        school_name: "",
-        class_id: undefined,
-        class_name: "",
-      },
-    ])
-  }
 
-  const handleChildChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setChildrenInfo((prev) => {
-      const updated = [...prev]
-        ; (updated[index] as any)[name] = value
-      return updated
-    })
-  }
-
-  const handleRemoveChild = (index: number) => {
-    setChildrenInfo((prev) => prev.filter((_, i) => i !== index))
-  }
 
   const toggleSkill = (skillId: number) => {
     setSkills((prev) => {
@@ -417,10 +382,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       if (showCompanies && selectedCompaniesList.length === 0) return
       setCurrentStep(7)
     } else if (currentStep === 7) {
-      if (showChildren && childrenInfo.length === 0) return
-      setCurrentStep(8) // <- Va à la nouvelle étape 8
-    } else if (currentStep === 8) {
-      setCurrentStep(9) // <- Va à la politique de confidentialité (étape 9)
+      setCurrentStep(8)
     }
   }
 
@@ -433,7 +395,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       ...skills,
       ...selectedSchools,
       ...selectedCompanies,
-      ...childrenInfo,
+
     }
     submitPersonalUserRegistration(formData)
       .then((response) => {
@@ -831,57 +793,9 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         </div>
       )}
 
-      {/* Step 7: Enfants (step séparé avec toggle switch) */}
+
+
       {currentStep >= 7 && (
-        <div className="form-step visible">
-          <h3 className="step-title">Mes Enfants</h3>
-          <label className="toggle-switch-form">
-            <span>Je veux ajouter mes enfants</span>
-            <input type="checkbox" checked={showChildren} onChange={(e) => setShowChildren(e.target.checked)} />
-            <span className="toggle-slider"></span>
-          </label>
-
-          {showChildren && (
-            <fieldset className="pur-fieldset">
-              {childrenInfo.map((child, i) => (
-                <div key={i} className="pur-child-card">
-                  <input
-                    className="pur-input"
-                    type="text"
-                    name="childFirstName"
-                    placeholder="Prénom"
-                    value={child.childFirstName}
-                    onChange={(e) => handleChildChange(i, e)}
-                  />
-                  <input
-                    className="pur-input"
-                    type="text"
-                    name="childLastName"
-                    placeholder="Nom"
-                    value={child.childLastName}
-                    onChange={(e) => handleChildChange(i, e)}
-                  />
-                  <input
-                    className="pur-input"
-                    type="date"
-                    name="childBirthday"
-                    value={child.childBirthday}
-                    onChange={(e) => handleChildChange(i, e)}
-                  />
-                  <button type="button" className="pur-link danger" onClick={() => handleRemoveChild(i)}>
-                    Supprimer
-                  </button>
-                </div>
-              ))}
-              <button type="button" className="pur-link" onClick={handleAddChild}>
-                + Ajouter un enfant
-              </button>
-            </fieldset>
-          )}
-        </div>
-      )}
-
-      {currentStep >= 8 && (
         <div className="form-step visible">
           <h3 className="step-title">Mes informations de réseau</h3>
 
@@ -969,7 +883,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         </div>
       )}
 
-      {currentStep >= 9 && (
+      {currentStep >= 8 && (
         <div className="form-step visible">
           <h3 className="step-title">Politique de confidentialité</h3>
           <div className="privacy-policy-scroll-box">
@@ -1004,7 +918,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       )}
 
       <div className="form-actions">
-        {currentStep < 9 ? (
+        {currentStep < 8 ? (
           <button
             type="button"
             onClick={handleNext}
@@ -1015,8 +929,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               (currentStep === 3 && showSkills && skills.selectedSkills.length === 0) ||
               (currentStep === 4 && showAvailability && !Object.values(availability).some(Boolean)) ||
               (currentStep === 5 && showSchools && selectedSchoolsList.length === 0) ||
-              (currentStep === 6 && showCompanies && selectedCompaniesList.length === 0) ||
-              (currentStep === 7 && showChildren && childrenInfo.length === 0)
+              (currentStep === 6 && showCompanies && selectedCompaniesList.length === 0)
             }
           >
             Suivant
