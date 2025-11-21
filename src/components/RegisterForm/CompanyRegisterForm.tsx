@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { getCompanyRoles, getSkills, getSubSkills } from "../../api/RegistrationRessource"
+import { getCompanyRoles, getCompanyTypes, getSkills, getSubSkills } from "../../api/RegistrationRessource"
 import { submitCompanyRegistration } from "../../api/Authentication"
 import { translateSkill, translateSubSkill } from "../../translations/skills"
 import { privatePolicy } from "../../data/PrivacyPolicy"
@@ -87,6 +87,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const [skillList, setSkillList] = useState<{ id: number; name: string; displayName: string }[]>([])
   const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; displayName: string; parent_skill_id: number }[]>([])
+  const [ companyTypes, setCompanyTypes] = useState<{id: number; name: string}[]>([])
 
   const [companyRoles, setCompanyRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
@@ -108,6 +109,23 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       }
     }
     fetchSkills()
+  }, [])
+
+  React.useEffect(() => {
+    const fetchCompanyTypes = async () => {
+      try {
+        const response = await getCompanyTypes()
+        const data = response?.data?.data ?? response?.data ?? response ?? []
+        if (Array.isArray(data)) {
+          const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
+          setCompanyTypes(normalized)
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des compétences :", error)
+      }
+    }
+
+    fetchCompanyTypes()
   }, [])
 
   React.useEffect(() => {
@@ -498,13 +516,19 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <label className="form-label">Type d'entreprise</label>
               <select
                 name="companyTypeId"
-                value={company.companyTypeId}
+                value={company.companyTypeId} 
                 onChange={handleCompanyChange}
                 className="form-select"
               >
-                <option value={1}>Entreprise</option>
-                <option value={2}>Établissement éducatif</option>
-                <option value={3}>Association</option>
+                {/* Option par défaut (recommandé) */}
+                <option value="">Sélectionnez un type</option>
+
+                {/* 3. Boucle sur les données récupérées */}
+                {companyTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
               </select>
             </div>
 
