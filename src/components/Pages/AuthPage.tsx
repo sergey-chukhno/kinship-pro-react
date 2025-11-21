@@ -81,9 +81,18 @@ const AuthPage: React.FC = () => {
             setCurrentPage("dashboard")
             navigate("/dashboard")
           }
-          else if (response.data.user.available_contexts.companies?.length > 0) {
-            setShowingPageType("pro");
-            setCurrentPage("dashboard");
+          else if (
+            response.data.user.available_contexts.companies?.length > 0 ||
+            [
+              "president_association",
+              "president_fondation",
+              "directeur_organisation",
+              "directeur_entreprise",
+              "responsable_rh_formation_secteur",
+            ].includes(response.data.user.role)
+          ) {
+            setShowingPageType("pro")
+            setCurrentPage("dashboard")
             navigate("/dashboard")
           }
         } else {
