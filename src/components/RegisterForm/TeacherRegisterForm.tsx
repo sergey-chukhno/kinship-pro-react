@@ -44,7 +44,7 @@ const ROLE_ORDER = [
 const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState(1)
   const [showAvailability, setShowAvailability] = useState(false)
-  const [showSchools, setShowSchools] = useState(false)
+  const [showSchools] = useState(true)
   const [showSkills, setShowSkills] = useState(false)
 
   const [user, setUser] = useState({
@@ -297,7 +297,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       setCurrentStep(2)
     } else if (currentStep === 2 && isPersonalInfoValid()) {
       setCurrentStep(3)
-    } else if (currentStep === 3 && (!showSchools || selectedSchoolsList.length > 0)) {
+    } else if (currentStep === 3 && selectedSchoolsList.length > 0) {
       setCurrentStep(4)
     } else if (currentStep === 4) {
       if (showSkills && skills.selectedSkills.length === 0) return
@@ -411,12 +411,12 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </div>
 
           <div className="form-field full-width">
-            <label className="form-label">Adresse email Académique *</label>
+            <label className="form-label">Adresse email académique *</label>
             <input
               className="form-input"
               type="email"
               name="email"
-              placeholder="votre@email-ecole.fr"
+              placeholder="prenom.nom@ac-... .fr"
               value={user.email}
               onChange={handleUserChange}
               required
@@ -477,68 +477,62 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       {/* Step 3 */}
       {currentStep >= 3 && (
         <div className="form-step visible">
-          <h3 className="step-title">Établissement Scolaire</h3>
-          <label className="toggle-switch-form">
-            <span>Je demande mon rattachement à un établissement scolaire</span>
-            <input type="checkbox" checked={showSchools} onChange={(e) => setShowSchools(e.target.checked)} />
-            <span className="toggle-slider"></span>
-          </label>
+          <h3 className="step-title">Établissement Scolaire *</h3>
 
-          {showSchools && (
-            <div className="pur-fieldset">
-              <input
-                type="text"
-                className="pur-input"
-                placeholder="Rechercher une école (nom, ville, code postal)..."
-                value={schoolQuery}
-                onChange={(e) => setSchoolQuery(e.target.value)}
-              />
-              {schoolQuery && (
-                <div className="search-suggestions" ref={scrollContainerRef}>
-                  {schoolsLoading && schools.length === 0 && (
-                    <div className="suggestion-item">Chargement...</div>
-                  )}
+          <div className="pur-fieldset">
+            <input
+              type="text"
+              className="pur-input"
+              placeholder="Rechercher une école (nom, ville, code postal)..."
+              value={schoolQuery}
+              onChange={(e) => setSchoolQuery(e.target.value)}
+            />
+            {schoolQuery && (
+              <div className="search-suggestions" ref={scrollContainerRef}>
+                {schoolsLoading && schools.length === 0 && (
+                  <div className="suggestion-item">Chargement...</div>
+                )}
 
-                  {schoolsError && (
-                    <div className="suggestion-item error">{schoolsError}</div>
-                  )}
+                {schoolsError && (
+                  <div className="suggestion-item error">{schoolsError}</div>
+                )}
 
-                  {!schoolsLoading && schools.length === 0 && !schoolsError && (
-                    <div className="suggestion-item">Aucune école trouvée</div>
-                  )}
+                {!schoolsLoading && schools.length === 0 && !schoolsError && (
+                  <div className="suggestion-item">Aucune école trouvée</div>
+                )}
 
-                  {schools.map((school) => (
-                    <div
-                      key={school.id}
-                      className="suggestion-item"
-                      onClick={() => handleAddSchool(school.id)}
-                    >
-                      <div className="suggestion-item-name">{school.name}</div>
-                      {(school.city || school.zip_code) && (
-                        <small className="suggestion-item-details">
-                          {school.city} {school.zip_code}
-                        </small>
-                      )}
-                    </div>
-                  ))}
-
-                  {schoolsLoading && schools.length > 0 && (
-                    <div className="suggestion-item loading-more">Chargement...</div>
-                  )}
-                </div>
-              )}
-              <div className="selected-list">
-                {selectedSchoolsList.map((school) => (
-                  <div key={school.id} className="selected-item">
-                    <span>{school.name}</span>
-                    <button type="button" onClick={() => handleRemoveSchool(school.id)} className="remove-btn">
-                      ×
-                    </button>
+                {schools.map((school) => (
+                  <div
+                    key={school.id}
+                    className="suggestion-item"
+                    onClick={() => handleAddSchool(school.id)}
+                  >
+                    <div className="suggestion-item-name">{school.name}</div>
+                    {(school.city || school.zip_code) && (
+                      <small className="suggestion-item-details">
+                        {school.city} {school.zip_code}
+                      </small>
+                    )}
                   </div>
                 ))}
+
+                {schoolsLoading && schools.length > 0 && (
+                  <div className="suggestion-item loading-more">Chargement...</div>
+                )}
               </div>
+            )}
+            <div className="selected-list">
+              {selectedSchoolsList.map((school) => (
+                <div key={school.id} className="selected-item">
+                  <span>{school.name}</span>
+                  <button type="button" onClick={() => handleRemoveSchool(school.id)} className="remove-btn">
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+
         </div>
       )}
 
