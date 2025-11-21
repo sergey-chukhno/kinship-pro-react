@@ -14,7 +14,7 @@ import CGU from "../RegisterForm/CGU"
 import { useAppContext } from "../../context/AppContext"
 
 
-type RegisterType = "user" | "teacher" | "school" | "company" | "privacy-policy" | "CGU" |""
+type RegisterType = "user" | "teacher" | "school" | "company" | "privacy-policy" | "CGU" | ""
 
 interface LoginData {
   email: string
@@ -45,9 +45,9 @@ const AuthPage: React.FC = () => {
     } else if (urlRegisterType && ["user", "teacher", "school", "company"].includes(urlRegisterType)) {
       setIsLogin(false)
       setRegisterType(urlRegisterType as RegisterType)
-    } else if (location.pathname === "/privacy-policy"){
+    } else if (location.pathname === "/privacy-policy") {
       setRegisterType("privacy-policy")
-    } else if (location.pathname === "/CGU"){
+    } else if (location.pathname === "/CGU") {
       setRegisterType("CGU")
     }
   }, [location.pathname, urlRegisterType])
@@ -223,7 +223,7 @@ const AuthPage: React.FC = () => {
               Pour les utilisateurs
             </button>
             <button className="auth-header-link" onClick={() => navigateToRegisterType("company")}>
-              Pour les entreprises
+              Pour les entreprises & Asso
             </button>
             <button className="auth-header-link" onClick={() => navigateToRegisterType("school")}>
               Pour les écoles
