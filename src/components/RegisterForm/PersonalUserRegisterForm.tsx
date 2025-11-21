@@ -10,20 +10,12 @@ import {
   getCompanies,
 } from "../../api/RegistrationRessource"
 import { useSchoolSearch } from "../../hooks/useSchoolSearch"
+import { useClientSideSearch } from "../../hooks/useClientSideSearch"
 import { translateSkill, translateSubSkill } from "../../translations/skills"
 import { submitPersonalUserRegistration } from "../../api/Authentication"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
 
-interface ChildInfo {
-  childFirstName: string
-  childLastName: string
-  childBirthday: string
-  school_id?: number
-  school_name?: string
-  class_id?: number
-  class_name?: string
-}
 
 interface availability {
   monday: boolean
@@ -88,7 +80,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   const [showAvailability, setShowAvailability] = useState(false)
   const [showSchools, setShowSchools] = useState(false)
   const [showCompanies, setShowCompanies] = useState(false)
-  const [showChildren, setShowChildren] = useState(false)
+
 
   const navigate = useNavigate()
 
@@ -130,7 +122,21 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
 
   const [skillList, setSkillList] = useState<{ id: number; name: string; displayName: string }[]>([])
   const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; displayName: string; parent_skill_id: number }[]>([])
-  const [companies, setCompanies] = useState<{ id: number; name: string }[]>([])
+
+  // Use custom hook for company search with client-side infinite scroll
+  const {
+    displayedEntities: companies,
+    loading: companiesLoading,
+    error: companiesError,
+    searchQuery: companyQuery,
+    setSearchQuery: setCompanyQuery,
+    scrollContainerRef: companyScrollRef,
+    hasMore: hasMoreCompanies
+  } = useClientSideSearch({
+    fetchFunction: getCompanies,
+    searchFields: ['name'],
+    itemsPerPage: 20
+  })
 
   // Use custom hook for school search with infinite scroll
   const {
@@ -141,10 +147,10 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     setSearchQuery: setSchoolQuery,
     scrollContainerRef
   } = useSchoolSearch(20)
-  const [companyQuery, setCompanyQuery] = useState("")
+
   const [selectedSchools, setSelectedSchools] = useState<number[]>([])
   const [selectedCompanies, setSelectedCompanies] = useState<number[]>([])
-  const [childrenInfo, setChildrenInfo] = useState<ChildInfo[]>([])
+
   const [personalUserRoles, setPersonalUserRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
   const [selectedSchoolsList, setSelectedSchoolsList] = useState<{ id: number; name: string }[]>([])
@@ -190,21 +196,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     fetchSkills()
   }, [])
 
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      try {
-        const response = await getCompanies()
-        const data = response?.data?.data ?? response?.data ?? response ?? []
-        if (Array.isArray(data)) {
-          const normalized = data.map((c: any) => ({ id: Number(c.id), name: c.name }))
-          setCompanies(normalized)
-        }
-      } catch (error) {
-        console.error("Erreur lors du chargement des entreprises :", error)
-      }
-    }
-    fetchCompanies()
-  }, [])
+
 
 
 
@@ -297,33 +289,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     setAvailability((prev) => ({ ...prev, [name]: checked }))
   }
 
-  const handleAddChild = () => {
-    setChildrenInfo((prev) => [
-      ...prev,
-      {
-        childFirstName: "",
-        childLastName: "",
-        childBirthday: "",
-        school_id: undefined,
-        school_name: "",
-        class_id: undefined,
-        class_name: "",
-      },
-    ])
-  }
 
-  const handleChildChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setChildrenInfo((prev) => {
-      const updated = [...prev]
-        ; (updated[index] as any)[name] = value
-      return updated
-    })
-  }
-
-  const handleRemoveChild = (index: number) => {
-    setChildrenInfo((prev) => prev.filter((_, i) => i !== index))
-  }
 
   const toggleSkill = (skillId: number) => {
     setSkills((prev) => {
@@ -388,7 +354,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     setSelectedCompanies((prev) => prev.filter((id) => id !== companyId))
   }
 
-  const filteredCompanies = companies.filter((c) => c.name.toLowerCase().includes(companyQuery.toLowerCase()))
+
 
   const isStep1Valid = () => {
     return user.firstName && user.lastName && user.email && user.password && user.passwordConfirmation && user.birthday
@@ -416,10 +382,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       if (showCompanies && selectedCompaniesList.length === 0) return
       setCurrentStep(7)
     } else if (currentStep === 7) {
-      if (showChildren && childrenInfo.length === 0) return
-      setCurrentStep(8) // <- Va à la nouvelle étape 8
-    } else if (currentStep === 8) {
-      setCurrentStep(9) // <- Va à la politique de confidentialité (étape 9)
+      setCurrentStep(8)
     }
   }
 
@@ -432,7 +395,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       ...skills,
       ...selectedSchools,
       ...selectedCompanies,
-      ...childrenInfo,
+
     }
     submitPersonalUserRegistration(formData)
       .then((response) => {
@@ -775,17 +738,44 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               <input
                 type="text"
                 className="pur-input"
-                placeholder="Rechercher une entreprise..."
+                placeholder="Rechercher une entreprise (nom)..."
                 value={companyQuery}
                 onChange={(e) => setCompanyQuery(e.target.value)}
               />
               {companyQuery && (
-                <div className="search-suggestions">
-                  {filteredCompanies.slice(0, 5).map((company) => (
-                    <div key={company.id} className="suggestion-item" onClick={() => handleAddCompany(company.id)}>
-                      {company.name}
+                <div className="search-suggestions" ref={companyScrollRef}>
+                  {companiesLoading && companies.length === 0 && (
+                    <div className="suggestion-item">Chargement...</div>
+                  )}
+
+                  {companiesError && (
+                    <div className="suggestion-item error">{companiesError}</div>
+                  )}
+
+                  {!companiesLoading && companies.length === 0 && !companiesError && (
+                    <div className="suggestion-item">Aucune entreprise trouvée</div>
+                  )}
+
+                  {companies.map((company) => (
+                    <div
+                      key={company.id}
+                      className="suggestion-item"
+                      onClick={() => handleAddCompany(company.id)}
+                    >
+                      <div className="suggestion-item-name">{company.name}</div>
+                      {(company.city || company.zip_code || company.company_type) && (
+                        <small className="suggestion-item-details">
+                          {company.city && `${company.city} `}
+                          {company.zip_code && `${company.zip_code} `}
+                          {company.company_type?.name && `• ${company.company_type.name}`}
+                        </small>
+                      )}
                     </div>
                   ))}
+
+                  {hasMoreCompanies && (
+                    <div className="suggestion-item loading-more">Scroll pour plus...</div>
+                  )}
                 </div>
               )}
               <div className="selected-list">
@@ -803,57 +793,9 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         </div>
       )}
 
-      {/* Step 7: Enfants (step séparé avec toggle switch) */}
+
+
       {currentStep >= 7 && (
-        <div className="form-step visible">
-          <h3 className="step-title">Mes Enfants</h3>
-          <label className="toggle-switch-form">
-            <span>Je veux ajouter mes enfants</span>
-            <input type="checkbox" checked={showChildren} onChange={(e) => setShowChildren(e.target.checked)} />
-            <span className="toggle-slider"></span>
-          </label>
-
-          {showChildren && (
-            <fieldset className="pur-fieldset">
-              {childrenInfo.map((child, i) => (
-                <div key={i} className="pur-child-card">
-                  <input
-                    className="pur-input"
-                    type="text"
-                    name="childFirstName"
-                    placeholder="Prénom"
-                    value={child.childFirstName}
-                    onChange={(e) => handleChildChange(i, e)}
-                  />
-                  <input
-                    className="pur-input"
-                    type="text"
-                    name="childLastName"
-                    placeholder="Nom"
-                    value={child.childLastName}
-                    onChange={(e) => handleChildChange(i, e)}
-                  />
-                  <input
-                    className="pur-input"
-                    type="date"
-                    name="childBirthday"
-                    value={child.childBirthday}
-                    onChange={(e) => handleChildChange(i, e)}
-                  />
-                  <button type="button" className="pur-link danger" onClick={() => handleRemoveChild(i)}>
-                    Supprimer
-                  </button>
-                </div>
-              ))}
-              <button type="button" className="pur-link" onClick={handleAddChild}>
-                + Ajouter un enfant
-              </button>
-            </fieldset>
-          )}
-        </div>
-      )}
-
-      {currentStep >= 8 && (
         <div className="form-step visible">
           <h3 className="step-title">Mes informations de réseau</h3>
 
@@ -941,7 +883,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         </div>
       )}
 
-      {currentStep >= 9 && (
+      {currentStep >= 8 && (
         <div className="form-step visible">
           <h3 className="step-title">Politique de confidentialité</h3>
           <div className="privacy-policy-scroll-box">
@@ -976,7 +918,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       )}
 
       <div className="form-actions">
-        {currentStep < 9 ? (
+        {currentStep < 8 ? (
           <button
             type="button"
             onClick={handleNext}
@@ -987,8 +929,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               (currentStep === 3 && showSkills && skills.selectedSkills.length === 0) ||
               (currentStep === 4 && showAvailability && !Object.values(availability).some(Boolean)) ||
               (currentStep === 5 && showSchools && selectedSchoolsList.length === 0) ||
-              (currentStep === 6 && showCompanies && selectedCompaniesList.length === 0) ||
-              (currentStep === 7 && showChildren && childrenInfo.length === 0)
+              (currentStep === 6 && showCompanies && selectedCompaniesList.length === 0)
             }
           >
             Suivant
