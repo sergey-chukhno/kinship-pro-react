@@ -3,6 +3,7 @@ import { Member } from '../../types';
 import './Modal.css';
 import { submitPersonalUserRegistration, getCurrentUser } from '../../api/Authentication';
 import { getSkills, getPersonalUserRoles } from '../../api/RegistrationRessource'; // 1. Import fetch roles
+import { useAppContext } from '../../context/AppContext';
 
 interface AddMemberModalProps {
   onClose: () => void;
@@ -25,6 +26,7 @@ const tradFR: Record<string, string> = {
 };
 
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
+  const { state } = useAppContext();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -212,9 +214,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
     }
 
     try {
-      // 1. Récupération Organisation
+      // 1. Récupération Organisation selon le mode
       const currentUser = await getCurrentUser();
-      const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+      const isEdu = state.showingPageType === 'edu';
+      
+      const contextId = isEdu
+        ? currentUser.data?.available_contexts?.schools?.[0]?.id
+        : currentUser.data?.available_contexts?.companies?.[0]?.id;
 
       // 2. Disponibilités
       const apiAvailability = {
@@ -251,7 +257,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
         availability: apiAvailability,
         selectedSkills: skillIds,
         selectedSubSkills: [],
-        selectedCompanies: companyId ? [String(companyId)] : [] 
+        selectedCompanies: !isEdu && contextId ? [String(contextId)] : [],
+        selectedSchools: isEdu && contextId ? [String(contextId)] : []
       };
 
       // 5. Envoi
