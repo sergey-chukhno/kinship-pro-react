@@ -10,6 +10,7 @@ import {
   getCompanies,
 } from "../../api/RegistrationRessource"
 import { useSchoolSearch } from "../../hooks/useSchoolSearch"
+import { useClientSideSearch } from "../../hooks/useClientSideSearch"
 import { translateSkill, translateSubSkill } from "../../translations/skills"
 import { submitPersonalUserRegistration } from "../../api/Authentication"
 import "./PersonalUserRegisterForm.css"
@@ -130,7 +131,21 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
 
   const [skillList, setSkillList] = useState<{ id: number; name: string; displayName: string }[]>([])
   const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; displayName: string; parent_skill_id: number }[]>([])
-  const [companies, setCompanies] = useState<{ id: number; name: string }[]>([])
+
+  // Use custom hook for company search with client-side infinite scroll
+  const {
+    displayedEntities: companies,
+    loading: companiesLoading,
+    error: companiesError,
+    searchQuery: companyQuery,
+    setSearchQuery: setCompanyQuery,
+    scrollContainerRef: companyScrollRef,
+    hasMore: hasMoreCompanies
+  } = useClientSideSearch({
+    fetchFunction: getCompanies,
+    searchFields: ['name'],
+    itemsPerPage: 20
+  })
 
   // Use custom hook for school search with infinite scroll
   const {
@@ -141,7 +156,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     setSearchQuery: setSchoolQuery,
     scrollContainerRef
   } = useSchoolSearch(20)
-  const [companyQuery, setCompanyQuery] = useState("")
+
   const [selectedSchools, setSelectedSchools] = useState<number[]>([])
   const [selectedCompanies, setSelectedCompanies] = useState<number[]>([])
   const [childrenInfo, setChildrenInfo] = useState<ChildInfo[]>([])
@@ -190,21 +205,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     fetchSkills()
   }, [])
 
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      try {
-        const response = await getCompanies()
-        const data = response?.data?.data ?? response?.data ?? response ?? []
-        if (Array.isArray(data)) {
-          const normalized = data.map((c: any) => ({ id: Number(c.id), name: c.name }))
-          setCompanies(normalized)
-        }
-      } catch (error) {
-        console.error("Erreur lors du chargement des entreprises :", error)
-      }
-    }
-    fetchCompanies()
-  }, [])
+
 
 
 
@@ -388,7 +389,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     setSelectedCompanies((prev) => prev.filter((id) => id !== companyId))
   }
 
-  const filteredCompanies = companies.filter((c) => c.name.toLowerCase().includes(companyQuery.toLowerCase()))
+
 
   const isStep1Valid = () => {
     return user.firstName && user.lastName && user.email && user.password && user.passwordConfirmation && user.birthday
@@ -775,17 +776,44 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               <input
                 type="text"
                 className="pur-input"
-                placeholder="Rechercher une entreprise..."
+                placeholder="Rechercher une entreprise (nom)..."
                 value={companyQuery}
                 onChange={(e) => setCompanyQuery(e.target.value)}
               />
               {companyQuery && (
-                <div className="search-suggestions">
-                  {filteredCompanies.slice(0, 5).map((company) => (
-                    <div key={company.id} className="suggestion-item" onClick={() => handleAddCompany(company.id)}>
-                      {company.name}
+                <div className="search-suggestions" ref={companyScrollRef}>
+                  {companiesLoading && companies.length === 0 && (
+                    <div className="suggestion-item">Chargement...</div>
+                  )}
+
+                  {companiesError && (
+                    <div className="suggestion-item error">{companiesError}</div>
+                  )}
+
+                  {!companiesLoading && companies.length === 0 && !companiesError && (
+                    <div className="suggestion-item">Aucune entreprise trouvée</div>
+                  )}
+
+                  {companies.map((company) => (
+                    <div
+                      key={company.id}
+                      className="suggestion-item"
+                      onClick={() => handleAddCompany(company.id)}
+                    >
+                      <div className="suggestion-item-name">{company.name}</div>
+                      {(company.city || company.zip_code || company.company_type) && (
+                        <small className="suggestion-item-details">
+                          {company.city && `${company.city} `}
+                          {company.zip_code && `${company.zip_code} `}
+                          {company.company_type?.name && `• ${company.company_type.name}`}
+                        </small>
+                      )}
                     </div>
                   ))}
+
+                  {hasMoreCompanies && (
+                    <div className="suggestion-item loading-more">Scroll pour plus...</div>
+                  )}
                 </div>
               )}
               <div className="selected-list">
