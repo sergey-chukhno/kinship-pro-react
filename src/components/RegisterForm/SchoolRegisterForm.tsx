@@ -271,11 +271,11 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </div>
 
           <div className="form-field full-width">
-            <label className="form-label">Email Académique *</label>
+            <label className="form-label">Email académique *</label>
             <input
               type="email"
               name="email"
-              placeholder="votre@email-ecole.fr"
+              placeholder="prenom.nom@ac-... .fr"
               value={user.email}
               onChange={handleUserChange}
               required
@@ -378,27 +378,30 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
 
             <div className="form-field full-width">
-              <label className="form-label">Téléphone du référent (optionnel)</label>
+              <label className="form-label">Téléphone du référent *</label>
               <input
                 type="text"
                 name="referentPhoneNumber"
-                placeholder="+33 1 23 45 67 89"
+                placeholder="+33 6 12 34 56 78"
                 value={school.referentPhoneNumber}
                 onChange={handleSchoolChange}
+                required
                 className="form-input"
               />
             </div>
 
             <div className="form-field">
-              <label className="form-label">Code UAI</label>
+              <label className="form-label">Code UAI *</label>
               <input
-                className="pur-input"
+                className="form-input"
                 type="text"
                 name="uaiCode"
                 placeholder="Code UAI"
                 value={school.uaiCode}
                 onChange={handleSchoolChange}
+                required
               />
+              <p>7 chiffres et 1 lettre</p>
             </div>
           </div>
         </div>
