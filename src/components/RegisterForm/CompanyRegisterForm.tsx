@@ -534,13 +534,14 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
 
             <div className="form-field full-width">
-              <label className="form-label">Description</label>
+              <label className="form-label">Description *</label>
               <textarea
                 name="companyDescription"
                 placeholder="Description de l'entreprise"
                 value={company.companyDescription}
                 onChange={handleCompanyChange}
                 rows={3}
+                required
                 className="form-textarea"
               />
             </div>
@@ -572,37 +573,41 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
 
             <div className="form-field">
-              <label className="form-label">Téléphone du référent</label>
+              <label className="form-label">Téléphone du référent *</label>
               <input
                 type="text"
                 name="referentPhoneNumber"
                 placeholder="+33 6 12 34 56 78"
                 value={company.referentPhoneNumber}
                 onChange={handleCompanyChange}
+                required
                 className="form-input"
               />
             </div>
 
             <div className="form-field">
-              <label className="form-label">Numero de SIRET</label>
+              <label className="form-label">Numero de SIRET *</label>
               <input
                 type="text"
                 name="siretNumber"
                 placeholder="Numero de SIRET"
                 value={company.siretNumber ?? ""}
                 onChange={handleCompanyChange}
+                required
                 className="form-input"
               />
+              <p>14 chiffres</p>
             </div>
 
             <div className="form-field">
-              <label className="form-label">Adresse email de l'organisation</label>
+              <label className="form-label">Adresse email de l'organisation *</label>
               <input
                 type="email"
                 name="companyEmail"
-                placeholder="Email@example.com"
-                value={company.companyEmail ?? ""}
+                placeholder="contact@entreprise.fr"
+                value={company.companyEmail}
                 onChange={handleCompanyChange}
+                required
                 className="form-input"
               />
             </div>
