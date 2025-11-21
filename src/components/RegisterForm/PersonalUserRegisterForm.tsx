@@ -10,6 +10,7 @@ import {
   getCompanies,
   getSchools,
 } from "../../api/RegistrationRessource"
+import { translateSkill, translateSubSkill } from "../../translations/skills"
 import { submitPersonalUserRegistration } from "../../api/Authentication"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
@@ -127,8 +128,8 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     match: false,
   })
 
-  const [skillList, setSkillList] = useState<{ id: number; name: string }[]>([])
-  const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; parent_skill_id: number }[]>([])
+  const [skillList, setSkillList] = useState<{ id: number; name: string; displayName: string }[]>([])
+  const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; displayName: string; parent_skill_id: number }[]>([])
   const [companies, setCompanies] = useState<{ id: number; name: string }[]>([])
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([])
 
@@ -168,7 +169,11 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         const response = await getSkills()
         const data = response?.data?.data ?? response?.data ?? response ?? []
         if (Array.isArray(data)) {
-          const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
+          const normalized = data.map((s: any) => ({
+            id: Number(s.id),
+            name: s.name,
+            displayName: translateSkill(s.name)
+          }))
           setSkillList(normalized)
         }
       } catch (error) {
@@ -233,6 +238,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
           return subSkills.map((s: any) => ({
             id: Number(s.id),
             name: s.name,
+            displayName: translateSubSkill(s.name),
             parent_skill_id: Number(skill.id),
           }))
         })
@@ -632,7 +638,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
                           checked={isSelected}
                           onChange={() => toggleSkill(skillId)}
                         />
-                        <span className="skill-name-inline">{skill.name}</span>
+                        <span className="skill-name-inline">{skill.displayName}</span>
                       </label>
 
                       {isSelected && relatedSubs.length > 0 && (
@@ -649,7 +655,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
                                   checked={isSubSelected}
                                   onChange={() => toggleSubSkill(sub.id, sub.parent_skill_id)}
                                 />
-                                <span className="subskill-name-inline">{sub.name}</span>
+                                <span className="subskill-name-inline">{sub.displayName}</span>
                               </label>
                             )
                           })}
