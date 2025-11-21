@@ -87,7 +87,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const [skillList, setSkillList] = useState<{ id: number; name: string; displayName: string }[]>([])
   const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; displayName: string; parent_skill_id: number }[]>([])
-  const [ companyTypes, setCompanyTypes] = useState<{id: number; name: string}[]>([])
+  const [companyTypes, setCompanyTypes] = useState<{ id: number; name: string }[]>([])
 
   const [companyRoles, setCompanyRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
@@ -429,6 +429,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               required
               className="form-input"
             />
+            <p>Vous devez avoir plus de 13 ans pour vous inscrire</p>
           </div>
 
           <div className="form-field full-width">
@@ -516,7 +517,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <label className="form-label">Type d'entreprise</label>
               <select
                 name="companyTypeId"
-                value={company.companyTypeId} 
+                value={company.companyTypeId}
                 onChange={handleCompanyChange}
                 className="form-select"
               >
