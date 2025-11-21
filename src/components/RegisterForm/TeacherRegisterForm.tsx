@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { getTeacherRoles, getSchools, getSkills, getSubSkills } from "../../api/RegistrationRessource"
 import { submitTeacherRegistration } from "../../api/Authentication"
+import { translateSkill, translateSubSkill } from "../../translations/skills"
 import "./CommonForms.css"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
@@ -22,11 +23,22 @@ interface SkillsState {
 }
 
 const tradFR = {
-  school_teacher: "Professeur des écoles",
-  college_lycee_professor: "Professeur de collège/lycée",
-  teaching_staff: "Personnel enseignant",
+  primary_school_teacher: "Enseignant du primaire",
+  secondary_school_teacher: "Professeur de collège/lycée",
+  education_rectorate_personnel: "Personnel du rectorat",
+  administrative_staff: "Personnel administratif",
+  cpe_student_life: "Conseiller Principal d'Education (CPE)",
   other: "Autre",
 }
+
+const ROLE_ORDER = [
+  "primary_school_teacher",
+  "secondary_school_teacher",
+  "education_rectorate_personnel",
+  "administrative_staff",
+  "cpe_student_life",
+  "other",
+]
 
 const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState(1)
@@ -60,8 +72,8 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     selectedSkills: [],
     selectedSubSkills: [],
   })
-  const [skillList, setSkillList] = useState<{ id: number; name: string }[]>([])
-  const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; parent_skill_id: number }[]>([])
+  const [skillList, setSkillList] = useState<{ id: number; name: string; displayName: string }[]>([])
+  const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; displayName: string; parent_skill_id: number }[]>([])
 
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([])
   const [schoolQuery, setSchoolQuery] = useState("")
@@ -100,11 +112,35 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       try {
         const response = await getTeacherRoles()
         if (response && Array.isArray(response.data)) {
-          setTeacherRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setTeacherRoles(sortedData)
         } else if (response?.data?.data) {
-          setTeacherRoles(response.data.data)
+          const data = response.data.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setTeacherRoles(sortedData)
         } else if (response?.data) {
-          setTeacherRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setTeacherRoles(sortedData)
         }
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)
@@ -134,64 +170,69 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     })
   }, [user.password, user.passwordConfirmation])
 
-    React.useEffect(() => {
-      const fetchSkills = async () => {
-        try {
-          const response = await getSkills()
-          const data = response?.data?.data ?? response?.data ?? response ?? []
-          if (Array.isArray(data)) {
-            const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
-            setSkillList(normalized)
-          }
-        } catch (error) {
-          console.error("Erreur lors du chargement des compétences :", error)
+  React.useEffect(() => {
+    const fetchSkills = async () => {
+      try {
+        const response = await getSkills()
+        const data = response?.data?.data ?? response?.data ?? response ?? []
+        if (Array.isArray(data)) {
+          const normalized = data.map((s: any) => ({
+            id: Number(s.id),
+            name: s.name,
+            displayName: translateSkill(s.name)
+          }))
+          setSkillList(normalized)
         }
+      } catch (error) {
+        console.error("Erreur lors du chargement des compétences :", error)
       }
-      fetchSkills()
-    }, [])
-  
-    React.useEffect(() => {
-      if (skillList.length === 0) {
-        setSkillSubList([])
-        return
+    }
+    fetchSkills()
+  }, [])
+
+  React.useEffect(() => {
+    if (skillList.length === 0) {
+      setSkillSubList([])
+      return
+    }
+
+    let mounted = true
+
+    const fetchAllSubSkills = async () => {
+      try {
+        const promises = skillList.map(async (skill) => {
+          const resp = await getSubSkills(skill.id)
+          const data = resp?.data ?? resp ?? {}
+
+          const subSkills = Array.isArray(data.sub_skills)
+            ? data.sub_skills
+            : Array.isArray(data.skill?.sub_skills)
+              ? data.skill.sub_skills
+              : []
+
+          return subSkills.map((s: any) => ({
+            id: Number(s.id),
+            name: s.name,
+            displayName: translateSubSkill(s.name),
+            parent_skill_id: Number(skill.id),
+          }))
+        })
+
+        const results = await Promise.all(promises)
+        const flattened = results.flat()
+
+        if (mounted) setSkillSubList(flattened)
+      } catch (error) {
+        console.error("Erreur lors du chargement des sous-compétences :", error)
       }
-  
-      let mounted = true
-  
-      const fetchAllSubSkills = async () => {
-        try {
-          const promises = skillList.map(async (skill) => {
-            const resp = await getSubSkills(skill.id)
-            const data = resp?.data ?? resp ?? {}
-  
-            const subSkills = Array.isArray(data.sub_skills)
-              ? data.sub_skills
-              : Array.isArray(data.skill?.sub_skills)
-                ? data.skill.sub_skills
-                : []
-  
-            return subSkills.map((s: any) => ({
-              id: Number(s.id),
-              name: s.name,
-              parent_skill_id: Number(skill.id),
-            }))
-          })
-  
-          const results = await Promise.all(promises)
-          const flattened = results.flat()
-  
-          if (mounted) setSkillSubList(flattened)
-        } catch (error) {
-          console.error("Erreur lors du chargement des sous-compétences :", error)
-        }
-      }
-  
-      fetchAllSubSkills()
-  
-      return () => {
-        mounted = false
-      }
-    }, [skillList])
+    }
+
+    fetchAllSubSkills()
+
+    return () => {
+      mounted = false
+    }
+  }, [skillList])
 
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -250,22 +291,22 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const filteredSchools = schools.filter((s) => s.name.toLowerCase().includes(schoolQuery.toLowerCase()))
 
-  const isStep1Valid = () => {
+  const isPersonalInfoValid = () => {
     return user.firstName && user.lastName && user.email && user.password && user.passwordConfirmation && user.birthday
   }
 
-  const isStep2Valid = () => {
+  const isRoleValid = () => {
     return user.role !== ""
   }
 
   const handleNext = () => {
-    if (currentStep === 1 && isStep1Valid()) {
+    if (currentStep === 1 && isRoleValid()) {
       setCurrentStep(2)
-    } else if (currentStep === 2 && isStep2Valid()) {
+    } else if (currentStep === 2 && isPersonalInfoValid()) {
       setCurrentStep(3)
     } else if (currentStep === 3 && (!showSchools || selectedSchoolsList.length > 0)) {
       setCurrentStep(4)
-    } else if (currentStep === 4 ) {
+    } else if (currentStep === 4) {
       if (showSkills && skills.selectedSkills.length === 0) return
       setCurrentStep(5)
     }
@@ -292,8 +333,8 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <form onSubmit={handleSubmit} className="form-container">
       <div className="form-header">
-        <button type="button" onClick={onBack} className="back-button">
-          ← Retour
+        <button type="button" onClick={onBack} className="back-button" title="Retour">
+          <i className="fas fa-arrow-left"></i>
         </button>
         <h2 className="form-title">Inscription Enseignant</h2>
       </div>
@@ -314,8 +355,28 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </p>
       </div>
 
-      {/* Step 1 */}
+      {/* Step 1: Role Selection (Moved from Step 2) */}
       <div className={`form-step ${currentStep >= 1 ? "visible" : ""}`}>
+        <h3 className="step-title">Je suis un(e) :</h3>
+        <div className="role-grid">
+          {teacherRoles.map((role) => (
+            <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="role"
+                value={role.value}
+                checked={user.role === role.value}
+                onChange={handleUserChange}
+                required
+              />
+              <span className="role-label">{tradFR[role.value as keyof typeof tradFR] || role.value}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Step 2: Personal Information (Moved from Step 1) */}
+      <div className={`form-step ${currentStep >= 2 ? "visible" : ""}`}>
         <h3 className="step-title">Mes Informations personnelles</h3>
         <div className="grid">
           <div className="form-field">
@@ -420,28 +481,6 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </div>
       </div>
 
-      {/* Step 2 */}
-      {currentStep >= 2 && (
-        <div className="form-step visible">
-          <h3 className="step-title">Je suis un(e) :</h3>
-          <div className="role-grid">
-            {teacherRoles.map((role) => (
-              <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
-                <input
-                  type="radio"
-                  name="role"
-                  value={role.value}
-                  checked={user.role === role.value}
-                  onChange={handleUserChange}
-                  required
-                />
-                <span className="role-label">{tradFR[role.value as keyof typeof tradFR] || role.value}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Step 3 */}
       {currentStep >= 3 && (
         <div className="form-step visible">
@@ -511,7 +550,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                           checked={isSelected}
                           onChange={() => toggleSkill(skillId)}
                         />
-                        <span className="skill-name-inline">{skill.name}</span>
+                        <span className="skill-name-inline">{skill.displayName}</span>
                       </label>
 
                       {isSelected && relatedSubs.length > 0 && (
@@ -528,7 +567,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                   checked={isSubSelected}
                                   onChange={() => toggleSubSkill(sub.id, sub.parent_skill_id)}
                                 />
-                                <span className="subskill-name-inline">{sub.name}</span>
+                                <span className="subskill-name-inline">{sub.displayName}</span>
                               </label>
                             )
                           })}
@@ -585,8 +624,8 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             onClick={handleNext}
             className="form-button success"
             disabled={
-              (currentStep === 1 && !isStep1Valid()) ||
-              (currentStep === 2 && !isStep2Valid()) ||
+              (currentStep === 1 && !isRoleValid()) ||
+              (currentStep === 2 && !isPersonalInfoValid()) ||
               (currentStep === 3 && showSchools && selectedSchoolsList.length === 0) ||
               (currentStep === 4 && showSkills && skills.selectedSkills.length === 0)
             }

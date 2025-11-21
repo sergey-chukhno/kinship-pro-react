@@ -10,6 +10,7 @@ import {
   getCompanies,
   getSchools,
 } from "../../api/RegistrationRessource"
+import { translateSkill, translateSubSkill } from "../../translations/skills"
 import { submitPersonalUserRegistration } from "../../api/Authentication"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
@@ -59,7 +60,25 @@ const tradFR: Record<string, string> = {
   wednesday: "Mercredi",
   thursday: "Jeudi",
   friday: "Vendredi",
+  eleve_primaire: "Elève du primaire",
+  collegien: "Collégien",
+  lyceen: "Lycéen",
+  etudiant: "Etudiant",
+  benevole: "Bénévole",
+  charge_de_mission: "Chargé(e) de mission",
 }
+
+const ROLE_ORDER = [
+  "eleve_primaire",
+  "collegien",
+  "lyceen",
+  "etudiant",
+  "parent",
+  "benevole",
+  "charge_de_mission",
+  "employee",
+  "other",
+]
 
 const longPolicyText = privatePolicy
 
@@ -109,8 +128,8 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     match: false,
   })
 
-  const [skillList, setSkillList] = useState<{ id: number; name: string }[]>([])
-  const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; parent_skill_id: number }[]>([])
+  const [skillList, setSkillList] = useState<{ id: number; name: string; displayName: string }[]>([])
+  const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; displayName: string; parent_skill_id: number }[]>([])
   const [companies, setCompanies] = useState<{ id: number; name: string }[]>([])
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([])
 
@@ -150,7 +169,11 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         const response = await getSkills()
         const data = response?.data?.data ?? response?.data ?? response ?? []
         if (Array.isArray(data)) {
-          const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
+          const normalized = data.map((s: any) => ({
+            id: Number(s.id),
+            name: s.name,
+            displayName: translateSkill(s.name)
+          }))
           setSkillList(normalized)
         }
       } catch (error) {
@@ -215,6 +238,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
           return subSkills.map((s: any) => ({
             id: Number(s.id),
             name: s.name,
+            displayName: translateSubSkill(s.name),
             parent_skill_id: Number(skill.id),
           }))
         })
@@ -240,7 +264,17 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       try {
         const response = await getPersonalUserRoles()
         const data = response?.data?.data ?? response?.data ?? response ?? []
-        if (Array.isArray(data)) setPersonalUserRoles(data)
+        if (Array.isArray(data)) {
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            // If not found, put at the end
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setPersonalUserRoles(sortedData)
+        }
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)
       }
@@ -249,21 +283,21 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   }, [])
 
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      const { name, value, type } = e.target
-      let finalValue: string | boolean = value
+    const { name, value, type } = e.target
+    let finalValue: string | boolean = value
 
-      if (type === "checkbox") {
-        finalValue = (e.target as HTMLInputElement).checked
-      } else if (type === "radio" && (value === "true" || value === "false")) {
-        // Convertit les chaînes "true"/"false" des radios en booléens
-        finalValue = value === "true"
-      }
-
-      setUser((prev) => ({
-        ...prev,
-        [name]: finalValue,
-      }))
+    if (type === "checkbox") {
+      finalValue = (e.target as HTMLInputElement).checked
+    } else if (type === "radio" && (value === "true" || value === "false")) {
+      // Convertit les chaînes "true"/"false" des radios en booléens
+      finalValue = value === "true"
     }
+
+    setUser((prev) => ({
+      ...prev,
+      [name]: finalValue,
+    }))
+  }
 
   const handleAvailabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target
@@ -289,7 +323,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     const { name, value } = e.target
     setChildrenInfo((prev) => {
       const updated = [...prev]
-      ;(updated[index] as any)[name] = value
+        ; (updated[index] as any)[name] = value
       return updated
     })
   }
@@ -422,8 +456,8 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   return (
     <form onSubmit={handleSubmit} className="pur-form">
       <div className="form-header">
-        <button type="button" onClick={onBack} className="back-button">
-          ← Retour
+        <button type="button" onClick={onBack} className="back-button" title="Retour">
+          <i className="fas fa-arrow-left"></i>
         </button>
         <h2 className="pur-title">Inscription Utilisateur Personnel</h2>
       </div>
@@ -604,7 +638,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
                           checked={isSelected}
                           onChange={() => toggleSkill(skillId)}
                         />
-                        <span className="skill-name-inline">{skill.name}</span>
+                        <span className="skill-name-inline">{skill.displayName}</span>
                       </label>
 
                       {isSelected && relatedSubs.length > 0 && (
@@ -621,7 +655,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
                                   checked={isSubSelected}
                                   onChange={() => toggleSubSkill(sub.id, sub.parent_skill_id)}
                                 />
-                                <span className="subskill-name-inline">{sub.name}</span>
+                                <span className="subskill-name-inline">{sub.displayName}</span>
                               </label>
                             )
                           })}

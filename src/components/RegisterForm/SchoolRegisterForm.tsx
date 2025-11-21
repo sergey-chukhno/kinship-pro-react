@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom"
 import { getSchoolRoles } from "../../api/RegistrationRessource"
 import { submitSchoolRegistration } from "../../api/Authentication"
 import "./CommonForms.css"
+import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
 
 interface PasswordCriteria {
@@ -17,11 +18,22 @@ interface PasswordCriteria {
 }
 
 const tradFR = {
-  education_director: "Directeur académique",
+  directeur_ecole: "Directeur d'Ecole",
+  directeur_academique: "Directeur Académique",
   principal: "Principal",
-  school_director: "Directeur d'école",
+  proviseur: "Proviseur",
+  responsable_academique: "Responsable Académique",
   other: "Autre",
 }
+
+const ROLE_ORDER = [
+  "directeur_ecole",
+  "directeur_academique",
+  "principal",
+  "proviseur",
+  "responsable_academique",
+  "other",
+]
 
 const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState(1)
@@ -53,41 +65,65 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     schoolCity: "",
     schoolZipCode: "",
     referentPhoneNumber: "",
-    uaiCode:""
+    uaiCode: ""
   })
 
   const [schoolRoles, setSchoolRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
-    // ⬇️ AJOUT : useEffect pour la validation du mot de passe
-    useEffect(() => {
-      const { password, passwordConfirmation } = user
-  
-      const minLength = password.length >= 8
-      const lowercase = /[a-z]/.test(password)
-      const uppercase = /[A-Z]/.test(password)
-      const specialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
-      // Le match n'est vrai que si les deux sont identiques ET que le champ n'est pas vide
-      const match = password.length > 0 && password === passwordConfirmation
-  
-      setPasswordCriteria({
-        minLength,
-        lowercase,
-        uppercase,
-        specialChar,
-        match,
-      })
-    }, [user.password, user.passwordConfirmation])
+  // ⬇️ AJOUT : useEffect pour la validation du mot de passe
+  useEffect(() => {
+    const { password, passwordConfirmation } = user
+
+    const minLength = password.length >= 8
+    const lowercase = /[a-z]/.test(password)
+    const uppercase = /[A-Z]/.test(password)
+    const specialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    // Le match n'est vrai que si les deux sont identiques ET que le champ n'est pas vide
+    const match = password.length > 0 && password === passwordConfirmation
+
+    setPasswordCriteria({
+      minLength,
+      lowercase,
+      uppercase,
+      specialChar,
+      match,
+    })
+  }, [user.password, user.passwordConfirmation])
 
   useEffect(() => {
     const fetchRoles = async () => {
       try {
         const response = await getSchoolRoles()
         if (response && Array.isArray(response.data)) {
-          setSchoolRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setSchoolRoles(sortedData)
         } else if (response?.data?.data) {
-          setSchoolRoles(response.data.data)
+          const data = response.data.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setSchoolRoles(sortedData)
         } else if (response?.data) {
-          setSchoolRoles(response.data)
+          const data = response.data
+          const sortedData = data.sort((a: any, b: any) => {
+            const indexA = ROLE_ORDER.indexOf(a.value)
+            const indexB = ROLE_ORDER.indexOf(b.value)
+            const posA = indexA === -1 ? 999 : indexA
+            const posB = indexB === -1 ? 999 : indexB
+            return posA - posB
+          })
+          setSchoolRoles(sortedData)
         }
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)
@@ -107,11 +143,11 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setSchool((prev) => ({ ...prev, [name]: value }))
   }
 
-  const isStep1Valid = () => {
+  const isPersonalInfoValid = () => {
     return user.firstName && user.lastName && user.email && user.password && user.passwordConfirmation && user.birthday
   }
 
-  const isStep2Valid = () => {
+  const isRoleValid = () => {
     return user.role !== ""
   }
 
@@ -120,9 +156,9 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }
 
   const handleNext = () => {
-    if (currentStep === 1 && isStep1Valid()) {
+    if (currentStep === 1 && isRoleValid()) {
       setCurrentStep(2)
-    } else if (currentStep === 2 && isStep2Valid()) {
+    } else if (currentStep === 2 && isPersonalInfoValid()) {
       setCurrentStep(3)
     } else if (currentStep === 3 && isStep3Valid()) {
       setCurrentStep(4)
@@ -150,8 +186,8 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   return (
     <form onSubmit={handleSubmit} className="form-container">
       <div className="form-header">
-        <button type="button" onClick={onBack} className="back-button">
-          ← Retour
+        <button type="button" onClick={onBack} className="back-button" title="Retour">
+          <i className="fas fa-arrow-left"></i>
         </button>
         <h2 className="form-title">Inscription École</h2>
       </div>
@@ -172,7 +208,28 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         </p>
       </div>
 
+      {/* Step 1: Role Selection (Moved from Step 2) */}
       <div className={`form-step ${currentStep >= 1 ? "visible" : ""}`}>
+        <h3 className="step-title">Je suis un(e) :</h3>
+        <div className="role-grid">
+          {schoolRoles.map((role) => (
+            <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
+              <input
+                type="radio"
+                name="role"
+                value={role.value}
+                checked={user.role === role.value}
+                onChange={handleUserChange}
+                required
+              />
+              <span className="role-label">{tradFR[role.value as keyof typeof tradFR] || role.value}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Step 2: Personal Information (Moved from Step 1) */}
+      <div className={`form-step ${currentStep >= 2 ? "visible" : ""}`}>
         <h3 className="step-title">Mes Informations personnelles</h3>
         <div className="grid">
           <div className="form-field">
@@ -276,27 +333,6 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           </div>
         </div>
       </div>
-
-      {currentStep >= 2 && (
-        <div className="form-step visible">
-          <h3 className="step-title">Je suis un(e) :</h3>
-          <div className="role-grid">
-            {schoolRoles.map((role) => (
-              <label key={role.value} className={`role-option ${user.role === role.value ? "selected" : ""}`}>
-                <input
-                  type="radio"
-                  name="role"
-                  value={role.value}
-                  checked={user.role === role.value}
-                  onChange={handleUserChange}
-                  required
-                />
-                <span className="role-label">{tradFR[role.value as keyof typeof tradFR] || role.value}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
 
       {currentStep >= 3 && (
         <div className="form-step visible">
@@ -409,8 +445,8 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             onClick={handleNext}
             className="form-button purple"
             disabled={
-              (currentStep === 1 && !isStep1Valid()) ||
-              (currentStep === 2 && !isStep2Valid()) ||
+              (currentStep === 1 && !isRoleValid()) ||
+              (currentStep === 2 && !isPersonalInfoValid()) ||
               (currentStep === 3 && !isStep3Valid())
             }
           >

@@ -20,20 +20,28 @@
 }
 
 .back-button {
-  padding: 12px 20px;
-  background: #f3f4f6;
-  color: #374151;
-  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  font-size: 15px;
-  font-weight: 500;
+  background: #ffffff;
+  color: #6b7280;
   cursor: pointer;
   transition: all 0.2s ease;
+  padding: 0;
 }
 
 .back-button:hover {
-  background: #e5e7eb;
-  color: #1f2937;
+  background: rgba(85, 112, 241, 0.1);
+  color: #5570F1;
+  border-color: #5570F1;
+}
+
+.back-button i {
+  font-size: 1rem;
 }
 
 .form-title {
