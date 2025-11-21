@@ -16,11 +16,12 @@ import Settings from '../Pages/Settings';
 import './MainLayout.css';
 import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
+import { useAuthInit } from '../../hooks/useAuthInit';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
 
-  // useAuthInit();
+  useAuthInit();
 
   // Gérer les changements de showingPageType
   useEffect(() => {

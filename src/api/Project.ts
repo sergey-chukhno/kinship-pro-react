@@ -20,6 +20,18 @@ export function deleteProject(projectId: number) {
     return axiosClient.delete(`/api/v1/projects/${projectId}`);
 }
 
-export function getUserProjects() {
+export function getAllUserProjects() {
     return axiosClient.get(`/api/v1/users/me/projects`);
+}
+
+export function getUserProjectsByCompany(CompanyID: number) {
+    return axiosClient.get(`/api/v1/users/me/projects?by_company=${CompanyID}`);
+}
+
+export function getUserProjectsBySchool(SchoolID: number) {
+    return axiosClient.get(`/api/v1/users/me/projects?by_school=${SchoolID}`);
+}
+
+export function getProjectBadge(projectID: number){
+    return axiosClient.get(`/api/v1/projects/${projectID}/badge`)
 }
