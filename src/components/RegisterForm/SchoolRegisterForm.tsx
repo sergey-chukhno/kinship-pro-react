@@ -8,6 +8,7 @@ import { submitSchoolRegistration } from "../../api/Authentication"
 import "./CommonForms.css"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
+import { useSchoolSearch } from "../../hooks/useSchoolSearch"
 
 interface PasswordCriteria {
   minLength: boolean
@@ -69,6 +70,32 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   })
 
   const [schoolRoles, setSchoolRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
+
+  // Use custom hook for school search with infinite scroll
+  const {
+    schools,
+    loading: schoolsLoading,
+    error: schoolsError,
+    searchQuery: schoolQuery,
+    setSearchQuery: setSchoolQuery,
+    scrollContainerRef
+  } = useSchoolSearch(20)
+
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  const handleSelectSchool = (schoolId: number) => {
+    const selectedSchool = schools.find((s) => s.id === schoolId)
+    if (selectedSchool) {
+      setSchool((prev) => ({
+        ...prev,
+        schoolName: selectedSchool.name,
+        schoolCity: selectedSchool.city || "",
+        schoolZipCode: selectedSchool.zip_code || "",
+      }))
+      setSchoolQuery(selectedSchool.name)
+      setShowSuggestions(false)
+    }
+  }
 
   // ⬇️ AJOUT : useEffect pour la validation du mot de passe
   useEffect(() => {
@@ -340,15 +367,56 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <div className="grid">
             <div className="form-field full-width">
               <label className="form-label">Nom de l'établissement *</label>
-              <input
-                type="text"
-                name="schoolName"
-                placeholder="Nom de votre établissement"
-                value={school.schoolName}
-                onChange={handleSchoolChange}
-                required
-                className="form-input"
-              />
+              <div className="search-container">
+                <input
+                  type="text"
+                  name="schoolName"
+                  placeholder="Rechercher votre établissement..."
+                  value={schoolQuery}
+                  onChange={(e) => {
+                    setSchoolQuery(e.target.value)
+                    setSchool((prev) => ({ ...prev, schoolName: e.target.value }))
+                    setShowSuggestions(true)
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  required
+                  className="form-input"
+                />
+                {showSuggestions && schoolQuery && (
+                  <div className="search-suggestions" ref={scrollContainerRef}>
+                    {schoolsLoading && schools.length === 0 && (
+                      <div className="suggestion-item">Chargement...</div>
+                    )}
+
+                    {schoolsError && (
+                      <div className="suggestion-item error">{schoolsError}</div>
+                    )}
+
+                    {!schoolsLoading && schools.length === 0 && !schoolsError && (
+                      <div className="suggestion-item">Aucune école trouvée</div>
+                    )}
+
+                    {schools.map((s) => (
+                      <div
+                        key={s.id}
+                        className="suggestion-item"
+                        onClick={() => handleSelectSchool(s.id)}
+                      >
+                        <div className="suggestion-item-name">{s.name}</div>
+                        {(s.city || s.zip_code) && (
+                          <small className="suggestion-item-details">
+                            {s.city} {s.zip_code}
+                          </small>
+                        )}
+                      </div>
+                    ))}
+
+                    {schoolsLoading && schools.length > 0 && (
+                      <div className="suggestion-item loading-more">Chargement...</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="form-field">
