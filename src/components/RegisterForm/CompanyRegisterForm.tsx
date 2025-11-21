@@ -37,8 +37,20 @@ const ROLE_ORDER = [
   "directeur_organisation",
   "directeur_entreprise",
   "responsable_rh_formation_secteur",
+  "responsable_rh_formation_secteur",
   "other",
 ]
+
+const COMPANY_TYPES_TRANSLATIONS: Record<string, string> = {
+  "Association": "Association",
+  "Educational City": "Cité éducative",
+  "Enterprise": "Entreprise",
+  "Foundation": "Fondation",
+  "Local Authority": "Collectivité",
+  "Metropolis": "Métropole",
+  "Rectorate": "Rectorat",
+  "Other": "Autre"
+}
 
 const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [currentStep, setCurrentStep] = useState(1)
@@ -70,6 +82,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     website: "",
     proposeWorkshop: false, // <- NOUVEAU
     takeTrainee: false, // <- NOUVEAU
+    companyTypeAdditionalInfo: "",
   })
 
   const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
@@ -87,7 +100,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const [skillList, setSkillList] = useState<{ id: number; name: string; displayName: string }[]>([])
   const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; displayName: string; parent_skill_id: number }[]>([])
-  const [companyTypes, setCompanyTypes] = useState<{ id: number; name: string }[]>([])
+  const [companyTypes, setCompanyTypes] = useState<{ id: number; name: string; requires_additional_info: boolean }[]>([])
 
   const [companyRoles, setCompanyRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
@@ -117,8 +130,19 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const response = await getCompanyTypes()
         const data = response?.data?.data ?? response?.data ?? response ?? []
         if (Array.isArray(data)) {
-          const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
-          setCompanyTypes(normalized)
+          const normalized = data.map((s: any) => ({
+            id: Number(s.id),
+            name: s.name,
+            requires_additional_info: s.requires_additional_info
+          }))
+
+          const sorted = normalized.sort((a, b) => {
+            if (a.name === "Other") return 1;
+            if (b.name === "Other") return -1;
+            return COMPANY_TYPES_TRANSLATIONS[a.name].localeCompare(COMPANY_TYPES_TRANSLATIONS[b.name]);
+          });
+
+          setCompanyTypes(sorted)
         }
       } catch (error) {
         console.error("Erreur lors du chargement des compétences :", error)
@@ -527,11 +551,26 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 {/* 3. Boucle sur les données récupérées */}
                 {companyTypes.map((type) => (
                   <option key={type.id} value={type.id}>
-                    {type.name}
+                    {COMPANY_TYPES_TRANSLATIONS[type.name] || type.name}
                   </option>
                 ))}
               </select>
             </div>
+
+            {companyTypes.find(t => t.id === company.companyTypeId)?.requires_additional_info && (
+              <div className="form-field">
+                <label className="form-label">Informations complémentaires *</label>
+                <input
+                  type="text"
+                  name="companyTypeAdditionalInfo"
+                  placeholder="Précisez le type d'organisation"
+                  value={company.companyTypeAdditionalInfo}
+                  onChange={handleCompanyChange}
+                  required
+                  className="form-input"
+                />
+              </div>
+            )}
 
             <div className="form-field full-width">
               <label className="form-label">Description *</label>
