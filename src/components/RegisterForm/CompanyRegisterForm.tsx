@@ -514,7 +514,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
 
             <div className="form-field">
-              <label className="form-label">Type d'entreprise</label>
+              <label className="form-label">Type d'organisation</label>
               <select
                 name="companyTypeId"
                 value={company.companyTypeId}
