@@ -632,7 +632,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <div className="form-step visible">
           <h3 className="step-title">Mes Compétences</h3>
           <label className="toggle-switch-form">
-            <span>Je veux ajouter et montrer mes compétences</span>
+            <span>Je veux ajouter les compétences de mon organisation</span>
             <input type="checkbox" checked={showSkills} onChange={(e) => setShowSkills(e.target.checked)} />
             <span className="toggle-slider"></span>
           </label>
@@ -693,7 +693,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
             <div className="form-field" style={{ marginTop: "20px" }}>
               <label className="form-label">
-                Est-ce que je souhaite proposer des ateliers de découverte professionnelle ?
+                Est-ce que vous souhaitez proposez des ateliers de découverte professionnelle ?
               </label>
               <div className="radio-group-inline">
                 <label className="pur-radio-label">
@@ -721,7 +721,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
             <div className="form-field" style={{ marginTop: "20px" }}>
               <label className="form-label">
-                Est-ce que mon entreprise peut prendre des jeunes en stage ?
+                Est-ce que vous souhaitez prendre des jeunes en stage ?
               </label>
               <div className="radio-group-inline">
                 <label className="pur-radio-label">
