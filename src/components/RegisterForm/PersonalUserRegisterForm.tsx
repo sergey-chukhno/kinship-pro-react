@@ -8,8 +8,8 @@ import {
   getSubSkills,
   getPersonalUserRoles,
   getCompanies,
-  getSchools,
 } from "../../api/RegistrationRessource"
+import { useSchoolSearch } from "../../hooks/useSchoolSearch"
 import { translateSkill, translateSubSkill } from "../../translations/skills"
 import { submitPersonalUserRegistration } from "../../api/Authentication"
 import "./PersonalUserRegisterForm.css"
@@ -131,9 +131,16 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   const [skillList, setSkillList] = useState<{ id: number; name: string; displayName: string }[]>([])
   const [skillSubList, setSkillSubList] = useState<{ id: number; name: string; displayName: string; parent_skill_id: number }[]>([])
   const [companies, setCompanies] = useState<{ id: number; name: string }[]>([])
-  const [schools, setSchools] = useState<{ id: number; name: string }[]>([])
 
-  const [schoolQuery, setSchoolQuery] = useState("")
+  // Use custom hook for school search with infinite scroll
+  const {
+    schools,
+    loading: schoolsLoading,
+    error: schoolsError,
+    searchQuery: schoolQuery,
+    setSearchQuery: setSchoolQuery,
+    scrollContainerRef
+  } = useSchoolSearch(20)
   const [companyQuery, setCompanyQuery] = useState("")
   const [selectedSchools, setSelectedSchools] = useState<number[]>([])
   const [selectedCompanies, setSelectedCompanies] = useState<number[]>([])
@@ -199,21 +206,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     fetchCompanies()
   }, [])
 
-  useEffect(() => {
-    const fetchSchools = async () => {
-      try {
-        const response = await getSchools()
-        const data = response?.data?.data ?? response?.data ?? response ?? []
-        if (Array.isArray(data)) {
-          const normalized = data.map((s: any) => ({ id: Number(s.id), name: s.name }))
-          setSchools(normalized)
-        }
-      } catch (error) {
-        console.error("Erreur lors du chargement des écoles :", error)
-      }
-    }
-    fetchSchools()
-  }, [])
+
 
   useEffect(() => {
     if (skillList.length === 0) {
@@ -395,7 +388,6 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     setSelectedCompanies((prev) => prev.filter((id) => id !== companyId))
   }
 
-  const filteredSchools = schools.filter((s) => s.name.toLowerCase().includes(schoolQuery.toLowerCase()))
   const filteredCompanies = companies.filter((c) => c.name.toLowerCase().includes(companyQuery.toLowerCase()))
 
   const isStep1Valid = () => {
@@ -715,17 +707,42 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               <input
                 type="text"
                 className="pur-input"
-                placeholder="Rechercher une école..."
+                placeholder="Rechercher une école (nom, ville, code postal)..."
                 value={schoolQuery}
                 onChange={(e) => setSchoolQuery(e.target.value)}
               />
               {schoolQuery && (
-                <div className="search-suggestions">
-                  {filteredSchools.slice(0, 5).map((school) => (
-                    <div key={school.id} className="suggestion-item" onClick={() => handleAddSchool(school.id)}>
-                      {school.name}
+                <div className="search-suggestions" ref={scrollContainerRef}>
+                  {schoolsLoading && schools.length === 0 && (
+                    <div className="suggestion-item">Chargement...</div>
+                  )}
+
+                  {schoolsError && (
+                    <div className="suggestion-item error">{schoolsError}</div>
+                  )}
+
+                  {!schoolsLoading && schools.length === 0 && !schoolsError && (
+                    <div className="suggestion-item">Aucune école trouvée</div>
+                  )}
+
+                  {schools.map((school) => (
+                    <div
+                      key={school.id}
+                      className="suggestion-item"
+                      onClick={() => handleAddSchool(school.id)}
+                    >
+                      <div className="suggestion-item-name">{school.name}</div>
+                      {(school.city || school.zip_code) && (
+                        <small className="suggestion-item-details">
+                          {school.city} {school.zip_code}
+                        </small>
+                      )}
                     </div>
                   ))}
+
+                  {schoolsLoading && schools.length > 0 && (
+                    <div className="suggestion-item loading-more">Chargement...</div>
+                  )}
                 </div>
               )}
               <div className="selected-list">

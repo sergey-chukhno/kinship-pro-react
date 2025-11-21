@@ -28,8 +28,16 @@ export function getCompanies() {
     return axiosClient.get('/api/v1/companies/list_for_joining');
 }
 
-export function getSchools() {
-    return axiosClient.get('/api/v1/schools/list_for_joining');
+export interface SchoolSearchParams {
+    page?: number
+    per_page?: number
+    search?: string
+    status?: 'confirmed' | 'pending'
+    school_type?: string
+}
+
+export function getSchools(params?: SchoolSearchParams) {
+    return axiosClient.get('/api/v1/schools/list_for_joining', { params });
 }
 
 export function getCompanyTypes() {
