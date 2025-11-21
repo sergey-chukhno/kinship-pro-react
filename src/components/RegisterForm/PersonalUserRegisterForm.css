@@ -295,6 +295,41 @@
   color: #5b7cff;
 }
 
+.suggestion-item-name {
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.suggestion-item-details {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.suggestion-item.error {
+  color: #dc2626;
+  cursor: default;
+  background-color: #fef2f2;
+}
+
+.suggestion-item.error:hover {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.suggestion-item.loading-more {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  cursor: default;
+}
+
+.suggestion-item.loading-more:hover {
+  background: white;
+  color: #6b7280;
+}
+
 /* Liste des éléments sélectionnés */
 .selected-list {
   display: flex;
@@ -510,7 +545,7 @@
   pointer-events: none;
 }
 
-.role-option input[type="radio"]:checked + .role-label {
+.role-option input[type="radio"]:checked+.role-label {
   color: white;
 }
 
@@ -565,7 +600,7 @@
   background: #f0f4ff;
 }
 
-.toggle-switch-form > span:first-child {
+.toggle-switch-form>span:first-child {
   font-size: 15px;
   font-weight: 500;
   color: #374151;
@@ -604,11 +639,11 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.toggle-switch-form input[type="checkbox"]:checked ~ .toggle-slider {
+.toggle-switch-form input[type="checkbox"]:checked~.toggle-slider {
   background: #5b7cff;
 }
 
-.toggle-switch-form input[type="checkbox"]:checked ~ .toggle-slider::before {
+.toggle-switch-form input[type="checkbox"]:checked~.toggle-slider::before {
   transform: translateX(24px);
 }
 
@@ -915,6 +950,7 @@
 }
 
 @media (max-width: 640px) {
+
   .pur-input,
   .pur-select,
   .form-input,
@@ -933,21 +969,24 @@
 }
 
 .privacy-policy-scroll-box {
-    height: 250px; 
-    overflow-y: auto;
-    border: 1px solid #e0e0e0;
-    padding: 1rem;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    text-align: left;
-    font-family: inherit;
-  }
+  height: 250px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  text-align: left;
+  font-family: inherit;
+}
 
 .privacy-policy-scroll-box pre {
-  white-space: pre-wrap; /* Conserve les sauts de ligne */
-  font-family: inherit; /* Utilise la police du reste du formulaire */
-  font-size: 0.9rem; /* Taille de police lisible */
+  white-space: pre-wrap;
+  /* Conserve les sauts de ligne */
+  font-family: inherit;
+  /* Utilise la police du reste du formulaire */
+  font-size: 0.9rem;
+  /* Taille de police lisible */
   color: #333;
 }
 
@@ -956,7 +995,8 @@
   padding: 0;
   margin: 5px 0 0 0;
   font-size: 0.85rem;
-  grid-column: 1 / -1; /* Fait en sorte que l'élément s'étende sur toute la largeur de la grille */
+  grid-column: 1 / -1;
+  /* Fait en sorte que l'élément s'étende sur toute la largeur de la grille */
 }
 
 .password-criteria-list li {
@@ -965,11 +1005,13 @@
 }
 
 .password-criteria-list li.valid {
-  color: #28a745; /* Vert */
+  color: #28a745;
+  /* Vert */
 }
 
 .password-criteria-list li.invalid {
-  color: #dc3545; /* Rouge */
+  color: #dc3545;
+  /* Rouge */
 }
 
 .radio-group-inline {
@@ -993,38 +1035,45 @@
 .skills-inline-container {
   display: flex;
   flex-direction: column;
-  gap: 12px; /* Espace entre chaque boîte comme sur l'image */
+  gap: 12px;
+  /* Espace entre chaque boîte comme sur l'image */
   margin-top: 16px;
   background: transparent;
-  border: none; /* On enlève la bordure globale */
+  border: none;
+  /* On enlève la bordure globale */
 }
 
 .skill-row {
   display: flex;
   flex-direction: column;
   /* Plus de bordure ici pour séparer totalement les éléments */
-  border-bottom: none; 
+  border-bottom: none;
 }
 
 /* C'est ici qu'on crée le look "Boîte" de l'image */
 .skill-checkbox-inline {
   display: flex;
   align-items: center;
-  gap: 16px; /* Espace entre la checkbox et le texte */
+  gap: 16px;
+  /* Espace entre la checkbox et le texte */
   padding: 14px 20px;
   cursor: pointer;
   background: white;
-  
+
   /* Style de la bordure et des coins */
-  border: 1px solid #DDD6FE; /* Bordure violette pâle (match l'image) */
-  border-radius: 6px; /* Coins légèrement arrondis */
-  
+  border: 1px solid #DDD6FE;
+  /* Bordure violette pâle (match l'image) */
+  border-radius: 6px;
+  /* Coins légèrement arrondis */
+
   transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02); /* Légère ombre subtile */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  /* Légère ombre subtile */
 }
 
 .skill-checkbox-inline:hover {
-  border-color: #8b5cf6; /* Devient plus foncé au survol */
+  border-color: #8b5cf6;
+  /* Devient plus foncé au survol */
   background: #FBFBFF;
 }
 
@@ -1033,9 +1082,10 @@
   width: 20px;
   height: 20px;
   cursor: pointer;
-  accent-color: #5b7cff; /* Couleur de la coche */
+  accent-color: #5b7cff;
+  /* Couleur de la coche */
   flex-shrink: 0;
-  
+
   /* Optionnel : pour forcer une bordure colorée sur la checkbox si le navigateur le permet */
   border: 2px solid #6B7280;
   border-radius: 4px;
@@ -1044,16 +1094,20 @@
 /* Le texte de la compétence */
 .skill-checkbox-inline .skill-name-inline {
   font-size: 15px;
-  font-weight: 600; /* Texte un peu plus gras */
-  color: #4B5563; /* Gris foncé / ardoise (slate) */
+  font-weight: 600;
+  /* Texte un peu plus gras */
+  color: #4B5563;
+  /* Gris foncé / ardoise (slate) */
   flex: 1;
 }
 
 /* État sélectionné */
 .skill-checkbox-inline.selected {
   background: #fff;
-  border-color: #5b7cff; /* Bordure bleue/violette active */
-  box-shadow: 0 0 0 1px #5b7cff; /* Renforce la bordure */
+  border-color: #5b7cff;
+  /* Bordure bleue/violette active */
+  box-shadow: 0 0 0 1px #5b7cff;
+  /* Renforce la bordure */
 }
 
 .skill-checkbox-inline.selected .skill-name-inline {
@@ -1082,7 +1136,8 @@
   padding: 6px 12px;
   background: white;
   border: 1px solid #e5e7eb;
-  border-radius: 20px; /* Forme de pilule pour les sous-compétences */
+  border-radius: 20px;
+  /* Forme de pilule pour les sous-compétences */
   transition: all 0.2s ease;
 }
 
