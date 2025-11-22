@@ -71,12 +71,30 @@ const AuthPage: React.FC = () => {
             setCurrentPage("projects")
             navigate("/projects")
           }
-          else if (response.data.user.available_contexts.teacher_dashboard) {
+          else if (
+            response.data.user.available_contexts.teacher_dashboard ||
+            [
+              "primary_school_teacher",
+              "secondary_school_teacher",
+              "education_rectorate_personnel",
+              "administrative_staff",
+              "cpe_student_life",
+            ].includes(response.data.user.role)
+          ) {
             setShowingPageType("teacher")
             setCurrentPage("dashboard")
             navigate("/dashboard")
           }
-          else if (response.data.user.available_contexts.schools?.length > 0) {
+          else if (
+            response.data.user.available_contexts.schools?.length > 0 ||
+            [
+              "directeur_ecole",
+              "directeur_academique",
+              "principal",
+              "proviseur",
+              "responsable_academique",
+            ].includes(response.data.user.role)
+          ) {
             setShowingPageType("edu")
             setCurrentPage("dashboard")
             navigate("/dashboard")
