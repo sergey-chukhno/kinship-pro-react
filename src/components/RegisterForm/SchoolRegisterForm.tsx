@@ -66,7 +66,8 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     schoolCity: "",
     schoolZipCode: "",
     referentPhoneNumber: "",
-    uaiCode: ""
+    uaiCode: "",
+    schoolId: undefined as number | undefined,
   })
 
   const [schoolRoles, setSchoolRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
@@ -91,6 +92,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         schoolName: selectedSchool.name,
         schoolCity: selectedSchool.city || "",
         schoolZipCode: selectedSchool.zip_code || "",
+        schoolId: selectedSchool.id,
       }))
       setSchoolQuery(selectedSchool.name)
       setShowSuggestions(false)
