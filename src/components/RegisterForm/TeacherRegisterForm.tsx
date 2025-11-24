@@ -317,6 +317,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       .then((response) => {
         console.log("Inscription réussie :", response)
         alert("Inscription réussie !")
+        navigate("/login")
       })
       .catch((error) => {
         console.error("Erreur lors de l'inscription :", error)
