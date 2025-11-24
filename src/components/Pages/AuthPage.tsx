@@ -215,6 +215,17 @@ const AuthPage: React.FC = () => {
           />
         </div>
 
+        <div className="forgot-password-wrapper" style={{ textAlign: 'right', marginBottom: '1rem' }}>
+          <button
+            type="button"
+            className="text-button"
+            style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.9rem' }}
+            onClick={() => navigate("/forgot-password")}
+          >
+            Mot de passe oublié ?
+          </button>
+        </div>
+
         <button type="submit" className="submit-button">
           Se connecter
         </button>

@@ -176,3 +176,15 @@ export function refreshToken() {
 export function logout() {
     return axiosClient.post('/api/v1/auth/logout');
 }
+
+export function forgotPassword(email: string) {
+    return axiosClient.post('/api/v1/auth/password/forgot', { email });
+}
+
+export function resetPassword(token: string, password: string, passwordConfirmation: string) {
+    return axiosClient.post('/api/v1/auth/password/reset', {
+        reset_password_token: token,
+        password,
+        password_confirmation: passwordConfirmation
+    });
+}

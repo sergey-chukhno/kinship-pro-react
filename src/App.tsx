@@ -4,6 +4,8 @@ import { AppProvider } from './context/AppContext';
 import MainLayout from './components/Layout/MainLayout';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ForgotPassword from './components/Pages/ForgotPassword';
+import ResetPassword from './components/Pages/ResetPassword';
 import './App.css';
 
 function App() {
@@ -12,6 +14,8 @@ function App() {
       <BrowserRouter>
         <div className="App">
           <Routes>
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/*" element={<MainLayout />} />
           </Routes>
           <ToastContainer
