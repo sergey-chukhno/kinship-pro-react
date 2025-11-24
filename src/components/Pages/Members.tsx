@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { Member } from '../../types';
+import { ClassList, Member } from '../../types';
 import MemberCard from '../Members/MemberCard';
 import MemberModal from '../Modals/MemberModal';
 import AddMemberModal from '../Modals/AddMemberModal';
@@ -10,12 +10,16 @@ import { mockClassLists } from '../../data/mockData';
 import ClassCard from '../Class/ClassCard';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
-import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Menbers';
-import { getSchoolMembersAccepted, updateSchoolMemberRole } from '../../api/SchoolDashboard/Menbers'
+import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Members';
+import { getSchoolMembersAccepted, updateSchoolMemberRole } from '../../api/SchoolDashboard/Members'
+import AddClassModal from '../Modals/AddClassModal';
+import { getSchoolLevels, addSchoolLevel } from '../../api/SchoolDashboard/Levels';
+import { useToast } from '../../hooks/useToast';
 
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
+  const { showSuccess, showError } = useToast();
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -25,117 +29,142 @@ const Members: React.FC = () => {
   const [competenceFilter, setCompetenceFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'members' | 'class'>('members');
+  const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community'>('members');
+  const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const classLists = mockClassLists;
+  // const classLists = mockClassLists;
+  const [classLists, setClassLists] = useState<ClassList[]>([])
   const [members, setMembers] = useState<Member[]>([]);
+  const [communityLists, setCommunityLists] = useState<Member[]>([]);
+  const [page, setPage] = useState(1);
+  const [per_page, setPerPage] = useState(12);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-// --- Fetch des membres avec profil complet ---
+  const fetchMembers = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      const isEdu = state.showingPageType === 'edu';
+
+      // 1. Bascule de l'ID (Company vs School)
+      const contextId = isEdu
+        ? currentUser.data?.available_contexts?.schools?.[0]?.id
+        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+
+      if (!contextId) return;
+
+      // 2. Bascule de l'appel API (Liste de base)
+      const membersRes = isEdu
+        ? await getSchoolMembersAccepted(contextId)
+        : await getCompanyMembersAccepted(contextId);
+
+      const basicMembers = membersRes.data.data || membersRes.data || [];
+
+      const detailedMembers = await Promise.all(
+        basicMembers.map(async (m: any) => {
+          try {
+            // 3. Bascule de la récupération du profil détaillé
+            // Note: Si vous n'avez pas getSchoolUserProfile, vérifiez si getCompanyUserProfile fonctionne avec un ID école, sinon il faudra créer cette fonction.
+            const profileRes = isEdu
+              ? await getSchoolUserProfile(m.id, contextId) // Hypothèse : cette fonction existe
+              : await getCompanyUserProfile(m.id, contextId);
+
+            const profile = profileRes.data.data || profileRes.data;
+
+            // ... (Logique de traitement availability, roles, mapping inchangée) ...
+
+            // --- TRAITEMENT DE LA DISPONIBILITÉ (copie de votre code existant) ---
+            const availData = profile.availability || {};
+            const availabilityList: string[] = [];
+            if (availData.monday) availabilityList.push('Lundi');
+            if (availData.tuesday) availabilityList.push('Mardi');
+            if (availData.wednesday) availabilityList.push('Mercredi');
+            if (availData.thursday) availabilityList.push('Jeudi');
+            if (availData.friday) availabilityList.push('Vendredi');
+            if (availData.saturday) availabilityList.push('Samedi');
+            if (availData.sunday) availabilityList.push('Dimanche');
+            if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
+
+            let rawRole = profile.role_in_company || m.role_in_company || profile.role_in_school || m.role_in_school || 'Membre';
+            const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
+
+            return {
+              id: (profile.id || m.id).toString(),
+              firstName: profile.first_name,
+              lastName: profile.last_name,
+              fullName: profile.full_name || `${profile.first_name} ${profile.last_name}`,
+              email: profile.email,
+              profession: profile.role_in_system || '',
+              roles: [displayRole],
+              skills: profile.skills?.map((s: any) => s.name || s) || [],
+              availability: availabilityList,
+              avatar: profile.avatar_url || m.avatar_url || '',
+              isTrusted: profile.status === 'confirmed',
+              badges: profile.badges?.data?.map((b: any) => b.id?.toString()) || [],
+              organization: '',
+              canProposeStage: false,
+              canProposeAtelier: false,
+            } as Member;
+
+          } catch (err) {
+            console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
+            // FALLBACK
+            return {
+              // ... (votre code fallback inchangé)
+              id: m.id.toString(),
+              firstName: m.first_name || 'Utilisateur',
+              lastName: m.last_name || '',
+              fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
+              email: m.email || '',
+              profession: m.job || '',
+              roles: [m.role_in_company || m.role_in_school || 'Membre'],
+              skills: [],
+              availability: [],
+              avatar: m.avatar_url || '',
+              isTrusted: false,
+              badges: [],
+              organization: '',
+              canProposeStage: false,
+              canProposeAtelier: false,
+            } as Member;
+          }
+        })
+      );
+
+      const validMembers = detailedMembers.filter((m): m is Member => m !== null);
+      setMembers(validMembers);
+    } catch (err) {
+      console.error('Erreur critique récupération liste membres:', err);
+      showError('Impossible de récupérer la liste des membres');
+    }
+  };
+
+  const fetchLevels = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      const isEdu = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
+      const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+      if (!contextId) return;
+      const levelsRes = await getSchoolLevels(contextId, page, per_page);
+      const levels = levelsRes.data.data || levelsRes.data || [];
+      setClassLists(levels);
+    } catch (err) {
+      console.error('Erreur critique récupération liste niveaux:', err);
+      showError('Impossible de récupérer la liste des classes');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+    // --- Filtres dynamiques ---
+    const allCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
+    const allAvailabilities = Array.from(new Set(members.flatMap(m => m.availability)));
+
   useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        const currentUser = await getCurrentUser();
-        const isEdu = state.showingPageType === 'edu';
-
-        // 1. Bascule de l'ID (Company vs School)
-        const contextId = isEdu 
-          ? currentUser.data?.available_contexts?.schools?.[0]?.id 
-          : currentUser.data?.available_contexts?.companies?.[0]?.id;
-
-        if (!contextId) return;
-
-        // 2. Bascule de l'appel API (Liste de base)
-        const membersRes = isEdu 
-          ? await getSchoolMembersAccepted(contextId)
-          : await getCompanyMembersAccepted(contextId);
-
-        const basicMembers = membersRes.data.data || membersRes.data || [];
-
-        const detailedMembers = await Promise.all(
-          basicMembers.map(async (m: any) => {
-            try {
-              // 3. Bascule de la récupération du profil détaillé
-              // Note: Si vous n'avez pas getSchoolUserProfile, vérifiez si getCompanyUserProfile fonctionne avec un ID école, sinon il faudra créer cette fonction.
-              const profileRes = isEdu 
-                 ? await getSchoolUserProfile(m.id, contextId) // Hypothèse : cette fonction existe
-                 : await getCompanyUserProfile(m.id, contextId);
-              
-              const profile = profileRes.data.data || profileRes.data;
-
-              // ... (Logique de traitement availability, roles, mapping inchangée) ...
-              
-              // --- TRAITEMENT DE LA DISPONIBILITÉ (copie de votre code existant) ---
-              const availData = profile.availability || {};
-              const availabilityList: string[] = [];
-              if (availData.monday) availabilityList.push('Lundi');
-              if (availData.tuesday) availabilityList.push('Mardi');
-              if (availData.wednesday) availabilityList.push('Mercredi');
-              if (availData.thursday) availabilityList.push('Jeudi');
-              if (availData.friday) availabilityList.push('Vendredi');
-              if (availData.saturday) availabilityList.push('Samedi');
-              if (availData.sunday) availabilityList.push('Dimanche');
-              if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
-
-              let rawRole = profile.role_in_company || m.role_in_company || profile.role_in_school || m.role_in_school || 'Membre';
-              const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
-
-              return {
-                id: (profile.id || m.id).toString(),
-                firstName: profile.first_name,
-                lastName: profile.last_name,
-                fullName: profile.full_name || `${profile.first_name} ${profile.last_name}`,
-                email: profile.email,
-                profession: profile.role_in_system || '',
-                roles: [displayRole],
-                skills: profile.skills?.map((s: any) => s.name || s) || [],
-                availability: availabilityList,
-                avatar: profile.avatar_url || m.avatar_url || '',
-                isTrusted: profile.status === 'confirmed',
-                badges: profile.badges?.data?.map((b: any) => b.id?.toString()) || [],
-                organization: '',
-                canProposeStage: false,
-                canProposeAtelier: false,
-              } as Member;
-
-            } catch (err) {
-              console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
-              // FALLBACK
-              return {
-                 // ... (votre code fallback inchangé)
-                id: m.id.toString(),
-                firstName: m.first_name || 'Utilisateur',
-                lastName: m.last_name || '',
-                fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
-                email: m.email || '',
-                profession: m.job || '',
-                roles: [m.role_in_company || m.role_in_school || 'Membre'],
-                skills: [],
-                availability: [],
-                avatar: m.avatar_url || '',
-                isTrusted: false,
-                badges: [],
-                organization: '',
-                canProposeStage: false,
-                canProposeAtelier: false,
-              } as Member;
-            }
-          })
-        );
-
-        const validMembers = detailedMembers.filter((m): m is Member => m !== null);
-        setMembers(validMembers);
-      } catch (err) {
-        console.error('Erreur critique récupération liste membres:', err);
-      }
-    };
-
+    fetchLevels();
     fetchMembers();
-  }, [state.showingPageType]);
-
-  // --- Filtres dynamiques ---
-  const allCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
-  const allAvailabilities = Array.from(new Set(members.flatMap(m => m.availability)));
+  }, [page, per_page]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -176,7 +205,7 @@ const Members: React.FC = () => {
 
   const handleMembershipRequests = () => setCurrentPage('membership-requests');
 
-const handleRoleChange = async (member: Member, newRole: string) => {
+  const handleRoleChange = async (member: Member, newRole: string) => {
     try {
       const currentUser = await getCurrentUser();
       const isEdu = state.showingPageType === 'edu';
@@ -187,15 +216,15 @@ const handleRoleChange = async (member: Member, newRole: string) => {
         : currentUser.data?.available_contexts?.companies?.[0]?.id;
 
       if (!contextId) {
-        console.error("Impossible : aucun ID de contexte trouvé.");
+        showError("Impossible de trouver le contexte");
         return;
       }
 
       // 2. Bascule API Update Role
       if (isEdu) {
-          await updateSchoolMemberRole(contextId, Number(member.id), newRole);
+        await updateSchoolMemberRole(contextId, Number(member.id), newRole);
       } else {
-          await updateCompanyMemberRole(contextId, Number(member.id), newRole);
+        await updateCompanyMemberRole(contextId, Number(member.id), newRole);
       }
 
       setMembers(prev =>
@@ -204,8 +233,35 @@ const handleRoleChange = async (member: Member, newRole: string) => {
         )
       );
 
+      showSuccess(`Le rôle de ${member.fullName} a été modifié avec succès`);
+
     } catch (err) {
       console.error("Erreur lors de la mise à jour du rôle :", err);
+      showError("Erreur lors de la mise à jour du rôle");
+    }
+  };
+
+  const handleAddClassList = async (levelData: { level: { name: string; level: string } }) => {
+    try {
+      const currentUser = await getCurrentUser();
+      const isEdu = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
+      const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+      
+      if (!contextId) {
+        showError("Impossible de trouver le contexte de l'école");
+        return;
+      }
+
+      await addSchoolLevel(contextId, levelData);
+      showSuccess(`La classe ${levelData.level.name} a été ajoutée avec succès`);
+      
+      // Refresh the levels list after adding a new one
+      await fetchLevels();
+      setIsAddClassModalOpen(false);
+    } catch (err) {
+      console.error("Erreur lors de l'ajout de la classe :", err);
+      // showError("Erreur lors de l'ajout de la classe");
+      throw err; // Re-throw pour que AddClassModal puisse aussi gérer l'erreur
     }
   };
 
@@ -249,7 +305,7 @@ const handleRoleChange = async (member: Member, newRole: string) => {
 
       {/* Tabs visibles uniquement en mode edu */}
       {state.showingPageType === 'edu' && (
-        <div className="tabs-container">
+        <div className="tabs-container  bg-yellow-300">
           <button
             className={`tab-btn ${activeTab === 'members' ? 'active' : ''}`}
             onClick={() => setActiveTab('members')}
@@ -260,7 +316,13 @@ const handleRoleChange = async (member: Member, newRole: string) => {
             className={`tab-btn ${activeTab === 'class' ? 'active' : ''}`}
             onClick={() => setActiveTab('class')}
           >
-            Class
+            Classes
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'community' ? 'active' : ''}`}
+            onClick={() => setActiveTab('community')}
+          >
+            Communauté
           </button>
         </div>
       )}
@@ -282,7 +344,7 @@ const handleRoleChange = async (member: Member, newRole: string) => {
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="filter-select"
+                className="filter-select !w-full"
               >
                 <option value="">Tous les rôles</option>
                 <option value="Admin">Admin</option>
@@ -296,7 +358,7 @@ const handleRoleChange = async (member: Member, newRole: string) => {
               <select
                 value={competenceFilter}
                 onChange={(e) => setCompetenceFilter(e.target.value)}
-                className="filter-select"
+                className="filter-select !w-full"
               >
                 <option value="">Toutes les compétences</option>
                 {allCompetences.map(c => (
@@ -308,7 +370,7 @@ const handleRoleChange = async (member: Member, newRole: string) => {
               <select
                 value={availabilityFilter}
                 onChange={(e) => setAvailabilityFilter(e.target.value)}
-                className="filter-select"
+                className="filter-select !w-full"
               >
                 <option value="">Toutes les disponibilités</option>
                 {allAvailabilities.map(a => (
@@ -317,47 +379,85 @@ const handleRoleChange = async (member: Member, newRole: string) => {
               </select>
             </div>
           </div>
+          <div className='min-h-[65vh]'>
+            <div className="">
+              <button className="view-btn" onClick={handleMembershipRequests}>
+                <i className="fas fa-user-plus"></i>
+                Gérer demandes d'adhésion
+              </button>
+            </div>
 
-          <div className="membership-requests-section">
-            <button className="view-btn" onClick={handleMembershipRequests}>
-              <i className="fas fa-user-plus"></i>
-              Gérer demandes d'adhésion
-            </button>
-          </div>
-
-          <div className="members-grid">
-            {filteredMembers.map((member) => {
-              const totalBadgeCount = member.badges?.length || 0;
-              return (
-                <MemberCard
-                  key={member.id}
-                  member={member}
-                  badgeCount={totalBadgeCount}
-                  onClick={() => setSelectedMember(member)}
-                  onContactClick={() => {
-                    setContactEmail(member.email);
-                    setIsContactModalOpen(true);
-                  }}
-                  onRoleChange={(newRole) => handleRoleChange(member, newRole)}
-                />
-              );
-            })}
+            <div className="members-grid">
+              {filteredMembers.length > 0 ? filteredMembers.map((member) => {
+                const totalBadgeCount = member.badges?.length || 0;
+                return (
+                  <MemberCard
+                    key={member.id}
+                    member={member}
+                    badgeCount={totalBadgeCount}
+                    onClick={() => setSelectedMember(member)}
+                    onContactClick={() => {
+                      setContactEmail(member.email);
+                      setIsContactModalOpen(true);
+                    }}
+                    onRoleChange={(newRole) => handleRoleChange(member, newRole)}
+                  />
+                );
+              })
+            : <div className="text-center text-gray-500">Aucun membre trouvé pour le moment</div>}
+            </div>
           </div>
         </>
       )}
 
       {/* Contenu du tab “Classe” */}
       {activeTab === 'class' && (
-        <div className="class-tab-content">
+        <div className="min-h-[75vh]" >
+            <div className="mb-4">
+              <button className="view-btn" onClick={() => setIsAddClassModalOpen(true)}>
+                <i className="fas fa-plus"></i> Ajouter une classe
+              </button>
+              {/* Add class modal modal */}
+              {isAddClassModalOpen && (
+                <AddClassModal onClose={() => setIsAddClassModalOpen(false)} onAdd={handleAddClassList} />
+              )}
+            </div>
           <div className="members-grid">
-            {classLists.map((classItem) => (
+            {classLists.length > 0 ? classLists.map((classItem: ClassList) => (
               <ClassCard
-                key={classItem.id}
-                name={classItem.name}
-                teacher={classItem.teacher}
-                studentCount={classItem.studentCount}
+                key={classItem?.id}
+                name={classItem?.name}
+                teacher={classItem?.teacher || ''}
+                studentCount={classItem?.studentCount || 0}
+                level={classItem?.level || ''}
               />
-            ))}
+            ))
+          : <div className="text-center text-gray-500">Aucune classe trouvée pour le moment</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Contenu du tab “Communauté” */}
+      {activeTab === 'community' && (
+        <div className="community-tab-content min-h-[75vh]">
+          <div className="members-grid">
+            {
+            communityLists.length > 0 ?
+            
+            communityLists.map((communityItem) => (
+              <MemberCard
+                key={communityItem.id}
+                member={communityItem}
+                badgeCount={communityItem.badges?.length || 0}
+                onClick={() => setSelectedMember(communityItem)}
+                onContactClick={() => {
+                  setContactEmail(communityItem.email);
+                  setIsContactModalOpen(true);
+                }}
+                onRoleChange={(newRole) => handleRoleChange(communityItem, newRole)}
+              />
+            ))
+          : <div className=" text-gray-500 whitespace-nowrap">Aucune communauté trouvée pour le moment</div>}
           </div>
         </div>
       )}

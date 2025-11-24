@@ -110,7 +110,7 @@ const Dashboard: React.FC = () => {
             <div className="projects-header">
               <div className="projects-title-group">
                 <img src="/icons_logo/Icon=Projet grand.svg" alt="Projets" className="projects-icon" />
-                <h3>Projet en cours</h3>
+                <h3>Projets en cours</h3>
               </div>
               <button className="btn btn-primary">Créer un projet +</button>
             </div>
@@ -340,11 +340,12 @@ const Dashboard: React.FC = () => {
         <div className="dashboard-right-column">
           <div className="recent-activity">
             <div className="activity-header">
-              <h3>Activité récente</h3>
+              <h3>Activités récentes</h3>
               <button className="btn btn-outline btn-sm">Voir tout</button>
             </div>
             <div className="activity-list">
-              <div className="activity-item">
+              <p className="activity-empty">Aucune activité récente pour le moment</p>
+              {/* <div className="activity-item">
                 <div className="activity-avatar">
                   <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Sophie Martin" />
                 </div>
@@ -376,7 +377,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="activity-time">Il y a 1 jour</div>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
 

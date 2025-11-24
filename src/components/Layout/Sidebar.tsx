@@ -17,7 +17,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const navigationItems = [
     { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
     { id: 'members' as PageType, label: state.showingPageType === 'teacher' ? 'Classe' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
-    { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
+    { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg', disabled: true },
     { id: 'projects' as PageType, label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
     { id: 'badges' as PageType, label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
     ...(state.showingPageType !== 'teacher'
@@ -39,6 +39,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       
       <nav className="side-nav">
         {navigationItems.map((item) => (
+          item.disabled ? (
+            <div key={item.id} className="side-link disabled" title="Cette fonctionnalité n'est pas encore disponible">
+              <img src={item.icon} alt={item.label} className="side-icon" />
+              {item.label}
+            </div>
+          ) : (
           <a
             key={item.id}
             href={`#${item.id}`}
@@ -53,6 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
             <img src={item.icon} alt={item.label} className="side-icon" />
             {item.label}
           </a>
+          )
         ))}
         
         <hr className="side-divider" aria-hidden="true" />

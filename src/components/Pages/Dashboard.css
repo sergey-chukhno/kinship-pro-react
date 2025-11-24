@@ -373,6 +373,12 @@
   flex-direction: column;
   gap: 16px;
 }
+.activity-empty{
+  font-size: 12px!important;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0;
+}
 
 .activity-item {
   display: flex;

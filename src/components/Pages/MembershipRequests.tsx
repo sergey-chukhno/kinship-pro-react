@@ -4,8 +4,8 @@ import RolePill from '../UI/RolePill';
 import './MembershipRequests.css';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
-import { acceptMember, getCompanyMembersPending } from '../../api/CompanyDashboard/Menbers';
-import { acceptSchoolMember, getSchoolMembersPending } from '../../api/SchoolDashboard/Menbers';
+import { acceptMember, getCompanyMembersPending } from '../../api/CompanyDashboard/Members';
+import { acceptSchoolMember, getSchoolMembersPending } from '../../api/SchoolDashboard/Members';
 
 interface MembershipRequest {
   id: string;

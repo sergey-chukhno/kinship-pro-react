@@ -5,17 +5,20 @@ interface ClassCardProps {
   name: string;
   teacher: string;
   studentCount: number;
+  level?: string;
 }
 
-const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount }) => {
+const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, level }) => {
   return (
     <div className="class-card">
       <div className="class-card-header">
-        <img src="/icons_logo/Icon=Class.svg" alt="Classe" className="class-icon" />
+        {/* <img src="/icons_logo/Icon=Class.svg" alt="Classe" className="class-icon" /> */}
+        <i className="fas fa-school"></i>
         <h4>{name}</h4>
       </div>
       <div className="class-card-body">
-        <p><strong>Professeur :</strong> {teacher}</p>
+        <p><strong>Niveau :</strong> {level}</p>
+        {/* <p><strong>Professeur :</strong> {teacher}</p> */}
         <p><strong>Étudiants :</strong> {studentCount}</p>
       </div>
     </div>
