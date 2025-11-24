@@ -391,10 +391,10 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
 
     const formData = {
       ...user,
-      ...availability,
+      availability: availability,
       ...skills,
-      ...selectedSchools,
-      ...selectedCompanies,
+      selectedSchools: selectedSchools,
+      selectedCompanies: selectedCompanies,
 
     }
     submitPersonalUserRegistration(formData)

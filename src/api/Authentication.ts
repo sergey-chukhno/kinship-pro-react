@@ -15,8 +15,8 @@ interface formData {
     availability?: any;
     selectedSkills?: number[];
     selectedSubSkills?: number[];
-    selectedSchools?: string[];
-    selectedCompanies?: string[];
+    selectedSchools?: number[];
+    selectedCompanies?: number[];
     schoolName?: string;
     schoolAddress?: string;
     schoolCity?: string;
@@ -28,7 +28,7 @@ interface formData {
     companyZipCode?: string;
     companyCity?: string;
     companyEmail?: string;
-    siretNumber?: number;
+    siretNumber?: string;
     website?: string
     referentPhoneNumber?: string;
     acceptPrivacyPolicy?: boolean;
@@ -37,7 +37,9 @@ interface formData {
     childFirstName?: string;
     childLastName?: string;
     childBirthday?: string;
-    hasTemporaryEmail?: boolean; // <--- NOUVEAU CHAMP
+    hasTemporaryEmail?: boolean;
+    schoolId?: number;
+    companyTypeAdditionalInfo?: string;
 }
 
 export function login(email: string, password: string) {
@@ -68,13 +70,13 @@ export function submitPersonalUserRegistration(formData: formData) {
             skill_ids: formData.selectedSkills,
             sub_skill_ids: formData.selectedSubSkills
         },
-        join_school_ids: formData.selectedSchools,
-        join_company_ids: formData.selectedCompanies,
-        children_info: {
+        join_school_ids: formData.selectedSchools?.map(id => Number(id)) || [],
+        join_company_ids: formData.selectedCompanies?.map(id => Number(id)) || [],
+        children_info: (formData.childFirstName && formData.childLastName) ? [{
             first_name: formData.childFirstName,
             last_name: formData.childLastName,
             birthday: formData.childBirthday,
-        }
+        }] : []
     });
 }
 
@@ -115,6 +117,7 @@ export function submitSchoolRegistration(formData: formData) {
             accept_privacy_policy: formData.acceptPrivacyPolicy
         },
         school: {
+            id: formData.schoolId,
             name: formData.schoolName,
             city: formData.schoolCity,
             zip_code: formData.schoolZipCode,
@@ -135,17 +138,21 @@ export function submitCompanyRegistration(formData: formData) {
             last_name: formData.lastName,
             birthday: formData.birthday,
             role: formData.role,          // company_director, association_president, etc.
-            accept_privacy_policy: formData.acceptPrivacyPolicy
+            accept_privacy_policy: formData.acceptPrivacyPolicy,
+            take_trainee: formData.takeTrainee,
+            propose_workshop: formData.proposeWorkshop || false,
+            show_my_skills: true,
         },
         company: {
             name: formData.companyName,
             show_my_skills: true,
             description: formData.companyDescription,
             company_type_id: formData.companyTypeId,
+            company_type_additional_info: formData.companyTypeAdditionalInfo,
             zip_code: formData.companyZipCode,
             city: formData.companyCity,
             referent_phone_number: formData.referentPhoneNumber || null,
-            email:formData.companyEmail, // NEW
+            email: formData.companyEmail, // NEW
             siret_number: formData.siretNumber, // NEW
             website: formData.website, //NEW
             take_trainee: formData.takeTrainee,

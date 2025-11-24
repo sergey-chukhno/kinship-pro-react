@@ -77,7 +77,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     companyCity: "",
     companyZipCode: "",
     referentPhoneNumber: "",
-    siretNumber: 0,
+    siretNumber: "",
     companyEmail: "",
     website: "",
     proposeWorkshop: false, // <- NOUVEAU

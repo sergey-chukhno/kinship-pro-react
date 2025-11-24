@@ -21,7 +21,7 @@ const tradFR: Record<string, string> = {
   other: "Autre",
   // Garder des fallbacks pour l'ancien système au cas où
   admin: "Admin",
-  referent: "Référent", 
+  referent: "Référent",
   member: "Membre"
 };
 
@@ -47,9 +47,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
   const [selectedAvailability, setSelectedAvailability] = useState<string[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [isUsingDefaultAvatar, setIsUsingDefaultAvatar] = useState<boolean>(true);
-  
+
   // State pour les données API
-  const [apiSkills, setApiSkills] = useState<{id: number, name: string}[]>([]);
+  const [apiSkills, setApiSkills] = useState<{ id: number, name: string }[]>([]);
   const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]); // 2. State roles
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,11 +87,11 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
   ];
 
   const dayMapping: Record<string, string> = {
-    'Lundi': 'monday', 
-    'Mardi': 'tuesday', 
+    'Lundi': 'monday',
+    'Mardi': 'tuesday',
     'Mercredi': 'wednesday',
-    'Jeudi': 'thursday', 
-    'Vendredi': 'friday', 
+    'Jeudi': 'thursday',
+    'Vendredi': 'friday',
     'Autre': 'other'
   };
 
@@ -105,10 +105,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
       'tutor': '#a855f7',     // Violet
       'default': '#6b7280'    // Gris par défaut
     };
-    
+
     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
     const color = colors[role] || colors['default'];
-    
+
     return `data:image/svg+xml;base64,${btoa(`
       <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
         <circle cx="50" cy="50" r="50" fill="${color}"/>
@@ -124,23 +124,23 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
-      
+
       // Mise à jour de l'avatar si on change le nom/rôle
       if (isUsingDefaultAvatar && (name === 'roles' || name === 'firstName' || name === 'lastName')) {
         const firstName = name === 'firstName' ? value : formData.firstName;
         const lastName = name === 'lastName' ? value : formData.lastName;
         // Pour le select multiple 'roles', value est la valeur unique sélectionnée ici
         const role = name === 'roles' ? value : (formData.roles[0] || 'voluntary');
-        
+
         if (firstName && lastName) {
           const newAvatar = generateDefaultAvatar(role, firstName, lastName);
           setAvatarPreview(newAvatar);
         }
       }
-      
+
       // Cas spécifique pour le select qui renvoie une string unique mais qu'on stocke en array pour le UserType Member
       if (name === 'roles') {
-         setFormData(prev => ({ ...prev, roles: [value] }));
+        setFormData(prev => ({ ...prev, roles: [value] }));
       }
     }
   };
@@ -170,7 +170,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
 
   const handleSkillToggle = (skillName: string) => {
     setSelectedSkills(prev => {
-      const newSkills = prev.includes(skillName) 
+      const newSkills = prev.includes(skillName)
         ? prev.filter(s => s !== skillName)
         : [...prev, skillName];
       setFormData(prevData => ({ ...prevData, skills: newSkills }));
@@ -199,7 +199,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.firstName || !formData.lastName) {
       alert('Prénom et nom sont obligatoires');
       return;
@@ -217,7 +217,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
       // 1. Récupération Organisation selon le mode
       const currentUser = await getCurrentUser();
       const isEdu = state.showingPageType === 'edu';
-      
+
       const contextId = isEdu
         ? currentUser.data?.available_contexts?.schools?.[0]?.id
         : currentUser.data?.available_contexts?.companies?.[0]?.id;
@@ -257,16 +257,16 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
         availability: apiAvailability,
         selectedSkills: skillIds,
         selectedSubSkills: [],
-        selectedCompanies: !isEdu && contextId ? [String(contextId)] : [],
-        selectedSchools: isEdu && contextId ? [String(contextId)] : []
+        selectedCompanies: !isEdu && contextId ? [Number(contextId)] : [],
+        selectedSchools: isEdu && contextId ? [Number(contextId)] : []
       };
 
       // 5. Envoi
       await submitPersonalUserRegistration(apiPayload);
 
       const finalAvatar = formData.avatar || generateDefaultAvatar(
-        selectedRole, 
-        formData.firstName, 
+        selectedRole,
+        formData.firstName,
         formData.lastName
       );
 
