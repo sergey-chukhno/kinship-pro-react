@@ -165,6 +165,7 @@
   color: var(--text-primary, #374151);
   font-size: 0.9rem;
   cursor: pointer;
+  width: 100%;
 }
 
 .filter-select:focus {
@@ -229,8 +230,8 @@
   align-items: flex-end;
   gap: 4px;
   border-bottom: 2px solid var(--border, #e5e7eb);
-  margin-top: 12px;
-  margin-bottom: 16px;
+  /* margin-top: 12px;
+  margin-bottom: 16px; */
   background: transparent;
   position: relative;
 }
@@ -240,7 +241,7 @@
   border: 1px solid var(--border, #e5e7eb);
   border-bottom: none;
   border-radius: 8px 8px 0 0;
-  padding: 10px 20px;
+  /* padding: 10px 20px; */
   font-size: 0.95rem;
   font-weight: 500;
   color: var(--text-secondary, #6b7280);

@@ -221,6 +221,7 @@ export interface OrganizationList {
 export interface ClassList {
   id: string;
   name: string;
-  teacher: string;
-  studentCount: number;
+  level?: string;
+  teacher?: string;
+  studentCount?: number;
 }
