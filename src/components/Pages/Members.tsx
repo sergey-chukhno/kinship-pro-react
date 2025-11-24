@@ -15,6 +15,7 @@ import { getSchoolMembersAccepted, updateSchoolMemberRole } from '../../api/Scho
 import AddClassModal from '../Modals/AddClassModal';
 import { getSchoolLevels, addSchoolLevel } from '../../api/SchoolDashboard/Levels';
 import { useToast } from '../../hooks/useToast';
+import AddStudentModal from '../Modals/AddStudentModal';
 
 
 const Members: React.FC = () => {
@@ -193,6 +194,11 @@ const Members: React.FC = () => {
     setIsAddModalOpen(false);
   };
 
+  const handleAddStudent = (studentData: Omit<Member, 'id'>) => {
+    showSuccess(`L'étudiant ${studentData.fullName} a été ajouté avec succès`);
+    setIsAddModalOpen(false);
+  };
+
   const handleUpdateMember = (id: string, updates: Partial<Member>) => {
     updateMember(id, updates);
     if (selectedMember?.id === id) setSelectedMember({ ...selectedMember, ...updates });
@@ -298,7 +304,7 @@ const Members: React.FC = () => {
             </div>
           </div>
           <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-            <i className="fas fa-plus"></i> Ajouter un membre
+            <i className="fas fa-plus"></i> {(state.showingPageType === 'edu' || state.showingPageType === 'teacher' )? 'Ajouter un étudiant' : 'Ajouter un membre'}
           </button>
         </div>
       </div>
@@ -472,9 +478,14 @@ const Members: React.FC = () => {
         />
       )}
 
-      {isAddModalOpen && (
+      {isAddModalOpen && state.showingPageType !== 'edu' && state.showingPageType !== 'teacher' && (
         <AddMemberModal onClose={() => setIsAddModalOpen(false)} onAdd={handleAddMember} />
       )}
+
+      {isAddModalOpen && (state.showingPageType === 'edu' || state.showingPageType === 'teacher') && (
+        <AddStudentModal onClose={() => setIsAddModalOpen(false)} onAdd={handleAddStudent} />
+      )}
+
 
       {isContactModalOpen && (
         <ContactModal email={contactEmail} onClose={() => setIsContactModalOpen(false)} />
