@@ -18,7 +18,7 @@ const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, leve
       </div>
       <div className="class-card-body">
         <p><strong>Niveau :</strong> {level}</p>
-        <p><strong>Professeur :</strong> {teacher}</p>
+        {/* <p><strong>Professeur :</strong> {teacher}</p> */}
         <p><strong>Étudiants :</strong> {studentCount}</p>
       </div>
     </div>

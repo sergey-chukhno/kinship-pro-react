@@ -330,7 +330,7 @@ const Members: React.FC = () => {
       {/* Contenu du tab “Membres” */}
       {activeTab === 'members' && (
         <>
-          <div className="members-filters  bg-red-500">
+          <div className="members-filters">
             <div className="search-bar">
               <i className="fas fa-search"></i>
               <input
@@ -388,7 +388,7 @@ const Members: React.FC = () => {
             </div>
 
             <div className="members-grid">
-              {filteredMembers.map((member) => {
+              {filteredMembers.length > 0 ? filteredMembers.map((member) => {
                 const totalBadgeCount = member.badges?.length || 0;
                 return (
                   <MemberCard
@@ -403,7 +403,8 @@ const Members: React.FC = () => {
                     onRoleChange={(newRole) => handleRoleChange(member, newRole)}
                   />
                 );
-              })}
+              })
+            : <div className="text-center text-gray-500">Aucun membre trouvé pour le moment</div>}
             </div>
           </div>
         </>
@@ -422,7 +423,7 @@ const Members: React.FC = () => {
               )}
             </div>
           <div className="members-grid">
-            {classLists.map((classItem: ClassList) => (
+            {classLists.length > 0 ? classLists.map((classItem: ClassList) => (
               <ClassCard
                 key={classItem?.id}
                 name={classItem?.name}
@@ -430,7 +431,8 @@ const Members: React.FC = () => {
                 studentCount={classItem?.studentCount || 0}
                 level={classItem?.level || ''}
               />
-            ))}
+            ))
+          : <div className="text-center text-gray-500">Aucune classe trouvée pour le moment</div>}
           </div>
         </div>
       )}
@@ -439,7 +441,10 @@ const Members: React.FC = () => {
       {activeTab === 'community' && (
         <div className="community-tab-content min-h-[75vh]">
           <div className="members-grid">
-            {communityLists.map((communityItem) => (
+            {
+            communityLists.length > 0 ?
+            
+            communityLists.map((communityItem) => (
               <MemberCard
                 key={communityItem.id}
                 member={communityItem}
@@ -451,7 +456,8 @@ const Members: React.FC = () => {
                 }}
                 onRoleChange={(newRole) => handleRoleChange(communityItem, newRole)}
               />
-            ))}
+            ))
+          : <div className=" text-gray-500 whitespace-nowrap">Aucune communauté trouvée pour le moment</div>}
           </div>
         </div>
       )}
