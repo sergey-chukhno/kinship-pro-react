@@ -4,6 +4,7 @@ import { mockMembers } from '../../data/mockData';
 import UserForm from './UserForm';
 import UserPermissions from './UserPermissions';
 import './UserManagement.css';
+import AvatarImage from '../UI/AvatarImage';
 
 const UserManagement: React.FC = () => {
   const { addMember, updateMember, deleteMember } = useAppContext();
@@ -166,7 +167,7 @@ const UserManagement: React.FC = () => {
             <div key={user.id} className="table-row">
               <div className="table-cell">
                 <div className="user-info">
-                  <img src={user.avatar} alt={user.firstName} className="user-avatar" />
+                  <AvatarImage src={user.avatar} alt={user.firstName} className="user-avatar" />
                   <span>{user.firstName} {user.lastName}</span>
                 </div>
               </div>

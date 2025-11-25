@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Event } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import './Modal.css';
+import AvatarImage from '../UI/AvatarImage';
 
 interface EventModalProps {
   event?: Event | null;
@@ -289,7 +290,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
                     const member = state.members.find(m => m.id === participantId);
                     return member ? (
                       <span key={participantId} className="participant-tag">
-                        <img src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="participant-avatar" />
+                        <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="participant-avatar" />
                         <span className="participant-name">{member.firstName} {member.lastName}</span>
                         <button
                           type="button"

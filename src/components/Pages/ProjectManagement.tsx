@@ -5,6 +5,7 @@ import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
 import './ProjectManagement.css';
 import './MembershipRequests.css';
+import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
@@ -632,7 +633,7 @@ const ProjectManagement: React.FC = () => {
       'François Dupont': 'https://randomuser.me/api/portraits/men/32.jpg'
     };
     return {
-      avatar: avatarMap[ownerName] || 'https://randomuser.me/api/portraits/men/32.jpg',
+      avatar: avatarMap[ownerName] || DEFAULT_AVATAR_SRC,
       profession: 'Membre',
       email: 'unknown@example.com'
     };
@@ -795,7 +796,7 @@ const ProjectManagement: React.FC = () => {
                 <div className="project-manager-info">
                   <div className="manager-left">
                     <div className="manager-avatar">
-                      <img src={project.responsible?.avatar || getOwnerInfo(project.owner).avatar} alt="Project Manager" />
+                      <AvatarImage src={project.responsible?.avatar || getOwnerInfo(project.owner).avatar} alt="Project Manager" />
                     </div>
                     <div className="manager-details">
                       <div className="manager-name">{project.responsible?.name || project.owner}</div>
@@ -826,7 +827,7 @@ const ProjectManagement: React.FC = () => {
                       <div key={coResponsible.id} className="co-responsible-item">
                         <div className="manager-left">
                           <div className="manager-avatar">
-                            <img src={coResponsible.avatar} alt={coResponsible.name} />
+                            <AvatarImage src={coResponsible.avatar} alt={coResponsible.name} />
                           </div>
                           <div className="manager-details">
                             <div className="manager-name">{coResponsible.name}</div>
@@ -989,7 +990,7 @@ const ProjectManagement: React.FC = () => {
                 {participants.map((participant) => (
                   <div key={participant.id} className="member-row">
                     <div className="member-avatar">
-                      <img src={participant.avatar} alt={participant.name} />
+                      <AvatarImage src={participant.avatar} alt={participant.name} />
                     </div>
                     <div className="member-info">
                       <div className="member-name">{participant.name}</div>
@@ -1051,7 +1052,7 @@ const ProjectManagement: React.FC = () => {
                     <div key={request.id} className="request-card">
                       <div className="request-header">
                         <div className="request-avatar">
-                          <img src={request.avatar} alt={request.name} />
+                          <AvatarImage src={request.avatar} alt={request.name} />
                         </div>
                         <div className="request-info">
                           <h4 className="request-name">{request.name}</h4>
@@ -1124,7 +1125,7 @@ const ProjectManagement: React.FC = () => {
                   <div key={participant.id} className="request-card">
                     <div className="request-header">
                       <div className="request-avatar">
-                        <img src={participant.avatar} alt={participant.name} />
+                        <AvatarImage src={participant.avatar} alt={participant.name} />
                       </div>
                         <div className="request-info">
                           <h4 className="request-name">{participant.name}</h4>
@@ -1233,7 +1234,7 @@ const ProjectManagement: React.FC = () => {
                             <div className="team-col-chief">
                               {chief ? (
                                 <div className="chief-info">
-                                  <img src={chief.avatar} alt={chief.name} className="chief-avatar" />
+                                  <AvatarImage src={chief.avatar} alt={chief.name} className="chief-avatar" />
                                   <div className="chief-details">
                                     <div className="chief-name">{chief.name}</div>
                                     <div className="chief-role">{chief.profession}</div>
@@ -1248,7 +1249,7 @@ const ProjectManagement: React.FC = () => {
                                 <div className="members-avatars">
                                   {teamMembers.slice(0, 5).map((member) => member && (
                                     <div key={member.id} className="member-avatar-small" title={member.name}>
-                                      <img src={member.avatar} alt={member.name} />
+                                      <AvatarImage src={member.avatar} alt={member.name} />
                                     </div>
                                   ))}
                                   {teamMembers.length > 5 && (
@@ -1957,7 +1958,7 @@ const ProjectManagement: React.FC = () => {
                         const selected = participants.find(p => p.id === newTeamForm.chiefId);
                         return selected ? (
                           <div className="selected-member">
-                            <img src={selected.avatar} alt={selected.name} className="selected-avatar" />
+                            <AvatarImage src={selected.avatar} alt={selected.name} className="selected-avatar" />
                             <div className="selected-info">
                               <div className="selected-name">{selected.name}</div>
                               <div className="selected-role">{selected.profession}</div>
@@ -1981,7 +1982,7 @@ const ProjectManagement: React.FC = () => {
                         className="selection-item"
                         onClick={() => setNewTeamForm({...newTeamForm, chiefId: participant.id})}
                       >
-                        <img src={participant.avatar} alt={participant.name} className="item-avatar" />
+                        <AvatarImage src={participant.avatar} alt={participant.name} className="item-avatar" />
                         <div className="item-info">
                           <div className="item-name">{participant.name}</div>
                           <div className="item-role">{participant.profession}</div>
@@ -2011,7 +2012,7 @@ const ProjectManagement: React.FC = () => {
                         const member = participants.find(p => p.id === memberId);
                         return member ? (
                           <div key={memberId} className="selected-member">
-                            <img src={member.avatar} alt={member.name} className="selected-avatar" />
+                            <AvatarImage src={member.avatar} alt={member.name} className="selected-avatar" />
                             <div className="selected-info">
                               <div className="selected-name">{member.name}</div>
                               <div className="selected-role">{member.profession}</div>
@@ -2048,7 +2049,7 @@ const ProjectManagement: React.FC = () => {
                           }
                         }}
                       >
-                        <img src={participant.avatar} alt={participant.name} className="item-avatar" />
+                        <AvatarImage src={participant.avatar} alt={participant.name} className="item-avatar" />
                         <div className="item-info">
                           <div className="item-name">{participant.name}</div>
                           <div className="item-role">{participant.profession}</div>
@@ -2104,7 +2105,7 @@ const ProjectManagement: React.FC = () => {
                     const chief = getParticipantById(selectedTeam.chiefId);
                     return chief ? (
                       <div className="chief-detail-card">
-                        <img src={chief.avatar} alt={chief.name} className="chief-detail-avatar" />
+                        <AvatarImage src={chief.avatar} alt={chief.name} className="chief-detail-avatar" />
                         <div className="chief-detail-info">
                           <div className="chief-detail-name">{chief.name}</div>
                           <div className="chief-detail-role">{chief.profession}</div>
@@ -2124,7 +2125,7 @@ const ProjectManagement: React.FC = () => {
                       const member = getParticipantById(memberId);
                       return member ? (
                         <div key={memberId} className="member-detail-card">
-                          <img src={member.avatar} alt={member.name} className="member-detail-avatar" />
+                          <AvatarImage src={member.avatar} alt={member.name} className="member-detail-avatar" />
                           <div className="member-detail-info">
                             <div className="member-detail-name">{member.name}</div>
                             <div className="member-detail-role">{member.profession}</div>

@@ -1,13 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Member } from '../../types';
 import './Modal.css';
-import { submitPersonalUserRegistration, getCurrentUser } from '../../api/Authentication';
-import { getSkills, getPersonalUserRoles } from '../../api/RegistrationRessource'; // 1. Import fetch roles
+import { getCurrentUser } from '../../api/Authentication';
+import { getPersonalUserRoles } from '../../api/RegistrationRessource';
+import { getSchoolLevels, createLevelStudent } from '../../api/SchoolDashboard/Levels';
 import { useAppContext } from '../../context/AppContext';
+import { useToast } from '../../hooks/useToast';
+import QRCodePrintModal from './QRCodePrintModal';
+import AvatarImage from '../UI/AvatarImage';
 
 interface AddMemberModalProps {
   onClose: () => void;
   onAdd: (member: Omit<Member, 'id'>) => void;
+  onSuccess?: () => void;
 }
 
 // Traduction identique à celle de PersonalUserRegisterForm.tsx pour l'affichage
@@ -25,75 +30,77 @@ const tradFR: Record<string, string> = {
   member: "Membre"
 };
 
-const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
-  const { state } = useAppContext();
+const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess }) => {
+  useAppContext();
+  const { showSuccess, showError } = useToast();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
-    profession: '',
-    roles: [] as string[], // Sera rempli par le select
-    skills: [] as string[],
-    availability: [] as string[],
-    avatar: '',
-    isTrusted: false,
-    organization: '',
-    badges: [] as string[],
-    canProposeStage: false,
-    canProposeAtelier: false
+    birthday: '',
+    role: 'member',
+    roleAdditionalInfo: '',
+    levelId: '',
+    avatar: ''
   });
 
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [isUsingDefaultAvatar, setIsUsingDefaultAvatar] = useState<boolean>(true);
 
   // State pour les données API
-  const [apiSkills, setApiSkills] = useState<{ id: number, name: string }[]>([]);
-  const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]); // 2. State roles
+  const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]);
+  const [levels, setLevels] = useState<{ id: number; name: string; level: string }[]>([]);
+
+  // State pour le QR Code
+  const [showQRCodeModal, setShowQRCodeModal] = useState<boolean>(false);
+  const [studentData, setStudentData] = useState<{ claimToken: string; fullName: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Chargement des Skills ET des Roles au montage
+  // Chargement des Roles et Levels au montage
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Fetch Skills
-        const skillsRes = await getSkills();
-        const skillsData = skillsRes?.data?.data ?? skillsRes?.data ?? skillsRes ?? [];
-        if (Array.isArray(skillsData)) {
-          setApiSkills(skillsData.map((s: any) => ({ id: Number(s.id), name: s.name })));
-        }
+        // 1. Récupérer le schoolId
+        const currentUser = await getCurrentUser();
+        const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
 
-        // 2. Fetch Roles
+        // 2. Charger les rôles
         const rolesRes = await getPersonalUserRoles();
         const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
         if (Array.isArray(rolesData)) {
           setApiRoles(rolesData);
           // Sélectionner le premier rôle par défaut si disponible
           if (rolesData.length > 0) {
-            setFormData(prev => ({ ...prev, roles: [rolesData[0].value] }));
+            setFormData(prev => ({ ...prev, role: rolesData[0].value }));
+          }
+        }
+
+        // 3. Charger les levels/classes
+        if (schoolId) {
+          const levelsRes = await getSchoolLevels(Number(schoolId), 1, 100);
+          const levelsData = levelsRes?.data?.data ?? levelsRes?.data ?? [];
+          if (Array.isArray(levelsData)) {
+            setLevels(levelsData.map((l: any) => ({
+              id: l.id,
+              name: l.name,
+              level: l.level
+            })));
+            // Sélectionner le premier level par défaut
+            if (levelsData.length > 0) {
+              setFormData(prev => ({ ...prev, levelId: levelsData[0].id.toString() }));
+            }
           }
         }
       } catch (error) {
-        console.error("Erreur chargement données (skills/roles)", error);
+        console.error("Erreur chargement données (roles/levels)", error);
+        showError("Erreur lors du chargement des données");
       }
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const disponibilites = [
-    'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Autre'
-  ];
-
-  const dayMapping: Record<string, string> = {
-    'Lundi': 'monday',
-    'Mardi': 'tuesday',
-    'Mercredi': 'wednesday',
-    'Jeudi': 'thursday',
-    'Vendredi': 'friday',
-    'Autre': 'other'
-  };
 
   // Mise à jour de la génération d'avatar pour accepter les clés dynamiques
   const generateDefaultAvatar = (role: string, firstName: string, lastName: string) => {
@@ -126,21 +133,15 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
       setFormData(prev => ({ ...prev, [name]: value }));
 
       // Mise à jour de l'avatar si on change le nom/rôle
-      if (isUsingDefaultAvatar && (name === 'roles' || name === 'firstName' || name === 'lastName')) {
+      if (isUsingDefaultAvatar && (name === 'role' || name === 'firstName' || name === 'lastName')) {
         const firstName = name === 'firstName' ? value : formData.firstName;
         const lastName = name === 'lastName' ? value : formData.lastName;
-        // Pour le select multiple 'roles', value est la valeur unique sélectionnée ici
-        const role = name === 'roles' ? value : (formData.roles[0] || 'voluntary');
+        const role = name === 'role' ? value : (formData.role || 'eleve_primaire');
 
         if (firstName && lastName) {
           const newAvatar = generateDefaultAvatar(role, firstName, lastName);
           setAvatarPreview(newAvatar);
         }
-      }
-
-      // Cas spécifique pour le select qui renvoie une string unique mais qu'on stocke en array pour le UserType Member
-      if (name === 'roles') {
-        setFormData(prev => ({ ...prev, roles: [value] }));
       }
     }
   };
@@ -161,114 +162,132 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
 
   const handleResetToDefaultAvatar = () => {
     if (formData.firstName && formData.lastName) {
-      const defaultAvatar = generateDefaultAvatar(formData.roles[0] || 'voluntary', formData.firstName, formData.lastName);
+      const defaultAvatar = generateDefaultAvatar(formData.role || 'eleve_primaire', formData.firstName, formData.lastName);
       setAvatarPreview(defaultAvatar);
       setFormData(prev => ({ ...prev, avatar: '' }));
       setIsUsingDefaultAvatar(true);
     }
   };
 
-  const handleSkillToggle = (skillName: string) => {
-    setSelectedSkills(prev => {
-      const newSkills = prev.includes(skillName)
-        ? prev.filter(s => s !== skillName)
-        : [...prev, skillName];
-      setFormData(prevData => ({ ...prevData, skills: newSkills }));
-      return newSkills;
-    });
-  };
-
-  const handleAvailabilityToggle = (day: string) => {
-    setSelectedAvailability(prev => {
-      const newAvailability = prev.includes(day)
-        ? prev.filter(d => d !== day)
-        : [...prev, day];
-      setFormData(prevData => ({ ...prevData, availability: newAvailability }));
-      return newAvailability;
-    });
-  };
-
-  const generateStrongPassword = () => {
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let password = "A1!";
-    for (let i = 0; i < 10; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.firstName || !formData.lastName) {
-      alert('Prénom et nom sont obligatoires');
+    if (!formData.firstName || !formData.lastName || !formData.birthday || !formData.levelId) {
+      showError('Prénom, nom, date de naissance et classe sont obligatoires');
       return;
     }
-  
 
     try {
-      // 1. Récupération Organisation selon le mode
+      // 1. Récupération du schoolId
       const currentUser = await getCurrentUser();
-      const isEdu = state.showingPageType === 'edu';
+      const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
 
-      const contextId = isEdu
-        ? currentUser.data?.available_contexts?.schools?.[0]?.id
-        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+      if (!schoolId) {
+        showError("Impossible de récupérer l'identifiant de l'école");
+        return;
+      }
 
-
- 
-
-
-      // 4. Password & Rôle
-      const tempPassword = generateStrongPassword();
-      const selectedRole = formData.roles[0] || 'voluntary'; // Fallback
-
+      // 2. Préparation du payload
       const apiPayload = {
-        email: `temp.${Date.now()}@kinship.placeholder`,
-        hasTemporaryEmail: !formData.email,
-        password: tempPassword,
-        passwordConfirmation: tempPassword,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        birthday: "2000-01-01",
-        role: selectedRole, // Utilisation du rôle dynamique
-        job: '',
-        companyName: formData.organization,
-        proposeWorkshop: formData.canProposeAtelier,
-        takeTrainee: formData.canProposeStage,
-        acceptPrivacyPolicy: true,
-        availability: [],
-        selectedSkills: [],
-        selectedSubSkills: [],
-        selectedCompanies: !isEdu && contextId ? [Number(contextId)] : [],
-        selectedSchools: isEdu && contextId ? [Number(contextId)] : []
+        student: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email || undefined,
+          birthday: formData.birthday,
+          role: formData.role,
+          role_additional_information: formData.role || undefined
+        }
       };
 
-      // 5. Envoi
-      await submitPersonalUserRegistration(apiPayload);
+      console.log('Payload envoyé:', apiPayload);
+      console.log('SchoolId:', schoolId, 'LevelId:', formData.levelId);
 
+      // 3. Envoi de la requête
+      const response = await createLevelStudent(
+        Number(schoolId),
+        Number(formData.levelId),
+        apiPayload
+      );
+      
+      console.log('Response complète:', response);
+      console.log('Response data:', response.data);
+
+      // 4. Extraction du claim_token
+      const claimToken = response.data?.data?.claim_token;
+      const fullName = response.data?.data?.full_name || `${formData.firstName} ${formData.lastName}`;
+
+      console.log('Claim token:', claimToken);
+      console.log('Full name:', fullName);
+
+      // 5. Mise à jour de l'UI locale
       const finalAvatar = formData.avatar || generateDefaultAvatar(
-        selectedRole,
+        formData.role,
         formData.firstName,
         formData.lastName
       );
 
       const memberData = {
-        ...formData,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         avatar: finalAvatar,
-        skills: selectedSkills,
-        availability: selectedAvailability
+        email: response.data?.data?.email || formData.email || '',
+        profession: formData.roleAdditionalInfo || '',
+        roles: [formData.role],
+        skills: [],
+        availability: [],
+        isTrusted: false,
+        organization: '',
+        badges: [],
+        canProposeStage: false,
+        canProposeAtelier: false,
+        claim_token: claimToken,
+        hasTemporaryEmail: response.data?.data?.has_temporary_email || false,
+        birthday: formData.birthday,
+        role: formData.role,
+        levelId: formData.levelId,
+        roleAdditionalInfo: formData.roleAdditionalInfo
       };
 
       onAdd(memberData);
-      alert("Membre ajouté avec succès !");
-      onClose();
 
-    } catch (error) {
-      console.error("Erreur lors de l'ajout du membre", error);
-      alert("Erreur lors de l'enregistrement ou de la récupération de l'organisation.");
+      // 6. Afficher le toast de succès
+      showSuccess(`Étudiant ${fullName} ajouté avec succès !`);
+
+      // 7. Refetch des données
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      // 8. Afficher le modal QR code si le token est disponible
+      if (claimToken) {
+        setStudentData({ claimToken, fullName });
+        setShowQRCodeModal(true);
+        // Ne pas fermer le modal principal encore
+      } else {
+        console.warn('Pas de claim_token dans la réponse');
+        onClose();
+      }
+
+    } catch (error: any) {
+      console.error("Erreur lors de l'ajout de l'étudiant", error);
+      console.error("Erreur détails:", error.response?.data);
+      showError(error.response?.data?.message || "Erreur lors de l'enregistrement de l'étudiant.");
     }
   };
+
+  // Si le modal QR code doit être affiché, afficher seulement celui-là
+  if (showQRCodeModal && studentData) {
+    return (
+      <QRCodePrintModal
+        onClose={() => {
+          setShowQRCodeModal(false);
+          onClose();
+        }}
+        claimToken={studentData.claimToken}
+        studentName={studentData.fullName}
+      />
+    );
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -286,14 +305,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
             <h3>Photo de profil</h3>
             <div className="avatar-selection">
               <div className="avatar-preview">
-                {avatarPreview ? (
-                  <img src={avatarPreview} alt="Avatar preview" className="avatar-image" />
-                ) : (
-                  <div className="avatar-placeholder">
-                    <i className="fas fa-user"></i>
-                    <span>Aucune photo</span>
-                  </div>
-                )}
+                <AvatarImage src={avatarPreview} alt="Avatar preview" className="avatar-image" />
               </div>
               <div className="avatar-actions">
                 <button
@@ -354,15 +366,52 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
                 className="form-input"
               />
             </div>
+            <div className="form-group">
+              <label htmlFor="birthday">Date de naissance *</label>
+              <input
+                type="date"
+                id="birthday"
+                name="birthday"
+                max={new Date().toISOString().split('T')[0]}
+                value={formData.birthday}
+                onChange={handleInputChange}
+                required
+                className="form-input"
+              />
+            </div>
+
+
+            <div className="form-group">
+              <label htmlFor="levelId">Classe *</label>
+              <select
+                id="levelId"
+                name="levelId"
+                value={formData.levelId || ''}
+                onChange={handleInputChange}
+                required
+                className="form-select"
+              >
+                {levels.length > 0 ? (
+                  levels.map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {level.name} - {level.level}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Chargement des classes...</option>
+                )}
+              </select>
+            </div>
 
             {/* Remplacement du Select Statique par les données de l'API */}
             <div className="form-group">
-              <label htmlFor="roles">Rôle</label>
+              <label htmlFor="role">Rôle *</label>
               <select
-                id="roles"
-                name="roles"
-                value={formData.roles[0] || ''}
+                id="role"
+                name="role"
+                value={formData.role || ''}
                 onChange={handleInputChange}
+                required
                 className="form-select"
               >
                 {apiRoles.length > 0 ? (

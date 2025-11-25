@@ -11,11 +11,13 @@ import ClassCard from '../Class/ClassCard';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Members';
-import { getSchoolMembersAccepted, updateSchoolMemberRole } from '../../api/SchoolDashboard/Members'
+import { getSchoolMembersAccepted, updateSchoolMemberRole, getSchoolVolunteers } from '../../api/SchoolDashboard/Members'
 import AddClassModal from '../Modals/AddClassModal';
 import { getSchoolLevels, addSchoolLevel } from '../../api/SchoolDashboard/Levels';
 import { useToast } from '../../hooks/useToast';
 import AddStudentModal from '../Modals/AddStudentModal';
+import ClassStudentsModal from '../Modals/ClassStudentsModal';
+import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 
 
 const Members: React.FC = () => {
@@ -32,6 +34,8 @@ const Members: React.FC = () => {
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community'>('members');
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
+  const [isClassStudentsModalOpen, setIsClassStudentsModalOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<{ id: number; name: string } | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   // const classLists = mockClassLists;
@@ -100,12 +104,14 @@ const Members: React.FC = () => {
               roles: [displayRole],
               skills: profile.skills?.map((s: any) => s.name || s) || [],
               availability: availabilityList,
-              avatar: profile.avatar_url || m.avatar_url || '',
+              avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
               isTrusted: profile.status === 'confirmed',
               badges: profile.badges?.data?.map((b: any) => b.id?.toString()) || [],
               organization: '',
               canProposeStage: false,
               canProposeAtelier: false,
+              claimToken: profile.claim_token || m.claim_token,
+              hasTemporaryEmail: profile.has_temporary_email || m.has_temporary_email || false,
             } as Member;
 
           } catch (err) {
@@ -122,12 +128,14 @@ const Members: React.FC = () => {
               roles: [m.role_in_company || m.role_in_school || 'Membre'],
               skills: [],
               availability: [],
-              avatar: m.avatar_url || '',
+              avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
               isTrusted: false,
               badges: [],
               organization: '',
               canProposeStage: false,
               canProposeAtelier: false,
+              claimToken: m.claim_token,
+              hasTemporaryEmail: m.has_temporary_email || false,
             } as Member;
           }
         })
@@ -158,6 +166,50 @@ const Members: React.FC = () => {
     }
   };
 
+  const fetchCommunityVolunteers = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      const isEdu = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
+      const schoolId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+      if (!schoolId) {
+        setCommunityLists([]);
+        return;
+      }
+
+      const volunteersRes = await getSchoolVolunteers(Number(schoolId), 'confirmed');
+      const volunteers = volunteersRes.data?.data ?? volunteersRes.data ?? [];
+
+      const mappedVolunteers: Member[] = volunteers.map((vol: any) => ({
+        id: (vol.id || vol.user_id || vol.user?.id || Date.now()).toString(),
+        firstName: vol.first_name || vol.user?.first_name || 'Volontaire',
+        lastName: vol.last_name || vol.user?.last_name || '',
+        fullName: vol.full_name || `${vol.first_name || ''} ${vol.last_name || ''}`.trim(),
+        email: vol.email || vol.user?.email || '',
+        profession: vol.role_in_system || vol.user?.job || '',
+        roles: [vol.role_in_school || vol.role_in_system || 'Volontaire'],
+        skills: vol.skills?.map((s: any) => s.name || s) || [],
+        availability: [],
+        avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
+        isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
+        badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
+        organization: vol.organization || '',
+        canProposeStage: false,
+        canProposeAtelier: false,
+        claimToken: vol.claim_token,
+        hasTemporaryEmail: vol.has_temporary_email || false,
+        birthday: vol.birthday,
+        role: vol.role_in_system || 'volunteer',
+        levelId: undefined,
+        roleAdditionalInfo: vol.role_additional_information || ''
+      }));
+
+      setCommunityLists(mappedVolunteers);
+    } catch (err) {
+      console.error('Erreur récupération des volontaires:', err);
+      showError('Impossible de récupérer les volontaires');
+    }
+  };
+
     // --- Filtres dynamiques ---
     const allCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
     const allAvailabilities = Array.from(new Set(members.flatMap(m => m.availability)));
@@ -165,7 +217,9 @@ const Members: React.FC = () => {
   useEffect(() => {
     fetchLevels();
     fetchMembers();
-  }, [page, per_page]);
+    fetchCommunityVolunteers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, per_page, state.showingPageType]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -199,6 +253,56 @@ const Members: React.FC = () => {
     setIsAddModalOpen(false);
   };
 
+  const handleStudentCreated = async () => {
+    await fetchMembers();
+    await fetchLevels();
+  };
+
+  const handleClassClick = (classItem: ClassList) => {
+    setSelectedClass({
+      id: Number(classItem.id),
+      name: classItem.name
+    });
+    setIsClassStudentsModalOpen(true);
+  };
+
+  const handleStudentDetails = (student: any) => {
+    setIsClassStudentsModalOpen(false);
+    setSelectedClass(null);
+
+    const member = members.find((m) => m.id === student.id?.toString());
+    if (member) {
+      setSelectedMember(member);
+      return;
+    }
+
+    const fallbackMember: Member = {
+      id: student.id?.toString() || `${Date.now()}`,
+      firstName: student.first_name || student.full_name?.split(' ')[0] || 'Inconnu',
+      lastName: student.last_name || student.full_name?.split(' ')[1] || '',
+      fullName: student.full_name,
+      email: student.email || '',
+      profession: student.role_in_system || '',
+      roles: [student.role_in_system || 'Élève'],
+      skills: [],
+      availability: [],
+      avatar: student.avatar_url || DEFAULT_AVATAR_SRC,
+      isTrusted: student.status === 'confirmed',
+      badges: [],
+      organization: '',
+      canProposeStage: false,
+      canProposeAtelier: false,
+      claim_token: student.claim_token,
+      hasTemporaryEmail: student.has_temporary_email,
+      birthday: student.birthday,
+      role: student.role_in_system || 'eleve',
+      levelId: selectedClass?.id?.toString(),
+      roleAdditionalInfo: ''
+    };
+
+    setSelectedMember(fallbackMember);
+  };
+
   const handleUpdateMember = (id: string, updates: Partial<Member>) => {
     updateMember(id, updates);
     if (selectedMember?.id === id) setSelectedMember({ ...selectedMember, ...updates });
@@ -211,7 +315,9 @@ const Members: React.FC = () => {
 
   const handleMembershipRequests = () => setCurrentPage('membership-requests');
 
-  const handleRoleChange = async (member: Member, newRole: string) => {
+  type RoleChangeSource = 'members' | 'community';
+
+  const handleRoleChange = async (member: Member, newRole: string, source: RoleChangeSource = 'members') => {
     try {
       const currentUser = await getCurrentUser();
       const isEdu = state.showingPageType === 'edu';
@@ -239,7 +345,21 @@ const Members: React.FC = () => {
         )
       );
 
+      setCommunityLists(prev =>
+        prev.map(m =>
+          m.id === member.id ? { ...m, roles: [newRole] } : m
+        )
+      );
+
       showSuccess(`Le rôle de ${member.fullName} a été modifié avec succès`);
+
+      if (source === 'members') {
+        await fetchMembers();
+      }
+
+      if (source === 'community' && (state.showingPageType === 'edu' || state.showingPageType === 'teacher')) {
+        await fetchCommunityVolunteers();
+      }
 
     } catch (err) {
       console.error("Erreur lors de la mise à jour du rôle :", err);
@@ -347,7 +467,7 @@ const Members: React.FC = () => {
               <i className="fas fa-search"></i>
               <input
                 type="text"
-                placeholder="Rechercher un membre..."
+                placeholder="Rechercher un nom..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -407,7 +527,7 @@ const Members: React.FC = () => {
                       setContactEmail(member.email);
                       setIsContactModalOpen(true);
                     }}
-                    onRoleChange={(newRole) => handleRoleChange(member, newRole)}
+                    onRoleChange={(newRole) => handleRoleChange(member, newRole, 'members')}
                   />
                 );
               })
@@ -435,8 +555,9 @@ const Members: React.FC = () => {
                 key={classItem?.id}
                 name={classItem?.name}
                 teacher={classItem?.teacher || ''}
-                studentCount={classItem?.studentCount || 0}
+                studentCount={classItem?.students_count || 0}
                 level={classItem?.level || ''}
+                onClick={() => handleClassClick(classItem)}
               />
             ))
           : <div className="text-center text-gray-500">Aucune classe trouvée pour le moment</div>}
@@ -461,7 +582,7 @@ const Members: React.FC = () => {
                   setContactEmail(communityItem.email);
                   setIsContactModalOpen(true);
                 }}
-                onRoleChange={(newRole) => handleRoleChange(communityItem, newRole)}
+                onRoleChange={(newRole) => handleRoleChange(communityItem, newRole, 'community')}
               />
             ))
           : <div className=" text-gray-500 whitespace-nowrap">Aucune communauté trouvée pour le moment</div>}
@@ -484,12 +605,28 @@ const Members: React.FC = () => {
       )}
 
       {isAddModalOpen && (state.showingPageType === 'edu' || state.showingPageType === 'teacher') && (
-        <AddStudentModal onClose={() => setIsAddModalOpen(false)} onAdd={handleAddStudent} />
+        <AddStudentModal 
+          onClose={() => setIsAddModalOpen(false)} 
+          onAdd={handleAddStudent}
+          onSuccess={handleStudentCreated}
+        />
       )}
 
 
       {isContactModalOpen && (
         <ContactModal email={contactEmail} onClose={() => setIsContactModalOpen(false)} />
+      )}
+
+      {isClassStudentsModalOpen && selectedClass && (
+        <ClassStudentsModal
+          onClose={() => {
+            setIsClassStudentsModalOpen(false);
+            setSelectedClass(null);
+          }}
+          levelId={selectedClass.id}
+          levelName={selectedClass.name}
+          onStudentDetails={handleStudentDetails}
+        />
       )}
     </section>
   );

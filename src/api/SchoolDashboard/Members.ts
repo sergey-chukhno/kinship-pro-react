@@ -1,7 +1,7 @@
 import axiosClient from "../config";
 
 export function getSchoolMembersAccepted(SchoolId: number) {
-    return axiosClient.get(`/api/v1/schools/${SchoolId}/members?status=confirmed`);
+    return axiosClient.get(`/api/v1/schools/${SchoolId}/staff?status=confirmed`);
 }
 
 export function getSchoolMembersPending(SchoolId: number) {
@@ -22,4 +22,18 @@ export function updateSchoolMemberRole(SchoolId: number, memberId: number, newRo
 
 export function acceptSchoolMember(SchoolId: number, memberId: number) {
     return axiosClient.put(`/api/v1/schools/${SchoolId}/members/${memberId}`, {status: "confirmed"});
+}
+
+export function createSchoolStudent(schoolId: number, studentData: {
+    first_name: string;
+    last_name: string;
+    birthday: string;
+    user_role: string;
+    role: string;
+}) {
+    return axiosClient.post(`/api/v1/schools/${schoolId}/members`, studentData);
+}
+
+export function getSchoolVolunteers(schoolId: number, status: string = 'confirmed') {
+    return axiosClient.get(`/api/v1/schools/${schoolId}/volunteers?status=${status}`);
 }

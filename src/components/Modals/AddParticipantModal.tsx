@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { mockMembers } from '../../data/mockData';
 import { Member } from '../../types';
 import './Modal.css';
+import AvatarImage from '../UI/AvatarImage';
 
 interface AddParticipantModalProps {
   onClose: () => void;
@@ -113,7 +114,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({ onClose, onAd
                     onClick={() => handleMemberSelect(member)}
                   >
                     <div className="member-avatar">
-                      <img src={member.avatar} alt={`${member.firstName} ${member.lastName}`} />
+                      <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} />
                     </div>
                     <div className="member-info">
                       <h4 className="member-name">{member.firstName} {member.lastName}</h4>
@@ -141,7 +142,7 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({ onClose, onAd
               <h3>Participant sélectionné</h3>
               <div className="preview-card">
                 <div className="preview-avatar">
-                  <img src={selectedMember.avatar} alt={`${selectedMember.firstName} ${selectedMember.lastName}`} />
+                  <AvatarImage src={selectedMember.avatar} alt={`${selectedMember.firstName} ${selectedMember.lastName}`} />
                 </div>
                 <div className="preview-info">
                   <h4>{selectedMember.firstName} {selectedMember.lastName}</h4>

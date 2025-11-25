@@ -481,7 +481,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       {currentStep >= 4 && (
         <div className="form-step visible">
           <h3 className="step-title">Politique de confidentialité</h3>
-          <div className="privacy-policy-scroll-box">
+          <div className="privacy-policy-scroll-box !bg-white">
             <pre>{longPolicyText}</pre>
             <button
               type="button"

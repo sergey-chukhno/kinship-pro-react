@@ -4,6 +4,7 @@ import './Modal.css';
 import { submitPersonalUserRegistration, getCurrentUser } from '../../api/Authentication';
 import { getSkills, getPersonalUserRoles } from '../../api/RegistrationRessource'; // 1. Import fetch roles
 import { useAppContext } from '../../context/AppContext';
+import AvatarImage from '../UI/AvatarImage';
 
 interface AddMemberModalProps {
   onClose: () => void;
@@ -303,14 +304,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
             <h3>Photo de profil</h3>
             <div className="avatar-selection">
               <div className="avatar-preview">
-                {avatarPreview ? (
-                  <img src={avatarPreview} alt="Avatar preview" className="avatar-image" />
-                ) : (
-                  <div className="avatar-placeholder">
-                    <i className="fas fa-user"></i>
-                    <span>Aucune photo</span>
-                  </div>
-                )}
+                <AvatarImage src={avatarPreview} alt="Avatar preview" className="avatar-image" />
               </div>
               <div className="avatar-actions">
                 <button

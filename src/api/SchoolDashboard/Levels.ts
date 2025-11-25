@@ -23,3 +23,20 @@ export function updateSchoolMemberRole(SchoolId: number, memberId: number, newRo
 export function acceptSchoolMember(SchoolId: number, memberId: number) {
     return axiosClient.put(`/api/v1/schools/${SchoolId}/members/${memberId}`, {status: "confirmed"});
 }
+
+export function createLevelStudent(schoolId: number, levelId: number, studentData: {
+    student: {
+        first_name: string;
+        last_name: string;
+        email?: string;
+        birthday: string;
+        role: string;
+        role_additional_information?: string;
+    }
+}) {
+    return axiosClient.post(`/api/v1/schools/${schoolId}/levels/${levelId}/students`, studentData);
+}
+
+export function getLevelStudents(schoolId: number, levelId: number) {
+    return axiosClient.get(`/api/v1/schools/${schoolId}/levels/${levelId}/students`);
+}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import RolePill from '../UI/RolePill';
+import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './MembershipRequests.css';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
@@ -86,8 +87,8 @@ const MembershipRequests: React.FC = () => {
                 firstName: profile.first_name,
                 lastName: profile.last_name,
                 email: profile.email,
-                profession: profile.job || 'Non renseigné',
-                avatar: profile.avatar_url || m.avatar_url || '',
+                profession: profile.role_in_system || 'Non renseigné',
+                avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
                 requestedDate: profile.joined_at || new Date().toISOString(),
                 skills: profile.skills?.map((s: any) => s.name || s) || [],
                 availability: availabilityList,
@@ -103,7 +104,7 @@ const MembershipRequests: React.FC = () => {
                 lastName: m.last_name || '',
                 email: m.email || '',
                 profession: '',
-                avatar: m.avatar_url || '',
+                avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
                 requestedDate: new Date().toISOString(),
                 skills: [],
                 availability: [],
@@ -218,7 +219,10 @@ const MembershipRequests: React.FC = () => {
               <div key={request.id} className="request-card">
                 <div className="request-header">
                   <div className="request-avatar">
-                    <img src={request.avatar} alt={`${request.firstName} ${request.lastName}`} />
+                    <AvatarImage
+                      src={request.avatar}
+                      alt={`${request.firstName} ${request.lastName}`}
+                    />
                   </div>
                   <div className="request-info">
                     <h3 className="request-name">{request.firstName} {request.lastName}</h3>
