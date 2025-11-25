@@ -152,7 +152,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
             }}>
               <i className="fas fa-cog"></i> Paramètres
             </button>
-            <button type="button" className="menu-item" onClick={() => console.log('Logout')}>
+            <button type="button" className="menu-item" onClick={() => {
+              localStorage.removeItem('jwt_token');
+              navigate('/login');
+            }}>
               <i className="fas fa-sign-out-alt"></i> Se déconnecter
             </button>
           </div>
