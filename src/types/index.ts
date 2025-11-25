@@ -88,6 +88,7 @@ export interface Project {
   title: string;
   description: string;
   status: 'coming' | 'in_progress' | 'ended';
+  visibility?: 'public' | 'private';
   pathway: string;
   organization: string;
   owner: string;
@@ -177,6 +178,12 @@ export interface User {
   role: string;
   avatar: string;
   organization?: string;
+  available_contexts?: {
+    companies?: { id: number; name: string }[];
+    schools?: { id: number; name: string }[];
+    teacher_dashboard?: boolean;
+    user_dashboard?: boolean;
+  };
 }
 
 export interface FilterOptions {

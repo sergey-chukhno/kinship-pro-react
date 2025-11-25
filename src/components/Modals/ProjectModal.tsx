@@ -12,7 +12,7 @@ interface ProjectModalProps {
 
 const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave }) => {
   const { state, addProject } = useAppContext();
-  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -20,13 +20,15 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     endDate: '',
     organization: '',
     status: 'coming' as 'coming' | 'in_progress' | 'ended',
+    visibility: 'public' as 'public' | 'private',
     pathway: '',
     tags: '',
     links: '',
     participants: [] as string[],
     image: '',
-    responsible: '',
+    // responsible: '', // Removed as per request
     coResponsibles: [] as string[],
+    isPartnership: false, // New field
     partner: '',
     additionalImages: [] as string[]
   });
@@ -34,13 +36,13 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [imagePreview, setImagePreview] = useState<string>('');
   const [additionalImagePreviews, setAdditionalImagePreviews] = useState<string[]>([]);
   const [searchTerms, setSearchTerms] = useState({
-    responsible: '',
+    // responsible: '', // Removed
     coResponsibles: '',
     participants: '',
     partner: ''
   });
   const [showSuccess, setShowSuccess] = useState(false);
-  const [successData, setSuccessData] = useState<{title: string, image: string} | null>(null);
+  const [successData, setSuccessData] = useState<{ title: string, image: string } | null>(null);
 
   // Use real members data from context
   const members = state.members;
@@ -57,7 +59,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const getFilteredMembers = (searchTerm: string) => {
     if (!searchTerm.trim()) return members;
     const searchLower = searchTerm.toLowerCase();
-    return members.filter((member: any) => 
+    return members.filter((member: any) =>
       `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchLower) ||
       member.profession.toLowerCase().includes(searchLower) ||
       (member.organization && member.organization.toLowerCase().includes(searchLower))
@@ -67,7 +69,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const getFilteredPartners = (searchTerm: string) => {
     if (!searchTerm.trim()) return partners;
     const searchLower = searchTerm.toLowerCase();
-    return partners.filter(partner => 
+    return partners.filter(partner =>
       partner.name.toLowerCase().includes(searchLower) ||
       partner.type.toLowerCase().includes(searchLower)
     );
@@ -82,14 +84,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         endDate: project.endDate,
         organization: project.organization,
         status: project.status,
+        visibility: project.visibility || 'public',
         pathway: project.pathway,
         tags: project.tags.join(', '),
         links: project.links || '',
         participants: project.members,
         image: project.image || '',
-        responsible: '',
+        // responsible: '',
         coResponsibles: [],
-        partner: '',
+        isPartnership: !!project.partner, // Infer from existing data
+        partner: project.partner?.id || '',
         additionalImages: []
       });
       setImagePreview(project.image || '');
@@ -97,20 +101,40 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       // Set default dates
       const today = new Date();
       const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
+      // Prefill organization based on context
+      let defaultOrg = '';
+
+      if (state.showingPageType === 'pro' && state.user.available_contexts?.companies && state.user.available_contexts.companies.length > 0) {
+        defaultOrg = state.user.available_contexts.companies[0].name;
+      } else if ((state.showingPageType === 'edu' || state.showingPageType === 'teacher') && state.user.available_contexts?.schools && state.user.available_contexts.schools.length > 0) {
+        defaultOrg = state.user.available_contexts.schools[0].name;
+      }
+
       setFormData(prev => ({
         ...prev,
         startDate: today.toISOString().split('T')[0],
-        endDate: nextMonth.toISOString().split('T')[0]
+        endDate: nextMonth.toISOString().split('T')[0],
+        organization: defaultOrg
       }));
     }
-  }, [project]);
+  }, [project, state.showingPageType, state.user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    // Handle checkbox for isPartnership
+    if (name === 'isPartnership') {
+      setFormData(prev => ({
+        ...prev,
+        isPartnership: (e.target as HTMLInputElement).checked,
+        partner: (e.target as HTMLInputElement).checked ? prev.partner : '' // Clear partner if unchecked
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,10 +156,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Form submitted with data:', formData);
-    
-    if (formData.title && formData.startDate && formData.endDate && formData.organization && formData.status && formData.pathway) {
-      // Get responsible person data
-      const responsiblePerson = getSelectedMember(formData.responsible);
+
+    // Validation: Pathway is required only if visible (not 'pro')
+    const isPathwayRequired = state.showingPageType !== 'pro';
+    const isPathwayValid = !isPathwayRequired || formData.pathway;
+
+    if (formData.title && formData.startDate && formData.endDate && formData.organization && formData.status && isPathwayValid) {
+      // Get responsible person data (Current User)
+      const responsiblePerson = state.user; // Always current user
       const coResponsiblePersons = formData.coResponsibles.map(id => getSelectedMember(id)).filter(Boolean);
       const partnerData = getSelectedPartner(formData.partner);
 
@@ -144,9 +172,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         title: formData.title,
         description: formData.description,
         status: formData.status,
-        pathway: formData.pathway,
+        visibility: formData.visibility,
+        pathway: formData.pathway || 'citoyen', // Default if hidden
         organization: formData.organization,
-        owner: responsiblePerson ? `${responsiblePerson.firstName} ${responsiblePerson.lastName}` : state.user.name,
+        owner: `${responsiblePerson.name}`, // Current user is owner
         participants: formData.participants.length,
         badges: 0,
         startDate: formData.startDate,
@@ -160,14 +189,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         events: [],
         badges_list: [],
         // Add responsible, co-responsibles, and partner data
-        responsible: responsiblePerson ? {
+        responsible: {
           id: responsiblePerson.id,
-          name: `${responsiblePerson.firstName} ${responsiblePerson.lastName}`,
+          name: responsiblePerson.name,
           avatar: responsiblePerson.avatar,
-          profession: responsiblePerson.profession,
-          organization: responsiblePerson.organization || 'Non spécifiée',
+          profession: responsiblePerson.role, // Use role as profession/title
+          organization: formData.organization, // Use project org
           email: responsiblePerson.email
-        } : null,
+        },
         coResponsibles: coResponsiblePersons.filter((person): person is NonNullable<typeof person> => person !== undefined).map(person => ({
           id: person.id,
           name: `${person.firstName} ${person.lastName}`,
@@ -176,28 +205,28 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
           organization: person.organization || 'Non spécifiée',
           email: person.email
         })),
-        partner: partnerData ? {
+        partner: (formData.isPartnership && partnerData) ? {
           id: partnerData.id,
           name: partnerData.name,
           logo: partnerData.logo,
           organization: partnerData.type
         } : null
       };
-      
+
       console.log('Creating new project:', newProject);
-      
+
       // Add project to context
       addProject(newProject);
-      
+
       // Show success message
       setSuccessData({
         title: formData.title,
         image: imagePreview || 'https://images.unsplash.com/photo-1551434678-e076c223a692?w=120&h=120&fit=crop&crop=center'
       });
       setShowSuccess(true);
-      
+
       console.log('Success message should be showing');
-      
+
       // Don't call onSave or onClose here - let the success message handle closing
     } else {
       console.log('Validation failed:', {
@@ -220,7 +249,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         const newPreviews = [...additionalImagePreviews];
         newPreviews[index] = result;
         setAdditionalImagePreviews(newPreviews);
-        
+
         const newImages = [...formData.additionalImages];
         newImages[index] = result;
         setFormData(prev => ({
@@ -240,9 +269,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   };
 
   const handleMemberSelect = (field: string, memberId: string) => {
-    if (field === 'responsible') {
-      setFormData(prev => ({ ...prev, responsible: memberId }));
-    } else if (field === 'coResponsibles') {
+    if (field === 'coResponsibles') {
       const newCoResponsibles = formData.coResponsibles.includes(memberId)
         ? formData.coResponsibles.filter(id => id !== memberId)
         : [...formData.coResponsibles, memberId];
@@ -267,6 +294,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     return partners.find(p => p.id === partnerId);
   };
 
+  // Helper to determine if organization should be read-only
+  const isOrgReadOnly = state.showingPageType === 'pro' || state.showingPageType === 'edu' || state.showingPageType === 'teacher';
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content project-modal" onClick={(e) => e.stopPropagation()}>
@@ -276,7 +306,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             <i className="fas fa-times"></i>
           </button>
         </div>
-        
+
         <div className="modal-body">
           <form id="projectForm" onSubmit={handleSubmit} className="project-form">
             {/* Project Image Selection */}
@@ -315,15 +345,15 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                 </div>
               </div>
             </div>
-            
+
             {/* Basic Project Info */}
             <div className="form-group">
               <label htmlFor="projectTitle">Titre du projet *</label>
-              <input 
-                type="text" 
-                id="projectTitle" 
+              <input
+                type="text"
+                id="projectTitle"
                 name="title"
-                required 
+                required
                 placeholder="Ex: Atelier développement durable"
                 value={formData.title}
                 onChange={handleInputChange}
@@ -333,10 +363,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="projectStartDate">Date de début *</label>
-                <input 
-                  type="date" 
-                  id="projectStartDate" 
+                <label htmlFor="projectStartDate">Date estimée de début *</label>
+                <input
+                  type="date"
+                  id="projectStartDate"
                   name="startDate"
                   required
                   value={formData.startDate}
@@ -345,10 +375,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="projectEndDate">Date de fin *</label>
-                <input 
-                  type="date" 
-                  id="projectEndDate" 
+                <label htmlFor="projectEndDate">Date estimée de fin *</label>
+                <input
+                  type="date"
+                  id="projectEndDate"
                   name="endDate"
                   required
                   value={formData.endDate}
@@ -361,26 +391,40 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="projectOrganization">Organisation *</label>
-                <select 
-                  id="projectOrganization" 
-                  name="organization"
-                  required
-                  value={formData.organization}
-                  onChange={handleInputChange}
-                  className="form-select"
-                >
-                  <option value="">Sélectionner une organisation</option>
-                  <option value="lycee-victor-hugo">Lycée Victor Hugo</option>
-                  <option value="drakkar-tech">Drakkar Technologies</option>
-                  <option value="ecole-innovation">École Innovation</option>
-                  <option value="design-studio">Design Studio</option>
-                  <option value="creative-studio">Creative Studio</option>
-                </select>
+                {isOrgReadOnly ? (
+                  <input
+                    type="text"
+                    id="projectOrganization"
+                    name="organization"
+                    value={formData.organization}
+                    readOnly
+                    className="form-input"
+                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                  />
+                ) : (
+                  <select
+                    id="projectOrganization"
+                    name="organization"
+                    required
+                    value={formData.organization}
+                    onChange={handleInputChange}
+                    className="form-select"
+                  >
+                    <option value="">Sélectionner une organisation</option>
+                    {/* Assuming user has available_contexts.companies or similar to map here for personal user */}
+                    {state.user.available_contexts?.companies?.map((c: any) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                    {state.user.available_contexts?.schools?.map((s: any) => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="form-group">
                 <label htmlFor="projectStatus">Statut *</label>
-                <select 
-                  id="projectStatus" 
+                <select
+                  id="projectStatus"
                   name="status"
                   required
                   value={formData.status}
@@ -394,12 +438,41 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                 </select>
               </div>
             </div>
-            
+
             <div className="form-row">
               <div className="form-group">
+                <label htmlFor="projectVisibility">Visibilité *</label>
+                <select
+                  id="projectVisibility"
+                  name="visibility"
+                  required
+                  value={formData.visibility}
+                  onChange={handleInputChange}
+                  className="form-select"
+                >
+                  <option value="public">Projet publique</option>
+                  <option value="private">Projet privé</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="projectTags">Tags</label>
+                <input
+                  type="text"
+                  id="projectTags"
+                  name="tags"
+                  placeholder="Ex: Fabrication, Créativité, Numérique"
+                  value={formData.tags}
+                  onChange={handleInputChange}
+                  className="form-input"
+                />
+              </div>
+            </div>
+
+            {state.showingPageType !== 'pro' && (
+              <div className="form-group">
                 <label htmlFor="projectPathway">Parcours *</label>
-                <select 
-                  id="projectPathway" 
+                <select
+                  id="projectPathway"
                   name="pathway"
                   required
                   value={formData.pathway}
@@ -418,25 +491,13 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                   <option value="environnement">Environnement</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label htmlFor="projectTags">Tags</label>
-                <input 
-                  type="text" 
-                  id="projectTags" 
-                  name="tags"
-                  placeholder="Ex: Fabrication, Créativité, Numérique"
-                  value={formData.tags}
-                  onChange={handleInputChange}
-                  className="form-input"
-                />
-              </div>
-            </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="projectLinks">Liens utiles</label>
-              <input 
-                type="url" 
-                id="projectLinks" 
+              <input
+                type="url"
+                id="projectLinks"
                 name="links"
                 placeholder="https://exemple.com"
                 value={formData.links}
@@ -447,10 +508,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             <div className="form-group">
               <label htmlFor="projectDescription">Description</label>
-              <textarea 
-                id="projectDescription" 
+              <textarea
+                id="projectDescription"
                 name="description"
-                rows={4} 
+                rows={4}
                 placeholder="Description du projet..."
                 value={formData.description}
                 onChange={handleInputChange}
@@ -458,62 +519,78 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
               />
             </div>
 
-            {/* Responsable du projet */}
+            {/* Partnership Section */}
             <div className="form-group">
-              <label htmlFor="projectResponsible">Responsable du projet *</label>
-              <div className="compact-selection">
-                <div className="search-input-container">
-                  <i className="fas fa-search search-icon"></i>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Rechercher un responsable..."
-                    value={searchTerms.responsible}
-                    onChange={(e) => handleSearchChange('responsible', e.target.value)}
-                  />
-                </div>
-                {formData.responsible && (
-                  <div className="selected-item">
-                    {(() => {
-                      const selected = getSelectedMember(formData.responsible);
-                      return selected ? (
-                        <div className="selected-member">
-                          <AvatarImage src={selected.avatar} alt={`${selected.firstName} ${selected.lastName}`} className="selected-avatar" />
-                          <div className="selected-info">
-                            <div className="selected-name">{`${selected.firstName} ${selected.lastName}`}</div>
-                            <div className="selected-role">{selected.profession}</div>
-                          </div>
-                          <button 
-                            type="button" 
-                            className="remove-selection"
-                            onClick={() => setFormData(prev => ({ ...prev, responsible: '' }))}
-                          >
-                            <i className="fas fa-times"></i>
-                          </button>
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                )}
-                {!formData.responsible && (
-                  <div className="selection-list">
-                    {getFilteredMembers(searchTerms.responsible).map((member: any) => (
-                      <div 
-                        key={member.id} 
-                        className="selection-item"
-                        onClick={() => handleMemberSelect('responsible', member.id)}
-                      >
-                        <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="item-avatar" />
-                        <div className="item-info">
-                          <div className="item-name">{`${member.firstName} ${member.lastName}`}</div>
-                          <div className="item-role">{member.profession}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className="checkbox-group">
+                <input
+                  type="checkbox"
+                  id="isPartnership"
+                  name="isPartnership"
+                  checked={formData.isPartnership}
+                  onChange={handleInputChange}
+                />
+                <label htmlFor="isPartnership">En partenariat</label>
               </div>
             </div>
+
+            {/* Partenaire - Only visible if En partenariat is checked */}
+            {formData.isPartnership && (
+              <div className="form-group">
+                <label htmlFor="projectPartner">Partenaire</label>
+                <div className="compact-selection">
+                  <div className="search-input-container">
+                    <i className="fas fa-search search-icon"></i>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Rechercher un partenaire..."
+                      value={searchTerms.partner}
+                      onChange={(e) => handleSearchChange('partner', e.target.value)}
+                    />
+                  </div>
+                  {formData.partner && (
+                    <div className="selected-item">
+                      {(() => {
+                        const selected = getSelectedPartner(formData.partner);
+                        return selected ? (
+                          <div className="selected-member">
+                            <img src={selected.logo} alt={selected.name} className="selected-avatar" />
+                            <div className="selected-info">
+                              <div className="selected-name">{selected.name}</div>
+                              <div className="selected-role">{selected.type}</div>
+                            </div>
+                            <button
+                              type="button"
+                              className="remove-selection"
+                              onClick={() => setFormData(prev => ({ ...prev, partner: '' }))}
+                            >
+                              <i className="fas fa-times"></i>
+                            </button>
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  )}
+                  {!formData.partner && (
+                    <div className="selection-list">
+                      {getFilteredPartners(searchTerms.partner).map((partner) => (
+                        <div
+                          key={partner.id}
+                          className="selection-item"
+                          onClick={() => handlePartnerSelect(partner.id)}
+                        >
+                          <img src={partner.logo} alt={partner.name} className="item-avatar" />
+                          <div className="item-info">
+                            <div className="item-name">{partner.name}</div>
+                            <div className="item-role">{partner.type}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Co-responsables */}
             <div className="form-group">
@@ -540,8 +617,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <div className="selected-name">{`${member.firstName} ${member.lastName}`}</div>
                             <div className="selected-role">{member.profession}</div>
                           </div>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             className="remove-selection"
                             onClick={() => handleMemberSelect('coResponsibles', memberId)}
                           >
@@ -554,8 +631,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                 )}
                 <div className="selection-list">
                   {getFilteredMembers(searchTerms.coResponsibles).map((member: any) => (
-                    <div 
-                      key={member.id} 
+                    <div
+                      key={member.id}
                       className="selection-item"
                       onClick={() => handleMemberSelect('coResponsibles', member.id)}
                     >
@@ -567,63 +644,6 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-
-            {/* Partenaire */}
-            <div className="form-group">
-              <label htmlFor="projectPartner">Partenaire</label>
-              <div className="compact-selection">
-                <div className="search-input-container">
-                  <i className="fas fa-search search-icon"></i>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Rechercher un partenaire..."
-                    value={searchTerms.partner}
-                    onChange={(e) => handleSearchChange('partner', e.target.value)}
-                  />
-                </div>
-                {formData.partner && (
-                  <div className="selected-item">
-                    {(() => {
-                      const selected = getSelectedPartner(formData.partner);
-                      return selected ? (
-                        <div className="selected-member">
-                          <img src={selected.logo} alt={selected.name} className="selected-avatar" />
-                          <div className="selected-info">
-                            <div className="selected-name">{selected.name}</div>
-                            <div className="selected-role">{selected.type}</div>
-                          </div>
-                          <button 
-                            type="button" 
-                            className="remove-selection"
-                            onClick={() => setFormData(prev => ({ ...prev, partner: '' }))}
-                          >
-                            <i className="fas fa-times"></i>
-                          </button>
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                )}
-                {!formData.partner && (
-                  <div className="selection-list">
-                    {getFilteredPartners(searchTerms.partner).map((partner) => (
-                      <div 
-                        key={partner.id} 
-                        className="selection-item"
-                        onClick={() => handlePartnerSelect(partner.id)}
-                      >
-                        <img src={partner.logo} alt={partner.name} className="item-avatar" />
-                        <div className="item-info">
-                          <div className="item-name">{partner.name}</div>
-                          <div className="item-role">{partner.type}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
 
@@ -652,8 +672,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <div className="selected-name">{`${member.firstName} ${member.lastName}`}</div>
                             <div className="selected-role">{member.profession}</div>
                           </div>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             className="remove-selection"
                             onClick={() => handleMemberSelect('participants', memberId)}
                           >
@@ -666,8 +686,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                 )}
                 <div className="selection-list">
                   {getFilteredMembers(searchTerms.participants).map((member: any) => (
-                    <div 
-                      key={member.id} 
+                    <div
+                      key={member.id}
                       className="selection-item"
                       onClick={() => handleMemberSelect('participants', member.id)}
                     >
@@ -684,9 +704,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             {/* Photos supplémentaires */}
             <div className="form-group">
-              <label>Photos supplémentaires (5 max)</label>
+              <label>Photos supplémentaires (taille max 1mo)</label>
               <div className="additional-images-grid">
-                {[0, 1, 2, 3, 4].map((index) => (
+                {[0, 1, 2, 3].map((index) => (
                   <div key={index} className="additional-image-upload">
                     <input
                       type="file"
@@ -711,7 +731,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             </div>
           </form>
         </div>
-        
+
         <div className="modal-footer">
           <button type="button" className="btn btn-outline" onClick={onClose}>Annuler</button>
           <button type="submit" form="projectForm" className="btn btn-primary">
@@ -733,8 +753,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
               </div>
               <h3>Projet créé avec succès !</h3>
               <p>Le projet <strong>{successData.title}</strong> a été créé avec succès.</p>
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 onClick={() => {
                   setShowSuccess(false);
                   onClose();

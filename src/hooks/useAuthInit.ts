@@ -5,7 +5,7 @@ import { PageType } from "../types";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export const useAuthInit = () => {
-  const { state , setCurrentPage, setShowingPageType } = useAppContext();
+  const { state, setCurrentPage, setShowingPageType, setUser } = useAppContext();
   const location = useLocation()
   const navigate = useNavigate()
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -14,23 +14,23 @@ export const useAuthInit = () => {
   const getPageFromPath = (pathname: string): PageType => {
     // Nettoyer le path (enlever / initial et trailing slashes)
     let path = pathname.substring(1).replace(/\/$/, '');
-    
+
     // Si c'est une page d'auth
     if (pathname === "/register" || pathname === "/login" || pathname.startsWith("/register/")) {
       return "Auth";
     }
-    
+
     // Mapper les routes aux pages
     const validPages: PageType[] = [
-      "dashboard", "members", "events", "projects", "badges", 
-      "analytics", "network", "notifications", "settings", 
+      "dashboard", "members", "events", "projects", "badges",
+      "analytics", "network", "notifications", "settings",
       "membership-requests", "project-management"
     ];
-    
+
     if (validPages.includes(path as PageType)) {
       return path as PageType;
     }
-    
+
     // Par défaut, retourner dashboard
     return "dashboard";
   };
@@ -57,15 +57,27 @@ export const useAuthInit = () => {
         // Récupérer l'utilisateur pour toutes les routes
         const userResponse = await getCurrentUser();
         const user = userResponse.data;
-        console.log("UserData : " , user)
-        
+        console.log("UserData : ", user)
+
         if (user) {
+          // Store user data in AppContext
+          setUser({
+            id: user.id.toString(),
+            name: user.full_name || `${user.first_name} ${user.last_name}`,
+            email: user.email,
+            role: user.role,
+            avatar: user.avatar_url || '/default-avatar.png',
+            organization: user.available_contexts?.companies?.[0]?.name ||
+              user.available_contexts?.schools?.[0]?.name || '',
+            available_contexts: user.available_contexts
+          });
+
           const isAuthPage = location.pathname === "/register" || location.pathname === "/login" || location.pathname.startsWith("/register/");
-          
+
           // Déterminer le type de page et la page de destination
           let pageType: "pro" | "edu" | "teacher" | "user" = "pro";
           let defaultPage: PageType = "dashboard";
-          
+
           if (user.available_contexts?.companies?.length > 0) {
             pageType = "pro";
             defaultPage = "dashboard";
@@ -79,7 +91,7 @@ export const useAuthInit = () => {
             pageType = "user";
             defaultPage = "projects";
           }
-          
+
           // Appliquer les couleurs CSS IMMÉDIATEMENT avant de changer l'état
           const root = document.documentElement;
           if (pageType === "pro") {
@@ -95,9 +107,9 @@ export const useAuthInit = () => {
             root.style.setProperty("--primary", "#db087cff");
             root.style.setProperty("--hover-primary", "#b20666ff");
           }
-          
+
           setShowingPageType(pageType);
-          
+
           // Si on est sur une page d'auth, rediriger vers la page par défaut
           if (isAuthPage) {
             setCurrentPage(defaultPage);
