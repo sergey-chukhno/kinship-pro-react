@@ -223,6 +223,8 @@ export interface AppState {
   filters: FilterOptions;
   theme: 'light' | 'dark';
   selectedProject: Project | null;
+  tags: Tag[];
+  partnerships: Partnership[];
 }
 
 export interface OrganizationList {
@@ -237,4 +239,17 @@ export interface ClassList {
   level?: string;
   teacher?: string;
   students_count?: number;
+}
+
+export interface Tag {
+  id: number;
+  name: string;
+  name_fr?: string;
+}
+
+export interface Partnership {
+  id: number;
+  name: string;
+  status: string;
+  organizations: Array<{ id: number; name: string; type: string }>;
 }

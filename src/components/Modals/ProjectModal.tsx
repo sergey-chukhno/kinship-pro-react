@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
+import { getTags, getPartnerships, getOrganizationMembers, createProject } from '../../api/Projects';
+import {
+  mapFrontendToBackend,
+  base64ToFile,
+  getContextFromPageType,
+  getOrganizationId,
+  getOrganizationType,
+  validateImages
+} from '../../utils/projectMapper';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -11,7 +20,7 @@ interface ProjectModalProps {
 }
 
 const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave }) => {
-  const { state, addProject } = useAppContext();
+  const { state, addProject, setTags } = useAppContext();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -44,34 +53,34 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [showSuccess, setShowSuccess] = useState(false);
   const [successData, setSuccessData] = useState<{ title: string, image: string } | null>(null);
 
-  // Use real members data from context
-  const members = state.members;
-
-  const partners = [
-    { id: '1', name: 'Université de Paris', type: 'Université', logo: '/icons_logo/Property 1=Default.svg' },
-    { id: '2', name: 'TechCorp Solutions', type: 'Entreprise', logo: '/icons_logo/Property 1=Default.svg' },
-    { id: '3', name: 'Fondation Éducation', type: 'Fondation', logo: '/icons_logo/Property 1=Default.svg' },
-    { id: '4', name: 'Institut Innovation', type: 'Institut', logo: '/icons_logo/Property 1=Default.svg' },
-    { id: '5', name: 'Association Jeunesse', type: 'Association', logo: '/icons_logo/Property 1=Default.svg' }
-  ];
+  // Loading states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  const [isLoadingPartnerships, setIsLoadingPartnerships] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [availablePartnerships, setAvailablePartnerships] = useState<any[]>([]);
 
   // Search functionality
   const getFilteredMembers = (searchTerm: string) => {
+    if (!members || !Array.isArray(members)) return [];
     if (!searchTerm.trim()) return members;
     const searchLower = searchTerm.toLowerCase();
     return members.filter((member: any) =>
-      `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchLower) ||
-      member.profession.toLowerCase().includes(searchLower) ||
-      (member.organization && member.organization.toLowerCase().includes(searchLower))
+      `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchLower) ||
+      (member.full_name && member.full_name.toLowerCase().includes(searchLower)) ||
+      (member.role && member.role.toLowerCase().includes(searchLower)) ||
+      (member.email && member.email.toLowerCase().includes(searchLower))
     );
   };
 
   const getFilteredPartners = (searchTerm: string) => {
-    if (!searchTerm.trim()) return partners;
+    if (!availablePartnerships || !Array.isArray(availablePartnerships)) return [];
+    if (!searchTerm.trim()) return availablePartnerships;
     const searchLower = searchTerm.toLowerCase();
-    return partners.filter(partner =>
-      partner.name.toLowerCase().includes(searchLower) ||
-      partner.type.toLowerCase().includes(searchLower)
+    return availablePartnerships.filter(partnership =>
+      partnership.name.toLowerCase().includes(searchLower)
     );
   };
 
@@ -120,6 +129,62 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     }
   }, [project, state.showingPageType, state.user]);
 
+  // Fetch tags when modal opens
+  useEffect(() => {
+    const fetchTags = async () => {
+      if (state.tags.length === 0) {
+        setIsLoadingTags(true);
+        try {
+          const tagsData = await getTags();
+          setTags(tagsData);
+        } catch (error) {
+          console.error('Error fetching tags:', error);
+        } finally {
+          setIsLoadingTags(false);
+        }
+      }
+    };
+
+    fetchTags();
+  }, [state.tags.length, setTags]);
+
+  // Fetch members and partnerships when modal opens
+  useEffect(() => {
+    const fetchMembersAndPartnerships = async () => {
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const organizationType = getOrganizationType(state.showingPageType);
+
+      if (organizationId && organizationType) {
+        // Fetch members
+        setIsLoadingMembers(true);
+        try {
+          const membersData = await getOrganizationMembers(organizationId, organizationType);
+          setMembers(membersData);
+        } catch (error) {
+          console.error('Error fetching members:', error);
+        } finally {
+          setIsLoadingMembers(false);
+        }
+
+        // Fetch partnerships if partnership checkbox is checked
+        if (formData.isPartnership) {
+          setIsLoadingPartnerships(true);
+          try {
+            const partnershipsData = await getPartnerships(organizationId, organizationType);
+            setAvailablePartnerships(partnershipsData);
+          } catch (error) {
+            console.error('Error fetching partnerships:', error);
+          } finally {
+            setIsLoadingPartnerships(false);
+          }
+        }
+      }
+    };
+
+    fetchMembersAndPartnerships();
+  }, [state.user, state.showingPageType, formData.isPartnership]);
+
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     // Handle checkbox for isPartnership
@@ -153,30 +218,76 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted with data:', formData);
+    setSubmitError(null);
 
     // Validation: Pathway is required only if visible (not 'pro')
     const isPathwayRequired = state.showingPageType !== 'pro';
     const isPathwayValid = !isPathwayRequired || formData.pathway;
 
-    if (formData.title && formData.startDate && formData.endDate && formData.organization && formData.status && isPathwayValid) {
-      // Get responsible person data (Current User)
-      const responsiblePerson = state.user; // Always current user
-      const coResponsiblePersons = formData.coResponsibles.map(id => getSelectedMember(id)).filter(Boolean);
-      const partnerData = getSelectedPartner(formData.partner);
+    if (!formData.title || !formData.startDate || !formData.endDate || !formData.organization || !formData.status || !isPathwayValid) {
+      setSubmitError('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
 
+    setIsSubmitting(true);
+
+    try {
+      // Get context and organization ID
+      const context = getContextFromPageType(state.showingPageType);
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+
+      // Map frontend data to backend format
+      const payload = mapFrontendToBackend(
+        formData,
+        context,
+        organizationId,
+        state.tags,
+        state.user.id
+      );
+
+      // Convert Base64 images to File objects
+      let mainImageFile: File | null = null;
+      const additionalImageFiles: File[] = [];
+
+      if (imagePreview) {
+        mainImageFile = base64ToFile(imagePreview, 'main-image.jpg');
+      }
+
+      additionalImagePreviews.forEach((preview, index) => {
+        if (preview) {
+          const file = base64ToFile(preview, `additional-image-${index + 1}.jpg`);
+          if (file) {
+            additionalImageFiles.push(file);
+          }
+        }
+      });
+
+      // Validate images
+      const imageValidation = validateImages(mainImageFile, additionalImageFiles);
+      if (!imageValidation.valid) {
+        setSubmitError(imageValidation.errors.join(', '));
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Call backend API
+      const createdProject = await createProject(payload, mainImageFile, additionalImageFiles);
+
+      console.log('Project created successfully:', createdProject);
+
+      // Transform backend response to frontend format and add to local state
       const newProject = {
-        id: `project-${Date.now()}`,
-        title: formData.title,
-        description: formData.description,
-        status: formData.status,
-        visibility: formData.visibility,
-        pathway: formData.pathway || 'citoyen', // Default if hidden
+        id: createdProject.id.toString(),
+        title: createdProject.title,
+        description: createdProject.description,
+        status: createdProject.status as 'coming' | 'in_progress' | 'ended',
+        visibility: payload.project.private ? 'private' : 'public' as 'public' | 'private',
+        pathway: formData.pathway || 'citoyen',
         organization: formData.organization,
-        owner: `${responsiblePerson.name}`, // Current user is owner
-        participants: formData.participants.length,
+        owner: state.user.name,
+        participants: createdProject.members_count,
         badges: 0,
         startDate: formData.startDate,
         endDate: formData.endDate,
@@ -188,34 +299,19 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         members: formData.participants,
         events: [],
         badges_list: [],
-        // Add responsible, co-responsibles, and partner data
         responsible: {
-          id: responsiblePerson.id,
-          name: responsiblePerson.name,
-          avatar: responsiblePerson.avatar,
-          profession: responsiblePerson.role, // Use role as profession/title
-          organization: formData.organization, // Use project org
-          email: responsiblePerson.email
+          id: state.user.id,
+          name: state.user.name,
+          avatar: state.user.avatar,
+          profession: state.user.role,
+          organization: formData.organization,
+          email: state.user.email
         },
-        coResponsibles: coResponsiblePersons.filter((person): person is NonNullable<typeof person> => person !== undefined).map(person => ({
-          id: person.id,
-          name: `${person.firstName} ${person.lastName}`,
-          avatar: person.avatar,
-          profession: person.profession,
-          organization: person.organization || 'Non spécifiée',
-          email: person.email
-        })),
-        partner: (formData.isPartnership && partnerData) ? {
-          id: partnerData.id,
-          name: partnerData.name,
-          logo: partnerData.logo,
-          organization: partnerData.type
-        } : null
+        coResponsibles: [],
+        partner: null
       };
 
-      console.log('Creating new project:', newProject);
-
-      // Add project to context
+      // Add project to local state
       addProject(newProject);
 
       // Show success message
@@ -225,18 +321,19 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       });
       setShowSuccess(true);
 
-      console.log('Success message should be showing');
+    } catch (error: any) {
+      console.error('Error creating project:', error);
 
-      // Don't call onSave or onClose here - let the success message handle closing
-    } else {
-      console.log('Validation failed:', {
-        title: formData.title,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        organization: formData.organization,
-        status: formData.status,
-        pathway: formData.pathway
-      });
+      // Handle backend errors
+      if (error.response?.data?.details) {
+        setSubmitError(error.response.data.details.join(', '));
+      } else if (error.response?.data?.message) {
+        setSubmitError(error.response.data.message);
+      } else {
+        setSubmitError('Une erreur est survenue lors de la création du projet. Veuillez réessayer.');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -287,11 +384,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   };
 
   const getSelectedMember = (memberId: string) => {
-    return members.find((m: any) => m.id === memberId);
+    return members.find((m: any) => m.id === memberId || m.id === parseInt(memberId));
   };
 
   const getSelectedPartner = (partnerId: string) => {
-    return partners.find(p => p.id === partnerId);
+    return availablePartnerships.find((p: any) => p.id === partnerId || p.id === parseInt(partnerId));
   };
 
   // Helper to determine if organization should be read-only
@@ -612,10 +709,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       const member = getSelectedMember(memberId);
                       return member ? (
                         <div key={memberId} className="selected-member">
-                          <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="selected-avatar" />
+                          <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                           <div className="selected-info">
-                            <div className="selected-name">{`${member.firstName} ${member.lastName}`}</div>
-                            <div className="selected-role">{member.profession}</div>
+                            <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                            <div className="selected-role">{member.role}</div>
                           </div>
                           <button
                             type="button"
@@ -636,10 +733,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       className="selection-item"
                       onClick={() => handleMemberSelect('coResponsibles', member.id)}
                     >
-                      <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="item-avatar" />
+                      <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                       <div className="item-info">
-                        <div className="item-name">{`${member.firstName} ${member.lastName}`}</div>
-                        <div className="item-role">{member.profession}</div>
+                        <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                        <div className="item-role">{member.role}</div>
                       </div>
                     </div>
                   ))}
@@ -667,10 +764,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       const member = getSelectedMember(memberId);
                       return member ? (
                         <div key={memberId} className="selected-member">
-                          <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="selected-avatar" />
+                          <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                           <div className="selected-info">
-                            <div className="selected-name">{`${member.firstName} ${member.lastName}`}</div>
-                            <div className="selected-role">{member.profession}</div>
+                            <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                            <div className="selected-role">{member.role}</div>
                           </div>
                           <button
                             type="button"
@@ -691,10 +788,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       className="selection-item"
                       onClick={() => handleMemberSelect('participants', member.id)}
                     >
-                      <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="item-avatar" />
+                      <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                       <div className="item-info">
-                        <div className="item-name">{`${member.firstName} ${member.lastName}`}</div>
-                        <div className="item-role">{member.profession}</div>
+                        <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                        <div className="item-role">{member.role}</div>
                       </div>
                     </div>
                   ))}
@@ -732,10 +829,17 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
           </form>
         </div>
 
+        {/* Error Message */}
+        {submitError && (
+          <div className="modal-error" style={{ padding: '1rem', backgroundColor: '#fee', color: '#c00', borderRadius: '4px', margin: '1rem' }}>
+            {submitError}
+          </div>
+        )}
+
         <div className="modal-footer">
-          <button type="button" className="btn btn-outline" onClick={onClose}>Annuler</button>
-          <button type="submit" form="projectForm" className="btn btn-primary">
-            {project ? 'Modifier le projet' : 'Créer le projet'}
+          <button type="button" className="btn btn-outline" onClick={onClose} disabled={isSubmitting}>Annuler</button>
+          <button type="submit" form="projectForm" className="btn btn-primary" disabled={isSubmitting}>
+            {isSubmitting ? 'Création en cours...' : (project ? 'Modifier le projet' : 'Créer le projet')}
           </button>
         </div>
       </div>

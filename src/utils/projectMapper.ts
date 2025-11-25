@@ -1,0 +1,254 @@
+import { CreateProjectPayload, ProjectMemberAttribute, LinkAttribute, Tag } from '../api/Projects';
+import { ShowingPageType, User } from '../types';
+
+/**
+ * Convert Base64 string to File object
+ */
+export const base64ToFile = (base64String: string, filename: string): File | null => {
+    if (!base64String) return null;
+
+    try {
+        // Extract the base64 data and mime type
+        const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+            return null;
+        }
+
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+
+        // Convert base64 to binary
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+
+        // Create File object
+        const blob = new Blob([byteArray], { type: mimeType });
+        return new File([blob], filename, { type: mimeType });
+    } catch (error) {
+        console.error('Error converting base64 to file:', error);
+        return null;
+    }
+};
+
+/**
+ * Map frontend showingPageType to backend context
+ */
+export const getContextFromPageType = (
+    showingPageType: ShowingPageType
+): 'company' | 'school' | 'teacher' | 'general' => {
+    const mapping: Record<ShowingPageType, 'company' | 'school' | 'teacher' | 'general'> = {
+        'pro': 'company',
+        'edu': 'school',
+        'teacher': 'teacher',
+        'user': 'general'
+    };
+
+    return mapping[showingPageType] || 'general';
+};
+
+/**
+ * Get organization ID from user context based on page type
+ */
+export const getOrganizationId = (
+    user: User,
+    showingPageType: ShowingPageType
+): number | undefined => {
+    if (showingPageType === 'pro') {
+        return user.available_contexts?.companies?.[0]?.id;
+    } else if (showingPageType === 'edu' || showingPageType === 'teacher') {
+        return user.available_contexts?.schools?.[0]?.id;
+    }
+    return undefined;
+};
+
+/**
+ * Get organization type from page type
+ */
+export const getOrganizationType = (
+    showingPageType: ShowingPageType
+): 'school' | 'company' | undefined => {
+    if (showingPageType === 'pro') {
+        return 'company';
+    } else if (showingPageType === 'edu' || showingPageType === 'teacher') {
+        return 'school';
+    }
+    return undefined;
+};
+
+/**
+ * Find tag ID by pathway name
+ */
+export const getTagIdByPathway = (pathway: string, tags: Tag[]): number | undefined => {
+    // Try to find by exact name match (case insensitive)
+    const tag = tags.find(t =>
+        t.name.toLowerCase() === pathway.toLowerCase() ||
+        t.name_fr?.toLowerCase() === pathway.toLowerCase()
+    );
+    return tag?.id;
+};
+
+/**
+ * Map frontend form data to backend payload
+ */
+export const mapFrontendToBackend = (
+    formData: {
+        title: string;
+        description: string;
+        startDate: string;
+        endDate: string;
+        organization: string;
+        status: 'coming' | 'in_progress' | 'ended';
+        visibility: 'public' | 'private';
+        pathway: string;
+        tags: string;
+        links: string;
+        participants: string[];
+        coResponsibles: string[];
+        isPartnership: boolean;
+        partner: string;
+    },
+    context: 'company' | 'school' | 'teacher' | 'general',
+    organizationId: number | undefined,
+    tags: Tag[],
+    currentUserId: string
+): CreateProjectPayload => {
+    // Convert visibility: 'public' -> false, 'private' -> true
+    const isPrivate = formData.visibility === 'private';
+
+    // Get tag ID from pathway
+    const tagIds: number[] = [];
+    if (formData.pathway) {
+        const tagId = getTagIdByPathway(formData.pathway, tags);
+        if (tagId) {
+            tagIds.push(tagId);
+        }
+    }
+
+    // Parse keywords from tags field (comma-separated)
+    const keywords = formData.tags
+        ? formData.tags.split(',').map(t => t.trim()).filter(t => t.length > 0)
+        : [];
+
+    // Build project members array
+    const projectMembers: ProjectMemberAttribute[] = [];
+
+    // Add participants as members
+    formData.participants.forEach(userId => {
+        projectMembers.push({
+            user_id: parseInt(userId),
+            role: 'member',
+            status: 'confirmed'
+        });
+    });
+
+    // Add co-responsibles as co_owners
+    formData.coResponsibles.forEach(userId => {
+        projectMembers.push({
+            user_id: parseInt(userId),
+            role: 'co_owner',
+            status: 'confirmed'
+        });
+    });
+
+    // Build links array
+    const links: LinkAttribute[] = [];
+    if (formData.links && formData.links.trim()) {
+        links.push({
+            name: 'Lien du projet', // Auto-generated name
+            url: formData.links
+        });
+    }
+
+    // Build payload
+    const payload: CreateProjectPayload = {
+        context,
+        organization_id: organizationId,
+        project: {
+            title: formData.title,
+            description: formData.description,
+            start_date: formData.startDate,
+            end_date: formData.endDate,
+            status: formData.status,
+            private: isPrivate,
+            participants_number: formData.participants.length + formData.coResponsibles.length,
+            tag_ids: tagIds,
+            skill_ids: [], // Empty as per user decision
+            keyword_ids: keywords,
+            partnership_id: formData.isPartnership && formData.partner ? parseInt(formData.partner) : null,
+            project_members_attributes: projectMembers.length > 0 ? projectMembers : undefined,
+            links_attributes: links.length > 0 ? links : undefined
+        }
+    };
+
+    return payload;
+};
+
+/**
+ * Validate image size (max 1MB)
+ */
+export const validateImageSize = (file: File): { valid: boolean; error?: string } => {
+    const maxSize = 1024 * 1024; // 1MB
+    if (file.size > maxSize) {
+        return { valid: false, error: 'L\'image doit faire moins de 1 Mo' };
+    }
+    return { valid: true };
+};
+
+/**
+ * Validate image format
+ */
+export const validateImageFormat = (file: File): { valid: boolean; error?: string } => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type)) {
+        return {
+            valid: false,
+            error: 'Format d\'image non supporté (JPEG, PNG, GIF, WebP, SVG uniquement)'
+        };
+    }
+    return { valid: true };
+};
+
+/**
+ * Validate all images
+ */
+export const validateImages = (
+    mainImage: File | null,
+    additionalImages: File[]
+): { valid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    // Validate main image
+    if (mainImage) {
+        const sizeValidation = validateImageSize(mainImage);
+        if (!sizeValidation.valid) {
+            errors.push(`Image principale: ${sizeValidation.error}`);
+        }
+
+        const formatValidation = validateImageFormat(mainImage);
+        if (!formatValidation.valid) {
+            errors.push(`Image principale: ${formatValidation.error}`);
+        }
+    }
+
+    // Validate additional images
+    additionalImages.forEach((image, index) => {
+        const sizeValidation = validateImageSize(image);
+        if (!sizeValidation.valid) {
+            errors.push(`Image ${index + 1}: ${sizeValidation.error}`);
+        }
+
+        const formatValidation = validateImageFormat(image);
+        if (!formatValidation.valid) {
+            errors.push(`Image ${index + 1}: ${formatValidation.error}`);
+        }
+    });
+
+    return {
+        valid: errors.length === 0,
+        errors
+    };
+};
