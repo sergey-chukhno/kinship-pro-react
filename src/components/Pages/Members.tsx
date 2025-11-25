@@ -106,6 +106,8 @@ const Members: React.FC = () => {
               organization: '',
               canProposeStage: false,
               canProposeAtelier: false,
+              claimToken: profile.claim_token || m.claim_token,
+              hasTemporaryEmail: profile.has_temporary_email || m.has_temporary_email || false,
             } as Member;
 
           } catch (err) {
@@ -128,6 +130,8 @@ const Members: React.FC = () => {
               organization: '',
               canProposeStage: false,
               canProposeAtelier: false,
+              claimToken: m.claim_token,
+              hasTemporaryEmail: m.has_temporary_email || false,
             } as Member;
           }
         })
@@ -484,7 +488,11 @@ const Members: React.FC = () => {
       )}
 
       {isAddModalOpen && (state.showingPageType === 'edu' || state.showingPageType === 'teacher') && (
-        <AddStudentModal onClose={() => setIsAddModalOpen(false)} onAdd={handleAddStudent} />
+        <AddStudentModal 
+          onClose={() => setIsAddModalOpen(false)} 
+          onAdd={handleAddStudent}
+          onSuccess={fetchMembers}
+        />
       )}
 
 

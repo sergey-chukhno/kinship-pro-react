@@ -16,6 +16,8 @@ export interface Member {
   organization?: string;
   canProposeStage?: boolean;
   canProposeAtelier?: boolean;
+  claimToken?: string; // Token for student QR code
+  hasTemporaryEmail?: boolean; // Indicates if email is temporary
 }
 
 export interface Badge {
