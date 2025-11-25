@@ -206,12 +206,54 @@ const Members: React.FC = () => {
     setIsAddModalOpen(false);
   };
 
+  const handleStudentCreated = async () => {
+    await fetchMembers();
+    await fetchLevels();
+  };
+
   const handleClassClick = (classItem: ClassList) => {
     setSelectedClass({
       id: Number(classItem.id),
       name: classItem.name
     });
     setIsClassStudentsModalOpen(true);
+  };
+
+  const handleStudentDetails = (student: any) => {
+    setIsClassStudentsModalOpen(false);
+    setSelectedClass(null);
+
+    const member = members.find((m) => m.id === student.id?.toString());
+    if (member) {
+      setSelectedMember(member);
+      return;
+    }
+
+    const fallbackMember: Member = {
+      id: student.id?.toString() || `${Date.now()}`,
+      firstName: student.first_name || student.full_name?.split(' ')[0] || 'Inconnu',
+      lastName: student.last_name || student.full_name?.split(' ')[1] || '',
+      fullName: student.full_name,
+      email: student.email || '',
+      profession: student.role_in_system || '',
+      roles: [student.role_in_system || 'Élève'],
+      skills: [],
+      availability: [],
+      avatar: student.avatar_url || '',
+      isTrusted: student.status === 'confirmed',
+      badges: [],
+      organization: '',
+      canProposeStage: false,
+      canProposeAtelier: false,
+      claimToken: student.claim_token,
+      hasTemporaryEmail: student.has_temporary_email,
+      birthday: student.birthday,
+      role: student.role_in_system || 'eleve',
+      levelId: selectedClass?.id?.toString(),
+      roleAdditionalInfo: ''
+    };
+
+    setSelectedMember(fallbackMember);
   };
 
   const handleUpdateMember = (id: string, updates: Partial<Member>) => {
@@ -503,7 +545,7 @@ const Members: React.FC = () => {
         <AddStudentModal 
           onClose={() => setIsAddModalOpen(false)} 
           onAdd={handleAddStudent}
-          onSuccess={fetchMembers}
+          onSuccess={handleStudentCreated}
         />
       )}
 
@@ -520,10 +562,7 @@ const Members: React.FC = () => {
           }}
           levelId={selectedClass.id}
           levelName={selectedClass.name}
-          onStudentClick={(studentId) => {
-            console.log('Student clicked:', studentId);
-            // TODO: Ouvrir le modal du membre si besoin
-          }}
+          onStudentDetails={handleStudentDetails}
         />
       )}
     </section>

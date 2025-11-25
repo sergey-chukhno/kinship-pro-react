@@ -3,6 +3,7 @@ import { getLevelStudents } from '../../api/SchoolDashboard/Levels';
 import { getCurrentUser } from '../../api/Authentication';
 import { useToast } from '../../hooks/useToast';
 import './Modal.css';
+import QRCodePrintModal from './QRCodePrintModal';
 
 const loaderStyles = `
   @keyframes spinLoader {
@@ -28,32 +29,33 @@ interface Student {
   id: number;
   first_name: string;
   last_name: string;
-  full_name: string;
-  email: string;
-  avatar_url: string;
-  birthday: string;
-  role_in_system: string;
+  full_name?: string;
+  email?: string;
+  avatar_url?: string;
+  birthday?: string;
+  role_in_system?: string;
   claim_token?: string;
   has_temporary_email?: boolean;
-  status: string;
+  status?: string;
 }
 
 interface ClassStudentsModalProps {
   onClose: () => void;
   levelId: number;
   levelName: string;
-  onStudentClick?: (studentId: number) => void;
+  onStudentDetails?: (student: Student) => void;
 }
 
 const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
   onClose,
   levelId,
   levelName,
-  onStudentClick
+  onStudentDetails
 }) => {
   const { showError } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [qrStudent, setQrStudent] = useState<Student | null>(null);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -84,8 +86,11 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelId]);
 
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  const getInitials = (firstName: string = '', lastName: string = '') => {
+    const first = firstName ? firstName.charAt(0) : '';
+    const last = lastName ? lastName.charAt(0) : '';
+    const initials = `${first}${last}`.trim();
+    return initials ? initials.toUpperCase() : '?';
   };
 
   return (
@@ -104,14 +109,11 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
             {loading ? (
               <div className="flex flex-col justify-center items-center py-12 min-h-[300px]">
                 <div className="relative w-20 h-20 mb-6">
-                  {/* Cercle de fond */}
                   <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
-                  {/* Cercle animé */}
                   <div 
                     className="absolute inset-0 rounded-full border-4 border-t-transparent loader-spin"
                     style={{ borderColor: '#3b82f6 transparent transparent transparent' }}
                   ></div>
-                  {/* Icône centrale */}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <i className="fas fa-users text-blue-500 text-2xl loader-pulse"></i>
                   </div>
@@ -120,69 +122,75 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                 <p className="mt-1 text-sm text-gray-500">Veuillez patienter quelques instants</p>
               </div>
             ) : students.length === 0 ? (
-            <div className="text-center py-8">
-              <i className="fas fa-users text-gray-400 text-5xl mb-4"></i>
-              <p className="text-gray-500 text-lg">Aucun élève dans cette classe</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {students.map((student) => (
-                <div
-                  key={student.id}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => onStudentClick?.(student.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    {student.avatar_url ? (
-                      <img
-                        src={student.avatar_url}
-                        alt={student.full_name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                        {getInitials(student.first_name, student.last_name)}
+              <div className="text-center py-8">
+                <i className="fas fa-users text-gray-400 text-5xl mb-4"></i>
+                <p className="text-gray-500 text-lg">Aucun élève dans cette classe</p>
+              </div>
+            ) : (
+              <div className="users-table max-h-[300px] overflow-y-auto">
+                <div className="table-header">
+                  <div className="table-cell">Nom</div>
+                  <div className="table-cell">Actions</div>
+                </div>
+
+                {students.map((student) => {
+                  const status = student.status || 'pending';
+                  return (
+                  <div key={student.id} className="table-row">
+                    <div className="table-cell">
+                      <div className="user-info">
+                        {student.avatar_url ? (
+                          <img src={student.avatar_url} alt={student.full_name} className="user-avatar" />
+                        ) : (
+                          <div
+                            className="user-avatar placeholder"
+                            style={{ backgroundColor: '#3b82f6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            {getInitials(student.first_name, student.last_name)}
+                          </div>
+                        )}
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900">{student.full_name || `${student.first_name} ${student.last_name}`}</span>
+                          {student.birthday && (
+                            <span className="text-xs text-gray-500">
+                              <i className="fas fa-birthday-cake mr-1"></i>
+                              {new Date(student.birthday).toLocaleDateString('fr-FR')}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">
-                        {student.full_name || `${student.first_name} ${student.last_name}`}
-                      </h3>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        {student.has_temporary_email && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                            <i className="fas fa-envelope mr-1"></i>
-                            Email temp.
-                          </span>
-                        )}
-                        {student.status === 'confirmed' && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                            <i className="fas fa-check mr-1"></i>
-                            Confirmé
-                          </span>
-                        )}
+                    </div>
+                
+                    <div className="table-cell">
+                      <div className="action-buttons">
+                        <button
+                          className="btn-icon"
+                          title="Afficher le QR Code"
+                          onClick={() => {
+                            if (!student.claim_token) {
+                              console.log('Student:', student);
+                              showError("Pas de QR code disponible pour cet élève");
+                              return;
+                            }
+                            setQrStudent(student);
+                          }}
+                        >
+                          <i className="fas fa-qrcode"></i>
+                        </button>
+                        <button
+                          className="btn-icon"
+                          title="Voir les détails"
+                          onClick={() => onStudentDetails?.(student)}
+                        >
+                          <i className="fas fa-eye"></i>
+                        </button>
                       </div>
                     </div>
                   </div>
-                  
-                  {student.email && (
-                    <div className="mt-3 text-sm text-gray-600 truncate">
-                      <i className="fas fa-envelope mr-2"></i>
-                      {student.email}
-                    </div>
-                  )}
-                  
-                  {student.birthday && (
-                    <div className="mt-1 text-sm text-gray-600">
-                      <i className="fas fa-birthday-cake mr-2"></i>
-                      {new Date(student.birthday).toLocaleDateString('fr-FR')}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                )})}
+              </div>
+            )}
+          </div>
 
         <div className="modal-footer">
           <div className="flex items-center justify-between w-full">
@@ -205,6 +213,14 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
         </div>
       </div>
       </div>
+
+      {qrStudent && qrStudent.claim_token && (
+        <QRCodePrintModal
+          onClose={() => setQrStudent(null)}
+          claimToken={qrStudent.claim_token}
+          studentName={qrStudent.full_name || `${qrStudent.first_name} ${qrStudent.last_name}`}
+        />
+      )}
     </>
   );
 };

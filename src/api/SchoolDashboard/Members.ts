@@ -1,7 +1,7 @@
 import axiosClient from "../config";
 
 export function getSchoolMembersAccepted(SchoolId: number) {
-    return axiosClient.get(`/api/v1/schools/${SchoolId}/members?status=confirmed`);
+    return axiosClient.get(`/api/v1/schools/${SchoolId}/staff?status=confirmed`);
 }
 
 export function getSchoolMembersPending(SchoolId: number) {
