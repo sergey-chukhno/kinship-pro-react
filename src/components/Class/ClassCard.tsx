@@ -6,11 +6,12 @@ interface ClassCardProps {
   teacher: string;
   studentCount: number;
   level?: string;
+  onClick?: () => void;
 }
 
-const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, level }) => {
+const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, level, onClick }) => {
   return (
-    <div className="class-card">
+    <div className="class-card" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
       <div className="class-card-header">
         {/* <img src="/icons_logo/Icon=Class.svg" alt="Classe" className="class-icon" /> */}
         <i className="fas fa-school"></i>

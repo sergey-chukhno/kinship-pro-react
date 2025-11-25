@@ -36,3 +36,7 @@ export function createLevelStudent(schoolId: number, levelId: number, studentDat
 }) {
     return axiosClient.post(`/api/v1/schools/${schoolId}/levels/${levelId}/students`, studentData);
 }
+
+export function getLevelStudents(schoolId: number, levelId: number) {
+    return axiosClient.get(`/api/v1/schools/${schoolId}/levels/${levelId}/students`);
+}

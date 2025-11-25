@@ -16,6 +16,7 @@ import AddClassModal from '../Modals/AddClassModal';
 import { getSchoolLevels, addSchoolLevel } from '../../api/SchoolDashboard/Levels';
 import { useToast } from '../../hooks/useToast';
 import AddStudentModal from '../Modals/AddStudentModal';
+import ClassStudentsModal from '../Modals/ClassStudentsModal';
 
 
 const Members: React.FC = () => {
@@ -32,6 +33,8 @@ const Members: React.FC = () => {
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community'>('members');
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
+  const [isClassStudentsModalOpen, setIsClassStudentsModalOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<{ id: number; name: string } | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   // const classLists = mockClassLists;
@@ -201,6 +204,14 @@ const Members: React.FC = () => {
   const handleAddStudent = (studentData: Omit<Member, 'id'>) => {
     // showSuccess(`L'étudiant ${studentData.fullName} a été ajouté avec succès`);
     setIsAddModalOpen(false);
+  };
+
+  const handleClassClick = (classItem: ClassList) => {
+    setSelectedClass({
+      id: Number(classItem.id),
+      name: classItem.name
+    });
+    setIsClassStudentsModalOpen(true);
   };
 
   const handleUpdateMember = (id: string, updates: Partial<Member>) => {
@@ -441,6 +452,7 @@ const Members: React.FC = () => {
                 teacher={classItem?.teacher || ''}
                 studentCount={classItem?.students_count || 0}
                 level={classItem?.level || ''}
+                onClick={() => handleClassClick(classItem)}
               />
             ))
           : <div className="text-center text-gray-500">Aucune classe trouvée pour le moment</div>}
@@ -498,6 +510,21 @@ const Members: React.FC = () => {
 
       {isContactModalOpen && (
         <ContactModal email={contactEmail} onClose={() => setIsContactModalOpen(false)} />
+      )}
+
+      {isClassStudentsModalOpen && selectedClass && (
+        <ClassStudentsModal
+          onClose={() => {
+            setIsClassStudentsModalOpen(false);
+            setSelectedClass(null);
+          }}
+          levelId={selectedClass.id}
+          levelName={selectedClass.name}
+          onStudentClick={(studentId) => {
+            console.log('Student clicked:', studentId);
+            // TODO: Ouvrir le modal du membre si besoin
+          }}
+        />
       )}
     </section>
   );
