@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import './Modal.css';
+import AvatarImage from '../UI/AvatarImage';
 
 interface ProjectModalProps {
   project?: Project | null;
@@ -477,7 +478,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       const selected = getSelectedMember(formData.responsible);
                       return selected ? (
                         <div className="selected-member">
-                          <img src={selected.avatar} alt={`${selected.firstName} ${selected.lastName}`} className="selected-avatar" />
+                          <AvatarImage src={selected.avatar} alt={`${selected.firstName} ${selected.lastName}`} className="selected-avatar" />
                           <div className="selected-info">
                             <div className="selected-name">{`${selected.firstName} ${selected.lastName}`}</div>
                             <div className="selected-role">{selected.profession}</div>
@@ -502,7 +503,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         className="selection-item"
                         onClick={() => handleMemberSelect('responsible', member.id)}
                       >
-                        <img src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="item-avatar" />
+                        <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="item-avatar" />
                         <div className="item-info">
                           <div className="item-name">{`${member.firstName} ${member.lastName}`}</div>
                           <div className="item-role">{member.profession}</div>
@@ -534,7 +535,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       const member = getSelectedMember(memberId);
                       return member ? (
                         <div key={memberId} className="selected-member">
-                          <img src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="selected-avatar" />
+                          <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="selected-avatar" />
                           <div className="selected-info">
                             <div className="selected-name">{`${member.firstName} ${member.lastName}`}</div>
                             <div className="selected-role">{member.profession}</div>
@@ -558,7 +559,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       className="selection-item"
                       onClick={() => handleMemberSelect('coResponsibles', member.id)}
                     >
-                      <img src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="item-avatar" />
+                      <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="item-avatar" />
                       <div className="item-info">
                         <div className="item-name">{`${member.firstName} ${member.lastName}`}</div>
                         <div className="item-role">{member.profession}</div>
@@ -646,7 +647,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       const member = getSelectedMember(memberId);
                       return member ? (
                         <div key={memberId} className="selected-member">
-                          <img src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="selected-avatar" />
+                          <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="selected-avatar" />
                           <div className="selected-info">
                             <div className="selected-name">{`${member.firstName} ${member.lastName}`}</div>
                             <div className="selected-role">{member.profession}</div>
@@ -670,7 +671,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       className="selection-item"
                       onClick={() => handleMemberSelect('participants', member.id)}
                     >
-                      <img src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="item-avatar" />
+                      <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} className="item-avatar" />
                       <div className="item-info">
                         <div className="item-name">{`${member.firstName} ${member.lastName}`}</div>
                         <div className="item-role">{member.profession}</div>

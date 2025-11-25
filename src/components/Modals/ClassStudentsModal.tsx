@@ -4,6 +4,7 @@ import { getCurrentUser } from '../../api/Authentication';
 import { useToast } from '../../hooks/useToast';
 import './Modal.css';
 import QRCodePrintModal from './QRCodePrintModal';
+import AvatarImage from '../UI/AvatarImage';
 
 const loaderStyles = `
   @keyframes spinLoader {
@@ -86,13 +87,6 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelId]);
 
-  const getInitials = (firstName: string = '', lastName: string = '') => {
-    const first = firstName ? firstName.charAt(0) : '';
-    const last = lastName ? lastName.charAt(0) : '';
-    const initials = `${first}${last}`.trim();
-    return initials ? initials.toUpperCase() : '?';
-  };
-
   return (
     <>
       <style>{loaderStyles}</style>
@@ -133,22 +127,11 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                   <div className="table-cell">Actions</div>
                 </div>
 
-                {students.map((student) => {
-                  const status = student.status || 'pending';
-                  return (
+                {students.map((student) => (
                   <div key={student.id} className="table-row">
                     <div className="table-cell">
                       <div className="user-info">
-                        {student.avatar_url ? (
-                          <img src={student.avatar_url} alt={student.full_name} className="user-avatar" />
-                        ) : (
-                          <div
-                            className="user-avatar placeholder"
-                            style={{ backgroundColor: '#3b82f6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          >
-                            {getInitials(student.first_name, student.last_name)}
-                          </div>
-                        )}
+                        <AvatarImage src={student.avatar_url} alt={student.full_name} className="user-avatar" />
                         <div className="flex flex-col">
                           <span className="font-medium text-gray-900">{student.full_name || `${student.first_name} ${student.last_name}`}</span>
                           {student.birthday && (
@@ -187,7 +170,7 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                       </div>
                     </div>
                   </div>
-                )})}
+                ))}
               </div>
             )}
           </div>

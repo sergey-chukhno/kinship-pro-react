@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './UserForm.css';
+import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 
 interface UserFormProps {
   user?: any;
@@ -16,7 +17,7 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose, onSave }) => {
     roles: ['Membre'],
     skills: [] as string[],
     availability: [] as string[],
-    avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
+    avatar: DEFAULT_AVATAR_SRC,
     isTrusted: false,
     organization: '',
     badges: [] as any[]
@@ -32,7 +33,7 @@ const UserForm: React.FC<UserFormProps> = ({ user, onClose, onSave }) => {
         roles: user.roles || ['Membre'],
         skills: user.skills || [],
         availability: user.availability || [],
-        avatar: user.avatar || 'https://randomuser.me/api/portraits/men/1.jpg',
+        avatar: user.avatar || DEFAULT_AVATAR_SRC,
         isTrusted: user.isTrusted || false,
         organization: user.organization || '',
         badges: user.badges || []

@@ -5,6 +5,7 @@ import { Badge, Member } from '../../types';
 import RolePill from '../UI/RolePill';
 import QRCodePrintModal from './QRCodePrintModal';
 import './Modal.css';
+import AvatarImage from '../UI/AvatarImage';
 
 interface MemberModalProps {
   member: Member;
@@ -198,12 +199,12 @@ const MemberModal: React.FC<MemberModalProps> = ({
             <i className="fas fa-times"></i>
           </button>
           {/* block avatar , trusted badge */}
-          <div className="flex justify-start items-center">
+          <div className="flex justify-start items-center relative">
             <div className="member-avatar-large border-2 border-primary">
-              <img src={member.avatar} className="w-full h-full object-cover " alt={`${member.firstName} ${member.lastName}`} />
+            <AvatarImage src={member.avatar} className="w-full h-full object-cover " alt={`${member.firstName} ${member.lastName}`} />
             </div>
             {member.isTrusted && (
-              <div className="trusted-badge-large">
+              <div className="trusted-badge-large top-10 right-0">
                 <i className="fas fa-shield-alt"></i>
               </div>
             )}
@@ -221,7 +222,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
           </div>
           {/* block actions */}
           <div className="flex gap-2 items-center flex-wrap">
-            {isStudent() && member.claimToken && (
+            {isStudent() && member.claim_token && (
               <button
                 className="btn btn-outline btn-sm"
                 onClick={() => {
@@ -245,11 +246,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
 
         </div>
-        {showQRCodeModal ? (
+        {showQRCodeModal && member.claim_token ? (
           <div className="modal-body">
             <QRCodePrintModal
               onClose={() => setShowQRCodeModal(false)}
-              claimToken={member.claimToken || ''}
+              claimToken={member.claim_token || ''}
               studentName={member.fullName || `${member.firstName} ${member.lastName}`}
             />
           </div>

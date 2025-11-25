@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './UserHeader.css';
 import { mockOrganizationLists } from '../../data/mockData';
+import AvatarImage from '../UI/AvatarImage';
 
 interface UserHeaderProps {
   currentPage: PageType;
@@ -52,8 +53,8 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
 
       <div className="user-header-right" ref={dropdownRef}>
         <div className="user-info" onClick={() => setOpen(!open)}>
-          <img
-            src={user.avatar || '/default-avatar.png'}
+          <AvatarImage
+            src={user.avatar}
             alt={user.name}
             className="user-avatar"
           />

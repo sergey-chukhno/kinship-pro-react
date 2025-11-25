@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './Sidebar.css';
 import { mockOrganizationLists } from '../../data/mockData';
+import AvatarImage from '../UI/AvatarImage';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -115,7 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           ref={dropdownRef}
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
         >
-          <img src={state.user.avatar} alt="Profile" className="avatar" />
+          <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
           <div className="user-info">
             <div className="user-name">{state.user.name}</div>
             <div className="user-role">{state.user.role}</div>
@@ -127,7 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           </span>
           <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
             <div className="menu-header">
-              <img src={state.user.avatar} alt="Profile" className="avatar" />
+              <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
               <div>
                 <div style={{ fontWeight: 700 }}>{state.user.name}</div>
                 <div style={{ fontSize: '.85rem', color: 'var(--text-light)' }}>{state.user.email}</div>

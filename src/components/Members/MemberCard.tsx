@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Member } from '../../types';
 import RolePill from '../UI/RolePill';
 import './MemberCard.css';
+import AvatarImage from '../UI/AvatarImage';
 
 interface MemberCardProps {
   member: Member;
@@ -63,7 +64,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
     <div className="member-card" onClick={onClick}>
       <div className="member-header">
         <div className="member-avatar">
-          <img src={member.avatar} alt={`${member.firstName} ${member.lastName}`} />
+          <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} />
         </div>
         {member.isTrusted && (
           <div className="trusted-badge">

@@ -52,13 +52,13 @@ const QRCodePrintModal: React.FC<QRCodePrintModalProps> = ({ onClose, claimToken
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content max-w-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Compte créé avec succès !</h2>
-          <button className="modal-close print:hidden" onClick={onClose}>
+      <div className="modal-content max-w-2xl relative" onClick={(e) => e.stopPropagation()}>
+        {/* <div className="modal-header"> */}
+
+          <button className="modal-close print:hidden absolute top-0 right-0" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
-        </div>
+        {/* </div> */}
 
         <div className="modal-body text-center p-8">
           <div className="space-y-6">

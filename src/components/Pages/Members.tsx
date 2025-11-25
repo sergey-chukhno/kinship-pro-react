@@ -17,6 +17,7 @@ import { getSchoolLevels, addSchoolLevel } from '../../api/SchoolDashboard/Level
 import { useToast } from '../../hooks/useToast';
 import AddStudentModal from '../Modals/AddStudentModal';
 import ClassStudentsModal from '../Modals/ClassStudentsModal';
+import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 
 
 const Members: React.FC = () => {
@@ -103,7 +104,7 @@ const Members: React.FC = () => {
               roles: [displayRole],
               skills: profile.skills?.map((s: any) => s.name || s) || [],
               availability: availabilityList,
-              avatar: profile.avatar_url || m.avatar_url || '',
+              avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
               isTrusted: profile.status === 'confirmed',
               badges: profile.badges?.data?.map((b: any) => b.id?.toString()) || [],
               organization: '',
@@ -127,7 +128,7 @@ const Members: React.FC = () => {
               roles: [m.role_in_company || m.role_in_school || 'Membre'],
               skills: [],
               availability: [],
-              avatar: m.avatar_url || '',
+              avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
               isTrusted: false,
               badges: [],
               organization: '',
@@ -188,7 +189,7 @@ const Members: React.FC = () => {
         roles: [vol.role_in_school || vol.role_in_system || 'Volontaire'],
         skills: vol.skills?.map((s: any) => s.name || s) || [],
         availability: [],
-        avatar: vol.avatar_url || vol.user?.avatar || '',
+        avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
         isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
         badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
         organization: vol.organization || '',
@@ -285,13 +286,13 @@ const Members: React.FC = () => {
       roles: [student.role_in_system || 'Élève'],
       skills: [],
       availability: [],
-      avatar: student.avatar_url || '',
+      avatar: student.avatar_url || DEFAULT_AVATAR_SRC,
       isTrusted: student.status === 'confirmed',
       badges: [],
       organization: '',
       canProposeStage: false,
       canProposeAtelier: false,
-      claimToken: student.claim_token,
+      claim_token: student.claim_token,
       hasTemporaryEmail: student.has_temporary_email,
       birthday: student.birthday,
       role: student.role_in_system || 'eleve',
@@ -466,7 +467,7 @@ const Members: React.FC = () => {
               <i className="fas fa-search"></i>
               <input
                 type="text"
-                placeholder="Rechercher un membre..."
+                placeholder="Rechercher un nom..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />

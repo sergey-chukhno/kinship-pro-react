@@ -7,6 +7,7 @@ import { getSchoolLevels, createLevelStudent } from '../../api/SchoolDashboard/L
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import QRCodePrintModal from './QRCodePrintModal';
+import AvatarImage from '../UI/AvatarImage';
 
 interface AddMemberModalProps {
   onClose: () => void;
@@ -239,7 +240,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         badges: [],
         canProposeStage: false,
         canProposeAtelier: false,
-        claimToken: claimToken,
+        claim_token: claimToken,
         hasTemporaryEmail: response.data?.data?.has_temporary_email || false,
         birthday: formData.birthday,
         role: formData.role,
@@ -304,14 +305,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             <h3>Photo de profil</h3>
             <div className="avatar-selection">
               <div className="avatar-preview">
-                {avatarPreview ? (
-                  <img src={avatarPreview} alt="Avatar preview" className="avatar-image" />
-                ) : (
-                  <div className="avatar-placeholder">
-                    <i className="fas fa-user"></i>
-                    <span>Aucune photo</span>
-                  </div>
-                )}
+                <AvatarImage src={avatarPreview} alt="Avatar preview" className="avatar-image" />
               </div>
               <div className="avatar-actions">
                 <button

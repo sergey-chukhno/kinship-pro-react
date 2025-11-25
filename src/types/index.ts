@@ -16,7 +16,7 @@ export interface Member {
   organization?: string;
   canProposeStage?: boolean;
   canProposeAtelier?: boolean;
-  claimToken?: string; // Token for student QR code
+  claim_token?: string; // Token for student QR code
   hasTemporaryEmail?: boolean; // Indicates if email is temporary
   birthday?: string; // Date de naissance
   role?: string; // Rôle unique (pour les étudiants)
