@@ -103,6 +103,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
       // Prefill organization based on context
       let defaultOrg = '';
+
       if (state.showingPageType === 'pro' && state.user.available_contexts?.companies && state.user.available_contexts.companies.length > 0) {
         defaultOrg = state.user.available_contexts.companies[0].name;
       } else if ((state.showingPageType === 'edu' || state.showingPageType === 'teacher') && state.user.available_contexts?.schools && state.user.available_contexts.schools.length > 0) {

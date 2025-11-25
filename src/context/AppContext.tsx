@@ -4,6 +4,7 @@ import { AppState, Badge, BadgeAttribution, Event, FilterOptions, Member, PageTy
 
 interface AppContextType {
   state: AppState;
+  setUser: (user: any) => void;
   setShowingPageType: (ShowingPageType: ShowingPageType) => void;
   setCurrentPage: (page: PageType) => void;
   setTheme: (theme: 'light' | 'dark') => void;
@@ -30,6 +31,7 @@ interface AppContextType {
 }
 
 type AppAction =
+  | { type: 'SET_USER'; payload: any }
   | { type: 'SET_SHOWING_PAGE_TYPE'; payload: ShowingPageType }
   | { type: 'SET_CURRENT_PAGE'; payload: PageType }
   | { type: 'SET_THEME'; payload: 'light' | 'dark' }
@@ -80,6 +82,9 @@ const initialState: AppState = {
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
+    case 'SET_USER':
+      return { ...state, user: action.payload };
+
     case 'SET_SHOWING_PAGE_TYPE':
       if (['pro', 'edu', 'teacher', 'user'].includes(action.payload)) {
         return { ...state, showingPageType: action.payload };
@@ -88,19 +93,19 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_CURRENT_PAGE':
       return { ...state, currentPage: action.payload };
-    
+
     case 'SET_THEME':
       return { ...state, theme: action.payload };
-    
+
     case 'SET_FILTERS':
       return { ...state, filters: action.payload };
-    
+
     case 'SET_SELECTED_PROJECT':
       return { ...state, selectedProject: action.payload };
-    
+
     case 'ADD_MEMBER':
       return { ...state, members: [...state.members, action.payload] };
-    
+
     case 'UPDATE_MEMBER':
       return {
         ...state,
@@ -110,16 +115,16 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : member
         )
       };
-    
+
     case 'DELETE_MEMBER':
       return {
         ...state,
         members: state.members.filter(member => member.id !== action.payload)
       };
-    
+
     case 'ADD_PROJECT':
       return { ...state, projects: [...state.projects, action.payload] };
-    
+
     case 'UPDATE_PROJECT':
       return {
         ...state,
@@ -129,16 +134,16 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : project
         )
       };
-    
+
     case 'DELETE_PROJECT':
       return {
         ...state,
         projects: state.projects.filter(project => project.id !== action.payload)
       };
-    
+
     case 'ADD_EVENT':
       return { ...state, events: [...state.events, action.payload] };
-    
+
     case 'UPDATE_EVENT':
       return {
         ...state,
@@ -148,16 +153,16 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : event
         )
       };
-    
+
     case 'DELETE_EVENT':
       return {
         ...state,
         events: state.events.filter(event => event.id !== action.payload)
       };
-    
+
     case 'ADD_BADGE':
       return { ...state, badges: [...state.badges, action.payload] };
-    
+
     case 'UPDATE_BADGE':
       return {
         ...state,
@@ -167,13 +172,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : badge
         )
       };
-    
+
     case 'DELETE_BADGE':
       return {
         ...state,
         badges: state.badges.filter(badge => badge.id !== action.payload)
       };
-    
+
     case 'MARK_NOTIFICATION_READ':
       return {
         ...state,
@@ -183,7 +188,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : notification
         )
       };
-    
+
     case 'ACCEPT_MEMBERSHIP_REQUEST':
       const requestToAccept = state.membershipRequests.find(req => req.id === action.payload);
       if (requestToAccept) {
@@ -209,13 +214,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
         };
       }
       return state;
-    
+
     case 'REJECT_MEMBERSHIP_REQUEST':
       return {
         ...state,
         membershipRequests: state.membershipRequests.filter(req => req.id !== action.payload)
       };
-    
+
     case 'UPDATE_MEMBERSHIP_REQUEST_ROLE':
       return {
         ...state,
@@ -225,13 +230,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
             : req
         )
       };
-    
+
     case 'ADD_BADGE_ATTRIBUTION':
       return { ...state, badgeAttributions: [...state.badgeAttributions, action.payload] };
-    
+
     case 'CLEAR_FILTERS':
       return { ...state, filters: {} };
-    
+
     default:
       return state;
   }
@@ -253,6 +258,10 @@ interface AppProviderProps {
 
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+
+  const setUser = (user: any) => {
+    dispatch({ type: 'SET_USER', payload: user });
+  };
 
   const setShowingPageType = (ShowingPageType: ShowingPageType) => {
     dispatch({ type: 'SET_SHOWING_PAGE_TYPE', payload: ShowingPageType });
@@ -347,8 +356,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   };
 
   const value: AppContextType = {
-    setShowingPageType,
     state,
+    setUser,
+    setShowingPageType,
     setCurrentPage,
     setTheme,
     setFilters,
