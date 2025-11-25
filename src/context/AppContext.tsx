@@ -55,7 +55,7 @@ type AppAction =
   | { type: 'CLEAR_FILTERS' };
 
 const initialState: AppState = {
-  showingPageType: 'pro',
+  showingPageType: 'pro', // Valeur par défaut mais sera overridée avant l'affichage
   // currentPage: 'dashboard',
   currentPage: 'Auth',
   user: {

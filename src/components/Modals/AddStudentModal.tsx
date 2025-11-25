@@ -204,14 +204,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
       alert('Prénom et nom sont obligatoires');
       return;
     }
-    if (selectedSkills.length === 0) {
-      alert('Veuillez sélectionner au moins une compétence');
-      return;
-    }
-    if (selectedAvailability.length === 0) {
-      alert('Veuillez sélectionner au moins une disponibilité');
-      return;
-    }
+  
 
     try {
       // 1. Récupération Organisation selon le mode
@@ -222,26 +215,16 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
         ? currentUser.data?.available_contexts?.schools?.[0]?.id
         : currentUser.data?.available_contexts?.companies?.[0]?.id;
 
-      // 2. Disponibilités
-      const apiAvailability = {
-        monday: false, tuesday: false, wednesday: false, thursday: false, friday: false, other: false
-      };
-      selectedAvailability.forEach(day => {
-        const key = dayMapping[day];
-        if (key) (apiAvailability as any)[key] = true;
-      });
 
-      // 3. Compétences
-      const skillIds = apiSkills
-        .filter(apiSkill => selectedSkills.includes(apiSkill.name))
-        .map(s => s.id);
+ 
+
 
       // 4. Password & Rôle
       const tempPassword = generateStrongPassword();
       const selectedRole = formData.roles[0] || 'voluntary'; // Fallback
 
       const apiPayload = {
-        email: formData.email || `temp.${Date.now()}@kinship.placeholder`,
+        email: `temp.${Date.now()}@kinship.placeholder`,
         hasTemporaryEmail: !formData.email,
         password: tempPassword,
         passwordConfirmation: tempPassword,
@@ -249,13 +232,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
         lastName: formData.lastName,
         birthday: "2000-01-01",
         role: selectedRole, // Utilisation du rôle dynamique
-        job: formData.profession,
+        job: '',
         companyName: formData.organization,
         proposeWorkshop: formData.canProposeAtelier,
         takeTrainee: formData.canProposeStage,
         acceptPrivacyPolicy: true,
-        availability: apiAvailability,
-        selectedSkills: skillIds,
+        availability: [],
+        selectedSkills: [],
         selectedSubSkills: [],
         selectedCompanies: !isEdu && contextId ? [Number(contextId)] : [],
         selectedSchools: isEdu && contextId ? [Number(contextId)] : []
@@ -291,7 +274,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Ajouter un nouveau membre</h2>
+          <h2>Ajouter un nouvel étudiant</h2>
           <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
@@ -372,42 +355,6 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="email">Email</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="profession">Profession</label>
-              <input
-                type="text"
-                id="profession"
-                name="profession"
-                value={formData.profession}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="organization">Organisation</label>
-              <input
-                type="text"
-                id="organization"
-                name="organization"
-                value={formData.organization}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-
             {/* Remplacement du Select Statique par les données de l'API */}
             <div className="form-group">
               <label htmlFor="roles">Rôle</label>
@@ -431,95 +378,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
             </div>
           </div>
 
-          <div className="form-section">
-            <h3>Compétences *</h3>
-            <p className="section-description">Sélectionnez au moins une compétence</p>
-            <div className="competencies-grid">
-              {apiSkills.length > 0 ? (
-                apiSkills.map((skill) => (
-                  <label key={skill.id} className="competency-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selectedSkills.includes(skill.name)}
-                      onChange={() => handleSkillToggle(skill.name)}
-                    />
-                    <span className="checkmark"></span>
-                    <span className="competency-label">{skill.name}</span>
-                  </label>
-                ))
-              ) : (
-                <p>Chargement des compétences...</p>
-              )}
-            </div>
-            {selectedSkills.length > 0 && (
-              <div className="selected-skills">
-                <p>Compétences sélectionnées ({selectedSkills.length}):</p>
-                <div className="skills-list">
-                  {selectedSkills.map((skill) => (
-                    <span key={skill} className="skill-tag">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
 
-          <div className="form-section">
-            <h3>Disponibilités *</h3>
-            <p className="section-description">Sélectionnez au moins un jour de disponibilité</p>
-            <div className="availability-grid">
-              {disponibilites.map((day) => (
-                <label key={day} className="availability-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedAvailability.includes(day)}
-                    onChange={() => handleAvailabilityToggle(day)}
-                  />
-                  <span className="checkmark"></span>
-                  <span className="availability-label">{day}</span>
-                </label>
-              ))}
-            </div>
-            {selectedAvailability.length > 0 && (
-              <div className="selected-availability">
-                <p>Disponibilités sélectionnées ({selectedAvailability.length}):</p>
-                <div className="availability-list">
-                  {selectedAvailability.map((day) => (
-                    <span key={day} className="availability-tag">
-                      {day}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="form-section">
-            <h3>Propositions</h3>
-            <div className="proposals-grid">
-              <label className="proposal-checkbox">
-                <input
-                  type="checkbox"
-                  name="canProposeStage"
-                  checked={formData.canProposeStage}
-                  onChange={handleInputChange}
-                />
-                <span className="checkmark"></span>
-                <span className="proposal-label">Propose un stage</span>
-              </label>
-              <label className="proposal-checkbox">
-                <input
-                  type="checkbox"
-                  name="canProposeAtelier"
-                  checked={formData.canProposeAtelier}
-                  onChange={handleInputChange}
-                />
-                <span className="checkmark"></span>
-                <span className="proposal-label">Propose un atelier pro</span>
-              </label>
-            </div>
-          </div>
         </form>
 
         <div className="modal-footer">
