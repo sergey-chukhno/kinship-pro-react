@@ -28,6 +28,8 @@ interface AppContextType {
   updateMembershipRequestRole: (id: string, role: string) => void;
   addBadgeAttribution: (attribution: BadgeAttribution) => void;
   clearFilters: () => void;
+  setTags: (tags: any[]) => void;
+  setPartnerships: (partnerships: any[]) => void;
 }
 
 type AppAction =
@@ -54,6 +56,8 @@ type AppAction =
   | { type: 'REJECT_MEMBERSHIP_REQUEST'; payload: string }
   | { type: 'UPDATE_MEMBERSHIP_REQUEST_ROLE'; payload: { id: string; role: string } }
   | { type: 'ADD_BADGE_ATTRIBUTION'; payload: BadgeAttribution }
+  | { type: 'SET_TAGS'; payload: any[] }
+  | { type: 'SET_PARTNERSHIPS'; payload: any[] }
   | { type: 'CLEAR_FILTERS' };
 
 const initialState: AppState = {
@@ -77,7 +81,9 @@ const initialState: AppState = {
   badgeAttributions: [],
   filters: {},
   theme: 'light',
-  selectedProject: null
+  selectedProject: null,
+  tags: [],
+  partnerships: []
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -234,6 +240,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'ADD_BADGE_ATTRIBUTION':
       return { ...state, badgeAttributions: [...state.badgeAttributions, action.payload] };
 
+    case 'SET_TAGS':
+      return { ...state, tags: action.payload };
+
+    case 'SET_PARTNERSHIPS':
+      return { ...state, partnerships: action.payload };
+
     case 'CLEAR_FILTERS':
       return { ...state, filters: {} };
 
@@ -351,6 +363,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: 'ADD_BADGE_ATTRIBUTION', payload: attribution });
   };
 
+  const setTags = (tags: any[]) => {
+    dispatch({ type: 'SET_TAGS', payload: tags });
+  };
+
+  const setPartnerships = (partnerships: any[]) => {
+    dispatch({ type: 'SET_PARTNERSHIPS', payload: partnerships });
+  };
+
   const clearFilters = () => {
     dispatch({ type: 'CLEAR_FILTERS' });
   };
@@ -380,7 +400,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     rejectMembershipRequest,
     updateMembershipRequestRole,
     addBadgeAttribution,
-    clearFilters
+    clearFilters,
+    setTags,
+    setPartnerships
   };
 
   return (
