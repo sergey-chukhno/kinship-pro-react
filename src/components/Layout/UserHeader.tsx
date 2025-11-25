@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './UserHeader.css';
@@ -12,6 +12,7 @@ interface UserHeaderProps {
 const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) => {
   const { state, setShowingPageType } = useAppContext();
   const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const user = state.user;
 
   const organisations = mockOrganizationLists;
@@ -21,13 +22,29 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
     setOpen(false);
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [open]);
+
   return (
     <header className="user-header">
       <div className="user-header-left" onClick={() => onPageChange('projects')}>
         <img src="./icons_logo/Property 1=Logo Kinship user.svg" alt="Logo" className="user-logo" />
       </div>
 
-      <div className="user-header-right">
+      <div className="user-header-right" ref={dropdownRef}>
         <div className="user-info" onClick={() => setOpen(!open)}>
           <img
             src={user.avatar || '/default-avatar.png'}
@@ -43,7 +60,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         </div>
 
         {open && (
-          <div className="dropdown-menu">
+          <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => handlePageChange('projects')}>Mes projets</button>
             <button onClick={() => handlePageChange('network')}>Mon réseau</button>
             <button onClick={() => handlePageChange('badges')}>Mes badges</button>

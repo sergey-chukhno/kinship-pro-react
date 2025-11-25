@@ -8,7 +8,7 @@
 .user-header {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 500;
   flex-shrink: 0;
 }
 
@@ -28,8 +28,10 @@
 .app-body.with-sidebar .sidebar {
   width: 260px;
   flex-shrink: 0;
-  position: relative; /* <-- IMPORTANT : garde la sidebar dans le flux */
-  z-index: 1; /* reste au-dessus du fond, mais pas du contenu */
+  position: relative;
+  /* <-- IMPORTANT : garde la sidebar dans le flux */
+  z-index: 1;
+  /* reste au-dessus du fond, mais pas du contenu */
 }
 
 .app-body.with-sidebar .app-layout {
@@ -93,7 +95,7 @@
   .dashboard {
     margin-left: 0;
   }
-  
+
   .app-container {
     flex-direction: column;
   }
