@@ -86,7 +86,7 @@ const MembershipRequests: React.FC = () => {
                 firstName: profile.first_name,
                 lastName: profile.last_name,
                 email: profile.email,
-                profession: profile.job || 'Non renseigné',
+                profession: profile.role_in_system || 'Non renseigné',
                 avatar: profile.avatar_url || m.avatar_url || '',
                 requestedDate: profile.joined_at || new Date().toISOString(),
                 skills: profile.skills?.map((s: any) => s.name || s) || [],

@@ -11,7 +11,7 @@ import ClassCard from '../Class/ClassCard';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Members';
-import { getSchoolMembersAccepted, updateSchoolMemberRole } from '../../api/SchoolDashboard/Members'
+import { getSchoolMembersAccepted, updateSchoolMemberRole, getSchoolVolunteers } from '../../api/SchoolDashboard/Members'
 import AddClassModal from '../Modals/AddClassModal';
 import { getSchoolLevels, addSchoolLevel } from '../../api/SchoolDashboard/Levels';
 import { useToast } from '../../hooks/useToast';
@@ -165,6 +165,50 @@ const Members: React.FC = () => {
     }
   };
 
+  const fetchCommunityVolunteers = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      const isEdu = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
+      const schoolId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+      if (!schoolId) {
+        setCommunityLists([]);
+        return;
+      }
+
+      const volunteersRes = await getSchoolVolunteers(Number(schoolId), 'confirmed');
+      const volunteers = volunteersRes.data?.data ?? volunteersRes.data ?? [];
+
+      const mappedVolunteers: Member[] = volunteers.map((vol: any) => ({
+        id: (vol.id || vol.user_id || vol.user?.id || Date.now()).toString(),
+        firstName: vol.first_name || vol.user?.first_name || 'Volontaire',
+        lastName: vol.last_name || vol.user?.last_name || '',
+        fullName: vol.full_name || `${vol.first_name || ''} ${vol.last_name || ''}`.trim(),
+        email: vol.email || vol.user?.email || '',
+        profession: vol.role_in_system || vol.user?.job || '',
+        roles: [vol.role_in_school || vol.role_in_system || 'Volontaire'],
+        skills: vol.skills?.map((s: any) => s.name || s) || [],
+        availability: [],
+        avatar: vol.avatar_url || vol.user?.avatar || '',
+        isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
+        badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
+        organization: vol.organization || '',
+        canProposeStage: false,
+        canProposeAtelier: false,
+        claimToken: vol.claim_token,
+        hasTemporaryEmail: vol.has_temporary_email || false,
+        birthday: vol.birthday,
+        role: vol.role_in_system || 'volunteer',
+        levelId: undefined,
+        roleAdditionalInfo: vol.role_additional_information || ''
+      }));
+
+      setCommunityLists(mappedVolunteers);
+    } catch (err) {
+      console.error('Erreur récupération des volontaires:', err);
+      showError('Impossible de récupérer les volontaires');
+    }
+  };
+
     // --- Filtres dynamiques ---
     const allCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
     const allAvailabilities = Array.from(new Set(members.flatMap(m => m.availability)));
@@ -172,7 +216,9 @@ const Members: React.FC = () => {
   useEffect(() => {
     fetchLevels();
     fetchMembers();
-  }, [page, per_page]);
+    fetchCommunityVolunteers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, per_page, state.showingPageType]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -268,7 +314,9 @@ const Members: React.FC = () => {
 
   const handleMembershipRequests = () => setCurrentPage('membership-requests');
 
-  const handleRoleChange = async (member: Member, newRole: string) => {
+  type RoleChangeSource = 'members' | 'community';
+
+  const handleRoleChange = async (member: Member, newRole: string, source: RoleChangeSource = 'members') => {
     try {
       const currentUser = await getCurrentUser();
       const isEdu = state.showingPageType === 'edu';
@@ -296,7 +344,21 @@ const Members: React.FC = () => {
         )
       );
 
+      setCommunityLists(prev =>
+        prev.map(m =>
+          m.id === member.id ? { ...m, roles: [newRole] } : m
+        )
+      );
+
       showSuccess(`Le rôle de ${member.fullName} a été modifié avec succès`);
+
+      if (source === 'members') {
+        await fetchMembers();
+      }
+
+      if (source === 'community' && (state.showingPageType === 'edu' || state.showingPageType === 'teacher')) {
+        await fetchCommunityVolunteers();
+      }
 
     } catch (err) {
       console.error("Erreur lors de la mise à jour du rôle :", err);
@@ -464,7 +526,7 @@ const Members: React.FC = () => {
                       setContactEmail(member.email);
                       setIsContactModalOpen(true);
                     }}
-                    onRoleChange={(newRole) => handleRoleChange(member, newRole)}
+                    onRoleChange={(newRole) => handleRoleChange(member, newRole, 'members')}
                   />
                 );
               })
@@ -519,7 +581,7 @@ const Members: React.FC = () => {
                   setContactEmail(communityItem.email);
                   setIsContactModalOpen(true);
                 }}
-                onRoleChange={(newRole) => handleRoleChange(communityItem, newRole)}
+                onRoleChange={(newRole) => handleRoleChange(communityItem, newRole, 'community')}
               />
             ))
           : <div className=" text-gray-500 whitespace-nowrap">Aucune communauté trouvée pour le moment</div>}

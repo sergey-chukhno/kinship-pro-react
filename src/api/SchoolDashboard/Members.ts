@@ -33,3 +33,7 @@ export function createSchoolStudent(schoolId: number, studentData: {
 }) {
     return axiosClient.post(`/api/v1/schools/${schoolId}/members`, studentData);
 }
+
+export function getSchoolVolunteers(schoolId: number, status: string = 'confirmed') {
+    return axiosClient.get(`/api/v1/schools/${schoolId}/volunteers?status=${status}`);
+}
