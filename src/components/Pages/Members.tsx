@@ -1,24 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useAppContext } from '../../context/AppContext';
-import { ClassList, Member } from '../../types';
-import MemberCard from '../Members/MemberCard';
-import MemberModal from '../Modals/MemberModal';
-import AddMemberModal from '../Modals/AddMemberModal';
-import ContactModal from '../Modals/ContactModal';
-import './Members.css';
-import { mockClassLists } from '../../data/mockData';
-import ClassCard from '../Class/ClassCard';
-import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
+import React, { useEffect, useRef, useState } from 'react';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Members';
-import { getSchoolMembersAccepted, updateSchoolMemberRole, getSchoolVolunteers } from '../../api/SchoolDashboard/Members'
-import AddClassModal from '../Modals/AddClassModal';
-import { getSchoolLevels, addSchoolLevel } from '../../api/SchoolDashboard/Levels';
+import { addSchoolLevel, getSchoolLevels } from '../../api/SchoolDashboard/Levels';
+import { getSchoolMembersAccepted, getSchoolVolunteers, updateSchoolMemberRole } from '../../api/SchoolDashboard/Members';
+import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
+import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
+import { ClassList, Member } from '../../types';
+import ClassCard from '../Class/ClassCard';
+import MemberCard from '../Members/MemberCard';
+import AddClassModal from '../Modals/AddClassModal';
+import AddMemberModal from '../Modals/AddMemberModal';
 import AddStudentModal from '../Modals/AddStudentModal';
 import ClassStudentsModal from '../Modals/ClassStudentsModal';
+import ContactModal from '../Modals/ContactModal';
+import MemberModal from '../Modals/MemberModal';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
-
+import './Members.css';
+import { translateRole, translateRoles } from '../../utils/roleTranslations';
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
@@ -91,8 +90,24 @@ const Members: React.FC = () => {
             if (availData.sunday) availabilityList.push('Dimanche');
             if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
 
-            let rawRole = profile.role_in_company || m.role_in_company || profile.role_in_school || m.role_in_school || 'Membre';
-            const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
+            const rawRole =
+              profile.role_in_company ||
+              m.role_in_company ||
+              profile.role_in_school ||
+              m.role_in_school ||
+              profile.role_in_system ||
+              m.role_in_system ||
+              profile.role ||
+              m.role ||
+              'member';
+
+            const roleValues =
+              (Array.isArray(profile.roles) && profile.roles.length > 0
+                ? profile.roles
+                : [rawRole]
+              ).filter(Boolean);
+
+            const displayProfession = translateRole(profile.role_in_system || '');
 
             return {
               id: (profile.id || m.id).toString(),
@@ -100,8 +115,8 @@ const Members: React.FC = () => {
               lastName: profile.last_name,
               fullName: profile.full_name || `${profile.first_name} ${profile.last_name}`,
               email: profile.email,
-              profession: profile.role_in_system || '',
-              roles: [displayRole],
+              profession: displayProfession,
+              roles: roleValues as string[],
               skills: profile.skills?.map((s: any) => s.name || s) || [],
               availability: availabilityList,
               avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
@@ -117,6 +132,8 @@ const Members: React.FC = () => {
           } catch (err) {
             console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
             // FALLBACK
+            const fallbackRole = m.role_in_company || m.role_in_school || m.role_in_system || m.role || 'member';
+
             return {
               // ... (votre code fallback inchangé)
               id: m.id.toString(),
@@ -124,8 +141,8 @@ const Members: React.FC = () => {
               lastName: m.last_name || '',
               fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
               email: m.email || '',
-              profession: m.job || '',
-              roles: [m.role_in_company || m.role_in_school || 'Membre'],
+              profession: translateRole(m.job || fallbackRole),
+              roles: [fallbackRole],
               skills: [],
               availability: [],
               avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
@@ -179,29 +196,34 @@ const Members: React.FC = () => {
       const volunteersRes = await getSchoolVolunteers(Number(schoolId), 'confirmed');
       const volunteers = volunteersRes.data?.data ?? volunteersRes.data ?? [];
 
-      const mappedVolunteers: Member[] = volunteers.map((vol: any) => ({
-        id: (vol.id || vol.user_id || vol.user?.id || Date.now()).toString(),
-        firstName: vol.first_name || vol.user?.first_name || 'Volontaire',
-        lastName: vol.last_name || vol.user?.last_name || '',
-        fullName: vol.full_name || `${vol.first_name || ''} ${vol.last_name || ''}`.trim(),
-        email: vol.email || vol.user?.email || '',
-        profession: vol.role_in_system || vol.user?.job || '',
-        roles: [vol.role_in_school || vol.role_in_system || 'Volontaire'],
-        skills: vol.skills?.map((s: any) => s.name || s) || [],
-        availability: [],
-        avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
-        isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
-        badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
-        organization: vol.organization || '',
-        canProposeStage: false,
-        canProposeAtelier: false,
-        claimToken: vol.claim_token,
-        hasTemporaryEmail: vol.has_temporary_email || false,
-        birthday: vol.birthday,
-        role: vol.role_in_system || 'volunteer',
-        levelId: undefined,
-        roleAdditionalInfo: vol.role_additional_information || ''
-      }));
+      const mappedVolunteers: Member[] = volunteers.map((vol: any) => {
+        const volunteerRole = vol.role_in_school || vol.role_in_system || vol.role || 'volunteer';
+        const volunteerProfession = translateRole(vol.role_in_system || vol.user?.job || volunteerRole);
+
+        return {
+          id: (vol.id || vol.user_id || vol.user?.id || Date.now()).toString(),
+          firstName: vol.first_name || vol.user?.first_name || 'Volontaire',
+          lastName: vol.last_name || vol.user?.last_name || '',
+          fullName: vol.full_name || `${vol.first_name || ''} ${vol.last_name || ''}`.trim(),
+          email: vol.email || vol.user?.email || '',
+          profession: volunteerProfession,
+          roles: [volunteerRole],
+          skills: vol.skills?.map((s: any) => s.name || s) || [],
+          availability: [],
+          avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
+          isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
+          badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
+          organization: vol.organization || '',
+          canProposeStage: false,
+          canProposeAtelier: false,
+          claimToken: vol.claim_token,
+          hasTemporaryEmail: vol.has_temporary_email || false,
+          birthday: vol.birthday,
+          role: volunteerRole,
+          levelId: undefined,
+          roleAdditionalInfo: vol.role_additional_information || ''
+        };
+      });
 
       setCommunityLists(mappedVolunteers);
     } catch (err) {
@@ -233,11 +255,12 @@ const Members: React.FC = () => {
 
   const filteredMembers = members.filter(member => {
     const term = searchTerm.toLowerCase();
+    const displayRoles = translateRoles(member.roles);
     const matchesSearch =
       member.fullName?.toLowerCase().includes(term) ||
       member.email.toLowerCase().includes(term) ||
       member.skills.some(skill => skill.toLowerCase().includes(term));
-    const matchesRole = !roleFilter || member.roles.includes(roleFilter);
+    const matchesRole = !roleFilter || displayRoles.includes(roleFilter);
     const matchesCompetence = !competenceFilter || member.skills.includes(competenceFilter);
     const matchesAvailability = !availabilityFilter || member.availability.includes(availabilityFilter);
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
@@ -276,14 +299,17 @@ const Members: React.FC = () => {
       return;
     }
 
+    const studentRole = student.role_in_system || student.role || 'eleve';
+    const studentProfession = translateRole(student.role_in_system || student.role || '');
+
     const fallbackMember: Member = {
       id: student.id?.toString() || `${Date.now()}`,
       firstName: student.first_name || student.full_name?.split(' ')[0] || 'Inconnu',
       lastName: student.last_name || student.full_name?.split(' ')[1] || '',
       fullName: student.full_name,
       email: student.email || '',
-      profession: student.role_in_system || '',
-      roles: [student.role_in_system || 'Élève'],
+      profession: studentProfession || '',
+      roles: [studentRole],
       skills: [],
       availability: [],
       avatar: student.avatar_url || DEFAULT_AVATAR_SRC,
@@ -295,7 +321,7 @@ const Members: React.FC = () => {
       claim_token: student.claim_token,
       hasTemporaryEmail: student.has_temporary_email,
       birthday: student.birthday,
-      role: student.role_in_system || 'eleve',
+      role: studentRole,
       levelId: selectedClass?.id?.toString(),
       roleAdditionalInfo: ''
     };
@@ -321,7 +347,6 @@ const Members: React.FC = () => {
     try {
       const currentUser = await getCurrentUser();
       const isEdu = state.showingPageType === 'edu';
-
       // 1. Bascule ID pour le changement de rôle
       const contextId = isEdu
         ? currentUser.data?.available_contexts?.schools?.[0]?.id
@@ -341,17 +366,17 @@ const Members: React.FC = () => {
 
       setMembers(prev =>
         prev.map(m =>
-          m.id === member.id ? { ...m, roles: [newRole] } : m
+          m.id === member.id ? { ...m, roles: [newRole], role: newRole } : m
         )
       );
 
       setCommunityLists(prev =>
         prev.map(m =>
-          m.id === member.id ? { ...m, roles: [newRole] } : m
+          m.id === member.id ? { ...m, roles: [newRole], role: newRole } : m
         )
       );
 
-      showSuccess(`Le rôle de ${member.fullName} a été modifié avec succès`);
+      showSuccess(`Le rôle de ${member.fullName} a été modifié avec succès (${translateRole(newRole)})`);
 
       if (source === 'members') {
         await fetchMembers();
@@ -517,10 +542,15 @@ const Members: React.FC = () => {
             <div className="members-grid">
               {filteredMembers.length > 0 ? filteredMembers.map((member) => {
                 const totalBadgeCount = member.badges?.length || 0;
+                const memberForDisplay = {
+                  ...member,
+                  roles: translateRoles(member.roles),
+                  profession: translateRole(member.profession || '')
+                };
                 return (
                   <MemberCard
                     key={member.id}
-                    member={member}
+                    member={memberForDisplay}
                     badgeCount={totalBadgeCount}
                     onClick={() => setSelectedMember(member)}
                     onContactClick={() => {
@@ -572,19 +602,26 @@ const Members: React.FC = () => {
             {
             communityLists.length > 0 ?
             
-            communityLists.map((communityItem) => (
-              <MemberCard
-                key={communityItem.id}
-                member={communityItem}
-                badgeCount={communityItem.badges?.length || 0}
-                onClick={() => setSelectedMember(communityItem)}
-                onContactClick={() => {
-                  setContactEmail(communityItem.email);
-                  setIsContactModalOpen(true);
-                }}
-                onRoleChange={(newRole) => handleRoleChange(communityItem, newRole, 'community')}
-              />
-            ))
+            communityLists.map((communityItem) => {
+              const communityForDisplay = {
+                ...communityItem,
+                roles: translateRoles(communityItem.roles),
+                profession: translateRole(communityItem.profession || '')
+              };
+              return (
+                <MemberCard
+                  key={communityItem.id}
+                  member={communityForDisplay}
+                  badgeCount={communityItem.badges?.length || 0}
+                  onClick={() => setSelectedMember(communityItem)}
+                  onContactClick={() => {
+                    setContactEmail(communityItem.email);
+                    setIsContactModalOpen(true);
+                  }}
+                  onRoleChange={(newRole) => handleRoleChange(communityItem, newRole, 'community')}
+                />
+              );
+            })
           : <div className=" text-gray-500 whitespace-nowrap">Aucune communauté trouvée pour le moment</div>}
           </div>
         </div>

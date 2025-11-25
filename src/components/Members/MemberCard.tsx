@@ -73,7 +73,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
         )}
         <div className="member-info">
           <h3 className="member-name">{member.firstName} {member.lastName}</h3>
-          <p className="member-profession">{member.profession}</p>
+          <p className="member-profession break-words">{member.profession}</p>
         </div>
       </div>
 
@@ -89,7 +89,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
             {isRoleDropdownOpen && (
               <div className="role-dropdown">
                 <div 
-                  className={`role-option ${role === 'Admin' ? 'selected' : ''}`} 
+                  className={`role-option  ${role === 'Admin' ? 'selected' : ''}`} 
                   onClick={(e) => handleRoleSelect('admin', e)}
                 >
                   Admin
