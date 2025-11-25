@@ -169,6 +169,10 @@
   
 }
 
+.bigger-select {
+  min-width: 190px !important;
+}
+
 .filter-select:focus {
   outline: none;
   border-color: var(--primary, #5570F1);

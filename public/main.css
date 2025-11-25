@@ -1150,6 +1150,7 @@
     .members-header {
       display: flex;
       justify-content: space-between;
+      flex-wrap: wrap;
       align-items: center;
       padding: 12px 20px 8px 20px;
       border-bottom: 1px solid #F0F0F0;
@@ -3962,21 +3963,32 @@
       flex-shrink: 0;
     }
 
-    .filter-select {
-      padding: 0.6rem 0.75rem;
+    .filter-select  {
+      padding: 0.6rem 2.5rem 0.6rem 0.75rem;
       border: 1px solid var(--border);
       border-radius: 8px;
-      background: var(--card-bg);
+      background-repeat: no-repeat !important;
+      background-position: right 0.75rem center !important;
+      background-size: 12px !important;
       color: var(--text-main);
       font-size: 0.9rem;
       font-family: 'Poppins', sans-serif;
       transition: all 0.2s ease;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      cursor: pointer;
+      background: white !important;
+   
     }
+
+
 
     .filter-select:focus {
       border-color: var(--primary);
       outline: none;
       box-shadow: 0 0 0 3px rgba(123, 97, 191, 0.1);
+      -webkit-box-shadow: 0 0 0 3px rgba(123, 97, 191, 0.1);
     }
 
 

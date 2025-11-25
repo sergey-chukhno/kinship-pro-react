@@ -370,7 +370,7 @@ const Members: React.FC = () => {
               <select
                 value={competenceFilter}
                 onChange={(e) => setCompetenceFilter(e.target.value)}
-                className="filter-select !w-full"
+                className="filter-select  bigger-select"
               >
                 <option value="">Toutes les compétences</option>
                 {allCompetences.map(c => (
@@ -382,7 +382,7 @@ const Members: React.FC = () => {
               <select
                 value={availabilityFilter}
                 onChange={(e) => setAvailabilityFilter(e.target.value)}
-                className="filter-select !w-full"
+                className="filter-select  bigger-select"
               >
                 <option value="">Toutes les disponibilités</option>
                 {allAvailabilities.map(a => (
