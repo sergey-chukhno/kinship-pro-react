@@ -192,14 +192,14 @@ const Badges: React.FC = () => {
         </div>
 
         {/* Badge Cartography Header */}
-        <div className="cartography-header">
+         {/*<div className="cartography-header">
           <h2>
             {selectedSeries === 'CPS' 
               ? 'Cartographie des badges par domaine par série CPS'
               : 'Cartographie des badges par niveaux par série TouKouLeur'
             }
           </h2>
-        </div>
+        </div> */}
 
         {/* Badges Content - Organized by Levels/Domains */}
         <div className="badges-content">
@@ -214,7 +214,7 @@ const Badges: React.FC = () => {
                   )}
                   <span>{section.label}</span>
                 </div>
-                <div className="level-count">
+                <div className="level-count  bg-red-500">
                   {badgesByLevel[section.key]?.length || 0} badges
                 </div>
               </div>

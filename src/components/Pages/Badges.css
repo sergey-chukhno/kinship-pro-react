@@ -157,7 +157,7 @@
   padding: 16px 20px;
   background: var(--bg-primary, #f8fafc);
   border-radius: 12px;
-  border-left: 4px solid var(--primary, #5570F1);
+  /* border-left: 4px solid var(--primary, #5570F1); */
 }
 
 .level-title {

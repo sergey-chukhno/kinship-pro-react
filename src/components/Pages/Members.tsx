@@ -195,7 +195,7 @@ const Members: React.FC = () => {
   };
 
   const handleAddStudent = (studentData: Omit<Member, 'id'>) => {
-    showSuccess(`L'étudiant ${studentData.fullName} a été ajouté avec succès`);
+    // showSuccess(`L'étudiant ${studentData.fullName} a été ajouté avec succès`);
     setIsAddModalOpen(false);
   };
 
@@ -259,7 +259,7 @@ const Members: React.FC = () => {
       }
 
       await addSchoolLevel(contextId, levelData);
-      showSuccess(`La classe ${levelData.level.name} a été ajoutée avec succès`);
+      // showSuccess(`La classe ${levelData.level.name} a été ajoutée avec succès`);
       
       // Refresh the levels list after adding a new one
       await fetchLevels();
@@ -282,6 +282,12 @@ const Members: React.FC = () => {
         </div>
         <div className="page-actions">
           <div className="action-group">
+          <div className="">
+              <button className="btn btn-outline" onClick={handleMembershipRequests}>
+                <i className="fas fa-user-plus"></i>
+                Gérer demandes d'adhésion
+              </button>
+            </div>
             <div className="dropdown-container" ref={dropdownRef}>
               <button
                 className="btn btn-outline"
@@ -350,7 +356,7 @@ const Members: React.FC = () => {
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="filter-select !w-full"
+                className="filter-select !w-full !bg-white"
               >
                 <option value="">Tous les rôles</option>
                 <option value="Admin">Admin</option>
@@ -386,12 +392,7 @@ const Members: React.FC = () => {
             </div>
           </div>
           <div className='min-h-[65vh]'>
-            <div className="">
-              <button className="view-btn" onClick={handleMembershipRequests}>
-                <i className="fas fa-user-plus"></i>
-                Gérer demandes d'adhésion
-              </button>
-            </div>
+    
 
             <div className="members-grid">
               {filteredMembers.length > 0 ? filteredMembers.map((member) => {
