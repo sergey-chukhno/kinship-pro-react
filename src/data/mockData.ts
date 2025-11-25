@@ -903,18 +903,18 @@ export const mockClassLists: ClassList[] = [
     id: '1',
     name: 'Promotion 2024',
     teacher: 'Mme Dupont',
-    studentCount: 25
+    students_count: 25
   },
   {
     id: '2',
     name: 'Promotion 2023',
     teacher: 'M. Martin',
-    studentCount: 30
+    students_count: 30
   },
   {
     id: '3',
     name: 'Promotion 2022',
     teacher: 'Mme Leroy',
-    studentCount: 28
+    students_count: 28
   }
 ];

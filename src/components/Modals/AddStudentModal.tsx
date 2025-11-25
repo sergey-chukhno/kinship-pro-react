@@ -3,7 +3,7 @@ import { Member } from '../../types';
 import './Modal.css';
 import { getCurrentUser } from '../../api/Authentication';
 import { getPersonalUserRoles } from '../../api/RegistrationRessource';
-import { createSchoolStudent } from '../../api/SchoolDashboard/Members';
+import { getSchoolLevels, createLevelStudent } from '../../api/SchoolDashboard/Levels';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import QRCodePrintModal from './QRCodePrintModal';
@@ -35,8 +35,11 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    email: '',
     birthday: '',
-    role: '',
+    role: 'member',
+    roleAdditionalInfo: '',
+    levelId: '',
     avatar: ''
   });
 
@@ -45,6 +48,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
   // State pour les données API
   const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]);
+  const [levels, setLevels] = useState<{ id: number; name: string; level: string }[]>([]);
 
   // State pour le QR Code
   const [showQRCodeModal, setShowQRCodeModal] = useState<boolean>(false);
@@ -52,10 +56,15 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Chargement des Roles au montage
+  // Chargement des Roles et Levels au montage
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // 1. Récupérer le schoolId
+        const currentUser = await getCurrentUser();
+        const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+
+        // 2. Charger les rôles
         const rolesRes = await getPersonalUserRoles();
         const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
         if (Array.isArray(rolesData)) {
@@ -65,11 +74,30 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             setFormData(prev => ({ ...prev, role: rolesData[0].value }));
           }
         }
+
+        // 3. Charger les levels/classes
+        if (schoolId) {
+          const levelsRes = await getSchoolLevels(Number(schoolId), 1, 100);
+          const levelsData = levelsRes?.data?.data ?? levelsRes?.data ?? [];
+          if (Array.isArray(levelsData)) {
+            setLevels(levelsData.map((l: any) => ({
+              id: l.id,
+              name: l.name,
+              level: l.level
+            })));
+            // Sélectionner le premier level par défaut
+            if (levelsData.length > 0) {
+              setFormData(prev => ({ ...prev, levelId: levelsData[0].id.toString() }));
+            }
+          }
+        }
       } catch (error) {
-        console.error("Erreur chargement données (roles)", error);
+        console.error("Erreur chargement données (roles/levels)", error);
+        showError("Erreur lors du chargement des données");
       }
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -143,8 +171,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.firstName || !formData.lastName || !formData.birthday) {
-      alert('Prénom, nom et date de naissance sont obligatoires');
+    if (!formData.firstName || !formData.lastName || !formData.birthday || !formData.levelId) {
+      showError('Prénom, nom, date de naissance et classe sont obligatoires');
       return;
     }
 
@@ -160,15 +188,25 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
       // 2. Préparation du payload
       const apiPayload = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        birthday: formData.birthday,
-        user_role: formData.role,
-        role: "member"
+        student: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email || undefined,
+          birthday: formData.birthday,
+          role: formData.role,
+          role_additional_information: formData.role || undefined
+        }
       };
 
+      console.log('Payload envoyé:', apiPayload);
+      console.log('SchoolId:', schoolId, 'LevelId:', formData.levelId);
+
       // 3. Envoi de la requête
-      const response = await createSchoolStudent(Number(schoolId), apiPayload);
+      const response = await createLevelStudent(
+        Number(schoolId),
+        Number(formData.levelId),
+        apiPayload
+      );
       
       console.log('Response complète:', response);
       console.log('Response data:', response.data);
@@ -188,10 +226,11 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       );
 
       const memberData = {
-        ...formData,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         avatar: finalAvatar,
-        email: response.data?.data?.email || '',
-        profession: '',
+        email: response.data?.data?.email || formData.email || '',
+        profession: formData.roleAdditionalInfo || '',
         roles: [formData.role],
         skills: [],
         availability: [],
@@ -201,7 +240,11 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         canProposeStage: false,
         canProposeAtelier: false,
         claimToken: claimToken,
-        hasTemporaryEmail: response.data?.data?.has_temporary_email || false
+        hasTemporaryEmail: response.data?.data?.has_temporary_email || false,
+        birthday: formData.birthday,
+        role: formData.role,
+        levelId: formData.levelId,
+        roleAdditionalInfo: formData.roleAdditionalInfo
       };
 
       onAdd(memberData);
@@ -330,7 +373,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
               />
             </div>
             <div className="form-group">
-              <label htmlFor="lastName">Date de naissance *</label>
+              <label htmlFor="birthday">Date de naissance *</label>
               <input
                 type="date"
                 id="birthday"
@@ -343,14 +386,38 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
               />
             </div>
 
+
+            <div className="form-group">
+              <label htmlFor="levelId">Classe *</label>
+              <select
+                id="levelId"
+                name="levelId"
+                value={formData.levelId || ''}
+                onChange={handleInputChange}
+                required
+                className="form-select"
+              >
+                {levels.length > 0 ? (
+                  levels.map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {level.name} - {level.level}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Chargement des classes...</option>
+                )}
+              </select>
+            </div>
+
             {/* Remplacement du Select Statique par les données de l'API */}
             <div className="form-group">
-              <label htmlFor="role">Rôle</label>
+              <label htmlFor="role">Rôle *</label>
               <select
                 id="role"
                 name="role"
                 value={formData.role || ''}
                 onChange={handleInputChange}
+                required
                 className="form-select"
               >
                 {apiRoles.length > 0 ? (

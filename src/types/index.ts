@@ -18,6 +18,10 @@ export interface Member {
   canProposeAtelier?: boolean;
   claimToken?: string; // Token for student QR code
   hasTemporaryEmail?: boolean; // Indicates if email is temporary
+  birthday?: string; // Date de naissance
+  role?: string; // Rôle unique (pour les étudiants)
+  levelId?: string; // ID de la classe/level
+  roleAdditionalInfo?: string; // Information complémentaire sur le rôle
 }
 
 export interface Badge {
@@ -225,5 +229,5 @@ export interface ClassList {
   name: string;
   level?: string;
   teacher?: string;
-  studentCount?: number;
+  students_count?: number;
 }

@@ -439,7 +439,7 @@ const Members: React.FC = () => {
                 key={classItem?.id}
                 name={classItem?.name}
                 teacher={classItem?.teacher || ''}
-                studentCount={classItem?.studentCount || 0}
+                studentCount={classItem?.students_count || 0}
                 level={classItem?.level || ''}
               />
             ))
