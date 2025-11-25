@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './UserHeader.css';
@@ -14,11 +15,13 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const user = state.user;
+  const navigate = useNavigate();
 
   const organisations = mockOrganizationLists;
 
   const handlePageChange = (page: PageType) => {
     onPageChange(page);
+    navigate(`/${page}`);
     setOpen(false);
   };
 
@@ -40,7 +43,10 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
 
   return (
     <header className="user-header">
-      <div className="user-header-left" onClick={() => onPageChange('projects')}>
+      <div className="user-header-left" onClick={() => {
+        onPageChange('projects');
+        navigate('/projects');
+      }}>
         <img src="./icons_logo/Property 1=Logo Kinship user.svg" alt="Logo" className="user-logo" />
       </div>
 

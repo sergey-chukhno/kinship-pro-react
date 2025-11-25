@@ -15,6 +15,7 @@ import { getSchoolMembersAccepted, updateSchoolMemberRole } from '../../api/Scho
 import AddClassModal from '../Modals/AddClassModal';
 import { getSchoolLevels, addSchoolLevel } from '../../api/SchoolDashboard/Levels';
 import { useToast } from '../../hooks/useToast';
+import AddStudentModal from '../Modals/AddStudentModal';
 
 
 const Members: React.FC = () => {
@@ -193,6 +194,11 @@ const Members: React.FC = () => {
     setIsAddModalOpen(false);
   };
 
+  const handleAddStudent = (studentData: Omit<Member, 'id'>) => {
+    // showSuccess(`L'étudiant ${studentData.fullName} a été ajouté avec succès`);
+    setIsAddModalOpen(false);
+  };
+
   const handleUpdateMember = (id: string, updates: Partial<Member>) => {
     updateMember(id, updates);
     if (selectedMember?.id === id) setSelectedMember({ ...selectedMember, ...updates });
@@ -253,7 +259,7 @@ const Members: React.FC = () => {
       }
 
       await addSchoolLevel(contextId, levelData);
-      showSuccess(`La classe ${levelData.level.name} a été ajoutée avec succès`);
+      // showSuccess(`La classe ${levelData.level.name} a été ajoutée avec succès`);
       
       // Refresh the levels list after adding a new one
       await fetchLevels();
@@ -276,6 +282,12 @@ const Members: React.FC = () => {
         </div>
         <div className="page-actions">
           <div className="action-group">
+          <div className="">
+              <button className="btn btn-outline" onClick={handleMembershipRequests}>
+                <i className="fas fa-user-plus"></i>
+                Gérer demandes d'adhésion
+              </button>
+            </div>
             <div className="dropdown-container" ref={dropdownRef}>
               <button
                 className="btn btn-outline"
@@ -298,7 +310,7 @@ const Members: React.FC = () => {
             </div>
           </div>
           <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-            <i className="fas fa-plus"></i> Ajouter un membre
+            <i className="fas fa-plus"></i> {(state.showingPageType === 'edu' || state.showingPageType === 'teacher' )? 'Ajouter un étudiant' : 'Ajouter un membre'}
           </button>
         </div>
       </div>
@@ -344,7 +356,7 @@ const Members: React.FC = () => {
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
-                className="filter-select !w-full"
+                className="filter-select !w-full !bg-white"
               >
                 <option value="">Tous les rôles</option>
                 <option value="Admin">Admin</option>
@@ -358,7 +370,7 @@ const Members: React.FC = () => {
               <select
                 value={competenceFilter}
                 onChange={(e) => setCompetenceFilter(e.target.value)}
-                className="filter-select !w-full"
+                className="filter-select  bigger-select"
               >
                 <option value="">Toutes les compétences</option>
                 {allCompetences.map(c => (
@@ -370,7 +382,7 @@ const Members: React.FC = () => {
               <select
                 value={availabilityFilter}
                 onChange={(e) => setAvailabilityFilter(e.target.value)}
-                className="filter-select !w-full"
+                className="filter-select  bigger-select"
               >
                 <option value="">Toutes les disponibilités</option>
                 {allAvailabilities.map(a => (
@@ -380,12 +392,7 @@ const Members: React.FC = () => {
             </div>
           </div>
           <div className='min-h-[65vh]'>
-            <div className="">
-              <button className="view-btn" onClick={handleMembershipRequests}>
-                <i className="fas fa-user-plus"></i>
-                Gérer demandes d'adhésion
-              </button>
-            </div>
+    
 
             <div className="members-grid">
               {filteredMembers.length > 0 ? filteredMembers.map((member) => {
@@ -472,9 +479,14 @@ const Members: React.FC = () => {
         />
       )}
 
-      {isAddModalOpen && (
+      {isAddModalOpen && state.showingPageType !== 'edu' && state.showingPageType !== 'teacher' && (
         <AddMemberModal onClose={() => setIsAddModalOpen(false)} onAdd={handleAddMember} />
       )}
+
+      {isAddModalOpen && (state.showingPageType === 'edu' || state.showingPageType === 'teacher') && (
+        <AddStudentModal onClose={() => setIsAddModalOpen(false)} onAdd={handleAddStudent} />
+      )}
+
 
       {isContactModalOpen && (
         <ContactModal email={contactEmail} onClose={() => setIsContactModalOpen(false)} />

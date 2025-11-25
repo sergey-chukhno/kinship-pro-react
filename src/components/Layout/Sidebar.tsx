@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './Sidebar.css';
@@ -14,6 +15,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const organisations = mockOrganizationLists;
+  const navigate = useNavigate();
 
   const navigationItems = [
     { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
@@ -64,13 +66,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           ) : (
             <a
               key={item.id}
-              href={`#${item.id}`}
+              href={`/${item.id}`}
               data-target={item.id}
               className={`side-link ${currentPage === item.id ? 'active' : ''}`}
               aria-current={currentPage === item.id ? 'page' : undefined}
               onClick={(e) => {
                 e.preventDefault();
                 onPageChange(item.id);
+                navigate(`/${item.id}`);
               }}
             >
               <img src={item.icon} alt={item.label} className="side-icon" />
@@ -82,13 +85,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         <hr className="side-divider" aria-hidden="true" />
 
         <a
-          href="#notifications"
+          href="/notifications"
           data-target="notifications"
           className={`side-link notifications ${currentPage === 'notifications' ? 'active' : ''}`}
           aria-current={currentPage === 'notifications' ? 'page' : undefined}
           onClick={(e) => {
             e.preventDefault();
             onPageChange('notifications');
+            navigate('/notifications');
           }}
         >
           <span className="icon-with-dot">
@@ -142,7 +146,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 </div>
               ))}
             </div>
-            <button type="button" className="menu-item" onClick={() => onPageChange('settings')}>
+            <button type="button" className="menu-item" onClick={() => {
+              onPageChange('settings');
+              navigate('/settings');
+            }}>
               <i className="fas fa-cog"></i> Paramètres
             </button>
             <button type="button" className="menu-item" onClick={() => console.log('Logout')}>

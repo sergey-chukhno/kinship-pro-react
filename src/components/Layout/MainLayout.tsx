@@ -21,10 +21,21 @@ import { useAuthInit } from '../../hooks/useAuthInit';
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
 
-  useAuthInit();
+  const { isAuthChecking } = useAuthInit();
 
-  // Gérer les changements de showingPageType
+  // Initialiser les couleurs à des valeurs neutres au démarrage
   useEffect(() => {
+    const root = document.documentElement;
+    // Définir des couleurs neutres par défaut pour éviter tout flash
+    root.style.setProperty("--primary", "#6b7280");
+    root.style.setProperty("--hover-primary", "#4b5563");
+  }, []);
+
+  // Gérer les changements de showingPageType (pour les changements après l'init)
+  useEffect(() => {
+    // Ne pas appliquer pendant le chargement initial (géré par useAuthInit)
+    if (isAuthChecking) return;
+
     const root = document.documentElement;
     console.log("Current showingPageType:", state.showingPageType);
 
@@ -41,12 +52,11 @@ const MainLayout: React.FC = () => {
       root.style.setProperty("--hover-primary", "#e59400ff");
     }
     else if (state.showingPageType === "user") {
-      setCurrentPage('projects'); // Rediriger vers 'projects' pour user
       root.style.setProperty("--primary", "#db087cff"); // rose pour user
       root.style.setProperty("--hover-primary", "#b20666ff");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType]); // Cette dépendance permet de réagir aux changements de showingPageType
+  }, [state.showingPageType, isAuthChecking]); // Réagir aux changements de showingPageType et isAuthChecking
 
 
   /*
@@ -60,6 +70,29 @@ const MainLayout: React.FC = () => {
   */
 
   const renderCurrentPage = () => {
+    // Afficher un loader pendant la vérification de l'authentification
+    if (isAuthChecking) {
+      return (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          width: '100%',
+          background: '#ffffff'
+        }}>
+          <div className="loader" style={{
+            border: '4px solid #f3f3f3',
+            borderTop: '4px solid #6b7280',
+            borderRadius: '50%',
+            width: '50px',
+            height: '50px',
+            animation: 'spin 1s linear infinite'
+          }} />
+        </div>
+      );
+    }
+
     switch (state.currentPage) {
       case 'Auth':
         return <AuthPage />;
@@ -103,25 +136,30 @@ const MainLayout: React.FC = () => {
 
         {/* Routes principales de l'application */}
         <Route path="*" element={
-          <>
-            {state.showingPageType === 'user' && state.currentPage !== 'Auth' && (
-              <UserHeader currentPage={state.currentPage} onPageChange={setCurrentPage} />
-            )}
-
-            <div
-              className={`app-body ${
-                state.showingPageType === 'user' ? 'no-sidebar' : 'with-sidebar'
-              }`}
-            >
-              {state.showingPageType !== 'user' && state.currentPage !== 'Auth' && (
-                <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
+          isAuthChecking ? (
+            // Afficher uniquement le loader pendant la vérification
+            renderCurrentPage()
+          ) : (
+            <>
+              {state.showingPageType === 'user' && state.currentPage !== 'Auth' && (
+                <UserHeader currentPage={state.currentPage} onPageChange={setCurrentPage} />
               )}
 
-              <main className="dashboard app-layout">
-                {renderCurrentPage()}
-              </main>
-            </div>
-          </>
+              <div
+                className={`app-body ${
+                  state.showingPageType === 'user' ? 'no-sidebar' : 'with-sidebar'
+                }`}
+              >
+                {state.showingPageType !== 'user' && state.currentPage !== 'Auth' && (
+                  <Sidebar currentPage={state.currentPage} onPageChange={setCurrentPage} />
+                )}
+
+                <main className="dashboard app-layout">
+                  {renderCurrentPage()}
+                </main>
+              </div>
+            </>
+          )
         } />
       </Routes>
     </div>

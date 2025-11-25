@@ -166,6 +166,11 @@
   font-size: 0.9rem;
   cursor: pointer;
   width: 100%;
+  
+}
+
+.bigger-select {
+  min-width: 190px !important;
 }
 
 .filter-select:focus {

@@ -79,7 +79,10 @@
   color: var(--text-primary, #374151);
   cursor: pointer;
   transition: border-color 0.2s ease;
-  min-width: 140px;
+  min-width: 160px !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
 }
 
 .filter-select:focus {
@@ -157,7 +160,7 @@
   padding: 16px 20px;
   background: var(--bg-primary, #f8fafc);
   border-radius: 12px;
-  border-left: 4px solid var(--primary, #5570F1);
+  /* border-left: 4px solid var(--primary, #5570F1); */
 }
 
 .level-title {

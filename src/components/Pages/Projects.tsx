@@ -169,10 +169,10 @@ const Projects: React.FC = () => {
   });
 
   return (
-    <section className="projects-container with-sidebar">
+    <section className="flex flex-col p-8 gap-12 with-sidebar">
       {/* Section Title + Actions */}
-      <div className="section-title-row">
-        <div className="section-title-left">
+      <div className="flex justify-between items-start">
+        <div className="section-title-left flex items-center gap-2 w-full">
           <img src="/icons_logo/Icon=projet.svg" alt="Projets" className="section-icon" />
           <h2>Gestion des projets</h2>
         </div>
