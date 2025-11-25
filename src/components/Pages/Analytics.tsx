@@ -60,25 +60,25 @@ const Analytics: React.FC = () => {
       { name: 'Niveau 3', value: 22, percentage: 14.1 }
     ],
     radarData: [
-      { 
-        level: 'Niveau 1', 
-        competencies: ['Communication', 'Coopération', 'Créativité'], 
-        badgesAttributed: 45 
+      {
+        level: 'Niveau 1',
+        competencies: ['Communication', 'Coopération', 'Créativité'],
+        badgesAttributed: 45
       },
-      { 
-        level: 'Niveau 2', 
-        competencies: ['Adaptabilité', 'Engagement', 'Formation'], 
-        badgesAttributed: 38 
+      {
+        level: 'Niveau 2',
+        competencies: ['Adaptabilité', 'Engagement', 'Formation'],
+        badgesAttributed: 38
       },
-      { 
-        level: 'Niveau 3', 
-        competencies: ['Esprit Critique', 'Gestion de Projet', 'Innovation'], 
-        badgesAttributed: 35 
+      {
+        level: 'Niveau 3',
+        competencies: ['Esprit Critique', 'Gestion de Projet', 'Innovation'],
+        badgesAttributed: 35
       },
-      { 
-        level: 'Niveau 4', 
-        competencies: ['Leadership', 'Stratégie', 'Mentorat'], 
-        badgesAttributed: 38 
+      {
+        level: 'Niveau 4',
+        competencies: ['Leadership', 'Stratégie', 'Mentorat'],
+        badgesAttributed: 38
       }
     ]
   };
@@ -136,7 +136,7 @@ const Analytics: React.FC = () => {
               const circumference = 2 * Math.PI * 80;
               const strokeDasharray = `${(item.percentage / 100) * circumference} ${circumference}`;
               const strokeDashoffset = data.slice(0, index).reduce((acc, prev) => acc - (prev.percentage / 100) * circumference, 0);
-              
+
               return (
                 <circle
                   key={item.name}
@@ -170,8 +170,8 @@ const Analytics: React.FC = () => {
         </div>
         <div className="donut-legend">
           {data.map((item, index) => (
-            <div 
-              key={item.name} 
+            <div
+              key={item.name}
               className={`legend-item ${hoveredItem?.name === item.name ? 'hovered' : ''}`}
               onMouseEnter={() => setHoveredItem(item)}
               onMouseLeave={() => setHoveredItem(null)}
@@ -184,7 +184,7 @@ const Analytics: React.FC = () => {
           ))}
         </div>
         {hoveredItem && (
-          <div 
+          <div
             className="chart-tooltip"
             style={{
               left: mousePosition.x + 10,
@@ -214,15 +214,15 @@ const Analytics: React.FC = () => {
             const value = item.projects || item.badges || 0;
             const maxValue = Math.max(...data.map(d => d.projects || d.badges || 0));
             const width = (value / maxValue) * 100;
-            
+
             return (
               <div key={index} className="bar-item-horizontal">
                 <div className="bar-label-horizontal">{item.month}</div>
                 <div className="bar-wrapper-horizontal">
-                  <div 
-                    className="bar-horizontal" 
-                    style={{ 
-                      width: `${width}%`, 
+                  <div
+                    className="bar-horizontal"
+                    style={{
+                      width: `${width}%`,
                       backgroundColor: barColors[index % barColors.length],
                       minWidth: value > 0 ? '30px' : '0px'
                     }}
@@ -243,7 +243,7 @@ const Analytics: React.FC = () => {
           })}
         </div>
         {hoveredItem && (
-          <div 
+          <div
             className="chart-tooltip"
             style={{
               left: mousePosition.x + 10,
@@ -268,11 +268,11 @@ const Analytics: React.FC = () => {
           {/* Grid lines */}
           <defs>
             <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#f3f4f6" strokeWidth="0.2"/>
+              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#f3f4f6" strokeWidth="0.2" />
             </pattern>
           </defs>
           <rect width="100" height="100" fill="url(#grid)" />
-          
+
           {/* Area under the line */}
           <polygon
             fill={`${color}20`}
@@ -284,7 +284,7 @@ const Analytics: React.FC = () => {
               return `${x},${y}`;
             }).join(' ')} 100,100`}
           />
-          
+
           {/* Main line */}
           <polyline
             fill="none"
@@ -317,9 +317,9 @@ const Analytics: React.FC = () => {
             onMouseLeave={() => setHoveredItem(null)}
             style={{ cursor: 'pointer' }}
           />
-          
+
         </svg>
-        
+
         {/* X-axis labels */}
         <div className="line-chart-x-axis">
           {data.map((item, index) => (
@@ -328,9 +328,9 @@ const Analytics: React.FC = () => {
             </div>
           ))}
         </div>
-        
+
         {hoveredItem && (
-          <div 
+          <div
             className="chart-tooltip"
             style={{
               left: mousePosition.x + 10,
@@ -365,7 +365,7 @@ const Analytics: React.FC = () => {
     });
 
     // Create path for the radar shape
-    const pathData = points.map((point, index) => 
+    const pathData = points.map((point, index) =>
       `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
     ).join(' ') + ' Z';
 
@@ -384,7 +384,7 @@ const Analytics: React.FC = () => {
               strokeWidth="0.2"
             />
           ))}
-          
+
           {/* Subtle grid lines from center to each level */}
           {points.map((point, index) => (
             <line
@@ -397,14 +397,14 @@ const Analytics: React.FC = () => {
               strokeWidth="0.2"
             />
           ))}
-          
+
           {/* Area fill */}
           <polygon
             points={points.map(p => `${p.x},${p.y}`).join(' ')}
             fill="rgba(85, 112, 241, 0.15)"
             stroke="none"
           />
-          
+
           {/* Main radar line - thinner and more subtle */}
           <path
             d={pathData}
@@ -424,7 +424,7 @@ const Analytics: React.FC = () => {
             onMouseLeave={() => setHoveredItem(null)}
             style={{ cursor: 'pointer' }}
           />
-          
+
           {/* Level labels */}
           {points.map((point, index) => (
             <text
@@ -442,9 +442,9 @@ const Analytics: React.FC = () => {
             </text>
           ))}
         </svg>
-        
+
         {hoveredItem && (
-          <div 
+          <div
             className="chart-tooltip"
             style={{
               left: mousePosition.x + 10,
@@ -466,8 +466,8 @@ const Analytics: React.FC = () => {
         {/* Section Title + Actions */}
         <div className="section-title-row">
           <div className="section-title-left">
-            <img src="/icons_logo/Icon=Analytics.svg" alt="Analytics" className="section-icon" />
-            <h2>Analytics</h2>
+            <img src="/icons_logo/Icon=Analytics.svg" alt="Statistiques et KPI" className="section-icon" />
+            <h2>Statistiques et KPI</h2>
           </div>
           <div className="analytics-actions">
             <button className="btn btn-outline" onClick={() => console.log('Export analytics')}>
@@ -476,152 +476,152 @@ const Analytics: React.FC = () => {
           </div>
         </div>
 
-      <div className="analytics-tabs">
-        <button 
-          className={`tab-button ${activeTab === 'projects' ? 'active' : ''}`}
-          onClick={() => setActiveTab('projects')}
-        >
-          Projets
-        </button>
-        <button 
-          className={`tab-button ${activeTab === 'badges' ? 'active' : ''}`}
-          onClick={() => setActiveTab('badges')}
-        >
-          Badges
-        </button>
-      </div>
-
-      {activeTab === 'projects' && (
-        <div className="analytics-content">
-          <div className="analytics-stats">
-            <StatCard
-              title="Projets totaux"
-              value={projectsData.totalProjects}
-              subtitle={`${projectsData.activeProjects} actifs`}
-              icon="/icons_logo/Icon=Projet grand.svg"
-              color="#5570F1"
-              iconType="image"
-            />
-            <StatCard
-              title="Participants"
-              value={projectsData.totalParticipants}
-              subtitle="Membres impliqués"
-              icon="/icons_logo/Icon=Membres grand.svg"
-              color="#10B981"
-              iconType="image"
-            />
-            <StatCard
-              title="Durée moyenne"
-              value={`${projectsData.averageDuration} mois`}
-              subtitle="Par projet"
-              icon="fas fa-clock"
-              color="#F59E0B"
-            />
-            <StatCard
-              title="Taux de réussite"
-              value={`${projectsData.successRate}%`}
-              subtitle="Projets terminés"
-              icon="fas fa-trophy"
-              color="#EF4444"
-            />
-          </div>
-
-          <div className="analytics-charts">
-            <ChartCard title="Répartition par parcours">
-              <DonutChart 
-                data={projectsData.pathwayDistribution} 
-                colors={['#5570F1', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4', '#84CC16']}
-              />
-            </ChartCard>
-
-            <ChartCard title="Évolution mensuelle">
-              <BarChart 
-                data={projectsData.monthlyTrend} 
-                color="#5570F1"
-              />
-            </ChartCard>
-
-            <ChartCard title="Statut des projets">
-              <DonutChart 
-                data={projectsData.statusDistribution} 
-                colors={['#F59E0B', '#5570F1', '#10B981']}
-              />
-            </ChartCard>
-
-            <ChartCard title="Tendance de création par mois">
-              <LineChart 
-                data={projectsData.monthlyTrend} 
-                color="#5570F1"
-              />
-            </ChartCard>
-          </div>
+        <div className="analytics-tabs">
+          <button
+            className={`tab-button ${activeTab === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveTab('projects')}
+          >
+            Projets
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'badges' ? 'active' : ''}`}
+            onClick={() => setActiveTab('badges')}
+          >
+            Badges
+          </button>
         </div>
-      )}
 
-      {activeTab === 'badges' && (
-        <div className="analytics-content">
-          <div className="analytics-stats">
-            <StatCard
-              title="Badges totaux"
-              value={badgesData.totalBadges}
-              subtitle={`${badgesData.badgesAwarded} attribués`}
-              icon="/icons_logo/Icon=Badges.svg"
-              color="#5570F1"
-              iconType="image"
-            />
-            <StatCard
-              title="Moyenne par membre"
-              value={badgesData.averagePerMember}
-              subtitle="Badges par personne"
-              icon="fas fa-user-graduate"
-              color="#10B981"
-            />
-            <StatCard
-              title="Taux de complétion"
-              value={`${badgesData.completionRate}%`}
-              subtitle="Badges validés"
-              icon="fas fa-check-circle"
-              color="#F59E0B"
-            />
-            <StatCard
-              title="Attributions ce mois"
-              value="28"
-              subtitle="Nouveaux badges"
-              icon="fas fa-star"
-              color="#EF4444"
-            />
-          </div>
-
-          <div className="analytics-charts">
-            <ChartCard title="Répartition par série">
-              <DonutChart 
-                data={badgesData.seriesDistribution} 
-                colors={['#5570F1', '#10B981', '#F59E0B']}
+        {activeTab === 'projects' && (
+          <div className="analytics-content">
+            <div className="analytics-stats">
+              <StatCard
+                title="Projets totaux"
+                value={projectsData.totalProjects}
+                subtitle={`${projectsData.activeProjects} actifs`}
+                icon="/icons_logo/Icon=Projet grand.svg"
+                color="#5570F1"
+                iconType="image"
               />
-            </ChartCard>
+              <StatCard
+                title="Participants"
+                value={projectsData.totalParticipants}
+                subtitle="Membres impliqués"
+                icon="/icons_logo/Icon=Membres grand.svg"
+                color="#10B981"
+                iconType="image"
+              />
+              <StatCard
+                title="Durée moyenne"
+                value={`${projectsData.averageDuration} mois`}
+                subtitle="Par projet"
+                icon="fas fa-clock"
+                color="#F59E0B"
+              />
+              <StatCard
+                title="Taux de réussite"
+                value={`${projectsData.successRate}%`}
+                subtitle="Projets terminés"
+                icon="fas fa-trophy"
+                color="#EF4444"
+              />
+            </div>
 
-            <ChartCard title="Attributions mensuelles">
-              <BarChart 
-                data={badgesData.monthlyAttributions} 
+            <div className="analytics-charts">
+              <ChartCard title="Répartition par parcours">
+                <DonutChart
+                  data={projectsData.pathwayDistribution}
+                  colors={['#5570F1', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4', '#84CC16']}
+                />
+              </ChartCard>
+
+              <ChartCard title="Évolution mensuelle">
+                <BarChart
+                  data={projectsData.monthlyTrend}
+                  color="#5570F1"
+                />
+              </ChartCard>
+
+              <ChartCard title="Statut des projets">
+                <DonutChart
+                  data={projectsData.statusDistribution}
+                  colors={['#F59E0B', '#5570F1', '#10B981']}
+                />
+              </ChartCard>
+
+              <ChartCard title="Tendance de création par mois">
+                <LineChart
+                  data={projectsData.monthlyTrend}
+                  color="#5570F1"
+                />
+              </ChartCard>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'badges' && (
+          <div className="analytics-content">
+            <div className="analytics-stats">
+              <StatCard
+                title="Badges totaux"
+                value={badgesData.totalBadges}
+                subtitle={`${badgesData.badgesAwarded} attribués`}
+                icon="/icons_logo/Icon=Badges.svg"
+                color="#5570F1"
+                iconType="image"
+              />
+              <StatCard
+                title="Moyenne par membre"
+                value={badgesData.averagePerMember}
+                subtitle="Badges par personne"
+                icon="fas fa-user-graduate"
                 color="#10B981"
               />
-            </ChartCard>
-
-            <ChartCard title="Compétences par niveau">
-              <RadarChart 
-                data={badgesData.radarData}
+              <StatCard
+                title="Taux de complétion"
+                value={`${badgesData.completionRate}%`}
+                subtitle="Badges validés"
+                icon="fas fa-check-circle"
+                color="#F59E0B"
               />
-            </ChartCard>
-
-            <ChartCard title="Tendance d'attribution">
-              <LineChart 
-                data={badgesData.monthlyAttributions} 
-                color="#10B981"
+              <StatCard
+                title="Attributions ce mois"
+                value="28"
+                subtitle="Nouveaux badges"
+                icon="fas fa-star"
+                color="#EF4444"
               />
-            </ChartCard>
+            </div>
+
+            <div className="analytics-charts">
+              <ChartCard title="Répartition par série">
+                <DonutChart
+                  data={badgesData.seriesDistribution}
+                  colors={['#5570F1', '#10B981', '#F59E0B']}
+                />
+              </ChartCard>
+
+              <ChartCard title="Attributions mensuelles">
+                <BarChart
+                  data={badgesData.monthlyAttributions}
+                  color="#10B981"
+                />
+              </ChartCard>
+
+              <ChartCard title="Compétences par niveau">
+                <RadarChart
+                  data={badgesData.radarData}
+                />
+              </ChartCard>
+
+              <ChartCard title="Tendance d'attribution">
+                <LineChart
+                  data={badgesData.monthlyAttributions}
+                  color="#10B981"
+                />
+              </ChartCard>
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </section>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
@@ -11,8 +11,9 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
-  const { state , setShowingPageType } = useAppContext();
+  const { state, setShowingPageType } = useAppContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const organisations = mockOrganizationLists;
   const navigate = useNavigate();
 
@@ -23,13 +24,29 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     { id: 'projects' as PageType, label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
     { id: 'badges' as PageType, label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
     ...(state.showingPageType !== 'teacher'
-      ? [{ id: 'analytics' as PageType, label: 'Analytics', icon: '/icons_logo/Icon=Analytics.svg' }]
+      ? [{ id: 'analytics' as PageType, label: 'Statistiques et KPI', icon: '/icons_logo/Icon=Analytics.svg' }]
       : []),
     { id: 'network' as PageType, label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' }
   ];
 
 
   const unreadNotifications = state.notifications.filter(n => !n.isRead).length;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   return (
     <aside className="sidebar" role="navigation" aria-label="Sidebar">
@@ -38,7 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         {state.showingPageType === "edu" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo" />}
         {state.showingPageType === "teacher" && <img src="/icons_logo/Property 1=Logo Kinship teacher.svg" alt="Kinship Teacher" className="sidebar-logo" />}
       </div>
-      
+
       <nav className="side-nav">
         {navigationItems.map((item) => (
           item.disabled ? (
@@ -47,26 +64,26 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
               {item.label}
             </div>
           ) : (
-          <a
-            key={item.id}
-            href={`/${item.id}`}
-            data-target={item.id}
-            className={`side-link ${currentPage === item.id ? 'active' : ''}`}
-            aria-current={currentPage === item.id ? 'page' : undefined}
-            onClick={(e) => {
-              e.preventDefault();
-              onPageChange(item.id);
-              navigate(`/${item.id}`);
-            }}
-          >
-            <img src={item.icon} alt={item.label} className="side-icon" />
-            {item.label}
-          </a>
+            <a
+              key={item.id}
+              href={`/${item.id}`}
+              data-target={item.id}
+              className={`side-link ${currentPage === item.id ? 'active' : ''}`}
+              aria-current={currentPage === item.id ? 'page' : undefined}
+              onClick={(e) => {
+                e.preventDefault();
+                onPageChange(item.id);
+                navigate(`/${item.id}`);
+              }}
+            >
+              <img src={item.icon} alt={item.label} className="side-icon" />
+              {item.label}
+            </a>
           )
         ))}
-        
+
         <hr className="side-divider" aria-hidden="true" />
-        
+
         <a
           href="/notifications"
           data-target="notifications"
@@ -90,21 +107,25 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           )}
         </a>
       </nav>
-      
+
       <div className="sidebar-footer">
-        <div className={`user-profile dropdown ${isDropdownOpen ? 'open' : ''}`} id="adminDropdown">
+        <div
+          className={`user-profile dropdown ${isDropdownOpen ? 'open' : ''}`}
+          id="adminDropdown"
+          ref={dropdownRef}
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+        >
           <img src={state.user.avatar} alt="Profile" className="avatar" />
           <div className="user-info">
             <div className="user-name">{state.user.name}</div>
             <div className="user-role">{state.user.role}</div>
           </div>
-          <span 
+          <span
             className="dropdown-icon"
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
             <img src="/icons_logo/Icon=Chevron droit.svg" alt="Ouvrir" className="chevron-icon" />
           </span>
-          <div className="dropdown-menu">
+          <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
             <div className="menu-header">
               <img src={state.user.avatar} alt="Profile" className="avatar" />
               <div>
