@@ -64,15 +64,28 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
   // Search functionality
   const getFilteredMembers = (searchTerm: string) => {
-    if (!members || !Array.isArray(members)) return [];
+    // Defensive check: ensure members is an array
+    if (!members || !Array.isArray(members)) {
+      console.warn('getFilteredMembers: members is not an array', members);
+      return [];
+    }
+    
     if (!searchTerm.trim()) return members;
+    
     const searchLower = searchTerm.toLowerCase();
-    return members.filter((member: any) =>
-      `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchLower) ||
-      (member.full_name && member.full_name.toLowerCase().includes(searchLower)) ||
-      (member.role && member.role.toLowerCase().includes(searchLower)) ||
-      (member.email && member.email.toLowerCase().includes(searchLower))
-    );
+    return members.filter((member: any) => {
+      if (!member) return false;
+      
+      const fullName = `${member.first_name || ''} ${member.last_name || ''}`.toLowerCase();
+      const memberFullName = member.full_name?.toLowerCase() || '';
+      const memberRole = member.role?.toLowerCase() || '';
+      const memberEmail = member.email?.toLowerCase() || '';
+      
+      return fullName.includes(searchLower) ||
+             memberFullName.includes(searchLower) ||
+             memberRole.includes(searchLower) ||
+             memberEmail.includes(searchLower);
+    });
   };
 
   const getFilteredPartners = (searchTerm: string) => {
@@ -154,14 +167,27 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       const organizationId = getOrganizationId(state.user, state.showingPageType);
       const organizationType = getOrganizationType(state.showingPageType);
 
+      console.log('Fetching members:', { organizationId, organizationType, showingPageType: state.showingPageType });
+
       if (organizationId && organizationType) {
         // Fetch members
         setIsLoadingMembers(true);
         try {
           const membersData = await getOrganizationMembers(organizationId, organizationType);
-          setMembers(membersData);
-        } catch (error) {
+          console.log('Members fetched:', membersData);
+          
+          // Ensure membersData is an array
+          if (Array.isArray(membersData)) {
+            setMembers(membersData);
+            console.log(`Loaded ${membersData.length} members`);
+          } else {
+            console.error('Members data is not an array:', membersData);
+            setMembers([]);
+          }
+        } catch (error: any) {
           console.error('Error fetching members:', error);
+          console.error('Error details:', error.response?.data || error.message);
+          setMembers([]); // Set empty array on error
         } finally {
           setIsLoadingMembers(false);
         }
@@ -178,6 +204,13 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             setIsLoadingPartnerships(false);
           }
         }
+      } else {
+        console.warn('Cannot fetch members: missing organizationId or organizationType', {
+          organizationId,
+          organizationType,
+          showingPageType: state.showingPageType,
+          available_contexts: state.user.available_contexts
+        });
       }
     };
 
@@ -701,46 +734,64 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     placeholder="Rechercher des co-responsables..."
                     value={searchTerms.coResponsibles}
                     onChange={(e) => handleSearchChange('coResponsibles', e.target.value)}
+                    disabled={isLoadingMembers}
                   />
                 </div>
-                {formData.coResponsibles.length > 0 && (
-                  <div className="selected-items">
-                    {formData.coResponsibles.map((memberId) => {
-                      const member = getSelectedMember(memberId);
-                      return member ? (
-                        <div key={memberId} className="selected-member">
-                          <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
-                          <div className="selected-info">
-                            <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                            <div className="selected-role">{member.role}</div>
-                          </div>
-                          <button
-                            type="button"
-                            className="remove-selection"
-                            onClick={() => handleMemberSelect('coResponsibles', memberId)}
-                          >
-                            <i className="fas fa-times"></i>
-                          </button>
-                        </div>
-                      ) : null;
-                    })}
+                
+                {isLoadingMembers ? (
+                  <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                    <span>Chargement des membres...</span>
                   </div>
-                )}
-                <div className="selection-list">
-                  {getFilteredMembers(searchTerms.coResponsibles).map((member: any) => (
-                    <div
-                      key={member.id}
-                      className="selection-item"
-                      onClick={() => handleMemberSelect('coResponsibles', member.id)}
-                    >
-                      <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
-                      <div className="item-info">
-                        <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                        <div className="item-role">{member.role}</div>
+                ) : (
+                  <>
+                    {formData.coResponsibles.length > 0 && (
+                      <div className="selected-items">
+                        {formData.coResponsibles.map((memberId) => {
+                          const member = getSelectedMember(memberId);
+                          return member ? (
+                            <div key={memberId} className="selected-member">
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                              <div className="selected-info">
+                                <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                <div className="selected-role">{member.role}</div>
+                              </div>
+                              <button
+                                type="button"
+                                className="remove-selection"
+                                onClick={() => handleMemberSelect('coResponsibles', memberId)}
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </div>
+                          ) : null;
+                        })}
                       </div>
+                    )}
+                    <div className="selection-list">
+                      {getFilteredMembers(searchTerms.coResponsibles).length === 0 ? (
+                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                          <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                          <p>Aucun membre disponible</p>
+                        </div>
+                      ) : (
+                        getFilteredMembers(searchTerms.coResponsibles).map((member: any) => (
+                          <div
+                            key={member.id}
+                            className="selection-item"
+                            onClick={() => handleMemberSelect('coResponsibles', member.id)}
+                          >
+                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                            <div className="item-info">
+                              <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                              <div className="item-role">{member.role}</div>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -756,46 +807,64 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     placeholder="Rechercher des participants..."
                     value={searchTerms.participants}
                     onChange={(e) => handleSearchChange('participants', e.target.value)}
+                    disabled={isLoadingMembers}
                   />
                 </div>
-                {formData.participants.length > 0 && (
-                  <div className="selected-items">
-                    {formData.participants.map((memberId) => {
-                      const member = getSelectedMember(memberId);
-                      return member ? (
-                        <div key={memberId} className="selected-member">
-                          <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
-                          <div className="selected-info">
-                            <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                            <div className="selected-role">{member.role}</div>
-                          </div>
-                          <button
-                            type="button"
-                            className="remove-selection"
-                            onClick={() => handleMemberSelect('participants', memberId)}
-                          >
-                            <i className="fas fa-times"></i>
-                          </button>
-                        </div>
-                      ) : null;
-                    })}
+                
+                {isLoadingMembers ? (
+                  <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                    <span>Chargement des membres...</span>
                   </div>
-                )}
-                <div className="selection-list">
-                  {getFilteredMembers(searchTerms.participants).map((member: any) => (
-                    <div
-                      key={member.id}
-                      className="selection-item"
-                      onClick={() => handleMemberSelect('participants', member.id)}
-                    >
-                      <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
-                      <div className="item-info">
-                        <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                        <div className="item-role">{member.role}</div>
+                ) : (
+                  <>
+                    {formData.participants.length > 0 && (
+                      <div className="selected-items">
+                        {formData.participants.map((memberId) => {
+                          const member = getSelectedMember(memberId);
+                          return member ? (
+                            <div key={memberId} className="selected-member">
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                              <div className="selected-info">
+                                <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                <div className="selected-role">{member.role}</div>
+                              </div>
+                              <button
+                                type="button"
+                                className="remove-selection"
+                                onClick={() => handleMemberSelect('participants', memberId)}
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </div>
+                          ) : null;
+                        })}
                       </div>
+                    )}
+                    <div className="selection-list">
+                      {getFilteredMembers(searchTerms.participants).length === 0 ? (
+                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                          <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                          <p>Aucun membre disponible</p>
+                        </div>
+                      ) : (
+                        getFilteredMembers(searchTerms.participants).map((member: any) => (
+                          <div
+                            key={member.id}
+                            className="selection-item"
+                            onClick={() => handleMemberSelect('participants', member.id)}
+                          >
+                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                            <div className="item-info">
+                              <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                              <div className="item-role">{member.role}</div>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
               </div>
             </div>
 
