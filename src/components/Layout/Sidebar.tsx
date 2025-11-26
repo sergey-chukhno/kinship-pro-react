@@ -40,29 +40,33 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       });
     }
 
-    // Add schools
+    // Add schools (only if admin or superadmin)
     if (contexts.schools) {
       contexts.schools.forEach(school => {
-        orgs.push({
-          id: school.id,
-          name: school.name,
-          type: 'school',
-          role: school.role,
-          isAdmin: school.role === 'superadmin' || school.role === 'admin'
-        });
+        if (school.role === 'superadmin' || school.role === 'admin') {
+          orgs.push({
+            id: school.id,
+            name: school.name,
+            type: 'school',
+            role: school.role,
+            isAdmin: true
+          });
+        }
       });
     }
 
-    // Add companies
+    // Add companies (only if admin or superadmin)
     if (contexts.companies) {
       contexts.companies.forEach(company => {
-        orgs.push({
-          id: company.id,
-          name: company.name,
-          type: 'company',
-          role: company.role,
-          isAdmin: company.role === 'superadmin' || company.role === 'admin'
-        });
+        if (company.role === 'superadmin' || company.role === 'admin') {
+          orgs.push({
+            id: company.id,
+            name: company.name,
+            type: 'company',
+            role: company.role,
+            isAdmin: true
+          });
+        }
       });
     }
 
