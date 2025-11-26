@@ -5,6 +5,7 @@ import { PageType } from '../../types';
 import './Sidebar.css';
 import { mockOrganizationLists } from '../../data/mockData';
 import AvatarImage from '../UI/AvatarImage';
+import { translateRole } from '../../utils/roleTranslations';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -119,7 +120,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
           <div className="user-info">
             <div className="user-name">{state.user.name}</div>
-            <div className="user-role">{state.user.role}</div>
           </div>
           <span
             className="dropdown-icon"
@@ -131,6 +131,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
               <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
               <div>
                 <div style={{ fontWeight: 700 }}>{state.user.name}</div>
+                <div className="dropdown-role" title={translateRole(state.user.role)}>{translateRole(state.user.role)}</div>
                 <div style={{ fontSize: '.85rem', color: 'var(--text-light)' }}>{state.user.email}</div>
               </div>
             </div>
