@@ -58,7 +58,7 @@
 .dropdown-menu {
   position: absolute;
   top: 110%;
-  right: 0;
+  right: 160px;
   background: white;
   border: 1px solid #ddd;
   border-radius: 10px;
@@ -83,6 +83,31 @@
 
 .dropdown-menu button:hover {
   background: #f5f5f5;
+}
+
+/* ... (keeping other styles) ... */
+
+/* Logout Button Styles */
+.logout-item {
+  color: #374151 !important;
+  /* Changed from red to grey */
+  margin-top: 8px;
+  border-top: 1px solid #eee !important;
+  border-radius: 0 0 10px 10px !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logout-item:hover {
+  background-color: #f5f5f5 !important;
+  /* Changed from red tint to standard grey hover */
+}
+
+.logout-icon {
+  font-size: 1rem;
+  color: #6b7280;
+  /* Icon color */
 }
 
 .dropdown-divider {
@@ -130,4 +155,34 @@
     opacity: 1;
     transform: translateY(0);
   }
+
+}
+
+/* Menu Header Styles */
+.menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
+}
+
+.menu-header .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.dropdown-role {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 2px 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

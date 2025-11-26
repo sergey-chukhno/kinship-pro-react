@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './UserHeader.css';
-import { mockOrganizationLists } from '../../data/mockData';
 import AvatarImage from '../UI/AvatarImage';
+import { translateRole } from '../../utils/roleTranslations';
 
 interface UserHeaderProps {
   currentPage: PageType;
@@ -18,12 +18,98 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   const user = state.user;
   const navigate = useNavigate();
 
-  const organisations = mockOrganizationLists;
+  // Process organizations from available_contexts
+  const organizations = React.useMemo(() => {
+    const contexts = state.user.available_contexts;
+    if (!contexts) return [];
+
+    const orgs: Array<{
+      id: number | string;
+      name: string;
+      type: 'school' | 'company' | 'teacher';
+      role?: string;
+      isAdmin: boolean;
+    }> = [];
+
+    // Add schools
+    if (contexts.schools) {
+      contexts.schools.forEach(school => {
+        orgs.push({
+          id: school.id,
+          name: school.name,
+          type: 'school',
+          role: school.role,
+          isAdmin: school.role === 'superadmin' || school.role === 'admin'
+        });
+      });
+    }
+
+    // Add companies
+    if (contexts.companies) {
+      contexts.companies.forEach(company => {
+        orgs.push({
+          id: company.id,
+          name: company.name,
+          type: 'company',
+          role: company.role,
+          isAdmin: company.role === 'superadmin' || company.role === 'admin'
+        });
+      });
+    }
+
+    // Add teacher dashboard if available
+    if (contexts.teacher_dashboard) {
+      orgs.push({
+        id: 'teacher-dashboard',
+        name: 'Tableau de bord Enseignant',
+        type: 'teacher',
+        isAdmin: false
+      });
+    }
+
+    return orgs;
+  }, [state.user.available_contexts]);
 
   const handlePageChange = (page: PageType) => {
     onPageChange(page);
     navigate(`/${page}`);
     setOpen(false);
+  };
+
+  // Handle organization switching
+  const handleOrganizationSwitch = (orgId: number | string, orgType: 'school' | 'company' | 'teacher') => {
+    let newPageType: 'pro' | 'edu' | 'teacher' | 'user';
+
+    switch (orgType) {
+      case 'school':
+        newPageType = 'edu';
+        break;
+      case 'company':
+        newPageType = 'pro';
+        break;
+      case 'teacher':
+        newPageType = 'teacher';
+        break;
+      default:
+        newPageType = 'user';
+    }
+
+    // Update the showing page type
+    setShowingPageType(newPageType);
+
+    // Navigate to dashboard
+    onPageChange('dashboard');
+    navigate('/dashboard');
+
+    // Close dropdown
+    setOpen(false);
+
+    console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('jwt_token');
+    navigate('/login');
   };
 
   useEffect(() => {
@@ -68,25 +154,40 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
 
         {open && (
           <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
+            <div className="menu-header">
+              <AvatarImage src={user.avatar} alt="Profile" className="avatar" />
+              <div>
+                <div style={{ fontWeight: 700 }}>{user.name}</div>
+                <div className="dropdown-role" title={translateRole(user.role)}>{translateRole(user.role)}</div>
+                <div style={{ fontSize: '.85rem', color: 'var(--text-light)' }}>{user.email}</div>
+              </div>
+            </div>
+
             <button onClick={() => handlePageChange('projects')}>Mes projets</button>
             <button onClick={() => handlePageChange('network')}>Mon réseau</button>
             <button onClick={() => handlePageChange('badges')}>Mes badges</button>
 
             <div className="dropdown-divider" />
 
-            <div className="org-section">
-              <div className="org-title">Mes organisations</div>
-              {organisations.map((org) => (
-                <div
-                  key={org.id}
-                  className="org-item"
-                  onClick={() => console.log(`Switch to organization ${org.name}`)}
-                >
-                  <span>{org.name}</span>
-                  {org.isAdmin && <span className="admin-tag">Admin</span>}
-                </div>
-              ))}
-            </div>
+            {organizations.length > 0 && (
+              <div className="org-section">
+                <div className="org-title">Mes organisations</div>
+                {organizations.map((org) => (
+                  <div
+                    key={`${org.type}-${org.id}`}
+                    className="org-item"
+                    onClick={() => handleOrganizationSwitch(org.id, org.type)}
+                  >
+                    <span>{org.name}</span>
+                    {org.isAdmin && <span className="admin-tag">Admin</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button type="button" className="menu-item logout-item" onClick={handleLogout}>
+              <i className="fas fa-sign-out-alt logout-icon"></i> Se déconnecter
+            </button>
           </div>
         )}
       </div>
