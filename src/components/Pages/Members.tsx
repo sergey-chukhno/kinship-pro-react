@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Members';
 import { addSchoolLevel, getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { getSchoolMembersAccepted, getSchoolVolunteers, updateSchoolMemberRole } from '../../api/SchoolDashboard/Members';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
+import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { ClassList, Member } from '../../types';
@@ -18,6 +19,41 @@ import MemberModal from '../Modals/MemberModal';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './Members.css';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
+
+const AVAILABILITY_OPTIONS = [
+  'Lundi',
+  'Mardi',
+  'Mercredi',
+  'Jeudi',
+  'Vendredi',
+  'Samedi',
+  'Dimanche',
+  'Autre',
+];
+
+const availabilityToLabels = (availability: any = {}) => {
+  const mapping: Record<string, string> = {
+    monday: 'Lundi',
+    tuesday: 'Mardi',
+    wednesday: 'Mercredi',
+    thursday: 'Jeudi',
+    friday: 'Vendredi',
+    saturday: 'Samedi',
+    sunday: 'Dimanche',
+    other: 'Autre',
+  };
+
+  const labels = Object.entries(mapping).reduce<string[]>((acc, [key, label]) => {
+    if (availability?.[key]) acc.push(label);
+    return acc;
+  }, []);
+
+  if (availability?.available && labels.length === 0) {
+    labels.push('Disponible');
+  }
+
+  return labels;
+};
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
@@ -45,6 +81,8 @@ const Members: React.FC = () => {
   const [per_page, setPerPage] = useState(12);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
+  const [skillsLoading, setSkillsLoading] = useState(false);
 
   const fetchMembers = async () => {
     try {
@@ -79,17 +117,7 @@ const Members: React.FC = () => {
             // ... (Logique de traitement availability, roles, mapping inchangée) ...
 
             // --- TRAITEMENT DE LA DISPONIBILITÉ (copie de votre code existant) ---
-            const availData = profile.availability || {};
-            const availabilityList: string[] = [];
-            if (availData.monday) availabilityList.push('Lundi');
-            if (availData.tuesday) availabilityList.push('Mardi');
-            if (availData.wednesday) availabilityList.push('Mercredi');
-            if (availData.thursday) availabilityList.push('Jeudi');
-            if (availData.friday) availabilityList.push('Vendredi');
-            if (availData.saturday) availabilityList.push('Samedi');
-            if (availData.sunday) availabilityList.push('Dimanche');
-            if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
-
+            const availabilityList = availabilityToLabels(profile.availability);
             const rawRole =
               profile.role_in_company ||
               m.role_in_company ||
@@ -144,7 +172,7 @@ const Members: React.FC = () => {
               profession: translateRole(m.job || fallbackRole),
               roles: [fallbackRole],
               skills: [],
-              availability: [],
+              availability: availabilityToLabels(m.availability),
               avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
               isTrusted: false,
               badges: [],
@@ -209,7 +237,7 @@ const Members: React.FC = () => {
           profession: volunteerProfession,
           roles: [volunteerRole],
           skills: vol.skills?.map((s: any) => s.name || s) || [],
-          availability: [],
+          availability: availabilityToLabels(vol.availability),
           avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
           isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
           badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
@@ -232,9 +260,42 @@ const Members: React.FC = () => {
     }
   };
 
-    // --- Filtres dynamiques ---
-    const allCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
-    const allAvailabilities = Array.from(new Set(members.flatMap(m => m.availability)));
+  const fetchSkills = useCallback(async () => {
+    try {
+      setSkillsLoading(true);
+      const response = await getSkills();
+      const rawSkills = response.data?.data || response.data || [];
+      const parsedSkills: string[] = rawSkills
+        .map((skill: any) => {
+          if (typeof skill === 'string') return skill;
+          if (skill?.attributes?.name) return skill.attributes.name;
+          return skill?.name || '';
+        })
+        .filter(
+          (skillName: string | undefined): skillName is string =>
+            typeof skillName === 'string' && skillName.trim().length > 0
+        );
+      const normalizedSkills = Array.from(new Set(parsedSkills)).sort((a, b) =>
+        a.localeCompare(b, 'fr', { sensitivity: 'base' })
+      );
+      setSkillsOptions(normalizedSkills);
+    } catch (err) {
+      console.error('Erreur récupération des compétences :', err);
+      showError('Impossible de récupérer les compétences');
+    } finally {
+      setSkillsLoading(false);
+    }
+  }, [showError]);
+
+  // --- Filtres dynamiques ---
+  const fallbackCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
+  const competenceOptions = skillsOptions.length > 0 ? skillsOptions : fallbackCompetences;
+  const availabilityOptions = AVAILABILITY_OPTIONS;
+
+  useEffect(() => {
+    fetchSkills();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     fetchLevels();
@@ -265,6 +326,77 @@ const Members: React.FC = () => {
     const matchesAvailability = !availabilityFilter || member.availability.includes(availabilityFilter);
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
   });
+
+  const filteredCommunityMembers = communityLists.filter(member => {
+    const term = searchTerm.toLowerCase();
+    const displayRoles = translateRoles(member.roles);
+    const matchesSearch =
+      member.fullName?.toLowerCase().includes(term) ||
+      member.email.toLowerCase().includes(term) ||
+      member.skills.some(skill => skill.toLowerCase().includes(term));
+    const matchesRole = !roleFilter || displayRoles.includes(roleFilter);
+    const matchesCompetence = !competenceFilter || member.skills.includes(competenceFilter);
+    const matchesAvailability =
+      !availabilityFilter || (member.availability || []).includes(availabilityFilter);
+    return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
+  });
+
+  const renderFilterBar = () => (
+    <div className="members-filters">
+      <div className="search-bar">
+        <i className="fas fa-search"></i>
+        <input
+          type="text"
+          placeholder="Rechercher un nom..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+      <div className="filter-group">
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="filter-select !w-full !bg-white"
+        >
+          <option value="">Tous les rôles</option>
+          <option value="Admin">Admin</option>
+          <option value="Superadmin">Superadmin</option>
+          <option value="Référent">Référent</option>
+          <option value="Membre">Membre</option>
+          <option value="Intervenant">Intervenant</option>
+        </select>
+      </div>
+      <div className="filter-group">
+        <select
+          value={competenceFilter}
+          onChange={(e) => setCompetenceFilter(e.target.value)}
+          className="filter-select bigger-select"
+        >
+          <option value="">Toutes les compétences</option>
+          {competenceOptions.length === 0 && (
+            <option value="__skills_status" disabled>
+              {skillsLoading ? 'Chargement des compétences...' : 'Aucune compétence disponible'}
+            </option>
+          )}
+          {competenceOptions.map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </div>
+      <div className="filter-group">
+        <select
+          value={availabilityFilter}
+          onChange={(e) => setAvailabilityFilter(e.target.value)}
+          className="filter-select bigger-select"
+        >
+          <option value="">Toutes les disponibilités</option>
+          {availabilityOptions.map(option => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
 
   const handleAddMember = (memberData: Omit<Member, 'id'>) => {
     addMember({ ...memberData, id: Date.now().toString() });
@@ -462,7 +594,7 @@ const Members: React.FC = () => {
 
       {/* Tabs visibles uniquement en mode edu */}
       {state.showingPageType === 'edu' && (
-        <div className="tabs-container  bg-yellow-300">
+        <div className="bg-yellow-300 tabs-container">
           <button
             className={`tab-btn ${activeTab === 'members' ? 'active' : ''}`}
             onClick={() => setActiveTab('members')}
@@ -487,55 +619,7 @@ const Members: React.FC = () => {
       {/* Contenu du tab “Membres” */}
       {activeTab === 'members' && (
         <>
-          <div className="members-filters">
-            <div className="search-bar">
-              <i className="fas fa-search"></i>
-              <input
-                type="text"
-                placeholder="Rechercher un nom..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="filter-group">
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="filter-select !w-full !bg-white"
-              >
-                <option value="">Tous les rôles</option>
-                <option value="Admin">Admin</option>
-                <option value="Superadmin">Superadmin</option>
-                <option value="Référent">Référent</option>
-                <option value="Membre">Membre</option>
-                <option value="Intervenant">Intervenant</option>
-              </select>
-            </div>
-            <div className="filter-group">
-              <select
-                value={competenceFilter}
-                onChange={(e) => setCompetenceFilter(e.target.value)}
-                className="filter-select  bigger-select"
-              >
-                <option value="">Toutes les compétences</option>
-                {allCompetences.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <select
-                value={availabilityFilter}
-                onChange={(e) => setAvailabilityFilter(e.target.value)}
-                className="filter-select  bigger-select"
-              >
-                <option value="">Toutes les disponibilités</option>
-                {allAvailabilities.map(a => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {renderFilterBar()}
           <div className='min-h-[65vh]'>
     
 
@@ -598,31 +682,34 @@ const Members: React.FC = () => {
       {/* Contenu du tab “Communauté” */}
       {activeTab === 'community' && (
         <div className="community-tab-content min-h-[75vh]">
+          {renderFilterBar()}
           <div className="members-grid">
-            {
-            communityLists.length > 0 ?
-            
-            communityLists.map((communityItem) => {
-              const communityForDisplay = {
-                ...communityItem,
-                roles: translateRoles(communityItem.roles),
-                profession: translateRole(communityItem.profession || '')
-              };
-              return (
-                <MemberCard
-                  key={communityItem.id}
-                  member={communityForDisplay}
-                  badgeCount={communityItem.badges?.length || 0}
-                  onClick={() => setSelectedMember(communityItem)}
-                  onContactClick={() => {
-                    setContactEmail(communityItem.email);
-                    setIsContactModalOpen(true);
-                  }}
-                  onRoleChange={(newRole) => handleRoleChange(communityItem, newRole, 'community')}
-                />
-              );
-            })
-          : <div className=" text-gray-500 whitespace-nowrap">Aucune communauté trouvée pour le moment</div>}
+            {filteredCommunityMembers.length > 0 ? (
+              filteredCommunityMembers.map((communityItem) => {
+                const communityForDisplay = {
+                  ...communityItem,
+                  roles: translateRoles(communityItem.roles),
+                  profession: translateRole(communityItem.profession || '')
+                };
+                return (
+                  <MemberCard
+                    key={communityItem.id}
+                    member={communityForDisplay}
+                    badgeCount={communityItem.badges?.length || 0}
+                    onClick={() => setSelectedMember(communityItem)}
+                    onContactClick={() => {
+                      setContactEmail(communityItem.email);
+                      setIsContactModalOpen(true);
+                    }}
+                    onRoleChange={(newRole) => handleRoleChange(communityItem, newRole, 'community')}
+                  />
+                );
+              })
+            ) : (
+              <div className="text-gray-500 whitespace-nowrap">
+                {competenceFilter ? 'Aucun membre ne correspond à cette compétence' : 'Aucune communauté trouvée pour le moment'}
+              </div>
+            )}
           </div>
         </div>
       )}

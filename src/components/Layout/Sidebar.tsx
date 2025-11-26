@@ -60,7 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       <nav className="side-nav">
         {navigationItems.map((item) => (
           item.disabled ? (
-            <div key={item.id} className="side-link disabled" title="Cette fonctionnalité n'est pas encore disponible">
+            <div key={item.id} className="side-link disabled" title="Disponible très prochainement">
               <img src={item.icon} alt={item.label} className="side-icon" />
               {item.label}
             </div>
