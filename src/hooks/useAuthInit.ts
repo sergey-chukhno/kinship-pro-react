@@ -78,18 +78,35 @@ export const useAuthInit = () => {
           let pageType: "pro" | "edu" | "teacher" | "user" = "pro";
           let defaultPage: PageType = "dashboard";
 
-          if (user.available_contexts?.companies?.length > 0) {
-            pageType = "pro";
-            defaultPage = "dashboard";
-          } else if (user.available_contexts?.schools?.length > 0) {
-            pageType = "edu";
-            defaultPage = "dashboard";
-          } else if (user.available_contexts?.teacher_dashboard) {
-            pageType = "teacher";
-            defaultPage = "dashboard";
-          } else if (user.available_contexts?.user_dashboard) {
+          // Check if user has admin access to any company
+          const hasAdminCompany = user.available_contexts?.companies?.some(
+            (c: any) => c.role === 'admin' || c.role === 'superadmin'
+          );
+
+          // Check if user has admin access to any school
+          const hasAdminSchool = user.available_contexts?.schools?.some(
+            (s: any) => s.role === 'admin' || s.role === 'superadmin'
+          );
+
+          // Priority 1: Personal dashboard
+          if (user.available_contexts?.user_dashboard) {
             pageType = "user";
             defaultPage = "projects";
+          }
+          // Priority 2: Companies (only if admin/superadmin)
+          else if (hasAdminCompany) {
+            pageType = "pro";
+            defaultPage = "dashboard";
+          }
+          // Priority 3: Schools (only if admin/superadmin)
+          else if (hasAdminSchool) {
+            pageType = "edu";
+            defaultPage = "dashboard";
+          }
+          // Priority 4: Teacher dashboard
+          else if (user.available_contexts?.teacher_dashboard) {
+            pageType = "teacher";
+            defaultPage = "dashboard";
           }
 
           // Appliquer les couleurs CSS IMMÉDIATEMENT avant de changer l'état
