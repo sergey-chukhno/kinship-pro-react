@@ -62,7 +62,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [members, setMembers] = useState<any[]>([]);
   const [availablePartnerships, setAvailablePartnerships] = useState<any[]>([]);
 
-  // Search functionality
+  // Search functionality with exclusion of already selected members
+  // Members are mutually exclusive: cannot be both co-responsible AND participant
+  // Project creator (owner) is excluded from selection as they are automatically added
   const getFilteredMembers = (searchTerm: string) => {
     // Defensive check: ensure members is an array
     if (!members || !Array.isArray(members)) {
@@ -70,22 +72,52 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       return [];
     }
     
-    if (!searchTerm.trim()) return members;
+    // Get current user ID (project creator) - exclude from selection
+    const currentUserId = state.user?.id?.toString();
     
-    const searchLower = searchTerm.toLowerCase();
-    return members.filter((member: any) => {
+    // Combine all selected member IDs (from both co-responsibles and participants)
+    // Normalize to strings for consistent comparison
+    const selectedMemberIds = [
+      ...formData.coResponsibles.map(id => id.toString()),
+      ...formData.participants.map(id => id.toString())
+    ];
+    
+    // Filter out already selected members and project creator
+    let availableMembers = members.filter((member: any) => {
       if (!member) return false;
       
-      const fullName = `${member.first_name || ''} ${member.last_name || ''}`.toLowerCase();
-      const memberFullName = member.full_name?.toLowerCase() || '';
-      const memberRole = member.role?.toLowerCase() || '';
-      const memberEmail = member.email?.toLowerCase() || '';
+      const memberIdStr = member.id?.toString();
       
-      return fullName.includes(searchLower) ||
-             memberFullName.includes(searchLower) ||
-             memberRole.includes(searchLower) ||
-             memberEmail.includes(searchLower);
+      // Exclude project creator (owner is automatically added, not selectable)
+      if (currentUserId && memberIdStr === currentUserId) {
+        return false;
+      }
+      
+      // Exclude members that are already selected (as co-responsible or participant)
+      if (selectedMemberIds.includes(memberIdStr)) {
+        return false;
+      }
+      
+      return true;
     });
+    
+    // Apply search filter if search term provided
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      availableMembers = availableMembers.filter((member: any) => {
+        const fullName = `${member.first_name || ''} ${member.last_name || ''}`.toLowerCase();
+        const memberFullName = member.full_name?.toLowerCase() || '';
+        const memberRole = member.role?.toLowerCase() || '';
+        const memberEmail = member.email?.toLowerCase() || '';
+        
+        return fullName.includes(searchLower) ||
+               memberFullName.includes(searchLower) ||
+               memberRole.includes(searchLower) ||
+               memberEmail.includes(searchLower);
+      });
+    }
+    
+    return availableMembers;
   };
 
   const getFilteredPartners = (searchTerm: string) => {
