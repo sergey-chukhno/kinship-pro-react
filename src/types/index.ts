@@ -171,6 +171,26 @@ export interface MembershipRequest {
   assignedRole: string;
 }
 
+export interface OrganizationContext {
+  id: number;
+  name: string;
+  city: string;
+  school_type?: string;
+  company_type?: string;
+  role: 'superadmin' | 'admin' | 'referent' | 'intervenant' | 'member';
+  permissions: {
+    superadmin: boolean;
+    admin: boolean;
+    referent: boolean;
+    intervenant: boolean;
+    can_manage_members: boolean;
+    can_manage_projects: boolean;
+    can_assign_badges: boolean;
+    can_manage_partnerships: boolean;
+    can_manage_branches: boolean;
+  };
+}
+
 export interface User {
   id: string;
   name: string;
@@ -179,10 +199,11 @@ export interface User {
   avatar: string;
   organization?: string;
   available_contexts?: {
-    companies?: { id: number; name: string }[];
-    schools?: { id: number; name: string }[];
+    companies?: OrganizationContext[];
+    schools?: OrganizationContext[];
     teacher_dashboard?: boolean;
     user_dashboard?: boolean;
+    independent_teacher?: object | null;
   };
 }
 

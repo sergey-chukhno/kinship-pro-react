@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './Sidebar.css';
-import { mockOrganizationLists } from '../../data/mockData';
 import AvatarImage from '../UI/AvatarImage';
+import { translateRole } from '../../utils/roleTranslations';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -15,8 +15,90 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const { state, setShowingPageType } = useAppContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const organisations = mockOrganizationLists;
   const navigate = useNavigate();
+
+  // Process organizations from available_contexts
+  const organizations = React.useMemo(() => {
+    const contexts = state.user.available_contexts;
+    if (!contexts) return [];
+
+    const orgs: Array<{
+      id: number | string;
+      name: string;
+      type: 'school' | 'company' | 'teacher';
+      role?: string;
+      isAdmin: boolean;
+    }> = [];
+
+    // Add schools
+    if (contexts.schools) {
+      contexts.schools.forEach(school => {
+        orgs.push({
+          id: school.id,
+          name: school.name,
+          type: 'school',
+          role: school.role,
+          isAdmin: school.role === 'superadmin' || school.role === 'admin'
+        });
+      });
+    }
+
+    // Add companies
+    if (contexts.companies) {
+      contexts.companies.forEach(company => {
+        orgs.push({
+          id: company.id,
+          name: company.name,
+          type: 'company',
+          role: company.role,
+          isAdmin: company.role === 'superadmin' || company.role === 'admin'
+        });
+      });
+    }
+
+    // Add teacher dashboard if available
+    if (contexts.teacher_dashboard) {
+      orgs.push({
+        id: 'teacher-dashboard',
+        name: 'Tableau de bord Enseignant',
+        type: 'teacher',
+        isAdmin: false
+      });
+    }
+
+    return orgs;
+  }, [state.user.available_contexts]);
+
+  // Handle organization switching
+  const handleOrganizationSwitch = (orgId: number | string, orgType: 'school' | 'company' | 'teacher') => {
+    let newPageType: 'pro' | 'edu' | 'teacher' | 'user';
+
+    switch (orgType) {
+      case 'school':
+        newPageType = 'edu';
+        break;
+      case 'company':
+        newPageType = 'pro';
+        break;
+      case 'teacher':
+        newPageType = 'teacher';
+        break;
+      default:
+        newPageType = 'user';
+    }
+
+    // Update the showing page type
+    setShowingPageType(newPageType);
+
+    // Navigate to dashboard
+    onPageChange('dashboard');
+    navigate('/dashboard');
+
+    // Close dropdown
+    setIsDropdownOpen(false);
+
+    console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
+  };
 
   const navigationItems = [
     { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
@@ -119,7 +201,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
           <div className="user-info">
             <div className="user-name">{state.user.name}</div>
-            <div className="user-role">{state.user.role}</div>
           </div>
           <span
             className="dropdown-icon"
@@ -131,22 +212,25 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
               <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
               <div>
                 <div style={{ fontWeight: 700 }}>{state.user.name}</div>
+                <div className="dropdown-role" title={translateRole(state.user.role)}>{translateRole(state.user.role)}</div>
                 <div style={{ fontSize: '.85rem', color: 'var(--text-light)' }}>{state.user.email}</div>
               </div>
             </div>
-            <div className="org-section">
-              <div className="org-title">Mes organisations</div>
-              {organisations.map((org) => (
-                <div
-                  key={org.id}
-                  className="org-item"
-                  onClick={() => console.log(`Switch to organization ${org.name}`)}
-                >
-                  <span>{org.name}</span>
-                  {org.isAdmin && <span className="admin-tag">Admin</span>}
-                </div>
-              ))}
-            </div>
+            {organizations.length > 0 && (
+              <div className="org-section">
+                <div className="org-title">Mes organisations</div>
+                {organizations.map((org) => (
+                  <div
+                    key={`${org.type}-${org.id}`}
+                    className="org-item"
+                    onClick={() => handleOrganizationSwitch(org.id, org.type)}
+                  >
+                    <span>{org.name}</span>
+                    {org.isAdmin && <span className="admin-tag">Admin</span>}
+                  </div>
+                ))}
+              </div>
+            )}
             <button type="button" className="menu-item" onClick={() => {
               onPageChange('settings');
               navigate('/settings');
