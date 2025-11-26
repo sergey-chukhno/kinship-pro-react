@@ -6,6 +6,7 @@ import RolePill from '../UI/RolePill';
 import QRCodePrintModal from './QRCodePrintModal';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
+import { translateRoles, translateRole, normalizeRoleKey } from '../../utils/roleTranslations';
 
 interface MemberModalProps {
   member: Member;
@@ -23,6 +24,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
   onContactClick
 }) => {
   const { state } = useAppContext();
+  const displayRoles = translateRoles(member.roles);
+  const professionLabel = translateRole(member.profession || '');
 
   // Helper functions for badge data
   const getLevelName = (level: string): string => {
@@ -65,11 +68,13 @@ const MemberModal: React.FC<MemberModalProps> = ({
     skills: [...member.skills],
     availability: [...member.availability]
   });
+  const hasRoleLabel = (label: string) => displayRoles.includes(label);
+
   const [permissions, setPermissions] = useState({
-    members: member.roles.includes('Admin'),
-    projects: member.roles.includes('Admin') || member.roles.includes('Référent'),
-    badges: member.roles.includes('Admin') || member.roles.includes('Référent') || member.roles.includes('Intervenant'),
-    events: member.roles.includes('Admin') || member.roles.includes('Référent')
+    members: hasRoleLabel('Admin'),
+    projects: hasRoleLabel('Admin') || hasRoleLabel('Référent'),
+    badges: hasRoleLabel('Admin') || hasRoleLabel('Référent') || hasRoleLabel('Intervenant'),
+    events: hasRoleLabel('Admin') || hasRoleLabel('Référent')
   });
   const [proposals, setProposals] = useState({
     canProposeStage: member.canProposeStage || false,
@@ -89,14 +94,23 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
   // Check if member is a student (élève)
   const isStudent = () => {
-    return member.roles.some(role =>
-      role.toLowerCase().includes('eleve') ||
-      role.toLowerCase().includes('élève') ||
-      role.toLowerCase().includes('student') ||
-      role === 'eleve_primaire' ||
-      role === 'eleve_college' ||
-      role === 'eleve_lycee'
-    ) || member.hasTemporaryEmail;
+    const roleCandidates = [
+      ...(member.roles || []),
+      member.role
+    ].filter(Boolean) as string[];
+
+    const isRoleStudent = roleCandidates.some(role => {
+      const normalized = normalizeRoleKey(role);
+      return (
+        normalized.includes('eleve') ||
+        normalized.includes('student') ||
+        normalized.includes('etudiant') ||
+        normalized.includes('collegien') ||
+        normalized.includes('lyceen')
+      );
+    });
+
+    return isRoleStudent || member.hasTemporaryEmail;
   };
 
   const toggleDescriptionExpansion = (badgeKey: string) => {
@@ -212,9 +226,9 @@ const MemberModal: React.FC<MemberModalProps> = ({
           {/* block name, profession, roles */}
           <div className="member-details flex flex-col gap-2">
             <h2 className="member-name">{member.firstName} {member.lastName}</h2>
-            <p className="">{member.profession}</p>
+            <p className="">{professionLabel}</p>
             <div className="">
-              {member.roles.map((role, index) => (
+              {displayRoles.map((role, index) => (
                 <RolePill key={index} role={role} color={getRoleColor(role)} />
               ))}
             </div>
@@ -309,7 +323,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                         className="edit-input"
                       />
                     ) : (
-                      <span>{member.profession}</span>
+                      <span>{professionLabel}</span>
                     )}
                   </div>
                 </div>
