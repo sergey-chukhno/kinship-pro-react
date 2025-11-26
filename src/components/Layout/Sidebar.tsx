@@ -25,10 +25,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     const orgs: Array<{
       id: number | string;
       name: string;
-      type: 'school' | 'company' | 'teacher';
+      type: 'school' | 'company' | 'teacher' | 'user';
       role?: string;
       isAdmin: boolean;
     }> = [];
+
+    // Add personal dashboard if available (at the top)
+    if (contexts.user_dashboard) {
+      orgs.push({
+        id: 'user-dashboard',
+        name: 'Tableau de bord personnel',
+        type: 'user',
+        isAdmin: false
+      });
+    }
 
     // Add schools
     if (contexts.schools) {
@@ -70,7 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   }, [state.user.available_contexts]);
 
   // Handle organization switching
-  const handleOrganizationSwitch = (orgId: number | string, orgType: 'school' | 'company' | 'teacher') => {
+  const handleOrganizationSwitch = (orgId: number | string, orgType: 'school' | 'company' | 'teacher' | 'user') => {
     let newPageType: 'pro' | 'edu' | 'teacher' | 'user';
 
     switch (orgType) {
@@ -83,6 +93,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       case 'teacher':
         newPageType = 'teacher';
         break;
+      case 'user':
+        newPageType = 'user';
+        break;
       default:
         newPageType = 'user';
     }
@@ -90,9 +103,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     // Update the showing page type
     setShowingPageType(newPageType);
 
-    // Navigate to dashboard
-    onPageChange('dashboard');
-    navigate('/dashboard');
+    // Navigate to appropriate page
+    if (orgType === 'user') {
+      onPageChange('projects');
+      navigate('/projects');
+    } else {
+      onPageChange('dashboard');
+      navigate('/dashboard');
+    }
 
     // Close dropdown
     setIsDropdownOpen(false);
