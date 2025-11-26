@@ -127,9 +127,15 @@ export const getOrganizationMembers = async (
         : `/api/v1/companies/${organizationId}/members`;
 
     const response = await apiClient.get(endpoint, {
-        params: { status: 'confirmed' }
+        params: { 
+            status: 'confirmed',
+            per_page: 1000  // Load all members (adjust if needed)
+        }
     });
-    return response.data;
+    
+    // Extract data array from paginated response
+    // Backend returns: { data: [...], meta: {...} }
+    return response.data?.data || response.data || [];
 };
 
 /**
