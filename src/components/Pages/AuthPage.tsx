@@ -66,27 +66,41 @@ const AuthPage: React.FC = () => {
         console.log("Login successful:", response.data)
         if (response.data.token) {
           localStorage.setItem("jwt_token", response.data.token)
+
+          // Check if user has admin access to any company
+          const hasAdminCompany = response.data.user.available_contexts.companies?.some(
+            (c: any) => c.role === 'admin' || c.role === 'superadmin'
+          );
+
+          // Check if user has admin access to any school
+          const hasAdminSchool = response.data.user.available_contexts.schools?.some(
+            (s: any) => s.role === 'admin' || s.role === 'superadmin'
+          );
+
+          // Priority 1: Personal dashboard
           if (response.data.user.available_contexts.user_dashboard) {
             setShowingPageType("user")
             setCurrentPage("projects")
             navigate("/projects")
           }
+          // Priority 2: Companies (only if admin/superadmin)
           else if (
-            response.data.user.available_contexts.teacher_dashboard ||
+            hasAdminCompany ||
             [
-              "primary_school_teacher",
-              "secondary_school_teacher",
-              "education_rectorate_personnel",
-              "administrative_staff",
-              "cpe_student_life",
+              "president_association",
+              "president_fondation",
+              "directeur_organisation",
+              "directeur_entreprise",
+              "responsable_rh_formation_secteur",
             ].includes(response.data.user.role)
           ) {
-            setShowingPageType("teacher")
+            setShowingPageType("pro")
             setCurrentPage("dashboard")
             navigate("/dashboard")
           }
+          // Priority 3: Schools (only if admin/superadmin)
           else if (
-            response.data.user.available_contexts.schools?.length > 0 ||
+            hasAdminSchool ||
             [
               "directeur_ecole",
               "directeur_academique",
@@ -99,17 +113,18 @@ const AuthPage: React.FC = () => {
             setCurrentPage("dashboard")
             navigate("/dashboard")
           }
+          // Priority 4: Teacher dashboard
           else if (
-            response.data.user.available_contexts.companies?.length > 0 ||
+            response.data.user.available_contexts.teacher_dashboard ||
             [
-              "president_association",
-              "president_fondation",
-              "directeur_organisation",
-              "directeur_entreprise",
-              "responsable_rh_formation_secteur",
+              "primary_school_teacher",
+              "secondary_school_teacher",
+              "education_rectorate_personnel",
+              "administrative_staff",
+              "cpe_student_life",
             ].includes(response.data.user.role)
           ) {
-            setShowingPageType("pro")
+            setShowingPageType("teacher")
             setCurrentPage("dashboard")
             navigate("/dashboard")
           }
