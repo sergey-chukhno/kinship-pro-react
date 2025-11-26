@@ -9,7 +9,7 @@ interface QRCodePrintModalProps {
 
 const QRCodePrintModal: React.FC<QRCodePrintModalProps> = ({ onClose, claimToken, studentName }) => {
   const qrCodeRef = useRef<HTMLDivElement>(null);
-  const confirmationUrl = `http://localhost:3001/login?confirmation_token=${claimToken}`;
+  const confirmationUrl = `${process.env.REACT_APP_FRONTEND_URL}/checkin-student?confirmation_token=${claimToken}`;
 
   useEffect(() => {
     // Dynamically load QRCode library
@@ -52,38 +52,38 @@ const QRCodePrintModal: React.FC<QRCodePrintModalProps> = ({ onClose, claimToken
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content max-w-2xl relative" onClick={(e) => e.stopPropagation()}>
+      <div className="relative max-w-2xl modal-content" onClick={(e) => e.stopPropagation()}>
         {/* <div className="modal-header"> */}
 
-          <button className="modal-close print:hidden absolute top-0 right-0" onClick={onClose}>
+          <button className="absolute top-0 right-0 modal-close print:hidden" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
         {/* </div> */}
 
-        <div className="modal-body text-center p-8">
+        <div className="p-8 text-center modal-body">
           <div className="space-y-6">
             <div>
-              <h3 className="text-2xl font-semibold text-gray-800 mb-2">
+              <h3 className="mb-2 text-2xl font-semibold text-gray-800">
                 QR Code d'activation pour {studentName}
               </h3>
-              <p className="text-gray-500 text-base">
+              <p className="text-base text-gray-500">
                 Scannez ce QR code pour activer le compte de l'étudiant
               </p>
             </div>
             
             <div 
               ref={qrCodeRef}
-              className="flex justify-center items-center mx-auto my-8 p-6 bg-white border-2 border-gray-200 rounded-xl shadow-md max-w-xs print:border-black print:shadow-none"
+              className="flex justify-center items-center p-6 mx-auto my-8 max-w-xs bg-white rounded-xl border-2 border-gray-200 shadow-md print:border-black print:shadow-none"
             ></div>
             
-            <div className="mt-8 p-6 bg-gray-50 rounded-lg text-left space-y-4 print:border print:border-gray-300">
+            <div className="p-6 mt-8 space-y-4 text-left bg-gray-50 rounded-lg print:border print:border-gray-300">
               <div className="break-all">
-                <p className="font-semibold text-gray-700 mb-1">Lien d'activation :</p>
-                <span className="text-blue-500 text-sm">{confirmationUrl}</span>
+                <p className="mb-1 font-semibold text-gray-700">Lien d'activation :</p>
+                <span className="text-sm text-blue-500">{confirmationUrl}</span>
               </div>
               <div className="break-all">
-                <p className="font-semibold text-gray-700 mb-1">Token :</p>
-                <code className="bg-gray-200 px-2 py-1 rounded text-xs text-gray-800">
+                <p className="mb-1 font-semibold text-gray-700">Token :</p>
+                <code className="px-2 py-1 text-xs text-gray-800 bg-gray-200 rounded">
                   {claimToken}
                 </code>
               </div>
@@ -93,15 +93,15 @@ const QRCodePrintModal: React.FC<QRCodePrintModalProps> = ({ onClose, claimToken
 
         <div className="modal-footer print:hidden">
           <button type="button" className="btn btn-outline" onClick={onClose}>
-            <i className="fas fa-times mr-2"></i>
+            <i className="mr-2 fas fa-times"></i>
             Fermer
           </button>
           <button type="button" className="btn btn-outline" onClick={handleCopyLink}>
-            <i className="fas fa-copy mr-2"></i>
+            <i className="mr-2 fas fa-copy"></i>
             Copier le lien
           </button>
           <button type="button" className="btn btn-primary" onClick={handlePrint}>
-            <i className="fas fa-print mr-2"></i>
+            <i className="mr-2 fas fa-print"></i>
             Imprimer
           </button>
         </div>
