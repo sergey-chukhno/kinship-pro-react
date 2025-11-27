@@ -8,7 +8,10 @@ import {
   getTeacherStats,
   getCompanyActivity,
   getSchoolActivity,
-  getTeacherActivity
+  getTeacherActivity,
+  getCompanyAssignedBadges,
+  getSchoolAssignedBadges,
+  getTeacherAssignedBadges
 } from '../../api/Dashboard';
 import { OrganizationStatsResponse } from '../../types';
 import { getOrganizationId } from '../../utils/projectMapper';
@@ -36,6 +39,30 @@ type DashboardActivity = {
   actor_name?: string;
   actor_avatar?: string;
 };
+
+type BadgeDistributionSegment = {
+  level: string;
+  label: string;
+  color: string;
+  count: number;
+  percentage: number;
+};
+
+const BADGE_LEVEL_META: Array<{ key: string; label: string; color: string }> = [
+  { key: 'level_1', label: 'Niveau 1', color: '#10b981' },
+  { key: 'level_2', label: 'Niveau 2', color: '#3b82f6' },
+  { key: 'level_3', label: 'Niveau 3', color: '#f59e0b' },
+  { key: 'level_4', label: 'Niveau 4', color: '#ef4444' },
+];
+
+const OTHER_BADGE_LEVEL_META = {
+  key: 'other',
+  label: 'Autres niveaux',
+  color: '#9ca3af',
+};
+
+const DEFAULT_BADGE_PIE_BACKGROUND =
+  'radial-gradient(circle at center, #f9fafb 0%, #e5e7eb 65%)';
 
 const toActivityArray = (payload: any): any[] => {
   if (Array.isArray(payload)) return payload;
@@ -147,6 +174,81 @@ const mapActivityEntry = (activity: any, index: number): DashboardActivity => {
   };
 };
 
+const initializeBadgeSegments = (): BadgeDistributionSegment[] =>
+  BADGE_LEVEL_META.map((meta) => ({
+    level: meta.key,
+    label: meta.label,
+    color: meta.color,
+    count: 0,
+    percentage: 0,
+  }));
+
+const aggregateBadgeDistribution = (
+  assignments: any[]
+): { segments: BadgeDistributionSegment[]; total: number } => {
+  const counts = assignments.reduce<Record<string, number>>((acc, assignment) => {
+    const levelKey = assignment?.badge?.level || 'unknown';
+    acc[levelKey] = (acc[levelKey] || 0) + 1;
+    return acc;
+  }, {});
+
+  const total = assignments.length;
+  const segments: BadgeDistributionSegment[] = BADGE_LEVEL_META.map((meta) => {
+    const count = counts[meta.key] || 0;
+    return {
+      level: meta.key,
+      label: meta.label,
+      color: meta.color,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+    };
+  });
+
+  const otherCount = Object.entries(counts).reduce((sum, [levelKey, value]) => {
+    if (BADGE_LEVEL_META.some((meta) => meta.key === levelKey)) {
+      return sum;
+    }
+    return sum + value;
+  }, 0);
+
+  if (otherCount > 0) {
+    segments.push({
+      level: OTHER_BADGE_LEVEL_META.key,
+      label: OTHER_BADGE_LEVEL_META.label,
+      color: OTHER_BADGE_LEVEL_META.color,
+      count: otherCount,
+      percentage: total > 0 ? Math.round((otherCount / total) * 100) : 0,
+    });
+  }
+
+  return { segments, total };
+};
+
+const buildBadgePieBackground = (segments: BadgeDistributionSegment[], total: number) => {
+  if (!segments.length || total === 0) {
+    return DEFAULT_BADGE_PIE_BACKGROUND;
+  }
+
+  const positiveSegments = segments.filter((segment) => segment.count > 0);
+  if (!positiveSegments.length) {
+    return DEFAULT_BADGE_PIE_BACKGROUND;
+  }
+
+  let currentDegree = 0;
+  const gradientStops = positiveSegments.map((segment, index) => {
+    const start = currentDegree;
+    let sweep = (segment.count / total) * 360;
+    if (index === positiveSegments.length - 1) {
+      sweep = 360 - currentDegree;
+    }
+    const end = start + sweep;
+    currentDegree = end;
+    return `${segment.color} ${start}deg ${end}deg`;
+  });
+
+  return `conic-gradient(${gradientStops.join(', ')})`;
+};
+
 const Dashboard: React.FC = () => {
   const { state } = useAppContext();
   const [statsData, setStatsData] = useState<OrganizationStatsResponse | null>(null);
@@ -162,6 +264,12 @@ const Dashboard: React.FC = () => {
   const [activities, setActivities] = useState<DashboardActivity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const [badgeDistribution, setBadgeDistribution] = useState<BadgeDistributionSegment[]>(() =>
+    initializeBadgeSegments()
+  );
+  const [badgeDistributionTotal, setBadgeDistributionTotal] = useState(0);
+  const [badgeDistributionLoading, setBadgeDistributionLoading] = useState(false);
+  const [badgeDistributionError, setBadgeDistributionError] = useState<string | null>(null);
   const organizationId = getOrganizationId(state.user, state.showingPageType);
 
   useEffect(() => {
@@ -217,6 +325,79 @@ const Dashboard: React.FC = () => {
     };
 
     fetchStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, [state.showingPageType, organizationId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchBadgeDistribution = async () => {
+      if (state.showingPageType === 'user') {
+        if (!ignore) {
+          setBadgeDistribution(initializeBadgeSegments());
+          setBadgeDistributionTotal(0);
+          setBadgeDistributionError(null);
+        }
+        return;
+      }
+
+      const requiresOrganizationId = state.showingPageType !== 'teacher';
+      if (requiresOrganizationId && !organizationId) {
+        if (!ignore) {
+          setBadgeDistribution(initializeBadgeSegments());
+          setBadgeDistributionTotal(0);
+          setBadgeDistributionError(null);
+        }
+        return;
+      }
+
+      setBadgeDistributionLoading(true);
+      setBadgeDistributionError(null);
+
+      try {
+        let response;
+
+        if (state.showingPageType === 'pro' && organizationId) {
+          response = await getCompanyAssignedBadges(Number(organizationId));
+        } else if (state.showingPageType === 'edu' && organizationId) {
+          response = await getSchoolAssignedBadges(Number(organizationId));
+        } else if (state.showingPageType === 'teacher') {
+          response = await getTeacherAssignedBadges();
+        } else {
+          if (!ignore) {
+            setBadgeDistribution(initializeBadgeSegments());
+            setBadgeDistributionTotal(0);
+            setBadgeDistributionError(null);
+            setBadgeDistributionLoading(false);
+          }
+          return;
+        }
+
+        const payload = response.data?.data ?? response.data ?? [];
+        if (!ignore) {
+          const assignmentsArray = Array.isArray(payload) ? payload : [];
+          const { segments, total } = aggregateBadgeDistribution(assignmentsArray);
+          setBadgeDistribution(segments);
+          setBadgeDistributionTotal(total);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement de la répartition des badges :', error);
+        if (!ignore) {
+          setBadgeDistribution(initializeBadgeSegments());
+          setBadgeDistributionTotal(0);
+          setBadgeDistributionError('Impossible de charger la répartition des badges pour le moment.');
+        }
+      } finally {
+        if (!ignore) {
+          setBadgeDistributionLoading(false);
+        }
+      }
+    };
+
+    fetchBadgeDistribution();
 
     return () => {
       ignore = true;
@@ -373,7 +554,7 @@ const Dashboard: React.FC = () => {
     },
     {
       key: 'total_teachers',
-      label: state.showingPageType === 'pro' ? 'Encadrants' : 'Enseignants',
+      label: state.showingPageType === 'pro'  ? 'Encadrants' : 'Enseignants',
       icon: '/icons_logo/Icon=Event grand.svg',
       value: overview?.total_teachers,
       variant: 'stat-card',
@@ -430,6 +611,11 @@ const Dashboard: React.FC = () => {
   };
 
   const chartData = getChartData(selectedPeriod, selectedActivity);
+  const badgePieBackground = useMemo(
+    () => buildBadgePieBackground(badgeDistribution, badgeDistributionTotal),
+    [badgeDistribution, badgeDistributionTotal]
+  );
+  const hasAssignedBadges = badgeDistributionTotal > 0;
 
   const getStatusMeta = (status?: string) => {
     switch (status) {
@@ -514,6 +700,7 @@ const Dashboard: React.FC = () => {
           <div className="dashboard-stats">
             <div className="stats-grid">
               {statCards.map((card) => {
+                if (card.label === "Enseignants" && state.showingPageType === 'teacher') return null;
                 const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
                 return (
                   <div key={card.key} className={card.variant}>
@@ -792,32 +979,38 @@ const Dashboard: React.FC = () => {
               <div className="chart-header">
                 <h3>Répartition des badges</h3>
               </div>
-              {/* ... Contenu de la répartition des badges (pie chart) ... */}
               <div className="chart-placeholder">
-                <div className="pie-chart-mock">
-                  <div className="pie-segment segment-1"></div>
-                  <div className="pie-segment segment-2"></div>
-                  <div className="pie-segment segment-3"></div>
-                  <div className="pie-segment segment-4"></div>
-                </div>
-                <div className="pie-legend">
-                  <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: '#10b981' }}></span>
-                    <span>Niveau 1 (45%)</span>
+                {badgeDistributionLoading && (
+                  <p className="chart-feedback-text">Chargement de la répartition...</p>
+                )}
+                {!badgeDistributionLoading && badgeDistributionError && (
+                  <p className="chart-feedback-text error">{badgeDistributionError}</p>
+                )}
+                {!badgeDistributionLoading && !badgeDistributionError && (
+                  <div className="flex flex-col">
+                    <div
+                      className={`pie-chart-mock${hasAssignedBadges ? '':' pie-chart-empty'}`}
+                      style={{ background: badgePieBackground }}
+                    ></div>
+                    {hasAssignedBadges ? (
+                      <div className="pie-legend">
+                        {badgeDistribution.map((segment) => (
+                          <div className="legend-item" key={segment.level}>
+                            <span
+                              className="legend-color"
+                              style={{ backgroundColor: segment.color }}
+                            ></span>
+                            <span>
+                              {segment.label} ({segment.percentage}%)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="chart-feedback-text">Aucun badge attribué pour le moment.</p>
+                    )}
                   </div>
-                  <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: '#3b82f6' }}></span>
-                    <span>Niveau 2 (30%)</span>
-                  </div>
-                  <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: '#f59e0b' }}></span>
-                    <span>Niveau 3 (20%)</span>
-                  </div>
-                  <div className="legend-item">
-                    <span className="legend-color" style={{ backgroundColor: '#ef4444' }}></span>
-                    <span>Niveau 4 (5%)</span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

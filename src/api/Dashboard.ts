@@ -64,3 +64,21 @@ export const getTeacherActivity = () => {
   return axiosClient.get('/api/v1/teachers/activity');
 };
 
+export const getSchoolAssignedBadges = (schoolId: number, perPage = 200) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}/badges/assigned`, {
+    params: { per_page: perPage },
+  });
+};
+
+export const getCompanyAssignedBadges = (companyId: number, perPage = 200) => {
+  return axiosClient.get(`/api/v1/companies/${companyId}/badges/assigned`, {
+    params: { per_page: perPage },
+  });
+};
+
+export const getTeacherAssignedBadges = (perPage = 200) => {
+  return axiosClient.get(`/api/v1/teachers/badges/assigned`, {
+    params: { per_page: perPage },
+  });
+};
+

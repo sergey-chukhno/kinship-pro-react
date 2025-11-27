@@ -645,7 +645,7 @@ const Members: React.FC = () => {
                   />
                 );
               })
-            : <div className="text-center text-gray-500">Aucun membre trouvé pour le moment</div>}
+            : <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>}
             </div>
           </div>
         </>

@@ -102,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 
   const navigationItems = [
     { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
-    { id: 'members' as PageType, label: state.showingPageType === 'teacher' ? 'Classe' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
+    { id: 'members' as PageType, label: state.showingPageType === 'teacher' ? 'Classes' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg', disabled: true },
     { id: 'projects' as PageType, label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
     { id: 'badges' as PageType, label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },

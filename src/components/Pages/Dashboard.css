@@ -324,6 +324,21 @@
   margin: 0 auto 16px auto;
 }
 
+.pie-chart-empty {
+  background: radial-gradient(circle at center, #f9fafb 0%, #e5e7eb 75%);
+}
+
+.chart-feedback-text {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  margin: 8px 0;
+}
+
+.chart-feedback-text.error {
+  color: var(--danger, #ef4444);
+}
+
 .pie-legend {
   display: flex;
   flex-direction: column;
