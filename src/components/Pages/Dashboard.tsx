@@ -1,15 +1,405 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { mockDashboardStats } from '../../data/mockData';
+import {
+  getCompanyStats,
+  getCompanyProjects,
+  getSchoolStats,
+  getSchoolProjects,
+  getTeacherStats,
+  getCompanyActivity,
+  getSchoolActivity,
+  getTeacherActivity
+} from '../../api/Dashboard';
+import { OrganizationStatsResponse } from '../../types';
+import { getOrganizationId } from '../../utils/projectMapper';
 import './Dashboard.css';
+import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
+
+const numberFormatter = new Intl.NumberFormat('fr-FR');
+
+type DashboardProject = {
+  id: number | string;
+  title: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  created_at?: string;
+  members_count?: number;
+  participants_number?: number | null;
+  school_levels?: Array<{ id: number; name: string }>;
+};
+
+type DashboardActivity = {
+  id: number | string;
+  description: string;
+  created_at?: string;
+  actor_name?: string;
+  actor_avatar?: string;
+};
+
+const toActivityArray = (payload: any): any[] => {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === 'object') {
+    return Object.values(payload).filter(Boolean);
+  }
+  return [];
+};
+
+const formatPersonName = (person?: { full_name?: string; first_name?: string; last_name?: string }) => {
+  if (!person) return undefined;
+  return person.full_name || [person.first_name, person.last_name].filter(Boolean).join(' ').trim() || undefined;
+};
+
+const getActorFromActivity = (activity: any) => {
+  return (
+    activity?.user ||
+    activity?.owner ||
+    activity?.actor ||
+    activity?.member ||
+    activity?.creator ||
+    activity?.initiator ||
+    {}
+  );
+};
+
+const getActorName = (activity: any) => {
+  const actor = getActorFromActivity(activity);
+  const fullName = formatPersonName(actor);
+
+  return fullName || activity?.actor_name || activity?.user_name || activity?.member_name || undefined;
+};
+
+const getActorAvatar = (activity: any) => {
+  const actor = getActorFromActivity(activity);
+  return (
+    activity?.actor_avatar ||
+    actor?.avatar_url ||
+    actor?.avatar ||
+    activity?.user_avatar ||
+    activity?.member_avatar ||
+    undefined
+  );
+};
+
+const getReceiverName = (activity: any) => {
+  return (
+    formatPersonName(activity?.receiver) ||
+    activity?.receiver_name ||
+    activity?.member_name ||
+    activity?.user_name ||
+    undefined
+  );
+};
+
+const buildActivityDescription = (activity: any) => {
+  const type = activity?.type;
+  switch (type) {
+    case 'member_added':
+      return `a rejoint l'organisation`;
+    case 'project_created':
+      return `a créé le projet "${activity?.title || activity?.project?.title || 'nouveau projet'}"`;
+    case 'badge_awarded':
+      {
+        const badgeTitle =
+          activity?.badge?.title ||
+          activity?.badge?.name ||
+          activity?.title ||
+          'Nouveau badge';
+        return `a reçu le badge "${badgeTitle}"`;
+      }
+    case 'partnership_created':
+      return `a créé un nouveau partenariat`;
+    case 'activity_logged':
+      return activity?.description || activity?.message || 'a réalisé une nouvelle activité';
+    default:
+      return (
+        activity?.description ||
+        activity?.message ||
+        activity?.action ||
+        activity?.title ||
+        activity?.event_description ||
+        'Nouvelle activité'
+      );
+  }
+};
+
+const mapActivityEntry = (activity: any, index: number): DashboardActivity => {
+  const receiverName = getReceiverName(activity);
+  const actorName =
+    activity?.type === 'badge_awarded'
+      ? receiverName || getActorName(activity)
+      : getActorName(activity);
+  const actorAvatar = getActorAvatar(activity);
+  const description = buildActivityDescription(activity);
+  const createdAt =
+    activity?.occurred_at ||
+    activity?.created_at ||
+    activity?.timestamp ||
+    activity?.happened_at ||
+    activity?.date;
+
+  return {
+    id: activity?.id ?? `activity-${index}`,
+    description,
+    created_at: createdAt,
+    actor_name: actorName,
+    actor_avatar: actorAvatar
+  };
+};
 
 const Dashboard: React.FC = () => {
   const { state } = useAppContext();
-  const stats = mockDashboardStats;
+  const [statsData, setStatsData] = useState<OrganizationStatsResponse | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<'1w' | '1m' | '6m'>('1m');
   const [selectedActivity, setSelectedActivity] = useState<'projects' | 'badges'>('projects');
   const [hoveredBar, setHoveredBar] = useState<{ index: number; value: number; label: string } | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [projects, setProjects] = useState<DashboardProject[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [activities, setActivities] = useState<DashboardActivity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const organizationId = getOrganizationId(state.user, state.showingPageType);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchStats = async () => {
+      if (state.showingPageType === 'user') {
+        setStatsData(null);
+        setStatsError(null);
+        return;
+      }
+
+      if (
+        (state.showingPageType === 'pro' || state.showingPageType === 'edu') &&
+        !organizationId
+      ) {
+        return;
+      }
+
+      setStatsLoading(true);
+      setStatsError(null);
+
+      try {
+        let response;
+
+        if (state.showingPageType === 'pro' && organizationId) {
+          response = await getCompanyStats(Number(organizationId));
+        } else if (state.showingPageType === 'edu' && organizationId) {
+          response = await getSchoolStats(Number(organizationId));
+        } else if (state.showingPageType === 'teacher') {
+          response = await getTeacherStats();
+        } else {
+          setStatsData(null);
+          setStatsLoading(false);
+          return;
+        }
+
+        const payload = response.data?.data ?? response.data;
+        if (!ignore) {
+          setStatsData(payload);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des statistiques :', error);
+        if (!ignore) {
+          setStatsData(null);
+          setStatsError('Impossible de charger les statistiques pour le moment.');
+        }
+      } finally {
+        if (!ignore) {
+          setStatsLoading(false);
+        }
+      }
+    };
+
+    fetchStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, [state.showingPageType, organizationId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchProjects = async () => {
+      if (state.showingPageType === 'user') {
+        setProjects([]);
+        setProjectsError(null);
+        return;
+      }
+
+      if (!organizationId) {
+        setProjects([]);
+        setProjectsError(null);
+        return;
+      }
+
+      setProjectsLoading(true);
+      setProjectsError(null);
+
+      try {
+        let response;
+        const includeBranches = false;
+
+        if (state.showingPageType === 'pro') {
+          response = await getCompanyProjects(Number(organizationId), includeBranches);
+        } else {
+          // edu or teacher (teachers are tied to a school)
+          response = await getSchoolProjects(Number(organizationId), includeBranches);
+        }
+
+        const payload = response.data?.data ?? response.data ?? [];
+        if (!ignore) {
+          const normalizedProjects: DashboardProject[] = Array.isArray(payload) ? payload : [];
+          const getTimestamp = (project: DashboardProject) => {
+            const dateSource = project.created_at || project.start_date || project.end_date;
+            const timestamp = dateSource ? new Date(dateSource).getTime() : 0;
+            return Number.isNaN(timestamp) ? 0 : timestamp;
+          };
+          const sortedProjects = [...normalizedProjects].sort(
+            (a, b) => getTimestamp(b) - getTimestamp(a)
+          );
+          setProjects(sortedProjects);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des projets :', error);
+        if (!ignore) {
+          setProjects([]);
+          setProjectsError('Impossible de charger les projets pour le moment.');
+        }
+      } finally {
+        if (!ignore) {
+          setProjectsLoading(false);
+        }
+      }
+    };
+
+    fetchProjects();
+
+    return () => {
+      ignore = true;
+    };
+  }, [state.showingPageType, organizationId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchActivities = async () => {
+      if (state.showingPageType === 'user') {
+        setActivities([]);
+        setActivitiesError(null);
+        return;
+      }
+
+      if (!organizationId && state.showingPageType !== 'teacher') {
+        setActivities([]);
+        setActivitiesError(null);
+        return;
+      }
+
+      setActivitiesLoading(true);
+      setActivitiesError(null);
+
+      try {
+        let response;
+
+        if (state.showingPageType === 'pro' && organizationId) {
+          response = await getCompanyActivity(Number(organizationId));
+        } else if (state.showingPageType === 'edu' && organizationId) {
+          response = await getSchoolActivity(Number(organizationId));
+        } else if (state.showingPageType === 'teacher') {
+          response = await getTeacherActivity();
+        } else {
+          setActivities([]);
+          setActivitiesLoading(false);
+          return;
+        }
+
+        const payload = response.data?.data ?? response.data ?? [];
+        if (!ignore) {
+          const activityArray = toActivityArray(payload);
+          const mappedActivities: DashboardActivity[] = activityArray.map((activity, index) =>
+            mapActivityEntry(activity, index)
+          );
+          const getTimestamp = (activity: DashboardActivity) => {
+            if (!activity.created_at) return 0;
+            const timestamp = new Date(activity.created_at).getTime();
+            return Number.isNaN(timestamp) ? 0 : timestamp;
+          };
+          const sortedActivities = [...mappedActivities].sort(
+            (a, b) => getTimestamp(b) - getTimestamp(a)
+          );
+          setActivities(sortedActivities);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des activités :', error);
+        if (!ignore) {
+          setActivities([]);
+          setActivitiesError('Impossible de charger les activités pour le moment.');
+        }
+      } finally {
+        if (!ignore) {
+          setActivitiesLoading(false);
+        }
+      }
+    };
+
+    fetchActivities();
+
+    return () => {
+      ignore = true;
+    };
+  }, [state.showingPageType, organizationId]);
+
+  const formatStatValue = (value?: number | null) => {
+    if (statsLoading) return '...';
+    if (value === undefined || value === null) return '—';
+    return numberFormatter.format(value);
+  };
+
+  const overview = statsData?.overview;
+  const statCards = [
+    {
+      key: 'total_members',
+      label: 'Membres actifs',
+      icon: '/icons_logo/Icon=Membres grand.svg',
+      value: overview?.total_members,
+      variant: 'stat-card',
+    },
+    {
+      key: 'total_teachers',
+      label: state.showingPageType === 'pro' ? 'Encadrants' : 'Enseignants',
+      icon: '/icons_logo/Icon=Event grand.svg',
+      value: overview?.total_teachers,
+      variant: 'stat-card',
+    },
+    {
+      key: 'total_students',
+      label: state.showingPageType === 'pro' ? 'Participants suivis' : 'Étudiants',
+      icon: '/icons_logo/Icon=Reseau.svg',
+      value: overview?.total_students,
+      variant: 'stat-card',
+    },
+    {
+      key: 'total_projects',
+      label: 'Projets en cours',
+      icon: '/icons_logo/Icon=Projet grand.svg',
+      value: overview?.total_projects,
+      variant: 'stat-card2',
+    },
+    {
+      key: 'total_levels',
+      label: state.showingPageType === 'pro' ? 'Programmes actifs' : 'Niveaux',
+      icon: '/icons_logo/Icon=Badges.svg',
+      value: overview?.total_levels,
+      variant: 'stat-card2',
+    },
+  ];
 
   // Chart data logic
   const getChartData = (period: '1w' | '1m' | '6m', activity: 'projects' | 'badges') => {
@@ -41,6 +431,66 @@ const Dashboard: React.FC = () => {
 
   const chartData = getChartData(selectedPeriod, selectedActivity);
 
+  const getStatusMeta = (status?: string) => {
+    switch (status) {
+      case 'in_progress':
+        return { label: 'En cours', className: 'badge-inprogress' };
+      case 'coming':
+        return { label: 'À venir', className: 'badge-upcoming' };
+      case 'ended':
+        return { label: 'Clôturé', className: 'badge-completed' };
+      default:
+        return { label: 'Non défini', className: 'badge-upcoming' };
+    }
+  };
+
+  const formatDateRange = (start?: string, end?: string) => {
+    if (!start || !end) return 'Dates à définir';
+
+    try {
+      const formatter = new Intl.DateTimeFormat('fr-FR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+      return `${formatter.format(new Date(start))} – ${formatter.format(new Date(end))}`;
+    } catch (e) {
+      return 'Dates à définir';
+    }
+  };
+
+  const recentProjects = useMemo(() => {
+    if (!projects || projects.length === 0) return [];
+
+    const getTimestamp = (project: DashboardProject) => {
+      const dateSource = project.created_at || project.start_date || project.end_date;
+      const timestamp = dateSource ? new Date(dateSource).getTime() : 0;
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    };
+
+    return [...projects]
+      .sort((a, b) => getTimestamp(b) - getTimestamp(a))
+      .slice(0, 3);
+  }, [projects]);
+
+  const formatRelativeTime = (date?: string) => {
+    if (!date) return 'Récemment';
+    const timestamp = new Date(date).getTime();
+    if (Number.isNaN(timestamp)) return 'Récemment';
+    const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+    if (seconds < 60) return `Il y a ${seconds} sec${seconds > 1 ? 's' : ''}`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `Il y a ${minutes} min${minutes > 1 ? 's' : ''}`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Il y a ${hours} heure${hours > 1 ? 's' : ''}`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `Il y a ${days} jour${days > 1 ? 's' : ''}`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `Il y a ${months} mois`;
+    const years = Math.floor(months / 12);
+    return `Il y a ${years} an${years > 1 ? 's' : ''}`;
+  };
+
   return (
     <section className="dashboard-main-layout active">
       {/* Welcome Message and Section Title */}
@@ -60,50 +510,29 @@ const Dashboard: React.FC = () => {
 
 {/* --- COLONNE DE GAUCHE (Stats + Nouvel Aperçu Membres + Projets + Charts) --- */}
         <div className="dashboard-left-column">
-          {/* Statistics Cards (Pas de changement) */}
+          {/* Statistics Cards */}
           <div className="dashboard-stats">
             <div className="stats-grid">
-              {/* ... stat-card 1, 2, 3 ... */}
-              <div className="stat-card">
-                <div className="stat-icon"><img src="/icons_logo/Icon=Membres grand.svg" alt="Membres" /></div>
-                <div className="stat-content">
-                  <div className="stat-value">{stats.totalMembers}</div>
-                  <div className="stat-label">Membres actifs</div>
-                </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon"><img src="/icons_logo/Icon=Event grand.svg" alt="Événements" /></div>
-                <div className="stat-content">
-                  <div className="stat-value">{stats.upcomingEvents}</div>
-                  <div className="stat-label">Événements à venir</div>
-                </div>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon"><img src="/icons_logo/Icon=Reseau.svg" alt="Partenaires" /></div>
-                <div className="stat-content">
-                  <div className="stat-value">{stats.upcomingEvents}</div>
-                  <div className="stat-label">Partenaires</div>
-                </div>
-              </div>
-
-              <div className="stat-card2">
-                <div className="stat-icon"><img src="/icons_logo/Icon=Projet grand.svg" alt="Projets" /></div>
-                <div className="stat-content">
-                  <div className="stat-value">{stats.activeProjects}</div>
-                  <div className="stat-label2">Projets en cours</div>
-                </div>
-              </div>
-
-              <div className="stat-card2">
-                <div className="stat-icon"><img src="/icons_logo/Icon=Badges.svg" alt="Badges" /></div>
-                <div className="stat-content">
-                  <div className="stat-value">{stats.badgesAwarded}</div>
-                  <div className="stat-label2">Badges attribués</div>
-                </div>
-              </div>
+              {statCards.map((card) => {
+                const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
+                return (
+                  <div key={card.key} className={card.variant}>
+                    <div className="stat-icon">
+                      <img src={card.icon} alt={card.label} />
+                    </div>
+                    <div className="stat-content">
+                      <div className="stat-value">{formatStatValue(card.value)}</div>
+                      <div className={labelClass}>{card.label}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+            {statsError && (
+              <p className="stats-error-text">
+                {statsError}
+              </p>
+            )}
           </div>
 
           <div className="projects-in-progress-container">
@@ -112,73 +541,48 @@ const Dashboard: React.FC = () => {
                 <img src="/icons_logo/Icon=Projet grand.svg" alt="Projets" className="projects-icon" />
                 <h3>Projets en cours</h3>
               </div>
-              <button className="btn btn-primary">Créer un projet +</button>
+              {/* <button className="btn btn-primary">Créer un projet +</button> */}
             </div>
 
             <div className="project-list">
-              {/* Projet 1 */}
-              <div className="project-item">
-                <div className="project-info">
-                  <span className="project-name">Atelier Développement Durable</span>
-                  <span className="project-badge badge-inprogress">En cours</span>
-                </div>
-                <div className="project-details-row">
-                  <div className="project-dates">
-                    15 Jan – 30 Mar 2024
-                  </div>
-                  <div className="project-progress">
-                    <div className="progress-bar-wrapper">
-                      {/* --- MODIFIÉ : 75% --- */}
-                      <div className="progress-bar" style={{ width: '75%' }}></div>
-                    </div>
-                    <span className="progress-value">75%</span>
-                  </div>
-                </div>
-              </div>
+              {projectsLoading && (
+                <p className="project-feedback-text">Chargement des projets...</p>
+              )}
 
-              {/* Projet 2 */}
-              <div className="project-item">
-                <div className="project-info">
-                  <span className="project-name project-upcoming">Programme Santé Mentale</span>
-                  <span className="project-badge badge-upcoming">À venir</span>
-                </div>
-                <div className="project-details-row">
-                  <div className="project-dates">
-                    1 Fév – 15 Avr 2024
-                  </div>
-                  <div className="project-progress">
-                    <div className="progress-bar-wrapper">
-                      {/* --- MODIFIÉ : 25% --- */}
-                      <div className="progress-bar" style={{ width: '25%' }}></div>
-                    </div>
-                    <span className="progress-value">25%</span>
-                  </div>
-                </div>
-              </div>
+              {!projectsLoading && projectsError && (
+                <p className="project-feedback-text error">{projectsError}</p>
+              )}
 
-              {/* Projet 3 */}
-              <div className="project-item">
-                <div className="project-info">
-                  <span className="project-name">Festival Artistique Interculturel</span>
-                  <span className="project-badge badge-inprogress">En cours</span>
-                </div>
-                <div className="project-details-row">
-                  <div className="project-dates">
-                    10 Déc 2023 – 20 Mai 2024
-                  </div>
-                  <div className="project-progress">
-                    <div className="progress-bar-wrapper">
-                      {/* --- MODIFIÉ : 90% --- */}
-                      <div className="progress-bar" style={{ width: '90%' }}></div>
+              {!projectsLoading && !projectsError && recentProjects.length === 0 && (
+                <p className="project-feedback-text">Aucun projet à afficher pour le moment.</p>
+              )}
+
+              {!projectsLoading && !projectsError && recentProjects.map((project) => {
+                const statusMeta = getStatusMeta(project.status);
+                return (
+                  <div className="project-item" key={project.id}>
+                    <div className="project-info">
+                      <span className="project-name">{project.title}</span>
+                      <span className={`project-badge ${statusMeta.className}`}>{statusMeta.label}</span>
                     </div>
-                    <span className="progress-value">90%</span>
+                    <div className="project-details-row">
+                      <div className="project-dates">
+                        {formatDateRange(project.start_date, project.end_date)}
+                      </div>
+                      {/* <div className="project-progress">
+                        <div className="progress-bar-wrapper">
+                          <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+                        </div>
+                        <span className="progress-value">{progress}%</span>
+                      </div> */}
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
 
             <div className="projects-footer">
-              <a href="#" className="btn btn-text">Voir tous les projets →</a>
+              <a href="/projects" className="btn btn-text">Voir tous les projets →</a>
             </div>
           </div>
 
@@ -228,7 +632,7 @@ const Dashboard: React.FC = () => {
               </div>
               
               <div className="members-footer">
-                <a href="#" className="btn btn-text">Voir tous les membres →</a>
+                <a href="/members" className="btn btn-text">Voir tous les membres →</a>
               </div>
             </div>
             
@@ -341,43 +745,42 @@ const Dashboard: React.FC = () => {
           <div className="recent-activity">
             <div className="activity-header">
               <h3>Activités récentes</h3>
-              <button className="btn btn-outline btn-sm">Voir tout</button>
             </div>
             <div className="activity-list">
-              <p className="activity-empty">Aucune activité récente pour le moment</p>
-              {/* <div className="activity-item">
-                <div className="activity-avatar">
-                  <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Sophie Martin" />
-                </div>
-                <div className="activity-content">
-                  <div className="activity-text">
-                    <strong>Sophie Martin</strong> a rejoint l'organisation
+              {activitiesLoading && (
+                <p className="activity-empty">Chargement des activités...</p>
+              )}
+              {!activitiesLoading && activitiesError && (
+                <p className="activity-empty error">{activitiesError}</p>
+              )}
+              {!activitiesLoading && !activitiesError && activities.length === 0 && (
+                <p className="activity-empty">Aucune activité récente pour le moment</p>
+              )}
+              {!activitiesLoading && !activitiesError && activities.map((activity) => (
+                <div className="activity-item" key={activity.id}>
+                  <div className="activity-avatar">
+                    <img
+                      src={activity.actor_avatar || DEFAULT_AVATAR_SRC}
+                      alt={activity.actor_name || 'Utilisateur'}
+                    />
                   </div>
-                  <div className="activity-time">Il y a 2 heures</div>
-                </div>
-              </div>
-              <div className="activity-item">
-                <div className="activity-avatar">
-                  <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="François Dupont" />
-                </div>
-                <div className="activity-content">
-                  <div className="activity-text">
-                    <strong>François Dupont</strong> a reçu le badge "Collaboration"
+                  <div className="activity-content">
+                    <div className="activity-text">
+                      {activity.actor_name ? (
+                        <>
+                          <strong>{activity.actor_name}</strong>{' '}
+                          {activity.description}
+                        </>
+                      ) : (
+                        activity.description || 'Nouvelle activité'
+                      )}
+                    </div>
+                    <div className="activity-time">
+                      {formatRelativeTime(activity.created_at)}
+                    </div>
                   </div>
-                  <div className="activity-time">Il y a 4 heures</div>
                 </div>
-              </div>
-              <div className="activity-item">
-                <div className="activity-avatar">
-                  <img src="https://randomuser.me/api/portraits/men/67.jpg" alt="Lucas Bernard" />
-                </div>
-                <div className="activity-content">
-                  <div className="activity-text">
-                    <strong>Lucas Bernard</strong> a créé le projet "Atelier développement durable"
-                  </div>
-                  <div className="activity-time">Il y a 1 jour</div>
-                </div>
-              </div> */}
+              ))}
             </div>
           </div>
 
