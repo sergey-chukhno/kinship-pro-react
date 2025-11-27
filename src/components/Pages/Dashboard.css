@@ -903,6 +903,16 @@
   flex-direction: column;
 }
 
+.member-feedback-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  margin: 8px 0;
+}
+
+.member-feedback-text.error {
+  color: var(--danger, #ef4444);
+}
+
 .member-item {
   display: flex;
   align-items: center;
@@ -949,6 +959,12 @@
 .member-role {
   font-size: 0.85rem;
   color: var(--text-secondary, #6b7280);
+}
+
+.member-meta {
+  font-size: 0.8rem;
+  color: var(--text-tertiary, #9ca3af);
+  margin-top: 2px;
 }
 
 /* Footer Membres */

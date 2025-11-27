@@ -43,6 +43,44 @@ export const getSchoolProjects = (
   });
 };
 
+export const getSchoolRecentMembers = (
+  schoolId: number,
+  perPage = 3,
+  createdAtOrder: 'asc' | 'desc' = 'desc'
+) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}/members`, {
+    params: {
+      created_at_order: createdAtOrder,
+      per_page: perPage,
+    },
+  });
+};
+
+export const getCompanyRecentMembers = (
+  companyId: number,
+  perPage = 3,
+  createdAtOrder: 'asc' | 'desc' = 'desc'
+) => {
+  return axiosClient.get(`/api/v1/companies/${companyId}/members`, {
+    params: {
+      created_at_order: createdAtOrder,
+      per_page: perPage,
+    },
+  });
+};
+
+export const getTeacherRecentMembers = (
+  perPage = 3,
+  createdAtOrder: 'asc' | 'desc' = 'desc'
+) => {
+  return axiosClient.get(`/api/v1/teachers/members`, {
+    params: {
+      created_at_order: createdAtOrder,
+      per_page: perPage,
+    },
+  });
+};
+
 export const getCompanyProjects = (
   companyId: number,
   includeBranches = false

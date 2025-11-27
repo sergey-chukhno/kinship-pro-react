@@ -6,6 +6,9 @@ import {
   getCompanyProjects,
   getSchoolStats,
   getSchoolProjects,
+  getSchoolRecentMembers,
+  getCompanyRecentMembers,
+  getTeacherRecentMembers,
   getTeacherStats,
   getCompanyActivity,
   getSchoolActivity,
@@ -27,6 +30,7 @@ import { OrganizationStatsResponse } from '../../types';
 import { getOrganizationId, validateImageSize } from '../../utils/projectMapper';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
+import { translateRole, translateRoles } from '../../utils/roleTranslations';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
@@ -48,6 +52,14 @@ type DashboardActivity = {
   created_at?: string;
   actor_name?: string;
   actor_avatar?: string;
+};
+
+type RecentMember = {
+  id: number | string;
+  name: string;
+  role?: string;
+  avatarUrl?: string | null;
+  created_at?: string;
 };
 
 type BadgeDistributionSegment = {
@@ -279,6 +291,9 @@ const Dashboard: React.FC = () => {
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [recentMembers, setRecentMembers] = useState<RecentMember[]>([]);
+  const [recentMembersLoading, setRecentMembersLoading] = useState(false);
+  const [recentMembersError, setRecentMembersError] = useState<string | null>(null);
   const [activities, setActivities] = useState<DashboardActivity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
@@ -609,6 +624,108 @@ const Dashboard: React.FC = () => {
     };
 
     fetchProjects();
+
+    return () => {
+      ignore = true;
+    };
+  }, [state.showingPageType, organizationId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchRecentMembers = async () => {
+      if (state.showingPageType === 'user') {
+        setRecentMembers([]);
+        setRecentMembersError(null);
+        setRecentMembersLoading(false);
+        return;
+      }
+
+      if ((state.showingPageType === 'pro' || state.showingPageType === 'edu') && !organizationId) {
+        setRecentMembers([]);
+        setRecentMembersError(null);
+        setRecentMembersLoading(false);
+        return;
+      }
+
+      setRecentMembersLoading(true);
+      setRecentMembersError(null);
+
+      try {
+        let response;
+
+        if (state.showingPageType === 'pro' && organizationId) {
+          response = await getCompanyRecentMembers(Number(organizationId), 3);
+        } else if (state.showingPageType === 'edu' && organizationId) {
+          response = await getSchoolRecentMembers(Number(organizationId), 3);
+        } else if (state.showingPageType === 'teacher') {
+          response = await getTeacherRecentMembers(3);
+        } else {
+          if (!ignore) {
+            setRecentMembers([]);
+            setRecentMembersLoading(false);
+            setRecentMembersError(null);
+          }
+          return;
+        }
+
+        const payload = response.data?.data ?? response.data ?? [];
+        const entries = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+
+        if (!ignore) {
+          const normalizedMembers: RecentMember[] = entries.slice(0, 3).map((member: any, index: number) => {
+            const avatar =
+              member?.avatar_url ||
+              member?.avatar ||
+              member?.user?.avatar_url ||
+              member?.user?.avatar ||
+              DEFAULT_AVATAR_SRC;
+            const roleCandidates = [
+              member?.role_in_system,
+              member?.role_in_school,
+              member?.role,
+              member?.job,
+              member?.user_role
+            ];
+            const translatedRoles = translateRoles(roleCandidates);
+            const resolvedRole =
+              translatedRoles[0] ||
+              translateRole(roleCandidates.find((candidate) => Boolean(candidate)) || 'Membre');
+
+            return {
+              id: member?.id ?? member?.user_id ?? `recent-member-${index}`,
+              name:
+                formatPersonName(member) ||
+                formatPersonName(member?.user) ||
+                member?.email ||
+                member?.user?.email ||
+                'Membre',
+              role: resolvedRole,
+              avatarUrl: avatar,
+              created_at: member?.created_at || member?.user?.created_at,
+            };
+          });
+
+          setRecentMembers(normalizedMembers);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des membres récents :', error);
+        if (!ignore) {
+          setRecentMembers([]);
+          setRecentMembersError('Impossible de charger les membres récents pour le moment.');
+        }
+      } finally {
+        if (!ignore) {
+          setRecentMembersLoading(false);
+        }
+      }
+    };
+
+    fetchRecentMembers();
 
     return () => {
       ignore = true;
@@ -1081,38 +1198,42 @@ const Dashboard: React.FC = () => {
               </div>
               
               <div className="member-list">
-                {/* Membre 1 : Marie Dubois */}
-                <div className="member-item">
-                  <div className="member-avatar">
-                    <img src="https://randomuser.me/api/portraits/women/44.jpg" alt="Marie Dubois" />
-                  </div>
-                  <div className="member-content">
-                    <div className="member-name">Marie Dubois</div>
-                    <div className="member-role">Développeur Front-End</div>
-                  </div>
-                </div>
+                {recentMembersLoading && (
+                  <p className="member-feedback-text">Chargement des membres...</p>
+                )}
 
-                {/* Membre 2 : Thomas Leroy */}
-                <div className="member-item">
-                  <div className="member-avatar">
-                    <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Thomas Leroy" />
-                  </div>
-                  <div className="member-content">
-                    <div className="member-name">Thomas Leroy</div>
-                    <div className="member-role">Designer UX/UI</div>
-                  </div>
-                </div>
+                {!recentMembersLoading && recentMembersError && (
+                  <p className="member-feedback-text error">{recentMembersError}</p>
+                )}
 
-                {/* Membre 3 : Sophie Martin */}
-                <div className="member-item">
-                  <div className="member-avatar">
-                    <img src="https://randomuser.me/api/portraits/women/67.jpg" alt="Sophie Martin" />
-                  </div>
-                  <div className="member-content">
-                    <div className="member-name">Sophie Martin</div>
-                    <div className="member-role">Chef de Projet</div>
-                  </div>
-                </div>
+                {!recentMembersLoading && !recentMembersError && recentMembers.length === 0 && (
+                  <p className="member-feedback-text">Aucun membre récent à afficher.</p>
+                )}
+
+                {!recentMembersLoading &&
+                  !recentMembersError &&
+                  recentMembers.map((member) => (
+                    <div className="member-item" key={member.id}>
+                      <div className="member-avatar">
+                        <img
+                          src={member.avatarUrl || DEFAULT_AVATAR_SRC}
+                          alt={member.name}
+                          onError={(event) => {
+                            if (event.currentTarget.src !== DEFAULT_AVATAR_SRC) {
+                              event.currentTarget.src = DEFAULT_AVATAR_SRC;
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="member-content">
+                        <div className="member-name">{member.name}</div>
+                        <div className="member-role">{member.role || 'Membre'}</div>
+                        {member.created_at && (
+                          <div className="member-meta">{formatRelativeTime(member.created_at)}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
               </div>
               
               <div className="members-footer">
