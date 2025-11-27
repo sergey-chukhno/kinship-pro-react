@@ -7,7 +7,8 @@ import './ProjectManagement.css';
 import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { getProjectById } from '../../api/Project';
-import { updateProject, getProjectStats, ProjectStats, joinProject, getProjectPendingMembers, updateProjectMember, removeProjectMember } from '../../api/Projects';
+import { updateProject, getProjectStats, ProjectStats, joinProject, getProjectPendingMembers, updateProjectMember, removeProjectMember, getProjectMembers, addProjectMember, getOrganizationMembers } from '../../api/Projects';
+import apiClient from '../../api/config';
 import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile, getUserProjectRole } from '../../utils/projectMapper';
 import { Project } from '../../types';
 import { useToast } from '../../hooks/useToast';
@@ -248,6 +249,24 @@ const ProjectManagement: React.FC = () => {
     fetchRequests();
   }, [project?.id, activeTab]);
 
+  // Load real project members when apiProjectData changes
+  useEffect(() => {
+    const loadParticipants = async () => {
+      if (!apiProjectData || !project?.id) return;
+      
+      try {
+        const members = await fetchAllProjectMembers();
+        setParticipants(members);
+      } catch (error) {
+        console.error('Error loading participants:', error);
+        showError('Erreur lors du chargement des participants');
+      }
+    };
+    
+    loadParticipants();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiProjectData, project?.id]);
+
   // Reset active tab if tabs become hidden (e.g., user role changes from admin to participant)
   useEffect(() => {
     if (!shouldShowTabs() && activeTab !== 'overview') {
@@ -259,31 +278,13 @@ const ProjectManagement: React.FC = () => {
   // State for requests (pending project join requests)
   const [requests, setRequests] = useState<any[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  
+  // State for available members (for adding participants)
+  const [availableMembers, setAvailableMembers] = useState<any[]>([]);
+  const [isLoadingAvailableMembers, setIsLoadingAvailableMembers] = useState(false);
 
-  const [participants, setParticipants] = useState([
-    {
-      id: '1',
-      memberId: '3',
-      name: 'Lucas Bernard',
-      profession: 'Formateur',
-      email: 'lucas.bernard@example.com',
-      avatar: 'https://randomuser.me/api/portraits/men/67.jpg',
-      skills: ['Gestion et Formation', 'Leadership', 'Communication'],
-      availability: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'],
-      organization: 'EduForm'
-    },
-    {
-      id: '2',
-      memberId: '2',
-      name: 'Sophie Martin',
-      profession: 'Designer',
-      email: 'sophie.martin@example.com',
-      avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-      skills: ['Arts & Culture', 'Créativité', 'Innovation'],
-      availability: ['Mardi', 'Jeudi'],
-      organization: 'DesignStudio'
-    }
-  ]);
+  // State for participants with extended type
+  const [participants, setParticipants] = useState<any[]>([]);
 
   const getStatusText = (status: string) => {
     switch (status) {
@@ -458,6 +459,251 @@ const ProjectManagement: React.FC = () => {
     
     // For organizational users (pro/edu), always show tabs
     return true;
+  };
+
+  /**
+   * Fetch all project members including owner, co-owners, and confirmed members
+   * Returns members sorted by role: owner -> co-owners -> admins -> members
+   */
+  const fetchAllProjectMembers = async (): Promise<any[]> => {
+    if (!project?.id || !apiProjectData) return [];
+    
+    const projectId = parseInt(project.id);
+    const allMembers: any[] = [];
+    
+    // Add owner
+    if (apiProjectData.owner) {
+      allMembers.push({
+        id: `owner-${apiProjectData.owner.id}`,
+        memberId: apiProjectData.owner.id.toString(),
+        name: apiProjectData.owner.full_name || `${apiProjectData.owner.first_name || ''} ${apiProjectData.owner.last_name || ''}`.trim() || 'Inconnu',
+        profession: apiProjectData.owner.job || 'Propriétaire',
+        email: apiProjectData.owner.email || '',
+        avatar: apiProjectData.owner.avatar_url || DEFAULT_AVATAR_SRC,
+        skills: apiProjectData.owner.skills?.map((s: any) => s.name || s) || [],
+        availability: apiProjectData.owner.availability || [],
+        organization: apiProjectData.owner_organization_name || '',
+        role: 'owner',
+        projectRole: 'owner',
+        canRemove: false // Owner cannot be removed
+      });
+    }
+    
+    // Add co-owners
+    if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
+      apiProjectData.co_owners.forEach((coOwner: any) => {
+        allMembers.push({
+          id: `co-owner-${coOwner.id}`,
+          memberId: coOwner.id.toString(),
+          name: coOwner.full_name || `${coOwner.first_name || ''} ${coOwner.last_name || ''}`.trim() || 'Inconnu',
+          profession: coOwner.job || 'Co-propriétaire',
+          email: coOwner.email || '',
+          avatar: coOwner.avatar_url || DEFAULT_AVATAR_SRC,
+          skills: coOwner.skills?.map((s: any) => s.name || s) || [],
+          availability: coOwner.availability || [],
+          organization: coOwner.organization_name || coOwner.city || '',
+          role: 'co-owner',
+          projectRole: 'co_owner',
+          canRemove: false // Only owner can remove co-owners
+        });
+      });
+    }
+    
+    // Add project members (confirmed only)
+    try {
+      const projectMembers = await getProjectMembers(projectId);
+      const confirmedMembers = projectMembers.filter((m: any) => m.status === 'confirmed');
+      
+      confirmedMembers.forEach((member: any) => {
+        allMembers.push({
+          id: `member-${member.id}`,
+          memberId: member.user?.id?.toString() || member.user_id?.toString(),
+          name: member.user?.full_name || 'Inconnu',
+          profession: member.user?.job || 'Membre',
+          email: member.user?.email || '',
+          avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
+          skills: member.user?.skills?.map((s: any) => s.name || s) || [],
+          availability: member.user?.availability || [],
+          organization: member.user?.organization || '',
+          role: member.project_role === 'admin' ? 'admin' : 'member',
+          projectRole: member.project_role,
+          canAssignBadges: member.can_assign_badges_in_project || false,
+          canRemove: true // Regular members can be removed by owner
+        });
+      });
+    } catch (error) {
+      console.error('Error fetching project members:', error);
+    }
+    
+    // Sort by role: owner -> co-owners -> admins -> members
+    const roleOrder: { [key: string]: number } = {
+      'owner': 1,
+      'co-owner': 2,
+      'admin': 3,
+      'member': 4
+    };
+    
+    return allMembers.sort((a, b) => {
+      const orderA = roleOrder[a.role] || 99;
+      const orderB = roleOrder[b.role] || 99;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      // If same role, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  /**
+   * Fetch available members from organization and branches (if applicable)
+   */
+  const fetchAvailableMembers = async (): Promise<any[]> => {
+    if (!apiProjectData) return [];
+    
+    const isEdu = state.showingPageType === 'edu';
+    const organizationType = isEdu ? 'school' : 'company';
+    
+    // Get organization ID from project or user context
+    let organizationId: number | null = null;
+    
+    if (isEdu) {
+      // For schools, get from project's school_levels or user context
+      if (apiProjectData.school_levels && apiProjectData.school_levels.length > 0) {
+        organizationId = apiProjectData.school_levels[0]?.school?.id;
+      } else {
+        organizationId = state.user?.available_contexts?.schools?.[0]?.id || null;
+      }
+    } else {
+      // For companies, get from project's companies or user context
+      if (apiProjectData.companies && apiProjectData.companies.length > 0) {
+        organizationId = apiProjectData.companies[0]?.id;
+      } else {
+        organizationId = state.user?.available_contexts?.companies?.[0]?.id || null;
+      }
+    }
+    
+    if (!organizationId) return [];
+    
+    const allMembers: any[] = [];
+    
+    try {
+      // Get main organization members (handle pagination)
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const response = await apiClient.get(
+          organizationType === 'school' 
+            ? `/api/v1/schools/${organizationId}/members`
+            : `/api/v1/companies/${organizationId}/members`,
+          {
+            params: {
+              status: 'confirmed',
+              per_page: 1000,
+              page: page
+            }
+          }
+        );
+        
+        const members = response.data?.data || [];
+        if (members.length === 0) {
+          hasMore = false;
+        } else {
+          allMembers.push(...members.map((member: any) => ({
+            id: member.id?.toString(),
+            memberId: member.id?.toString(), // API returns id: user.id directly
+            name: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Inconnu',
+            profession: member.job || 'Membre',
+            email: member.email || '',
+            avatar: member.avatar_url || DEFAULT_AVATAR_SRC,
+            skills: member.skills?.map((s: any) => s.name || s) || [],
+            availability: member.availability || [],
+            organization: member.organization_name || ''
+          })));
+          
+          // Check if there are more pages
+          const totalPages = response.data?.meta?.total_pages || 1;
+          if (page >= totalPages) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
+      }
+      
+      // If company and main company, get branch members
+      if (!isEdu) {
+        try {
+          const branchesResponse = await apiClient.get(`/api/v1/companies/${organizationId}/branches`);
+          const branches = branchesResponse.data?.data || [];
+          const shareMembers = branchesResponse.data?.meta?.share_members_with_branches || false;
+          
+          if (shareMembers && branches.length > 0) {
+            for (const branch of branches) {
+              try {
+                // Handle pagination for branch members too
+                let branchPage = 1;
+                let branchHasMore = true;
+                while (branchHasMore) {
+                  const branchResponse = await apiClient.get(
+                    `/api/v1/companies/${branch.id}/members`,
+                    {
+                      params: {
+                        status: 'confirmed',
+                        per_page: 1000,
+                        page: branchPage
+                      }
+                    }
+                  );
+                  
+                  const branchMembers = branchResponse.data?.data || [];
+                  if (branchMembers.length === 0) {
+                    branchHasMore = false;
+                  } else {
+                    allMembers.push(...branchMembers.map((member: any) => ({
+                      id: member.id?.toString(),
+                      memberId: member.id?.toString(), // API returns id: user.id directly
+                      name: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Inconnu',
+                      profession: member.job || 'Membre',
+                      email: member.email || '',
+                      avatar: member.avatar_url || DEFAULT_AVATAR_SRC,
+                      skills: member.skills?.map((s: any) => s.name || s) || [],
+                      availability: member.availability || [],
+                      organization: branch.name || ''
+                    })));
+                    
+                    // Check if there are more pages
+                    const branchTotalPages = branchResponse.data?.meta?.total_pages || 1;
+                    if (branchPage >= branchTotalPages) {
+                      branchHasMore = false;
+                    } else {
+                      branchPage++;
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error(`Error fetching members for branch ${branch.id}:`, error);
+                // Continue with other branches
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching branches:', error);
+          // Continue without branches if error
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching organization members:', error);
+      return [];
+    }
+    
+    // Remove duplicates and exclude existing participants
+    const existingMemberIds = participants.map(p => p.memberId);
+    const uniqueMembers = allMembers.filter((member, index, self) => 
+      index === self.findIndex(m => m.memberId === member.memberId) &&
+      !existingMemberIds.includes(member.memberId)
+    );
+    
+    return uniqueMembers;
   };
 
   const handleEdit = () => {
@@ -642,8 +888,60 @@ const ProjectManagement: React.FC = () => {
   };
 
   // Participant handlers
-  const handleRemoveParticipant = (participantId: string) => {
-    setParticipants(participants.filter(p => p.id !== participantId));
+  const handleRemoveParticipant = async (participantId: string) => {
+    const participant = participants.find(p => p.id === participantId);
+    if (!participant || !project?.id) return;
+    
+    // Check if can be removed
+    if (!participant.canRemove) {
+      showError('Ce membre ne peut pas être retiré du projet');
+      return;
+    }
+    
+    // Confirm action
+    if (!window.confirm(`Êtes-vous sûr de vouloir retirer ${participant.name} du projet ?`)) {
+      return;
+    }
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(participant.memberId);
+      
+      if (isNaN(projectId) || isNaN(userId)) {
+        showError('Données invalides');
+        return;
+      }
+      
+      await removeProjectMember(projectId, userId);
+      
+      showSuccess(`${participant.name} a été retiré du projet`);
+      
+      // Reload participants
+      const members = await fetchAllProjectMembers();
+      setParticipants(members);
+      
+      // Reload project stats
+      const stats = await getProjectStats(projectId);
+      setProjectStats(stats);
+    } catch (error: any) {
+      console.error('Error removing participant:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors du retrait du participant';
+      
+      // Specific error messages
+      if (error.response?.status === 403) {
+        if (errorMessage.includes('Cannot remove project owner')) {
+          showError('Le propriétaire du projet ne peut pas être retiré');
+        } else if (errorMessage.includes('Cannot remove yourself')) {
+          showError('Vous ne pouvez pas vous retirer vous-même');
+        } else {
+          showError('Vous n\'avez pas la permission de retirer ce membre');
+        }
+      } else if (error.response?.status === 404) {
+        showError('Membre non trouvé dans le projet');
+      } else {
+        showError(errorMessage);
+      }
+    }
   };
 
   const handleAwardBadge = (participantId: string) => {
@@ -901,11 +1199,21 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
-  const handleAddParticipant = () => {
-    setIsAddParticipantModalOpen(true);
+  const handleAddParticipant = async () => {
+    setIsLoadingAvailableMembers(true);
+    try {
+      const members = await fetchAvailableMembers();
+      setAvailableMembers(members);
+      setIsAddParticipantModalOpen(true);
+    } catch (error) {
+      console.error('Error loading available members:', error);
+      showError('Erreur lors du chargement des membres disponibles');
+    } finally {
+      setIsLoadingAvailableMembers(false);
+    }
   };
 
-  const handleAddParticipantSubmit = (participantData: {
+  const handleAddParticipantSubmit = async (participantData: {
     id: string;
     memberId: string;
     name: string;
@@ -916,8 +1224,53 @@ const ProjectManagement: React.FC = () => {
     availability: string[];
     organization: string;
   }) => {
-    setParticipants([...participants, participantData]);
-    setIsAddParticipantModalOpen(false);
+    if (!project?.id) return;
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(participantData.memberId);
+      
+      console.log('Adding participant:', { projectId, userId, participantData });
+      
+      if (isNaN(projectId) || isNaN(userId) || !participantData.memberId) {
+        console.error('Invalid data:', { projectId, userId, memberId: participantData.memberId });
+        showError('Données invalides');
+        return;
+      }
+      
+      // Add member via API
+      await addProjectMember(projectId, userId);
+      
+      showSuccess(`${participantData.name} a été ajouté au projet`);
+      
+      // Reload participants
+      const members = await fetchAllProjectMembers();
+      setParticipants(members);
+      
+      // Reload project stats
+      const stats = await getProjectStats(projectId);
+      setProjectStats(stats);
+      
+      setIsAddParticipantModalOpen(false);
+    } catch (error: any) {
+      console.error('Error adding participant:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de l\'ajout du participant';
+      
+      // Specific error messages
+      if (error.response?.status === 403) {
+        if (errorMessage.includes('cannot be added')) {
+          showError('Cet utilisateur ne peut pas être ajouté au projet');
+        } else {
+          showError('Vous n\'avez pas la permission d\'ajouter des membres');
+        }
+      } else if (error.response?.status === 409) {
+        showError('Cet utilisateur est déjà membre du projet');
+      } else if (error.response?.status === 404) {
+        showError('Utilisateur non trouvé');
+      } else {
+        showError(errorMessage);
+      }
+    }
   };
 
   const handleCopyLink = () => {
@@ -1441,18 +1794,28 @@ const ProjectManagement: React.FC = () => {
                     </div>
                     <div className="member-info">
                       <div className="member-name">{participant.name}</div>
+                      {participant.organization && (
+                        <div className="member-organization" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                          {participant.organization}
+                        </div>
+                      )}
                       <div className="member-role">{participant.profession}</div>
                     </div>
-                    <div className="member-badge badge-admin">Membre</div>
+                    <div className={`member-badge ${participant.role === 'owner' ? 'badge-admin' : participant.role === 'co-owner' ? 'badge-admin' : participant.role === 'admin' ? 'badge-admin' : ''}`}>
+                      {participant.role === 'owner' ? 'Propriétaire' : 
+                       participant.role === 'co-owner' ? 'Co-propriétaire' : 
+                       participant.role === 'admin' ? 'Admin' : 
+                       'Membre'}
+                    </div>
                     <div className="member-skills">
-                      {participant.skills.map((skill, idx) => (
+                      {(participant.skills || []).map((skill: string, idx: number) => (
                         <span key={idx} className="tag skill">
                           <i className="fas fa-star"></i> {skill}
                         </span>
                       ))}
                     </div>
                     <div className="member-availability">
-                      {participant.availability.map((day, idx) => (
+                      {(participant.availability || []).map((day: string, idx: number) => (
                         <span key={idx} className="tag availability">{day}</span>
                       ))}
                     </div>
@@ -1468,9 +1831,19 @@ const ProjectManagement: React.FC = () => {
                       >
                         <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
                       </button>
-                      <button type="button" className="btn-icon" title="Supprimer">
-                        <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
-                      </button>
+                      {/* Only show remove button if user is owner and participant can be removed */}
+                      {apiProjectData && 
+                       apiProjectData.owner?.id?.toString() === state.user?.id?.toString() && 
+                       participant.canRemove && (
+                        <button 
+                          type="button" 
+                          className="btn-icon" 
+                          title="Retirer"
+                          onClick={() => handleRemoveParticipant(participant.id)}
+                        >
+                          <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1587,23 +1960,23 @@ const ProjectManagement: React.FC = () => {
                         </div>
                     </div>
                     
-                    <div className="request-skills">
-                      <h4>Compétences</h4>
-                      <div className="skills-list">
-                        {participant.skills.map((skill, index) => (
-                          <span key={index} className="skill-pill">{skill}</span>
-                        ))}
+                      <div className="request-skills">
+                        <h4>Compétences</h4>
+                        <div className="skills-list">
+                          {(participant.skills || []).map((skill: string, index: number) => (
+                            <span key={index} className="skill-pill">{skill}</span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="request-availability">
-                      <h4>Disponibilités</h4>
-                      <div className="availability-list">
-                        {participant.availability.map((day, index) => (
-                          <span key={index} className="availability-pill">{day}</span>
-                        ))}
+                      
+                      <div className="request-availability">
+                        <h4>Disponibilités</h4>
+                        <div className="availability-list">
+                          {(participant.availability || []).map((day: string, index: number) => (
+                            <span key={index} className="availability-pill">{day}</span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
                     
                     <div className="request-actions">
                       <div className="action-buttons">
@@ -2400,6 +2773,7 @@ const ProjectManagement: React.FC = () => {
           onClose={() => setIsAddParticipantModalOpen(false)}
           onAdd={handleAddParticipantSubmit}
           existingParticipants={participants}
+          availableMembers={availableMembers}
         />
       )}
 

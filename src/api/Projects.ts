@@ -448,3 +448,17 @@ export const removeProjectMember = async (
 ): Promise<void> => {
     await apiClient.delete(`/api/v1/projects/${projectId}/members/${userId}`);
 };
+
+/**
+ * Add a member to the project
+ */
+export const addProjectMember = async (
+    projectId: number,
+    userId: number
+): Promise<any> => {
+    const response = await apiClient.post(
+        `/api/v1/projects/${projectId}/members`,
+        { user_id: userId }
+    );
+    return response.data;
+};
