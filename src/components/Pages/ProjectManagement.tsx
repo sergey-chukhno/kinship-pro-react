@@ -241,7 +241,7 @@ const ProjectManagement: React.FC = () => {
       tags: [...(project.tags || [])],
       startDate: project.startDate,
       endDate: project.endDate,
-      pathway: project.pathway
+      pathway: project.pathway || ''
     });
     setIsEditModalOpen(true);
   };
@@ -799,12 +799,14 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
               <div className="project-tags-row">
-                <div className="pathway-section">
-                  <div className="section-label">Parcours</div>
-                  <div className="pathway-container">
-                    <span className={`pathway-pill pathway-${project.pathway}`}>{project.pathway}</span>
+                {project.pathway && (
+                  <div className="pathway-section">
+                    <div className="section-label">Parcours</div>
+                    <div className="pathway-container">
+                      <span className={`pathway-pill pathway-${project.pathway}`}>{project.pathway}</span>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="tags-section">
                   <div className="section-label">Tags</div>
                   <div className="project-tags">

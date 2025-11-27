@@ -89,7 +89,7 @@ export interface Project {
   description: string;
   status: 'coming' | 'in_progress' | 'ended';
   visibility?: 'public' | 'private';
-  pathway: string;
+  pathway?: string;
   organization: string;
   owner: string;
   participants: number;
