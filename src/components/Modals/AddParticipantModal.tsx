@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { mockMembers } from '../../data/mockData';
-import { Member } from '../../types';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -20,24 +18,30 @@ interface AddParticipantModalProps {
   existingParticipants: {
     memberId: string;
   }[];
+  availableMembers: any[];
 }
 
-const AddParticipantModal: React.FC<AddParticipantModalProps> = ({ onClose, onAdd, existingParticipants }) => {
+const AddParticipantModal: React.FC<AddParticipantModalProps> = ({ 
+  onClose, 
+  onAdd, 
+  existingParticipants,
+  availableMembers 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [selectedMember, setSelectedMember] = useState<any | null>(null);
 
   // Get existing participant member IDs
   const existingMemberIds = existingParticipants.map(p => p.memberId);
 
   // Filter members based on search term and exclude existing participants
-  const filteredMembers = mockMembers.filter(member => {
+  const filteredMembers = availableMembers.filter(member => {
     // Exclude members who are already participants
-    if (existingMemberIds.includes(member.id)) {
+    if (existingMemberIds.includes(member.memberId)) {
       return false;
     }
 
     // Apply search filter
-    const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
+    const fullName = member.name.toLowerCase();
     const email = member.email.toLowerCase();
     const profession = member.profession.toLowerCase();
     const search = searchTerm.toLowerCase();
@@ -45,10 +49,10 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({ onClose, onAd
     return fullName.includes(search) || 
            email.includes(search) || 
            profession.includes(search) ||
-           member.skills.some(skill => skill.toLowerCase().includes(search));
+           (member.skills || []).some((skill: string) => skill.toLowerCase().includes(search));
   });
 
-  const handleMemberSelect = (member: Member) => {
+  const handleMemberSelect = (member: any) => {
     setSelectedMember(member);
   };
 
@@ -56,13 +60,13 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({ onClose, onAd
     if (selectedMember) {
       const participantData = {
         id: Date.now().toString(),
-        memberId: selectedMember.id,
-        name: `${selectedMember.firstName} ${selectedMember.lastName}`,
+        memberId: selectedMember.memberId,
+        name: selectedMember.name,
         profession: selectedMember.profession,
         email: selectedMember.email,
         avatar: selectedMember.avatar,
-        skills: selectedMember.skills,
-        availability: selectedMember.availability,
+        skills: selectedMember.skills || [],
+        availability: selectedMember.availability || [],
         organization: selectedMember.organization || 'Non spécifiée'
       };
       
@@ -117,17 +121,19 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({ onClose, onAd
                       <AvatarImage src={member.avatar} alt={`${member.firstName} ${member.lastName}`} />
                     </div>
                     <div className="member-info">
-                      <h4 className="member-name">{member.firstName} {member.lastName}</h4>
+                      <h4 className="member-name">{member.name}</h4>
                       <p className="member-profession">{member.profession}</p>
                       <p className="member-email" title={member.email}>{member.email}</p>
-                      <div className="member-organization">{member.organization}</div>
+                      {member.organization && (
+                        <div className="member-organization">{member.organization}</div>
+                      )}
                     </div>
                     <div className="member-skills-preview">
-                      {member.skills.slice(0, 2).map((skill, index) => (
+                      {(member.skills || []).slice(0, 2).map((skill: string, index: number) => (
                         <span key={index} className="skill-pill-small">{skill}</span>
                       ))}
-                      {member.skills.length > 2 && (
-                        <span className="skill-more">+{member.skills.length - 2}</span>
+                      {(member.skills || []).length > 2 && (
+                        <span className="skill-more">+{(member.skills || []).length - 2}</span>
                       )}
                     </div>
                   </div>
@@ -145,17 +151,17 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({ onClose, onAd
                   <AvatarImage src={selectedMember.avatar} alt={`${selectedMember.firstName} ${selectedMember.lastName}`} />
                 </div>
                 <div className="preview-info">
-                  <h4>{selectedMember.firstName} {selectedMember.lastName}</h4>
-                  <p>{selectedMember.profession} • {selectedMember.organization}</p>
+                  <h4>{selectedMember.name}</h4>
+                  <p>{selectedMember.profession} • {selectedMember.organization || 'Non spécifiée'}</p>
                   <div className="preview-skills">
-                    {selectedMember.skills.map((skill, index) => (
+                    {(selectedMember.skills || []).map((skill: string, index: number) => (
                       <span key={index} className="skill-pill-small">{skill}</span>
                     ))}
                   </div>
                   <div className="preview-availability">
                     <strong>Disponible:</strong>
                     <div className="availability-pills">
-                      {selectedMember.availability.map((day, index) => (
+                      {(selectedMember.availability || []).map((day: string, index: number) => (
                         <span key={index} className="availability-pill-small">{day}</span>
                       ))}
                     </div>
