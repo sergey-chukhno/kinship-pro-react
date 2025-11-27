@@ -469,3 +469,50 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         } : undefined
     };
 };
+
+/**
+ * Get user's role in a project
+ * Returns: 'owner' | 'co-owner' | 'admin' | 'participant avec droit de badges' | 'participant' | null
+ */
+export const getUserProjectRole = (
+    apiProject: any,
+    currentUserId: string | number | undefined
+): string | null => {
+    if (!apiProject || !currentUserId) return null;
+    
+    const userIdStr = currentUserId.toString();
+    
+    // Check if owner
+    if (apiProject.owner?.id?.toString() === userIdStr) {
+        return 'owner';
+    }
+    
+    // Check if co-owner
+    if (apiProject.co_owners && Array.isArray(apiProject.co_owners)) {
+        const isCoOwner = apiProject.co_owners.some((co: any) => 
+            co.id?.toString() === userIdStr
+        );
+        if (isCoOwner) {
+            return 'co-owner';
+        }
+    }
+    
+    // Check in project_members
+    if (apiProject.project_members && Array.isArray(apiProject.project_members)) {
+        const member = apiProject.project_members.find((m: any) => 
+            m.user?.id?.toString() === userIdStr && m.status === 'confirmed'
+        );
+        
+        if (member) {
+            if (member.role === 'admin') {
+                return 'admin';
+            }
+            if (member.can_assign_badges_in_project) {
+                return 'participant avec droit de badges';
+            }
+            return 'participant';
+        }
+    }
+    
+    return null;
+};
