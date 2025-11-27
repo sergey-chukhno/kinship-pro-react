@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
+import { useToast } from '../../hooks/useToast';
 import {
   getCompanyStats,
   getCompanyProjects,
@@ -11,10 +12,19 @@ import {
   getTeacherActivity,
   getCompanyAssignedBadges,
   getSchoolAssignedBadges,
-  getTeacherAssignedBadges
+  getTeacherAssignedBadges,
+  getCompanyDetails,
+  getSchoolDetails,
+  getTeacherLogo,
+  uploadCompanyLogo,
+  uploadSchoolLogo,
+  deleteCompanyLogo,
+  deleteSchoolLogo,
+  uploadTeacherLogo,
+  deleteTeacherLogo
 } from '../../api/Dashboard';
 import { OrganizationStatsResponse } from '../../types';
-import { getOrganizationId } from '../../utils/projectMapper';
+import { getOrganizationId, validateImageSize } from '../../utils/projectMapper';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 
@@ -46,6 +56,14 @@ type BadgeDistributionSegment = {
   color: string;
   count: number;
   percentage: number;
+};
+
+type LogoContextHandlers = {
+  fetcher: () => Promise<any>;
+  uploader: (file: File) => Promise<any>;
+  deleter: () => Promise<any>;
+  displayNameFallback?: string | null;
+  expectsBlob?: boolean;
 };
 
 const BADGE_LEVEL_META: Array<{ key: string; label: string; color: string }> = [
@@ -264,6 +282,12 @@ const Dashboard: React.FC = () => {
   const [activities, setActivities] = useState<DashboardActivity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null);
+  const [organizationName, setOrganizationName] = useState<string | null>(null);
+  const [logoLoading, setLogoLoading] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoDeleting, setLogoDeleting] = useState(false);
+  const [logoRefreshKey, setLogoRefreshKey] = useState(0);
   const [badgeDistribution, setBadgeDistribution] = useState<BadgeDistributionSegment[]>(() =>
     initializeBadgeSegments()
   );
@@ -271,6 +295,71 @@ const Dashboard: React.FC = () => {
   const [badgeDistributionLoading, setBadgeDistributionLoading] = useState(false);
   const [badgeDistributionError, setBadgeDistributionError] = useState<string | null>(null);
   const organizationId = getOrganizationId(state.user, state.showingPageType);
+  const logoFileInputRef = useRef<HTMLInputElement | null>(null);
+  const logoObjectUrlRef = useRef<string | null>(null);
+  const { showError } = useToast();
+  const showErrorRef = useRef(showError);
+  useEffect(() => {
+    showErrorRef.current = showError;
+  }, [showError]);
+  const revokeLogoObjectUrl = useCallback(() => {
+    if (logoObjectUrlRef.current) {
+      URL.revokeObjectURL(logoObjectUrlRef.current);
+      logoObjectUrlRef.current = null;
+    }
+  }, []);
+
+  const applyBlobLogo = useCallback(
+    (blob?: Blob | null) => {
+      revokeLogoObjectUrl();
+      if (blob && blob.size > 0) {
+        const objectUrl = URL.createObjectURL(blob);
+        logoObjectUrlRef.current = objectUrl;
+        setOrganizationLogoUrl(objectUrl);
+      } else {
+        setOrganizationLogoUrl(null);
+      }
+    },
+    [revokeLogoObjectUrl]
+  );
+  useEffect(() => {
+    return () => {
+      revokeLogoObjectUrl();
+    };
+  }, [revokeLogoObjectUrl]);
+  const logoContext = useMemo<LogoContextHandlers | null>(() => {
+    if (state.showingPageType === 'teacher' && organizationId === undefined) {
+      return {
+        fetcher: () => getTeacherLogo(),
+        uploader: (file: File) => uploadTeacherLogo(file),
+        deleter: () => deleteTeacherLogo(),
+        displayNameFallback: state.user.organization || state.user.name || 'Mon espace enseignant',
+        expectsBlob: false,
+      };
+    }
+
+    if (!organizationId) return null;
+    const id = Number(organizationId);
+
+    if (state.showingPageType === 'pro') {
+      return {
+        fetcher: () => getCompanyDetails(id),
+        uploader: (file: File) => uploadCompanyLogo(id, file),
+        deleter: () => deleteCompanyLogo(id),
+      };
+    }
+
+    if (state.showingPageType === 'edu' || state.showingPageType === 'teacher') {
+      return {
+        fetcher: () => getSchoolDetails(id),
+        uploader: (file: File) => uploadSchoolLogo(id, file),
+        deleter: () => deleteSchoolLogo(id),
+      };
+    }
+
+    return null;
+  }, [organizationId, state.showingPageType, state.user.organization, state.user.name]);
+  const canUploadLogo = Boolean(logoContext);
 
   useEffect(() => {
     let ignore = false;
@@ -330,6 +419,65 @@ const Dashboard: React.FC = () => {
       ignore = true;
     };
   }, [state.showingPageType, organizationId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchOrganizationDetails = async () => {
+      if (!logoContext) {
+        if (!ignore) {
+          applyBlobLogo(null);
+          setOrganizationName(null);
+          setLogoLoading(false);
+        }
+        return;
+      }
+
+      setLogoLoading(true);
+
+      try {
+        const response = await logoContext.fetcher();
+        if (ignore) return;
+
+        const fallbackName =
+          logoContext.displayNameFallback ||
+          state.user.organization ||
+          (state.showingPageType === 'teacher' ? state.user.name : null);
+
+        if (logoContext.expectsBlob) {
+          applyBlobLogo(response?.data);
+          if (fallbackName) {
+            setOrganizationName(fallbackName);
+          }
+        } else {
+          applyBlobLogo(null);
+          const payload = response?.data?.data ?? response?.data ?? {};
+          setOrganizationLogoUrl(payload?.logo_url || null);
+          setOrganizationName(payload?.name || fallbackName || null);
+        }
+      } catch (error: any) {
+        if (ignore) return;
+        const status = error?.response?.status;
+        if (status === 404) {
+          applyBlobLogo(null);
+          setOrganizationName(null);
+        } else {
+          console.error('Erreur lors du chargement du logo :', error);
+          showErrorRef.current?.("Impossible de charger les informations de l'organisation pour le moment.");
+        }
+      } finally {
+        if (!ignore) {
+          setLogoLoading(false);
+        }
+      }
+    };
+
+    fetchOrganizationDetails();
+
+    return () => {
+      ignore = true;
+    };
+  }, [logoContext, logoRefreshKey, applyBlobLogo, state.showingPageType, state.user.organization, state.user.name]);
 
   useEffect(() => {
     let ignore = false;
@@ -537,6 +685,74 @@ const Dashboard: React.FC = () => {
     };
   }, [state.showingPageType, organizationId]);
 
+  const triggerLogoUpload = () => {
+    if (!canUploadLogo || logoUploading) return;
+    logoFileInputRef.current?.click();
+  };
+
+  const handleLogoKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!canUploadLogo) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      triggerLogoUpload();
+    }
+  };
+
+  const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !logoContext) return;
+
+    const validation = validateImageSize(file);
+    if (!validation.valid) {
+      showErrorRef.current?.(validation.error || 'Le fichier sélectionné est trop volumineux.');
+      if (event.target) {
+        event.target.value = '';
+      }
+      return;
+    }
+
+    setLogoUploading(true);
+
+    try {
+      await logoContext.uploader(file);
+      setLogoRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error('Erreur lors du téléversement du logo :', error);
+      showErrorRef.current?.('Échec du téléversement du logo.');
+    } finally {
+      setLogoUploading(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
+  const handleLogoDelete = async () => {
+    if (!logoContext || !organizationLogoUrl || logoDeleting) return;
+
+    setLogoDeleting(true);
+
+    try {
+      await logoContext.deleter();
+      setLogoRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error('Erreur lors de la suppression du logo :', error);
+      showErrorRef.current?.('Impossible de supprimer le logo pour le moment.');
+    } finally {
+      setLogoDeleting(false);
+    }
+  };
+
+  const handleLogoEditClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    triggerLogoUpload();
+  };
+
+  const handleLogoDeleteClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    await handleLogoDelete();
+  };
+
   const formatStatValue = (value?: number | null) => {
     if (statsLoading) return '...';
     if (value === undefined || value === null) return '—';
@@ -616,6 +832,11 @@ const Dashboard: React.FC = () => {
     [badgeDistribution, badgeDistributionTotal]
   );
   const hasAssignedBadges = badgeDistributionTotal > 0;
+  const organizationDisplayName =
+    organizationName ||
+    (state.showingPageType === 'pro'
+      ? "l'organisation"
+      : "l'Association TouKouLeur");
 
   const getStatusMeta = (status?: string) => {
     switch (status) {
@@ -682,11 +903,87 @@ const Dashboard: React.FC = () => {
       {/* Welcome Message and Section Title */}
       <div className="dashboard-header">
         <div className="welcome-header">
-          <img src="/TouKouLeur-Jaune.png" alt="TouKouLeur" className="association-logo" />
+          <div className="organization-logo-card">
+            <div
+              className={`
+                organization-logo-wrapper !items-start !flex
+                ${organizationLogoUrl ? 'has-logo' : 'empty'}
+                ${logoLoading ? 'loading' : ''}
+                ${canUploadLogo ? '':'disabled'}`}
+              onClick={canUploadLogo ? triggerLogoUpload : undefined}
+              role={canUploadLogo ? 'button' : undefined}
+              tabIndex={canUploadLogo ? 0 : undefined}
+              onKeyDown={canUploadLogo ? handleLogoKeyDown : undefined}
+            >
+              <div className="relative">
+              {logoLoading ? (
+                <span className="logo-status-text">Chargement...</span>
+              ) : organizationLogoUrl ? (
+                <img
+                  src={organizationLogoUrl}
+                  alt="Logo de l'organisation"
+                  className="association-logo"
+                />
+              ) : (
+                <div className="organization-logo-empty">
+                  <span>Aucun logo</span>
+                  {canUploadLogo && <small>Cliquez pour ajouter</small>}
+                </div>
+              )}
+              
+
+              {canUploadLogo && (
+                <button
+                    type="button"
+                  className="logo-action logo-edit p"
+                  onClick={handleLogoEditClick}
+                  disabled={logoUploading || logoDeleting}
+                >
+                  {logoUploading ? (
+                    <i className="p-1 fas fa-spinner fa-spin"></i>
+                  ) : organizationLogoUrl ? (
+                    <i className="p-1 fas fa-pencil-alt"></i>
+                  ) : (
+                    <i className="p-1 fas fa-plus"></i>
+                  )}
+                </button>
+              )}
+              {canUploadLogo && (
+                <div className="logo-actions">
+                  {organizationLogoUrl && (
+                    <button
+                      type="button"
+                      className="logo-action logo-delete"
+                      onClick={handleLogoDeleteClick}
+                      disabled={logoDeleting || logoUploading}
+                    >
+                      {logoDeleting ? (
+                        <i className="p-1 fas fa-spinner fa-spin"></i>
+                      ) : (
+                        <i className="p-1 fas fa-trash-alt"></i>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                ref={logoFileInputRef}
+                onChange={handleLogoFileChange}
+                style={{ display: 'none' }}
+              />
+  
+            </div>
+            </div>
+            </div>
           <div className="section-title">
             <h1 className="welcome-title">Bonjour {state.user.name.split(' ')[0]} !</h1>
-            <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
-            <span>Tableau de bord de l'Association TouKouLeur</span>
+            <div className="flex gap-2 items-center">
+              <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+              <span>Tableau de bord de {organizationDisplayName}</span>
+
+            </div>
           </div>
         </div>
       </div>
@@ -987,7 +1284,7 @@ const Dashboard: React.FC = () => {
                   <p className="chart-feedback-text error">{badgeDistributionError}</p>
                 )}
                 {!badgeDistributionLoading && !badgeDistributionError && (
-                  <div className="flex flex-col">
+                  <div className={`flex  ${hasAssignedBadges ? 'flex-row gap-4' : 'flex-col'}`}>
                     <div
                       className={`pie-chart-mock${hasAssignedBadges ? '':' pie-chart-empty'}`}
                       style={{ background: badgePieBackground }}

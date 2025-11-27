@@ -82,3 +82,51 @@ export const getTeacherAssignedBadges = (perPage = 200) => {
   });
 };
 
+export const getTeacherLogo = () => {
+  return axiosClient.get('/api/v1/teachers/logo');
+};
+
+export const getSchoolDetails = (schoolId: number) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}`);
+};
+
+export const getCompanyDetails = (companyId: number) => {
+  return axiosClient.get(`/api/v1/companies/${companyId}`);
+};
+
+export const uploadSchoolLogo = (schoolId: number, file: File) => {
+  const formData = new FormData();
+  formData.append('logo', file);
+  return axiosClient.patch(`/api/v1/schools/${schoolId}/logo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const uploadCompanyLogo = (companyId: number, file: File) => {
+  const formData = new FormData();
+  formData.append('logo', file);
+  return axiosClient.patch(`/api/v1/companies/${companyId}/logo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const deleteSchoolLogo = (schoolId: number) => {
+  return axiosClient.delete(`/api/v1/schools/${schoolId}/logo`);
+};
+
+export const deleteCompanyLogo = (companyId: number) => {
+  return axiosClient.delete(`/api/v1/companies/${companyId}/logo`);
+};
+
+export const uploadTeacherLogo = (file: File) => {
+  const formData = new FormData();
+  formData.append('logo', file);
+  return axiosClient.patch(`/api/v1/teachers/logo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const deleteTeacherLogo = () => {
+  return axiosClient.delete(`/api/v1/teachers/logo`);
+};
+
