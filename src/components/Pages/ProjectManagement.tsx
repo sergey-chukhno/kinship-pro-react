@@ -1273,6 +1273,134 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
+  /**
+   * Get current role value for the role selector
+   */
+  const getCurrentRoleValue = (participant: any): string => {
+    if (participant.role === 'owner' || participant.role === 'co-owner') {
+      return participant.role; // For display, but selector disabled
+    }
+    
+    if (participant.role === 'admin') {
+      return 'admin';
+    }
+    
+    // Member with badge permission
+    if (participant.role === 'member' && participant.canAssignBadges) {
+      return 'member-with-badges';
+    }
+    
+    // Regular member
+    return 'member';
+  };
+
+  /**
+   * Check if role can be changed for this participant
+   */
+  const canChangeRole = (participant: any): boolean => {
+    // Owner and co-owner roles cannot be changed
+    return participant.role !== 'owner' && participant.role !== 'co-owner';
+  };
+
+  /**
+   * Check if current user can create admins
+   */
+  const canCreateAdmins = (): boolean => {
+    if (!apiProjectData || !state.user?.id) return false;
+    
+    const userIdStr = state.user.id.toString();
+    
+    // Check if user is owner
+    if (apiProjectData.owner?.id?.toString() === userIdStr) {
+      return true;
+    }
+    
+    // Check if user is co-owner
+    if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
+      const isCoOwner = apiProjectData.co_owners.some((co: any) => 
+        co.id?.toString() === userIdStr
+      );
+      if (isCoOwner) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  /**
+   * Handle role change for a participant
+   */
+  const handleRoleChange = async (participant: any, newRoleValue: string) => {
+    if (!project?.id || !canChangeRole(participant)) return;
+    
+    // Parse new role value
+    let role: 'member' | 'admin' = 'member';
+    let canAssignBadges = false;
+    
+    if (newRoleValue === 'admin') {
+      // Check if current user can create admins
+      if (!canCreateAdmins()) {
+        showError('Seul le responsable du projet ou un co-responsable peut créer des admins');
+        return;
+      }
+      role = 'admin';
+      canAssignBadges = false;
+    } else if (newRoleValue === 'member-with-badges') {
+      // Check if current user can grant badge permissions
+      if (!canCreateAdmins()) {
+        showError('Seul le responsable du projet ou un co-responsable peut accorder les permissions de badges');
+        return;
+      }
+      role = 'member';
+      canAssignBadges = true;
+    } else {
+      role = 'member';
+      canAssignBadges = false;
+    }
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(participant.memberId);
+      
+      if (isNaN(projectId) || isNaN(userId)) {
+        showError('Données invalides');
+        return;
+      }
+      
+      await updateProjectMember(projectId, userId, {
+        role: role,
+        can_assign_badges_in_project: canAssignBadges
+      });
+      
+      showSuccess(`Rôle de ${participant.name} mis à jour avec succès`);
+      
+      // Reload participants to reflect changes (more reliable than local update)
+      const members = await fetchAllProjectMembers();
+      setParticipants(members);
+      
+      // Reload project stats
+      const stats = await getProjectStats(projectId);
+      setProjectStats(stats);
+    } catch (error: any) {
+      console.error('Error updating role:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de la mise à jour du rôle';
+      
+      // Specific error messages
+      if (error.response?.status === 403) {
+        if (errorMessage.includes('Only project owner or co-owner can create admins')) {
+          showError('Seul le responsable du projet ou un co-responsable peut créer des admins');
+        } else if (errorMessage.includes('Only project owner or co-owner can grant badge permissions')) {
+          showError('Seul le responsable du projet ou un co-responsable peut accorder les permissions de badges');
+        } else {
+          showError('Vous n\'avez pas la permission de modifier ce rôle');
+        }
+      } else {
+        showError(errorMessage);
+      }
+    }
+  };
+
   const handleCopyLink = () => {
     const projectUrl = `${window.location.origin}/projects/${project.id}`;
     navigator.clipboard.writeText(projectUrl);
@@ -1799,11 +1927,15 @@ const ProjectManagement: React.FC = () => {
                           {participant.organization}
                         </div>
                       )}
-                      <div className="member-role">{participant.profession}</div>
+                      {participant.profession && (
+                        <div className="member-profession" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                          {participant.profession}
+                        </div>
+                      )}
                     </div>
                     <div className={`member-badge ${participant.role === 'owner' ? 'badge-admin' : participant.role === 'co-owner' ? 'badge-admin' : participant.role === 'admin' ? 'badge-admin' : ''}`}>
-                      {participant.role === 'owner' ? 'Propriétaire' : 
-                       participant.role === 'co-owner' ? 'Co-propriétaire' : 
+                      {participant.role === 'owner' ? 'Responsable du projet' : 
+                       participant.role === 'co-owner' ? 'Co-responsable du projet' : 
                        participant.role === 'admin' ? 'Admin' : 
                        'Membre'}
                     </div>
@@ -1976,6 +2108,39 @@ const ProjectManagement: React.FC = () => {
                             <span key={index} className="availability-pill">{day}</span>
                           ))}
                         </div>
+                      </div>
+                      
+                      <div className="request-role-selector" style={{ marginTop: '1rem' }}>
+                        <h4>Rôle dans le projet</h4>
+                        <select
+                          value={getCurrentRoleValue(participant)}
+                          onChange={(e) => handleRoleChange(participant, e.target.value)}
+                          disabled={!canChangeRole(participant)}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem',
+                            borderRadius: '0.375rem',
+                            border: '1px solid #d1d5db',
+                            fontSize: '0.875rem',
+                            backgroundColor: !canChangeRole(participant) ? '#f3f4f6' : 'white',
+                            cursor: !canChangeRole(participant) ? 'not-allowed' : 'pointer',
+                            color: !canChangeRole(participant) ? '#6b7280' : '#111827'
+                          }}
+                        >
+                          {participant.role === 'owner' && (
+                            <option value="owner">Responsable du projet</option>
+                          )}
+                          {participant.role === 'co-owner' && (
+                            <option value="co-owner">Co-responsable du projet</option>
+                          )}
+                          {participant.role !== 'owner' && participant.role !== 'co-owner' && (
+                            <>
+                              <option value="member">Participant</option>
+                              <option value="member-with-badges">Participant avec droit de badges</option>
+                              <option value="admin">Admin</option>
+                            </>
+                          )}
+                        </select>
                       </div>
                     
                     <div className="request-actions">
