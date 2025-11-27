@@ -230,6 +230,47 @@ export interface DashboardStats {
   upcomingEvents: number;
 }
 
+export interface OrganizationStatsOverview {
+  total_members: number;
+  total_teachers: number;
+  total_students: number;
+  total_levels: number;
+  total_projects: number;
+  active_contract: boolean;
+  is_branch: boolean;
+  is_main_school: boolean;
+}
+
+export interface MembersByRoleStats {
+  superadmin?: number;
+  admin?: number;
+  referent?: number;
+  intervenant?: number;
+  member?: number;
+  [role: string]: number | undefined;
+}
+
+export interface PendingApprovalsStats {
+  members?: number;
+  partnerships?: number;
+  branch_requests?: number;
+  [key: string]: number | undefined;
+}
+
+export interface BranchesStats {
+  total_branches?: number;
+  branch_members?: number;
+  branch_projects?: number;
+  [key: string]: number | undefined;
+}
+
+export interface OrganizationStatsResponse {
+  overview?: Partial<OrganizationStatsOverview>;
+  members_by_role?: MembersByRoleStats;
+  pending_approvals?: PendingApprovalsStats;
+  branches?: BranchesStats;
+}
+
 export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'membership-requests' | 'project-management' | 'Auth';
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';

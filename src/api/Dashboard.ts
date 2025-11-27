@@ -1,0 +1,66 @@
+import axiosClient from './config';
+import axios, { AxiosResponse } from 'axios';
+
+const fetchWithFallback = async (
+  primaryEndpoint: string,
+  fallbackEndpoint?: string
+): Promise<AxiosResponse> => {
+  try {
+    return await axiosClient.get(primaryEndpoint);
+  } catch (error) {
+    if (
+      fallbackEndpoint &&
+      axios.isAxiosError(error) &&
+      error.response?.status === 404
+    ) {
+      return axiosClient.get(fallbackEndpoint);
+    }
+    throw error;
+  }
+};
+
+export const getCompanyStats = (companyId: number) => {
+  const basePath = `/api/v1/companies/${companyId}/stats`;
+  // Some environments expose /company instead of /companies
+  return fetchWithFallback(basePath, `/api/v1/company/${companyId}/stats`);
+};
+
+export const getSchoolStats = (schoolId: number) => {
+  const basePath = `/api/v1/schools/${schoolId}/stats`;
+  return fetchWithFallback(basePath);
+};
+
+export const getTeacherStats = () => {
+  return axiosClient.get('/api/v1/teachers/stats');
+};
+
+export const getSchoolProjects = (
+  schoolId: number,
+  includeBranches = false
+) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}/projects`, {
+    params: { include_branches: includeBranches, per_page: 3, sort_by: 'created_at', sort_direction: 'desc' },
+  });
+};
+
+export const getCompanyProjects = (
+  companyId: number,
+  includeBranches = false
+) => {
+  return axiosClient.get(`/api/v1/companies/${companyId}/projects`, {
+    params: { include_branches: includeBranches },
+  });
+};
+
+export const getSchoolActivity = (schoolId: number) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}/activity`);
+};
+
+export const getCompanyActivity = (companyId: number) => {
+  return axiosClient.get(`/api/v1/companies/${companyId}/activity`);
+};
+
+export const getTeacherActivity = () => {
+  return axiosClient.get('/api/v1/teachers/activity');
+};
+

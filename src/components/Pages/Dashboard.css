@@ -91,6 +91,14 @@
   width: 100%;
 }
 
+.stats-error-text {
+  width: 100%;
+  margin-top: 0.5rem;
+  text-align: center;
+  color: var(--danger, #ef4444);
+  font-size: 0.9rem;
+}
+
 .stat-card {
   flex: 0 0 calc(33.333% - 13.333px);
   min-width: 250px;
@@ -380,6 +388,10 @@
   margin: 0;
 }
 
+.activity-empty.error {
+  color: var(--danger, #ef4444);
+}
+
 .activity-item {
   display: flex;
   align-items: flex-start; /* Meilleur alignement si le texte est long */
@@ -502,6 +514,17 @@
   flex-direction: column;
 }
 
+.project-feedback-text {
+  text-align: center;
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.95rem;
+  margin: 1rem 0;
+}
+
+.project-feedback-text.error {
+  color: var(--danger, #ef4444);
+}
+
 .project-item {
   padding: 16px 0;
   border-bottom: 1px solid var(--border, #f3f4f6);
@@ -555,6 +578,21 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.project-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #6b7280);
+  margin-top: 8px;
+}
+
+.project-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .progress-bar-wrapper {
