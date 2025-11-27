@@ -473,7 +473,7 @@ const ProjectManagement: React.FC = () => {
     
     // Add owner
     if (apiProjectData.owner) {
-      allMembers.push({
+      const ownerParticipant = {
         id: `owner-${apiProjectData.owner.id}`,
         memberId: apiProjectData.owner.id.toString(),
         name: apiProjectData.owner.full_name || `${apiProjectData.owner.first_name || ''} ${apiProjectData.owner.last_name || ''}`.trim() || 'Inconnu',
@@ -484,15 +484,18 @@ const ProjectManagement: React.FC = () => {
         availability: apiProjectData.owner.availability || [],
         organization: apiProjectData.owner_organization_name || '',
         role: 'owner',
-        projectRole: 'owner',
-        canRemove: false // Owner cannot be removed
+        projectRole: 'owner'
+      };
+      allMembers.push({
+        ...ownerParticipant,
+        canRemove: canUserRemoveParticipant(ownerParticipant, userProjectRole)
       });
     }
     
     // Add co-owners
     if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
       apiProjectData.co_owners.forEach((coOwner: any) => {
-        allMembers.push({
+        const coOwnerParticipant = {
           id: `co-owner-${coOwner.id}`,
           memberId: coOwner.id.toString(),
           name: coOwner.full_name || `${coOwner.first_name || ''} ${coOwner.last_name || ''}`.trim() || 'Inconnu',
@@ -503,8 +506,11 @@ const ProjectManagement: React.FC = () => {
           availability: coOwner.availability || [],
           organization: coOwner.organization_name || coOwner.city || '',
           role: 'co-owner',
-          projectRole: 'co_owner',
-          canRemove: false // Only owner can remove co-owners
+          projectRole: 'co_owner'
+        };
+        allMembers.push({
+          ...coOwnerParticipant,
+          canRemove: canUserRemoveParticipant(coOwnerParticipant, userProjectRole)
         });
       });
     }
@@ -515,7 +521,7 @@ const ProjectManagement: React.FC = () => {
       const confirmedMembers = projectMembers.filter((m: any) => m.status === 'confirmed');
       
       confirmedMembers.forEach((member: any) => {
-        allMembers.push({
+        const memberParticipant = {
           id: `member-${member.id}`,
           memberId: member.user?.id?.toString() || member.user_id?.toString(),
           name: member.user?.full_name || 'Inconnu',
@@ -527,8 +533,11 @@ const ProjectManagement: React.FC = () => {
           organization: member.user?.organization || '',
           role: member.project_role === 'admin' ? 'admin' : 'member',
           projectRole: member.project_role,
-          canAssignBadges: member.can_assign_badges_in_project || false,
-          canRemove: true // Regular members can be removed by owner
+          canAssignBadges: member.can_assign_badges_in_project || false
+        };
+        allMembers.push({
+          ...memberParticipant,
+          canRemove: canUserRemoveParticipant(memberParticipant, userProjectRole)
         });
       });
     } catch (error) {
@@ -894,7 +903,16 @@ const ProjectManagement: React.FC = () => {
     
     // Check if can be removed
     if (!participant.canRemove) {
-      showError('Ce membre ne peut pas être retiré du projet');
+      // Provide specific error message based on participant role
+      if (participant.role === 'co-owner') {
+        showError('Seul le responsable du projet peut retirer les co-responsables');
+      } else if (participant.role === 'admin') {
+        showError('Seuls le responsable du projet et les co-responsables peuvent retirer les admins');
+      } else if (participant.role === 'owner') {
+        showError('Le responsable du projet ne peut pas être retiré');
+      } else {
+        showError('Ce membre ne peut pas être retiré du projet');
+      }
       return;
     }
     
@@ -927,17 +945,18 @@ const ProjectManagement: React.FC = () => {
       console.error('Error removing participant:', error);
       const errorMessage = error.response?.data?.message || 'Erreur lors du retrait du participant';
       
-      // Specific error messages
+      // Specific error messages based on backend response
       if (error.response?.status === 403) {
-        if (errorMessage.includes('Cannot remove project owner')) {
-          showError('Le propriétaire du projet ne peut pas être retiré');
-        } else if (errorMessage.includes('Cannot remove yourself')) {
-          showError('Vous ne pouvez pas vous retirer vous-même');
+        // Map backend error messages to French
+        if (errorMessage.includes('Only project owner can remove co-owners')) {
+          showError('Seul le responsable du projet peut retirer les co-responsables');
+        } else if (errorMessage.includes('Admins cannot remove other admins')) {
+          showError('Les admins ne peuvent pas retirer d\'autres admins');
+        } else if (errorMessage.includes('Cannot remove project owner')) {
+          showError('Le responsable du projet ne peut pas être retiré');
         } else {
           showError('Vous n\'avez pas la permission de retirer ce membre');
         }
-      } else if (error.response?.status === 404) {
-        showError('Membre non trouvé dans le projet');
       } else {
         showError(errorMessage);
       }
@@ -1267,6 +1286,165 @@ const ProjectManagement: React.FC = () => {
         showError('Cet utilisateur est déjà membre du projet');
       } else if (error.response?.status === 404) {
         showError('Utilisateur non trouvé');
+      } else {
+        showError(errorMessage);
+      }
+    }
+  };
+
+  /**
+   * Get current role value for the role selector
+   */
+  const getCurrentRoleValue = (participant: any): string => {
+    if (participant.role === 'owner' || participant.role === 'co-owner') {
+      return participant.role; // For display, but selector disabled
+    }
+    
+    if (participant.role === 'admin') {
+      return 'admin';
+    }
+    
+    // Member with badge permission
+    if (participant.role === 'member' && participant.canAssignBadges) {
+      return 'member-with-badges';
+    }
+    
+    // Regular member
+    return 'member';
+  };
+
+  /**
+   * Check if role can be changed for this participant
+   */
+  const canChangeRole = (participant: any): boolean => {
+    // Owner and co-owner roles cannot be changed
+    return participant.role !== 'owner' && participant.role !== 'co-owner';
+  };
+
+  /**
+   * Check if current user can create admins
+   */
+  const canCreateAdmins = (): boolean => {
+    if (!apiProjectData || !state.user?.id) return false;
+    
+    const userIdStr = state.user.id.toString();
+    
+    // Check if user is owner
+    if (apiProjectData.owner?.id?.toString() === userIdStr) {
+      return true;
+    }
+    
+    // Check if user is co-owner
+    if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
+      const isCoOwner = apiProjectData.co_owners.some((co: any) => 
+        co.id?.toString() === userIdStr
+      );
+      if (isCoOwner) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  /**
+   * Determine if current user can remove a specific participant
+   */
+  const canUserRemoveParticipant = (participant: any, currentUserRole: string | null): boolean => {
+    if (!currentUserRole) return false;
+    
+    // Owner can remove everyone except themselves
+    if (currentUserRole === 'owner') {
+      return participant.role !== 'owner';
+    }
+    
+    // Co-owner can remove members and admins, but not co-owners or owner
+    if (currentUserRole === 'co-owner') {
+      return participant.role === 'member' || participant.role === 'admin';
+    }
+    
+    // Admin can only remove regular members
+    if (currentUserRole === 'admin') {
+      return participant.role === 'member';
+    }
+    
+    return false;
+  };
+
+  /**
+   * Determine if current user can see the remove button
+   */
+  const canUserSeeRemoveButton = (currentUserRole: string | null): boolean => {
+    return currentUserRole === 'owner' || currentUserRole === 'co-owner' || currentUserRole === 'admin';
+  };
+
+  /**
+   * Handle role change for a participant
+   */
+  const handleRoleChange = async (participant: any, newRoleValue: string) => {
+    if (!project?.id || !canChangeRole(participant)) return;
+    
+    // Parse new role value
+    let role: 'member' | 'admin' = 'member';
+    let canAssignBadges = false;
+    
+    if (newRoleValue === 'admin') {
+      // Check if current user can create admins
+      if (!canCreateAdmins()) {
+        showError('Seul le responsable du projet ou un co-responsable peut créer des admins');
+        return;
+      }
+      role = 'admin';
+      canAssignBadges = false;
+    } else if (newRoleValue === 'member-with-badges') {
+      // Check if current user can grant badge permissions
+      if (!canCreateAdmins()) {
+        showError('Seul le responsable du projet ou un co-responsable peut accorder les permissions de badges');
+        return;
+      }
+      role = 'member';
+      canAssignBadges = true;
+    } else {
+      role = 'member';
+      canAssignBadges = false;
+    }
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(participant.memberId);
+      
+      if (isNaN(projectId) || isNaN(userId)) {
+        showError('Données invalides');
+        return;
+      }
+      
+      await updateProjectMember(projectId, userId, {
+        role: role,
+        can_assign_badges_in_project: canAssignBadges
+      });
+      
+      showSuccess(`Rôle de ${participant.name} mis à jour avec succès`);
+      
+      // Reload participants to reflect changes (more reliable than local update)
+      const members = await fetchAllProjectMembers();
+      setParticipants(members);
+      
+      // Reload project stats
+      const stats = await getProjectStats(projectId);
+      setProjectStats(stats);
+    } catch (error: any) {
+      console.error('Error updating role:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de la mise à jour du rôle';
+      
+      // Specific error messages
+      if (error.response?.status === 403) {
+        if (errorMessage.includes('Only project owner or co-owner can create admins')) {
+          showError('Seul le responsable du projet ou un co-responsable peut créer des admins');
+        } else if (errorMessage.includes('Only project owner or co-owner can grant badge permissions')) {
+          showError('Seul le responsable du projet ou un co-responsable peut accorder les permissions de badges');
+        } else {
+          showError('Vous n\'avez pas la permission de modifier ce rôle');
+        }
       } else {
         showError(errorMessage);
       }
@@ -1799,11 +1977,15 @@ const ProjectManagement: React.FC = () => {
                           {participant.organization}
                         </div>
                       )}
-                      <div className="member-role">{participant.profession}</div>
+                      {participant.profession && (
+                        <div className="member-profession" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                          {participant.profession}
+                        </div>
+                      )}
                     </div>
                     <div className={`member-badge ${participant.role === 'owner' ? 'badge-admin' : participant.role === 'co-owner' ? 'badge-admin' : participant.role === 'admin' ? 'badge-admin' : ''}`}>
-                      {participant.role === 'owner' ? 'Propriétaire' : 
-                       participant.role === 'co-owner' ? 'Co-propriétaire' : 
+                      {participant.role === 'owner' ? 'Responsable du projet' : 
+                       participant.role === 'co-owner' ? 'Co-responsable du projet' : 
                        participant.role === 'admin' ? 'Admin' : 
                        'Membre'}
                     </div>
@@ -1831,10 +2013,8 @@ const ProjectManagement: React.FC = () => {
                       >
                         <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
                       </button>
-                      {/* Only show remove button if user is owner and participant can be removed */}
-                      {apiProjectData && 
-                       apiProjectData.owner?.id?.toString() === state.user?.id?.toString() && 
-                       participant.canRemove && (
+                      {/* Show remove button if user can see it and participant can be removed */}
+                      {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
                         <button 
                           type="button" 
                           className="btn-icon" 
@@ -1977,17 +2157,52 @@ const ProjectManagement: React.FC = () => {
                           ))}
                         </div>
                       </div>
+                      
+                      <div className="request-role-selector" style={{ marginTop: '1rem' }}>
+                        <h4>Rôle dans le projet</h4>
+                        <select
+                          value={getCurrentRoleValue(participant)}
+                          onChange={(e) => handleRoleChange(participant, e.target.value)}
+                          disabled={!canChangeRole(participant)}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem',
+                            borderRadius: '0.375rem',
+                            border: '1px solid #d1d5db',
+                            fontSize: '0.875rem',
+                            backgroundColor: !canChangeRole(participant) ? '#f3f4f6' : 'white',
+                            cursor: !canChangeRole(participant) ? 'not-allowed' : 'pointer',
+                            color: !canChangeRole(participant) ? '#6b7280' : '#111827'
+                          }}
+                        >
+                          {participant.role === 'owner' && (
+                            <option value="owner">Responsable du projet</option>
+                          )}
+                          {participant.role === 'co-owner' && (
+                            <option value="co-owner">Co-responsable du projet</option>
+                          )}
+                          {participant.role !== 'owner' && participant.role !== 'co-owner' && (
+                            <>
+                              <option value="member">Participant</option>
+                              <option value="member-with-badges">Participant avec droit de badges</option>
+                              <option value="admin">Admin</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
                     
                     <div className="request-actions">
                       <div className="action-buttons">
-                        <button 
-                          className="btn-reject"
-                          onClick={() => handleRemoveParticipant(participant.id)}
-                          title="Retirer du projet"
-                        >
-                          <i className="fas fa-user-minus"></i>
-                          Retirer
-                        </button>
+                        {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
+                          <button 
+                            className="btn-reject"
+                            onClick={() => handleRemoveParticipant(participant.id)}
+                            title="Retirer du projet"
+                          >
+                            <i className="fas fa-user-minus"></i>
+                            Retirer
+                          </button>
+                        )}
                         <button 
                           className="btn-accept"
                           onClick={() => handleAwardBadge(participant.memberId)}
