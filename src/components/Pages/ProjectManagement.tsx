@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects, mockMembers } from '../../data/mockData';
 import AddParticipantModal from '../Modals/AddParticipantModal';
@@ -6,6 +6,9 @@ import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
 import './ProjectManagement.css';
 import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
+import { getProjectById } from '../../api/Project';
+import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
+import { Project } from '../../types';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
@@ -107,8 +110,58 @@ const ProjectManagement: React.FC = () => {
     priority: 'medium'
   });
 
-  // Get the selected project from context
-  const project = state.selectedProject || mockProjects[0];
+  // State for project data (fetched from API)
+  const [project, setProject] = useState<Project>(state.selectedProject || mockProjects[0]);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  
+  // Fetch project data from API when component mounts or project ID changes
+  useEffect(() => {
+    const fetchProjectData = async () => {
+      const selectedProject = state.selectedProject;
+      
+      // Only fetch if we have a project with an ID
+      if (!selectedProject || !selectedProject.id) {
+        return;
+      }
+      
+      setIsLoadingProject(true);
+      try {
+        const projectId = parseInt(selectedProject.id);
+        if (isNaN(projectId)) {
+          console.warn('Invalid project ID:', selectedProject.id);
+          setIsLoadingProject(false);
+          return;
+        }
+        
+        const response = await getProjectById(projectId);
+        const apiProject = response.data;
+        
+        // Debug: Log co-owners from API
+        console.log('API Project co_owners:', apiProject.co_owners);
+        console.log('API Project co_owners count:', apiProject.co_owners?.length || 0);
+        
+        // Map API data to frontend format
+        const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
+        
+        // Debug: Log mapped co-responsibles
+        console.log('Mapped project coResponsibles:', mappedProject.coResponsibles);
+        console.log('Mapped project coResponsibles count:', mappedProject.coResponsibles?.length || 0);
+        
+        // Update project state
+        setProject(mappedProject);
+        
+        // Also update context to keep it in sync
+        setSelectedProject(mappedProject);
+      } catch (error) {
+        console.error('Error fetching project data:', error);
+        // Keep using the project from context if API call fails
+      } finally {
+        setIsLoadingProject(false);
+      }
+    };
+    
+    fetchProjectData();
+  }, [state.selectedProject?.id, state.showingPageType, setSelectedProject]);
 
   // Mock data for requests and participants - using actual member data
   const [requests, setRequests] = useState([
@@ -615,29 +668,6 @@ const ProjectManagement: React.FC = () => {
       });
   };
 
-  // Get the correct avatar and profession for the project owner
-  const getOwnerInfo = (ownerName: string) => {
-    const member = mockMembers.find(m => `${m.firstName} ${m.lastName}` === ownerName);
-    if (member) {
-      return {
-        avatar: member.avatar,
-        profession: member.profession,
-        email: member.email
-      };
-    }
-    // Fallback for unknown owners
-    const avatarMap: { [key: string]: string } = {
-      'Lucas Bernard': 'https://randomuser.me/api/portraits/men/67.jpg',
-      'Marie Dubois': 'https://randomuser.me/api/portraits/women/44.jpg',
-      'Sophie Martin': 'https://randomuser.me/api/portraits/women/44.jpg',
-      'François Dupont': 'https://randomuser.me/api/portraits/men/32.jpg'
-    };
-    return {
-      avatar: avatarMap[ownerName] || DEFAULT_AVATAR_SRC,
-      profession: 'Membre',
-      email: 'unknown@example.com'
-    };
-  };
 
   return (
     <section className="project-management-container with-sidebar">
@@ -796,11 +826,14 @@ const ProjectManagement: React.FC = () => {
                 <div className="project-manager-info">
                   <div className="manager-left">
                     <div className="manager-avatar">
-                      <AvatarImage src={project.responsible?.avatar || getOwnerInfo(project.owner).avatar} alt="Project Manager" />
+                      <AvatarImage src={project.responsible?.avatar || DEFAULT_AVATAR_SRC} alt="Project Manager" />
                     </div>
                     <div className="manager-details">
                       <div className="manager-name">{project.responsible?.name || project.owner}</div>
-                      <div className="manager-role">{project.responsible?.profession || getOwnerInfo(project.owner).profession}</div>
+                      <div className="manager-role">
+                        {project.responsible?.role || project.responsible?.profession || 'Membre'}
+                        {project.responsible?.city && ` • ${project.responsible.city}`}
+                      </div>
                     </div>
                   </div>
                   <div className="manager-right">
@@ -810,7 +843,7 @@ const ProjectManagement: React.FC = () => {
                     </div>
                     <div className="manager-email">
                       <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
-                      <span className="manager-text">{project.responsible?.email || getOwnerInfo(project.owner).email}</span>
+                      <span className="manager-text">{project.responsible?.email || ''}</span>
                     </div>
                   </div>
                 </div>
@@ -824,14 +857,17 @@ const ProjectManagement: React.FC = () => {
                   </div>
                   <div className="co-responsibles-list">
                     {project.coResponsibles.map((coResponsible, index) => (
-                      <div key={coResponsible.id} className="co-responsible-item">
+                      <div key={coResponsible.id || index} className="co-responsible-item">
                         <div className="manager-left">
                           <div className="manager-avatar">
-                            <AvatarImage src={coResponsible.avatar} alt={coResponsible.name} />
+                            <AvatarImage src={coResponsible.avatar || DEFAULT_AVATAR_SRC} alt={coResponsible.name} />
                           </div>
                           <div className="manager-details">
                             <div className="manager-name">{coResponsible.name}</div>
-                            <div className="manager-role">{coResponsible.profession}</div>
+                            <div className="manager-role">
+                              {coResponsible.role || coResponsible.profession || 'Membre'}
+                              {coResponsible.city && ` • ${coResponsible.city}`}
+                            </div>
                           </div>
                         </div>
                         <div className="manager-right">

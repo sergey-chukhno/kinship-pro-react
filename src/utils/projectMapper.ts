@@ -1,5 +1,5 @@
 import { CreateProjectPayload, ProjectMemberAttribute, LinkAttribute, Tag } from '../api/Projects';
-import { ShowingPageType, User } from '../types';
+import { ShowingPageType, User, Project } from '../types';
 
 /**
  * Convert Base64 string to File object
@@ -250,5 +250,89 @@ export const validateImages = (
     return {
         valid: errors.length === 0,
         errors
+    };
+};
+
+/**
+ * Map API project data to frontend Project format
+ * Transforms backend API response to frontend Project interface
+ */
+export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType: ShowingPageType, user?: User): Project => {
+    // Determine pathway from tags or default
+    const derivedPathway = apiProject.tags?.[0]?.name ? 'citoyen' : 'avenir';
+    
+    // Get organization name: priority 1) API primary_organization_name, 2) available_contexts, 3) fallback
+    let organizationName = '';
+    if (apiProject.primary_organization_name) {
+        // Use organization name from API (most reliable)
+        organizationName = apiProject.primary_organization_name;
+    } else if (user?.available_contexts) {
+        // Fallback to available_contexts
+        if (showingPageType === 'pro' && user.available_contexts.companies && user.available_contexts.companies.length > 0) {
+            organizationName = user.available_contexts.companies[0].name;
+        } else if ((showingPageType === 'edu' || showingPageType === 'teacher') && user.available_contexts.schools && user.available_contexts.schools.length > 0) {
+            organizationName = user.available_contexts.schools[0].name;
+        }
+    }
+    
+    // Final fallback if still empty
+    if (!organizationName) {
+        organizationName = showingPageType === 'pro' ? 'Organisation' : 'École';
+    }
+    
+    // Map owner to responsible
+    const owner = apiProject.owner;
+    const responsible = owner ? {
+        id: owner.id.toString(),
+        name: owner.full_name || `${owner.first_name} ${owner.last_name}`,
+        avatar: owner.avatar_url || '/default-avatar.png',
+        profession: owner.job || owner.role || 'Membre',
+        organization: organizationName,
+        email: owner.email || '',
+        role: apiProject.owner_organization_role || undefined, // Role in organization
+        city: apiProject.owner_city || undefined // City of organization
+    } : null;
+    
+    // Map co-owners
+    const coResponsibles = (apiProject.co_owners || []).map((coOwner: any) => ({
+        id: coOwner.id.toString(),
+        name: coOwner.full_name || `${coOwner.first_name} ${coOwner.last_name}`,
+        avatar: coOwner.avatar_url || '/default-avatar.png',
+        profession: coOwner.job || 'Membre', // Profession réelle
+        organization: organizationName,
+        email: coOwner.email || '',
+        role: coOwner.organization_role || undefined, // Role in organization
+        city: coOwner.city || undefined // City of organization
+    }));
+    
+    return {
+        id: apiProject.id.toString(),
+        title: apiProject.title,
+        description: apiProject.description || '',
+        status: apiProject.status,
+        visibility: apiProject.private ? 'private' : 'public',
+        pathway: derivedPathway,
+        organization: organizationName,
+        owner: owner?.name || owner?.email || 'Inconnu',
+        participants: apiProject.participants_number || apiProject.members_count || 0,
+        badges: 0, // Not provided by current API
+        startDate: apiProject.start_date ? apiProject.start_date.split('T')[0] : '',
+        endDate: apiProject.end_date ? apiProject.end_date.split('T')[0] : '',
+        image: apiProject.main_picture_url || '',
+        additionalPhotos: apiProject.additional_pictures_urls || [], // Map additional pictures from API
+        tags: apiProject.tags?.map((t: any) => t.name) || apiProject.keywords?.map((k: any) => k.name) || [],
+        links: apiProject.links?.[0]?.url || '',
+        progress: 0, // Not provided by current API
+        members: [], // Not provided by current API
+        events: [], // Not provided by current API
+        badges_list: [], // Not provided by current API
+        responsible: responsible,
+        coResponsibles: coResponsibles.length > 0 ? coResponsibles : [],
+        partner: apiProject.partnership_id ? {
+            id: apiProject.partnership_id.toString(),
+            name: '', // Would need to fetch partnership details
+            logo: '',
+            organization: ''
+        } : undefined
     };
 };
