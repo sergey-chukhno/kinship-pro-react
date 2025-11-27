@@ -112,6 +112,8 @@ export interface Project {
     profession: string;
     organization: string;
     email: string;
+    role?: string; // Role in organization (superadmin, admin, référant, intervenant, membre)
+    city?: string; // City of the organization
   } | null;
   coResponsibles?: {
     id: string;
@@ -120,6 +122,8 @@ export interface Project {
     profession: string;
     organization: string;
     email: string;
+    role?: string; // Role in organization (superadmin, admin, référant, intervenant, membre)
+    city?: string; // City of the organization
   }[];
   partner?: {
     id: string;

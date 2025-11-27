@@ -8,6 +8,7 @@ import './Projects.css';
 // Imports API (Ajustez les chemins si nécessaire, basés sur la structure de Members.tsx)
 import { getCurrentUser } from '../../api/Authentication';
 import { getUserProjectsBySchool , getUserProjectsByCompany, deleteProject} from '../../api/Project';
+import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
 
 const Projects: React.FC = () => {
   const { state, addProject, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
@@ -45,37 +46,9 @@ const Projects: React.FC = () => {
         // Gestion de la structure de réponse { data: [ ... ], meta: ... }
         const rawProjects = response.data?.data || response.data || [];
 
-        // 3. Mapping des données API vers le type Project
+        // 3. Mapping des données API vers le type Project (using centralized mapper)
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
-            // Tentative de déduction du pathway via les skills ou tags, sinon default
-            // Vous pouvez ajuster cette logique selon vos règles métier
-            const derivedPathway = p.skills?.[0]?.name ? 'citoyen' : 'avenir';
-
-            return {
-                id: p.id.toString(),
-                title: p.title,
-                description: p.description || '',
-                // L'API renvoie "coming", "in_progress" (implied), "ended" (implied)
-                // ProjectCard gère déjà ces valeurs.
-                status: p.status,
-                // Conversion date ISO (2025-02-01T...) vers YYYY-MM-DD
-                startDate: p.start_date ? p.start_date.split('T')[0] : '',
-                endDate: p.end_date ? p.end_date.split('T')[0] : '',
-                image: p.main_picture_url || '',
-                // Mapping du owner
-                owner: p.owner?.full_name || p.owner?.email || 'Inconnu',
-                responsible: {
-                    name: p.owner?.full_name || 'Inconnu',
-                    // On pourrait ajouter l'avatar ici si ProjectCard le supporte dans l'objet responsible
-                },
-                // Données numériques
-                participants: p.participants_number || 0,
-                badges: 0, // Non fourni par l'API actuelle, valeur par défaut
-                // Données catégorielles
-                pathway: derivedPathway,
-                skills: p.skills?.map((s: any) => s.name) || [],
-                tags: p.tags || []
-            };
+            return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
 
         setProjects(formattedProjects);
