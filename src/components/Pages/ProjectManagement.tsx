@@ -248,6 +248,14 @@ const ProjectManagement: React.FC = () => {
     fetchRequests();
   }, [project?.id, activeTab]);
 
+  // Reset active tab if tabs become hidden (e.g., user role changes from admin to participant)
+  useEffect(() => {
+    if (!shouldShowTabs() && activeTab !== 'overview') {
+      setActiveTab('overview');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProjectRole, state.showingPageType, activeTab]);
+
   // State for requests (pending project join requests)
   const [requests, setRequests] = useState<any[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
@@ -417,6 +425,39 @@ const ProjectManagement: React.FC = () => {
     }
 
     return false;
+  };
+
+  /**
+   * Determine if tabs should be shown based on user type and role
+   * Personal users (teacher/user) can only see tabs if they are admin/co-owner/owner
+   * Organizational users (pro/edu) always see tabs
+   */
+  const shouldShowTabs = (): boolean => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    
+    // For personal users, check role
+    if (isPersonalUser) {
+      // No tabs if not a member
+      if (!userProjectRole) {
+        return false;
+      }
+      
+      // No tabs for simple participants
+      if (userProjectRole === 'participant' || userProjectRole === 'participant avec droit de badges') {
+        return false;
+      }
+      
+      // Show tabs for admins (owner, co-owner, admin)
+      if (userProjectRole === 'owner' || userProjectRole === 'co-owner' || userProjectRole === 'admin') {
+        return true;
+      }
+      
+      // Default: no tabs
+      return false;
+    }
+    
+    // For organizational users (pro/edu), always show tabs
+    return true;
   };
 
   const handleEdit = () => {
@@ -1240,53 +1281,57 @@ const ProjectManagement: React.FC = () => {
         </div>
 
         {/* Project Management Tabs */}
-        <div className="project-management-tabs">
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Vue d'ensemble
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requests')}
-          >
-            Demandes
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
-            onClick={() => setActiveTab('participants')}
-          >
-            Participants
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
-            onClick={() => setActiveTab('equipes')}
-          >
-            Équipes
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
-            onClick={() => setActiveTab('kanban')}
-          >
-            Kanban
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
-            onClick={() => setActiveTab('badges')}
-          >
-            Badges
-          </button>
-        </div>
+        {shouldShowTabs() && (
+          <div className="project-management-tabs">
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              Vue d'ensemble
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('requests')}
+            >
+              Demandes
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
+              onClick={() => setActiveTab('participants')}
+            >
+              Participants
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
+              onClick={() => setActiveTab('equipes')}
+            >
+              Équipes
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
+              onClick={() => setActiveTab('kanban')}
+            >
+              Kanban
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
+              onClick={() => setActiveTab('badges')}
+            >
+              Badges
+            </button>
+          </div>
+        )}
 
         {/* Tab Content */}
-        {activeTab === 'overview' && (
+        {shouldShowTabs() && (
+          <>
+            {activeTab === 'overview' && (
           <div className="tab-content active overview-tab-content">
             <div className="overview-grid">
               {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
@@ -2156,6 +2201,8 @@ const ProjectManagement: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+          </>
         )}
 
       </div>
