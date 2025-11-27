@@ -7,7 +7,8 @@ import './ProjectManagement.css';
 import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { getProjectById } from '../../api/Project';
-import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
+import { updateProject } from '../../api/Projects';
+import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile } from '../../utils/projectMapper';
 import { Project } from '../../types';
 
 const ProjectManagement: React.FC = () => {
@@ -22,8 +23,11 @@ const ProjectManagement: React.FC = () => {
     tags: [] as string[],
     startDate: '',
     endDate: '',
-    pathway: ''
+    pathway: '',
+    status: 'coming' as 'coming' | 'in_progress' | 'ended',
+    visibility: 'public' as 'public' | 'private'
   });
+  const [editImagePreview, setEditImagePreview] = useState<string>('');
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
@@ -241,38 +245,100 @@ const ProjectManagement: React.FC = () => {
       tags: [...(project.tags || [])],
       startDate: project.startDate,
       endDate: project.endDate,
-      pathway: project.pathway || ''
+      pathway: project.pathway || '',
+      status: project.status || 'coming',
+      visibility: project.visibility || 'public'
     });
+    setEditImagePreview(project.image || '');
     setIsEditModalOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    // Update the project in the context/state
-    const updatedProject = {
-      ...project,
-      title: editForm.title,
-      description: editForm.description,
-      tags: editForm.tags,
-      startDate: editForm.startDate,
-      endDate: editForm.endDate,
-      pathway: editForm.pathway
-    };
-    
-    // Update the selected project in context
-    setSelectedProject(updatedProject);
-    
-    // Update the project in the mock data (in a real app, this would be an API call)
-    const projectIndex = mockProjects.findIndex(p => p.id === project.id);
-    if (projectIndex !== -1) {
-      mockProjects[projectIndex] = updatedProject;
+  const handleSaveEdit = async () => {
+    try {
+      // Map edit form to backend payload
+      const { payload } = mapEditFormToBackend(editForm, state.tags || [], project);
+      
+      // Convert image preview to File if different from current image
+      let mainImageFile: File | null = null;
+      if (editImagePreview && editImagePreview !== project.image) {
+        // Check if it's a base64 string (new image) or URL (existing image)
+        if (editImagePreview.startsWith('data:')) {
+          mainImageFile = base64ToFile(editImagePreview, 'main-image.jpg');
+        }
+      }
+      
+      // Validate image if provided
+      if (mainImageFile) {
+        const sizeValidation = validateImageSize(mainImageFile);
+        if (!sizeValidation.valid) {
+          alert(sizeValidation.error);
+          return;
+        }
+        
+        const formatValidation = validateImageFormat(mainImageFile);
+        if (!formatValidation.valid) {
+          alert(formatValidation.error);
+          return;
+        }
+      }
+      
+      // Call backend API
+      const projectId = parseInt(project.id);
+      if (isNaN(projectId)) {
+        alert('ID de projet invalide');
+        return;
+      }
+      
+      await updateProject(projectId, payload, mainImageFile, undefined);
+      
+      // Reload project from API to get updated data
+      const response = await getProjectById(projectId);
+      const apiProject = response.data;
+      const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
+      
+      // Update project state
+      setProject(mappedProject);
+      setSelectedProject(mappedProject);
+      
+      setIsEditModalOpen(false);
+      setEditImagePreview('');
+    } catch (error: any) {
+      console.error('Error updating project:', error);
+      const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors de la mise à jour du projet';
+      alert(errorMessage);
     }
-    
-    console.log('Project updated:', updatedProject);
-    setIsEditModalOpen(false);
   };
 
   const handleCancelEdit = () => {
     setIsEditModalOpen(false);
+    setEditImagePreview('');
+  };
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate image size
+    const sizeValidation = validateImageSize(file);
+    if (!sizeValidation.valid) {
+      alert(sizeValidation.error);
+      return;
+    }
+
+    // Validate image format
+    const formatValidation = validateImageFormat(file);
+    if (!formatValidation.valid) {
+      alert(formatValidation.error);
+      return;
+    }
+
+    // Read file and set preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setEditImagePreview(result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleTagChange = (index: number, value: string) => {
@@ -1827,9 +1893,45 @@ const ProjectManagement: React.FC = () => {
                 />
               </div>
 
+              <div className="form-group">
+                <label>Image principale du projet</label>
+                <div className="avatar-selection">
+                  <div className="avatar-preview">
+                    {editImagePreview ? (
+                      <img src={editImagePreview} alt="Project preview" className="avatar-image" />
+                    ) : (
+                      <div className="avatar-placeholder">
+                        <i className="fas fa-image"></i>
+                        <span>Aucune image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="avatar-actions">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('editProjectImage')?.click()}
+                      className="btn btn-outline btn-sm"
+                    >
+                      <i className="fas fa-upload"></i>
+                      Choisir une nouvelle image
+                    </button>
+                    <input
+                      id="editProjectImage"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditImageChange}
+                      style={{ display: 'none' }}
+                    />
+                    <p className="avatar-note">
+                      Taille max 1 Mo. Si aucune image n'est sélectionnée, l'image actuelle sera conservée.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="project-start-date">Date de début</label>
+                  <label htmlFor="project-start-date">Date de début estimée</label>
                   <input
                     type="date"
                     id="project-start-date"
@@ -1839,7 +1941,7 @@ const ProjectManagement: React.FC = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="project-end-date">Date de fin</label>
+                  <label htmlFor="project-end-date">Date de fin estimée</label>
                   <input
                     type="date"
                     id="project-end-date"
@@ -1850,21 +1952,51 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="project-pathway">Parcours</label>
-                <select
-                  id="project-pathway"
-                  value={editForm.pathway}
-                  onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
-                  className="form-input"
-                >
-                  <option value="sante">Santé</option>
-                  <option value="eac">EAC</option>
-                  <option value="citoyen">Citoyen</option>
-                  <option value="creativite">Créativité</option>
-                  <option value="avenir">Avenir</option>
-                </select>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="project-status">Statut</label>
+                  <select
+                    id="project-status"
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'coming' | 'in_progress' | 'ended' })}
+                    className="form-input"
+                  >
+                    <option value="coming">À venir</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="ended">Terminé</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="project-visibility">Visibilité</label>
+                  <select
+                    id="project-visibility"
+                    value={editForm.visibility}
+                    onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
+                    className="form-input"
+                  >
+                    <option value="public">Projet public</option>
+                    <option value="private">Projet privé</option>
+                  </select>
+                </div>
               </div>
+
+              {state.showingPageType !== 'pro' && (
+                <div className="form-group">
+                  <label htmlFor="project-pathway">Parcours</label>
+                  <select
+                    id="project-pathway"
+                    value={editForm.pathway}
+                    onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
+                    className="form-input"
+                  >
+                    <option value="sante">Santé</option>
+                    <option value="eac">EAC</option>
+                    <option value="citoyen">Citoyen</option>
+                    <option value="creativite">Créativité</option>
+                    <option value="avenir">Avenir</option>
+                  </select>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Tags du projet</label>

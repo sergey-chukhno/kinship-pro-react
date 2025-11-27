@@ -1,4 +1,4 @@
-import { CreateProjectPayload, ProjectMemberAttribute, LinkAttribute, Tag } from '../api/Projects';
+import { CreateProjectPayload, ProjectMemberAttribute, LinkAttribute, Tag, UpdateProjectPayload } from '../api/Projects';
 import { ShowingPageType, User, Project } from '../types';
 
 /**
@@ -185,6 +185,60 @@ export const mapFrontendToBackend = (
     };
 
     return payload;
+};
+
+/**
+ * Map edit form data to backend update payload
+ * Transforms frontend edit form to backend UpdateProjectPayload format
+ */
+export const mapEditFormToBackend = (
+    editForm: {
+        title: string;
+        description: string;
+        tags: string[];
+        startDate: string;
+        endDate: string;
+        pathway: string;
+        status: 'coming' | 'in_progress' | 'ended';
+        visibility: 'public' | 'private';
+    },
+    tags: Tag[],
+    project: Project
+): { payload: UpdateProjectPayload; mainImageFile: File | null } => {
+    // Convert visibility: 'public' -> false, 'private' -> true
+    const isPrivate = editForm.visibility === 'private';
+
+    // Get tag ID from pathway
+    const tagIds: number[] = [];
+    if (editForm.pathway) {
+        const tagId = getTagIdByPathway(editForm.pathway, tags);
+        if (tagId) {
+            tagIds.push(tagId);
+        }
+    }
+
+    // Parse keywords from tags array
+    const keywords = editForm.tags.filter(t => t.trim().length > 0);
+
+    // Build payload
+    const payload: UpdateProjectPayload = {
+        project: {
+            title: editForm.title,
+            description: editForm.description,
+            start_date: editForm.startDate,
+            end_date: editForm.endDate,
+            status: editForm.status,
+            private: isPrivate,
+            tag_ids: tagIds.length > 0 ? tagIds : undefined,
+            keyword_ids: keywords.length > 0 ? keywords : undefined
+        }
+    };
+
+    // Convert image preview to File if different from current image
+    let mainImageFile: File | null = null;
+    // Note: editImagePreview will be passed separately and converted in handleSaveEdit
+
+    return { payload, mainImageFile: null };
 };
 
 /**
