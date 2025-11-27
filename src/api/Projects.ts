@@ -346,3 +346,48 @@ export const updateProject = async (
 
     return updateProjectMultipart(projectId, formData);
 };
+
+/**
+ * Project Statistics Interface
+ */
+export interface ProjectStats {
+    overview: {
+        total_members: number;
+        confirmed_members: number;
+        pending_members: number;
+        total_teams: number;
+        total_badges_assigned: number;
+    };
+    members_by_role: {
+        member: number;
+        admin: number;
+        co_owner: number;
+        owner: number;
+    };
+    members_by_status: {
+        pending: number;
+        confirmed: number;
+    };
+    badges: {
+        total: number;
+        this_month: number;
+        recent: Array<{
+            id: number;
+            badge_name: string;
+            receiver_name: string;
+            assigned_at: string;
+        }>;
+    };
+    teams: {
+        total: number;
+        total_members: number;
+    };
+}
+
+/**
+ * Get project statistics
+ */
+export const getProjectStats = async (projectId: number): Promise<ProjectStats> => {
+    const response = await apiClient.get(`/api/v1/projects/${projectId}/stats`);
+    return response.data;
+};

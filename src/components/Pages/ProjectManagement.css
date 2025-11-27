@@ -637,6 +637,13 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
+  align-content: start;
+}
+
+/* Reduce space for overview tab content */
+.tab-content.overview-tab-content {
+  min-height: auto;
+  padding-bottom: 1rem;
 }
 
 /* Use Dashboard stat-card styling */
@@ -700,6 +707,14 @@
 
 .stat-change.positive {
   color: #10b981;
+}
+
+.stat-change.warning {
+  color: #f59e0b;
+}
+
+.stat-change.negative {
+  color: #ef4444;
 }
 
 .progress-bar {

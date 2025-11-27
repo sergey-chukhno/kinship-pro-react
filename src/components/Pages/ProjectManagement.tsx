@@ -7,7 +7,7 @@ import './ProjectManagement.css';
 import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { getProjectById } from '../../api/Project';
-import { updateProject } from '../../api/Projects';
+import { updateProject, getProjectStats, ProjectStats } from '../../api/Projects';
 import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile } from '../../utils/projectMapper';
 import { Project } from '../../types';
 
@@ -119,6 +119,10 @@ const ProjectManagement: React.FC = () => {
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [apiProjectData, setApiProjectData] = useState<any>(null);
   
+  // State for project statistics
+  const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  
   // Fetch project data from API when component mounts or project ID changes
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -172,6 +176,29 @@ const ProjectManagement: React.FC = () => {
     
     fetchProjectData();
   }, [state.selectedProject?.id, state.showingPageType, setSelectedProject]);
+
+  // Fetch project statistics when project ID changes
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!project?.id) return;
+      
+      setIsLoadingStats(true);
+      try {
+        const projectId = parseInt(project.id);
+        if (!isNaN(projectId)) {
+          const stats = await getProjectStats(projectId);
+          setProjectStats(stats);
+        }
+      } catch (error) {
+        console.error('Error fetching project stats:', error);
+        setProjectStats(null);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+    
+    fetchStats();
+  }, [project?.id]);
 
   // Mock data for requests and participants - using actual member data
   const [requests, setRequests] = useState([
@@ -242,6 +269,48 @@ const ProjectManagement: React.FC = () => {
       case 'ended': return 'ended';
       default: return 'coming';
     }
+  };
+
+  // Utility function to calculate days remaining until project end date
+  const calculateDaysRemaining = (endDate: string): number => {
+    if (!endDate) return 0;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Parse endDate (format: YYYY-MM-DD or ISO string)
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+    
+    const diffTime = end.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+
+  // Get status text and CSS class for days remaining
+  const getDaysRemainingStatus = (daysRemaining: number): { text: string; className: string } => {
+    if (daysRemaining > 0) {
+      return { text: 'Dans les délais', className: 'positive' };
+    } else if (daysRemaining === 0) {
+      return { text: 'Dernier jour', className: 'warning' };
+    } else {
+      return { text: 'Délais dépassés', className: 'negative' };
+    }
+  };
+
+  // Calculate number of new members added this month
+  const calculateNewMembersThisMonth = (apiProjectData: any): number => {
+    if (!apiProjectData?.project_members) return 0;
+    
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    return apiProjectData.project_members.filter((member: any) => {
+      if (!member.created_at) return false;
+      const memberCreatedAt = new Date(member.created_at);
+      return memberCreatedAt >= startOfMonth;
+    }).length;
   };
 
   /**
@@ -1074,62 +1143,98 @@ const ProjectManagement: React.FC = () => {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="tab-content active">
+          <div className="tab-content active overview-tab-content">
             <div className="overview-grid">
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-chart-line"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">{project.progress || 0}%</div>
-                  <div className="stat-label">Progression</div>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${project.progress || 0}%` }}></div>
+              {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
+              {false && (
+                <div className="stat-card">
+                  <div className="stat-icon">
+                    <i className="fas fa-chart-line"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">{project.progress || 0}%</div>
+                    <div className="stat-label">Progression</div>
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${project.progress || 0}%` }}></div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-clock"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">15</div>
-                  <div className="stat-label">Jours restants</div>
-                  <div className="stat-change positive">Dans les délais</div>
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-tasks"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">12/18</div>
-                  <div className="stat-label">Tâches complétées</div>
-                  <div className="task-progress">
-                    {Array.from({ length: 18 }, (_, i) => (
-                      <div key={i} className={`task-bar ${i < 12 ? 'completed' : ''}`}></div>
-                    ))}
+              )}
+              
+              {/* Carte Jours restants */}
+              {(() => {
+                const daysRemaining = calculateDaysRemaining(project.endDate);
+                const status = getDaysRemainingStatus(daysRemaining);
+                
+                return (
+                  <div className="stat-card">
+                    <div className="stat-icon">
+                      <i className="fas fa-clock"></i>
+                    </div>
+                    <div className="stat-content">
+                      <div className="stat-value">{Math.max(0, daysRemaining)}</div>
+                      <div className="stat-label">Jours restants</div>
+                      <div className={`stat-change ${status.className}`}>
+                        {status.text}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
+              {false && (
+                <div className="stat-card">
+                  <div className="stat-icon">
+                    <i className="fas fa-tasks"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">12/18</div>
+                    <div className="stat-label">Tâches complétées</div>
+                    <div className="task-progress">
+                      {Array.from({ length: 18 }, (_, i) => (
+                        <div key={i} className={`task-bar ${i < 12 ? 'completed' : ''}`}></div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+              
+              {/* Carte Participants */}
+              {(() => {
+                const newMembersThisMonth = calculateNewMembersThisMonth(apiProjectData);
+                
+                return (
+                  <div className="stat-card">
+                    <div className="stat-icon">
+                      <i className="fas fa-users"></i>
+                    </div>
+                    <div className="stat-content">
+                      <div className="stat-value">
+                        {isLoadingStats ? '...' : (projectStats?.overview?.total_members || 0)}
+                      </div>
+                      <div className="stat-label">Participants</div>
+                      <div className="stat-change positive">
+                        +{newMembersThisMonth} nouveaux ce mois
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Carte Badges attribués */}
               <div className="stat-card">
                 <div className="stat-icon">
                   <i className="fas fa-award"></i>
                 </div>
                 <div className="stat-content">
-                  <div className="stat-value">{project.badges}</div>
+                  <div className="stat-value">
+                    {isLoadingStats ? '...' : (projectStats?.badges?.total || 0)}
+                  </div>
                   <div className="stat-label">Badges attribués</div>
-                  <div className="stat-change positive">+{Math.floor(project.badges * 0.2)} ce mois</div>
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-users"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">{project.participants}</div>
-                  <div className="stat-label">Participants</div>
-                  <div className="stat-change positive">+{Math.floor(project.participants * 0.1)} nouveaux</div>
+                  <div className="stat-change positive">
+                    +{isLoadingStats ? '...' : (projectStats?.badges?.this_month || 0)} ce mois
+                  </div>
                 </div>
               </div>
             </div>
