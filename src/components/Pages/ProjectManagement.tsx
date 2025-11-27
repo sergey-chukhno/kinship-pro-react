@@ -117,6 +117,7 @@ const ProjectManagement: React.FC = () => {
   // State for project data (fetched from API)
   const [project, setProject] = useState<Project>(state.selectedProject || mockProjects[0]);
   const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [apiProjectData, setApiProjectData] = useState<any>(null);
   
   // Fetch project data from API when component mounts or project ID changes
   useEffect(() => {
@@ -140,6 +141,9 @@ const ProjectManagement: React.FC = () => {
         const response = await getProjectById(projectId);
         const apiProject = response.data;
         
+        // Store raw API data for permission checks
+        setApiProjectData(apiProject);
+        
         // Debug: Log co-owners from API
         console.log('API Project co_owners:', apiProject.co_owners);
         console.log('API Project co_owners count:', apiProject.co_owners?.length || 0);
@@ -158,6 +162,8 @@ const ProjectManagement: React.FC = () => {
         setSelectedProject(mappedProject);
       } catch (error) {
         console.error('Error fetching project data:', error);
+        // Reset API data on error to hide edit button
+        setApiProjectData(null);
         // Keep using the project from context if API call fails
       } finally {
         setIsLoadingProject(false);
@@ -236,6 +242,47 @@ const ProjectManagement: React.FC = () => {
       case 'ended': return 'ended';
       default: return 'coming';
     }
+  };
+
+  /**
+   * Check if current user can edit the project
+   * Returns true if user is owner, co-owner, or admin
+   */
+  const canUserEditProject = (apiProject: any, currentUserId: string | undefined): boolean => {
+    if (!apiProject || !currentUserId) {
+      return false;
+    }
+
+    const userIdStr = currentUserId.toString();
+
+    // Check if user is the project owner
+    if (apiProject.owner?.id?.toString() === userIdStr) {
+      return true;
+    }
+
+    // Check if user is a co-owner
+    if (apiProject.co_owners && Array.isArray(apiProject.co_owners)) {
+      const isCoOwner = apiProject.co_owners.some((co: any) => 
+        co.id?.toString() === userIdStr
+      );
+      if (isCoOwner) {
+        return true;
+      }
+    }
+
+    // Check if user is an admin (project member with admin role)
+    if (apiProject.project_members && Array.isArray(apiProject.project_members)) {
+      const isAdmin = apiProject.project_members.some((member: any) => 
+        member.user?.id?.toString() === userIdStr &&
+        member.role === 'admin' &&
+        member.status === 'confirmed'
+      );
+      if (isAdmin) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   const handleEdit = () => {
@@ -817,9 +864,11 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
               <div className="project-actions-header">
-                <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
-                  <i className="fas fa-edit"></i>
-                </button>
+                {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && (
+                  <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
+                    <i className="fas fa-edit"></i>
+                  </button>
+                )}
               </div>
             </div>
 
