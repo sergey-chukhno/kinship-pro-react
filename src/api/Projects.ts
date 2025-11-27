@@ -251,3 +251,98 @@ export const createProject = async (
 
     return createProjectMultipart(formData);
 };
+
+export interface UpdateProjectPayload {
+    project: {
+        title?: string;
+        description?: string;
+        start_date?: string;
+        end_date?: string;
+        status?: 'coming' | 'in_progress' | 'ended';
+        private?: boolean;
+        tag_ids?: number[];
+        keyword_ids?: string[];
+        links_attributes?: LinkAttribute[];
+    };
+}
+
+const updateProjectJSON = async (
+    projectId: number,
+    payload: UpdateProjectPayload
+): Promise<CreateProjectResponse> => {
+    const response = await apiClient.patch(`/api/v1/projects/${projectId}`, payload);
+    return response.data;
+};
+
+const updateProjectMultipart = async (
+    projectId: number,
+    formData: FormData
+): Promise<CreateProjectResponse> => {
+    const response = await apiClient.patch(
+        `/api/v1/projects/${projectId}`,
+        formData,
+        {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        }
+    );
+    return response.data;
+};
+
+export const updateProject = async (
+    projectId: number,
+    payload: UpdateProjectPayload,
+    mainImage?: File | null,
+    additionalImages?: File[]
+): Promise<CreateProjectResponse> => {
+    // If no images, use JSON format
+    if (!mainImage && (!additionalImages || additionalImages.length === 0)) {
+        return updateProjectJSON(projectId, payload);
+    }
+
+    // If images present, use multipart format
+    const formData = new FormData();
+
+    // Add project fields
+    const project = payload.project;
+    if (project.title) formData.append('project[title]', project.title);
+    if (project.description) formData.append('project[description]', project.description);
+    if (project.start_date) formData.append('project[start_date]', project.start_date);
+    if (project.end_date) formData.append('project[end_date]', project.end_date);
+    if (project.status) formData.append('project[status]', project.status);
+    if (project.private !== undefined) formData.append('project[private]', project.private.toString());
+
+    if (project.tag_ids && project.tag_ids.length > 0) {
+        project.tag_ids.forEach(id => {
+            formData.append('project[tag_ids][]', id.toString());
+        });
+    }
+
+    if (project.keyword_ids && project.keyword_ids.length > 0) {
+        project.keyword_ids.forEach(keyword => {
+            formData.append('project[keyword_ids][]', keyword);
+        });
+    }
+
+    // Add links (Rails nested attributes format for multipart/form-data)
+    if (project.links_attributes && project.links_attributes.length > 0) {
+        project.links_attributes.forEach((link, index) => {
+            formData.append(`project[links_attributes][${index}][name]`, link.name);
+            formData.append(`project[links_attributes][${index}][url]`, link.url);
+        });
+    }
+
+    // Add images
+    if (mainImage) {
+        formData.append('project[main_picture]', mainImage);
+    }
+
+    if (additionalImages && additionalImages.length > 0) {
+        additionalImages.forEach(image => {
+            formData.append('project[pictures][]', image);
+        });
+    }
+
+    return updateProjectMultipart(projectId, formData);
+};
