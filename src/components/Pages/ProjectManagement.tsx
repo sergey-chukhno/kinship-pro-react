@@ -7,7 +7,7 @@ import './ProjectManagement.css';
 import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { getProjectById } from '../../api/Project';
-import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
+import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat } from '../../utils/projectMapper';
 import { Project } from '../../types';
 
 const ProjectManagement: React.FC = () => {
@@ -24,6 +24,7 @@ const ProjectManagement: React.FC = () => {
     endDate: '',
     pathway: ''
   });
+  const [editImagePreview, setEditImagePreview] = useState<string>('');
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
@@ -243,6 +244,7 @@ const ProjectManagement: React.FC = () => {
       endDate: project.endDate,
       pathway: project.pathway || ''
     });
+    setEditImagePreview(project.image || '');
     setIsEditModalOpen(true);
   };
 
@@ -273,6 +275,34 @@ const ProjectManagement: React.FC = () => {
 
   const handleCancelEdit = () => {
     setIsEditModalOpen(false);
+    setEditImagePreview('');
+  };
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate image size
+    const sizeValidation = validateImageSize(file);
+    if (!sizeValidation.valid) {
+      alert(sizeValidation.error);
+      return;
+    }
+
+    // Validate image format
+    const formatValidation = validateImageFormat(file);
+    if (!formatValidation.valid) {
+      alert(formatValidation.error);
+      return;
+    }
+
+    // Read file and set preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setEditImagePreview(result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleTagChange = (index: number, value: string) => {
@@ -1827,9 +1857,45 @@ const ProjectManagement: React.FC = () => {
                 />
               </div>
 
+              <div className="form-group">
+                <label>Image principale du projet</label>
+                <div className="avatar-selection">
+                  <div className="avatar-preview">
+                    {editImagePreview ? (
+                      <img src={editImagePreview} alt="Project preview" className="avatar-image" />
+                    ) : (
+                      <div className="avatar-placeholder">
+                        <i className="fas fa-image"></i>
+                        <span>Aucune image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="avatar-actions">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('editProjectImage')?.click()}
+                      className="btn btn-outline btn-sm"
+                    >
+                      <i className="fas fa-upload"></i>
+                      Choisir une nouvelle image
+                    </button>
+                    <input
+                      id="editProjectImage"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditImageChange}
+                      style={{ display: 'none' }}
+                    />
+                    <p className="avatar-note">
+                      Taille max 1 Mo. Si aucune image n'est sélectionnée, l'image actuelle sera conservée.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="project-start-date">Date de début</label>
+                  <label htmlFor="project-start-date">Date de début estimée</label>
                   <input
                     type="date"
                     id="project-start-date"
@@ -1839,7 +1905,7 @@ const ProjectManagement: React.FC = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="project-end-date">Date de fin</label>
+                  <label htmlFor="project-end-date">Date de fin estimée</label>
                   <input
                     type="date"
                     id="project-end-date"
@@ -1850,21 +1916,23 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="project-pathway">Parcours</label>
-                <select
-                  id="project-pathway"
-                  value={editForm.pathway}
-                  onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
-                  className="form-input"
-                >
-                  <option value="sante">Santé</option>
-                  <option value="eac">EAC</option>
-                  <option value="citoyen">Citoyen</option>
-                  <option value="creativite">Créativité</option>
-                  <option value="avenir">Avenir</option>
-                </select>
-              </div>
+              {state.showingPageType !== 'pro' && (
+                <div className="form-group">
+                  <label htmlFor="project-pathway">Parcours</label>
+                  <select
+                    id="project-pathway"
+                    value={editForm.pathway}
+                    onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
+                    className="form-input"
+                  >
+                    <option value="sante">Santé</option>
+                    <option value="eac">EAC</option>
+                    <option value="citoyen">Citoyen</option>
+                    <option value="creativite">Créativité</option>
+                    <option value="avenir">Avenir</option>
+                  </select>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Tags du projet</label>
