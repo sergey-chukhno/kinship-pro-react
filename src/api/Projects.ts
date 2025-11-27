@@ -391,3 +391,60 @@ export const getProjectStats = async (projectId: number): Promise<ProjectStats> 
     const response = await apiClient.get(`/api/v1/projects/${projectId}/stats`);
     return response.data;
 };
+
+/**
+ * Join a project (request to join)
+ */
+export const joinProject = async (projectId: number): Promise<{
+    message: string;
+    project_member?: any;
+}> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/join`);
+    return response.data;
+};
+
+/**
+ * Get project members (including pending requests)
+ */
+export const getProjectMembers = async (projectId: number): Promise<any[]> => {
+    const response = await apiClient.get(`/api/v1/projects/${projectId}/members`);
+    return response.data?.data || [];
+};
+
+/**
+ * Get pending project join requests
+ */
+export const getProjectPendingMembers = async (projectId: number): Promise<any[]> => {
+    const allMembers = await getProjectMembers(projectId);
+    // Filter members with status 'pending'
+    return allMembers.filter((member: any) => member.status === 'pending');
+};
+
+/**
+ * Update project member (accept/reject request, change role, etc.)
+ */
+export const updateProjectMember = async (
+    projectId: number,
+    userId: number,
+    updates: {
+        role?: 'member' | 'admin';
+        status?: 'pending' | 'confirmed';
+        can_assign_badges_in_project?: boolean;
+    }
+): Promise<any> => {
+    const response = await apiClient.patch(
+        `/api/v1/projects/${projectId}/members/${userId}`,
+        { member: updates }
+    );
+    return response.data;
+};
+
+/**
+ * Remove project member (reject request or remove member)
+ */
+export const removeProjectMember = async (
+    projectId: number,
+    userId: number
+): Promise<void> => {
+    await apiClient.delete(`/api/v1/projects/${projectId}/members/${userId}`);
+};

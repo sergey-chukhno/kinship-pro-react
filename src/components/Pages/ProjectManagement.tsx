@@ -7,12 +7,14 @@ import './ProjectManagement.css';
 import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { getProjectById } from '../../api/Project';
-import { updateProject, getProjectStats, ProjectStats } from '../../api/Projects';
-import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile } from '../../utils/projectMapper';
+import { updateProject, getProjectStats, ProjectStats, joinProject, getProjectPendingMembers, updateProjectMember, removeProjectMember } from '../../api/Projects';
+import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile, getUserProjectRole } from '../../utils/projectMapper';
 import { Project } from '../../types';
+import { useToast } from '../../hooks/useToast';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -123,6 +125,10 @@ const ProjectManagement: React.FC = () => {
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   
+  // State for user project role and join functionality
+  const [userProjectRole, setUserProjectRole] = useState<string | null>(null);
+  const [isJoiningProject, setIsJoiningProject] = useState(false);
+  
   // Fetch project data from API when component mounts or project ID changes
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -147,6 +153,10 @@ const ProjectManagement: React.FC = () => {
         
         // Store raw API data for permission checks
         setApiProjectData(apiProject);
+        
+        // Determine user's role in the project
+        const role = getUserProjectRole(apiProject, state.user?.id?.toString());
+        setUserProjectRole(role);
         
         // Debug: Log co-owners from API
         console.log('API Project co_owners:', apiProject.co_owners);
@@ -200,33 +210,47 @@ const ProjectManagement: React.FC = () => {
     fetchStats();
   }, [project?.id]);
 
-  // Mock data for requests and participants - using actual member data
-  const [requests, setRequests] = useState([
-    {
-      id: '1',
-      memberId: '5',
-      name: 'Alexandre Moreau',
-      profession: 'Chef de projet',
-      email: 'alexandre.moreau@example.com',
-      avatar: 'https://randomuser.me/api/portraits/men/45.jpg',
-      skills: ['Sport et initiation', 'Bricolage & Jardinage', 'Cuisine et ses techniques'],
-      availability: ['Samedi', 'Dimanche'],
-      requestDate: '2024-01-20',
-      organization: 'Association Sportive'
-    },
-    {
-      id: '2',
-      memberId: '6',
-      name: 'Camille Rousseau',
-      profession: 'Designer',
-      email: 'camille.rousseau@example.com',
-      avatar: 'https://randomuser.me/api/portraits/women/33.jpg',
-      skills: ['Arts & Culture', 'Innovation'],
-      availability: ['Mardi', 'Jeudi'],
-      requestDate: '2024-01-22',
-      organization: 'DesignStudio'
-    }
-  ]);
+  // Fetch pending requests when project ID changes or requests tab is active
+  useEffect(() => {
+    const fetchRequests = async () => {
+      if (!project?.id || activeTab !== 'requests') return;
+      
+      setIsLoadingRequests(true);
+      try {
+        const projectId = parseInt(project.id);
+        if (!isNaN(projectId)) {
+          const pendingMembers = await getProjectPendingMembers(projectId);
+          
+          // Map API data to UI format
+          const mappedRequests = pendingMembers.map((member: any) => ({
+            id: member.id?.toString() || member.user_id?.toString(),
+            memberId: member.user_id?.toString() || member.user?.id?.toString(),
+            name: member.user?.full_name || `${member.user?.first_name || ''} ${member.user?.last_name || ''}`.trim() || 'Inconnu',
+            profession: member.user?.job || 'Non renseigné',
+            email: member.user?.email || '',
+            avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
+            skills: member.user?.skills?.map((s: any) => s.name || s) || [],
+            availability: member.user?.availability || [],
+            requestDate: member.created_at ? new Date(member.created_at).toLocaleDateString('fr-FR') : '',
+            organization: member.user?.organization || 'Non renseigné'
+          }));
+          
+          setRequests(mappedRequests);
+        }
+      } catch (error) {
+        console.error('Error fetching requests:', error);
+        setRequests([]);
+      } finally {
+        setIsLoadingRequests(false);
+      }
+    };
+    
+    fetchRequests();
+  }, [project?.id, activeTab]);
+
+  // State for requests (pending project join requests)
+  const [requests, setRequests] = useState<any[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
 
   const [participants, setParticipants] = useState([
     {
@@ -311,6 +335,47 @@ const ProjectManagement: React.FC = () => {
       const memberCreatedAt = new Date(member.created_at);
       return memberCreatedAt >= startOfMonth;
     }).length;
+  };
+
+  // Map user role to display text
+  const getRoleDisplayText = (role: string | null): string => {
+    switch (role) {
+      case 'owner': return 'Propriétaire';
+      case 'co-owner': return 'Co-propriétaire';
+      case 'admin': return 'Admin';
+      case 'participant avec droit de badges': return 'Participant avec droit de badges';
+      case 'participant': return 'Participant';
+      default: return '';
+    }
+  };
+
+  // Handler for joining a project
+  const handleJoinProject = async () => {
+    if (!project?.id) return;
+    
+    setIsJoiningProject(true);
+    try {
+      const projectId = parseInt(project.id);
+      await joinProject(projectId);
+      
+      // Show success notification
+      showSuccess('Votre demande de rejoindre le projet a été faite');
+      
+      // Reload project data to update status
+      const response = await getProjectById(projectId);
+      const apiProject = response.data;
+      const role = getUserProjectRole(apiProject, state.user?.id?.toString());
+      setUserProjectRole(role);
+      
+      // Update apiProjectData to reflect the change
+      setApiProjectData(apiProject);
+    } catch (error: any) {
+      console.error('Error joining project:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de la demande de rejoindre le projet';
+      showError(errorMessage);
+    } finally {
+      setIsJoiningProject(false);
+    }
   };
 
   /**
@@ -473,30 +538,66 @@ const ProjectManagement: React.FC = () => {
   };
 
   // Request handlers
-  const handleAcceptRequest = (requestId: string) => {
+  const handleAcceptRequest = async (requestId: string) => {
     const request = requests.find(r => r.id === requestId);
-    if (request) {
-      // Add to participants
-      const newParticipant = {
-        id: Date.now().toString(),
-        memberId: request.memberId,
-        name: request.name,
-        profession: request.profession,
-        email: request.email,
-        avatar: request.avatar,
-        skills: request.skills,
-        availability: request.availability,
-        organization: request.organization
-      };
-      setParticipants([...participants, newParticipant]);
+    if (!request || !project?.id) return;
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(request.memberId);
+      
+      if (isNaN(projectId) || isNaN(userId)) {
+        showError('Données invalides');
+        return;
+      }
+      
+      // Update member status from pending to confirmed
+      await updateProjectMember(projectId, userId, {
+        status: 'confirmed'
+      });
+      
+      showSuccess('Demande acceptée avec succès');
       
       // Remove from requests
       setRequests(requests.filter(r => r.id !== requestId));
+      
+      // Reload project stats to update participant count
+      if (project.id) {
+        const stats = await getProjectStats(parseInt(project.id));
+        setProjectStats(stats);
+      }
+    } catch (error: any) {
+      console.error('Error accepting request:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de l\'acceptation de la demande';
+      showError(errorMessage);
     }
   };
 
-  const handleRejectRequest = (requestId: string) => {
-    setRequests(requests.filter(r => r.id !== requestId));
+  const handleRejectRequest = async (requestId: string) => {
+    const request = requests.find(r => r.id === requestId);
+    if (!request || !project?.id) return;
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(request.memberId);
+      
+      if (isNaN(projectId) || isNaN(userId)) {
+        showError('Données invalides');
+        return;
+      }
+      
+      // Remove member (reject request)
+      await removeProjectMember(projectId, userId);
+      
+      showSuccess('Demande rejetée');
+      
+      // Remove from requests
+      setRequests(requests.filter(r => r.id !== requestId));
+    } catch (error: any) {
+      console.error('Error rejecting request:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors du rejet de la demande';
+      showError(errorMessage);
+    }
   };
 
   // Participant handlers
@@ -933,6 +1034,49 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
               <div className="project-actions-header">
+                {/* Join button or role pill for personal users */}
+                {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
+                  <div className="project-join-section" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    {userProjectRole ? (
+                      <span className="role-badge" style={{
+                        padding: '0.5rem 1rem',
+                        borderRadius: '20px',
+                        backgroundColor: '#f0f0f0',
+                        color: '#333',
+                        fontSize: '0.875rem',
+                        fontWeight: '500'
+                      }}>
+                        {getRoleDisplayText(userProjectRole)}
+                      </span>
+                    ) : (
+                      <button 
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handleJoinProject}
+                        disabled={isJoiningProject}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                      >
+                        <i className="fas fa-plus"></i>
+                        {isJoiningProject ? 'Envoi...' : 'Rejoindre le projet'}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* Role pill for all users (not just personal) */}
+                {userProjectRole && (state.showingPageType !== 'teacher' && state.showingPageType !== 'user') && (
+                  <span className="role-badge" style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: '20px',
+                    backgroundColor: '#f0f0f0',
+                    color: '#333',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    marginRight: '0.75rem'
+                  }}>
+                    {getRoleDisplayText(userProjectRole)}
+                  </span>
+                )}
+                {/* Edit button for owners/admins */}
                 {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && (
                   <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
                     <i className="fas fa-edit"></i>
@@ -1298,7 +1442,12 @@ const ProjectManagement: React.FC = () => {
                 <span className="request-count">{requests.length} demande{requests.length > 1 ? 's' : ''}</span>
               </div>
               
-              {requests.length === 0 ? (
+              {isLoadingRequests ? (
+                <div className="no-requests">
+                  <i className="fas fa-spinner fa-spin"></i>
+                  <p>Chargement des demandes...</p>
+                </div>
+              ) : requests.length === 0 ? (
                 <div className="no-requests">
                   <i className="fas fa-inbox no-requests-icon"></i>
                   <h3>Aucune demande en attente</h3>
@@ -1323,7 +1472,7 @@ const ProjectManagement: React.FC = () => {
                       <div className="request-skills">
                         <h4>Compétences</h4>
                         <div className="skills-list">
-                          {request.skills.map((skill, index) => (
+                          {request.skills.map((skill: string, index: number) => (
                             <span key={index} className="skill-pill">{skill}</span>
                           ))}
                         </div>
@@ -1332,7 +1481,7 @@ const ProjectManagement: React.FC = () => {
                       <div className="request-availability">
                         <h4>Disponibilités</h4>
                         <div className="availability-list">
-                          {request.availability.map((day, index) => (
+                          {request.availability.map((day: string, index: number) => (
                             <span key={index} className="availability-pill">{day}</span>
                           ))}
                         </div>
