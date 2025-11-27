@@ -161,7 +161,7 @@ const Projects: React.FC = () => {
       <div className="flex justify-between items-start">
         <div className="section-title-left flex items-center gap-2 w-full">
           <img src="/icons_logo/Icon=projet.svg" alt="Projets" className="section-icon" />
-          <h2>Gestion des projets</h2>
+          <h2>{(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Découvrir les projets' : 'Gestion des projets'}</h2>
         </div>
         <div className="projects-actions">
           <div className="dropdown" style={{ position: 'relative' }}>
