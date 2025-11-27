@@ -221,14 +221,21 @@ export const createProject = async (
         formData.append('project[partnership_id]', project.partnership_id.toString());
     }
 
-    // Add project members
+    // Add project members (Rails nested attributes format for multipart/form-data)
     if (project.project_members_attributes && project.project_members_attributes.length > 0) {
-        formData.append('project[project_members_attributes]', JSON.stringify(project.project_members_attributes));
+        project.project_members_attributes.forEach((member, index) => {
+            formData.append(`project[project_members_attributes][${index}][user_id]`, member.user_id.toString());
+            formData.append(`project[project_members_attributes][${index}][role]`, member.role);
+            formData.append(`project[project_members_attributes][${index}][status]`, member.status);
+        });
     }
 
-    // Add links
+    // Add links (Rails nested attributes format for multipart/form-data)
     if (project.links_attributes && project.links_attributes.length > 0) {
-        formData.append('project[links_attributes]', JSON.stringify(project.links_attributes));
+        project.links_attributes.forEach((link, index) => {
+            formData.append(`project[links_attributes][${index}][name]`, link.name);
+            formData.append(`project[links_attributes][${index}][url]`, link.url);
+        });
     }
 
     // Add images

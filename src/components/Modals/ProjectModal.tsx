@@ -139,7 +139,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         organization: project.organization,
         status: project.status,
         visibility: project.visibility || 'public',
-        pathway: project.pathway,
+        pathway: project.pathway || '',
         tags: project.tags.join(', '),
         links: project.links || '',
         participants: project.members,

@@ -77,9 +77,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
       <div className="project-content">
         <div className="project-header">
           <h3 className="project-title">{project.title}</h3>
-          <span className={`pathway-pill ${getPathwayColor(project.pathway)}`}>
-            {getPathwayText(project.pathway)}
-          </span>
+          {project.pathway && (
+            <span className={`pathway-pill ${getPathwayColor(project.pathway)}`}>
+              {getPathwayText(project.pathway)}
+            </span>
+          )}
         </div>
 
         <div className="project-description-section">
