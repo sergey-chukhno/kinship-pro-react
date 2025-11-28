@@ -5,6 +5,7 @@ import { submitPersonalUserRegistration, getCurrentUser } from '../../api/Authen
 import { getSkills, getPersonalUserRoles } from '../../api/RegistrationRessource'; // 1. Import fetch roles
 import { useAppContext } from '../../context/AppContext';
 import AvatarImage from '../UI/AvatarImage';
+import { useToast } from '../../hooks/useToast';
 
 interface AddMemberModalProps {
   onClose: () => void;
@@ -28,6 +29,7 @@ const tradFR: Record<string, string> = {
 
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
   const { state } = useAppContext();
+  const { showWarning, showSuccess, showError } = useToast();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -202,15 +204,15 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
     e.preventDefault();
 
     if (!formData.firstName || !formData.lastName) {
-      alert('Prénom et nom sont obligatoires');
+      showWarning('Prénom et nom sont obligatoires');
       return;
     }
     if (selectedSkills.length === 0) {
-      alert('Veuillez sélectionner au moins une compétence');
+      showWarning('Veuillez sélectionner au moins une compétence');
       return;
     }
     if (selectedAvailability.length === 0) {
-      alert('Veuillez sélectionner au moins une disponibilité');
+      showWarning('Veuillez sélectionner au moins une disponibilité');
       return;
     }
 
@@ -279,12 +281,12 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
       };
 
       onAdd(memberData);
-      alert("Membre ajouté avec succès !");
+      showSuccess("Membre ajouté avec succès !");
       onClose();
 
     } catch (error) {
       console.error("Erreur lors de l'ajout du membre", error);
-      alert("Erreur lors de l'enregistrement ou de la récupération de l'organisation.");
+      showError("Erreur lors de l'enregistrement ou de la récupération de l'organisation.");
     }
   };
 

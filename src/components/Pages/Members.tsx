@@ -57,7 +57,10 @@ const availabilityToLabels = (availability: any = {}) => {
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
+  const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
+  const isTeacherContext = state.showingPageType === 'teacher';
   const { showSuccess, showError } = useToast();
+  const showStaffTab = !isTeacherContext;
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -67,7 +70,9 @@ const Members: React.FC = () => {
   const [competenceFilter, setCompetenceFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community'>('members');
+  const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community'>(
+    isTeacherContext ? 'class' : 'members'
+  );
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isClassStudentsModalOpen, setIsClassStudentsModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<{ id: number; name: string } | null>(null);
@@ -87,7 +92,7 @@ const Members: React.FC = () => {
   const fetchMembers = async () => {
     try {
       const currentUser = await getCurrentUser();
-      const isEdu = state.showingPageType === 'edu';
+      const isEdu = isSchoolContext;
 
       // 1. Bascule de l'ID (Company vs School)
       const contextId = isEdu
@@ -197,7 +202,7 @@ const Members: React.FC = () => {
   const fetchLevels = async () => {
     try {
       const currentUser = await getCurrentUser();
-      const isEdu = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
+      const isEdu = isSchoolContext;
       const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
       if (!contextId) return;
       const levelsRes = await getSchoolLevels(contextId, page, per_page);
@@ -214,7 +219,7 @@ const Members: React.FC = () => {
   const fetchCommunityVolunteers = async () => {
     try {
       const currentUser = await getCurrentUser();
-      const isEdu = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
+      const isEdu = isSchoolContext;
       const schoolId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
       if (!schoolId) {
         setCommunityLists([]);
@@ -303,6 +308,14 @@ const Members: React.FC = () => {
     fetchCommunityVolunteers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, per_page, state.showingPageType]);
+
+  useEffect(() => {
+    if (!isSchoolContext) {
+      setActiveTab('members');
+    } else if (isTeacherContext && activeTab === 'members') {
+      setActiveTab('class');
+    }
+  }, [isSchoolContext, isTeacherContext, activeTab]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -587,20 +600,22 @@ const Members: React.FC = () => {
             </div>
           </div>
           <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-            <i className="fas fa-plus"></i> {(state.showingPageType === 'edu' || state.showingPageType === 'teacher' )? 'Ajouter un étudiant' : 'Ajouter un membre'}
+            <i className="fas fa-plus"></i> {isSchoolContext ? 'Ajouter un étudiant' : 'Ajouter un membre'}
           </button>
         </div>
       </div>
 
-      {/* Tabs visibles uniquement en mode edu */}
-      {state.showingPageType === 'edu' && (
+      {/* Tabs visibles pour les contextes scolaires (admin & enseignants) */}
+      {isSchoolContext && (
         <div className="bg-yellow-300 tabs-container">
+          {showStaffTab && (
           <button
             className={`tab-btn ${activeTab === 'members' ? 'active' : ''}`}
             onClick={() => setActiveTab('members')}
           >
             Staff
           </button>
+          )}
           <button
             className={`tab-btn ${activeTab === 'class' ? 'active' : ''}`}
             onClick={() => setActiveTab('class')}
@@ -617,7 +632,7 @@ const Members: React.FC = () => {
       )}
 
       {/* Contenu du tab “Membres” */}
-      {activeTab === 'members' && (
+      {showStaffTab && activeTab === 'members' && (
         <>
           {renderFilterBar()}
           <div className='min-h-[65vh]'>
@@ -645,7 +660,7 @@ const Members: React.FC = () => {
                   />
                 );
               })
-            : <div className="text-center text-gray-500">Aucun membre trouvé pour le moment</div>}
+            : <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>}
             </div>
           </div>
         </>

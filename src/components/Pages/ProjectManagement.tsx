@@ -15,6 +15,7 @@ import { useToast } from '../../hooks/useToast';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
+  const { showWarning } = useToast();
   const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -1042,22 +1043,22 @@ const ProjectManagement: React.FC = () => {
 
   const handleSaveTeam = () => {
     if (!newTeamForm.name.trim()) {
-      alert('Veuillez saisir un nom d\'équipe');
+      showWarning('Veuillez saisir un nom d\'équipe');
       return;
     }
 
     if (newTeamForm.selectedMembers.length === 0) {
-      alert('Veuillez sélectionner au moins un membre');
+      showWarning('Veuillez sélectionner au moins un membre');
       return;
     }
 
     if (!newTeamForm.chiefId) {
-      alert('Veuillez sélectionner un chef d\'équipe');
+      showWarning('Veuillez sélectionner un chef d\'équipe');
       return;
     }
 
     if (!newTeamForm.selectedMembers.includes(newTeamForm.chiefId)) {
-      alert('Le chef d\'équipe doit être membre de l\'équipe');
+      showWarning('Le chef d\'équipe doit être membre de l\'équipe');
       return;
     }
 
@@ -1155,12 +1156,12 @@ const ProjectManagement: React.FC = () => {
 
   const handleSaveTask = () => {
     if (!newTaskForm.title.trim()) {
-      alert('Veuillez saisir un titre de tâche');
+      showWarning('Veuillez saisir un titre de tâche');
       return;
     }
 
     if (!newTaskForm.assigneeId) {
-      alert('Veuillez sélectionner un assigné');
+      showWarning('Veuillez sélectionner un assigné');
       return;
     }
 

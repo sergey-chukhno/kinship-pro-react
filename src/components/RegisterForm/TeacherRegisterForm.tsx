@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom"
 import { getTeacherRoles, getSkills, getSubSkills } from "../../api/RegistrationRessource"
 import { submitTeacherRegistration } from "../../api/Authentication"
 import { useSchoolSearch } from "../../hooks/useSchoolSearch"
+import { useToast } from "../../hooks/useToast"
 import { translateSkill, translateSubSkill } from "../../translations/skills"
 import "./CommonForms.css"
 import "./PersonalUserRegisterForm.css"
@@ -60,6 +61,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const longPolicyText = privatePolicy
   const navigate = useNavigate()
+  const { showSuccess } = useToast()
 
   const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
     minLength: false,
@@ -316,7 +318,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     submitTeacherRegistration(formData)
       .then((response) => {
         console.log("Inscription réussie :", response)
-        alert("Inscription réussie !")
+        showSuccess("Inscription réussie !")
         navigate("/login")
       })
       .catch((error) => {

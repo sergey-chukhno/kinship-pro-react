@@ -7,6 +7,7 @@ import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
 import { acceptMember, getCompanyMembersPending } from '../../api/CompanyDashboard/Members';
 import { acceptSchoolMember, getSchoolMembersPending } from '../../api/SchoolDashboard/Members';
+import { useToast } from '../../hooks/useToast';
 
 interface MembershipRequest {
   id: string;
@@ -27,6 +28,7 @@ const MembershipRequests: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<{ [key: string]: string }>({});
   const [openDropdowns, setOpenDropdowns] = useState<{ [key: string]: boolean }>({});
   const [loading, setLoading] = useState(true);
+  const { showError } = useToast();
   
   // 1. Ajout de l'état pour stocker l'ID de l'entreprise
   const [companyId, setCompanyId] = useState<number | null>(null);
@@ -162,7 +164,7 @@ const MembershipRequests: React.FC = () => {
       setRequests(prev => prev.filter(req => req.id !== requestId));
     } catch (error) {
       console.error("Erreur lors de l'acceptation du membre:", error);
-      alert("Une erreur est survenue lors de l'acceptation.");
+      showError("Une erreur est survenue lors de l'acceptation.");
     }
   };
 

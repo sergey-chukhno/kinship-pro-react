@@ -124,7 +124,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 
   const navigationItems = [
     { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
-    { id: 'members' as PageType, label: state.showingPageType === 'teacher' ? 'Classe' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
+    { id: 'members' as PageType, label: state.showingPageType === 'teacher' ? 'Classes' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg', disabled: true },
     { id: 'projects' as PageType, label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
     { id: 'badges' as PageType, label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
@@ -135,7 +135,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   ];
 
 
-  const unreadNotifications = state.notifications.filter(n => !n.isRead).length;
+  const unreadNotifications = 0; //state.notifications.filter(n => !n.isRead).length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -156,9 +156,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   return (
     <aside className="sidebar" role="navigation" aria-label="Sidebar">
       <div className="sidebar-header">
-        {state.showingPageType === "pro" && <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo" />}
-        {state.showingPageType === "edu" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo" />}
-        {state.showingPageType === "teacher" && <img src="/icons_logo/Property 1=Logo Kinship teacher.svg" alt="Kinship Teacher" className="sidebar-logo" />}
+        {state.showingPageType === "pro" && <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo !w-[150px] !h-[40px]" />}
+        {state.showingPageType === "edu" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo !w-[150px] !h-[40px]" />}
+        {state.showingPageType === "teacher" && <img src="/icons_logo/Property 1=Logo Kinship teacher.svg" alt="Kinship Teacher" className="sidebar-logo !w-[150px] !h-[40px]" />}
       </div>
 
       <nav className="side-nav">
@@ -189,10 +189,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 
         <hr className="side-divider" aria-hidden="true" />
 
-        <a
-          href="/notifications"
+        <button
+          type="button"
+          disabled={true}
+          title="Disponible très prochainement"
+          // href="/notifications"
           data-target="notifications"
-          className={`side-link notifications ${currentPage === 'notifications' ? 'active' : ''}`}
+          className={`side-link notifications ${currentPage === 'notifications' ? 'active' : ''} `}
           aria-current={currentPage === 'notifications' ? 'page' : undefined}
           onClick={(e) => {
             e.preventDefault();
@@ -210,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
               {unreadNotifications}
             </span>
           )}
-        </a>
+        </button>
       </nav>
 
       <div className="sidebar-footer">

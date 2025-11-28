@@ -43,6 +43,44 @@ export const getSchoolProjects = (
   });
 };
 
+export const getSchoolRecentMembers = (
+  schoolId: number,
+  perPage = 3,
+  createdAtOrder: 'asc' | 'desc' = 'desc'
+) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}/members`, {
+    params: {
+      created_at_order: createdAtOrder,
+      per_page: perPage,
+    },
+  });
+};
+
+export const getCompanyRecentMembers = (
+  companyId: number,
+  perPage = 3,
+  createdAtOrder: 'asc' | 'desc' = 'desc'
+) => {
+  return axiosClient.get(`/api/v1/companies/${companyId}/members`, {
+    params: {
+      created_at_order: createdAtOrder,
+      per_page: perPage,
+    },
+  });
+};
+
+export const getTeacherRecentMembers = (
+  perPage = 3,
+  createdAtOrder: 'asc' | 'desc' = 'desc'
+) => {
+  return axiosClient.get(`/api/v1/teachers/members`, {
+    params: {
+      created_at_order: createdAtOrder,
+      per_page: perPage,
+    },
+  });
+};
+
 export const getCompanyProjects = (
   companyId: number,
   includeBranches = false
@@ -62,5 +100,84 @@ export const getCompanyActivity = (companyId: number) => {
 
 export const getTeacherActivity = () => {
   return axiosClient.get('/api/v1/teachers/activity');
+};
+
+export const getCompanyActivityStats = (companyId: number) => {
+  const basePath = `/api/v1/companies/${companyId}/activity_stats`;
+  return fetchWithFallback(basePath, `/api/v1/company/${companyId}/activity_stats`);
+};
+
+export const getSchoolActivityStats = (schoolId: number) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}/activity_stats`);
+};
+
+export const getTeacherActivityStats = () => {
+  return axiosClient.get('/api/v1/teachers/activity_stats');
+};
+
+export const getSchoolAssignedBadges = (schoolId: number, perPage = 200) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}/badges/assigned`, {
+    params: { per_page: perPage },
+  });
+};
+
+export const getCompanyAssignedBadges = (companyId: number, perPage = 200) => {
+  return axiosClient.get(`/api/v1/companies/${companyId}/badges/assigned`, {
+    params: { per_page: perPage },
+  });
+};
+
+export const getTeacherAssignedBadges = (perPage = 200) => {
+  return axiosClient.get(`/api/v1/teachers/badges/assigned`, {
+    params: { per_page: perPage },
+  });
+};
+
+export const getTeacherLogo = () => {
+  return axiosClient.get('/api/v1/teachers/logo');
+};
+
+export const getSchoolDetails = (schoolId: number) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}`);
+};
+
+export const getCompanyDetails = (companyId: number) => {
+  return axiosClient.get(`/api/v1/companies/${companyId}`);
+};
+
+export const uploadSchoolLogo = (schoolId: number, file: File) => {
+  const formData = new FormData();
+  formData.append('logo', file);
+  return axiosClient.patch(`/api/v1/schools/${schoolId}/logo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const uploadCompanyLogo = (companyId: number, file: File) => {
+  const formData = new FormData();
+  formData.append('logo', file);
+  return axiosClient.patch(`/api/v1/companies/${companyId}/logo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const deleteSchoolLogo = (schoolId: number) => {
+  return axiosClient.delete(`/api/v1/schools/${schoolId}/logo`);
+};
+
+export const deleteCompanyLogo = (companyId: number) => {
+  return axiosClient.delete(`/api/v1/companies/${companyId}/logo`);
+};
+
+export const uploadTeacherLogo = (file: File) => {
+  const formData = new FormData();
+  formData.append('logo', file);
+  return axiosClient.patch(`/api/v1/teachers/logo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const deleteTeacherLogo = () => {
+  return axiosClient.delete(`/api/v1/teachers/logo`);
 };
 

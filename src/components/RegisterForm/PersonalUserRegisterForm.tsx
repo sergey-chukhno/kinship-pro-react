@@ -15,6 +15,7 @@ import { translateSkill, translateSubSkill } from "../../translations/skills"
 import { submitPersonalUserRegistration } from "../../api/Authentication"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
+import { useToast } from "../../hooks/useToast"
 
 
 interface availability {
@@ -83,6 +84,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
 
 
   const navigate = useNavigate()
+  const { showSuccess, showError } = useToast()
 
   const [user, setUser] = useState({
     email: "",
@@ -400,12 +402,12 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     submitPersonalUserRegistration(formData)
       .then((response) => {
         console.log("Inscription réussie :", response)
-        alert("Inscription réussie !")
+        showSuccess("Inscription réussie !")
         navigate("/login")
       })
       .catch((error) => {
         console.error("Erreur lors de l'inscription :", error)
-        alert("Erreur lors de l'inscription. Veuillez réessayer.")
+        showError("Erreur lors de l'inscription. Veuillez réessayer.")
       })
   }
 

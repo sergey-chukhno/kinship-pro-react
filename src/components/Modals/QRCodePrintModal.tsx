@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import './Modal.css';
+import { useToast } from '../../hooks/useToast';
 
 interface QRCodePrintModalProps {
   onClose: () => void;
@@ -9,6 +10,7 @@ interface QRCodePrintModalProps {
 
 const QRCodePrintModal: React.FC<QRCodePrintModalProps> = ({ onClose, claimToken, studentName }) => {
   const qrCodeRef = useRef<HTMLDivElement>(null);
+  const { showSuccess } = useToast();
   const confirmationUrl = `${process.env.REACT_APP_FRONTEND_URL}/checkin-student?confirmation_token=${claimToken}`;
 
   useEffect(() => {
@@ -47,7 +49,7 @@ const QRCodePrintModal: React.FC<QRCodePrintModalProps> = ({ onClose, claimToken
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(confirmationUrl);
-    alert('Lien copié dans le presse-papier !');
+    showSuccess('Lien copié dans le presse-papier !');
   };
 
   return (
