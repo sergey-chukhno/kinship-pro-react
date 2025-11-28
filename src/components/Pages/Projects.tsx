@@ -7,7 +7,8 @@ import './Projects.css';
 
 // Imports API (Ajustez les chemins si nécessaire, basés sur la structure de Members.tsx)
 import { getCurrentUser } from '../../api/Authentication';
-import { getUserProjectsBySchool , getUserProjectsByCompany, deleteProject, getAllProjects} from '../../api/Project';
+import { deleteProject, getAllProjects} from '../../api/Project';
+import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
 import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
 
 const Projects: React.FC = () => {
@@ -54,8 +55,15 @@ const Projects: React.FC = () => {
           if (!contextId) return;
 
           // 2. Choix de la fonction API
-          const apiFunc = isEdu ? getUserProjectsBySchool : getUserProjectsByCompany;
-          const response = await apiFunc(contextId);
+          let response;
+          if (isEdu) {
+            // Use getSchoolProjects for schools (returns all school projects, not just user's projects)
+            // perPage: 12 for Projects page (vs 3 for Dashboard)
+            response = await getSchoolProjects(contextId, false, 12);
+          } else {
+            // Use getCompanyProjects for companies (returns all company projects, not just user's projects)
+            response = await getCompanyProjects(contextId, false);
+          }
 
           // Gestion de la structure de réponse { data: [ ... ], meta: ... }
           const rawProjects = response.data?.data || response.data || [];

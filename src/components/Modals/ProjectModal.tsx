@@ -181,9 +181,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         setIsLoadingTags(true);
         try {
           const tagsData = await getTags();
-          setTags(tagsData);
+          // Ensure tagsData is an array before setting
+          if (Array.isArray(tagsData)) {
+            setTags(tagsData);
+          } else {
+            console.error('getTags returned non-array:', tagsData);
+            setTags([]);
+          }
         } catch (error) {
           console.error('Error fetching tags:', error);
+          setTags([]); // Set empty array on error
         } finally {
           setIsLoadingTags(false);
         }

@@ -95,7 +95,10 @@ export interface CreateProjectResponse {
  */
 export const getTags = async (): Promise<Tag[]> => {
     const response = await apiClient.get('/api/v1/tags');
-    return response.data;
+    // Handle both { data: [...] } and [...] formats
+    const tagsData = response.data?.data || response.data || [];
+    // Ensure it's an array
+    return Array.isArray(tagsData) ? tagsData : [];
 };
 
 /**

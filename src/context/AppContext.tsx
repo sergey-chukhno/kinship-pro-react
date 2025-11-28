@@ -241,7 +241,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, badgeAttributions: [...state.badgeAttributions, action.payload] };
 
     case 'SET_TAGS':
-      return { ...state, tags: action.payload };
+      // Normalize tags to ensure it's an array
+      // Handle both Tag[] and { data: Tag[] } formats
+      const normalizedTags = Array.isArray(action.payload) 
+        ? action.payload 
+        : (Array.isArray((action.payload as any)?.data) ? (action.payload as any).data : []);
+      return { ...state, tags: normalizedTags };
 
     case 'SET_PARTNERSHIPS':
       return { ...state, partnerships: action.payload };
