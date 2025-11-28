@@ -17,6 +17,8 @@ export interface PartnershipPartner {
 
 export interface Partnership {
     id: number;
+    initiator_type?: string;
+    initiator_id?: number;
     partnership_type: string;
     status: string;
     share_members: boolean;
@@ -139,6 +141,38 @@ export const getPartnerships = async (
         data: Array.isArray(response.data) ? response.data : [],
         meta: undefined
     };
+};
+
+/**
+ * Accept a partnership request
+ */
+export const acceptPartnership = async (
+    organizationId: number,
+    organizationType: 'school' | 'company',
+    partnershipId: number
+): Promise<any> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/partnerships/${partnershipId}/confirm`
+        : `/api/v1/companies/${organizationId}/partnerships/${partnershipId}/confirm`;
+
+    const response = await apiClient.put(endpoint);
+    return response.data;
+};
+
+/**
+ * Reject a partnership request
+ */
+export const rejectPartnership = async (
+    organizationId: number,
+    organizationType: 'school' | 'company',
+    partnershipId: number
+): Promise<any> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/partnerships/${partnershipId}/reject`
+        : `/api/v1/companies/${organizationId}/partnerships/${partnershipId}/reject`;
+
+    const response = await apiClient.put(endpoint);
+    return response.data;
 };
 
 /**

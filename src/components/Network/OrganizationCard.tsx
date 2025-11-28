@@ -77,7 +77,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
           <div className="organization-meta">
             <span className="organization-type">{getTypeLabel(organization.type)}</span>
             <span 
-              className="organization-status" 
+              className="whitespace-nowrap organization-status" 
               style={{ color: getStatusColor(organization.status) }}
             >
               {getStatusLabel(organization.status)}

@@ -3,7 +3,7 @@ import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
 import PartnershipModal from '../Modals/PartnershipModal';
 import OrganizationCard from '../Network/OrganizationCard';
 import { getSchools, getCompanies } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership } from '../../api/Projects';
+import { getPartnerships, Partnership, acceptPartnership, rejectPartnership } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import './Network.css';
@@ -47,7 +47,7 @@ const Network: React.FC = () => {
   const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<'all' | 'schools' | 'companies' | 'partner'>('all');
+  const [selectedType, setSelectedType] = useState<'all' | 'schools' | 'companies' | 'partner' | 'partnership-requests'>('all');
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
@@ -73,12 +73,21 @@ const Network: React.FC = () => {
   const [partnersTotalPages, setPartnersTotalPages] = useState(1);
   const [partnersTotalCount, setPartnersTotalCount] = useState(0);
 
+  // Partnership requests state
+  const [partnershipRequests, setPartnershipRequests] = useState<Partnership[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [requestsTotalPages, setRequestsTotalPages] = useState(1);
+  const [requestsTotalCount, setRequestsTotalCount] = useState(0);
+
   // Reset page to 1 when search term changes
   useEffect(() => {
     setSchoolsPage(1);
     setCompaniesPage(1);
     setAllPage(1);
     setPartnersPage(1);
+    setRequestsPage(1);
   }, [searchTerm]);
 
   // Reset allPage when switching to "all" tab
@@ -267,6 +276,88 @@ const Network: React.FC = () => {
     }
   }, [selectedType, state.user, state.showingPageType, partnersPage]);
 
+  // Fetch partnership requests count on mount (for displaying count in tab)
+  useEffect(() => {
+    const fetchRequestsCount = async () => {
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const organizationType = getOrganizationType(state.showingPageType);
+
+      if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+        setRequestsTotalCount(0);
+        return;
+      }
+
+      try {
+        const params: any = {
+          page: 1,
+          per_page: 1,
+          status: 'pending'
+        };
+
+        const response = await getPartnerships(organizationId, organizationType, params);
+        const meta = response.meta;
+
+        if (meta) {
+          setRequestsTotalCount(meta.total_count || 0);
+          setRequestsTotalPages(meta.total_pages || 1);
+        }
+      } catch (err) {
+        console.error('Error fetching partnership requests count:', err);
+        setRequestsTotalCount(0);
+      }
+    };
+
+    fetchRequestsCount();
+  }, [state.user, state.showingPageType]);
+
+  // Fetch partnership requests when tab is selected
+  useEffect(() => {
+    const fetchRequests = async () => {
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const organizationType = getOrganizationType(state.showingPageType);
+
+      if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+        setPartnershipRequests([]);
+        return;
+      }
+
+      setRequestsLoading(true);
+      setRequestsError(null);
+
+      try {
+        const params: any = {
+          page: requestsPage,
+          per_page: 50,
+          status: 'pending'
+        };
+
+        const response = await getPartnerships(organizationId, organizationType, params);
+        const data = response.data ?? [];
+        const meta = response.meta;
+
+        if (Array.isArray(data)) {
+          setPartnershipRequests(data);
+          if (meta) {
+            setRequestsTotalPages(meta.total_pages || 1);
+            setRequestsTotalCount(meta.total_count || 0);
+          }
+        } else {
+          setPartnershipRequests([]);
+        }
+      } catch (err) {
+        console.error('Error fetching partnership requests:', err);
+        setRequestsError('Erreur lors du chargement des demandes de partenariats');
+        setPartnershipRequests([]);
+      } finally {
+        setRequestsLoading(false);
+      }
+    };
+
+    if (selectedType === 'partnership-requests') {
+      fetchRequests();
+    }
+  }, [selectedType, state.user, state.showingPageType, requestsPage]);
+
   // No client-side filtering for schools and companies - search is done server-side
   // This ensures pagination works correctly with server-side search
   const filteredSchools = schools;
@@ -290,6 +381,46 @@ const Network: React.FC = () => {
     // TODO: Implement attach request
     console.log('Save attach request:', attachData);
     setIsAttachModalOpen(false);
+  };
+
+  // Handle accept partnership request
+  const handleAcceptPartnership = async (partnershipId: number) => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      return;
+    }
+
+    try {
+      await acceptPartnership(organizationId, organizationType, partnershipId);
+      // Remove from requests and update count
+      setPartnershipRequests(prev => prev.filter(p => p.id !== partnershipId));
+      setRequestsTotalCount(prev => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error('Error accepting partnership:', err);
+      setRequestsError('Erreur lors de l\'acceptation du partenariat');
+    }
+  };
+
+  // Handle reject partnership request
+  const handleRejectPartnership = async (partnershipId: number) => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      return;
+    }
+
+    try {
+      await rejectPartnership(organizationId, organizationType, partnershipId);
+      // Remove from requests and update count
+      setPartnershipRequests(prev => prev.filter(p => p.id !== partnershipId));
+      setRequestsTotalCount(prev => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error('Error rejecting partnership:', err);
+      setRequestsError('Erreur lors du rejet du partenariat');
+    }
   };
 
   // Convert schools to organization-like format for display
@@ -351,9 +482,38 @@ const Network: React.FC = () => {
     return matchesSearch;
   });
 
+  // Convert partnership requests to organization-like format for display
+  const requestsAsOrganizations: Organization[] = partnershipRequests.flatMap(partnership => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    return (partnership.partners || [])
+      .filter(partner => partner.id !== organizationId)
+      .map(partner => ({
+        id: String(partnership.id), // Use partnership ID for the card
+        name: partner.name,
+        type: 'partner' as const,
+        description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
+        members: 0,
+        location: '',
+        logo: undefined,
+        status: 'pending' as const,
+        joinedDate: partnership.created_at || '',
+        contactPerson: '',
+        email: '',
+        partnershipId: partnership.id, // Store partnership ID for accept/reject
+        partnership: partnership // Store full partnership data
+      } as Organization & { partnershipId: number; partnership: Partnership }));
+  });
+
   // Calculate total pages and count for "all" tab
   const allTotalPages = Math.max(schoolsTotalPages, companiesTotalPages);
   const allTotalCount = schoolsTotalCount + companiesTotalCount;
+
+  // Filter requests based on search term
+  const filteredRequests = requestsAsOrganizations.filter(request => {
+    const matchesSearch = request.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         request.description.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
 
   // Combine schools, companies and partners based on selected type
   const displayItems = selectedType === 'schools' 
@@ -362,6 +522,8 @@ const Network: React.FC = () => {
     ? companiesAsOrganizations
     : selectedType === 'partner'
     ? filteredPartners
+    : selectedType === 'partnership-requests'
+    ? filteredRequests
     : selectedType === 'all'
     ? [...schoolsAsOrganizations, ...companiesAsOrganizations]
     : [];
@@ -415,7 +577,7 @@ const Network: React.FC = () => {
           </div>
           <div className="summary-content">
             <h3>{companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length}</h3>
-            <p>Entreprises</p>
+            <p>Organisations</p>
           </div>
         </div>
         <div className="summary-card">
@@ -456,6 +618,14 @@ const Network: React.FC = () => {
           >
             Partenaires ({partnersTotalCount > 0 ? partnersTotalCount : filteredPartners.length})
           </button>
+          {requestsTotalCount > 0 && (
+            <button 
+              className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
+              onClick={() => setSelectedType('partnership-requests')}
+            >
+              Demandes de partenariats ({requestsTotalCount})
+            </button>
+          )}
         </div>
       </div>
 
@@ -479,19 +649,99 @@ const Network: React.FC = () => {
         {partnersError && selectedType === 'partner' && (
           <div className="error-message">{partnersError}</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && (
+        {requestsLoading && selectedType === 'partnership-requests' && (
+          <div className="loading-message">Chargement des demandes de partenariats...</div>
+        )}
+        {requestsError && selectedType === 'partnership-requests' && (
+          <div className="error-message">{requestsError}</div>
+        )}
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
         <div className="grid !grid-cols-3">
-          {displayItems.map((organization) => (
+          {displayItems.map((organization) => {
+            // Check if this is a partnership request
+            const isPartnershipRequest = selectedType === 'partnership-requests' && 
+              'partnershipId' in organization;
+            
+            if (isPartnershipRequest && 'partnershipId' in organization) {
+              const orgWithPartnership = organization as Organization & { partnershipId: number; partnership: Partnership };
+              const partnershipId = orgWithPartnership.partnershipId;
+              const partnership = orgWithPartnership.partnership;
+              
+              // Check if current user is the initiator
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              const organizationType = getOrganizationType(state.showingPageType);
+              
+              // Determine expected initiator type based on current organization type
+              let expectedInitiatorType: string | undefined;
+              if (organizationType === 'school') {
+                expectedInitiatorType = 'School';
+              } else if (organizationType === 'company') {
+                expectedInitiatorType = 'Company';
+              }
+              
+              const isInitiator = expectedInitiatorType && 
+                                 partnership.initiator_type === expectedInitiatorType && 
+                                 partnership.initiator_id === organizationId;
+              
+              return (
+                <div key={organization.id} className="organization-card">
+                  <div className="organization-header">
+                    <div className="organization-logo">
+                      <div className="logo-placeholder">
+                        <i className="fas fa-building"></i>
+                      </div>
+                    </div>
+                    <div className="organization-info">
+                      <h3 className="organization-name">{organization.name}</h3>
+                      <div className="organization-meta">
+                        <span className="organization-type">Demande de partenariat</span>
+                        <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
+                          En attente
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="organization-content">
+                    <p className="organization-description">{organization.description}</p>
+                    {!isInitiator && (
+                      <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => handleAcceptPartnership(partnershipId)}
+                          style={{ flex: 1 }}
+                        >
+                          <i className="fas fa-check"></i> Accepter
+                        </button>
+                        <button
+                          className="btn btn-outline"
+                          onClick={() => handleRejectPartnership(partnershipId)}
+                          style={{ flex: 1 }}
+                        >
+                          <i className="fas fa-times"></i> Refuser
+                        </button>
+                      </div>
+                    )}
+                    {isInitiator && (
+                      <div style={{ marginTop: '16px', padding: '12px', background: '#f3f4f6', borderRadius: '8px', color: '#6b7280', fontSize: '0.9rem' }}>
+                        <i className="fas fa-info-circle"></i> Vous êtes l'initiateur de cette demande
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            
+            return (
           <OrganizationCard
             key={organization.id}
             organization={organization}
             onEdit={() => console.log('Edit organization:', organization.id)}
             onDelete={() => console.log('Delete organization:', organization.id)}
           />
-        ))}
-
+            );
+          })}
         </div>
       </div>
 
@@ -586,6 +836,55 @@ const Network: React.FC = () => {
               className="pagination-btn"
               onClick={() => setAllPage(prev => Math.min(allTotalPages, prev + 1))}
               disabled={allPage === allTotalPages || schoolsLoading || companiesLoading}
+            >
+              Suivant <i className="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination for Partnership Requests */}
+      {selectedType === 'partnership-requests' && requestsTotalPages > 1 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            Page {requestsPage} sur {requestsTotalPages} ({requestsTotalCount} résultats)
+          </div>
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => setRequestsPage(prev => Math.max(1, prev - 1))}
+              disabled={requestsPage === 1 || requestsLoading}
+            >
+              <i className="fas fa-chevron-left"></i> Précédent
+            </button>
+            <div className="pagination-pages">
+              {Array.from({ length: Math.min(5, requestsTotalPages) }, (_, i) => {
+                let pageNum: number;
+                if (requestsTotalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (requestsPage <= 3) {
+                  pageNum = i + 1;
+                } else if (requestsPage >= requestsTotalPages - 2) {
+                  pageNum = requestsTotalPages - 4 + i;
+                } else {
+                  pageNum = requestsPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    className={`pagination-page-btn ${requestsPage === pageNum ? 'active' : ''}`}
+                    onClick={() => setRequestsPage(pageNum)}
+                    disabled={requestsLoading}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              className="pagination-btn"
+              onClick={() => setRequestsPage(prev => Math.min(requestsTotalPages, prev + 1))}
+              disabled={requestsPage === requestsTotalPages || requestsLoading}
             >
               Suivant <i className="fas fa-chevron-right"></i>
             </button>
