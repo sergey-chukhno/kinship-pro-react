@@ -13,6 +13,9 @@ import {
   getCompanyActivity,
   getSchoolActivity,
   getTeacherActivity,
+  getCompanyActivityStats,
+  getSchoolActivityStats,
+  getTeacherActivityStats,
   getCompanyAssignedBadges,
   getSchoolAssignedBadges,
   getTeacherAssignedBadges,
@@ -60,6 +63,35 @@ type RecentMember = {
   role?: string;
   avatarUrl?: string | null;
   created_at?: string;
+};
+
+type ActivityPeriodKey = '1w' | '1m' | '6m';
+type ActivityType = 'projects' | 'badges';
+
+type ActivityStatsDataset = {
+  bars: number[];
+  labels: string[];
+  color?: string;
+  total?: number;
+  bucket_starts?: string[];
+  start_at?: string;
+  end_at?: string;
+  interval?: string;
+};
+
+type ActivityStatsPayload = Partial<
+  Record<ActivityType, Partial<Record<ActivityPeriodKey, ActivityStatsDataset>>>
+>;
+
+const ACTIVITY_DEFAULT_COLORS: Record<ActivityType, string> = {
+  projects: '#5570F1',
+  badges: '#16A34A',
+};
+
+const DEFAULT_ACTIVITY_LABELS: Record<ActivityPeriodKey, string[]> = {
+  '1w': ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+  '1m': ['S1', 'S2', 'S3', 'S4'],
+  '6m': ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
 };
 
 type BadgeDistributionSegment = {
@@ -284,8 +316,8 @@ const Dashboard: React.FC = () => {
   const [statsData, setStatsData] = useState<OrganizationStatsResponse | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState<'1w' | '1m' | '6m'>('1m');
-  const [selectedActivity, setSelectedActivity] = useState<'projects' | 'badges'>('projects');
+  const [selectedPeriod, setSelectedPeriod] = useState<ActivityPeriodKey>('1m');
+  const [selectedActivity, setSelectedActivity] = useState<ActivityType>('projects');
   const [hoveredBar, setHoveredBar] = useState<{ index: number; value: number; label: string } | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [projects, setProjects] = useState<DashboardProject[]>([]);
@@ -297,6 +329,9 @@ const Dashboard: React.FC = () => {
   const [activities, setActivities] = useState<DashboardActivity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const [activityStats, setActivityStats] = useState<ActivityStatsPayload | null>(null);
+  const [activityStatsLoading, setActivityStatsLoading] = useState(false);
+  const [activityStatsError, setActivityStatsError] = useState<string | null>(null);
   const [organizationLogoUrl, setOrganizationLogoUrl] = useState<string | null>(null);
   const [organizationName, setOrganizationName] = useState<string | null>(null);
   const [logoLoading, setLogoLoading] = useState(false);
@@ -429,6 +464,75 @@ const Dashboard: React.FC = () => {
     };
 
     fetchStats();
+
+    return () => {
+      ignore = true;
+    };
+  }, [state.showingPageType, organizationId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchActivityStats = async () => {
+      if (state.showingPageType === 'user') {
+        if (!ignore) {
+          setActivityStats(null);
+          setActivityStatsError(null);
+          setActivityStatsLoading(false);
+        }
+        return;
+      }
+
+      const requiresOrganizationId = state.showingPageType !== 'teacher';
+      if (requiresOrganizationId && !organizationId) {
+        if (!ignore) {
+          setActivityStats(null);
+          setActivityStatsError(null);
+          setActivityStatsLoading(false);
+        }
+        return;
+      }
+
+      setActivityStatsLoading(true);
+      setActivityStatsError(null);
+
+      try {
+        let response;
+
+        if (state.showingPageType === 'pro' && organizationId) {
+          response = await getCompanyActivityStats(Number(organizationId));
+        } else if (state.showingPageType === 'edu' && organizationId) {
+          response = await getSchoolActivityStats(Number(organizationId));
+        } else if (state.showingPageType === 'teacher') {
+          response = await getTeacherActivityStats();
+        } else {
+          if (!ignore) {
+            setActivityStats(null);
+            setActivityStatsLoading(false);
+          }
+          return;
+        }
+
+        const payload: ActivityStatsPayload | null =
+          response?.data?.data ?? response?.data ?? null;
+
+        if (!ignore) {
+          setActivityStats(payload);
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des statistiques d'activité :", error);
+        if (!ignore) {
+          setActivityStats(null);
+          setActivityStatsError("Impossible de charger les statistiques d'activité pour le moment.");
+        }
+      } finally {
+        if (!ignore) {
+          setActivityStatsLoading(false);
+        }
+      }
+    };
+
+    fetchActivityStats();
 
     return () => {
       ignore = true;
@@ -915,35 +1019,69 @@ const Dashboard: React.FC = () => {
     },
   ];
 
-  // Chart data logic
-  const getChartData = (period: '1w' | '1m' | '6m', activity: 'projects' | 'badges') => {
-    const isProjects = activity === 'projects';
-    
-    switch (period) {
-      case '1w':
-        return {
-          bars: isProjects ? [3, 5, 2, 7, 4, 6, 3] : [12, 18, 8, 25, 15, 22, 14],
-          labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
-          color: isProjects ? '#5570F1' : '#16A34A'
-        };
-      case '1m':
-        return {
-          bars: isProjects ? [15, 18, 12, 22] : [45, 52, 38, 65],
-          labels: ['S1', 'S2', 'S3', 'S4'],
-          color: isProjects ? '#5570F1' : '#16A34A'
-        };
-      case '6m':
-        return {
-          bars: isProjects ? [50, 72, 45, 85, 62, 78] : [55, 80, 48, 95, 68, 88],
-          labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
-          color: isProjects ? '#5570F1' : '#16A34A'
-        };
-      default:
-        return { bars: [], labels: [], color: '#5570F1' };
-    }
-  };
+  const chartDataset = useMemo<{
+    labels: string[];
+    barHeights: number[];
+    values: number[];
+    color: string;
+  }>(() => {
+    const activityByType = activityStats?.[selectedActivity];
+    const dataset: ActivityStatsDataset | undefined = activityByType?.[selectedPeriod];
+    const defaultColor = ACTIVITY_DEFAULT_COLORS[selectedActivity];
+    const fallbackLabels = DEFAULT_ACTIVITY_LABELS[selectedPeriod] || [];
 
-  const chartData = getChartData(selectedPeriod, selectedActivity);
+    if (!dataset) {
+      return {
+        labels: [] as string[],
+        barHeights: [] as number[],
+        values: [] as number[],
+        color: defaultColor,
+      };
+    }
+
+    let bars = Array.isArray(dataset.bars) ? [...dataset.bars] : [];
+    let labels = Array.isArray(dataset.labels) ? [...dataset.labels] : [];
+
+    if (bars.length && labels.length) {
+      const limit = Math.min(bars.length, labels.length);
+      bars = bars.slice(0, limit);
+      labels = labels.slice(0, limit);
+    } else if (bars.length && !labels.length) {
+      labels =
+        fallbackLabels.length === bars.length
+          ? [...fallbackLabels]
+          : bars.map((_, index) => `P${index + 1}`);
+    }
+
+    if (!bars.length && !labels.length) {
+      return {
+        labels: [] as string[],
+        barHeights: [] as number[],
+        values: [] as number[],
+        color: dataset.color || defaultColor,
+      };
+    }
+
+    const maxValue = bars.reduce((max, value) => Math.max(max, value), 0);
+    const barHeights =
+      maxValue === 0
+        ? bars.map(() => 0)
+        : bars.map((value) => Math.round((value / maxValue) * 100));
+
+    return {
+      labels,
+      barHeights,
+      values: bars,
+      color: dataset.color || defaultColor,
+    };
+  }, [activityStats, selectedActivity, selectedPeriod]);
+
+  const chartHasValues = chartDataset.values.length > 0;
+  const chartOnlyZeros = chartHasValues && chartDataset.values.every((value) => value === 0);
+
+  useEffect(() => {
+    setHoveredBar(null);
+  }, [selectedActivity, selectedPeriod, activityStats]);
   const badgePieBackground = useMemo(
     () => buildBadgePieBackground(badgeDistribution, badgeDistributionTotal),
     [badgeDistribution, badgeDistributionTotal]
@@ -1244,20 +1382,20 @@ const Dashboard: React.FC = () => {
             </div>
             
             {/* PARTIE DROITE : Activité des membres (Le graphique) */}
-            <div className="chart-container member-activity-chart">
+            <div className="flex flex-col gap-4 justify-center items-center p-4">
               {/* NOUVEL EN-TÊTE : Titre et Sélecteur d'activité sur la même ligne logique */}
               <div className="chart-header">
                 <h3 className="chart-title">Activité des membres</h3>
                 {/* Le sélecteur d'activité est placé dans le header pour la mise en page CSS */}
-                <div className="activity-type-selector">
+                <div className="flex flex-row justify-around items-center w-full">
                   <button 
-                    className={`btn btn-sm ${selectedActivity === 'projects' ? 'btn-primary' : 'btn-outline'}`}
+                    className={` btn-sm ${selectedActivity === 'projects' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => setSelectedActivity('projects')}
                   >
                     Création des projets
                   </button>
                   <button 
-                    className={`btn btn-sm ${selectedActivity === 'badges' ? 'btn-primary' : 'btn-outline'}`}
+                    className={` btn-sm ${selectedActivity === 'badges' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => setSelectedActivity('badges')}
                   >
                     Attribution des badges
@@ -1267,21 +1405,21 @@ const Dashboard: React.FC = () => {
               
               <div className="chart-controls-and-graph">
                 {/* Le sélecteur de période est placé ici, pour être au-dessus du graphique */}
-                <div className="period-selector">
+                <div className="flex flex-row gap-4 justify-center items-center">
                   <button
-                    className={`btn btn-sm ${selectedPeriod === '1w' ? 'btn-primary' : 'btn-outline'}`}
+                    className={`px-2 py-1 rounded-md text-sm ${selectedPeriod === '1w' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => setSelectedPeriod('1w')}
                   >
                     1s
                   </button>
                   <button
-                    className={`btn btn-sm ${selectedPeriod === '1m' ? 'btn-primary' : 'btn-outline'}`}
+                    className={`px-2 py-1 rounded-md text-sm ${selectedPeriod === '1m' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => setSelectedPeriod('1m')}
                   >
                     1m
                   </button>
                   <button
-                    className={`btn btn-sm ${selectedPeriod === '6m' ? 'btn-primary' : 'btn-outline'}`}
+                    className={`px-2 py-1 rounded-md text-sm ${selectedPeriod === '6m' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => setSelectedPeriod('6m')}
                   >
                     6m
@@ -1289,41 +1427,65 @@ const Dashboard: React.FC = () => {
                 </div>
               
                 <div className="chart-placeholder">
-                  <div className="chart-mock">
-                    <div className="chart-bars">
-                      {chartData.bars.map((height, index) => (
-                        <div 
-                          key={index}
-                          className="chart-bar" 
-                          style={{ 
-                            height: `${height}%`,
-                            backgroundColor: chartData.color
-                          }}
-                          onMouseEnter={(e) => {
-                            setHoveredBar({ 
-                              index, 
-                              value: Math.round(height), 
-                              label: chartData.labels[index] 
-                            });
-                            setMousePosition({ x: e.clientX, y: e.clientY });
-                          }}
-                          onMouseMove={(e) => {
-                            setMousePosition({ x: e.clientX, y: e.clientY });
-                          }}
-                          onMouseLeave={() => setHoveredBar(null)}
-                        ></div>
-                      ))}
-                    </div>
-                    <div className="chart-labels">
-                      {chartData.labels.map((label, index) => (
-                        <span key={index}>{label}</span>
-                      ))}
-                    </div>
-                  </div>
+                  {activityStatsLoading && (
+                    <p className="chart-feedback-text">Chargement des statistiques...</p>
+                  )}
+                  {!activityStatsLoading && activityStatsError && (
+                    <p className="chart-feedback-text error">{activityStatsError}</p>
+                  )}
+                  {!activityStatsLoading &&
+                    !activityStatsError &&
+                    !chartHasValues && (
+                      <p className="chart-feedback-text">
+                        Aucune donnée disponible pour cette période.
+                      </p>
+                    )}
+                  {!activityStatsLoading &&
+                    !activityStatsError &&
+                    chartHasValues && (
+                      <div className='flex flex-col gap-4 justify-center items-center'>
+                        <div className="chart-mock">
+                          <div className="chart-bars">
+                            {chartDataset.barHeights.map((height, index) => (
+                              <div
+                                key={`${chartDataset.labels[index] || index}-${index}`}
+                                className="chart-bar"
+                                style={{
+                                  height: `${height}%`,
+                                  backgroundColor: chartDataset.color,
+                                }}
+                                onMouseEnter={(e) => {
+                                  setHoveredBar({
+                                    index,
+                                    value: chartDataset.values[index] ?? 0,
+                                    label: chartDataset.labels[index] ?? '',
+                                  });
+                                  setMousePosition({ x: e.clientX, y: e.clientY });
+                                }}
+                                onMouseMove={(e) => {
+                                  setMousePosition({ x: e.clientX, y: e.clientY });
+                                }}
+                                onMouseLeave={() => setHoveredBar(null)}
+                              ></div>
+                            ))}
+                          </div>
+                          <div className="chart-labels">
+                            {chartDataset.labels.map((label, index) => (
+                              <span key={`${label}-${index}`}>{label}</span>
+                            ))}
+                          </div>
+                        </div>
+                        {chartOnlyZeros && (
+                          <p className="chart-feedback-text">
+                            Aucune activité enregistrée sur cette période.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   
                   {/* Tooltip */}
                   {hoveredBar && (
-                    <div 
+                    <div
                       className="chart-tooltip"
                       style={{
                         left: mousePosition.x + 10,

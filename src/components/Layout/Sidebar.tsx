@@ -134,9 +134,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   return (
     <aside className="sidebar" role="navigation" aria-label="Sidebar">
       <div className="sidebar-header">
-        {state.showingPageType === "pro" && <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo" />}
-        {state.showingPageType === "edu" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo" />}
-        {state.showingPageType === "teacher" && <img src="/icons_logo/Property 1=Logo Kinship teacher.svg" alt="Kinship Teacher" className="sidebar-logo" />}
+        {state.showingPageType === "pro" && <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo !w-[150px] !h-[40px]" />}
+        {state.showingPageType === "edu" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo !w-[150px] !h-[40px]" />}
+        {state.showingPageType === "teacher" && <img src="/icons_logo/Property 1=Logo Kinship teacher.svg" alt="Kinship Teacher" className="sidebar-logo !w-[150px] !h-[40px]" />}
       </div>
 
       <nav className="side-nav">

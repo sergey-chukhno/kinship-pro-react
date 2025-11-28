@@ -102,6 +102,19 @@ export const getTeacherActivity = () => {
   return axiosClient.get('/api/v1/teachers/activity');
 };
 
+export const getCompanyActivityStats = (companyId: number) => {
+  const basePath = `/api/v1/companies/${companyId}/activity_stats`;
+  return fetchWithFallback(basePath, `/api/v1/company/${companyId}/activity_stats`);
+};
+
+export const getSchoolActivityStats = (schoolId: number) => {
+  return axiosClient.get(`/api/v1/schools/${schoolId}/activity_stats`);
+};
+
+export const getTeacherActivityStats = () => {
+  return axiosClient.get('/api/v1/teachers/activity_stats');
+};
+
 export const getSchoolAssignedBadges = (schoolId: number, perPage = 200) => {
   return axiosClient.get(`/api/v1/schools/${schoolId}/badges/assigned`, {
     params: { per_page: perPage },

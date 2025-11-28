@@ -134,7 +134,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         onPageChange('projects');
         navigate('/projects');
       }}>
-        <img src="./icons_logo/Property 1=Logo Kinship user.svg" alt="Logo" className="user-logo" />
+        <img src="./icons_logo/Property 1=Logo Kinship user.svg" alt="Logo" className="!w-[150px] !h-[40px] user-logo" />
       </div>
 
       <div className="user-header-right" ref={dropdownRef}>
