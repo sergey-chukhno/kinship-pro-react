@@ -6,79 +6,79 @@ const Analytics: React.FC = () => {
 
   // Mock data for charts
   const projectsData = {
-    totalProjects: 24,
-    activeProjects: 18,
-    completedProjects: 6,
-    totalParticipants: 156,
-    averageDuration: 4.2,
-    successRate: 87.5,
+    totalProjects: 0,
+    activeProjects: 0,
+    completedProjects: 0,
+    totalParticipants: 0,
+    averageDuration: 0,
+    successRate: 0,
     pathwayDistribution: [
-      { name: 'Citoyen', value: 6, percentage: 25.0 },
-      { name: 'Créativité', value: 5, percentage: 20.8 },
-      { name: 'Santé', value: 4, percentage: 16.7 },
-      { name: 'Environnement', value: 3, percentage: 12.5 },
-      { name: 'Innovation', value: 3, percentage: 12.5 },
-      { name: 'Éducation', value: 2, percentage: 8.3 },
-      { name: 'Technologie', value: 1, percentage: 4.2 }
+      { name: 'Citoyen', value: 0, percentage: 0 },
+      { name: 'Créativité', value: 0, percentage: 0 },
+      { name: 'Santé', value: 0, percentage: 0 },
+      { name: 'Environnement', value: 0, percentage: 0 },
+      { name: 'Innovation', value: 0, percentage: 0 },
+      { name: 'Éducation', value: 0, percentage: 0 },
+      { name: 'Technologie', value: 0, percentage: 0 }
     ],
     monthlyTrend: [
-      { month: 'Jan', projects: 3 },
-      { month: 'Fév', projects: 5 },
-      { month: 'Mar', projects: 4 },
-      { month: 'Avr', projects: 6 },
-      { month: 'Mai', projects: 8 },
-      { month: 'Juin', projects: 7 }
+      { month: 'Jan', projects: 0 },
+      { month: 'Fév', projects: 0 },
+      { month: 'Mar', projects: 0 },
+      { month: 'Avr', projects: 0 },
+      { month: 'Mai', projects: 0 },
+      { month: 'Juin', projects: 0 }
     ],
     statusDistribution: [
-      { name: 'À venir', value: 5, percentage: 20.8 },
-      { name: 'En cours', value: 13, percentage: 54.2 },
-      { name: 'Terminé', value: 6, percentage: 25.0 }
+      { name: 'À venir', value: 0, percentage: 0 },
+      { name: 'En cours', value: 0, percentage: 0 },
+      { name: 'Terminé', value: 0, percentage: 0 }
     ]
   };
 
   const badgesData = {
-    totalBadges: 342,
-    badgesAwarded: 156,
-    averagePerMember: 4.8,
-    completionRate: 78.2,
+    totalBadges: 0,
+    badgesAwarded: 0,
+    averagePerMember: 0,
+    completionRate: 0,
     seriesDistribution: [
-      { name: 'TouKouLeur', value: 198, percentage: 57.9 },
-      { name: 'CPS', value: 89, percentage: 26.0 },
-      { name: 'Audiovisuelle', value: 55, percentage: 16.1 }
+      { name: 'Soft Skills 4LAB', value: 0, percentage: 0 },
+      { name: 'CPS', value: 0, percentage: 0 },
+      { name: 'Audiovisuelle', value: 0, percentage: 0 }
     ],
     monthlyAttributions: [
-      { month: 'Jan', badges: 12 },
-      { month: 'Fév', badges: 18 },
-      { month: 'Mar', badges: 15 },
-      { month: 'Avr', badges: 22 },
-      { month: 'Mai', badges: 28 },
-      { month: 'Juin', badges: 25 }
+      { month: 'Jan', badges: 0 },
+      { month: 'Fév', badges: 0 },
+      { month: 'Mar', badges: 0 },
+      { month: 'Avr', badges: 0 },
+      { month: 'Mai', badges: 0 },
+      { month: 'Juin', badges: 0 }
     ],
     levelDistribution: [
-      { name: 'Niveau 1', value: 89, percentage: 57.1 },
-      { name: 'Niveau 2', value: 45, percentage: 28.8 },
-      { name: 'Niveau 3', value: 22, percentage: 14.1 }
+      { name: 'Niveau 1', value: 0, percentage: 0 },
+      { name: 'Niveau 2', value: 0, percentage: 0 },
+      { name: 'Niveau 3', value: 0, percentage: 0 }
     ],
     radarData: [
       {
         level: 'Niveau 1',
         competencies: ['Communication', 'Coopération', 'Créativité'],
-        badgesAttributed: 45
+        badgesAttributed: 0
       },
       {
         level: 'Niveau 2',
         competencies: ['Adaptabilité', 'Engagement', 'Formation'],
-        badgesAttributed: 38
+        badgesAttributed: 0
       },
       {
         level: 'Niveau 3',
         competencies: ['Esprit Critique', 'Gestion de Projet', 'Innovation'],
-        badgesAttributed: 35
+        badgesAttributed: 0
       },
       {
         level: 'Niveau 4',
         competencies: ['Leadership', 'Stratégie', 'Mentorat'],
-        badgesAttributed: 38
+        badgesAttributed: 0
       }
     ]
   };
@@ -464,11 +464,14 @@ const Analytics: React.FC = () => {
     <section className="analytics-container with-sidebar">
       <div className="analytics-content">
         {/* Section Title + Actions */}
-        <div className="section-title-row">
+        <div className="items-center section-title-row">
+          <div className="flex flex-col gap-2 items-center">
           <div className="section-title-left">
             <img src="/icons_logo/Icon=Analytics.svg" alt="Statistiques et KPI" className="section-icon" />
             <h2>Statistiques et KPI</h2>
           </div>
+            <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
+            </div>
           <div className="analytics-actions">
             <button className="btn btn-outline" onClick={() => console.log('Export analytics')}>
               <i className="fas fa-download"></i> Exporter
