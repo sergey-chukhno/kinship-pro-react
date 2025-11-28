@@ -43,8 +43,8 @@ const Analytics: React.FC = () => {
     completionRate: 0,
     seriesDistribution: [
       { name: 'Soft Skills 4LAB', value: 0, percentage: 0 },
-      { name: 'CPS', value: 0, percentage: 0 },
-      { name: 'Audiovisuelle', value: 0, percentage: 0 }
+      // { name: 'CPS', value: 0, percentage: 0 },
+      // { name: 'Audiovisuelle', value: 0, percentage: 0 }
     ],
     monthlyAttributions: [
       { month: 'Jan', badges: 0 },
