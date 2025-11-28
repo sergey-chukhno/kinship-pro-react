@@ -471,11 +471,17 @@ const ProjectManagement: React.FC = () => {
     const projectId = parseInt(project.id);
     const allMembers: any[] = [];
     
+    // Track user IDs that have already been added to avoid duplicates
+    const addedUserIds = new Set<string>();
+    
     // Add owner
     if (apiProjectData.owner) {
+      const ownerId = apiProjectData.owner.id.toString();
+      addedUserIds.add(ownerId);
+      
       const ownerParticipant = {
         id: `owner-${apiProjectData.owner.id}`,
-        memberId: apiProjectData.owner.id.toString(),
+        memberId: ownerId,
         name: apiProjectData.owner.full_name || `${apiProjectData.owner.first_name || ''} ${apiProjectData.owner.last_name || ''}`.trim() || 'Inconnu',
         profession: apiProjectData.owner.job || 'Propriétaire',
         email: apiProjectData.owner.email || '',
@@ -495,9 +501,12 @@ const ProjectManagement: React.FC = () => {
     // Add co-owners
     if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
       apiProjectData.co_owners.forEach((coOwner: any) => {
+        const coOwnerId = coOwner.id.toString();
+        addedUserIds.add(coOwnerId);
+        
         const coOwnerParticipant = {
           id: `co-owner-${coOwner.id}`,
-          memberId: coOwner.id.toString(),
+          memberId: coOwnerId,
           name: coOwner.full_name || `${coOwner.first_name || ''} ${coOwner.last_name || ''}`.trim() || 'Inconnu',
           profession: coOwner.job || 'Co-propriétaire',
           email: coOwner.email || '',
@@ -516,9 +525,23 @@ const ProjectManagement: React.FC = () => {
     }
     
     // Add project members (confirmed only)
+    // Exclude co-owners and owner to avoid duplicates
     try {
       const projectMembers = await getProjectMembers(projectId);
-      const confirmedMembers = projectMembers.filter((m: any) => m.status === 'confirmed');
+      const confirmedMembers = projectMembers.filter((m: any) => {
+        // Exclude pending members
+        if (m.status !== 'confirmed') return false;
+        
+        const userId = m.user?.id?.toString() || m.user_id?.toString();
+        
+        // Exclude co-owners (already added from apiProjectData.co_owners)
+        if (addedUserIds.has(userId)) return false;
+        
+        // Exclude co-owners by role (safety check in case they weren't in co_owners array)
+        if (m.project_role === 'co_owner') return false;
+        
+        return true;
+      });
       
       confirmedMembers.forEach((member: any) => {
         const memberParticipant = {
