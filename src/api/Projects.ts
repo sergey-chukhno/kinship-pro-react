@@ -102,6 +102,22 @@ export const getTags = async (): Promise<Tag[]> => {
 };
 
 /**
+ * Fetch teacher's projects (owned + projects for managed classes)
+ */
+export const getTeacherProjects = async (params?: {
+    page?: number;
+    per_page?: number;
+    status?: string;
+    search?: string;
+}): Promise<{ data: any[]; meta: any }> => {
+    const response = await apiClient.get('/api/v1/teachers/projects', { params });
+    return {
+        data: response.data?.data || response.data || [],
+        meta: response.data?.meta || {}
+    };
+};
+
+/**
  * Fetch partnerships for an organization
  */
 export const getPartnerships = async (

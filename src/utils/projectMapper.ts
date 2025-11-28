@@ -52,15 +52,23 @@ export const getContextFromPageType = (
 
 /**
  * Get organization ID from user context based on page type
+ * For teachers, can optionally specify a selected school ID
  */
 export const getOrganizationId = (
     user: User,
-    showingPageType: ShowingPageType
+    showingPageType: ShowingPageType,
+    selectedSchoolId?: number | undefined
 ): number | undefined => {
     if (showingPageType === 'pro') {
         return user.available_contexts?.companies?.[0]?.id;
-    } else if (showingPageType === 'edu' || showingPageType === 'teacher') {
+    } else if (showingPageType === 'edu') {
         return user.available_contexts?.schools?.[0]?.id;
+    } else if (showingPageType === 'teacher') {
+        // If school selected, use it; otherwise return undefined (independent teacher)
+        if (selectedSchoolId !== undefined) {
+            return selectedSchoolId;
+        }
+        return undefined;
     }
     return undefined;
 };
