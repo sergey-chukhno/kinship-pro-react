@@ -1,10 +1,10 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useNavigate, useLocation } from "react-router-dom"
 import "./AuthPage.css"
-import { login } from "../../api/Authentication"
+import { login, confirmAccount } from "../../api/Authentication"
 import PersonalUserRegisterForm from "../RegisterForm/PersonalUserRegisterForm"
 import TeacherRegisterForm from "../RegisterForm/TeacherRegisterForm"
 import CompanyRegisterForm from "../RegisterForm/CompanyRegisterForm"
@@ -54,8 +54,9 @@ const AuthPage: React.FC = () => {
     email: "",
     password: "",
   })
+  const confirmationAttemptedRef = useRef<Set<string>>(new Set())
   const { setCurrentPage, setShowingPageType, setUser } = useAppContext()
-  const { showError } = useToast()
+  const { showError, showSuccess } = useToast()
 
   // Synchroniser le type de formulaire avec l'URL
   useEffect(() => {
@@ -74,6 +75,33 @@ const AuthPage: React.FC = () => {
       setRegisterType("CGU")
     }
   }, [location.pathname, urlRegisterType])
+
+  useEffect(() => {
+    if (location.pathname !== "/login") return
+
+    const searchParams = new URLSearchParams(location.search)
+    const token = searchParams.get("confirmation_token")
+
+    if (!token || confirmationAttemptedRef.current.has(token)) return
+
+    // Marquer le token comme traité immédiatement pour éviter les appels multiples
+    confirmationAttemptedRef.current.add(token)
+
+    confirmAccount(token)
+      .then(() => {
+        showSuccess("Votre compte est confirmé, vous pouvez vous connecter.")
+        // Nettoyer l'URL en enlevant le token
+        navigate("/login", { replace: true })
+      })
+      .catch((error) => {
+        console.error("Account confirmation error:", error.response?.data?.message)
+        showError(
+          error.response?.data?.message || "Impossible de confirmer votre compte. Veuillez réessayer ou contacter le support."
+        )
+        // Nettoyer l'URL même en cas d'erreur
+        navigate("/login", { replace: true })
+      })
+  }, [location.pathname, location.search, showSuccess, showError, navigate])
 
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
