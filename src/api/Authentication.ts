@@ -46,6 +46,12 @@ export function login(email: string, password: string) {
     return axiosClient.post("/api/v1/auth/login", { email, password });
 }
 
+export function confirmAccount(confirmationToken: string) {
+    return axiosClient.get('/api/v1/auth/confirmation', {
+        params: { confirmation_token: confirmationToken },
+    });
+}
+
 export function submitPersonalUserRegistration(formData: formData) {
     return axiosClient.post('/api/v1/auth/register', {
         registration_type: "personal_user",  // ← Explicitly set
