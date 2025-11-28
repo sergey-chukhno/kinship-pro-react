@@ -21,6 +21,27 @@ interface LoginData {
   password: string
 }
 
+const mapApiUserToAppUser = (apiUser: any) => {
+  if (!apiUser) return null
+
+  const fullName =
+    apiUser.full_name ||
+    [apiUser.first_name, apiUser.last_name].filter(Boolean).join(" ").trim()
+
+  return {
+    id: apiUser.id ? apiUser.id.toString() : "",
+    name: fullName || apiUser.email,
+    email: apiUser.email,
+    role: apiUser.role,
+    avatar: apiUser.avatar_url || "/default-avatar.png",
+    organization:
+      apiUser.available_contexts?.companies?.[0]?.name ||
+      apiUser.available_contexts?.schools?.[0]?.name ||
+      "",
+    available_contexts: apiUser.available_contexts,
+  }
+}
+
 const AuthPage: React.FC = () => {
   const { registerType: urlRegisterType } = useParams<{ registerType?: string }>()
   const navigate = useNavigate()
@@ -32,7 +53,7 @@ const AuthPage: React.FC = () => {
     email: "",
     password: "",
   })
-  const { setCurrentPage, setShowingPageType } = useAppContext()
+  const { setCurrentPage, setShowingPageType, setUser } = useAppContext()
 
   // Synchroniser le type de formulaire avec l'URL
   useEffect(() => {
@@ -66,6 +87,10 @@ const AuthPage: React.FC = () => {
         console.log("Login successful:", response.data)
         if (response.data.token) {
           localStorage.setItem("jwt_token", response.data.token)
+          const normalizedUser = mapApiUserToAppUser(response.data.user)
+          if (normalizedUser) {
+            setUser(normalizedUser)
+          }
           if (response.data.user.available_contexts.user_dashboard) {
             setShowingPageType("user")
             setCurrentPage("projects")
