@@ -9,6 +9,7 @@ import './Projects.css';
 import { getCurrentUser } from '../../api/Authentication';
 import { deleteProject, getAllProjects} from '../../api/Project';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
+import { getTeacherProjects } from '../../api/Projects';
 import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
 
 const Projects: React.FC = () => {
@@ -31,9 +32,16 @@ const Projects: React.FC = () => {
     const fetchProjects = async () => {
       try {
         const currentUser = await getCurrentUser();
-        const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
 
-        if (isPersonalUser) {
+        if (state.showingPageType === 'teacher') {
+          // Pour les enseignants : charger uniquement leurs projets (créés + classes gérées)
+          const response = await getTeacherProjects({ per_page: 12 });
+          const rawProjects = response.data || [];
+          const formattedProjects: Project[] = rawProjects.map((p: any) => {
+            return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+          });
+          setProjects(formattedProjects);
+        } else if (state.showingPageType === 'user') {
           // Pour les utilisateurs personnels : charger tous les projets publics
           const response = await getAllProjects();
           const rawProjects = response.data?.data || response.data || [];
