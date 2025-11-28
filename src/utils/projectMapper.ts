@@ -52,24 +52,23 @@ export const getContextFromPageType = (
 
 /**
  * Get organization ID from user context based on page type
- * Only returns organizations where the user is admin or superadmin
+ * For teachers, can optionally specify a selected school ID
  */
 export const getOrganizationId = (
     user: User,
-    showingPageType: ShowingPageType
+    showingPageType: ShowingPageType,
+    selectedSchoolId?: number | undefined
 ): number | undefined => {
     if (showingPageType === 'pro') {
-        // Trouver la première entreprise où l'utilisateur est admin ou superadmin
-        const adminCompany = user.available_contexts?.companies?.find(
-            (c: any) => c.role === 'admin' || c.role === 'superadmin'
-        );
-        return adminCompany?.id;
-    } else if (showingPageType === 'edu' || showingPageType === 'teacher') {
-        // Trouver la première école où l'utilisateur est admin ou superadmin
-        const adminSchool = user.available_contexts?.schools?.find(
-            (s: any) => s.role === 'admin' || s.role === 'superadmin'
-        );
-        return adminSchool?.id;
+        return user.available_contexts?.companies?.[0]?.id;
+    } else if (showingPageType === 'edu') {
+        return user.available_contexts?.schools?.[0]?.id;
+    } else if (showingPageType === 'teacher') {
+        // If school selected, use it; otherwise return undefined (independent teacher)
+        if (selectedSchoolId !== undefined) {
+            return selectedSchoolId;
+        }
+        return undefined;
     }
     return undefined;
 };
@@ -92,6 +91,12 @@ export const getOrganizationType = (
  * Find tag ID by pathway name
  */
 export const getTagIdByPathway = (pathway: string, tags: Tag[]): number | undefined => {
+    // Validate tags is an array
+    if (!tags || !Array.isArray(tags)) {
+        console.warn('getTagIdByPathway: tags is not an array', tags);
+        return undefined;
+    }
+    
     // Try to find by exact name match (case insensitive)
     const tag = tags.find(t =>
         t.name.toLowerCase() === pathway.toLowerCase() ||
@@ -125,13 +130,19 @@ export const mapFrontendToBackend = (
     tags: Tag[],
     currentUserId: string
 ): CreateProjectPayload => {
+    // Normalize tags to ensure it's an array
+    // Handle both Tag[] and { data: Tag[] } formats
+    const normalizedTags: Tag[] = Array.isArray(tags) 
+        ? tags 
+        : (Array.isArray((tags as any)?.data) ? (tags as any).data : []);
+    
     // Convert visibility: 'public' -> false, 'private' -> true
     const isPrivate = formData.visibility === 'private';
 
     // Get tag ID from pathway
     const tagIds: number[] = [];
     if (formData.pathway) {
-        const tagId = getTagIdByPathway(formData.pathway, tags);
+        const tagId = getTagIdByPathway(formData.pathway, normalizedTags);
         if (tagId) {
             tagIds.push(tagId);
         }
@@ -214,13 +225,19 @@ export const mapEditFormToBackend = (
     tags: Tag[],
     project: Project
 ): { payload: UpdateProjectPayload; mainImageFile: File | null } => {
+    // Normalize tags to ensure it's an array
+    // Handle both Tag[] and { data: Tag[] } formats
+    const normalizedTags: Tag[] = Array.isArray(tags) 
+        ? tags 
+        : (Array.isArray((tags as any)?.data) ? (tags as any).data : []);
+    
     // Convert visibility: 'public' -> false, 'private' -> true
     const isPrivate = editForm.visibility === 'private';
 
     // Get tag ID from pathway
     const tagIds: number[] = [];
     if (editForm.pathway) {
-        const tagId = getTagIdByPathway(editForm.pathway, tags);
+        const tagId = getTagIdByPathway(editForm.pathway, normalizedTags);
         if (tagId) {
             tagIds.push(tagId);
         }

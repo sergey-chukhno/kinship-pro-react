@@ -61,6 +61,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [availablePartnerships, setAvailablePartnerships] = useState<any[]>([]);
+  
+  // Teacher project context: 'independent' or 'school'
+  const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('independent');
+  const [selectedSchoolId, setSelectedSchoolId] = useState<number | undefined>(undefined);
 
   // Search functionality with exclusion of already selected members
   // Members are mutually exclusive: cannot be both co-responsible AND participant
@@ -129,6 +133,51 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     );
   };
 
+  // Reset teacher context when modal opens/closes
+  useEffect(() => {
+    if (!project && state.showingPageType === 'teacher') {
+      setTeacherProjectContext('independent');
+      setSelectedSchoolId(undefined);
+    }
+  }, [project, state.showingPageType]);
+  
+  // If teacher selects 'school' but has no schools, automatically switch back to 'independent'
+  useEffect(() => {
+    if (state.showingPageType === 'teacher' && !project && teacherProjectContext === 'school') {
+      const availableSchools = state.user.available_contexts?.schools || [];
+      if (availableSchools.length === 0) {
+        // No schools available, switch back to independent
+        setTeacherProjectContext('independent');
+        setSelectedSchoolId(undefined);
+      }
+    }
+  }, [teacherProjectContext, state.user.available_contexts?.schools, state.showingPageType, project]);
+
+  // Update organization field when teacher context changes
+  useEffect(() => {
+    if (state.showingPageType === 'teacher' && !project) {
+      if (teacherProjectContext === 'independent') {
+        // Independent teacher: "Prénom Nom - Enseignant"
+        const independentTeacher = state.user.available_contexts?.independent_teacher as any;
+        const firstName = state.user.name?.split(' ')[0] || independentTeacher?.organization_name?.split(' ')[0] || '';
+        const lastName = state.user.name?.split(' ').slice(1).join(' ') || independentTeacher?.organization_name?.split(' ').slice(1).join(' ') || '';
+        if (firstName || lastName) {
+          setFormData(prev => ({ ...prev, organization: `${firstName} ${lastName} - Enseignant`.trim() }));
+        } else {
+          const defaultOrg = independentTeacher?.organization_name || '';
+          setFormData(prev => ({ ...prev, organization: defaultOrg }));
+        }
+      } else if (teacherProjectContext === 'school' && selectedSchoolId) {
+        // School: find school name by ID
+        const selectedSchool = state.user.available_contexts?.schools?.find((s: any) => s.id === selectedSchoolId);
+        if (selectedSchool) {
+          setFormData(prev => ({ ...prev, organization: selectedSchool.name }));
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teacherProjectContext, selectedSchoolId, state.showingPageType, state.user.name, project]); // Utiliser state.user.name au lieu de state.user
+
   useEffect(() => {
     if (project) {
       setFormData({
@@ -161,8 +210,19 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
       if (state.showingPageType === 'pro' && state.user.available_contexts?.companies && state.user.available_contexts.companies.length > 0) {
         defaultOrg = state.user.available_contexts.companies[0].name;
-      } else if ((state.showingPageType === 'edu' || state.showingPageType === 'teacher') && state.user.available_contexts?.schools && state.user.available_contexts.schools.length > 0) {
+      } else if (state.showingPageType === 'edu' && state.user.available_contexts?.schools && state.user.available_contexts.schools.length > 0) {
         defaultOrg = state.user.available_contexts.schools[0].name;
+      } else if (state.showingPageType === 'teacher') {
+        // For teachers: default to independent teacher name format "Prénom Nom - Enseignant"
+        const independentTeacher = state.user.available_contexts?.independent_teacher as any;
+        const firstName = state.user.name?.split(' ')[0] || independentTeacher?.organization_name?.split(' ')[0] || '';
+        const lastName = state.user.name?.split(' ').slice(1).join(' ') || independentTeacher?.organization_name?.split(' ').slice(1).join(' ') || '';
+        if (firstName || lastName) {
+          defaultOrg = `${firstName} ${lastName} - Enseignant`.trim();
+        } else {
+          // Fallback to independent_teacher organization_name if available
+          defaultOrg = independentTeacher?.organization_name || '';
+        }
       }
 
       setFormData(prev => ({
@@ -181,9 +241,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         setIsLoadingTags(true);
         try {
           const tagsData = await getTags();
-          setTags(tagsData);
+          // Ensure tagsData is an array before setting
+          if (Array.isArray(tagsData)) {
+            setTags(tagsData);
+          } else {
+            console.error('getTags returned non-array:', tagsData);
+            setTags([]);
+          }
         } catch (error) {
           console.error('Error fetching tags:', error);
+          setTags([]); // Set empty array on error
         } finally {
           setIsLoadingTags(false);
         }
@@ -191,13 +258,46 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     };
 
     fetchTags();
-  }, [state.tags.length, setTags]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.tags.length]); // setTags est stable du contexte, pas besoin de le mettre en dépendance
 
   // Fetch members and partnerships when modal opens
   useEffect(() => {
     const fetchMembersAndPartnerships = async () => {
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
-      const organizationType = getOrganizationType(state.showingPageType);
+      // Utiliser le contexte sélectionné depuis localStorage (comme dans Dashboard et Projects)
+      const savedContextId = localStorage.getItem('selectedContextId');
+      const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+      
+      let organizationId: number | undefined;
+      let organizationType: 'school' | 'company' | undefined;
+      
+      // Si on a un contexte sauvegardé et que c'est une école ou une entreprise
+      if (savedContextId && savedContextType && (savedContextType === 'school' || savedContextType === 'company')) {
+        // Vérifier que l'utilisateur a toujours accès à ce contexte
+        if (savedContextType === 'company') {
+          const company = state.user.available_contexts?.companies?.find(
+            (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
+          );
+          if (company) {
+            organizationId = Number(savedContextId);
+            organizationType = 'company';
+          }
+        } else if (savedContextType === 'school') {
+          const school = state.user.available_contexts?.schools?.find(
+            (s: any) => s.id.toString() === savedContextId && (s.role === 'admin' || s.role === 'superadmin')
+          );
+          if (school) {
+            organizationId = Number(savedContextId);
+            organizationType = 'school';
+          }
+        }
+      }
+      
+      // Sinon, utiliser la logique par défaut
+      if (!organizationId) {
+        organizationId = getOrganizationId(state.user, state.showingPageType);
+        organizationType = getOrganizationType(state.showingPageType);
+      }
 
       console.log('Fetching members:', { organizationId, organizationType, showingPageType: state.showingPageType });
 
@@ -247,7 +347,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     };
 
     fetchMembersAndPartnerships();
-  }, [state.user, state.showingPageType, formData.isPartnership]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType, state.user.id, formData.isPartnership]); // Utiliser state.user.id au lieu de state.user pour éviter les re-renders
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -291,9 +392,28 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     const isPathwayRequired = state.showingPageType !== 'pro';
     const isPathwayValid = !isPathwayRequired || formData.pathway;
 
-    if (!formData.title || !formData.startDate || !formData.endDate || !formData.organization || !formData.status || !isPathwayValid) {
+    // For teachers, organization is always required (but pre-filled)
+    // For others, organization is required
+    const isOrganizationRequired = true; // Always required, but pre-filled for teachers
+
+    if (!formData.title || !formData.startDate || !formData.endDate || 
+        (isOrganizationRequired && !formData.organization) || 
+        !formData.status || !isPathwayValid) {
       setSubmitError('Veuillez remplir tous les champs obligatoires');
       return;
+    }
+
+    // Additional validation for teachers: if school context chosen, school must be selected
+    if (state.showingPageType === 'teacher' && teacherProjectContext === 'school') {
+      const availableSchools = state.user.available_contexts?.schools || [];
+      if (availableSchools.length === 0) {
+        setSubmitError('Vous ne pouvez pas créer un projet pour une école car vous n\'avez aucune école avec un statut confirmé. Veuillez sélectionner "Enseignant Indépendant".');
+        return;
+      }
+      if (!selectedSchoolId) {
+        setSubmitError('Veuillez sélectionner une école');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -301,7 +421,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     try {
       // Get context and organization ID
       const context = getContextFromPageType(state.showingPageType);
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      // For teachers, use selectedSchoolId if school context chosen, otherwise undefined
+      const organizationId = state.showingPageType === 'teacher' 
+        ? getOrganizationId(state.user, state.showingPageType, teacherProjectContext === 'school' ? selectedSchoolId : undefined)
+        : getOrganizationId(state.user, state.showingPageType);
 
       // Map frontend data to backend format
       const payload = mapFrontendToBackend(
@@ -378,6 +501,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
       // Add project to local state
       addProject(newProject);
+
+      // Call onSave to notify parent component (will trigger refresh)
+      // onSave expects Omit<Project, 'id'>, so we extract id from newProject
+      const { id, ...projectDataWithoutId } = newProject;
+      onSave(projectDataWithoutId);
 
       // Show success message
       setSuccessData({
@@ -552,8 +680,103 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             <div className="form-row">
               <div className="form-group">
+                {/* Teacher context selector (only for teachers creating new projects) */}
+                {state.showingPageType === 'teacher' && !project && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <label htmlFor="teacherProjectContext">Créer le projet en tant que *</label>
+                    {(() => {
+                      // Check if teacher has any confirmed school memberships
+                      const availableSchools = state.user.available_contexts?.schools || [];
+                      const hasSchools = availableSchools.length > 0;
+                      
+                      return (
+                        <>
+                          <select
+                            id="teacherProjectContext"
+                            value={teacherProjectContext}
+                            onChange={(e) => {
+                              const newContext = e.target.value as 'independent' | 'school';
+                              setTeacherProjectContext(newContext);
+                              if (newContext === 'independent') {
+                                setSelectedSchoolId(undefined);
+                              } else if (newContext === 'school' && hasSchools) {
+                                // Auto-select first school if available (sorted alphabetically)
+                                const sortedSchools = [...availableSchools].sort((a: any, b: any) => 
+                                  (a.name || '').localeCompare(b.name || '')
+                                );
+                                setSelectedSchoolId(sortedSchools[0]?.id);
+                              }
+                            }}
+                            className="form-select"
+                            required
+                          >
+                            <option value="independent">Enseignant Indépendant</option>
+                            <option value="school" disabled={!hasSchools}>
+                              École{!hasSchools ? ' (Aucune école disponible)' : ''}
+                            </option>
+                          </select>
+                          {!hasSchools && teacherProjectContext === 'school' && (
+                            <div style={{ 
+                              marginTop: '8px', 
+                              padding: '8px', 
+                              backgroundColor: '#fff3cd', 
+                              border: '1px solid #ffc107',
+                              borderRadius: '4px',
+                              fontSize: '14px',
+                              color: '#856404'
+                            }}>
+                              <strong>⚠️</strong> Vous n'avez aucune école avec un statut confirmé. 
+                              Veuillez sélectionner "Enseignant Indépendant" pour créer votre projet.
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+                
+                {/* School selector (only shown when teacher chooses 'school' context and has schools) */}
+                {state.showingPageType === 'teacher' && !project && teacherProjectContext === 'school' && (() => {
+                  const availableSchools = state.user.available_contexts?.schools || [];
+                  const hasSchools = availableSchools.length > 0;
+                  
+                  if (!hasSchools) {
+                    // If no schools available, don't show the selector
+                    return null;
+                  }
+                  
+                  return (
+                    <div style={{ marginBottom: '12px' }}>
+                      <label htmlFor="selectedSchool">Sélectionner une école *</label>
+                      <select
+                        id="selectedSchool"
+                        value={selectedSchoolId || ''}
+                        onChange={(e) => {
+                          const schoolId = e.target.value ? parseInt(e.target.value) : undefined;
+                          setSelectedSchoolId(schoolId);
+                        }}
+                        className="form-select"
+                        required={teacherProjectContext === 'school'}
+                      >
+                        <option value="">Sélectionner une école</option>
+                        {(() => {
+                          // Get all confirmed schools, sorted alphabetically
+                          const sortedSchools = [...availableSchools].sort((a: any, b: any) => 
+                            (a.name || '').localeCompare(b.name || '')
+                          );
+                          return sortedSchools.map((school: any) => (
+                            <option key={school.id} value={school.id}>
+                              {school.name}
+                            </option>
+                          ));
+                        })()}
+                      </select>
+                    </div>
+                  );
+                })()}
+
                 <label htmlFor="projectOrganization">Organisation *</label>
-                {isOrgReadOnly ? (
+                {isOrgReadOnly || (state.showingPageType === 'teacher' && !project) ? (
                   <input
                     type="text"
                     id="projectOrganization"

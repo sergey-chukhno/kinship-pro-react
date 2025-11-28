@@ -1360,7 +1360,7 @@ const Dashboard: React.FC = () => {
           <div className="dashboard-stats">
             <div className="stats-grid">
               {statCards.map((card) => {
-                if (card.label === "Enseignants" && state.showingPageType === 'teacher') return null;
+                if (card.label === "Enseignants" || card.label === "Membres actifs" && state.showingPageType === 'teacher') return null;
                 const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
                 return (
                   <div key={card.key} className={card.variant}>

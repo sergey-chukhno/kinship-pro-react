@@ -62,10 +62,11 @@ export const getTeacherClass = (classId: number) => {
 
 export const getSchoolProjects = (
   schoolId: number,
-  includeBranches = false
+  includeBranches = false,
+  perPage = 3
 ) => {
   return axiosClient.get(`/api/v1/schools/${schoolId}/projects`, {
-    params: { include_branches: includeBranches, per_page: 3, sort_by: 'created_at', sort_direction: 'desc' },
+    params: { include_branches: includeBranches, per_page: perPage, sort_by: 'created_at', sort_direction: 'desc' },
   });
 };
 

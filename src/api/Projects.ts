@@ -109,7 +109,26 @@ export interface CreateProjectResponse {
  */
 export const getTags = async (): Promise<Tag[]> => {
     const response = await apiClient.get('/api/v1/tags');
-    return response.data;
+    // Handle both { data: [...] } and [...] formats
+    const tagsData = response.data?.data || response.data || [];
+    // Ensure it's an array
+    return Array.isArray(tagsData) ? tagsData : [];
+};
+
+/**
+ * Fetch teacher's projects (owned + projects for managed classes)
+ */
+export const getTeacherProjects = async (params?: {
+    page?: number;
+    per_page?: number;
+    status?: string;
+    search?: string;
+}): Promise<{ data: any[]; meta: any }> => {
+    const response = await apiClient.get('/api/v1/teachers/projects', { params });
+    return {
+        data: response.data?.data || response.data || [],
+        meta: response.data?.meta || {}
+    };
 };
 
 /**
@@ -521,4 +540,86 @@ export const addProjectMember = async (
         { user_id: userId }
     );
     return response.data;
+};
+
+// Team types and interfaces
+export interface TeamMember {
+    id: number;
+    user: {
+        id: number;
+        full_name: string;
+        email: string;
+        avatar_url?: string;
+        job?: string;
+    };
+}
+
+export interface Team {
+    id: number;
+    title: string;
+    description: string;
+    team_leader?: {
+        id: number;
+        full_name: string;
+        email: string;
+        avatar_url?: string;
+        job?: string;
+    };
+    team_members: TeamMember[];
+    members_count: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CreateTeamPayload {
+    title: string;
+    description: string;
+    team_leader_id?: number;
+    team_member_ids: number[];
+}
+
+/**
+ * Get all teams for a project
+ */
+export const getProjectTeams = async (projectId: number): Promise<Team[]> => {
+    const response = await apiClient.get(`/api/v1/projects/${projectId}/teams`);
+    return response.data || [];
+};
+
+/**
+ * Create a new team
+ */
+export const createProjectTeam = async (
+    projectId: number,
+    payload: CreateTeamPayload
+): Promise<Team> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/teams`, {
+        team: payload
+    });
+    return response.data;
+};
+
+/**
+ * Update a team
+ */
+export const updateProjectTeam = async (
+    projectId: number,
+    teamId: number,
+    payload: CreateTeamPayload
+): Promise<Team> => {
+    const response = await apiClient.patch(
+        `/api/v1/projects/${projectId}/teams/${teamId}`,
+        { team: payload }
+    );
+    return response.data;
+};
+
+/**
+ * Delete a team
+ */
+export const deleteProjectTeam = async (
+    projectId: number,
+    teamId: number
+): Promise<void> => {
+    await apiClient.delete(`/api/v1/projects/${projectId}/teams/${teamId}`);
 };

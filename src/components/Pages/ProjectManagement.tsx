@@ -7,9 +7,10 @@ import './ProjectManagement.css';
 import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { getProjectById } from '../../api/Project';
-import { updateProject, getProjectStats, ProjectStats, joinProject, getProjectPendingMembers, updateProjectMember, removeProjectMember, getProjectMembers, addProjectMember, getOrganizationMembers } from '../../api/Projects';
+import { updateProject, getProjectStats, ProjectStats, joinProject, getProjectPendingMembers, updateProjectMember, removeProjectMember, getProjectMembers, addProjectMember, getOrganizationMembers, getProjectTeams, createProjectTeam, updateProjectTeam, deleteProjectTeam } from '../../api/Projects';
 import apiClient from '../../api/config';
 import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile, getUserProjectRole } from '../../utils/projectMapper';
+import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import { Project } from '../../types';
 import { useToast } from '../../hooks/useToast';
 
@@ -43,24 +44,8 @@ const ProjectManagement: React.FC = () => {
   const [badgeDomainFilter, setBadgeDomainFilter] = useState('');
 
   // Team management state
-  const [teams, setTeams] = useState([
-    {
-      id: '1',
-      name: 'Équipe Marketing',
-      number: 1,
-      chiefId: '2', // Sophie Martin
-      members: ['2', '3'], // Sophie Martin, Lucas Bernard
-      description: 'Équipe responsable de la communication et du marketing du projet'
-    },
-    {
-      id: '2',
-      name: 'Équipe Technique',
-      number: 2,
-      chiefId: '3', // Lucas Bernard
-      members: ['3', '5'], // Lucas Bernard, Alexandre Moreau
-      description: 'Équipe responsable du développement technique et de la formation'
-    }
-  ]);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false);
   const [isCreateTeamModalOpen, setIsCreateTeamModalOpen] = useState(false);
   const [isEditTeamModalOpen, setIsEditTeamModalOpen] = useState(false);
   const [isViewTeamModalOpen, setIsViewTeamModalOpen] = useState(false);
@@ -174,8 +159,10 @@ const ProjectManagement: React.FC = () => {
         // Update project state
         setProject(mappedProject);
         
-        // Also update context to keep it in sync
-        setSelectedProject(mappedProject);
+        // Also update context to keep it in sync (only if the ID is different to avoid loops)
+        if (state.selectedProject?.id !== mappedProject.id) {
+          setSelectedProject(mappedProject);
+        }
       } catch (error) {
         console.error('Error fetching project data:', error);
         // Reset API data on error to hide edit button
@@ -187,7 +174,8 @@ const ProjectManagement: React.FC = () => {
     };
     
     fetchProjectData();
-  }, [state.selectedProject?.id, state.showingPageType, setSelectedProject]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.selectedProject?.id, state.showingPageType]); // Retirer setSelectedProject des dépendances
 
   // Fetch project statistics when project ID changes
   useEffect(() => {
@@ -210,7 +198,8 @@ const ProjectManagement: React.FC = () => {
     };
     
     fetchStats();
-  }, [project?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]); // project?.id est une valeur primitive, pas besoin d'autres dépendances
 
   // Fetch pending requests when project ID changes or requests tab is active
   useEffect(() => {
@@ -266,7 +255,7 @@ const ProjectManagement: React.FC = () => {
     
     loadParticipants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiProjectData, project?.id]);
+  }, [apiProjectData?.id, project?.id]); // Utiliser apiProjectData?.id au lieu de apiProjectData pour éviter les re-renders
 
   // Reset active tab if tabs become hidden (e.g., user role changes from admin to participant)
   useEffect(() => {
@@ -275,6 +264,14 @@ const ProjectManagement: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProjectRole, state.showingPageType, activeTab]);
+
+  // Fetch teams when project changes and user can see tabs
+  useEffect(() => {
+    if (project?.id && shouldShowTabs()) {
+      fetchProjectTeams();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
 
   // State for requests (pending project join requests)
   const [requests, setRequests] = useState<any[]>([]);
@@ -1035,53 +1032,119 @@ const ProjectManagement: React.FC = () => {
     setIsViewTeamModalOpen(true);
   };
 
-  const handleDeleteTeam = (teamId: string) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) {
-      setTeams(teams.filter(team => team.id !== teamId));
+  // Fetch project teams
+  const fetchProjectTeams = async () => {
+    if (!project?.id) return;
+    
+    setIsLoadingTeams(true);
+    try {
+      const projectId = parseInt(project.id);
+      const apiTeams = await getProjectTeams(projectId);
+      
+      // apiTeams is already an array (Team[])
+      const mappedTeams = apiTeams.map((team: any, index: number) => {
+        const mapped = mapApiTeamToFrontendTeam(team);
+        mapped.number = index + 1; // Calculate number based on order
+        return mapped;
+      });
+      setTeams(mappedTeams);
+    } catch (error: any) {
+      console.error('Error fetching teams:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error ||
+                          'Erreur lors du chargement des équipes';
+      showError(errorMessage);
+    } finally {
+      setIsLoadingTeams(false);
     }
   };
 
-  const handleSaveTeam = () => {
+  const handleDeleteTeam = async (teamId: string) => {
+    if (!project?.id) return;
+    
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) {
+      return;
+    }
+    
+    try {
+      const projectId = parseInt(project.id);
+      const id = parseInt(teamId);
+      await deleteProjectTeam(projectId, id);
+      showSuccess('Équipe supprimée avec succès');
+      
+      // Reload teams
+      await fetchProjectTeams();
+    } catch (error: any) {
+      console.error('Error deleting team:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error ||
+                          'Erreur lors de la suppression de l\'équipe';
+      showError(errorMessage);
+    }
+  };
+
+  const handleSaveTeam = async () => {
+    if (!project?.id) return;
+    
     if (!newTeamForm.name.trim()) {
-      showWarning('Veuillez saisir un nom d\'équipe');
+      showError('Veuillez saisir un nom d\'équipe');
       return;
     }
 
     if (newTeamForm.selectedMembers.length === 0) {
-      showWarning('Veuillez sélectionner au moins un membre');
+      showError('Veuillez sélectionner au moins un membre');
       return;
     }
 
     if (!newTeamForm.chiefId) {
-      showWarning('Veuillez sélectionner un chef d\'équipe');
+      showError('Veuillez sélectionner un chef d\'équipe');
       return;
     }
 
     if (!newTeamForm.selectedMembers.includes(newTeamForm.chiefId)) {
-      showWarning('Le chef d\'équipe doit être membre de l\'équipe');
+      showError('Le chef d\'équipe doit être membre de l\'équipe');
       return;
     }
 
     const teamData = {
-      id: selectedTeam ? selectedTeam.id : Date.now().toString(),
       name: newTeamForm.name,
-      number: selectedTeam ? selectedTeam.number : teams.length + 1,
+      description: newTeamForm.description,
       chiefId: newTeamForm.chiefId,
-      members: newTeamForm.selectedMembers,
-      description: newTeamForm.description
+      members: newTeamForm.selectedMembers
     };
-
-    if (selectedTeam) {
-      // Edit existing team
-      setTeams(teams.map(team => team.id === selectedTeam.id ? teamData : team));
-      setIsEditTeamModalOpen(false);
-    } else {
-      // Create new team
-      setTeams([...teams, teamData]);
-      setIsCreateTeamModalOpen(false);
+    
+    try {
+      const projectId = parseInt(project.id);
+      const backendPayload = mapFrontendTeamToBackend(teamData);
+      
+      console.log('Team data before mapping:', teamData);
+      console.log('Backend payload:', backendPayload);
+      
+      if (selectedTeam) {
+        // Update existing team
+        const teamId = parseInt(selectedTeam.id);
+        await updateProjectTeam(projectId, teamId, backendPayload);
+        showSuccess('Équipe modifiée avec succès');
+      } else {
+        // Create new team
+        await createProjectTeam(projectId, backendPayload);
+        showSuccess('Équipe créée avec succès');
+      }
+      
+      // Reload teams
+      await fetchProjectTeams();
+      
+      // Reset form
+      handleCancelTeamForm();
+    } catch (error: any) {
+      console.error('Error saving team:', error);
+      const errorMessage = error.response?.data?.details?.join(', ') || 
+                          error.response?.data?.error ||
+                          error.response?.data?.message ||
+                          'Erreur lors de la sauvegarde de l\'équipe';
+      showError(errorMessage);
     }
-
-    setSelectedTeam(null);
   };
 
   const handleCancelTeamForm = () => {
@@ -1098,7 +1161,29 @@ const ProjectManagement: React.FC = () => {
   };
 
   const getParticipantById = (participantId: string) => {
-    return participants.find(p => p.id === participantId);
+    if (!participantId) return null;
+    
+    // Try to find by id (formatted like "owner-188")
+    let participant = participants.find(p => p.id === participantId);
+    
+    // If not found, try to find by memberId (numeric ID like "188")
+    if (!participant) {
+      participant = participants.find(p => p.memberId === participantId);
+    }
+    
+    // If still not found, try to extract numeric ID and match
+    if (!participant) {
+      const numericId = participantId.match(/(\d+)$/)?.[1];
+      if (numericId) {
+        participant = participants.find(p => 
+          p.memberId === numericId || 
+          p.id === numericId ||
+          p.id?.endsWith(`-${numericId}`)
+        );
+      }
+    }
+    
+    return participant || null;
   };
 
   // const getAvailableParticipants = (excludeTeamId?: string) => {
@@ -2254,24 +2339,32 @@ const ProjectManagement: React.FC = () => {
                 </div>
                 <div className="section-actions">
                   <span className="team-count">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
-                  <button className="btn btn-primary" onClick={handleCreateTeam}>
-                    <i className="fas fa-plus"></i>
-                    Créer une équipe
-                  </button>
+                  {shouldShowTabs() && (
+                    <button className="btn btn-primary" onClick={handleCreateTeam}>
+                      <i className="fas fa-plus"></i>
+                      Créer une équipe
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {teams.length === 0 ? (
+              {isLoadingTeams ? (
+                <div className="loading-state">
+                  <p>Chargement des équipes...</p>
+                </div>
+              ) : teams.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-state-icon">
                     <i className="fas fa-users"></i>
                   </div>
                   <h4>Aucune équipe créée</h4>
                   <p>Créez votre première équipe pour organiser vos participants et améliorer la collaboration.</p>
-                  <button className="btn btn-primary" onClick={handleCreateTeam}>
-                    <i className="fas fa-plus"></i>
-                    Créer une équipe
-                  </button>
+                  {shouldShowTabs() && (
+                    <button className="btn btn-primary" onClick={handleCreateTeam}>
+                      <i className="fas fa-plus"></i>
+                      Créer une équipe
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="teams-table-container">
@@ -2285,7 +2378,7 @@ const ProjectManagement: React.FC = () => {
                     <div className="teams-table-body">
                       {teams.map((team) => {
                         const chief = getParticipantById(team.chiefId);
-                        const teamMembers = team.members.map(memberId => getParticipantById(memberId)).filter(Boolean);
+                        const teamMembers = team.members.map((memberId: string) => getParticipantById(memberId)).filter(Boolean);
                         
                         return (
                           <div key={team.id} className="team-row">
@@ -2311,7 +2404,7 @@ const ProjectManagement: React.FC = () => {
                             <div className="team-col-members">
                               <div className="members-display">
                                 <div className="members-avatars">
-                                  {teamMembers.slice(0, 5).map((member) => member && (
+                                  {teamMembers.slice(0, 5).map((member: any) => member && (
                                     <div key={member.id} className="member-avatar-small" title={member.name}>
                                       <AvatarImage src={member.avatar} alt={member.name} />
                                     </div>
@@ -2334,20 +2427,24 @@ const ProjectManagement: React.FC = () => {
                                 >
                                   <i className="fas fa-eye"></i>
                                 </button>
-                                <button 
-                                  className="btn-icon edit-btn" 
-                                  title="Modifier l'équipe"
-                                  onClick={() => handleEditTeam(team)}
-                                >
-                                  <i className="fas fa-edit"></i>
-                                </button>
-                                <button 
-                                  className="btn-icon delete-btn" 
-                                  title="Supprimer l'équipe"
-                                  onClick={() => handleDeleteTeam(team.id)}
-                                >
-                                  <i className="fas fa-trash"></i>
-                                </button>
+                                {shouldShowTabs() && (
+                                  <>
+                                    <button 
+                                      className="btn-icon edit-btn" 
+                                      title="Modifier l'équipe"
+                                      onClick={() => handleEditTeam(team)}
+                                    >
+                                      <i className="fas fa-edit"></i>
+                                    </button>
+                                    <button 
+                                      className="btn-icon delete-btn" 
+                                      title="Supprimer l'équipe"
+                                      onClick={() => handleDeleteTeam(team.id)}
+                                    >
+                                      <i className="fas fa-trash"></i>
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
