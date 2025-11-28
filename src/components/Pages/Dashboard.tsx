@@ -1091,7 +1091,7 @@ const Dashboard: React.FC = () => {
     organizationName ||
     (state.showingPageType === 'pro'
       ? "l'organisation"
-      : "l'Association TouKouLeur");
+      : null);
 
   const getStatusMeta = (status?: string) => {
     switch (status) {
