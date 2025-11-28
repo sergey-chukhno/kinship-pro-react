@@ -462,3 +462,85 @@ export const addProjectMember = async (
     );
     return response.data;
 };
+
+// Team types and interfaces
+export interface TeamMember {
+    id: number;
+    user: {
+        id: number;
+        full_name: string;
+        email: string;
+        avatar_url?: string;
+        job?: string;
+    };
+}
+
+export interface Team {
+    id: number;
+    title: string;
+    description: string;
+    team_leader?: {
+        id: number;
+        full_name: string;
+        email: string;
+        avatar_url?: string;
+        job?: string;
+    };
+    team_members: TeamMember[];
+    members_count: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CreateTeamPayload {
+    title: string;
+    description: string;
+    team_leader_id?: number;
+    team_member_ids: number[];
+}
+
+/**
+ * Get all teams for a project
+ */
+export const getProjectTeams = async (projectId: number): Promise<Team[]> => {
+    const response = await apiClient.get(`/api/v1/projects/${projectId}/teams`);
+    return response.data || [];
+};
+
+/**
+ * Create a new team
+ */
+export const createProjectTeam = async (
+    projectId: number,
+    payload: CreateTeamPayload
+): Promise<Team> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/teams`, {
+        team: payload
+    });
+    return response.data;
+};
+
+/**
+ * Update a team
+ */
+export const updateProjectTeam = async (
+    projectId: number,
+    teamId: number,
+    payload: CreateTeamPayload
+): Promise<Team> => {
+    const response = await apiClient.patch(
+        `/api/v1/projects/${projectId}/teams/${teamId}`,
+        { team: payload }
+    );
+    return response.data;
+};
+
+/**
+ * Delete a team
+ */
+export const deleteProjectTeam = async (
+    projectId: number,
+    teamId: number
+): Promise<void> => {
+    await apiClient.delete(`/api/v1/projects/${projectId}/teams/${teamId}`);
+};
