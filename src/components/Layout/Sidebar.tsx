@@ -104,6 +104,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         newPageType = 'user';
     }
 
+    // Sauvegarder le contexte choisi dans localStorage
+    localStorage.setItem('selectedPageType', newPageType);
+    localStorage.setItem('selectedContextId', orgId.toString());
+    localStorage.setItem('selectedContextType', orgType);
+
     // Update the showing page type
     setShowingPageType(newPageType);
 
@@ -264,6 +269,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
             </button> */}
             <button type="button" className="menu-item" onClick={() => {
               localStorage.removeItem('jwt_token');
+              localStorage.removeItem('selectedPageType');
+              localStorage.removeItem('selectedContextId');
+              localStorage.removeItem('selectedContextType');
               navigate('/login');
             }}>
               <i className="fas fa-sign-out-alt"></i> Se déconnecter

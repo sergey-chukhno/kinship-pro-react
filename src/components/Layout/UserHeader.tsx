@@ -111,6 +111,11 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         newPageType = 'user';
     }
 
+    // Sauvegarder le contexte choisi dans localStorage
+    localStorage.setItem('selectedPageType', newPageType);
+    localStorage.setItem('selectedContextId', orgId.toString());
+    localStorage.setItem('selectedContextType', orgType);
+
     // Update the showing page type
     setShowingPageType(newPageType);
 
@@ -131,6 +136,9 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
 
   const handleLogout = () => {
     localStorage.removeItem('jwt_token');
+    localStorage.removeItem('selectedPageType');
+    localStorage.removeItem('selectedContextId');
+    localStorage.removeItem('selectedContextType');
     navigate('/login');
   };
 

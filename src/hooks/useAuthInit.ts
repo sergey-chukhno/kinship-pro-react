@@ -74,39 +74,99 @@ export const useAuthInit = () => {
 
           const isAuthPage = location.pathname === "/register" || location.pathname === "/login" || location.pathname.startsWith("/register/");
 
+          // Vérifier s'il y a un contexte sauvegardé et valide
+          const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | null;
+          const savedContextId = localStorage.getItem('selectedContextId');
+          const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+
+          // Fonction pour vérifier si le contexte sauvegardé est toujours valide
+          const isSavedContextValid = (): boolean => {
+            if (!savedPageType || !savedContextType) return false;
+
+            switch (savedContextType) {
+              case 'user':
+                return !!user.available_contexts?.user_dashboard;
+              case 'teacher':
+                return !!user.available_contexts?.teacher_dashboard;
+              case 'school':
+                if (!savedContextId) return false;
+                return user.available_contexts?.schools?.some(
+                  (s: any) => s.id.toString() === savedContextId && (s.role === 'admin' || s.role === 'superadmin')
+                ) || false;
+              case 'company':
+                if (!savedContextId) return false;
+                return user.available_contexts?.companies?.some(
+                  (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
+                ) || false;
+              default:
+                return false;
+            }
+          };
+
           // Déterminer le type de page et la page de destination
           let pageType: "pro" | "edu" | "teacher" | "user" = "pro";
           let defaultPage: PageType = "dashboard";
 
-          // Check if user has admin access to any company
-          const hasAdminCompany = user.available_contexts?.companies?.some(
-            (c: any) => c.role === 'admin' || c.role === 'superadmin'
-          );
+          // Si le contexte sauvegardé est valide, l'utiliser
+          if (isSavedContextValid() && savedPageType) {
+            pageType = savedPageType;
+            if (savedContextType === 'user') {
+              defaultPage = "projects";
+            } else {
+              defaultPage = "dashboard";
+            }
+          } else {
+            // Sinon, appliquer la logique de priorité par défaut
+            // Check if user has admin access to any company
+            const hasAdminCompany = user.available_contexts?.companies?.some(
+              (c: any) => c.role === 'admin' || c.role === 'superadmin'
+            );
 
-          // Check if user has admin access to any school
-          const hasAdminSchool = user.available_contexts?.schools?.some(
-            (s: any) => s.role === 'admin' || s.role === 'superadmin'
-          );
+            // Check if user has admin access to any school
+            const hasAdminSchool = user.available_contexts?.schools?.some(
+              (s: any) => s.role === 'admin' || s.role === 'superadmin'
+            );
 
-          // Priority 1: Personal dashboard
-          if (user.available_contexts?.user_dashboard) {
-            pageType = "user";
-            defaultPage = "projects";
-          }
-          // Priority 2: Companies (only if admin/superadmin)
-          else if (hasAdminCompany) {
-            pageType = "pro";
-            defaultPage = "dashboard";
-          }
-          // Priority 3: Schools (only if admin/superadmin)
-          else if (hasAdminSchool) {
-            pageType = "edu";
-            defaultPage = "dashboard";
-          }
-          // Priority 4: Teacher dashboard
-          else if (user.available_contexts?.teacher_dashboard) {
-            pageType = "teacher";
-            defaultPage = "dashboard";
+            // Priority 1: Personal dashboard
+            if (user.available_contexts?.user_dashboard) {
+              pageType = "user";
+              defaultPage = "projects";
+              localStorage.setItem('selectedPageType', 'user');
+              localStorage.setItem('selectedContextId', 'user-dashboard');
+              localStorage.setItem('selectedContextType', 'user');
+            }
+            // Priority 2: Teacher dashboard (vérifié avant les accès admin)
+            else if (user.available_contexts?.teacher_dashboard) {
+              pageType = "teacher";
+              defaultPage = "dashboard";
+              localStorage.setItem('selectedPageType', 'teacher');
+              localStorage.setItem('selectedContextId', 'teacher-dashboard');
+              localStorage.setItem('selectedContextType', 'teacher');
+            }
+            // Priority 3: Companies (only if admin/superadmin)
+            else if (hasAdminCompany) {
+              pageType = "pro";
+              defaultPage = "dashboard";
+              // Prendre la première entreprise où l'utilisateur est admin
+              const firstAdminCompany = user.available_contexts?.companies?.find(
+                (c: any) => c.role === 'admin' || c.role === 'superadmin'
+              );
+              localStorage.setItem('selectedPageType', 'pro');
+              localStorage.setItem('selectedContextId', firstAdminCompany?.id?.toString() || '');
+              localStorage.setItem('selectedContextType', 'company');
+            }
+            // Priority 4: Schools (only if admin/superadmin)
+            else if (hasAdminSchool) {
+              pageType = "edu";
+              defaultPage = "dashboard";
+              // Prendre la première école où l'utilisateur est admin
+              const firstAdminSchool = user.available_contexts?.schools?.find(
+                (s: any) => s.role === 'admin' || s.role === 'superadmin'
+              );
+              localStorage.setItem('selectedPageType', 'edu');
+              localStorage.setItem('selectedContextId', firstAdminSchool?.id?.toString() || '');
+              localStorage.setItem('selectedContextType', 'school');
+            }
           }
 
           // Appliquer les couleurs CSS IMMÉDIATEMENT avant de changer l'état
@@ -140,6 +200,9 @@ export const useAuthInit = () => {
       } catch (err) {
         console.error("Erreur de reconnexion automatique :", err);
         localStorage.removeItem("jwt_token");
+        localStorage.removeItem('selectedPageType');
+        localStorage.removeItem('selectedContextId');
+        localStorage.removeItem('selectedContextType');
         setCurrentPage("Auth");
         navigate("/register")
       } finally {
