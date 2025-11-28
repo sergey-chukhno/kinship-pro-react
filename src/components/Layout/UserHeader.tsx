@@ -177,11 +177,10 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         {open && (
           <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
             <div className="menu-header">
-              <AvatarImage src={user.avatar} alt="Profile" className="avatar" />
-              <div>
+              <div className='flex flex-col gap-0.5'>
                 <div style={{ fontWeight: 700 }}>{user.name}</div>
                 <div className="dropdown-role" title={translateRole(user.role)}>{translateRole(user.role)}</div>
-                <div style={{ fontSize: '.85rem', color: 'var(--text-light)' }}>{user.email}</div>
+                <div style={{ fontSize: '.85rem', color: 'var(--text-light)', overflowWrap: 'break-word' }} className='' title={user.email}>{user.email}</div>
               </div>
             </div>
 
