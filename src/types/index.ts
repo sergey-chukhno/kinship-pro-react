@@ -299,12 +299,24 @@ export interface OrganizationList {
   isAdmin: boolean;
 }
 
+export interface ClassTeacher {
+  id: number;
+  full_name: string;
+  email: string;
+  is_creator: boolean;
+  assigned_at: string;
+}
+
 export interface ClassList {
   id: string;
   name: string;
   level?: string;
   teacher?: string;
   students_count?: number;
+  teachers_count?: number;
+  teachers?: ClassTeacher[];
+  teacher_ids?: number[];
+  school_id?: number | null;
 }
 
 export interface Tag {

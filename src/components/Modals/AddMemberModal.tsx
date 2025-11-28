@@ -120,18 +120,31 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
     `)}`;
   };
 
+  // Fonction pour capitaliser la première lettre de chaque mot
+  const capitalizeName = (str: string): string => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      // Capitaliser automatiquement le prénom et le nom
+      const processedValue = (name === 'firstName' || name === 'lastName') 
+        ? capitalizeName(value) 
+        : value;
+      setFormData(prev => ({ ...prev, [name]: processedValue }));
 
       // Mise à jour de l'avatar si on change le nom/rôle
       if (isUsingDefaultAvatar && (name === 'roles' || name === 'firstName' || name === 'lastName')) {
-        const firstName = name === 'firstName' ? value : formData.firstName;
-        const lastName = name === 'lastName' ? value : formData.lastName;
+        const firstName = name === 'firstName' ? processedValue : formData.firstName;
+        const lastName = name === 'lastName' ? processedValue : formData.lastName;
         // Pour le select multiple 'roles', value est la valeur unique sélectionnée ici
         const role = name === 'roles' ? value : (formData.roles[0] || 'voluntary');
 
@@ -302,7 +315,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
 
         <form onSubmit={handleSubmit} className="modal-body">
           {/* Avatar Section */}
-          <div className="form-section">
+          {/* <div className="form-section">
             <h3>Photo de profil</h3>
             <div className="avatar-selection">
               <div className="avatar-preview">
@@ -339,7 +352,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
                 </p>
               </div>
             </div>
-          </div>
+          </div> */}
 
           <div className="form-grid">
             <div className="form-group">
@@ -494,24 +507,24 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
           <div className="form-section">
             <h3>Propositions</h3>
             <div className="proposals-grid">
-              <label className="proposal-checkbox">
+              <label className="flex gap-2 items-center">
                 <input
                   type="checkbox"
                   name="canProposeStage"
                   checked={formData.canProposeStage}
                   onChange={handleInputChange}
                 />
-                <span className="checkmark"></span>
+                {/* <span className="checkmark"></span> */}
                 <span className="proposal-label">Propose un stage</span>
               </label>
-              <label className="proposal-checkbox">
+              <label className="flex gap-2 items-center">
                 <input
                   type="checkbox"
                   name="canProposeAtelier"
                   checked={formData.canProposeAtelier}
                   onChange={handleInputChange}
                 />
-                <span className="checkmark"></span>
+                {/* <span className="checkmark"></span> */}
                 <span className="proposal-label">Propose un atelier pro</span>
               </label>
             </div>

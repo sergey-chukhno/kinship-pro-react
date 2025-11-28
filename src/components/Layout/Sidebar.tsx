@@ -256,12 +256,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 ))}
               </div>
             )}
-            <button type="button" className="menu-item" onClick={() => {
+            {/* <button type="button" className="menu-item" onClick={() => {
               onPageChange('settings');
               navigate('/settings');
             }}>
               <i className="fas fa-cog"></i> Paramètres
-            </button>
+            </button> */}
             <button type="button" className="menu-item" onClick={() => {
               localStorage.removeItem('jwt_token');
               navigate('/login');

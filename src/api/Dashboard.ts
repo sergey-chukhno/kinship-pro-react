@@ -34,6 +34,32 @@ export const getTeacherStats = () => {
   return axiosClient.get('/api/v1/teachers/stats');
 };
 
+export const getTeacherClasses = (page: number = 1, per_page: number = 12) => {
+  return axiosClient.get('/api/v1/teachers/classes', {
+    params: { page, per_page },
+  });
+};
+
+export const createTeacherClass = (classData: { class: { name: string; level: string | number; school_id: number | null; teacher_ids?: number[] } }) => {
+  return axiosClient.post('/api/v1/teachers/classes', classData);
+};
+
+export const deleteTeacherClass = (classId: number) => {
+  return axiosClient.delete(`/api/v1/teachers/classes/${classId}`);
+};
+
+export const updateTeacherClass = (classId: number, classData: { class: { name: string; level: string | number; school_id?: number | null; teacher_ids?: number[] } }) => {
+  return axiosClient.patch(`/api/v1/teachers/classes/${classId}`, classData);
+};
+
+export const getTeacherClassStudents = (classId: number) => {
+  return axiosClient.get(`/api/v1/teachers/classes/${classId}/students`);
+};
+
+export const getTeacherClass = (classId: number) => {
+  return axiosClient.get(`/api/v1/teachers/classes/${classId}`);
+};
+
 export const getSchoolProjects = (
   schoolId: number,
   includeBranches = false

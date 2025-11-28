@@ -1159,7 +1159,7 @@ const Dashboard: React.FC = () => {
       <div className="dashboard-header">
         <div className="welcome-header">
           <div className="organization-logo-card">
-            <div
+          {state.showingPageType !== 'teacher' && (   <div
               className={`
                 organization-logo-wrapper !items-start !flex
                 ${organizationLogoUrl ? 'has-logo' : 'empty'}
@@ -1232,15 +1232,22 @@ const Dashboard: React.FC = () => {
               />
   
             </div>
-            </div>
+            </div>)}
             </div>
           <div className="section-title">
             <h1 className="welcome-title">Bonjour {state.user.name.split(' ')[0]} !</h1>
-            <div className="flex gap-2 items-center">
-              <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
-              <span>Tableau de bord de {organizationDisplayName}</span>
-
-            </div>
+            {state.showingPageType === 'teacher' && (
+              <div className="flex gap-2 items-center">
+                <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+                <span>Tableau de bord enseignant</span>
+              </div>
+            )}
+            {state.showingPageType !== 'teacher' && (
+              <div className="flex gap-2 items-center">
+                <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+                <span>Tableau de bord de {organizationDisplayName}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

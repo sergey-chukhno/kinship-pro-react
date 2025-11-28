@@ -31,8 +31,11 @@ const tradFR: Record<string, string> = {
 };
 
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess }) => {
-  useAppContext();
+  const { state } = useAppContext();
+  const isTeacherContext = state.showingPageType === 'teacher';
   const { showSuccess, showError } = useToast();
+  const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
+  const [availableSchools, setAvailableSchools] = useState<Array<{ id: number; name: string }>>([]);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -50,6 +53,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
   // State pour les données API
   const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]);
   const [levels, setLevels] = useState<{ id: number; name: string; level: string }[]>([]);
+  const [loadingLevels, setLoadingLevels] = useState(false);
 
   // State pour le QR Code
   const [showQRCodeModal, setShowQRCodeModal] = useState<boolean>(false);
@@ -57,15 +61,45 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Chargement des Roles et Levels au montage
+  // Chargement des écoles disponibles pour les teachers (seulement celles où l'utilisateur est admin, superadmin ou referent)
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchSchools = async () => {
+      if (!isTeacherContext) return;
+      
       try {
-        // 1. Récupérer le schoolId
         const currentUser = await getCurrentUser();
-        const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+        const schools = currentUser.data?.available_contexts?.schools || [];
+        
+        // Filtrer pour ne garder que les écoles où l'utilisateur est admin, superadmin ou referent
+        const filteredSchools = schools.filter((school: any) => 
+          school.role === 'admin' || school.role === 'superadmin' || school.role === 'referent'
+        );
+        
+        const schoolsList = filteredSchools.map((school: any) => ({
+          id: school.id,
+          name: school.name
+        }));
+        
+        setAvailableSchools(schoolsList);
+        
+        // Sélectionner la première école par défaut si disponible
+        if (schoolsList.length > 0) {
+          setSelectedSchoolId(schoolsList[0].id);
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement des écoles", error);
+      }
+    };
+    
+    fetchSchools();
+  }, [isTeacherContext]);
 
-        // 2. Charger les rôles
+  // Chargement des Roles (une seule fois au montage)
+  useEffect(() => {
+    const fetchRoles = async () => {
+      if (apiRoles.length > 0) return; // Déjà chargés
+      
+      try {
         const rolesRes = await getPersonalUserRoles();
         const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
         if (Array.isArray(rolesData)) {
@@ -75,31 +109,86 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             setFormData(prev => ({ ...prev, role: rolesData[0].value }));
           }
         }
+      } catch (error) {
+        console.error("Erreur chargement des rôles", error);
+      }
+    };
+    fetchRoles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-        // 3. Charger les levels/classes
-        if (schoolId) {
-          const levelsRes = await getSchoolLevels(Number(schoolId), 1, 100);
-          const levelsData = levelsRes?.data?.data ?? levelsRes?.data ?? [];
+  // Chargement des Levels/Classes en fonction de l'école sélectionnée
+  useEffect(() => {
+    let isMounted = true;
+    
+    const fetchLevels = async () => {
+      try {
+        // 1. Récupérer le schoolId (soit sélectionné, soit le premier disponible)
+        const currentUser = await getCurrentUser();
+        const schoolId = isTeacherContext && selectedSchoolId 
+          ? selectedSchoolId 
+          : currentUser.data?.available_contexts?.schools?.[0]?.id;
+
+        if (!schoolId) {
+          if (isTeacherContext) {
+            // Si teacher mais pas d'école sélectionnée, vider les classes
+            if (isMounted) {
+              setLevels([]);
+              setFormData(prev => ({ ...prev, levelId: '' }));
+            }
+            return;
+          }
+          return;
+        }
+
+        // 2. Charger les levels/classes pour l'école sélectionnée
+        if (isMounted) {
+          setLoadingLevels(true);
+          setLevels([]); // Vider la liste pendant le chargement
+          setFormData(prev => ({ ...prev, levelId: '' })); // Réinitialiser la sélection
+        }
+
+        const levelsRes = await getSchoolLevels(Number(schoolId), 1, 100);
+        const levelsData = levelsRes?.data?.data ?? levelsRes?.data ?? [];
+        
+        if (isMounted) {
           if (Array.isArray(levelsData)) {
-            setLevels(levelsData.map((l: any) => ({
+            const mappedLevels = levelsData.map((l: any) => ({
               id: l.id,
               name: l.name,
               level: l.level
-            })));
+            }));
+            setLevels(mappedLevels);
             // Sélectionner le premier level par défaut
-            if (levelsData.length > 0) {
-              setFormData(prev => ({ ...prev, levelId: levelsData[0].id.toString() }));
+            if (mappedLevels.length > 0) {
+              setFormData(prev => ({ ...prev, levelId: mappedLevels[0].id.toString() }));
             }
+          } else {
+            setLevels([]);
+            setFormData(prev => ({ ...prev, levelId: '' }));
           }
         }
       } catch (error) {
-        console.error("Erreur chargement données (roles/levels)", error);
-        showError("Erreur lors du chargement des données");
+        if (isMounted) {
+          console.error("Erreur chargement des classes", error);
+          showError("Erreur lors du chargement des classes");
+          setLevels([]);
+          setFormData(prev => ({ ...prev, levelId: '' }));
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingLevels(false);
+        }
       }
     };
-    fetchData();
+    
+    fetchLevels();
+    
+    return () => {
+      isMounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedSchoolId, isTeacherContext]);
 
 
   // Mise à jour de la génération d'avatar pour accepter les clés dynamiques
@@ -124,18 +213,31 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     `)}`;
   };
 
+  // Fonction pour capitaliser la première lettre de chaque mot
+  const capitalizeName = (str: string): string => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      // Capitaliser automatiquement le prénom et le nom
+      const processedValue = (name === 'firstName' || name === 'lastName') 
+        ? capitalizeName(value) 
+        : value;
+      setFormData(prev => ({ ...prev, [name]: processedValue }));
 
       // Mise à jour de l'avatar si on change le nom/rôle
       if (isUsingDefaultAvatar && (name === 'role' || name === 'firstName' || name === 'lastName')) {
-        const firstName = name === 'firstName' ? value : formData.firstName;
-        const lastName = name === 'lastName' ? value : formData.lastName;
+        const firstName = name === 'firstName' ? processedValue : formData.firstName;
+        const lastName = name === 'lastName' ? processedValue : formData.lastName;
         const role = name === 'role' ? value : (formData.role || 'eleve_primaire');
 
         if (firstName && lastName) {
@@ -178,9 +280,11 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     }
 
     try {
-      // 1. Récupération du schoolId
+      // 1. Récupération du schoolId (soit sélectionné, soit le premier disponible)
       const currentUser = await getCurrentUser();
-      const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+      const schoolId = isTeacherContext && selectedSchoolId 
+        ? selectedSchoolId 
+        : currentUser.data?.available_contexts?.schools?.[0]?.id;
 
       if (!schoolId) {
         showError("Impossible de récupérer l'identifiant de l'école");
@@ -301,7 +405,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
         <form onSubmit={handleSubmit} className="modal-body">
           {/* Avatar Section */}
-          <div className="form-section">
+          {/* <div className="form-section">
             <h3>Photo de profil</h3>
             <div className="avatar-selection">
               <div className="avatar-preview">
@@ -338,7 +442,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 </p>
               </div>
             </div>
-          </div>
+          </div> */}
 
           <div className="form-grid">
             <div className="form-group">
@@ -366,6 +470,35 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 className="form-input"
               />
             </div>
+            
+            {/* Sélecteur d'école pour les teachers (toujours affiché si au moins une école disponible) */}
+            {isTeacherContext && availableSchools.length > 0 && (
+              <div className="form-group">
+                <label htmlFor="schoolId">Établissement *</label>
+                <select
+                  id="schoolId"
+                  name="schoolId"
+                  value={selectedSchoolId || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const schoolId = value === '' ? null : Number(value);
+                    setSelectedSchoolId(schoolId);
+                    // Réinitialiser la classe sélectionnée quand on change d'école
+                    setFormData(prev => ({ ...prev, levelId: '' }));
+                  }}
+                  required
+                  className="form-select"
+                >
+                  <option value="">Sélectionner un établissement</option>
+                  {availableSchools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="form-group">
               <label htmlFor="birthday">Date de naissance *</label>
               <input
@@ -390,15 +523,22 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 onChange={handleInputChange}
                 required
                 className="form-select"
+                disabled={loadingLevels || (isTeacherContext && !selectedSchoolId)}
               >
-                {levels.length > 0 ? (
+                {loadingLevels ? (
+                  <option value="">Chargement des classes...</option>
+                ) : levels.length > 0 ? (
                   levels.map((level) => (
                     <option key={level.id} value={level.id}>
                       {level.name} - {level.level}
                     </option>
                   ))
                 ) : (
-                  <option value="">Chargement des classes...</option>
+                  <option value="">
+                    {isTeacherContext && !selectedSchoolId 
+                      ? "Sélectionnez d'abord un établissement" 
+                      : "Aucune classe disponible"}
+                  </option>
                 )}
               </select>
             </div>
