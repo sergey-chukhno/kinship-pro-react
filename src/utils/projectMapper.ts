@@ -83,6 +83,12 @@ export const getOrganizationType = (
  * Find tag ID by pathway name
  */
 export const getTagIdByPathway = (pathway: string, tags: Tag[]): number | undefined => {
+    // Validate tags is an array
+    if (!tags || !Array.isArray(tags)) {
+        console.warn('getTagIdByPathway: tags is not an array', tags);
+        return undefined;
+    }
+    
     // Try to find by exact name match (case insensitive)
     const tag = tags.find(t =>
         t.name.toLowerCase() === pathway.toLowerCase() ||
@@ -116,13 +122,19 @@ export const mapFrontendToBackend = (
     tags: Tag[],
     currentUserId: string
 ): CreateProjectPayload => {
+    // Normalize tags to ensure it's an array
+    // Handle both Tag[] and { data: Tag[] } formats
+    const normalizedTags: Tag[] = Array.isArray(tags) 
+        ? tags 
+        : (Array.isArray((tags as any)?.data) ? (tags as any).data : []);
+    
     // Convert visibility: 'public' -> false, 'private' -> true
     const isPrivate = formData.visibility === 'private';
 
     // Get tag ID from pathway
     const tagIds: number[] = [];
     if (formData.pathway) {
-        const tagId = getTagIdByPathway(formData.pathway, tags);
+        const tagId = getTagIdByPathway(formData.pathway, normalizedTags);
         if (tagId) {
             tagIds.push(tagId);
         }
@@ -205,13 +217,19 @@ export const mapEditFormToBackend = (
     tags: Tag[],
     project: Project
 ): { payload: UpdateProjectPayload; mainImageFile: File | null } => {
+    // Normalize tags to ensure it's an array
+    // Handle both Tag[] and { data: Tag[] } formats
+    const normalizedTags: Tag[] = Array.isArray(tags) 
+        ? tags 
+        : (Array.isArray((tags as any)?.data) ? (tags as any).data : []);
+    
     // Convert visibility: 'public' -> false, 'private' -> true
     const isPrivate = editForm.visibility === 'private';
 
     // Get tag ID from pathway
     const tagIds: number[] = [];
     if (editForm.pathway) {
-        const tagId = getTagIdByPathway(editForm.pathway, tags);
+        const tagId = getTagIdByPathway(editForm.pathway, normalizedTags);
         if (tagId) {
             tagIds.push(tagId);
         }
