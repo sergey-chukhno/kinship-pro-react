@@ -7,7 +7,8 @@ import './Projects.css';
 
 // Imports API (Ajustez les chemins si nécessaire, basés sur la structure de Members.tsx)
 import { getCurrentUser } from '../../api/Authentication';
-import { getUserProjectsBySchool , getUserProjectsByCompany, deleteProject} from '../../api/Project';
+import { getUserProjectsBySchool , getUserProjectsByCompany, deleteProject, getAllProjects} from '../../api/Project';
+import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
 
 const Projects: React.FC = () => {
   const { state, addProject, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
@@ -29,57 +30,43 @@ const Projects: React.FC = () => {
     const fetchProjects = async () => {
       try {
         const currentUser = await getCurrentUser();
-        const isEdu = state.showingPageType === 'edu';
+        const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
 
-        // 1. Récupération de l'ID du contexte (Company vs School)
-        const contextId = isEdu
-          ? currentUser.data?.available_contexts?.schools?.[0]?.id
-          : currentUser.data?.available_contexts?.companies?.[0]?.id;
+        if (isPersonalUser) {
+          // Pour les utilisateurs personnels : charger tous les projets publics
+          const response = await getAllProjects();
+          const rawProjects = response.data?.data || response.data || [];
+          // Filtrer uniquement les projets publics
+          const publicProjects = rawProjects.filter((p: any) => !p.private);
+          const formattedProjects: Project[] = publicProjects.map((p: any) => {
+            return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+          });
+          setProjects(formattedProjects);
+        } else {
+          // Logique existante pour école/entreprise
+          const isEdu = state.showingPageType === 'edu';
 
-        if (!contextId) return;
+          // 1. Récupération de l'ID du contexte (Company vs School)
+          const contextId = isEdu
+            ? currentUser.data?.available_contexts?.schools?.[0]?.id
+            : currentUser.data?.available_contexts?.companies?.[0]?.id;
 
-        // 2. Choix de la fonction API
-        const apiFunc = isEdu ? getUserProjectsBySchool : getUserProjectsByCompany;
-        const response = await apiFunc(contextId);
+          if (!contextId) return;
 
-        // Gestion de la structure de réponse { data: [ ... ], meta: ... }
-        const rawProjects = response.data?.data || response.data || [];
+          // 2. Choix de la fonction API
+          const apiFunc = isEdu ? getUserProjectsBySchool : getUserProjectsByCompany;
+          const response = await apiFunc(contextId);
 
-        // 3. Mapping des données API vers le type Project
-        const formattedProjects: Project[] = rawProjects.map((p: any) => {
-            // Tentative de déduction du pathway via les skills ou tags, sinon default
-            // Vous pouvez ajuster cette logique selon vos règles métier
-            const derivedPathway = p.skills?.[0]?.name ? 'citoyen' : 'avenir';
+          // Gestion de la structure de réponse { data: [ ... ], meta: ... }
+          const rawProjects = response.data?.data || response.data || [];
 
-            return {
-                id: p.id.toString(),
-                title: p.title,
-                description: p.description || '',
-                // L'API renvoie "coming", "in_progress" (implied), "ended" (implied)
-                // ProjectCard gère déjà ces valeurs.
-                status: p.status,
-                // Conversion date ISO (2025-02-01T...) vers YYYY-MM-DD
-                startDate: p.start_date ? p.start_date.split('T')[0] : '',
-                endDate: p.end_date ? p.end_date.split('T')[0] : '',
-                image: p.main_picture_url || '',
-                // Mapping du owner
-                owner: p.owner?.full_name || p.owner?.email || 'Inconnu',
-                responsible: {
-                    name: p.owner?.full_name || 'Inconnu',
-                    // On pourrait ajouter l'avatar ici si ProjectCard le supporte dans l'objet responsible
-                },
-                // Données numériques
-                participants: p.participants_number || 0,
-                badges: 0, // Non fourni par l'API actuelle, valeur par défaut
-                // Données catégorielles
-                pathway: derivedPathway,
-                skills: p.skills?.map((s: any) => s.name) || [],
-                tags: p.tags || []
-            };
-        });
+          // 3. Mapping des données API vers le type Project (using centralized mapper)
+          const formattedProjects: Project[] = rawProjects.map((p: any) => {
+              return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+          });
 
-        setProjects(formattedProjects);
-
+          setProjects(formattedProjects);
+        }
       } catch (err) {
         console.error('Erreur lors de la récupération des projets:', err);
       }
@@ -174,7 +161,7 @@ const Projects: React.FC = () => {
       <div className="flex justify-between items-start">
         <div className="section-title-left flex items-center gap-2 w-full">
           <img src="/icons_logo/Icon=projet.svg" alt="Projets" className="section-icon" />
-          <h2>Gestion des projets</h2>
+          <h2>{(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Découvrir les projets' : 'Gestion des projets'}</h2>
         </div>
         <div className="projects-actions">
           <div className="dropdown" style={{ position: 'relative' }}>
@@ -251,15 +238,23 @@ const Projects: React.FC = () => {
       </div>
 
       <div className="projects-grid">
-        {filteredProjects.map((project) => (
-          <ProjectCard
-            key={project.id}
-            project={project}
-            onEdit={() => handleEditProject(project)}
-            onManage={() => handleManageProject(project)}
-            onDelete={() => handleDeleteProject(project.id)}
-          />
-        ))}
+        {filteredProjects.map((project) => {
+          const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+          // Pour les utilisateurs personnels, ne pas afficher le bouton "Supprimer"
+          // Pour les autres, le bouton sera affiché mais le backend vérifiera les permissions
+          const canDelete = !isPersonalUser;
+          
+          return (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onEdit={() => handleEditProject(project)}
+              onManage={() => handleManageProject(project)}
+              onDelete={canDelete ? () => handleDeleteProject(project.id) : undefined}
+              isPersonalUser={isPersonalUser}
+            />
+          );
+        })}
       </div>
 
       {isProjectModalOpen && (

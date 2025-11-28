@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects, mockMembers } from '../../data/mockData';
 import AddParticipantModal from '../Modals/AddParticipantModal';
@@ -6,11 +6,17 @@ import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
 import './ProjectManagement.css';
 import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
+import { getProjectById } from '../../api/Project';
+import { updateProject, getProjectStats, ProjectStats, joinProject, getProjectPendingMembers, updateProjectMember, removeProjectMember, getProjectMembers, addProjectMember, getOrganizationMembers } from '../../api/Projects';
+import apiClient from '../../api/config';
+import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile, getUserProjectRole } from '../../utils/projectMapper';
+import { Project } from '../../types';
 import { useToast } from '../../hooks/useToast';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
   const { showWarning } = useToast();
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -21,8 +27,11 @@ const ProjectManagement: React.FC = () => {
     tags: [] as string[],
     startDate: '',
     endDate: '',
-    pathway: ''
+    pathway: '',
+    status: 'coming' as 'coming' | 'in_progress' | 'ended',
+    visibility: 'public' as 'public' | 'private'
   });
+  const [editImagePreview, setEditImagePreview] = useState<string>('');
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
@@ -109,61 +118,174 @@ const ProjectManagement: React.FC = () => {
     priority: 'medium'
   });
 
-  // Get the selected project from context
-  const project = state.selectedProject || mockProjects[0];
+  // State for project data (fetched from API)
+  const [project, setProject] = useState<Project>(state.selectedProject || mockProjects[0]);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [apiProjectData, setApiProjectData] = useState<any>(null);
+  
+  // State for project statistics
+  const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  
+  // State for user project role and join functionality
+  const [userProjectRole, setUserProjectRole] = useState<string | null>(null);
+  const [isJoiningProject, setIsJoiningProject] = useState(false);
+  
+  // Fetch project data from API when component mounts or project ID changes
+  useEffect(() => {
+    const fetchProjectData = async () => {
+      const selectedProject = state.selectedProject;
+      
+      // Only fetch if we have a project with an ID
+      if (!selectedProject || !selectedProject.id) {
+        return;
+      }
+      
+      setIsLoadingProject(true);
+      try {
+        const projectId = parseInt(selectedProject.id);
+        if (isNaN(projectId)) {
+          console.warn('Invalid project ID:', selectedProject.id);
+          setIsLoadingProject(false);
+          return;
+        }
+        
+        const response = await getProjectById(projectId);
+        const apiProject = response.data;
+        
+        // Store raw API data for permission checks
+        setApiProjectData(apiProject);
+        
+        // Determine user's role in the project
+        const role = getUserProjectRole(apiProject, state.user?.id?.toString());
+        setUserProjectRole(role);
+        
+        // Debug: Log co-owners from API
+        console.log('API Project co_owners:', apiProject.co_owners);
+        console.log('API Project co_owners count:', apiProject.co_owners?.length || 0);
+        
+        // Map API data to frontend format
+        const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
+        
+        // Debug: Log mapped co-responsibles
+        console.log('Mapped project coResponsibles:', mappedProject.coResponsibles);
+        console.log('Mapped project coResponsibles count:', mappedProject.coResponsibles?.length || 0);
+        
+        // Update project state
+        setProject(mappedProject);
+        
+        // Also update context to keep it in sync
+        setSelectedProject(mappedProject);
+      } catch (error) {
+        console.error('Error fetching project data:', error);
+        // Reset API data on error to hide edit button
+        setApiProjectData(null);
+        // Keep using the project from context if API call fails
+      } finally {
+        setIsLoadingProject(false);
+      }
+    };
+    
+    fetchProjectData();
+  }, [state.selectedProject?.id, state.showingPageType, setSelectedProject]);
 
-  // Mock data for requests and participants - using actual member data
-  const [requests, setRequests] = useState([
-    {
-      id: '1',
-      memberId: '5',
-      name: 'Alexandre Moreau',
-      profession: 'Chef de projet',
-      email: 'alexandre.moreau@example.com',
-      avatar: 'https://randomuser.me/api/portraits/men/45.jpg',
-      skills: ['Sport et initiation', 'Bricolage & Jardinage', 'Cuisine et ses techniques'],
-      availability: ['Samedi', 'Dimanche'],
-      requestDate: '2024-01-20',
-      organization: 'Association Sportive'
-    },
-    {
-      id: '2',
-      memberId: '6',
-      name: 'Camille Rousseau',
-      profession: 'Designer',
-      email: 'camille.rousseau@example.com',
-      avatar: 'https://randomuser.me/api/portraits/women/33.jpg',
-      skills: ['Arts & Culture', 'Innovation'],
-      availability: ['Mardi', 'Jeudi'],
-      requestDate: '2024-01-22',
-      organization: 'DesignStudio'
-    }
-  ]);
+  // Fetch project statistics when project ID changes
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!project?.id) return;
+      
+      setIsLoadingStats(true);
+      try {
+        const projectId = parseInt(project.id);
+        if (!isNaN(projectId)) {
+          const stats = await getProjectStats(projectId);
+          setProjectStats(stats);
+        }
+      } catch (error) {
+        console.error('Error fetching project stats:', error);
+        setProjectStats(null);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+    
+    fetchStats();
+  }, [project?.id]);
 
-  const [participants, setParticipants] = useState([
-    {
-      id: '1',
-      memberId: '3',
-      name: 'Lucas Bernard',
-      profession: 'Formateur',
-      email: 'lucas.bernard@example.com',
-      avatar: 'https://randomuser.me/api/portraits/men/67.jpg',
-      skills: ['Gestion et Formation', 'Leadership', 'Communication'],
-      availability: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'],
-      organization: 'EduForm'
-    },
-    {
-      id: '2',
-      memberId: '2',
-      name: 'Sophie Martin',
-      profession: 'Designer',
-      email: 'sophie.martin@example.com',
-      avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-      skills: ['Arts & Culture', 'Créativité', 'Innovation'],
-      availability: ['Mardi', 'Jeudi'],
-      organization: 'DesignStudio'
+  // Fetch pending requests when project ID changes or requests tab is active
+  useEffect(() => {
+    const fetchRequests = async () => {
+      if (!project?.id || activeTab !== 'requests') return;
+      
+      setIsLoadingRequests(true);
+      try {
+        const projectId = parseInt(project.id);
+        if (!isNaN(projectId)) {
+          const pendingMembers = await getProjectPendingMembers(projectId);
+          
+          // Map API data to UI format
+          const mappedRequests = pendingMembers.map((member: any) => ({
+            id: member.id?.toString() || member.user_id?.toString(),
+            memberId: member.user_id?.toString() || member.user?.id?.toString(),
+            name: member.user?.full_name || `${member.user?.first_name || ''} ${member.user?.last_name || ''}`.trim() || 'Inconnu',
+            profession: member.user?.job || 'Non renseigné',
+            email: member.user?.email || '',
+            avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
+            skills: member.user?.skills?.map((s: any) => s.name || s) || [],
+            availability: member.user?.availability || [],
+            requestDate: member.created_at ? new Date(member.created_at).toLocaleDateString('fr-FR') : '',
+            organization: member.user?.organization || 'Non renseigné'
+          }));
+          
+          setRequests(mappedRequests);
+        }
+      } catch (error) {
+        console.error('Error fetching requests:', error);
+        setRequests([]);
+      } finally {
+        setIsLoadingRequests(false);
+      }
+    };
+    
+    fetchRequests();
+  }, [project?.id, activeTab]);
+
+  // Load real project members when apiProjectData changes
+  useEffect(() => {
+    const loadParticipants = async () => {
+      if (!apiProjectData || !project?.id) return;
+      
+      try {
+        const members = await fetchAllProjectMembers();
+        setParticipants(members);
+      } catch (error) {
+        console.error('Error loading participants:', error);
+        showError('Erreur lors du chargement des participants');
+      }
+    };
+    
+    loadParticipants();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiProjectData, project?.id]);
+
+  // Reset active tab if tabs become hidden (e.g., user role changes from admin to participant)
+  useEffect(() => {
+    if (!shouldShowTabs() && activeTab !== 'overview') {
+      setActiveTab('overview');
     }
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProjectRole, state.showingPageType, activeTab]);
+
+  // State for requests (pending project join requests)
+  const [requests, setRequests] = useState<any[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  
+  // State for available members (for adding participants)
+  const [availableMembers, setAvailableMembers] = useState<any[]>([]);
+  const [isLoadingAvailableMembers, setIsLoadingAvailableMembers] = useState(false);
+
+  // State for participants with extended type
+  const [participants, setParticipants] = useState<any[]>([]);
 
   const getStatusText = (status: string) => {
     switch (status) {
@@ -183,6 +305,440 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
+  // Utility function to calculate days remaining until project end date
+  const calculateDaysRemaining = (endDate: string): number => {
+    if (!endDate) return 0;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Parse endDate (format: YYYY-MM-DD or ISO string)
+    const end = new Date(endDate);
+    end.setHours(0, 0, 0, 0);
+    
+    const diffTime = end.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+
+  // Get status text and CSS class for days remaining
+  const getDaysRemainingStatus = (daysRemaining: number): { text: string; className: string } => {
+    if (daysRemaining > 0) {
+      return { text: 'Dans les délais', className: 'positive' };
+    } else if (daysRemaining === 0) {
+      return { text: 'Dernier jour', className: 'warning' };
+    } else {
+      return { text: 'Délais dépassés', className: 'negative' };
+    }
+  };
+
+  // Calculate number of new members added this month
+  const calculateNewMembersThisMonth = (apiProjectData: any): number => {
+    if (!apiProjectData?.project_members) return 0;
+    
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    return apiProjectData.project_members.filter((member: any) => {
+      if (!member.created_at) return false;
+      const memberCreatedAt = new Date(member.created_at);
+      return memberCreatedAt >= startOfMonth;
+    }).length;
+  };
+
+  // Map user role to display text
+  const getRoleDisplayText = (role: string | null): string => {
+    switch (role) {
+      case 'owner': return 'Propriétaire';
+      case 'co-owner': return 'Co-propriétaire';
+      case 'admin': return 'Admin';
+      case 'participant avec droit de badges': return 'Participant avec droit de badges';
+      case 'participant': return 'Participant';
+      default: return '';
+    }
+  };
+
+  // Handler for joining a project
+  const handleJoinProject = async () => {
+    if (!project?.id) return;
+    
+    setIsJoiningProject(true);
+    try {
+      const projectId = parseInt(project.id);
+      await joinProject(projectId);
+      
+      // Show success notification
+      showSuccess('Votre demande de rejoindre le projet a été faite');
+      
+      // Reload project data to update status
+      const response = await getProjectById(projectId);
+      const apiProject = response.data;
+      const role = getUserProjectRole(apiProject, state.user?.id?.toString());
+      setUserProjectRole(role);
+      
+      // Update apiProjectData to reflect the change
+      setApiProjectData(apiProject);
+    } catch (error: any) {
+      console.error('Error joining project:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de la demande de rejoindre le projet';
+      showError(errorMessage);
+    } finally {
+      setIsJoiningProject(false);
+    }
+  };
+
+  /**
+   * Check if current user can edit the project
+   * Returns true if user is owner, co-owner, or admin
+   */
+  const canUserEditProject = (apiProject: any, currentUserId: string | undefined): boolean => {
+    if (!apiProject || !currentUserId) {
+      return false;
+    }
+
+    const userIdStr = currentUserId.toString();
+
+    // Check if user is the project owner
+    if (apiProject.owner?.id?.toString() === userIdStr) {
+      return true;
+    }
+
+    // Check if user is a co-owner
+    if (apiProject.co_owners && Array.isArray(apiProject.co_owners)) {
+      const isCoOwner = apiProject.co_owners.some((co: any) => 
+        co.id?.toString() === userIdStr
+      );
+      if (isCoOwner) {
+        return true;
+      }
+    }
+
+    // Check if user is an admin (project member with admin role)
+    if (apiProject.project_members && Array.isArray(apiProject.project_members)) {
+      const isAdmin = apiProject.project_members.some((member: any) => 
+        member.user?.id?.toString() === userIdStr &&
+        member.role === 'admin' &&
+        member.status === 'confirmed'
+      );
+      if (isAdmin) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  /**
+   * Determine if tabs should be shown based on user type and role
+   * Personal users (teacher/user) can only see tabs if they are admin/co-owner/owner
+   * Organizational users (pro/edu) always see tabs
+   */
+  const shouldShowTabs = (): boolean => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    
+    // For personal users, check role
+    if (isPersonalUser) {
+      // No tabs if not a member
+      if (!userProjectRole) {
+        return false;
+      }
+      
+      // No tabs for simple participants
+      if (userProjectRole === 'participant' || userProjectRole === 'participant avec droit de badges') {
+        return false;
+      }
+      
+      // Show tabs for admins (owner, co-owner, admin)
+      if (userProjectRole === 'owner' || userProjectRole === 'co-owner' || userProjectRole === 'admin') {
+        return true;
+      }
+      
+      // Default: no tabs
+      return false;
+    }
+    
+    // For organizational users (pro/edu), always show tabs
+    return true;
+  };
+
+  /**
+   * Fetch all project members including owner, co-owners, and confirmed members
+   * Returns members sorted by role: owner -> co-owners -> admins -> members
+   */
+  const fetchAllProjectMembers = async (): Promise<any[]> => {
+    if (!project?.id || !apiProjectData) return [];
+    
+    const projectId = parseInt(project.id);
+    const allMembers: any[] = [];
+    
+    // Track user IDs that have already been added to avoid duplicates
+    const addedUserIds = new Set<string>();
+    
+    // Add owner
+    if (apiProjectData.owner) {
+      const ownerId = apiProjectData.owner.id.toString();
+      addedUserIds.add(ownerId);
+      
+      const ownerParticipant = {
+        id: `owner-${apiProjectData.owner.id}`,
+        memberId: ownerId,
+        name: apiProjectData.owner.full_name || `${apiProjectData.owner.first_name || ''} ${apiProjectData.owner.last_name || ''}`.trim() || 'Inconnu',
+        profession: apiProjectData.owner.job || 'Propriétaire',
+        email: apiProjectData.owner.email || '',
+        avatar: apiProjectData.owner.avatar_url || DEFAULT_AVATAR_SRC,
+        skills: apiProjectData.owner.skills?.map((s: any) => s.name || s) || [],
+        availability: apiProjectData.owner.availability || [],
+        organization: apiProjectData.owner_organization_name || '',
+        role: 'owner',
+        projectRole: 'owner'
+      };
+      allMembers.push({
+        ...ownerParticipant,
+        canRemove: canUserRemoveParticipant(ownerParticipant, userProjectRole)
+      });
+    }
+    
+    // Add co-owners
+    if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
+      apiProjectData.co_owners.forEach((coOwner: any) => {
+        const coOwnerId = coOwner.id.toString();
+        addedUserIds.add(coOwnerId);
+        
+        const coOwnerParticipant = {
+          id: `co-owner-${coOwner.id}`,
+          memberId: coOwnerId,
+          name: coOwner.full_name || `${coOwner.first_name || ''} ${coOwner.last_name || ''}`.trim() || 'Inconnu',
+          profession: coOwner.job || 'Co-propriétaire',
+          email: coOwner.email || '',
+          avatar: coOwner.avatar_url || DEFAULT_AVATAR_SRC,
+          skills: coOwner.skills?.map((s: any) => s.name || s) || [],
+          availability: coOwner.availability || [],
+          organization: coOwner.organization_name || coOwner.city || '',
+          role: 'co-owner',
+          projectRole: 'co_owner'
+        };
+        allMembers.push({
+          ...coOwnerParticipant,
+          canRemove: canUserRemoveParticipant(coOwnerParticipant, userProjectRole)
+        });
+      });
+    }
+    
+    // Add project members (confirmed only)
+    // Exclude co-owners and owner to avoid duplicates
+    try {
+      const projectMembers = await getProjectMembers(projectId);
+      const confirmedMembers = projectMembers.filter((m: any) => {
+        // Exclude pending members
+        if (m.status !== 'confirmed') return false;
+        
+        const userId = m.user?.id?.toString() || m.user_id?.toString();
+        
+        // Exclude co-owners (already added from apiProjectData.co_owners)
+        if (addedUserIds.has(userId)) return false;
+        
+        // Exclude co-owners by role (safety check in case they weren't in co_owners array)
+        if (m.project_role === 'co_owner') return false;
+        
+        return true;
+      });
+      
+      confirmedMembers.forEach((member: any) => {
+        const memberParticipant = {
+          id: `member-${member.id}`,
+          memberId: member.user?.id?.toString() || member.user_id?.toString(),
+          name: member.user?.full_name || 'Inconnu',
+          profession: member.user?.job || 'Membre',
+          email: member.user?.email || '',
+          avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
+          skills: member.user?.skills?.map((s: any) => s.name || s) || [],
+          availability: member.user?.availability || [],
+          organization: member.user?.organization || '',
+          role: member.project_role === 'admin' ? 'admin' : 'member',
+          projectRole: member.project_role,
+          canAssignBadges: member.can_assign_badges_in_project || false
+        };
+        allMembers.push({
+          ...memberParticipant,
+          canRemove: canUserRemoveParticipant(memberParticipant, userProjectRole)
+        });
+      });
+    } catch (error) {
+      console.error('Error fetching project members:', error);
+    }
+    
+    // Sort by role: owner -> co-owners -> admins -> members
+    const roleOrder: { [key: string]: number } = {
+      'owner': 1,
+      'co-owner': 2,
+      'admin': 3,
+      'member': 4
+    };
+    
+    return allMembers.sort((a, b) => {
+      const orderA = roleOrder[a.role] || 99;
+      const orderB = roleOrder[b.role] || 99;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      // If same role, sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  /**
+   * Fetch available members from organization and branches (if applicable)
+   */
+  const fetchAvailableMembers = async (): Promise<any[]> => {
+    if (!apiProjectData) return [];
+    
+    const isEdu = state.showingPageType === 'edu';
+    const organizationType = isEdu ? 'school' : 'company';
+    
+    // Get organization ID from project or user context
+    let organizationId: number | null = null;
+    
+    if (isEdu) {
+      // For schools, get from project's school_levels or user context
+      if (apiProjectData.school_levels && apiProjectData.school_levels.length > 0) {
+        organizationId = apiProjectData.school_levels[0]?.school?.id;
+      } else {
+        organizationId = state.user?.available_contexts?.schools?.[0]?.id || null;
+      }
+    } else {
+      // For companies, get from project's companies or user context
+      if (apiProjectData.companies && apiProjectData.companies.length > 0) {
+        organizationId = apiProjectData.companies[0]?.id;
+      } else {
+        organizationId = state.user?.available_contexts?.companies?.[0]?.id || null;
+      }
+    }
+    
+    if (!organizationId) return [];
+    
+    const allMembers: any[] = [];
+    
+    try {
+      // Get main organization members (handle pagination)
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const response = await apiClient.get(
+          organizationType === 'school' 
+            ? `/api/v1/schools/${organizationId}/members`
+            : `/api/v1/companies/${organizationId}/members`,
+          {
+            params: {
+              status: 'confirmed',
+              per_page: 1000,
+              page: page
+            }
+          }
+        );
+        
+        const members = response.data?.data || [];
+        if (members.length === 0) {
+          hasMore = false;
+        } else {
+          allMembers.push(...members.map((member: any) => ({
+            id: member.id?.toString(),
+            memberId: member.id?.toString(), // API returns id: user.id directly
+            name: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Inconnu',
+            profession: member.job || 'Membre',
+            email: member.email || '',
+            avatar: member.avatar_url || DEFAULT_AVATAR_SRC,
+            skills: member.skills?.map((s: any) => s.name || s) || [],
+            availability: member.availability || [],
+            organization: member.organization_name || ''
+          })));
+          
+          // Check if there are more pages
+          const totalPages = response.data?.meta?.total_pages || 1;
+          if (page >= totalPages) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
+      }
+      
+      // If company and main company, get branch members
+      if (!isEdu) {
+        try {
+          const branchesResponse = await apiClient.get(`/api/v1/companies/${organizationId}/branches`);
+          const branches = branchesResponse.data?.data || [];
+          const shareMembers = branchesResponse.data?.meta?.share_members_with_branches || false;
+          
+          if (shareMembers && branches.length > 0) {
+            for (const branch of branches) {
+              try {
+                // Handle pagination for branch members too
+                let branchPage = 1;
+                let branchHasMore = true;
+                while (branchHasMore) {
+                  const branchResponse = await apiClient.get(
+                    `/api/v1/companies/${branch.id}/members`,
+                    {
+                      params: {
+                        status: 'confirmed',
+                        per_page: 1000,
+                        page: branchPage
+                      }
+                    }
+                  );
+                  
+                  const branchMembers = branchResponse.data?.data || [];
+                  if (branchMembers.length === 0) {
+                    branchHasMore = false;
+                  } else {
+                    allMembers.push(...branchMembers.map((member: any) => ({
+                      id: member.id?.toString(),
+                      memberId: member.id?.toString(), // API returns id: user.id directly
+                      name: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Inconnu',
+                      profession: member.job || 'Membre',
+                      email: member.email || '',
+                      avatar: member.avatar_url || DEFAULT_AVATAR_SRC,
+                      skills: member.skills?.map((s: any) => s.name || s) || [],
+                      availability: member.availability || [],
+                      organization: branch.name || ''
+                    })));
+                    
+                    // Check if there are more pages
+                    const branchTotalPages = branchResponse.data?.meta?.total_pages || 1;
+                    if (branchPage >= branchTotalPages) {
+                      branchHasMore = false;
+                    } else {
+                      branchPage++;
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error(`Error fetching members for branch ${branch.id}:`, error);
+                // Continue with other branches
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching branches:', error);
+          // Continue without branches if error
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching organization members:', error);
+      return [];
+    }
+    
+    // Remove duplicates and exclude existing participants
+    const existingMemberIds = participants.map(p => p.memberId);
+    const uniqueMembers = allMembers.filter((member, index, self) => 
+      index === self.findIndex(m => m.memberId === member.memberId) &&
+      !existingMemberIds.includes(member.memberId)
+    );
+    
+    return uniqueMembers;
+  };
+
   const handleEdit = () => {
     setEditForm({
       title: project.title,
@@ -190,38 +746,100 @@ const ProjectManagement: React.FC = () => {
       tags: [...(project.tags || [])],
       startDate: project.startDate,
       endDate: project.endDate,
-      pathway: project.pathway
+      pathway: project.pathway || '',
+      status: project.status || 'coming',
+      visibility: project.visibility || 'public'
     });
+    setEditImagePreview(project.image || '');
     setIsEditModalOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    // Update the project in the context/state
-    const updatedProject = {
-      ...project,
-      title: editForm.title,
-      description: editForm.description,
-      tags: editForm.tags,
-      startDate: editForm.startDate,
-      endDate: editForm.endDate,
-      pathway: editForm.pathway
-    };
-    
-    // Update the selected project in context
-    setSelectedProject(updatedProject);
-    
-    // Update the project in the mock data (in a real app, this would be an API call)
-    const projectIndex = mockProjects.findIndex(p => p.id === project.id);
-    if (projectIndex !== -1) {
-      mockProjects[projectIndex] = updatedProject;
+  const handleSaveEdit = async () => {
+    try {
+      // Map edit form to backend payload
+      const { payload } = mapEditFormToBackend(editForm, state.tags || [], project);
+      
+      // Convert image preview to File if different from current image
+      let mainImageFile: File | null = null;
+      if (editImagePreview && editImagePreview !== project.image) {
+        // Check if it's a base64 string (new image) or URL (existing image)
+        if (editImagePreview.startsWith('data:')) {
+          mainImageFile = base64ToFile(editImagePreview, 'main-image.jpg');
+        }
+      }
+      
+      // Validate image if provided
+      if (mainImageFile) {
+        const sizeValidation = validateImageSize(mainImageFile);
+        if (!sizeValidation.valid) {
+          alert(sizeValidation.error);
+          return;
+        }
+        
+        const formatValidation = validateImageFormat(mainImageFile);
+        if (!formatValidation.valid) {
+          alert(formatValidation.error);
+          return;
+        }
+      }
+      
+      // Call backend API
+      const projectId = parseInt(project.id);
+      if (isNaN(projectId)) {
+        alert('ID de projet invalide');
+        return;
+      }
+      
+      await updateProject(projectId, payload, mainImageFile, undefined);
+      
+      // Reload project from API to get updated data
+      const response = await getProjectById(projectId);
+      const apiProject = response.data;
+      const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
+      
+      // Update project state
+      setProject(mappedProject);
+      setSelectedProject(mappedProject);
+      
+      setIsEditModalOpen(false);
+      setEditImagePreview('');
+    } catch (error: any) {
+      console.error('Error updating project:', error);
+      const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors de la mise à jour du projet';
+      alert(errorMessage);
     }
-    
-    console.log('Project updated:', updatedProject);
-    setIsEditModalOpen(false);
   };
 
   const handleCancelEdit = () => {
     setIsEditModalOpen(false);
+    setEditImagePreview('');
+  };
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate image size
+    const sizeValidation = validateImageSize(file);
+    if (!sizeValidation.valid) {
+      alert(sizeValidation.error);
+      return;
+    }
+
+    // Validate image format
+    const formatValidation = validateImageFormat(file);
+    if (!formatValidation.valid) {
+      alert(formatValidation.error);
+      return;
+    }
+
+    // Read file and set preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setEditImagePreview(result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleTagChange = (index: number, value: string) => {
@@ -240,35 +858,133 @@ const ProjectManagement: React.FC = () => {
   };
 
   // Request handlers
-  const handleAcceptRequest = (requestId: string) => {
+  const handleAcceptRequest = async (requestId: string) => {
     const request = requests.find(r => r.id === requestId);
-    if (request) {
-      // Add to participants
-      const newParticipant = {
-        id: Date.now().toString(),
-        memberId: request.memberId,
-        name: request.name,
-        profession: request.profession,
-        email: request.email,
-        avatar: request.avatar,
-        skills: request.skills,
-        availability: request.availability,
-        organization: request.organization
-      };
-      setParticipants([...participants, newParticipant]);
+    if (!request || !project?.id) return;
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(request.memberId);
+      
+      if (isNaN(projectId) || isNaN(userId)) {
+        showError('Données invalides');
+        return;
+      }
+      
+      // Update member status from pending to confirmed
+      await updateProjectMember(projectId, userId, {
+        status: 'confirmed'
+      });
+      
+      showSuccess('Demande acceptée avec succès');
       
       // Remove from requests
       setRequests(requests.filter(r => r.id !== requestId));
+      
+      // Reload project stats to update participant count
+      if (project.id) {
+        const stats = await getProjectStats(parseInt(project.id));
+        setProjectStats(stats);
+      }
+    } catch (error: any) {
+      console.error('Error accepting request:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de l\'acceptation de la demande';
+      showError(errorMessage);
     }
   };
 
-  const handleRejectRequest = (requestId: string) => {
-    setRequests(requests.filter(r => r.id !== requestId));
+  const handleRejectRequest = async (requestId: string) => {
+    const request = requests.find(r => r.id === requestId);
+    if (!request || !project?.id) return;
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(request.memberId);
+      
+      if (isNaN(projectId) || isNaN(userId)) {
+        showError('Données invalides');
+        return;
+      }
+      
+      // Remove member (reject request)
+      await removeProjectMember(projectId, userId);
+      
+      showSuccess('Demande rejetée');
+      
+      // Remove from requests
+      setRequests(requests.filter(r => r.id !== requestId));
+    } catch (error: any) {
+      console.error('Error rejecting request:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors du rejet de la demande';
+      showError(errorMessage);
+    }
   };
 
   // Participant handlers
-  const handleRemoveParticipant = (participantId: string) => {
-    setParticipants(participants.filter(p => p.id !== participantId));
+  const handleRemoveParticipant = async (participantId: string) => {
+    const participant = participants.find(p => p.id === participantId);
+    if (!participant || !project?.id) return;
+    
+    // Check if can be removed
+    if (!participant.canRemove) {
+      // Provide specific error message based on participant role
+      if (participant.role === 'co-owner') {
+        showError('Seul le responsable du projet peut retirer les co-responsables');
+      } else if (participant.role === 'admin') {
+        showError('Seuls le responsable du projet et les co-responsables peuvent retirer les admins');
+      } else if (participant.role === 'owner') {
+        showError('Le responsable du projet ne peut pas être retiré');
+      } else {
+        showError('Ce membre ne peut pas être retiré du projet');
+      }
+      return;
+    }
+    
+    // Confirm action
+    if (!window.confirm(`Êtes-vous sûr de vouloir retirer ${participant.name} du projet ?`)) {
+      return;
+    }
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(participant.memberId);
+      
+      if (isNaN(projectId) || isNaN(userId)) {
+        showError('Données invalides');
+        return;
+      }
+      
+      await removeProjectMember(projectId, userId);
+      
+      showSuccess(`${participant.name} a été retiré du projet`);
+      
+      // Reload participants
+      const members = await fetchAllProjectMembers();
+      setParticipants(members);
+      
+      // Reload project stats
+      const stats = await getProjectStats(projectId);
+      setProjectStats(stats);
+    } catch (error: any) {
+      console.error('Error removing participant:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors du retrait du participant';
+      
+      // Specific error messages based on backend response
+      if (error.response?.status === 403) {
+        // Map backend error messages to French
+        if (errorMessage.includes('Only project owner can remove co-owners')) {
+          showError('Seul le responsable du projet peut retirer les co-responsables');
+        } else if (errorMessage.includes('Admins cannot remove other admins')) {
+          showError('Les admins ne peuvent pas retirer d\'autres admins');
+        } else if (errorMessage.includes('Cannot remove project owner')) {
+          showError('Le responsable du projet ne peut pas être retiré');
+        } else {
+          showError('Vous n\'avez pas la permission de retirer ce membre');
+        }
+      } else {
+        showError(errorMessage);
+      }
+    }
   };
 
   const handleAwardBadge = (participantId: string) => {
@@ -526,11 +1242,21 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
-  const handleAddParticipant = () => {
-    setIsAddParticipantModalOpen(true);
+  const handleAddParticipant = async () => {
+    setIsLoadingAvailableMembers(true);
+    try {
+      const members = await fetchAvailableMembers();
+      setAvailableMembers(members);
+      setIsAddParticipantModalOpen(true);
+    } catch (error) {
+      console.error('Error loading available members:', error);
+      showError('Erreur lors du chargement des membres disponibles');
+    } finally {
+      setIsLoadingAvailableMembers(false);
+    }
   };
 
-  const handleAddParticipantSubmit = (participantData: {
+  const handleAddParticipantSubmit = async (participantData: {
     id: string;
     memberId: string;
     name: string;
@@ -541,8 +1267,212 @@ const ProjectManagement: React.FC = () => {
     availability: string[];
     organization: string;
   }) => {
-    setParticipants([...participants, participantData]);
-    setIsAddParticipantModalOpen(false);
+    if (!project?.id) return;
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(participantData.memberId);
+      
+      console.log('Adding participant:', { projectId, userId, participantData });
+      
+      if (isNaN(projectId) || isNaN(userId) || !participantData.memberId) {
+        console.error('Invalid data:', { projectId, userId, memberId: participantData.memberId });
+        showError('Données invalides');
+        return;
+      }
+      
+      // Add member via API
+      await addProjectMember(projectId, userId);
+      
+      showSuccess(`${participantData.name} a été ajouté au projet`);
+      
+      // Reload participants
+      const members = await fetchAllProjectMembers();
+      setParticipants(members);
+      
+      // Reload project stats
+      const stats = await getProjectStats(projectId);
+      setProjectStats(stats);
+      
+      setIsAddParticipantModalOpen(false);
+    } catch (error: any) {
+      console.error('Error adding participant:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de l\'ajout du participant';
+      
+      // Specific error messages
+      if (error.response?.status === 403) {
+        if (errorMessage.includes('cannot be added')) {
+          showError('Cet utilisateur ne peut pas être ajouté au projet');
+        } else {
+          showError('Vous n\'avez pas la permission d\'ajouter des membres');
+        }
+      } else if (error.response?.status === 409) {
+        showError('Cet utilisateur est déjà membre du projet');
+      } else if (error.response?.status === 404) {
+        showError('Utilisateur non trouvé');
+      } else {
+        showError(errorMessage);
+      }
+    }
+  };
+
+  /**
+   * Get current role value for the role selector
+   */
+  const getCurrentRoleValue = (participant: any): string => {
+    if (participant.role === 'owner' || participant.role === 'co-owner') {
+      return participant.role; // For display, but selector disabled
+    }
+    
+    if (participant.role === 'admin') {
+      return 'admin';
+    }
+    
+    // Member with badge permission
+    if (participant.role === 'member' && participant.canAssignBadges) {
+      return 'member-with-badges';
+    }
+    
+    // Regular member
+    return 'member';
+  };
+
+  /**
+   * Check if role can be changed for this participant
+   */
+  const canChangeRole = (participant: any): boolean => {
+    // Owner and co-owner roles cannot be changed
+    return participant.role !== 'owner' && participant.role !== 'co-owner';
+  };
+
+  /**
+   * Check if current user can create admins
+   */
+  const canCreateAdmins = (): boolean => {
+    if (!apiProjectData || !state.user?.id) return false;
+    
+    const userIdStr = state.user.id.toString();
+    
+    // Check if user is owner
+    if (apiProjectData.owner?.id?.toString() === userIdStr) {
+      return true;
+    }
+    
+    // Check if user is co-owner
+    if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
+      const isCoOwner = apiProjectData.co_owners.some((co: any) => 
+        co.id?.toString() === userIdStr
+      );
+      if (isCoOwner) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  /**
+   * Determine if current user can remove a specific participant
+   */
+  const canUserRemoveParticipant = (participant: any, currentUserRole: string | null): boolean => {
+    if (!currentUserRole) return false;
+    
+    // Owner can remove everyone except themselves
+    if (currentUserRole === 'owner') {
+      return participant.role !== 'owner';
+    }
+    
+    // Co-owner can remove members and admins, but not co-owners or owner
+    if (currentUserRole === 'co-owner') {
+      return participant.role === 'member' || participant.role === 'admin';
+    }
+    
+    // Admin can only remove regular members
+    if (currentUserRole === 'admin') {
+      return participant.role === 'member';
+    }
+    
+    return false;
+  };
+
+  /**
+   * Determine if current user can see the remove button
+   */
+  const canUserSeeRemoveButton = (currentUserRole: string | null): boolean => {
+    return currentUserRole === 'owner' || currentUserRole === 'co-owner' || currentUserRole === 'admin';
+  };
+
+  /**
+   * Handle role change for a participant
+   */
+  const handleRoleChange = async (participant: any, newRoleValue: string) => {
+    if (!project?.id || !canChangeRole(participant)) return;
+    
+    // Parse new role value
+    let role: 'member' | 'admin' = 'member';
+    let canAssignBadges = false;
+    
+    if (newRoleValue === 'admin') {
+      // Check if current user can create admins
+      if (!canCreateAdmins()) {
+        showError('Seul le responsable du projet ou un co-responsable peut créer des admins');
+        return;
+      }
+      role = 'admin';
+      canAssignBadges = false;
+    } else if (newRoleValue === 'member-with-badges') {
+      // Check if current user can grant badge permissions
+      if (!canCreateAdmins()) {
+        showError('Seul le responsable du projet ou un co-responsable peut accorder les permissions de badges');
+        return;
+      }
+      role = 'member';
+      canAssignBadges = true;
+    } else {
+      role = 'member';
+      canAssignBadges = false;
+    }
+    
+    try {
+      const projectId = parseInt(project.id);
+      const userId = parseInt(participant.memberId);
+      
+      if (isNaN(projectId) || isNaN(userId)) {
+        showError('Données invalides');
+        return;
+      }
+      
+      await updateProjectMember(projectId, userId, {
+        role: role,
+        can_assign_badges_in_project: canAssignBadges
+      });
+      
+      showSuccess(`Rôle de ${participant.name} mis à jour avec succès`);
+      
+      // Reload participants to reflect changes (more reliable than local update)
+      const members = await fetchAllProjectMembers();
+      setParticipants(members);
+      
+      // Reload project stats
+      const stats = await getProjectStats(projectId);
+      setProjectStats(stats);
+    } catch (error: any) {
+      console.error('Error updating role:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de la mise à jour du rôle';
+      
+      // Specific error messages
+      if (error.response?.status === 403) {
+        if (errorMessage.includes('Only project owner or co-owner can create admins')) {
+          showError('Seul le responsable du projet ou un co-responsable peut créer des admins');
+        } else if (errorMessage.includes('Only project owner or co-owner can grant badge permissions')) {
+          showError('Seul le responsable du projet ou un co-responsable peut accorder les permissions de badges');
+        } else {
+          showError('Vous n\'avez pas la permission de modifier ce rôle');
+        }
+      } else {
+        showError(errorMessage);
+      }
+    }
   };
 
   const handleCopyLink = () => {
@@ -617,29 +1547,6 @@ const ProjectManagement: React.FC = () => {
       });
   };
 
-  // Get the correct avatar and profession for the project owner
-  const getOwnerInfo = (ownerName: string) => {
-    const member = mockMembers.find(m => `${m.firstName} ${m.lastName}` === ownerName);
-    if (member) {
-      return {
-        avatar: member.avatar,
-        profession: member.profession,
-        email: member.email
-      };
-    }
-    // Fallback for unknown owners
-    const avatarMap: { [key: string]: string } = {
-      'Lucas Bernard': 'https://randomuser.me/api/portraits/men/67.jpg',
-      'Marie Dubois': 'https://randomuser.me/api/portraits/women/44.jpg',
-      'Sophie Martin': 'https://randomuser.me/api/portraits/women/44.jpg',
-      'François Dupont': 'https://randomuser.me/api/portraits/men/32.jpg'
-    };
-    return {
-      avatar: avatarMap[ownerName] || DEFAULT_AVATAR_SRC,
-      profession: 'Membre',
-      email: 'unknown@example.com'
-    };
-  };
 
   return (
     <section className="project-management-container with-sidebar">
@@ -723,9 +1630,54 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
               <div className="project-actions-header">
-                <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
-                  <i className="fas fa-edit"></i>
-                </button>
+                {/* Join button or role pill for personal users */}
+                {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
+                  <div className="project-join-section" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    {userProjectRole ? (
+                      <span className="role-badge" style={{
+                        padding: '0.5rem 1rem',
+                        borderRadius: '20px',
+                        backgroundColor: '#f0f0f0',
+                        color: '#333',
+                        fontSize: '0.875rem',
+                        fontWeight: '500'
+                      }}>
+                        {getRoleDisplayText(userProjectRole)}
+                      </span>
+                    ) : (
+                      <button 
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handleJoinProject}
+                        disabled={isJoiningProject}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                      >
+                        <i className="fas fa-plus"></i>
+                        {isJoiningProject ? 'Envoi...' : 'Rejoindre le projet'}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* Role pill for all users (not just personal) */}
+                {userProjectRole && (state.showingPageType !== 'teacher' && state.showingPageType !== 'user') && (
+                  <span className="role-badge" style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: '20px',
+                    backgroundColor: '#f0f0f0',
+                    color: '#333',
+                    fontSize: '0.875rem',
+                    fontWeight: '500',
+                    marginRight: '0.75rem'
+                  }}>
+                    {getRoleDisplayText(userProjectRole)}
+                  </span>
+                )}
+                {/* Edit button for owners/admins */}
+                {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && (
+                  <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
+                    <i className="fas fa-edit"></i>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -771,12 +1723,14 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
               <div className="project-tags-row">
-                <div className="pathway-section">
-                  <div className="section-label">Parcours</div>
-                  <div className="pathway-container">
-                    <span className={`pathway-pill pathway-${project.pathway}`}>{project.pathway}</span>
+                {project.pathway && (
+                  <div className="pathway-section">
+                    <div className="section-label">Parcours</div>
+                    <div className="pathway-container">
+                      <span className={`pathway-pill pathway-${project.pathway}`}>{project.pathway}</span>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="tags-section">
                   <div className="section-label">Tags</div>
                   <div className="project-tags">
@@ -798,11 +1752,14 @@ const ProjectManagement: React.FC = () => {
                 <div className="project-manager-info">
                   <div className="manager-left">
                     <div className="manager-avatar">
-                      <AvatarImage src={project.responsible?.avatar || getOwnerInfo(project.owner).avatar} alt="Project Manager" />
+                      <AvatarImage src={project.responsible?.avatar || DEFAULT_AVATAR_SRC} alt="Project Manager" />
                     </div>
                     <div className="manager-details">
                       <div className="manager-name">{project.responsible?.name || project.owner}</div>
-                      <div className="manager-role">{project.responsible?.profession || getOwnerInfo(project.owner).profession}</div>
+                      <div className="manager-role">
+                        {project.responsible?.role || project.responsible?.profession || 'Membre'}
+                        {project.responsible?.city && ` • ${project.responsible.city}`}
+                      </div>
                     </div>
                   </div>
                   <div className="manager-right">
@@ -812,7 +1769,7 @@ const ProjectManagement: React.FC = () => {
                     </div>
                     <div className="manager-email">
                       <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
-                      <span className="manager-text">{project.responsible?.email || getOwnerInfo(project.owner).email}</span>
+                      <span className="manager-text">{project.responsible?.email || ''}</span>
                     </div>
                   </div>
                 </div>
@@ -826,14 +1783,17 @@ const ProjectManagement: React.FC = () => {
                   </div>
                   <div className="co-responsibles-list">
                     {project.coResponsibles.map((coResponsible, index) => (
-                      <div key={coResponsible.id} className="co-responsible-item">
+                      <div key={coResponsible.id || index} className="co-responsible-item">
                         <div className="manager-left">
                           <div className="manager-avatar">
-                            <AvatarImage src={coResponsible.avatar} alt={coResponsible.name} />
+                            <AvatarImage src={coResponsible.avatar || DEFAULT_AVATAR_SRC} alt={coResponsible.name} />
                           </div>
                           <div className="manager-details">
                             <div className="manager-name">{coResponsible.name}</div>
-                            <div className="manager-role">{coResponsible.profession}</div>
+                            <div className="manager-role">
+                              {coResponsible.role || coResponsible.profession || 'Membre'}
+                              {coResponsible.city && ` • ${coResponsible.city}`}
+                            </div>
                           </div>
                         </div>
                         <div className="manager-right">
@@ -876,109 +1836,149 @@ const ProjectManagement: React.FC = () => {
         </div>
 
         {/* Project Management Tabs */}
-        <div className="project-management-tabs">
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Vue d'ensemble
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requests')}
-          >
-            Demandes
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
-            onClick={() => setActiveTab('participants')}
-          >
-            Participants
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
-            onClick={() => setActiveTab('equipes')}
-          >
-            Équipes
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
-            onClick={() => setActiveTab('kanban')}
-          >
-            Kanban
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
-            onClick={() => setActiveTab('badges')}
-          >
-            Badges
-          </button>
-        </div>
+        {shouldShowTabs() && (
+          <div className="project-management-tabs">
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              Vue d'ensemble
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('requests')}
+            >
+              Demandes
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
+              onClick={() => setActiveTab('participants')}
+            >
+              Participants
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
+              onClick={() => setActiveTab('equipes')}
+            >
+              Équipes
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
+              onClick={() => setActiveTab('kanban')}
+            >
+              Kanban
+            </button>
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
+              onClick={() => setActiveTab('badges')}
+            >
+              Badges
+            </button>
+          </div>
+        )}
 
         {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <div className="tab-content active">
+        {shouldShowTabs() && (
+          <>
+            {activeTab === 'overview' && (
+          <div className="tab-content active overview-tab-content">
             <div className="overview-grid">
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-chart-line"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">{project.progress || 0}%</div>
-                  <div className="stat-label">Progression</div>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${project.progress || 0}%` }}></div>
+              {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
+              {false && (
+                <div className="stat-card">
+                  <div className="stat-icon">
+                    <i className="fas fa-chart-line"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">{project.progress || 0}%</div>
+                    <div className="stat-label">Progression</div>
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${project.progress || 0}%` }}></div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-clock"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">15</div>
-                  <div className="stat-label">Jours restants</div>
-                  <div className="stat-change positive">Dans les délais</div>
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-tasks"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">12/18</div>
-                  <div className="stat-label">Tâches complétées</div>
-                  <div className="task-progress">
-                    {Array.from({ length: 18 }, (_, i) => (
-                      <div key={i} className={`task-bar ${i < 12 ? 'completed' : ''}`}></div>
-                    ))}
+              )}
+              
+              {/* Carte Jours restants */}
+              {(() => {
+                const daysRemaining = calculateDaysRemaining(project.endDate);
+                const status = getDaysRemainingStatus(daysRemaining);
+                
+                return (
+                  <div className="stat-card">
+                    <div className="stat-icon">
+                      <i className="fas fa-clock"></i>
+                    </div>
+                    <div className="stat-content">
+                      <div className="stat-value">{Math.max(0, daysRemaining)}</div>
+                      <div className="stat-label">Jours restants</div>
+                      <div className={`stat-change ${status.className}`}>
+                        {status.text}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
+              {false && (
+                <div className="stat-card">
+                  <div className="stat-icon">
+                    <i className="fas fa-tasks"></i>
+                  </div>
+                  <div className="stat-content">
+                    <div className="stat-value">12/18</div>
+                    <div className="stat-label">Tâches complétées</div>
+                    <div className="task-progress">
+                      {Array.from({ length: 18 }, (_, i) => (
+                        <div key={i} className={`task-bar ${i < 12 ? 'completed' : ''}`}></div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+              
+              {/* Carte Participants */}
+              {(() => {
+                const newMembersThisMonth = calculateNewMembersThisMonth(apiProjectData);
+                
+                return (
+                  <div className="stat-card">
+                    <div className="stat-icon">
+                      <i className="fas fa-users"></i>
+                    </div>
+                    <div className="stat-content">
+                      <div className="stat-value">
+                        {isLoadingStats ? '...' : (projectStats?.overview?.total_members || 0)}
+                      </div>
+                      <div className="stat-label">Participants</div>
+                      <div className="stat-change positive">
+                        +{newMembersThisMonth} nouveaux ce mois
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              
+              {/* Carte Badges attribués */}
               <div className="stat-card">
                 <div className="stat-icon">
                   <i className="fas fa-award"></i>
                 </div>
                 <div className="stat-content">
-                  <div className="stat-value">{project.badges}</div>
+                  <div className="stat-value">
+                    {isLoadingStats ? '...' : (projectStats?.badges?.total || 0)}
+                  </div>
                   <div className="stat-label">Badges attribués</div>
-                  <div className="stat-change positive">+{Math.floor(project.badges * 0.2)} ce mois</div>
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-users"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">{project.participants}</div>
-                  <div className="stat-label">Participants</div>
-                  <div className="stat-change positive">+{Math.floor(project.participants * 0.1)} nouveaux</div>
+                  <div className="stat-change positive">
+                    +{isLoadingStats ? '...' : (projectStats?.badges?.this_month || 0)} ce mois
+                  </div>
                 </div>
               </div>
             </div>
@@ -996,18 +1996,32 @@ const ProjectManagement: React.FC = () => {
                     </div>
                     <div className="member-info">
                       <div className="member-name">{participant.name}</div>
-                      <div className="member-role">{participant.profession}</div>
+                      {participant.organization && (
+                        <div className="member-organization" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                          {participant.organization}
+                        </div>
+                      )}
+                      {participant.profession && (
+                        <div className="member-profession" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                          {participant.profession}
+                        </div>
+                      )}
                     </div>
-                    <div className="member-badge badge-admin">Membre</div>
+                    <div className={`member-badge ${participant.role === 'owner' ? 'badge-admin' : participant.role === 'co-owner' ? 'badge-admin' : participant.role === 'admin' ? 'badge-admin' : ''}`}>
+                      {participant.role === 'owner' ? 'Responsable du projet' : 
+                       participant.role === 'co-owner' ? 'Co-responsable du projet' : 
+                       participant.role === 'admin' ? 'Admin' : 
+                       'Membre'}
+                    </div>
                     <div className="member-skills">
-                      {participant.skills.map((skill, idx) => (
+                      {(participant.skills || []).map((skill: string, idx: number) => (
                         <span key={idx} className="tag skill">
                           <i className="fas fa-star"></i> {skill}
                         </span>
                       ))}
                     </div>
                     <div className="member-availability">
-                      {participant.availability.map((day, idx) => (
+                      {(participant.availability || []).map((day: string, idx: number) => (
                         <span key={idx} className="tag availability">{day}</span>
                       ))}
                     </div>
@@ -1023,9 +2037,17 @@ const ProjectManagement: React.FC = () => {
                       >
                         <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
                       </button>
-                      <button type="button" className="btn-icon" title="Supprimer">
-                        <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
-                      </button>
+                      {/* Show remove button if user can see it and participant can be removed */}
+                      {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
+                        <button 
+                          type="button" 
+                          className="btn-icon" 
+                          title="Retirer"
+                          onClick={() => handleRemoveParticipant(participant.id)}
+                        >
+                          <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1042,7 +2064,12 @@ const ProjectManagement: React.FC = () => {
                 <span className="request-count">{requests.length} demande{requests.length > 1 ? 's' : ''}</span>
               </div>
               
-              {requests.length === 0 ? (
+              {isLoadingRequests ? (
+                <div className="no-requests">
+                  <i className="fas fa-spinner fa-spin"></i>
+                  <p>Chargement des demandes...</p>
+                </div>
+              ) : requests.length === 0 ? (
                 <div className="no-requests">
                   <i className="fas fa-inbox no-requests-icon"></i>
                   <h3>Aucune demande en attente</h3>
@@ -1067,7 +2094,7 @@ const ProjectManagement: React.FC = () => {
                       <div className="request-skills">
                         <h4>Compétences</h4>
                         <div className="skills-list">
-                          {request.skills.map((skill, index) => (
+                          {request.skills.map((skill: string, index: number) => (
                             <span key={index} className="skill-pill">{skill}</span>
                           ))}
                         </div>
@@ -1076,7 +2103,7 @@ const ProjectManagement: React.FC = () => {
                       <div className="request-availability">
                         <h4>Disponibilités</h4>
                         <div className="availability-list">
-                          {request.availability.map((day, index) => (
+                          {request.availability.map((day: string, index: number) => (
                             <span key={index} className="availability-pill">{day}</span>
                           ))}
                         </div>
@@ -1137,34 +2164,69 @@ const ProjectManagement: React.FC = () => {
                         </div>
                     </div>
                     
-                    <div className="request-skills">
-                      <h4>Compétences</h4>
-                      <div className="skills-list">
-                        {participant.skills.map((skill, index) => (
-                          <span key={index} className="skill-pill">{skill}</span>
-                        ))}
+                      <div className="request-skills">
+                        <h4>Compétences</h4>
+                        <div className="skills-list">
+                          {(participant.skills || []).map((skill: string, index: number) => (
+                            <span key={index} className="skill-pill">{skill}</span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="request-availability">
-                      <h4>Disponibilités</h4>
-                      <div className="availability-list">
-                        {participant.availability.map((day, index) => (
-                          <span key={index} className="availability-pill">{day}</span>
-                        ))}
+                      
+                      <div className="request-availability">
+                        <h4>Disponibilités</h4>
+                        <div className="availability-list">
+                          {(participant.availability || []).map((day: string, index: number) => (
+                            <span key={index} className="availability-pill">{day}</span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                      
+                      <div className="request-role-selector" style={{ marginTop: '1rem' }}>
+                        <h4>Rôle dans le projet</h4>
+                        <select
+                          value={getCurrentRoleValue(participant)}
+                          onChange={(e) => handleRoleChange(participant, e.target.value)}
+                          disabled={!canChangeRole(participant)}
+                          style={{
+                            width: '100%',
+                            padding: '0.5rem',
+                            borderRadius: '0.375rem',
+                            border: '1px solid #d1d5db',
+                            fontSize: '0.875rem',
+                            backgroundColor: !canChangeRole(participant) ? '#f3f4f6' : 'white',
+                            cursor: !canChangeRole(participant) ? 'not-allowed' : 'pointer',
+                            color: !canChangeRole(participant) ? '#6b7280' : '#111827'
+                          }}
+                        >
+                          {participant.role === 'owner' && (
+                            <option value="owner">Responsable du projet</option>
+                          )}
+                          {participant.role === 'co-owner' && (
+                            <option value="co-owner">Co-responsable du projet</option>
+                          )}
+                          {participant.role !== 'owner' && participant.role !== 'co-owner' && (
+                            <>
+                              <option value="member">Participant</option>
+                              <option value="member-with-badges">Participant avec droit de badges</option>
+                              <option value="admin">Admin</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
                     
                     <div className="request-actions">
                       <div className="action-buttons">
-                        <button 
-                          className="btn-reject"
-                          onClick={() => handleRemoveParticipant(participant.id)}
-                          title="Retirer du projet"
-                        >
-                          <i className="fas fa-user-minus"></i>
-                          Retirer
-                        </button>
+                        {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
+                          <button 
+                            className="btn-reject"
+                            onClick={() => handleRemoveParticipant(participant.id)}
+                            title="Retirer du projet"
+                          >
+                            <i className="fas fa-user-minus"></i>
+                            Retirer
+                          </button>
+                        )}
                         <button 
                           className="btn-accept"
                           onClick={() => handleAwardBadge(participant.memberId)}
@@ -1752,6 +2814,8 @@ const ProjectManagement: React.FC = () => {
             </div>
           </div>
         )}
+          </>
+        )}
 
       </div>
 
@@ -1791,9 +2855,45 @@ const ProjectManagement: React.FC = () => {
                 />
               </div>
 
+              <div className="form-group">
+                <label>Image principale du projet</label>
+                <div className="avatar-selection">
+                  <div className="avatar-preview">
+                    {editImagePreview ? (
+                      <img src={editImagePreview} alt="Project preview" className="avatar-image" />
+                    ) : (
+                      <div className="avatar-placeholder">
+                        <i className="fas fa-image"></i>
+                        <span>Aucune image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="avatar-actions">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('editProjectImage')?.click()}
+                      className="btn btn-outline btn-sm"
+                    >
+                      <i className="fas fa-upload"></i>
+                      Choisir une nouvelle image
+                    </button>
+                    <input
+                      id="editProjectImage"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditImageChange}
+                      style={{ display: 'none' }}
+                    />
+                    <p className="avatar-note">
+                      Taille max 1 Mo. Si aucune image n'est sélectionnée, l'image actuelle sera conservée.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="project-start-date">Date de début</label>
+                  <label htmlFor="project-start-date">Date de début estimée</label>
                   <input
                     type="date"
                     id="project-start-date"
@@ -1803,7 +2903,7 @@ const ProjectManagement: React.FC = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="project-end-date">Date de fin</label>
+                  <label htmlFor="project-end-date">Date de fin estimée</label>
                   <input
                     type="date"
                     id="project-end-date"
@@ -1814,21 +2914,51 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="project-pathway">Parcours</label>
-                <select
-                  id="project-pathway"
-                  value={editForm.pathway}
-                  onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
-                  className="form-input"
-                >
-                  <option value="sante">Santé</option>
-                  <option value="eac">EAC</option>
-                  <option value="citoyen">Citoyen</option>
-                  <option value="creativite">Créativité</option>
-                  <option value="avenir">Avenir</option>
-                </select>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="project-status">Statut</label>
+                  <select
+                    id="project-status"
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'coming' | 'in_progress' | 'ended' })}
+                    className="form-input"
+                  >
+                    <option value="coming">À venir</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="ended">Terminé</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="project-visibility">Visibilité</label>
+                  <select
+                    id="project-visibility"
+                    value={editForm.visibility}
+                    onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
+                    className="form-input"
+                  >
+                    <option value="public">Projet public</option>
+                    <option value="private">Projet privé</option>
+                  </select>
+                </div>
               </div>
+
+              {state.showingPageType !== 'pro' && (
+                <div className="form-group">
+                  <label htmlFor="project-pathway">Parcours</label>
+                  <select
+                    id="project-pathway"
+                    value={editForm.pathway}
+                    onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
+                    className="form-input"
+                  >
+                    <option value="sante">Santé</option>
+                    <option value="eac">EAC</option>
+                    <option value="citoyen">Citoyen</option>
+                    <option value="creativite">Créativité</option>
+                    <option value="avenir">Avenir</option>
+                  </select>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Tags du projet</label>
@@ -1882,6 +3012,7 @@ const ProjectManagement: React.FC = () => {
           onClose={() => setIsAddParticipantModalOpen(false)}
           onAdd={handleAddParticipantSubmit}
           existingParticipants={participants}
+          availableMembers={availableMembers}
         />
       )}
 

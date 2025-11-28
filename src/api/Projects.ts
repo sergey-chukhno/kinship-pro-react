@@ -127,9 +127,15 @@ export const getOrganizationMembers = async (
         : `/api/v1/companies/${organizationId}/members`;
 
     const response = await apiClient.get(endpoint, {
-        params: { status: 'confirmed' }
+        params: { 
+            status: 'confirmed',
+            per_page: 1000  // Load all members (adjust if needed)
+        }
     });
-    return response.data;
+    
+    // Extract data array from paginated response
+    // Backend returns: { data: [...], meta: {...} }
+    return response.data?.data || response.data || [];
 };
 
 /**
@@ -215,14 +221,21 @@ export const createProject = async (
         formData.append('project[partnership_id]', project.partnership_id.toString());
     }
 
-    // Add project members
+    // Add project members (Rails nested attributes format for multipart/form-data)
     if (project.project_members_attributes && project.project_members_attributes.length > 0) {
-        formData.append('project[project_members_attributes]', JSON.stringify(project.project_members_attributes));
+        project.project_members_attributes.forEach((member, index) => {
+            formData.append(`project[project_members_attributes][${index}][user_id]`, member.user_id.toString());
+            formData.append(`project[project_members_attributes][${index}][role]`, member.role);
+            formData.append(`project[project_members_attributes][${index}][status]`, member.status);
+        });
     }
 
-    // Add links
+    // Add links (Rails nested attributes format for multipart/form-data)
     if (project.links_attributes && project.links_attributes.length > 0) {
-        formData.append('project[links_attributes]', JSON.stringify(project.links_attributes));
+        project.links_attributes.forEach((link, index) => {
+            formData.append(`project[links_attributes][${index}][name]`, link.name);
+            formData.append(`project[links_attributes][${index}][url]`, link.url);
+        });
     }
 
     // Add images
@@ -237,4 +250,215 @@ export const createProject = async (
     }
 
     return createProjectMultipart(formData);
+};
+
+export interface UpdateProjectPayload {
+    project: {
+        title?: string;
+        description?: string;
+        start_date?: string;
+        end_date?: string;
+        status?: 'coming' | 'in_progress' | 'ended';
+        private?: boolean;
+        tag_ids?: number[];
+        keyword_ids?: string[];
+        links_attributes?: LinkAttribute[];
+    };
+}
+
+const updateProjectJSON = async (
+    projectId: number,
+    payload: UpdateProjectPayload
+): Promise<CreateProjectResponse> => {
+    const response = await apiClient.patch(`/api/v1/projects/${projectId}`, payload);
+    return response.data;
+};
+
+const updateProjectMultipart = async (
+    projectId: number,
+    formData: FormData
+): Promise<CreateProjectResponse> => {
+    const response = await apiClient.patch(
+        `/api/v1/projects/${projectId}`,
+        formData,
+        {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        }
+    );
+    return response.data;
+};
+
+export const updateProject = async (
+    projectId: number,
+    payload: UpdateProjectPayload,
+    mainImage?: File | null,
+    additionalImages?: File[]
+): Promise<CreateProjectResponse> => {
+    // If no images, use JSON format
+    if (!mainImage && (!additionalImages || additionalImages.length === 0)) {
+        return updateProjectJSON(projectId, payload);
+    }
+
+    // If images present, use multipart format
+    const formData = new FormData();
+
+    // Add project fields
+    const project = payload.project;
+    if (project.title) formData.append('project[title]', project.title);
+    if (project.description) formData.append('project[description]', project.description);
+    if (project.start_date) formData.append('project[start_date]', project.start_date);
+    if (project.end_date) formData.append('project[end_date]', project.end_date);
+    if (project.status) formData.append('project[status]', project.status);
+    if (project.private !== undefined) formData.append('project[private]', project.private.toString());
+
+    if (project.tag_ids && project.tag_ids.length > 0) {
+        project.tag_ids.forEach(id => {
+            formData.append('project[tag_ids][]', id.toString());
+        });
+    }
+
+    if (project.keyword_ids && project.keyword_ids.length > 0) {
+        project.keyword_ids.forEach(keyword => {
+            formData.append('project[keyword_ids][]', keyword);
+        });
+    }
+
+    // Add links (Rails nested attributes format for multipart/form-data)
+    if (project.links_attributes && project.links_attributes.length > 0) {
+        project.links_attributes.forEach((link, index) => {
+            formData.append(`project[links_attributes][${index}][name]`, link.name);
+            formData.append(`project[links_attributes][${index}][url]`, link.url);
+        });
+    }
+
+    // Add images
+    if (mainImage) {
+        formData.append('project[main_picture]', mainImage);
+    }
+
+    if (additionalImages && additionalImages.length > 0) {
+        additionalImages.forEach(image => {
+            formData.append('project[pictures][]', image);
+        });
+    }
+
+    return updateProjectMultipart(projectId, formData);
+};
+
+/**
+ * Project Statistics Interface
+ */
+export interface ProjectStats {
+    overview: {
+        total_members: number;
+        confirmed_members: number;
+        pending_members: number;
+        total_teams: number;
+        total_badges_assigned: number;
+    };
+    members_by_role: {
+        member: number;
+        admin: number;
+        co_owner: number;
+        owner: number;
+    };
+    members_by_status: {
+        pending: number;
+        confirmed: number;
+    };
+    badges: {
+        total: number;
+        this_month: number;
+        recent: Array<{
+            id: number;
+            badge_name: string;
+            receiver_name: string;
+            assigned_at: string;
+        }>;
+    };
+    teams: {
+        total: number;
+        total_members: number;
+    };
+}
+
+/**
+ * Get project statistics
+ */
+export const getProjectStats = async (projectId: number): Promise<ProjectStats> => {
+    const response = await apiClient.get(`/api/v1/projects/${projectId}/stats`);
+    return response.data;
+};
+
+/**
+ * Join a project (request to join)
+ */
+export const joinProject = async (projectId: number): Promise<{
+    message: string;
+    project_member?: any;
+}> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/join`);
+    return response.data;
+};
+
+/**
+ * Get project members (including pending requests)
+ */
+export const getProjectMembers = async (projectId: number): Promise<any[]> => {
+    const response = await apiClient.get(`/api/v1/projects/${projectId}/members`);
+    return response.data?.data || [];
+};
+
+/**
+ * Get pending project join requests
+ */
+export const getProjectPendingMembers = async (projectId: number): Promise<any[]> => {
+    const allMembers = await getProjectMembers(projectId);
+    // Filter members with status 'pending'
+    return allMembers.filter((member: any) => member.status === 'pending');
+};
+
+/**
+ * Update project member (accept/reject request, change role, etc.)
+ */
+export const updateProjectMember = async (
+    projectId: number,
+    userId: number,
+    updates: {
+        role?: 'member' | 'admin';
+        status?: 'pending' | 'confirmed';
+        can_assign_badges_in_project?: boolean;
+    }
+): Promise<any> => {
+    const response = await apiClient.patch(
+        `/api/v1/projects/${projectId}/members/${userId}`,
+        { member: updates }
+    );
+    return response.data;
+};
+
+/**
+ * Remove project member (reject request or remove member)
+ */
+export const removeProjectMember = async (
+    projectId: number,
+    userId: number
+): Promise<void> => {
+    await apiClient.delete(`/api/v1/projects/${projectId}/members/${userId}`);
+};
+
+/**
+ * Add a member to the project
+ */
+export const addProjectMember = async (
+    projectId: number,
+    userId: number
+): Promise<any> => {
+    const response = await apiClient.post(
+        `/api/v1/projects/${projectId}/members`,
+        { user_id: userId }
+    );
+    return response.data;
 };

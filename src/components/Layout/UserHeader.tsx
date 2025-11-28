@@ -26,34 +26,48 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
     const orgs: Array<{
       id: number | string;
       name: string;
-      type: 'school' | 'company' | 'teacher';
+      type: 'school' | 'company' | 'teacher' | 'user';
       role?: string;
       isAdmin: boolean;
     }> = [];
 
-    // Add schools
-    if (contexts.schools) {
-      contexts.schools.forEach(school => {
-        orgs.push({
-          id: school.id,
-          name: school.name,
-          type: 'school',
-          role: school.role,
-          isAdmin: school.role === 'superadmin' || school.role === 'admin'
-        });
+    // Add personal dashboard if available (at the top)
+    if (contexts.user_dashboard) {
+      orgs.push({
+        id: 'user-dashboard',
+        name: 'Tableau de bord personnel',
+        type: 'user',
+        isAdmin: false
       });
     }
 
-    // Add companies
+    // Add schools (only if admin or superadmin)
+    if (contexts.schools) {
+      contexts.schools.forEach(school => {
+        if (school.role === 'superadmin' || school.role === 'admin') {
+          orgs.push({
+            id: school.id,
+            name: school.name,
+            type: 'school',
+            role: school.role,
+            isAdmin: true
+          });
+        }
+      });
+    }
+
+    // Add companies (only if admin or superadmin)
     if (contexts.companies) {
       contexts.companies.forEach(company => {
-        orgs.push({
-          id: company.id,
-          name: company.name,
-          type: 'company',
-          role: company.role,
-          isAdmin: company.role === 'superadmin' || company.role === 'admin'
-        });
+        if (company.role === 'superadmin' || company.role === 'admin') {
+          orgs.push({
+            id: company.id,
+            name: company.name,
+            type: 'company',
+            role: company.role,
+            isAdmin: true
+          });
+        }
       });
     }
 
@@ -77,7 +91,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   };
 
   // Handle organization switching
-  const handleOrganizationSwitch = (orgId: number | string, orgType: 'school' | 'company' | 'teacher') => {
+  const handleOrganizationSwitch = (orgId: number | string, orgType: 'school' | 'company' | 'teacher' | 'user') => {
     let newPageType: 'pro' | 'edu' | 'teacher' | 'user';
 
     switch (orgType) {
@@ -90,6 +104,9 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
       case 'teacher':
         newPageType = 'teacher';
         break;
+      case 'user':
+        newPageType = 'user';
+        break;
       default:
         newPageType = 'user';
     }
@@ -97,9 +114,14 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
     // Update the showing page type
     setShowingPageType(newPageType);
 
-    // Navigate to dashboard
-    onPageChange('dashboard');
-    navigate('/dashboard');
+    // Navigate to appropriate page
+    if (orgType === 'user') {
+      onPageChange('projects');
+      navigate('/projects');
+    } else {
+      onPageChange('dashboard');
+      navigate('/dashboard');
+    }
 
     // Close dropdown
     setOpen(false);
