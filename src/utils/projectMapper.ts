@@ -52,15 +52,24 @@ export const getContextFromPageType = (
 
 /**
  * Get organization ID from user context based on page type
+ * Only returns organizations where the user is admin or superadmin
  */
 export const getOrganizationId = (
     user: User,
     showingPageType: ShowingPageType
 ): number | undefined => {
     if (showingPageType === 'pro') {
-        return user.available_contexts?.companies?.[0]?.id;
+        // Trouver la première entreprise où l'utilisateur est admin ou superadmin
+        const adminCompany = user.available_contexts?.companies?.find(
+            (c: any) => c.role === 'admin' || c.role === 'superadmin'
+        );
+        return adminCompany?.id;
     } else if (showingPageType === 'edu' || showingPageType === 'teacher') {
-        return user.available_contexts?.schools?.[0]?.id;
+        // Trouver la première école où l'utilisateur est admin ou superadmin
+        const adminSchool = user.available_contexts?.schools?.find(
+            (s: any) => s.role === 'admin' || s.role === 'superadmin'
+        );
+        return adminSchool?.id;
     }
     return undefined;
 };

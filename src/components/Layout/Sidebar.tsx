@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     if (contexts.teacher_dashboard) {
       orgs.push({
         id: 'teacher-dashboard',
-        name: 'Tableau de bord Enseignant',
+        name: 'Tableau de bord enseignant',
         type: 'teacher',
         isAdmin: false
       });
