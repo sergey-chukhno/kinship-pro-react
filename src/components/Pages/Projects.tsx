@@ -10,10 +10,10 @@ import { getCurrentUser } from '../../api/Authentication';
 import { deleteProject, getAllProjects} from '../../api/Project';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
 import { getTeacherProjects } from '../../api/Projects';
-import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
+import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
 
 const Projects: React.FC = () => {
-  const { state, addProject, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
+  const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
   const { selectedProject } = state;
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   
@@ -27,69 +27,118 @@ const Projects: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // --- Fetch des projets ---
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const currentUser = await getCurrentUser();
-
-        if (state.showingPageType === 'teacher') {
-          // Pour les enseignants : charger uniquement leurs projets (créés + classes gérées)
-          const response = await getTeacherProjects({ per_page: 12 });
-          const rawProjects = response.data || [];
-          const formattedProjects: Project[] = rawProjects.map((p: any) => {
-            return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+  // Fonction pour obtenir l'organizationId sélectionné (comme dans Dashboard)
+  const getSelectedOrganizationId = (): number | undefined => {
+    const savedContextId = localStorage.getItem('selectedContextId');
+    const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+    
+    // Si on a un contexte sauvegardé et que c'est une école ou une entreprise
+    if (savedContextId && savedContextType && (savedContextType === 'school' || savedContextType === 'company')) {
+      // Vérifier que l'utilisateur a toujours accès à ce contexte
+      if (savedContextType === 'company') {
+        const company = state.user.available_contexts?.companies?.find(
+          (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
+        );
+        if (company) {
+          console.log('✅ [Projects] Utilisation du contexte entreprise sauvegardé:', {
+            companyId: Number(savedContextId),
+            companyName: company.name,
+            role: company.role
           });
-          setProjects(formattedProjects);
-        } else if (state.showingPageType === 'user') {
-          // Pour les utilisateurs personnels : charger tous les projets publics
-          const response = await getAllProjects();
-          const rawProjects = response.data?.data || response.data || [];
-          // Filtrer uniquement les projets publics
-          const publicProjects = rawProjects.filter((p: any) => !p.private);
-          const formattedProjects: Project[] = publicProjects.map((p: any) => {
-            return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
-          });
-          setProjects(formattedProjects);
-        } else {
-          // Logique existante pour école/entreprise
-          const isEdu = state.showingPageType === 'edu';
-
-          // 1. Récupération de l'ID du contexte (Company vs School)
-          const contextId = isEdu
-            ? currentUser.data?.available_contexts?.schools?.[0]?.id
-            : currentUser.data?.available_contexts?.companies?.[0]?.id;
-
-          if (!contextId) return;
-
-          // 2. Choix de la fonction API
-          let response;
-          if (isEdu) {
-            // Use getSchoolProjects for schools (returns all school projects, not just user's projects)
-            // perPage: 12 for Projects page (vs 3 for Dashboard)
-            response = await getSchoolProjects(contextId, false, 12);
-          } else {
-            // Use getCompanyProjects for companies (returns all company projects, not just user's projects)
-            response = await getCompanyProjects(contextId, false);
-          }
-
-          // Gestion de la structure de réponse { data: [ ... ], meta: ... }
-          const rawProjects = response.data?.data || response.data || [];
-
-          // 3. Mapping des données API vers le type Project (using centralized mapper)
-          const formattedProjects: Project[] = rawProjects.map((p: any) => {
-              return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
-          });
-
-          setProjects(formattedProjects);
+          return Number(savedContextId);
         }
-      } catch (err) {
-        console.error('Erreur lors de la récupération des projets:', err);
+      } else if (savedContextType === 'school') {
+        const school = state.user.available_contexts?.schools?.find(
+          (s: any) => s.id.toString() === savedContextId && (s.role === 'admin' || s.role === 'superadmin')
+        );
+        if (school) {
+          console.log('✅ [Projects] Utilisation du contexte école sauvegardé:', {
+            schoolId: Number(savedContextId),
+            schoolName: school.name,
+            role: school.role
+          });
+          return Number(savedContextId);
+        }
       }
-    };
+    }
+    
+    // Sinon, utiliser la logique par défaut
+    const defaultOrgId = getOrganizationId(state.user, state.showingPageType);
+    console.log('⚠️ [Projects] Utilisation du contexte par défaut:', {
+      organizationId: defaultOrgId,
+      showingPageType: state.showingPageType
+    });
+    return defaultOrgId;
+  };
 
+  // Fonction pour récupérer les projets (réutilisable)
+  const fetchProjects = React.useCallback(async () => {
+    try {
+      const currentUser = await getCurrentUser();
+
+      if (state.showingPageType === 'teacher') {
+        // Pour les enseignants : charger uniquement leurs projets (créés + classes gérées)
+        const response = await getTeacherProjects({ per_page: 12 });
+        const rawProjects = response.data || [];
+        const formattedProjects: Project[] = rawProjects.map((p: any) => {
+          return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+        });
+        setProjects(formattedProjects);
+      } else if (state.showingPageType === 'user') {
+        // Pour les utilisateurs personnels : charger tous les projets publics
+        const response = await getAllProjects();
+        const rawProjects = response.data?.data || response.data || [];
+        // Filtrer uniquement les projets publics
+        const publicProjects = rawProjects.filter((p: any) => !p.private);
+        const formattedProjects: Project[] = publicProjects.map((p: any) => {
+          return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+        });
+        setProjects(formattedProjects);
+      } else {
+        // Logique pour école/entreprise - utiliser l'organizationId sélectionné
+        const isEdu = state.showingPageType === 'edu';
+
+        // 1. Récupération de l'ID du contexte sélectionné (Company vs School)
+        const contextId = getSelectedOrganizationId();
+
+        if (!contextId) {
+          console.warn('⚠️ [Projects] Aucun contextId trouvé pour le type:', state.showingPageType);
+          setProjects([]);
+          return;
+        }
+
+        // 2. Choix de la fonction API
+        let response;
+        if (isEdu) {
+          // Use getSchoolProjects for schools (returns all school projects, not just user's projects)
+          // perPage: 12 for Projects page (vs 3 for Dashboard)
+          response = await getSchoolProjects(contextId, false, 12);
+        } else {
+          // Use getCompanyProjects for companies (returns all company projects, not just user's projects)
+          response = await getCompanyProjects(contextId, false);
+        }
+
+        // Gestion de la structure de réponse { data: [ ... ], meta: ... }
+        const rawProjects = response.data?.data || response.data || [];
+
+        // 3. Mapping des données API vers le type Project (using centralized mapper)
+        const formattedProjects: Project[] = rawProjects.map((p: any) => {
+            return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+        });
+
+        setProjects(formattedProjects);
+      }
+    } catch (err) {
+      console.error('Erreur lors de la récupération des projets:', err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType, state.user]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
+
+  // --- Fetch des projets au chargement ---
+  useEffect(() => {
     fetchProjects();
-  }, [state.showingPageType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType]); // Retirer state.user.available_contexts pour éviter les re-renders, le contexte est lu depuis localStorage
 
 
   const handleCreateProject = () => {
@@ -102,21 +151,20 @@ const Projects: React.FC = () => {
     setIsProjectModalOpen(true);
   };
 
-  const handleSaveProject = (projectData: Omit<Project, 'id'>) => {
+  const handleSaveProject = async (projectData: Omit<Project, 'id'>) => {
     if (selectedProject) {
       // Mettre à jour localement et via le contexte (si besoin de persistance API, ajouter l'appel ici)
       updateProject(selectedProject.id, projectData);
       setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, ...projectData } : p));
     } else {
-      const newProject: Project = {
-        ...projectData,
-        id: Date.now().toString()
-      };
-      addProject(newProject);
-      setProjects(prev => [...prev, newProject]);
+      // Pour la création, on ne fait pas de mise à jour locale car on va recharger depuis l'API
+      // Le projet sera créé via l'API dans ProjectModal
     }
     setIsProjectModalOpen(false);
     setSelectedProject(null);
+    
+    // Rafraîchir la liste des projets après création/modification
+    await fetchProjects();
   };
 
   const handleManageProject = (project: Project) => {
@@ -172,10 +220,10 @@ const Projects: React.FC = () => {
   });
 
   return (
-    <section className="flex flex-col p-8 gap-12 with-sidebar">
+    <section className="flex flex-col gap-12 p-8 with-sidebar">
       {/* Section Title + Actions */}
       <div className="flex justify-between items-start">
-        <div className="section-title-left flex items-center gap-2 w-full">
+        <div className="flex gap-2 items-center w-full section-title-left">
           <img src="/icons_logo/Icon=projet.svg" alt="Projets" className="section-icon" />
           <h2>{(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Découvrir les projets' : 'Gestion des projets'}</h2>
         </div>

@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Members';
-import { addSchoolLevel, getSchoolLevels } from '../../api/SchoolDashboard/Levels';
+import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel } from '../../api/SchoolDashboard/Levels';
 import { getSchoolMembersAccepted, getSchoolVolunteers, updateSchoolMemberRole } from '../../api/SchoolDashboard/Members';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getSkills } from '../../api/Skills';
+import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { ClassList, Member } from '../../types';
@@ -76,6 +77,7 @@ const Members: React.FC = () => {
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isClassStudentsModalOpen, setIsClassStudentsModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<{ id: number; name: string } | null>(null);
+  const [editingClass, setEditingClass] = useState<ClassList | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   // const classLists = mockClassLists;
@@ -88,9 +90,19 @@ const Members: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
+  const [classSearchTerm, setClassSearchTerm] = useState('');
+  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<number | null>(null);
+  const [availableSchoolsForFilter, setAvailableSchoolsForFilter] = useState<Array<{ id: number; name: string }>>([]);
 
   const fetchMembers = async () => {
+    // Ne pas récupérer les membres pour les teachers
+    if (isTeacherContext) {
+      setMembers([]);
+      return;
+    }
+
     try {
+      setLoading(true);
       const currentUser = await getCurrentUser();
       const isEdu = isSchoolContext;
 
@@ -196,18 +208,60 @@ const Members: React.FC = () => {
     } catch (err) {
       console.error('Erreur critique récupération liste membres:', err);
       showError('Impossible de récupérer la liste des membres');
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchLevels = async () => {
     try {
+      setLoading(true);
       const currentUser = await getCurrentUser();
-      const isEdu = isSchoolContext;
-      const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
-      if (!contextId) return;
-      const levelsRes = await getSchoolLevels(contextId, page, per_page);
-      const levels = levelsRes.data.data || levelsRes.data || [];
-      setClassLists(levels);
+      
+      // Charger les écoles disponibles pour le filtre (pour les teachers et admins d'école)
+      const schools = currentUser.data?.available_contexts?.schools || [];
+      if (schools.length > 0) {
+        const filteredSchools = schools.filter((school: any) => 
+          school.role === 'admin' || school.role === 'superadmin' || school.role === 'referent'
+        );
+        const schoolsList = filteredSchools.map((school: any) => ({
+          id: school.id,
+          name: school.name
+        }));
+        setAvailableSchoolsForFilter(schoolsList);
+      } else {
+        setAvailableSchoolsForFilter([]);
+      }
+      
+      // Si c'est un teacher rattaché à une école, utiliser l'API teachers/classes
+      if (isTeacherContext) {
+        const levelsRes = await getTeacherClasses(page, per_page);
+        const levels = levelsRes.data.data || levelsRes.data || [];
+        // Extraire les teacher_ids depuis les teachers et ajouter school_id si disponible
+        const levelsWithTeacherIds = levels.map((level: any) => ({
+          ...level,
+          teacher_ids: level.teachers?.map((t: any) => t.id) || [],
+          school_id: level.school_id || null
+        }));
+        setClassLists(levelsWithTeacherIds);
+      } else {
+        // Sinon, utiliser l'API schools/levels pour les admins d'école
+        const isEdu = isSchoolContext;
+        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        if (!contextId) {
+          setLoading(false);
+          return;
+        }
+        const levelsRes = await getSchoolLevels(contextId, page, per_page);
+        const levels = levelsRes.data.data || levelsRes.data || [];
+        // Extraire les teacher_ids depuis les teachers et ajouter school_id
+        const levelsWithTeacherIds = levels.map((level: any) => ({
+          ...level,
+          teacher_ids: level.teachers?.map((t: any) => t.id) || [],
+          school_id: contextId
+        }));
+        setClassLists(levelsWithTeacherIds);
+      }
     } catch (err) {
       console.error('Erreur critique récupération liste niveaux:', err);
       showError('Impossible de récupérer la liste des classes');
@@ -217,6 +271,12 @@ const Members: React.FC = () => {
   };
 
   const fetchCommunityVolunteers = async () => {
+    // Ne pas récupérer les volontaires pour les teachers
+    if (isTeacherContext) {
+      setCommunityLists([]);
+      return;
+    }
+
     try {
       const currentUser = await getCurrentUser();
       const isEdu = isSchoolContext;
@@ -303,9 +363,31 @@ const Members: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchLevels();
-    fetchMembers();
-    fetchCommunityVolunteers();
+    let isMounted = true;
+    let abortController = new AbortController();
+    
+    const fetchData = async () => {
+      if (!isMounted) return;
+      
+      try {
+        await Promise.all([
+          fetchLevels(),
+          fetchMembers(),
+          fetchCommunityVolunteers()
+        ]);
+      } catch (error) {
+        if (isMounted && !abortController.signal.aborted) {
+          console.error('Error fetching data:', error);
+        }
+      }
+    };
+    
+    fetchData();
+    
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, per_page, state.showingPageType]);
 
@@ -537,26 +619,171 @@ const Members: React.FC = () => {
     }
   };
 
-  const handleAddClassList = async (levelData: { level: { name: string; level: string } }) => {
+  const handleAddClassList = async (levelData: { level: { name: string; level: string; teacher_ids?: number[]; school_id?: number | null } }) => {
+    // Si on est en mode édition, utiliser handleUpdateClass qui fait un PATCH
+    if (editingClass) {
+      await handleUpdateClass(levelData);
+      return;
+    }
+
+    // Sinon, c'est une création (POST)
     try {
       const currentUser = await getCurrentUser();
-      const isEdu = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
-      const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
       
-      if (!contextId) {
-        showError("Impossible de trouver le contexte de l'école");
-        return;
-      }
+      // Si c'est un teacher, utiliser l'API teachers/classes avec un payload différent
+      if (isTeacherContext) {
+        // Utiliser le school_id passé depuis le modal (peut être null pour "Aucun")
+        // Si non fourni et qu'il y a plusieurs écoles, utiliser null
+        // Si non fourni et qu'il n'y a qu'une école, utiliser celle-ci
+        let schoolId: number | null = levelData.level.school_id ?? null;
+        if (schoolId === undefined) {
+          const schools = currentUser.data?.available_contexts?.schools || [];
+          if (schools.length === 1) {
+            // Si une seule école, l'utiliser par défaut
+            schoolId = schools[0].id;
+          } else {
+            // Si plusieurs écoles ou aucune, utiliser null
+            schoolId = null;
+          }
+        }
+        
+        // Récupérer l'ID du teacher actuel pour l'ajouter par défaut
+        const teacherId = currentUser.data?.id;
+        const teacherIds = levelData.level.teacher_ids && levelData.level.teacher_ids.length > 0 
+          ? levelData.level.teacher_ids 
+          : teacherId ? [Number(teacherId)] : [];
+        
+        // Construire le payload spécifique pour les teachers
+        // Convertir le niveau en nombre (l'API attend un nombre pour les teachers)
+        const levelNumber = parseInt(levelData.level.level, 10) || 0;
+        
+        const teacherClassData = {
+          class: {
+            name: levelData.level.name,
+            level: levelNumber,
+            // Inclure school_id même si null (pour l'option "Aucun")
+            school_id: schoolId !== null && schoolId !== undefined ? Number(schoolId) : null,
+            teacher_ids: teacherIds
+          }
+        };
+        
+        await createTeacherClass(teacherClassData);
+      } else {
+        // Sinon, utiliser l'API schools/levels pour les admins d'école
+        const isEdu = state.showingPageType === 'edu';
+        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        
+        if (!contextId) {
+          showError("Impossible de trouver le contexte de l'école");
+          return;
+        }
 
-      await addSchoolLevel(contextId, levelData);
-      // showSuccess(`La classe ${levelData.level.name} a été ajoutée avec succès`);
+        await addSchoolLevel(contextId, levelData);
+      }
       
       // Refresh the levels list after adding a new one
       await fetchLevels();
       setIsAddClassModalOpen(false);
+      setEditingClass(null);
     } catch (err) {
       console.error("Erreur lors de l'ajout de la classe :", err);
-      // showError("Erreur lors de l'ajout de la classe");
+      throw err; // Re-throw pour que AddClassModal puisse aussi gérer l'erreur
+    }
+  };
+
+  const handleDeleteClass = async (classItem: ClassList) => {
+    // Confirmation avant suppression
+    const confirmed = window.confirm(
+      `Êtes-vous sûr de vouloir supprimer la classe "${classItem.name}" ?\n\nCette action est irréversible et supprimera également tous les étudiants associés.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const currentUser = await getCurrentUser();
+      
+      // Si c'est un teacher, utiliser l'API teachers/classes
+      if (isTeacherContext) {
+        await deleteTeacherClass(Number(classItem.id));
+      } else {
+        // Sinon, utiliser l'API schools/levels pour les admins d'école
+        const isEdu = state.showingPageType === 'edu';
+        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        
+        if (!contextId) {
+          showError("Impossible de trouver le contexte de l'école");
+          return;
+        }
+
+        await deleteSchoolLevel(contextId, Number(classItem.id));
+      }
+      
+      showSuccess(`La classe "${classItem.name}" a été supprimée avec succès`);
+      
+      // Refresh the levels list after deletion
+      await fetchLevels();
+    } catch (err) {
+      console.error("Erreur lors de la suppression de la classe :", err);
+      showError("Erreur lors de la suppression de la classe");
+    }
+  };
+
+  const handleEditClass = (classItem: ClassList) => {
+    setEditingClass(classItem);
+    setIsAddClassModalOpen(true);
+  };
+
+  const handleUpdateClass = async (levelData: { level: { name: string; level: string; teacher_ids?: number[]; school_id?: number | null } }) => {
+    if (!editingClass) return;
+
+    try {
+      const currentUser = await getCurrentUser();
+      
+      // Si c'est un teacher, utiliser l'API teachers/classes avec un payload différent
+      if (isTeacherContext) {
+        // Utiliser le school_id passé depuis le modal, ou le premier disponible
+        const schoolId = levelData.level.school_id || currentUser.data?.available_contexts?.schools?.[0]?.id;
+        if (!schoolId) {
+          showError("Impossible de trouver l'identifiant de l'école");
+          return;
+        }
+        
+        // Construire le payload spécifique pour les teachers
+        // Convertir le niveau en nombre (l'API attend un nombre pour les teachers)
+        const levelNumber = parseInt(levelData.level.level, 10) || 0;
+        
+        const teacherClassData = {
+          class: {
+            name: levelData.level.name,
+            level: levelNumber,
+            // Inclure school_id même si null (pour l'option "Aucun")
+            school_id: schoolId !== null && schoolId !== undefined ? Number(schoolId) : null,
+            teacher_ids: levelData.level.teacher_ids || []
+          }
+        };
+        
+        await updateTeacherClass(Number(editingClass.id), teacherClassData);
+      } else {
+        // Sinon, utiliser l'API schools/levels pour les admins d'école
+        const isEdu = state.showingPageType === 'edu';
+        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        
+        if (!contextId) {
+          showError("Impossible de trouver le contexte de l'école");
+          return;
+        }
+
+        await updateSchoolLevel(contextId, Number(editingClass.id), levelData);
+      }
+      
+      showSuccess(`La classe "${levelData.level.name}" a été modifiée avec succès`);
+      
+      // Refresh the levels list after update
+      await fetchLevels();
+      setIsAddClassModalOpen(false);
+      setEditingClass(null);
+    } catch (err) {
+      console.error("Erreur lors de la modification de la classe :", err);
       throw err; // Re-throw pour que AddClassModal puisse aussi gérer l'erreur
     }
   };
@@ -572,14 +799,27 @@ const Members: React.FC = () => {
         </div>
         <div className="page-actions">
           <div className="action-group">
-          <div className="">
-              <button className="btn btn-outline" onClick={handleMembershipRequests}>
-                <i className="fas fa-user-plus"></i>
-                Gérer demandes d'adhésion
-              </button>
-            </div>
+          {/* Vérifier si l'utilisateur est admin ou superadmin dans au moins une école ou entreprise */}
+          {(() => {
+            const contexts = state.user.available_contexts;
+            const isAdmin = contexts?.schools?.some((school: any) => 
+              school.role === 'admin' || school.role === 'superadmin'
+            ) || contexts?.companies?.some((company: any) => 
+              company.role === 'admin' || company.role === 'superadmin'
+            );
+            return isAdmin ? (
+              <div className="">
+                <button className="btn btn-outline" onClick={handleMembershipRequests}>
+                  <i className="fas fa-user-plus"></i>
+                  Gérer demandes d'adhésion
+                </button>
+              </div>
+            ) : null;
+          })()}
             <div className="dropdown-container" ref={dropdownRef}>
               <button
+              disabled={true}
+              title="Disponible très bientôt"
                 className="btn btn-outline"
                 onClick={() => setIsImportExportOpen(!isImportExportOpen)}
               >
@@ -666,66 +906,173 @@ const Members: React.FC = () => {
         </>
       )}
 
-      {/* Contenu du tab “Classe” */}
+      {/* Contenu du tab "Classe" */}
       {activeTab === 'class' && (
         <div className="min-h-[75vh]" >
-            <div className="mb-4">
-              <button className="view-btn" onClick={() => setIsAddClassModalOpen(true)}>
-                <i className="fas fa-plus"></i> Ajouter une classe
-              </button>
-              {/* Add class modal modal */}
+            <div className="flex flex-col gap-4 mb-4">
+              <div className="flex flex-wrap gap-4 items-center">
+                <button className="view-btn" onClick={() => setIsAddClassModalOpen(true)}>
+                  <i className="fas fa-plus"></i> Ajouter une classe
+                </button>
+                
+                {/* Barre de recherche */}
+                <div className="flex-1 min-w-[200px] max-w-[400px]">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Rechercher une classe par nom ou niveau"
+                      value={classSearchTerm}
+                      onChange={(e) => setClassSearchTerm(e.target.value)}
+                      className="!pl-10 form-input"
+                    />
+                    <i className="absolute left-3 top-1/2 text-gray-400 transform -translate-y-1/2 fas fa-search"></i>
+                  </div>
+                </div>
+
+                {/* Filtre par établissement (affiché si au moins une école disponible) */}
+                {availableSchoolsForFilter.length > 0 && (
+                  <div className="min-w-[200px]">
+                    <select
+                      value={selectedSchoolFilter !== null && selectedSchoolFilter !== -1 ? selectedSchoolFilter : selectedSchoolFilter === -1 ? 'none' : ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === 'none') {
+                          setSelectedSchoolFilter(-1); // -1 représente "Aucun"
+                        } else if (value === '') {
+                          setSelectedSchoolFilter(null); // null représente "Tous"
+                        } else {
+                          setSelectedSchoolFilter(Number(value));
+                        }
+                      }}
+                      className="form-select"
+                    >
+                      <option value="">Tous les établissements</option>
+                      <option value="none">Aucun</option>
+                      {availableSchoolsForFilter.map((school) => (
+                        <option key={school.id} value={school.id}>
+                          {school.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              
+              {/* Add/Edit class modal */}
               {isAddClassModalOpen && (
-                <AddClassModal onClose={() => setIsAddClassModalOpen(false)} onAdd={handleAddClassList} />
+                <AddClassModal 
+                  onClose={() => {
+                    setIsAddClassModalOpen(false);
+                    setEditingClass(null);
+                  }} 
+                  onAdd={handleAddClassList}
+                  initialData={editingClass ? {
+                    name: editingClass.name,
+                    level: editingClass.level || '',
+                    id: Number(editingClass.id),
+                    teacher_ids: editingClass.teacher_ids || []
+                  } : undefined}
+                  isEdit={!!editingClass}
+                />
               )}
             </div>
           <div className="members-grid">
-            {classLists.length > 0 ? classLists.map((classItem: ClassList) => (
-              <ClassCard
-                key={classItem?.id}
-                name={classItem?.name}
-                teacher={classItem?.teacher || ''}
-                studentCount={classItem?.students_count || 0}
-                level={classItem?.level || ''}
-                onClick={() => handleClassClick(classItem)}
-              />
-            ))
-          : <div className="text-center text-gray-500">Aucune classe trouvée pour le moment</div>}
+            {(() => {
+              // Filtrer les classes par recherche et établissement
+              let filteredClasses = classLists;
+              
+              // Filtre par recherche (nom de la classe)
+              if (classSearchTerm.trim()) {
+                const searchLower = classSearchTerm.toLowerCase();
+                filteredClasses = filteredClasses.filter((classItem: ClassList) =>
+                  classItem.name?.toLowerCase().includes(searchLower) ||
+                  classItem.level?.toLowerCase().includes(searchLower)
+                );
+              }
+              
+              // Filtre par établissement
+              if (selectedSchoolFilter !== null) {
+                if (selectedSchoolFilter === -1) {
+                  // Filtrer les classes sans établissement (school_id: null)
+                  filteredClasses = filteredClasses.filter((classItem: any) =>
+                    classItem.school_id === null || classItem.school_id === undefined
+                  );
+                } else {
+                  // Filtrer par établissement spécifique
+                  filteredClasses = filteredClasses.filter((classItem: any) =>
+                    classItem.school_id === selectedSchoolFilter
+                  );
+                }
+              }
+              
+              return filteredClasses.length > 0 ? filteredClasses.map((classItem: ClassList) => (
+                <ClassCard
+                  key={classItem?.id}
+                  name={classItem?.name}
+                  teacher={classItem?.teacher || ''}
+                  studentCount={classItem?.students_count || 0}
+                  level={classItem?.level || ''}
+                  teachers={classItem?.teachers}
+                  onClick={() => handleClassClick(classItem)}
+                  onEdit={() => handleEditClass(classItem)}
+                  onDelete={() => handleDeleteClass(classItem)}
+                />
+              )) : (
+                <div className="w-full text-center text-gray-500">
+                  {classSearchTerm || (selectedSchoolFilter !== null && selectedSchoolFilter !== -1) || selectedSchoolFilter === -1
+                    ? 'Aucune classe ne correspond aux critères de recherche' 
+                    : 'Aucune classe trouvée pour le moment'}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
 
-      {/* Contenu du tab “Communauté” */}
+      {/* Contenu du tab "Communauté" */}
       {activeTab === 'community' && (
         <div className="community-tab-content min-h-[75vh]">
-          {renderFilterBar()}
-          <div className="members-grid">
-            {filteredCommunityMembers.length > 0 ? (
-              filteredCommunityMembers.map((communityItem) => {
-                const communityForDisplay = {
-                  ...communityItem,
-                  roles: translateRoles(communityItem.roles),
-                  profession: translateRole(communityItem.profession || '')
-                };
-                return (
-                  <MemberCard
-                    key={communityItem.id}
-                    member={communityForDisplay}
-                    badgeCount={communityItem.badges?.length || 0}
-                    onClick={() => setSelectedMember(communityItem)}
-                    onContactClick={() => {
-                      setContactEmail(communityItem.email);
-                      setIsContactModalOpen(true);
-                    }}
-                    onRoleChange={(newRole) => handleRoleChange(communityItem, newRole, 'community')}
-                  />
-                );
-              })
-            ) : (
-              <div className="text-gray-500 whitespace-nowrap">
-                {competenceFilter ? 'Aucun membre ne correspond à cette compétence' : 'Aucune communauté trouvée pour le moment'}
+          {isTeacherContext ? (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+              <div className="p-8 max-w-md bg-blue-50 rounded-lg border border-blue-200">
+                <i className="mb-4 text-4xl text-blue-500 fas fa-info-circle"></i>
+                <h3 className="mb-2 text-xl font-semibold text-gray-700">Fonctionnalité à venir</h3>
+                <p className="text-gray-600">Disponible très bientôt</p>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <>
+              {renderFilterBar()}
+              <div className="members-grid">
+                {filteredCommunityMembers.length > 0 ? (
+                  filteredCommunityMembers.map((communityItem) => {
+                    const communityForDisplay = {
+                      ...communityItem,
+                      roles: translateRoles(communityItem.roles),
+                      profession: translateRole(communityItem.profession || '')
+                    };
+                    return (
+                      <MemberCard
+                        key={communityItem.id}
+                        member={communityForDisplay}
+                        badgeCount={communityItem.badges?.length || 0}
+                        onClick={() => setSelectedMember(communityItem)}
+                        onContactClick={() => {
+                          setContactEmail(communityItem.email);
+                          setIsContactModalOpen(true);
+                        }}
+                        onRoleChange={(newRole) => handleRoleChange(communityItem, newRole, 'community')}
+                      />
+                    );
+                  })
+                ) : (
+                  <div className="text-gray-500 whitespace-nowrap">
+                    {competenceFilter ? 'Aucun membre ne correspond à cette compétence' : 'Aucune communauté trouvée pour le moment'}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 

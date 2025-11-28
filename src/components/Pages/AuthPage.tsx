@@ -134,41 +134,14 @@ const AuthPage: React.FC = () => {
 
           // Priority 1: Personal dashboard
           if (response.data.user.available_contexts.user_dashboard) {
+            localStorage.setItem('selectedPageType', 'user');
+            localStorage.setItem('selectedContextId', 'user-dashboard');
+            localStorage.setItem('selectedContextType', 'user');
             setShowingPageType("user")
             setCurrentPage("projects")
             navigate("/projects")
           }
-          // Priority 2: Companies (only if admin/superadmin)
-          else if (
-            hasAdminCompany ||
-            [
-              "president_association",
-              "president_fondation",
-              "directeur_organisation",
-              "directeur_entreprise",
-              "responsable_rh_formation_secteur",
-            ].includes(response.data.user.role)
-          ) {
-            setShowingPageType("pro")
-            setCurrentPage("dashboard")
-            navigate("/dashboard")
-          }
-          // Priority 3: Schools (only if admin/superadmin)
-          else if (
-            hasAdminSchool ||
-            [
-              "directeur_ecole",
-              "directeur_academique",
-              "principal",
-              "proviseur",
-              "responsable_academique",
-            ].includes(response.data.user.role)
-          ) {
-            setShowingPageType("edu")
-            setCurrentPage("dashboard")
-            navigate("/dashboard")
-          }
-          // Priority 4: Teacher dashboard
+          // Priority 2: Teacher dashboard (vérifié avant les accès admin)
           else if (
             response.data.user.available_contexts.teacher_dashboard ||
             [
@@ -179,7 +152,54 @@ const AuthPage: React.FC = () => {
               "cpe_student_life",
             ].includes(response.data.user.role)
           ) {
+            localStorage.setItem('selectedPageType', 'teacher');
+            localStorage.setItem('selectedContextId', 'teacher-dashboard');
+            localStorage.setItem('selectedContextType', 'teacher');
             setShowingPageType("teacher")
+            setCurrentPage("dashboard")
+            navigate("/dashboard")
+          }
+          // Priority 3: Companies (only if admin/superadmin)
+          else if (
+            hasAdminCompany ||
+            [
+              "president_association",
+              "president_fondation",
+              "directeur_organisation",
+              "directeur_entreprise",
+              "responsable_rh_formation_secteur",
+            ].includes(response.data.user.role)
+          ) {
+            // Prendre la première entreprise où l'utilisateur est admin
+            const firstAdminCompany = response.data.user.available_contexts.companies?.find(
+              (c: any) => c.role === 'admin' || c.role === 'superadmin'
+            );
+            localStorage.setItem('selectedPageType', 'pro');
+            localStorage.setItem('selectedContextId', firstAdminCompany?.id?.toString() || '');
+            localStorage.setItem('selectedContextType', 'company');
+            setShowingPageType("pro")
+            setCurrentPage("dashboard")
+            navigate("/dashboard")
+          }
+          // Priority 4: Schools (only if admin/superadmin)
+          else if (
+            hasAdminSchool ||
+            [
+              "directeur_ecole",
+              "directeur_academique",
+              "principal",
+              "proviseur",
+              "responsable_academique",
+            ].includes(response.data.user.role)
+          ) {
+            // Prendre la première école où l'utilisateur est admin
+            const firstAdminSchool = response.data.user.available_contexts.schools?.find(
+              (s: any) => s.role === 'admin' || s.role === 'superadmin'
+            );
+            localStorage.setItem('selectedPageType', 'edu');
+            localStorage.setItem('selectedContextId', firstAdminSchool?.id?.toString() || '');
+            localStorage.setItem('selectedContextType', 'school');
+            setShowingPageType("edu")
             setCurrentPage("dashboard")
             navigate("/dashboard")
           }

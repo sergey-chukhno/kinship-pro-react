@@ -4,7 +4,7 @@ import './OrganizationCard.css';
 interface Organization {
   id: string;
   name: string;
-  type: 'sub-organization' | 'partner';
+  type: 'sub-organization' | 'partner' | 'schools' | 'companies';
   description: string;
   members: number;
   location: string;
@@ -45,6 +45,8 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
     switch (type) {
       case 'sub-organization': return 'Sous-organisation';
       case 'partner': return 'Partenaire';
+      case 'schools': return 'Établissement scolaire';
+      case 'companies': return 'Entreprise';
       default: return 'Organisation';
     }
   };
@@ -75,13 +77,26 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
           <div className="organization-meta">
             <span className="organization-type">{getTypeLabel(organization.type)}</span>
             <span 
-              className="organization-status" 
+              className="whitespace-nowrap organization-status" 
               style={{ color: getStatusColor(organization.status) }}
             >
               {getStatusLabel(organization.status)}
             </span>
           </div>
         </div>
+        {
+          organization.type !== 'schools' && (
+            <>
+            <div className="organization-actions">
+              <button 
+                className="btn-icon" 
+                title="Modifier"
+                onClick={onEdit}
+              >
+                <i className="fas fa-edit"></i>
+              </button>
+            </div>
+      
         <div className="organization-actions">
           <button 
             className="btn-icon" 
@@ -98,6 +113,9 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
             <i className="fas fa-trash"></i>
           </button>
         </div>
+        </>
+            )
+          }
       </div>
 
       <div className="organization-content">
@@ -112,10 +130,11 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
             <i className="fas fa-users"></i>
             <span>{organization.members} membres</span>
           </div>
+          {organization.joinedDate && (
           <div className="detail-item">
             <i className="fas fa-calendar"></i>
             <span>Rejoint le {formatDate(organization.joinedDate)}</span>
-          </div>
+          </div>)}
           {organization.website && (
             <div className="detail-item">
               <i className="fas fa-globe"></i>

@@ -175,7 +175,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         }
       }
     }
-  }, [teacherProjectContext, selectedSchoolId, state.showingPageType, state.user, project]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teacherProjectContext, selectedSchoolId, state.showingPageType, state.user.name, project]); // Utiliser state.user.name au lieu de state.user
 
   useEffect(() => {
     if (project) {
@@ -257,13 +258,46 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     };
 
     fetchTags();
-  }, [state.tags.length, setTags]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.tags.length]); // setTags est stable du contexte, pas besoin de le mettre en dépendance
 
   // Fetch members and partnerships when modal opens
   useEffect(() => {
     const fetchMembersAndPartnerships = async () => {
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
-      const organizationType = getOrganizationType(state.showingPageType);
+      // Utiliser le contexte sélectionné depuis localStorage (comme dans Dashboard et Projects)
+      const savedContextId = localStorage.getItem('selectedContextId');
+      const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+      
+      let organizationId: number | undefined;
+      let organizationType: 'school' | 'company' | undefined;
+      
+      // Si on a un contexte sauvegardé et que c'est une école ou une entreprise
+      if (savedContextId && savedContextType && (savedContextType === 'school' || savedContextType === 'company')) {
+        // Vérifier que l'utilisateur a toujours accès à ce contexte
+        if (savedContextType === 'company') {
+          const company = state.user.available_contexts?.companies?.find(
+            (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
+          );
+          if (company) {
+            organizationId = Number(savedContextId);
+            organizationType = 'company';
+          }
+        } else if (savedContextType === 'school') {
+          const school = state.user.available_contexts?.schools?.find(
+            (s: any) => s.id.toString() === savedContextId && (s.role === 'admin' || s.role === 'superadmin')
+          );
+          if (school) {
+            organizationId = Number(savedContextId);
+            organizationType = 'school';
+          }
+        }
+      }
+      
+      // Sinon, utiliser la logique par défaut
+      if (!organizationId) {
+        organizationId = getOrganizationId(state.user, state.showingPageType);
+        organizationType = getOrganizationType(state.showingPageType);
+      }
 
       console.log('Fetching members:', { organizationId, organizationType, showingPageType: state.showingPageType });
 
@@ -294,8 +328,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         if (formData.isPartnership) {
           setIsLoadingPartnerships(true);
           try {
-            const partnershipsData = await getPartnerships(organizationId, organizationType);
-            setAvailablePartnerships(partnershipsData);
+            const partnershipsResponse = await getPartnerships(organizationId, organizationType);
+            setAvailablePartnerships(partnershipsResponse.data || []);
           } catch (error) {
             console.error('Error fetching partnerships:', error);
           } finally {
@@ -313,7 +347,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     };
 
     fetchMembersAndPartnerships();
-  }, [state.user, state.showingPageType, formData.isPartnership]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType, state.user.id, formData.isPartnership]); // Utiliser state.user.id au lieu de state.user pour éviter les re-renders
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -466,6 +501,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
       // Add project to local state
       addProject(newProject);
+
+      // Call onSave to notify parent component (will trigger refresh)
+      // onSave expects Omit<Project, 'id'>, so we extract id from newProject
+      const { id, ...projectDataWithoutId } = newProject;
+      onSave(projectDataWithoutId);
 
       // Show success message
       setSuccessData({

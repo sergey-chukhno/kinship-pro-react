@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     if (contexts.teacher_dashboard) {
       orgs.push({
         id: 'teacher-dashboard',
-        name: 'Tableau de bord Enseignant',
+        name: 'Tableau de bord enseignant',
         type: 'teacher',
         isAdmin: false
       });
@@ -103,6 +103,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       default:
         newPageType = 'user';
     }
+
+    // Sauvegarder le contexte choisi dans localStorage
+    localStorage.setItem('selectedPageType', newPageType);
+    localStorage.setItem('selectedContextId', orgId.toString());
+    localStorage.setItem('selectedContextType', orgType);
 
     // Update the showing page type
     setShowingPageType(newPageType);
@@ -256,14 +261,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 ))}
               </div>
             )}
-            <button type="button" className="menu-item" onClick={() => {
+            {/* <button type="button" className="menu-item" onClick={() => {
               onPageChange('settings');
               navigate('/settings');
             }}>
               <i className="fas fa-cog"></i> Paramètres
-            </button>
+            </button> */}
             <button type="button" className="menu-item" onClick={() => {
               localStorage.removeItem('jwt_token');
+              localStorage.removeItem('selectedPageType');
+              localStorage.removeItem('selectedContextId');
+              localStorage.removeItem('selectedContextType');
               navigate('/login');
             }}>
               <i className="fas fa-sign-out-alt"></i> Se déconnecter

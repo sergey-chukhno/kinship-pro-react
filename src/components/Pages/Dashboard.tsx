@@ -344,7 +344,106 @@ const Dashboard: React.FC = () => {
   const [badgeDistributionTotal, setBadgeDistributionTotal] = useState(0);
   const [badgeDistributionLoading, setBadgeDistributionLoading] = useState(false);
   const [badgeDistributionError, setBadgeDistributionError] = useState<string | null>(null);
-  const organizationId = getOrganizationId(state.user, state.showingPageType);
+  
+  // Utiliser le contexte sélectionné depuis localStorage si disponible et valide
+  const getSelectedOrganizationId = (): number | undefined => {
+    const savedContextId = localStorage.getItem('selectedContextId');
+    const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+    const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | null;
+    
+    console.log('📊 [Dashboard] Contexte sauvegardé:', {
+      savedContextId,
+      savedContextType,
+      savedPageType,
+      showingPageType: state.showingPageType
+    });
+    
+    // Si on a un contexte sauvegardé et que c'est une école ou une entreprise
+    if (savedContextId && savedContextType && (savedContextType === 'school' || savedContextType === 'company')) {
+      // Vérifier que l'utilisateur a toujours accès à ce contexte
+      if (savedContextType === 'company') {
+        const company = state.user.available_contexts?.companies?.find(
+          (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
+        );
+        if (company) {
+          console.log('✅ [Dashboard] Utilisation du contexte entreprise sauvegardé:', {
+            companyId: Number(savedContextId),
+            companyName: company.name,
+            role: company.role
+          });
+          return Number(savedContextId);
+        }
+      } else if (savedContextType === 'school') {
+        const school = state.user.available_contexts?.schools?.find(
+          (s: any) => s.id.toString() === savedContextId && (s.role === 'admin' || s.role === 'superadmin')
+        );
+        if (school) {
+          console.log('✅ [Dashboard] Utilisation du contexte école sauvegardé:', {
+            schoolId: Number(savedContextId),
+            schoolName: school.name,
+            role: school.role
+          });
+          return Number(savedContextId);
+        }
+      }
+    }
+    
+    // Sinon, utiliser la logique par défaut (qui vérifie déjà le rôle admin)
+    const defaultOrgId = getOrganizationId(state.user, state.showingPageType);
+    
+    if (defaultOrgId) {
+      // Vérifier à nouveau que l'utilisateur est bien admin de cette organisation
+      if (state.showingPageType === 'pro') {
+        const company = state.user.available_contexts?.companies?.find(
+          (c: any) => c.id === defaultOrgId && (c.role === 'admin' || c.role === 'superadmin')
+        );
+        if (!company) {
+          console.log('❌ [Dashboard] Organisation par défaut trouvée mais utilisateur n\'est pas admin');
+          return undefined;
+        }
+      } else if (state.showingPageType === 'edu' || state.showingPageType === 'teacher') {
+        const school = state.user.available_contexts?.schools?.find(
+          (s: any) => s.id === defaultOrgId && (s.role === 'admin' || s.role === 'superadmin')
+        );
+        if (!school) {
+          console.log('❌ [Dashboard] École par défaut trouvée mais utilisateur n\'est pas admin');
+          return undefined;
+        }
+      }
+    }
+    
+    console.log('⚠️ [Dashboard] Utilisation du contexte par défaut:', {
+      organizationId: defaultOrgId,
+      showingPageType: state.showingPageType,
+      reason: !savedContextId ? 'Aucun contexte sauvegardé' : 'Contexte sauvegardé invalide ou non trouvé'
+    });
+    return defaultOrgId;
+  };
+  
+  const organizationId = getSelectedOrganizationId();
+  
+  // Log final du dashboard sélectionné
+  useEffect(() => {
+    console.log('🎯 [Dashboard] Dashboard sélectionné:', {
+      showingPageType: state.showingPageType,
+      organizationId: organizationId,
+      savedContextId: localStorage.getItem('selectedContextId'),
+      savedContextType: localStorage.getItem('selectedContextType'),
+      savedPageType: localStorage.getItem('selectedPageType'),
+      userContexts: {
+        companies: state.user.available_contexts?.companies?.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          role: c.role
+        })),
+        schools: state.user.available_contexts?.schools?.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          role: s.role
+        }))
+      }
+    });
+  }, [state.showingPageType, organizationId, state.user.available_contexts]);
   const logoFileInputRef = useRef<HTMLInputElement | null>(null);
   const logoObjectUrlRef = useRef<string | null>(null);
   const { showError } = useToast();
@@ -1159,7 +1258,7 @@ const Dashboard: React.FC = () => {
       <div className="dashboard-header">
         <div className="welcome-header">
           <div className="organization-logo-card">
-            <div
+          {state.showingPageType !== 'teacher' && (   <div
               className={`
                 organization-logo-wrapper !items-start !flex
                 ${organizationLogoUrl ? 'has-logo' : 'empty'}
@@ -1232,15 +1331,22 @@ const Dashboard: React.FC = () => {
               />
   
             </div>
-            </div>
+            </div>)}
             </div>
           <div className="section-title">
             <h1 className="welcome-title">Bonjour {state.user.name.split(' ')[0]} !</h1>
-            <div className="flex gap-2 items-center">
-              <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
-              <span>Tableau de bord de {organizationDisplayName}</span>
-
-            </div>
+            {state.showingPageType === 'teacher' && (
+              <div className="flex gap-2 items-center">
+                <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+                <span>Tableau de bord enseignant</span>
+              </div>
+            )}
+            {state.showingPageType !== 'teacher' && (
+              <div className="flex gap-2 items-center">
+                <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+                <span>Tableau de bord de {organizationDisplayName}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1254,7 +1360,7 @@ const Dashboard: React.FC = () => {
           <div className="dashboard-stats">
             <div className="stats-grid">
               {statCards.map((card) => {
-                if (card.label === "Enseignants" && state.showingPageType === 'teacher') return null;
+                if (card.label === "Enseignants" || card.label === "Membres actifs" && state.showingPageType === 'teacher') return null;
                 const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
                 return (
                   <div key={card.key} className={card.variant}>

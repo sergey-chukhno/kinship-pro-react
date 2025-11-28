@@ -159,8 +159,10 @@ const ProjectManagement: React.FC = () => {
         // Update project state
         setProject(mappedProject);
         
-        // Also update context to keep it in sync
-        setSelectedProject(mappedProject);
+        // Also update context to keep it in sync (only if the ID is different to avoid loops)
+        if (state.selectedProject?.id !== mappedProject.id) {
+          setSelectedProject(mappedProject);
+        }
       } catch (error) {
         console.error('Error fetching project data:', error);
         // Reset API data on error to hide edit button
@@ -172,7 +174,8 @@ const ProjectManagement: React.FC = () => {
     };
     
     fetchProjectData();
-  }, [state.selectedProject?.id, state.showingPageType, setSelectedProject]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.selectedProject?.id, state.showingPageType]); // Retirer setSelectedProject des dépendances
 
   // Fetch project statistics when project ID changes
   useEffect(() => {
@@ -195,7 +198,8 @@ const ProjectManagement: React.FC = () => {
     };
     
     fetchStats();
-  }, [project?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]); // project?.id est une valeur primitive, pas besoin d'autres dépendances
 
   // Fetch pending requests when project ID changes or requests tab is active
   useEffect(() => {
@@ -251,7 +255,7 @@ const ProjectManagement: React.FC = () => {
     
     loadParticipants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiProjectData, project?.id]);
+  }, [apiProjectData?.id, project?.id]); // Utiliser apiProjectData?.id au lieu de apiProjectData pour éviter les re-renders
 
   // Reset active tab if tabs become hidden (e.g., user role changes from admin to participant)
   useEffect(() => {
