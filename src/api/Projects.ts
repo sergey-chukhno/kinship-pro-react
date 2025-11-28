@@ -7,11 +7,23 @@ export interface Tag {
     name_fr?: string;
 }
 
-export interface Partnership {
+export interface PartnershipPartner {
     id: number;
     name: string;
+    type: string;
+    role_in_partnership: string;
+    member_status: string;
+}
+
+export interface Partnership {
+    id: number;
+    partnership_type: string;
     status: string;
-    organizations: Array<{ id: number; name: string; type: string }>;
+    share_members: boolean;
+    share_projects: boolean;
+    partners: PartnershipPartner[];
+    created_at: string;
+    updated_at: string;
 }
 
 export interface OrganizationMember {
@@ -103,16 +115,30 @@ export const getTags = async (): Promise<Tag[]> => {
  */
 export const getPartnerships = async (
     organizationId: number,
-    organizationType: 'school' | 'company'
-): Promise<Partnership[]> => {
+    organizationType: 'school' | 'company',
+    params?: { page?: number; per_page?: number; status?: string }
+): Promise<{ data: Partnership[]; meta?: any }> => {
     const endpoint = organizationType === 'school'
         ? `/api/v1/schools/${organizationId}/partnerships`
         : `/api/v1/companies/${organizationId}/partnerships`;
 
     const response = await apiClient.get(endpoint, {
-        params: { status: 'confirmed' }
+        params: params || { status: 'confirmed' }
     });
-    return response.data;
+    
+    // Handle response structure: { data: [...], meta: {...} }
+    if (response.data?.data) {
+        return {
+            data: response.data.data,
+            meta: response.data.meta
+        };
+    }
+    
+    // Fallback for direct array response
+    return {
+        data: Array.isArray(response.data) ? response.data : [],
+        meta: undefined
+    };
 };
 
 /**

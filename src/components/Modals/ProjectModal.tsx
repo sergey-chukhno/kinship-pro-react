@@ -228,8 +228,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         if (formData.isPartnership) {
           setIsLoadingPartnerships(true);
           try {
-            const partnershipsData = await getPartnerships(organizationId, organizationType);
-            setAvailablePartnerships(partnershipsData);
+            const partnershipsResponse = await getPartnerships(organizationId, organizationType);
+            setAvailablePartnerships(partnershipsResponse.data || []);
           } catch (error) {
             console.error('Error fetching partnerships:', error);
           } finally {

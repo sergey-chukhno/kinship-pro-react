@@ -24,16 +24,23 @@ export function getSubSkills(skillIds: number) {
     return axiosClient.get(`/api/v1/skills/${skillIds}/sub_skills`, { params: { skill_ids: skillIds } });
 }
 
-export function getCompanies() {
-    return axiosClient.get('/api/v1/companies/list_for_joining');
-}
-
 export interface SchoolSearchParams {
     page?: number
     per_page?: number
     search?: string
     status?: 'confirmed' | 'pending'
     school_type?: string
+}
+
+export interface CompanySearchParams {
+    page?: number
+    per_page?: number
+    search?: string
+    status?: 'confirmed' | 'pending'
+}
+
+export function getCompanies(params?: CompanySearchParams) {
+    return axiosClient.get('/api/v1/companies/list_for_joining', { params });
 }
 
 export function getSchools(params?: SchoolSearchParams) {
