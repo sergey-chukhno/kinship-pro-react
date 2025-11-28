@@ -113,7 +113,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   ];
 
 
-  const unreadNotifications = state.notifications.filter(n => !n.isRead).length;
+  const unreadNotifications = 0; //state.notifications.filter(n => !n.isRead).length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -167,10 +167,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 
         <hr className="side-divider" aria-hidden="true" />
 
-        <a
-          href="/notifications"
+        <button
+          type="button"
+          disabled={true}
+          title="Disponible très prochainement"
+          // href="/notifications"
           data-target="notifications"
-          className={`side-link notifications ${currentPage === 'notifications' ? 'active' : ''}`}
+          className={`side-link notifications ${currentPage === 'notifications' ? 'active' : ''} `}
           aria-current={currentPage === 'notifications' ? 'page' : undefined}
           onClick={(e) => {
             e.preventDefault();
@@ -188,7 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
               {unreadNotifications}
             </span>
           )}
-        </a>
+        </button>
       </nav>
 
       <div className="sidebar-footer">

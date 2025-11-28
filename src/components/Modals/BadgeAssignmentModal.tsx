@@ -3,6 +3,7 @@ import { BadgeAttribution } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import './Modal.css';
 import './BadgeAssignmentModal.css';
+import { useToast } from '../../hooks/useToast';
 
 interface BadgeAssignmentModalProps {
   onClose: () => void;
@@ -45,6 +46,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
   projectTitle 
 }) => {
   const { state, addBadgeAttribution } = useAppContext();
+  const { showWarning: showWarningToast, showError: showErrorToast } = useToast();
   const [series, setSeries] = useState('');
   const [level, setLevel] = useState('');
   const [domain, setDomain] = useState('');
@@ -540,56 +542,56 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
     
     // Validation - different requirements for different series
     if (!series || !title || !participant) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      showWarningToast('Veuillez remplir tous les champs obligatoires');
       return;
     }
     
     // Domain is only required for CPS and Audiovisuelle series
     if ((series === 'psychosociale' || series === 'audiovisuelle') && !domain) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      showWarningToast('Veuillez remplir tous les champs obligatoires');
       return;
     }
     
     // Domaine d'engagement is only required for non-CPS series
     if (series !== 'psychosociale' && !domaine) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      showWarningToast('Veuillez remplir tous les champs obligatoires');
       return;
     }
     
     // Level is only required for TouKouLeur and Audiovisuelle series
     if ((series === 'universelle' || series === 'audiovisuelle') && !level) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      showWarningToast('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
     // Check required comment for level 3-4
     if ((level === '3' || level === '4') && !commentaire) {
-      alert('Le commentaire est obligatoire pour les niveaux 3 et 4');
+      showWarningToast('Le commentaire est obligatoire pour les niveaux 3 et 4');
       return;
     }
 
     // Check required file for level 2+ (only for series with levels)
     if (level && parseInt(level) >= 2 && !fichier) {
-      alert('Le fichier est obligatoire à partir du niveau 2');
+      showWarningToast('Le fichier est obligatoire à partir du niveau 2');
       return;
     }
     
     // For CPS series, file is always required
     if (series === 'psychosociale' && !fichier) {
-      alert('Le fichier est obligatoire pour la série CPS');
+      showWarningToast('Le fichier est obligatoire pour la série CPS');
       return;
     }
 
     // Check savoir-faire for TouKouLeur level 1-2
     if (series === 'universelle' && (level === '1' || level === '2') && !savoirFaire) {
-      alert('Veuillez sélectionner un savoir-faire');
+      showWarningToast('Veuillez sélectionner un savoir-faire');
       return;
     }
 
     // Get selected participant data
     const selectedParticipant = participants.find(p => p.memberId === participant);
     if (!selectedParticipant) {
-      alert('Participant non trouvé');
+      showErrorToast('Participant non trouvé');
       return;
     }
 

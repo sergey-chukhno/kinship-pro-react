@@ -9,6 +9,7 @@ import "./CommonForms.css"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
 import { useSchoolSearch } from "../../hooks/useSchoolSearch"
+import { useToast } from "../../hooks/useToast"
 
 interface PasswordCriteria {
   minLength: boolean
@@ -52,6 +53,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const longPolicyText = privatePolicy
   const navigate = useNavigate()
+  const { showSuccess, showError } = useToast()
 
   const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
     minLength: false,
@@ -204,12 +206,12 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     submitSchoolRegistration(formData)
       .then((response) => {
         console.log("Inscription réussie :", response)
-        alert("Inscription réussie !")
+        showSuccess("Inscription réussie !")
         navigate("/login")
       })
       .catch((error) => {
         console.error("Erreur lors de l'inscription :", error)
-        alert("Erreur lors de l'inscription. Veuillez réessayer.")
+        showError("Erreur lors de l'inscription. Veuillez réessayer.")
       })
   }
 

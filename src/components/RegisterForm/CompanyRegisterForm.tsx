@@ -6,6 +6,7 @@ import { getCompanyRoles, getCompanyTypes, getSkills, getSubSkills } from "../..
 import { submitCompanyRegistration } from "../../api/Authentication"
 import { translateSkill, translateSubSkill } from "../../translations/skills"
 import { privatePolicy } from "../../data/PrivacyPolicy"
+import { useToast } from "../../hooks/useToast"
 import "./CommonForms.css"
 import "./PersonalUserRegisterForm.css"
 
@@ -69,6 +70,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const longPolicyText = privatePolicy
   const navigate = useNavigate()
+  const { showSuccess, showError } = useToast()
 
   const [company, setCompany] = useState({
     companyName: "",
@@ -360,12 +362,12 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     submitCompanyRegistration(formData)
       .then((response) => {
         console.log("Inscription réussie :", response)
-        alert("Inscription réussie !")
+        showSuccess("Inscription réussie !")
         navigate("/login")
       })
       .catch((error) => {
         console.error("Erreur lors de l'inscription :", error)
-        alert("Erreur lors de l'inscription. Veuillez réessayer.")
+        showError("Erreur lors de l'inscription. Veuillez réessayer.")
       })
   }
 

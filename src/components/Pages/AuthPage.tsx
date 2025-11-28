@@ -12,6 +12,7 @@ import SchoolRegisterForm from "../RegisterForm/SchoolRegisterForm"
 import PrivacyPolicy from "../RegisterForm/PrivacyPolicy"
 import CGU from "../RegisterForm/CGU"
 import { useAppContext } from "../../context/AppContext"
+import { useToast } from "../../hooks/useToast"
 
 
 type RegisterType = "user" | "teacher" | "school" | "company" | "privacy-policy" | "CGU" | ""
@@ -54,6 +55,7 @@ const AuthPage: React.FC = () => {
     password: "",
   })
   const { setCurrentPage, setShowingPageType, setUser } = useAppContext()
+  const { showError } = useToast()
 
   // Synchroniser le type de formulaire avec l'URL
   useEffect(() => {
@@ -139,12 +141,12 @@ const AuthPage: React.FC = () => {
             navigate("/dashboard")
           }
         } else {
-          alert("Échec de la connexion (simulation)")
+          showError("Échec de la connexion (simulation)")
         }
       })
       .catch((error) => {
         console.error("Login error:", error)
-        alert("Erreur de connexion (simulation)")
+        showError("Erreur de connexion (simulation)")
       })
   }
 

@@ -1032,9 +1032,11 @@ const Dashboard: React.FC = () => {
               tabIndex={canUploadLogo ? 0 : undefined}
               onKeyDown={canUploadLogo ? handleLogoKeyDown : undefined}
             >
-              <div className="relative">
+              <div className="flex relative justify-center items-center">
               {logoLoading ? (
-                <span className="logo-status-text">Chargement...</span>
+                // <span className="logo-status-text">
+                  <i className="p-1 animate-spin fas fa-spinner fa-spin"></i>
+                // </span>
               ) : organizationLogoUrl ? (
                 <img
                   src={organizationLogoUrl}
