@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
-import { getTags, getPartnerships, getOrganizationMembers, createProject } from '../../api/Projects';
+import { getTags, getPartnerships, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
 import {
   mapFrontendToBackend,
   base64ToFile,
@@ -299,9 +299,56 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         organizationType = getOrganizationType(state.showingPageType);
       }
 
-      console.log('Fetching members:', { organizationId, organizationType, showingPageType: state.showingPageType });
+      console.log('Fetching members:', { organizationId, organizationType, showingPageType: state.showingPageType, teacherProjectContext });
 
-      if (organizationId && organizationType) {
+      // Handle teacher context: fetch members based on selected context (independent vs school)
+      if (state.showingPageType === 'teacher') {
+        setIsLoadingMembers(true);
+        try {
+          let membersData: any[] = [];
+          
+          // If teacher selected "school" context and has a school selected, fetch school members
+          if (teacherProjectContext === 'school' && selectedSchoolId) {
+            console.log('Fetching school members for teacher:', selectedSchoolId);
+            membersData = await getOrganizationMembers(selectedSchoolId, 'school');
+          } else {
+            // For "independent" context or no school selected, fetch teacher's class members
+            console.log('Fetching teacher class members');
+            membersData = await getTeacherMembers({ per_page: 1000 });
+          }
+          
+          console.log('Members fetched:', membersData);
+          
+          // Ensure membersData is an array
+          if (Array.isArray(membersData)) {
+            setMembers(membersData);
+            console.log(`Loaded ${membersData.length} members`);
+          } else {
+            console.error('Members data is not an array:', membersData);
+            setMembers([]);
+          }
+        } catch (error: any) {
+          console.error('Error fetching members:', error);
+          console.error('Error details:', error.response?.data || error.message);
+          setMembers([]); // Set empty array on error
+        } finally {
+          setIsLoadingMembers(false);
+        }
+
+        // Fetch partnerships if partnership checkbox is checked (only for school context)
+        if (formData.isPartnership && teacherProjectContext === 'school' && selectedSchoolId) {
+          setIsLoadingPartnerships(true);
+          try {
+            const partnershipsResponse = await getPartnerships(selectedSchoolId, 'school');
+            setAvailablePartnerships(partnershipsResponse.data || []);
+          } catch (error) {
+            console.error('Error fetching partnerships:', error);
+          } finally {
+            setIsLoadingPartnerships(false);
+          }
+        }
+      } else if (organizationId && organizationType) {
+        // For non-teacher contexts (school, company), use existing logic
         // Fetch members
         setIsLoadingMembers(true);
         try {
@@ -348,7 +395,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
     fetchMembersAndPartnerships();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, state.user.id, formData.isPartnership]); // Utiliser state.user.id au lieu de state.user pour éviter les re-renders
+  }, [state.showingPageType, state.user.id, formData.isPartnership, teacherProjectContext, selectedSchoolId]); // Add teacherProjectContext and selectedSchoolId to dependencies
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
