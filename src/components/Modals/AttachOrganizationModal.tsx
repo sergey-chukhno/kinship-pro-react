@@ -107,29 +107,43 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
           <div className="form-section">
             <h3>Informations de l'organisation</h3>
             <div className="form-grid">
+
               <div className="form-group">
                 <label htmlFor="organizationName">Nom de l'organisation *</label>
-                <input
+                {/* <input
+                disabled={true}
                   type="text"
                   id="organizationName"
                   name="organizationName"
                   value={formData.organizationName}
                   onChange={handleInputChange}
                   required
-                  className="form-input"
-                  placeholder="Nom de l'organisation"
-                />
+                  className="form-select disabled:bg-gray-100"
+                /> */}
+                          <select
+                   disabled={true}
+                  id="organizationType"
+                  name="organizationType"
+                  value={formData.organizationName}
+                  onChange={handleInputChange}
+                  required
+                  className="form-select disabled:bg-gray-100"
+                >
+                  <option value={formData.organizationName}>{formData.organizationName}</option>
+                  
+                </select>
               </div>
 
               <div className="form-group">
-                <label htmlFor="organizationType">Type d'organisation *</label>
+                <label htmlFor="organizationType">Type d'organisation</label>
                 <select
+                   disabled={true}
                   id="organizationType"
                   name="organizationType"
                   value={formData.organizationType}
                   onChange={handleInputChange}
                   required
-                  className="form-select"
+                  className="form-select disabled:bg-gray-100"
                 >
                   <option value="">Sélectionner un type</option>
                   {organizationTypes.map((type) => (
@@ -141,135 +155,9 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="description">Description de l'organisation</label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                className="form-textarea"
-                placeholder="Décrivez l'organisation et ses activités"
-                rows={3}
-              />
-            </div>
+
           </div>
 
-          <div className="form-section">
-            <h3>Contact</h3>
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="contactPerson">Personne de contact *</label>
-                <input
-                  type="text"
-                  id="contactPerson"
-                  name="contactPerson"
-                  value={formData.contactPerson}
-                  onChange={handleInputChange}
-                  required
-                  className="form-input"
-                  placeholder="Nom et prénom"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="email">Email *</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                  className="form-input"
-                  placeholder="email@exemple.com"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="phone">Téléphone</label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="+33 1 23 45 67 89"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="form-section">
-            <h3>Adresse</h3>
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="address">Adresse</label>
-                <input
-                  type="text"
-                  id="address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="Numéro et nom de rue"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="city">Ville</label>
-                <input
-                  type="text"
-                  id="city"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="Ville"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="postalCode">Code postal</label>
-                <input
-                  type="text"
-                  id="postalCode"
-                  name="postalCode"
-                  value={formData.postalCode}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="75001"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="country">Pays</label>
-                <input
-                  type="text"
-                  id="country"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="France"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="website">Site web</label>
-              <input
-                type="url"
-                id="website"
-                name="website"
-                value={formData.website}
-                onChange={handleInputChange}
-                className="form-input"
-                placeholder="https://exemple.com"
-              />
-            </div>
-          </div>
 
           <div className="form-section">
             <h3>Motivation et contexte</h3>

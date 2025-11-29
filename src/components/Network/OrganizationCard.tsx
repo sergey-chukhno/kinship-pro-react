@@ -23,9 +23,10 @@ interface OrganizationCardProps {
   onAttach?: () => void;
   onPartnership?: () => void;
   isPersonalUser?: boolean;
+  onClick?: () => void;
 }
 
-const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete, onAttach, onPartnership, isPersonalUser = false }) => {
+const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete, onAttach, onPartnership, isPersonalUser = false, onClick }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return '#10b981';
@@ -64,7 +65,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
   };
 
   return (
-    <div className="organization-card">
+    <div className="organization-card" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
       <div className="organization-header">
         <div className="organization-logo">
           {organization.logo ? (
@@ -89,36 +90,30 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
         </div>
         {
           organization.type !== 'schools' && (
-            <>
             <div className="organization-actions">
               <button 
                 className="btn-icon" 
                 title="Modifier"
-                onClick={onEdit}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
               >
                 <i className="fas fa-edit"></i>
               </button>
+              <button 
+                className="btn-icon" 
+                title="Supprimer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+              >
+                <i className="fas fa-trash"></i>
+              </button>
             </div>
-      
-        <div className="organization-actions">
-          <button 
-            className="btn-icon" 
-            title="Modifier"
-            onClick={onEdit}
-          >
-            <i className="fas fa-edit"></i>
-          </button>
-          <button 
-            className="btn-icon" 
-            title="Supprimer"
-            onClick={onDelete}
-          >
-            <i className="fas fa-trash"></i>
-          </button>
-        </div>
-        </>
-            )
-          }
+          )
+        }
       </div>
 
       <div className="organization-content">
@@ -141,44 +136,40 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
           {organization.website && (
             <div className="detail-item">
               <i className="fas fa-globe"></i>
-              <a href={organization.website} target="_blank" rel="noopener noreferrer">
+              <a 
+                href={organization.website} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {organization.website}
               </a>
             </div>
           )}
         </div>
         {(organization.contactPerson || organization.email) && (
-          <div className="organization-contact">
+        <div className="organization-contact">
             {organization.contactPerson && (
-              <div className="contact-person">
-                <i className="fas fa-user"></i>
-                <span>{organization.contactPerson}</span>
-              </div>
+          <div className="contact-person">
+            <i className="fas fa-user"></i>
+            <span>{organization.contactPerson}</span>
+          </div>
             )}
             {organization.email && (
-              <div className="contact-email">
-                <i className="fas fa-envelope"></i>
-                <a href={`mailto:${organization.email}`}>{organization.email}</a>
-              </div>
-            )}
+          <div className="contact-email">
+            <i className="fas fa-envelope"></i>
+            <a 
+              href={`mailto:${organization.email}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {organization.email}
+            </a>
           </div>
+            )}
+        </div>
         )}
       </div>
 
-      {/* Email overlay on hover */}
-      {organization.email && (
-        <div className="organization-email-overlay">
-          <a 
-            href={`mailto:${organization.email}`}
-            className="email-overlay-link"
-            onClick={(e) => e.stopPropagation()}
-            title={`Envoyer un email à ${organization.email}`}
-          >
-            <i className="fas fa-envelope"></i>
-            <span>{organization.email}</span>
-          </a>
-        </div>
-      )}
 
       {/* Hover Actions - Se rattacher et Demander un partenariat */}
       {(onAttach || onPartnership) && (

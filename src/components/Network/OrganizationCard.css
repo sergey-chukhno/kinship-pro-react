@@ -23,11 +23,6 @@
   transform: translateY(0);
 }
 
-.organization-card:hover .organization-email-overlay {
-  opacity: 1;
-  visibility: visible;
-}
-
 .organization-header {
   display: flex;
   align-items: flex-start;
@@ -277,57 +272,6 @@
   box-shadow: 0 2px 8px rgba(85, 112, 241, 0.2);
 }
 
-/* Email overlay on hover */
-.organization-email-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
-  z-index: 5;
-}
-
-.email-overlay-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  color: var(--primary, #5570F1);
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.email-overlay-link:hover {
-  background: #ffffff;
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-}
-
-.email-overlay-link i {
-  font-size: 1.1rem;
-}
-
-.email-overlay-link span {
-  max-width: 250px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* Responsive design */
 @media (max-width: 768px) {

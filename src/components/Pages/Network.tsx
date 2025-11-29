@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
 import PartnershipModal from '../Modals/PartnershipModal';
+import OrganizationDetailsModal from '../Modals/OrganizationDetailsModal';
 import OrganizationCard from '../Network/OrganizationCard';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
 import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, getPersonalUserRequests } from '../../api/Projects';
@@ -48,7 +49,9 @@ const Network: React.FC = () => {
   const { state } = useAppContext();
   const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
+  const [selectedOrganizationForDetails, setSelectedOrganizationForDetails] = useState<Organization | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'my-requests' | 'search'>('schools');
   const [schools, setSchools] = useState<School[]>([]);
@@ -243,10 +246,10 @@ const Network: React.FC = () => {
         let response;
         let data: any[] = [];
         let meta: any = null;
-
+        
         if (searchTerm && searchTerm.trim()) {
           // Use search endpoint when there's a search term
-          const params: any = {
+        const params: any = {
             q: searchTerm.trim(),
             page: schoolsPage,
             per_page: 50
@@ -260,9 +263,9 @@ const Network: React.FC = () => {
           // Use regular endpoint when no search
           const params: any = {
             page: schoolsPage,
-            per_page: 50,
-            status: 'confirmed'
-          };
+          per_page: 50,
+          status: 'confirmed'
+        };
 
           response = await getSchools(params);
           data = response?.data?.data ?? [];
@@ -303,10 +306,10 @@ const Network: React.FC = () => {
         let response;
         let data: any[] = [];
         let meta: any = null;
-
+        
         if (searchTerm && searchTerm.trim()) {
           // Use search endpoint when there's a search term
-          const params: any = {
+        const params: any = {
             q: searchTerm.trim(),
             page: companiesPage,
             per_page: 50
@@ -320,9 +323,9 @@ const Network: React.FC = () => {
           // Use regular endpoint when no search
           const params: any = {
             page: companiesPage,
-            per_page: 50,
-            status: 'confirmed'
-          };
+          per_page: 50,
+          status: 'confirmed'
+        };
 
           response = await getCompanies(params);
           data = response?.data?.data ?? [];
@@ -563,6 +566,11 @@ const Network: React.FC = () => {
     setIsAttachModalOpen(true);
   };
 
+  const handleViewDetails = (organization: Organization) => {
+    setSelectedOrganizationForDetails(organization);
+    setIsDetailsModalOpen(true);
+  };
+
   const handleSavePartnership = (partnershipData: any) => {
     // TODO: Implement partnership creation
     console.log('Save partnership:', partnershipData);
@@ -685,24 +693,24 @@ const Network: React.FC = () => {
   const partnersAsOrganizations: Organization[] = partners
     .filter(partnership => partnership.status === 'confirmed') // Only confirmed partnerships
     .flatMap(partnership => {
-      // Get organizations from the partnership (partners array)
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
-      return (partnership.partners || [])
-        .filter(partner => partner.id !== organizationId)
-        .map(partner => ({
-          id: String(partner.id),
-          name: partner.name,
-          type: 'partner' as const,
-          description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
-          members: 0,
-          location: '',
-          logo: undefined,
+    // Get organizations from the partnership (partners array)
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    return (partnership.partners || [])
+      .filter(partner => partner.id !== organizationId)
+      .map(partner => ({
+        id: String(partner.id),
+        name: partner.name,
+        type: 'partner' as const,
+        description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
+        members: 0,
+        location: '',
+        logo: undefined,
           status: 'active' as const, // All partners here are confirmed
-          joinedDate: partnership.created_at || '',
-          contactPerson: '',
-          email: ''
-        }));
-    });
+        joinedDate: partnership.created_at || '',
+        contactPerson: '',
+        email: ''
+      }));
+  });
 
   // Filter partners based on search term (client-side for partners)
   const filteredPartners = partnersAsOrganizations.filter(partner => {
@@ -842,8 +850,8 @@ const Network: React.FC = () => {
           {/* Personal users (teacher/user) cannot attach to organizations */}
           {/* {(state.showingPageType !== 'teacher' && state.showingPageType !== 'user') && (
             <button className="btn btn-primary" onClick={() => handleAttachRequest()}>
-              <i className="fas fa-link"></i> Demander un rattachement
-            </button>
+            <i className="fas fa-link"></i> Demander un rattachement
+          </button>
           )} */}
         </div>
       </div>
@@ -898,12 +906,12 @@ const Network: React.FC = () => {
         <div className="filter-tabs">
           {/* Show search tab when there's a search term */}
           {searchTerm && searchTerm.trim() && (
-            <button 
+          <button 
               className={`filter-tab ${selectedType === 'search' ? 'active' : ''}`}
               onClick={() => setSelectedType('search')}
-            >
+          >
               Recherche ({searchTotalCount > 0 ? searchTotalCount : searchResultsAsOrganizations.length})
-            </button>
+          </button>
           )}
           <button 
             className={`filter-tab ${selectedType === 'schools' ? 'active' : ''}`}
@@ -1092,6 +1100,7 @@ const Network: React.FC = () => {
             onAttach={!isPartner && !isSubOrganization && !isPersonalUser ? () => handleAttachRequest(organization) : undefined}
             onPartnership={!isPartner && !isSubOrganization ? () => handlePartnershipProposal(organization) : undefined}
             isPersonalUser={isPersonalUser}
+            onClick={() => handleViewDetails(organization)}
           />
             );
           })}
@@ -1366,6 +1375,34 @@ const Network: React.FC = () => {
           initialOrganization={selectedOrganization}
         />
       )}
+
+      {isDetailsModalOpen && selectedOrganizationForDetails && (() => {
+        // Use the same logic as OrganizationCard to determine if actions should be shown
+        const isPartner = selectedType === 'partner';
+        const isSubOrganization = selectedType === 'sub-organizations';
+        const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+        
+        return (
+          <OrganizationDetailsModal
+            organization={selectedOrganizationForDetails}
+            onClose={() => {
+              setIsDetailsModalOpen(false);
+              setSelectedOrganizationForDetails(null);
+            }}
+            onAttach={
+              !isPartner && !isSubOrganization && !isPersonalUser
+                ? () => handleAttachRequest(selectedOrganizationForDetails)
+                : undefined
+            }
+            onPartnership={
+              !isPartner && !isSubOrganization
+                ? () => handlePartnershipProposal(selectedOrganizationForDetails)
+                : undefined
+            }
+            isPersonalUser={isPersonalUser}
+          />
+        );
+      })()}
     </section>
   );
 };
