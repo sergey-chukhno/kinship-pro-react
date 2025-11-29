@@ -87,6 +87,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   } = useSchoolSearch(20)
 
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [isCreatingNewSchool, setIsCreatingNewSchool] = useState(false)
 
   const handleSelectSchool = (schoolId: number) => {
     const selectedSchool = schools.find((s) => s.id === schoolId)
@@ -101,6 +102,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       }))
       setSchoolQuery(selectedSchool.name)
       setShowSuggestions(false)
+      setIsCreatingNewSchool(false)
       // Si le rôle est "other_school_admin", mettre à jour role_additional_information
       if (user.role === "other_school_admin" && selectedSchool.name) {
         setUser((prevUser) => ({
@@ -108,6 +110,47 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           roleAdditionalInfo: `Responsable du ${selectedSchool.name}`,
         }))
       }
+    }
+  }
+
+  const handleCreateNewSchool = () => {
+    // Réinitialiser schoolId pour indiquer qu'on crée une nouvelle école
+    setSchool((prev) => ({
+      ...prev,
+      schoolId: undefined,
+    }))
+    setShowSuggestions(false)
+    setIsCreatingNewSchool(true)
+    // Si le rôle est "other_school_admin", mettre à jour role_additional_information
+    if (user.role === "other_school_admin" && schoolQuery) {
+      setUser((prevUser) => ({
+        ...prevUser,
+        roleAdditionalInfo: `Responsable du ${schoolQuery}`,
+      }))
+    }
+  }
+
+  const handleCancelSchoolSelection = () => {
+    // Réinitialiser la sélection de l'école
+    setSchool((prev) => ({
+      ...prev,
+      schoolName: "",
+      schoolCity: "",
+      schoolZipCode: "",
+      schoolId: undefined,
+      schoolType: undefined,
+      referentPhoneNumber: "",
+      uaiCode: "",
+    }))
+    setSchoolQuery("")
+    setIsCreatingNewSchool(false)
+    setShowSuggestions(false)
+    // Réinitialiser role_additional_information si nécessaire
+    if (user.role === "other_school_admin") {
+      setUser((prevUser) => ({
+        ...prevUser,
+        roleAdditionalInfo: "",
+      }))
     }
   }
 
@@ -203,7 +246,13 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }
 
   const isStep3Valid = () => {
-    return school.schoolName && school.schoolCity && school.schoolZipCode
+    if (school.schoolId) {
+      // Si une école est sélectionnée, on a juste besoin du nom
+      return school.schoolName
+    } else {
+      // Si on crée une nouvelle école, on a besoin de tous les champs
+      return school.schoolName && school.schoolCity && school.schoolZipCode && school.uaiCode && school.referentPhoneNumber
+    }
   }
 
   const handleNext = () => {
@@ -394,6 +443,49 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <div className="grid">
             <div className="form-field full-width">
               <label className="form-label">Nom de l'établissement *</label>
+              {school.schoolId && (
+                <div style={{
+                  marginBottom: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: '#E8F5E9',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  color: '#2E7D32',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span>✓ École sélectionnée : {school.schoolName}</span>
+                  <button
+                    type="button"
+                    onClick={handleCancelSchoolSelection}
+                    style={{
+                      padding: '4px 12px',
+                      backgroundColor: '#DC3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Annuler
+                  </button>
+                </div>
+              )}
+              {isCreatingNewSchool && !school.schoolId && (
+                <div style={{
+                  marginBottom: '8px',
+                  padding: '8px 12px',
+                  backgroundColor: '#F3F4F6',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  color: '#6B46C1'
+                }}>
+                  ✓ Vous créez une nouvelle école. Veuillez remplir tous les champs ci-dessous.
+                </div>
+              )}
               <div className="search-container">
                 <input
                   type="text"
@@ -405,6 +497,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     setSchoolQuery(value)
                     setSchool((prev) => ({ ...prev, schoolName: value }))
                     setShowSuggestions(true)
+                    setIsCreatingNewSchool(false)
                     // Si le rôle est "other_school_admin", mettre à jour role_additional_information
                     if (user.role === "other_school_admin" && value) {
                       setUser((prevUser) => ({
@@ -413,11 +506,25 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                       }))
                     }
                   }}
-                  onFocus={() => setShowSuggestions(true)}
+                  onFocus={() => {
+                    if (!isCreatingNewSchool && !school.schoolId) {
+                      setShowSuggestions(true)
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Ne pas fermer les suggestions immédiatement pour permettre le clic sur le bouton
+                    setTimeout(() => {
+                      if (!isCreatingNewSchool && !school.schoolId) {
+                        setShowSuggestions(false)
+                      }
+                    }, 200)
+                  }}
+                  disabled={!!school.schoolId}
                   required
                   className="form-input"
+                  style={school.schoolId ? { backgroundColor: '#F3F4F6', cursor: 'not-allowed' } : {}}
                 />
-                {showSuggestions && schoolQuery && (
+                {showSuggestions && schoolQuery && !isCreatingNewSchool && (
                   <div className="search-suggestions" ref={scrollContainerRef}>
                     {schoolsLoading && schools.length === 0 && (
                       <div className="suggestion-item">Chargement...</div>
@@ -428,7 +535,27 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     )}
 
                     {!schoolsLoading && schools.length === 0 && !schoolsError && (
-                      <div className="suggestion-item">Aucune école trouvée</div>
+                      <div className="suggestion-item">
+                        <div style={{ marginBottom: '8px' }}>Aucune école trouvée</div>
+                        <button
+                          type="button"
+                          onClick={handleCreateNewSchool}
+                          className="create-school-button"
+                          style={{
+                            width: '100%',
+                            padding: '8px 16px',
+                            backgroundColor: '#6B46C1',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                          }}
+                        >
+                          Créer une nouvelle école avec ce nom
+                        </button>
+                      </div>
                     )}
 
                     {schools.map((s) => (
@@ -454,58 +581,62 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               </div>
             </div>
 
-            <div className="form-field">
-              <label className="form-label">Ville *</label>
-              <input
-                type="text"
-                name="schoolCity"
-                placeholder="Ville"
-                value={school.schoolCity}
-                onChange={handleSchoolChange}
-                required
-                className="form-input"
-              />
-            </div>
+            {!school.schoolId && (
+              <>
+                <div className="form-field">
+                  <label className="form-label">Ville *</label>
+                  <input
+                    type="text"
+                    name="schoolCity"
+                    placeholder="Ville"
+                    value={school.schoolCity}
+                    onChange={handleSchoolChange}
+                    required
+                    className="form-input"
+                  />
+                </div>
 
-            <div className="form-field">
-              <label className="form-label">Code postal *</label>
-              <input
-                type="text"
-                name="schoolZipCode"
-                placeholder="Code postal"
-                value={school.schoolZipCode}
-                onChange={handleSchoolChange}
-                required
-                className="form-input"
-              />
-            </div>
+                <div className="form-field">
+                  <label className="form-label">Code postal *</label>
+                  <input
+                    type="text"
+                    name="schoolZipCode"
+                    placeholder="Code postal"
+                    value={school.schoolZipCode}
+                    onChange={handleSchoolChange}
+                    required
+                    className="form-input"
+                  />
+                </div>
 
-            <div className="form-field full-width">
-              <label className="form-label">Téléphone du référent *</label>
-              <input
-                type="text"
-                name="referentPhoneNumber"
-                placeholder="+33 6 12 34 56 78"
-                value={school.referentPhoneNumber}
-                onChange={handleSchoolChange}
-                required
-                className="form-input"
-              />
-            </div>
+                <div className="form-field">
+                  <label className="form-label">Code UAI *</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    name="uaiCode"
+                    placeholder="Code UAI"
+                    value={school.uaiCode}
+                    onChange={handleSchoolChange}
+                    required
+                  />
+                  <p>7 chiffres et 1 lettre</p>
+                </div>
 
-            <div className="form-field">
-              <label className="form-label">Code UAI *</label>
-              <input
-                className="form-input"
-                type="text"
-                name="uaiCode"
-                placeholder="Code UAI"
-                value={school.uaiCode}
-                onChange={handleSchoolChange}
-                required
-              />
-              <p>7 chiffres et 1 lettre</p>
-            </div>
+                <div className="form-field full-width">
+                  <label className="form-label">Téléphone du référent *</label>
+                  <input
+                    type="text"
+                    name="referentPhoneNumber"
+                    placeholder="+33 6 12 34 56 78"
+                    value={school.referentPhoneNumber}
+                    onChange={handleSchoolChange}
+                    required
+                    className="form-input"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
