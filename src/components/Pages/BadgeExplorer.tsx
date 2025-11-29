@@ -102,8 +102,8 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     switch (selectedSeries) {
       case 'toukouleur':
         return {
-          title: 'Série TouKouLeur',
-          description: 'Les badges TouKouLeur 4LAB reconnaissent et valorisent les talents que chacun met en action dans le cadre d\'un projet collectif.',
+          title: 'Série Soft Skills 4LAB',
+          description: 'Les badges 4LAB reconnaissent et valorisent les soft skills mises en oeuvre dans le cadre d\'un projet individuel ou collectif',
           stats: { badges: 44, domains: 4, levels: 4 }
         };
       case 'psychosociale':
@@ -120,8 +120,8 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
         };
       default:
         return {
-          title: 'Série TouKouLeur',
-          description: 'Les badges TouKouLeur 4LAB reconnaissent et valorisent les talents que chacun met en action dans le cadre d\'un projet collectif.',
+          title: 'Série Soft Skills 4LAB',
+          description: 'Les badges 4LAB reconnaissent et valorisent les soft skills mises en oeuvre dans le cadre d\'un projet individuel ou collectif',
           stats: { badges: 44, domains: 4, levels: 4 }
         };
     }
@@ -157,18 +157,6 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               <i className="fas fa-chart-line"></i>
               <span>{seriesInfo.stats.levels} niveau{seriesInfo.stats.levels > 1 ? 'x' : ''}</span>
             </div>
-          </div>
-
-          <div className="series-filter">
-            <select
-              value={selectedSeries}
-              onChange={(e) => setSelectedSeries(e.target.value)}
-              className="series-select"
-            >
-              <option value="toukouleur">Série TouKouLeur</option>
-              <option value="psychosociale">Série Compétences Psychosociales</option>
-              <option value="audiovisuelle">Série Audiovisuelle</option>
-            </select>
           </div>
         </div>
 
