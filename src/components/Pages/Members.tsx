@@ -654,13 +654,13 @@ const Members: React.FC = () => {
           : teacherId ? [Number(teacherId)] : [];
         
         // Construire le payload spécifique pour les teachers
-        // Convertir le niveau en nombre (l'API attend un nombre pour les teachers)
-        const levelNumber = parseInt(levelData.level.level, 10) || 0;
+        // Garder le niveau comme chaîne (ex: "petite_section", "cp", etc.)
+        const levelValue = levelData.level.level || 'petite_section';
         
         const teacherClassData = {
           class: {
             name: levelData.level.name,
-            level: levelNumber,
+            level: levelValue,
             // Inclure school_id même si null (pour l'option "Aucun")
             school_id: schoolId !== null && schoolId !== undefined ? Number(schoolId) : null,
             teacher_ids: teacherIds
@@ -749,13 +749,13 @@ const Members: React.FC = () => {
         }
         
         // Construire le payload spécifique pour les teachers
-        // Convertir le niveau en nombre (l'API attend un nombre pour les teachers)
-        const levelNumber = parseInt(levelData.level.level, 10) || 0;
+        // Garder le niveau comme chaîne (ex: "petite_section", "cp", etc.)
+        const levelValue = levelData.level.level || 'petite_section';
         
         const teacherClassData = {
           class: {
             name: levelData.level.name,
-            level: levelNumber,
+            level: levelValue,
             // Inclure school_id même si null (pour l'option "Aucun")
             school_id: schoolId !== null && schoolId !== undefined ? Number(schoolId) : null,
             teacher_ids: levelData.level.teacher_ids || []

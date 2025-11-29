@@ -17,7 +17,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
   const isTeacherContext = state.showingPageType === 'teacher';
   const isEduContext = state.showingPageType === 'edu';
   const [name, setName] = useState(initialData?.name || '');
-  const [level, setLevel] = useState(initialData?.level || '');
+  const [level, setLevel] = useState(initialData?.level || 'petite_section');
   const [selectedStaffIds, setSelectedStaffIds] = useState<number[]>(initialData?.teacher_ids || []);
   const [availableStaff, setAvailableStaff] = useState<Member[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
@@ -131,12 +131,12 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
   useEffect(() => {
     if (initialData) {
       setName(initialData.name || '');
-      setLevel(initialData.level || '');
+      setLevel(initialData.level || 'petite_section');
       setSelectedStaffIds(initialData.teacher_ids || []);
     } else {
       // Réinitialiser si on passe en mode création
       setName('');
-      setLevel('');
+      setLevel('petite_section');
       setSelectedStaffIds([]);
     }
   }, [initialData]);
