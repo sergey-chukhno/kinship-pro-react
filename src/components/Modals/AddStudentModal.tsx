@@ -4,6 +4,7 @@ import './Modal.css';
 import { getCurrentUser } from '../../api/Authentication';
 import { getPersonalUserRoles } from '../../api/RegistrationRessource';
 import { getSchoolLevels, createLevelStudent } from '../../api/SchoolDashboard/Levels';
+import { getTeacherClasses, createTeacherLevelStudent } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import QRCodePrintModal from './QRCodePrintModal';
@@ -52,7 +53,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
   // State pour les données API
   const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]);
-  const [levels, setLevels] = useState<{ id: number; name: string; level: string }[]>([]);
+  const [levels, setLevels] = useState<{ id: number; name: string; level: string; school_id?: number | null }[]>([]);
   const [loadingLevels, setLoadingLevels] = useState(false);
 
   // State pour le QR Code
@@ -82,10 +83,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         
         setAvailableSchools(schoolsList);
         
-        // Sélectionner la première école par défaut si disponible
-        if (schoolsList.length > 0) {
-          setSelectedSchoolId(schoolsList[0].id);
-        }
+        // Ne pas sélectionner d'école par défaut - l'utilisateur doit choisir ou laisser "non renseigné"
       } catch (error) {
         console.error("Erreur lors du chargement des écoles", error);
       }
@@ -117,55 +115,97 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Chargement des Levels/Classes en fonction de l'école sélectionnée
+  // Chargement des Levels/Classes en fonction de l'école sélectionnée ou toutes les classes du teacher
   useEffect(() => {
     let isMounted = true;
     
     const fetchLevels = async () => {
       try {
-        // 1. Récupérer le schoolId (soit sélectionné, soit le premier disponible)
-        const currentUser = await getCurrentUser();
-        const schoolId = isTeacherContext && selectedSchoolId 
-          ? selectedSchoolId 
-          : currentUser.data?.available_contexts?.schools?.[0]?.id;
+        if (isMounted) {
+          setLoadingLevels(true);
+          setLevels([]); // Vider la liste pendant le chargement
+          // Ne pas réinitialiser levelId ici pour éviter de perdre la sélection de l'utilisateur
+          // On le réinitialisera seulement si nécessaire (changement d'école)
+        }
 
-        if (!schoolId) {
-          if (isTeacherContext) {
-            // Si teacher mais pas d'école sélectionnée, vider les classes
+        // Si c'est un teacher, utiliser l'API teachers/classes pour récupérer toutes ses classes
+        if (isTeacherContext) {
+          console.log('Fetching levels for teacher', levels);
+          const levelsRes = await getTeacherClasses(1, 100);
+          const levelsData = levelsRes?.data?.data ?? levelsRes?.data ?? [];
+          
+          if (isMounted) {
+            if (Array.isArray(levelsData)) {
+              const mappedLevels = levelsData.map((l: any) => ({
+                id: l.id,
+                name: l.name,
+                level: l.level || l.level_name || '',
+                school_id: l.school_id || null
+              }));
+              setLevels(mappedLevels);
+              // Sélectionner automatiquement la première classe par défaut si aucune n'est déjà sélectionnée
+              setFormData(prev => {
+                if (prev.levelId) {
+                  // Vérifier si la classe sélectionnée existe toujours dans la nouvelle liste
+                  const levelExists = mappedLevels.some(l => l.id.toString() === prev.levelId);
+                  if (!levelExists) {
+                    // Si la classe sélectionnée n'existe plus, sélectionner la première disponible
+                    return { ...prev, levelId: mappedLevels.length > 0 ? mappedLevels[0].id.toString() : '' };
+                  }
+                  return prev;
+                } else {
+                  // Si aucune classe n'est sélectionnée, sélectionner la première par défaut
+                  return { ...prev, levelId: mappedLevels.length > 0 ? mappedLevels[0].id.toString() : '' };
+                }
+              });
+            } else {
+              setLevels([]);
+              setFormData(prev => ({ ...prev, levelId: '' }));
+            }
+          }
+        } else {
+          // Pour les admins d'école, utiliser l'API schools/levels
+          const currentUser = await getCurrentUser();
+          const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+
+          if (!schoolId) {
             if (isMounted) {
               setLevels([]);
               setFormData(prev => ({ ...prev, levelId: '' }));
             }
             return;
           }
-          return;
-        }
 
-        // 2. Charger les levels/classes pour l'école sélectionnée
-        if (isMounted) {
-          setLoadingLevels(true);
-          setLevels([]); // Vider la liste pendant le chargement
-          setFormData(prev => ({ ...prev, levelId: '' })); // Réinitialiser la sélection
-        }
-
-        const levelsRes = await getSchoolLevels(Number(schoolId), 1, 100);
-        const levelsData = levelsRes?.data?.data ?? levelsRes?.data ?? [];
-        
-        if (isMounted) {
-          if (Array.isArray(levelsData)) {
-            const mappedLevels = levelsData.map((l: any) => ({
-              id: l.id,
-              name: l.name,
-              level: l.level
-            }));
-            setLevels(mappedLevels);
-            // Sélectionner le premier level par défaut
-            if (mappedLevels.length > 0) {
-              setFormData(prev => ({ ...prev, levelId: mappedLevels[0].id.toString() }));
+          const levelsRes = await getSchoolLevels(Number(schoolId), 1, 100);
+          const levelsData = levelsRes?.data?.data ?? levelsRes?.data ?? [];
+          
+          if (isMounted) {
+            if (Array.isArray(levelsData)) {
+              const mappedLevels = levelsData.map((l: any) => ({
+                id: l.id,
+                name: l.name,
+                level: l.level
+              }));
+              setLevels(mappedLevels);
+              // Sélectionner le premier level par défaut seulement si aucune classe n'est déjà sélectionnée
+              setFormData(prev => {
+                if (!prev.levelId && mappedLevels.length > 0) {
+                  return { ...prev, levelId: mappedLevels[0].id.toString() };
+                }
+                // Vérifier si la classe sélectionnée existe toujours dans la nouvelle liste
+                if (prev.levelId) {
+                  const levelExists = mappedLevels.some(l => l.id.toString() === prev.levelId);
+                  if (!levelExists) {
+                    // Si la classe sélectionnée n'existe plus, sélectionner la première
+                    return { ...prev, levelId: mappedLevels.length > 0 ? mappedLevels[0].id.toString() : '' };
+                  }
+                }
+                return prev;
+              });
+            } else {
+              setLevels([]);
+              setFormData(prev => ({ ...prev, levelId: '' }));
             }
-          } else {
-            setLevels([]);
-            setFormData(prev => ({ ...prev, levelId: '' }));
           }
         }
       } catch (error) {
@@ -232,7 +272,19 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       const processedValue = (name === 'firstName' || name === 'lastName') 
         ? capitalizeName(value) 
         : value;
-      setFormData(prev => ({ ...prev, [name]: processedValue }));
+      
+      // Debug pour levelId
+      if (name === 'levelId') {
+        console.log('Setting levelId to:', processedValue);
+      }
+      
+      setFormData(prev => {
+        const updated = { ...prev, [name]: processedValue };
+        if (name === 'levelId') {
+          console.log('Updated formData.levelId:', updated.levelId);
+        }
+        return updated;
+      });
 
       // Mise à jour de l'avatar si on change le nom/rôle
       if (isUsingDefaultAvatar && (name === 'role' || name === 'firstName' || name === 'lastName')) {
@@ -273,45 +325,93 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    console.log('Form data:', formData);
+    console.log('LevelId:', formData.levelId);
+    console.log('levels:', levels);
     if (!formData.firstName || !formData.lastName || !formData.birthday || !formData.levelId) {
       showError('Prénom, nom, date de naissance et classe sont obligatoires');
       return;
     }
 
     try {
-      // 1. Récupération du schoolId (soit sélectionné, soit le premier disponible)
-      const currentUser = await getCurrentUser();
-      const schoolId = isTeacherContext && selectedSchoolId 
-        ? selectedSchoolId 
-        : currentUser.data?.available_contexts?.schools?.[0]?.id;
+      let response: any;
+      
+      // Si c'est un teacher et qu'aucune école n'est sélectionnée, utiliser l'API teachers/levels/:level_id/students
+      if (isTeacherContext && !selectedSchoolId) {
+        // Utiliser l'API teachers/levels/:level_id/students
+        const teacherPayload = {
+          student: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            email: formData.email || undefined,
+            birthday: formData.birthday, // Requis si pas d'email
+            role: formData.role || 'eleve_primaire',
+            role_additional_information: formData.role || undefined,
+            accept_privacy_policy: true
+          }
+        };
 
-      if (!schoolId) {
-        showError("Impossible de récupérer l'identifiant de l'école");
-        return;
-      }
+        console.log('Payload teacher envoyé:', teacherPayload);
+        console.log('LevelId:', formData.levelId);
 
-      // 2. Préparation du payload
-      const apiPayload = {
-        student: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email || undefined,
-          birthday: formData.birthday,
-          role: formData.role,
-          role_additional_information: formData.role || undefined
+        response = await createTeacherLevelStudent(
+          Number(formData.levelId),
+          teacherPayload
+        );
+      } else {
+        // Sinon, utiliser l'API schools/:schoolId/levels/:levelId/students
+        let schoolId: number | null = null;
+        
+        if (isTeacherContext) {
+          // Pour les teachers avec école sélectionnée, utiliser l'école sélectionnée
+          schoolId = selectedSchoolId;
+          
+          // Si toujours pas d'école, essayer de récupérer depuis la classe
+          if (!schoolId) {
+            const selectedLevel = levels.find(l => l.id.toString() === formData.levelId);
+            if (selectedLevel && selectedLevel.school_id) {
+              schoolId = selectedLevel.school_id;
+            }
+          }
+        } else {
+          // Pour les admins d'école, utiliser la première école disponible
+          const currentUser = await getCurrentUser();
+          schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id || null;
         }
-      };
 
-      console.log('Payload envoyé:', apiPayload);
-      console.log('SchoolId:', schoolId, 'LevelId:', formData.levelId);
+        // Pour les admins d'école, schoolId est obligatoire
+        if (!isTeacherContext && !schoolId) {
+          showError("Impossible de récupérer l'identifiant de l'école");
+          return;
+        }
 
-      // 3. Envoi de la requête
-      const response = await createLevelStudent(
-        Number(schoolId),
-        Number(formData.levelId),
-        apiPayload
-      );
+        if (!schoolId) {
+          showError("Impossible de récupérer l'identifiant de l'école");
+          return;
+        }
+
+        // 2. Préparation du payload pour l'API school
+        const apiPayload = {
+          student: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            email: formData.email || undefined,
+            birthday: formData.birthday,
+            role: formData.role,
+            role_additional_information: formData.roleAdditionalInfo || undefined
+          }
+        };
+
+        console.log('Payload school envoyé:', apiPayload);
+        console.log('SchoolId:', schoolId, 'LevelId:', formData.levelId);
+
+        // 3. Envoi de la requête
+        response = await createLevelStudent(
+          Number(schoolId),
+          Number(formData.levelId),
+          apiPayload
+        );
+      }
       
       console.log('Response complète:', response);
       console.log('Response data:', response.data);
@@ -474,7 +574,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             {/* Sélecteur d'école pour les teachers (toujours affiché si au moins une école disponible) */}
             {isTeacherContext && availableSchools.length > 0 && (
               <div className="form-group">
-                <label htmlFor="schoolId">Établissement *</label>
+                <label htmlFor="schoolId">Établissement</label>
                 <select
                   id="schoolId"
                   name="schoolId"
@@ -486,10 +586,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                     // Réinitialiser la classe sélectionnée quand on change d'école
                     setFormData(prev => ({ ...prev, levelId: '' }));
                   }}
-                  required
                   className="form-select"
                 >
-                  <option value="">Sélectionner un établissement</option>
+                  <option value="">Non renseigné</option>
                   {availableSchools.map((school) => (
                     <option key={school.id} value={school.id}>
                       {school.name}
@@ -523,22 +622,18 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 onChange={handleInputChange}
                 required
                 className="form-select"
-                disabled={loadingLevels || (isTeacherContext && !selectedSchoolId)}
+                disabled={loadingLevels}
               >
                 {loadingLevels ? (
                   <option value="">Chargement des classes...</option>
                 ) : levels.length > 0 ? (
                   levels.map((level) => (
-                    <option key={level.id} value={level.id}>
-                      {level.name} - {level.level}
+                    <option key={level.id} value={level.id.toString()}>
+                      {level.name} {level.level ? `- ${level.level}` : ''}
                     </option>
                   ))
                 ) : (
-                  <option value="">
-                    {isTeacherContext && !selectedSchoolId 
-                      ? "Sélectionnez d'abord un établissement" 
-                      : "Aucune classe disponible"}
-                  </option>
+                  <option value="">Aucune classe disponible</option>
                 )}
               </select>
             </div>

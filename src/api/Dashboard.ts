@@ -56,6 +56,19 @@ export const getTeacherClassStudents = (classId: number) => {
   return axiosClient.get(`/api/v1/teachers/classes/${classId}/students`);
 };
 
+export const createTeacherLevelStudent = (levelId: number, studentData: {
+  student: {
+    first_name: string;
+    last_name: string;
+    email?: string;
+    birthday?: string;
+    role?: string;
+    accept_privacy_policy?: boolean;
+  }
+}) => {
+  return axiosClient.post(`/api/v1/teachers/levels/${levelId}/students`, studentData);
+};
+
 export const getTeacherClass = (classId: number) => {
   return axiosClient.get(`/api/v1/teachers/classes/${classId}`);
 };
