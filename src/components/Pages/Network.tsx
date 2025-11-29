@@ -14,7 +14,7 @@ interface Organization {
   name: string;
   type: 'sub-organization' | 'partner' | 'schools' | 'companies';
   description: string;
-  members: number;
+  members_count: number;
   location: string;
   website?: string;
   logo?: string;
@@ -33,6 +33,7 @@ interface School {
   status: string;
   logo_url: string | null;
   email?: string | null;
+  members_count?: number;
 }
 
 interface Company {
@@ -43,6 +44,7 @@ interface Company {
   status: string;
   logo_url: string | null;
   email?: string | null;
+  members_count?: number;
 }
 
 const Network: React.FC = () => {
@@ -60,6 +62,9 @@ const Network: React.FC = () => {
   const [schoolsPage, setSchoolsPage] = useState(1);
   const [schoolsTotalPages, setSchoolsTotalPages] = useState(1);
   const [schoolsTotalCount, setSchoolsTotalCount] = useState(0);
+  // Global totals that never change (for summary cards)
+  const [globalSchoolsTotalCount, setGlobalSchoolsTotalCount] = useState(0);
+  const [globalCompaniesTotalCount, setGlobalCompaniesTotalCount] = useState(0);
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
@@ -209,9 +214,9 @@ const Network: React.FC = () => {
     }
   }, [selectedType, state.user, state.showingPageType]);
 
-  // Fetch schools count on mount (for displaying count in tab)
+  // Fetch global schools count on mount (for summary cards - never changes)
   useEffect(() => {
-    const fetchSchoolsCount = async () => {
+    const fetchGlobalSchoolsCount = async () => {
       try {
         const params: any = {
           page: 1,
@@ -223,16 +228,40 @@ const Network: React.FC = () => {
         const meta = response?.data?.meta;
 
         if (meta) {
-          setSchoolsTotalCount(meta.total_count || 0);
-          setSchoolsTotalPages(meta.total_pages || 1);
+          setGlobalSchoolsTotalCount(meta.total_count || 0);
         }
       } catch (err) {
-        console.error('Error fetching schools count:', err);
-        setSchoolsTotalCount(0);
+        console.error('Error fetching global schools count:', err);
+        setGlobalSchoolsTotalCount(0);
       }
     };
 
-    fetchSchoolsCount();
+    fetchGlobalSchoolsCount();
+  }, []);
+
+  // Fetch global companies count on mount (for summary cards - never changes)
+  useEffect(() => {
+    const fetchGlobalCompaniesCount = async () => {
+      try {
+        const params: any = {
+          page: 1,
+          per_page: 1, // Just to get the meta.total_count
+          status: 'confirmed'
+        };
+
+        const response = await getCompanies(params);
+        const meta = response?.data?.meta;
+
+        if (meta) {
+          setGlobalCompaniesTotalCount(meta.total_count || 0);
+        }
+      } catch (err) {
+        console.error('Error fetching global companies count:', err);
+        setGlobalCompaniesTotalCount(0);
+      }
+    };
+
+    fetchGlobalCompaniesCount();
   }, []);
 
 
@@ -633,7 +662,7 @@ const Network: React.FC = () => {
       name: school.name || 'Établissement scolaire',
       type: 'schools' as const,
       description: `${school.school_type || 'Établissement scolaire'} - ${school.city || ''} ${school.zip_code ? `(${school.zip_code})` : ''}`.trim(),
-      members: 0,
+      members_count: school.members_count || 0,
       location: school.city && school.zip_code ? `${school.city}, ${school.zip_code}` : school.city || school.zip_code || '',
       logo: school.logo_url || undefined,
       status: school.status === 'confirmed' ? 'active' as const : 'pending' as const,
@@ -647,7 +676,7 @@ const Network: React.FC = () => {
       name: company.name || 'Organisation',
       type: 'companies' as const,
       description: `${company.city || ''} ${company.zip_code ? `(${company.zip_code})` : ''}`.trim() || 'Organisation',
-      members: 0,
+      members_count: company.members_count || 0,
       location: company.city && company.zip_code ? `${company.city}, ${company.zip_code}` : company.city || company.zip_code || '',
       logo: company.logo_url || undefined,
       status: company.status === 'confirmed' ? 'active' as const : 'pending' as const,
@@ -663,7 +692,7 @@ const Network: React.FC = () => {
     name: school.name,
     type: 'schools' as const,
     description: `${school.school_type} - ${school.city} (${school.zip_code})`,
-    members: 0,
+    members_count: school.members_count || 0,
     location: `${school.city}, ${school.zip_code}`,
     logo: school.logo_url || undefined,
     status: school.status === 'confirmed' ? 'active' as const : 'pending' as const,
@@ -678,7 +707,7 @@ const Network: React.FC = () => {
     name: company.name,
     type: 'companies' as const,
     description: company.city && company.zip_code ? `${company.city} (${company.zip_code})` : 'Entreprise',
-    members: 0,
+    members_count: company.members_count || 0,
     location: company.city && company.zip_code ? `${company.city}, ${company.zip_code}` : '',
     logo: company.logo_url || undefined,
     status: company.status === 'confirmed' ? 'active' as const : 'pending' as const,
@@ -702,7 +731,7 @@ const Network: React.FC = () => {
         name: partner.name,
         type: 'partner' as const,
         description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
-        members: 0,
+        members_count: 0, // Partners don't have members_count in the API
         location: '',
         logo: undefined,
           status: 'active' as const, // All partners here are confirmed
@@ -725,7 +754,7 @@ const Network: React.FC = () => {
     name: subOrg.name || subOrg.company_name || subOrg.school_name || 'Sous-organisation',
     type: 'sub-organization' as const,
     description: subOrg.description || subOrg.city ? `${subOrg.city}${subOrg.zip_code ? ` (${subOrg.zip_code})` : ''}` : 'Sous-organisation',
-    members: subOrg.members_count || 0,
+    members_count: subOrg.members_count || 0,
     location: subOrg.city && subOrg.zip_code ? `${subOrg.city}, ${subOrg.zip_code}` : subOrg.city || '',
     logo: subOrg.logo_url || undefined,
     status: subOrg.status === 'confirmed' ? 'active' as const : 'pending' as const,
@@ -754,7 +783,7 @@ const Network: React.FC = () => {
           name: partner.name,
           type: 'partner' as const,
           description: `Demande de partenariat ${partnership.partnership_type} - Statut: ${partnership.status === 'pending' ? 'En attente' : partnership.status === 'confirmed' ? 'Accepté' : 'Refusé'}`,
-          members: 0,
+          members_count: 0, // Partners don't have members_count in the API
           location: '',
           logo: undefined,
           status: partnership.status === 'confirmed' ? 'active' as const : partnership.status === 'pending' ? 'pending' as const : 'inactive' as const,
@@ -771,7 +800,7 @@ const Network: React.FC = () => {
       name: request.organization_name || request.name || 'Organisation',
       type: 'sub-organization' as const,
       description: `Demande de rattachement - Statut: ${request.status === 'pending' ? 'En attente' : request.status === 'accepted' ? 'Accepté' : 'Refusé'}`,
-      members: 0,
+      members_count: request.members_count || 0,
       location: request.location || '',
       logo: request.logo_url || undefined,
       status: request.status === 'accepted' ? 'active' as const : request.status === 'pending' ? 'pending' as const : 'inactive' as const,
@@ -799,7 +828,7 @@ const Network: React.FC = () => {
         name: partner.name,
         type: 'partner' as const,
         description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
-        members: 0,
+        members_count: 0, // Partners don't have members_count in the API
         location: '',
         logo: undefined,
         status: 'pending' as const,
@@ -877,7 +906,7 @@ const Network: React.FC = () => {
             <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Établissements scolaires" className="summary-icon-img" />
           </div>
           <div className="summary-content">
-            <h3>{schoolsTotalCount}</h3>
+            <h3>{globalSchoolsTotalCount}</h3>
             <p>Établissements scolaires</p>
           </div>
         </div>
@@ -886,7 +915,7 @@ const Network: React.FC = () => {
             <img src="/icons_logo/Icon=Reseau.svg" alt="Entreprises" className="summary-icon-img" />
           </div>
           <div className="summary-content">
-            <h3>{companiesTotalCount}</h3>
+            <h3>{globalCompaniesTotalCount}</h3>
             <p>Organisations</p>
           </div>
         </div>
@@ -895,7 +924,7 @@ const Network: React.FC = () => {
             <img src="/icons_logo/Icon=Membres.svg" alt="Total" className="summary-icon-img" />
           </div>
           <div className="summary-content">
-            <h3>{schoolsTotalCount + companiesTotalCount}</h3>
+            <h3>{globalSchoolsTotalCount + globalCompaniesTotalCount}</h3>
             <p>Total</p>
           </div>
         </div>

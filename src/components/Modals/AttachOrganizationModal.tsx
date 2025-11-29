@@ -6,7 +6,7 @@ interface Organization {
   name: string;
   type: 'sub-organization' | 'partner' | 'schools' | 'companies';
   description: string;
-  members: number;
+  members_count: number;
   location: string;
   website?: string;
   logo?: string;

@@ -6,7 +6,7 @@ interface Organization {
   name: string;
   type: 'sub-organization' | 'partner' | 'schools' | 'companies';
   description: string;
-  members: number;
+  members_count: number;
   location: string;
   website?: string;
   logo?: string;
@@ -126,7 +126,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
           </div>
           <div className="detail-item">
             <i className="fas fa-users"></i>
-            <span>{organization.members} membres</span>
+            <span>{organization.members_count} membres</span>
           </div>
           {organization.joinedDate && (
           <div className="detail-item">

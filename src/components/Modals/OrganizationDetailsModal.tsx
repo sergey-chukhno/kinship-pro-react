@@ -6,7 +6,7 @@ interface Organization {
   name: string;
   type: 'sub-organization' | 'partner' | 'schools' | 'companies';
   description: string;
-  members: number;
+  members_count: number;
   location: string;
   website?: string;
   logo?: string;
@@ -153,7 +153,7 @@ const OrganizationDetailsModal: React.FC<OrganizationDetailsModalProps> = ({ org
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <i className="fas fa-users" style={{ color: 'var(--primary)', width: '20px' }}></i>
-                <span style={{ color: '#374151' }}>{organization.members} membres</span>
+                <span style={{ color: '#374151' }}>{organization.members_count} membres</span>
               </div>
               {organization.joinedDate && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
