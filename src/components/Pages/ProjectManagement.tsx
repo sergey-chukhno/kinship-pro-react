@@ -2464,8 +2464,8 @@ const ProjectManagement: React.FC = () => {
             <div className="badges-section">
               <div className="badges-section-header">
                 <h3>Badges attribués</h3>
-                <div className="badge-count">
-                  {getFilteredBadges().length} badges
+                <div className="flex flex-col gap-2 items-center">
+                  <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
                 </div>
               </div>
               
@@ -2481,9 +2481,9 @@ const ProjectManagement: React.FC = () => {
                     }}
                   >
                     <option value="">Toutes les séries</option>
-                    <option value="Série TouKouLeur">TouKouLeur</option>
-                    <option value="Série CPS">CPS</option>
-                    <option value="Série Audiovisuelle">Audiovisuelle</option>
+                    <option value="Série TouKouLeur">Soft Skills 4LAB</option>
+                    <option value="Série CPS" disabled>CPS</option>
+                    <option value="Série Audiovisuelle" disabled>Audiovisuelle</option>
                   </select>
                 </div>
                 
@@ -2664,248 +2664,8 @@ const ProjectManagement: React.FC = () => {
                   <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Kanban" className="section-icon" />
                   <h3>Tableau Kanban</h3>
                 </div>
-                <div className="section-actions">
-                  <button className="btn btn-primary" onClick={handleCreateTask}>
-                    <i className="fas fa-plus"></i>
-                    Nouvelle tâche
-                  </button>
-                </div>
-              </div>
-              <div className="kanban-board">
-                <div className="kanban-column">
-                  <div className="kanban-column-header">
-                    <div className="column-title">
-                      <div className="column-color todo"></div>
-                      <h4>À faire</h4>
-                    </div>
-                    <span className="task-count">{getTasksByStatus('todo').length}</span>
-                  </div>
-                  <div className="kanban-column-content">
-                    {getTasksByStatus('todo').length === 0 ? (
-                      <div className="empty-column">
-                        <i className="fas fa-clipboard-list"></i>
-                        <p>Aucune tâche</p>
-                      </div>
-                    ) : (
-                      getTasksByStatus('todo').map((task) => (
-                        <div 
-                          key={task.id} 
-                          className="task-card"
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData('text/plain', task.id);
-                          }}
-                        >
-                          <div className="task-header">
-                            <div className="task-title">{task.title}</div>
-                            <div className="task-actions">
-                              <button 
-                                className="task-action-btn edit-btn"
-                                onClick={() => handleEditTask(task)}
-                                title="Modifier la tâche"
-                              >
-                                <i className="fas fa-edit"></i>
-                              </button>
-                              <button 
-                                className="task-action-btn delete-btn"
-                                onClick={() => handleDeleteTask(task.id)}
-                                title="Supprimer la tâche"
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
-                            </div>
-                          </div>
-                          <div className="task-description">{task.description}</div>
-                          <div className="task-meta">
-                            <div className="task-assignee">
-                              <i className="fas fa-user"></i>
-                              {task.assigneeName}
-                            </div>
-                            <div className="task-priority" style={{ color: getPriorityColor(task.priority) }}>
-                              <i className="fas fa-flag"></i>
-                              {getPriorityLabel(task.priority)}
-                            </div>
-                          </div>
-                          <div className="task-dates">
-                            {task.startDate && (
-                              <div className="task-date">
-                                <i className="fas fa-play"></i>
-                                {new Date(task.startDate).toLocaleDateString('fr-FR')}
-                              </div>
-                            )}
-                            {task.dueDate && (
-                              <div className="task-date">
-                                <i className="fas fa-flag-checkered"></i>
-                                {new Date(task.dueDate).toLocaleDateString('fr-FR')}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div className="kanban-column">
-                  <div className="kanban-column-header">
-                    <div className="column-title">
-                      <div className="column-color in-progress"></div>
-                      <h4>En cours</h4>
-                    </div>
-                    <span className="task-count">{getTasksByStatus('in-progress').length}</span>
-                  </div>
-                  <div 
-                    className="kanban-column-content"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const taskId = e.dataTransfer.getData('text/plain');
-                      handleTaskDrag(taskId, 'in-progress');
-                    }}
-                  >
-                    {getTasksByStatus('in-progress').length === 0 ? (
-                      <div className="empty-column">
-                        <i className="fas fa-play-circle"></i>
-                        <p>Aucune tâche</p>
-                      </div>
-                    ) : (
-                      getTasksByStatus('in-progress').map((task) => (
-                        <div 
-                          key={task.id} 
-                          className="task-card"
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData('text/plain', task.id);
-                          }}
-                        >
-                          <div className="task-header">
-                            <div className="task-title">{task.title}</div>
-                            <div className="task-actions">
-                              <button 
-                                className="task-action-btn edit-btn"
-                                onClick={() => handleEditTask(task)}
-                                title="Modifier la tâche"
-                              >
-                                <i className="fas fa-edit"></i>
-                              </button>
-                              <button 
-                                className="task-action-btn delete-btn"
-                                onClick={() => handleDeleteTask(task.id)}
-                                title="Supprimer la tâche"
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
-                            </div>
-                          </div>
-                          <div className="task-description">{task.description}</div>
-                          <div className="task-meta">
-                            <div className="task-assignee">
-                              <i className="fas fa-user"></i>
-                              {task.assigneeName}
-                            </div>
-                            <div className="task-priority" style={{ color: getPriorityColor(task.priority) }}>
-                              <i className="fas fa-flag"></i>
-                              {getPriorityLabel(task.priority)}
-                            </div>
-                          </div>
-                          <div className="task-dates">
-                            {task.startDate && (
-                              <div className="task-date">
-                                <i className="fas fa-play"></i>
-                                {new Date(task.startDate).toLocaleDateString('fr-FR')}
-                              </div>
-                            )}
-                            {task.dueDate && (
-                              <div className="task-date">
-                                <i className="fas fa-flag-checkered"></i>
-                                {new Date(task.dueDate).toLocaleDateString('fr-FR')}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div className="kanban-column">
-                  <div className="kanban-column-header">
-                    <div className="column-title">
-                      <div className="column-color completed"></div>
-                      <h4>Terminé</h4>
-                    </div>
-                    <span className="task-count">{getTasksByStatus('completed').length}</span>
-                  </div>
-                  <div 
-                    className="kanban-column-content"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const taskId = e.dataTransfer.getData('text/plain');
-                      handleTaskDrag(taskId, 'completed');
-                    }}
-                  >
-                    {getTasksByStatus('completed').length === 0 ? (
-                      <div className="empty-column">
-                        <i className="fas fa-check-circle"></i>
-                        <p>Aucune tâche</p>
-                      </div>
-                    ) : (
-                      getTasksByStatus('completed').map((task) => (
-                        <div 
-                          key={task.id} 
-                          className="task-card"
-                          draggable
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData('text/plain', task.id);
-                          }}
-                        >
-                          <div className="task-header">
-                            <div className="task-title">{task.title}</div>
-                            <div className="task-actions">
-                              <button 
-                                className="task-action-btn edit-btn"
-                                onClick={() => handleEditTask(task)}
-                                title="Modifier la tâche"
-                              >
-                                <i className="fas fa-edit"></i>
-                              </button>
-                              <button 
-                                className="task-action-btn delete-btn"
-                                onClick={() => handleDeleteTask(task.id)}
-                                title="Supprimer la tâche"
-                              >
-                                <i className="fas fa-trash"></i>
-                              </button>
-                            </div>
-                          </div>
-                          <div className="task-description">{task.description}</div>
-                          <div className="task-meta">
-                            <div className="task-assignee">
-                              <i className="fas fa-user"></i>
-                              {task.assigneeName}
-                            </div>
-                            <div className="task-priority" style={{ color: getPriorityColor(task.priority) }}>
-                              <i className="fas fa-flag"></i>
-                              {getPriorityLabel(task.priority)}
-                            </div>
-                          </div>
-                          <div className="task-dates">
-                            {task.startDate && (
-                              <div className="task-date">
-                                <i className="fas fa-play"></i>
-                                {new Date(task.startDate).toLocaleDateString('fr-FR')}
-                              </div>
-                            )}
-                            {task.dueDate && (
-                              <div className="task-date">
-                                <i className="fas fa-flag-checkered"></i>
-                                {new Date(task.dueDate).toLocaleDateString('fr-FR')}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                <div className="flex flex-col gap-2 items-center">
+                  <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
                 </div>
               </div>
             </div>
