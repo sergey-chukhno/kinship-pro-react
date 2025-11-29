@@ -1,12 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Modal.css';
+
+interface Organization {
+  id: string;
+  name: string;
+  type: 'sub-organization' | 'partner' | 'schools' | 'companies';
+  description: string;
+  members: number;
+  location: string;
+  website?: string;
+  logo?: string;
+  status: 'active' | 'pending' | 'inactive';
+  joinedDate: string;
+  contactPerson: string;
+  email: string;
+}
 
 interface PartnershipModalProps {
   onClose: () => void;
   onSave: (partnershipData: any) => void;
+  initialOrganization?: Organization | null;
 }
 
-const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave }) => {
+const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, initialOrganization }) => {
   const [formData, setFormData] = useState({
     organizationName: '',
     contactPerson: '',
@@ -20,6 +36,20 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave }) 
     resources: '',
     benefits: ''
   });
+
+  // Pre-fill form when initialOrganization is provided
+  useEffect(() => {
+    if (initialOrganization) {
+      setFormData(prev => ({
+        ...prev,
+        organizationName: initialOrganization.name || '',
+        description: initialOrganization.description || '',
+        website: initialOrganization.website || '',
+        contactPerson: initialOrganization.contactPerson || '',
+        email: initialOrganization.email || '',
+      }));
+    }
+  }, [initialOrganization]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -52,99 +82,9 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave }) 
         </div>
 
         <form onSubmit={handleSubmit} className="modal-body">
-          <div className="form-section">
-            <h3>Informations de l'organisation</h3>
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="organizationName">Nom de l'organisation *</label>
-                <input
-                  type="text"
-                  id="organizationName"
-                  name="organizationName"
-                  value={formData.organizationName}
-                  onChange={handleInputChange}
-                  required
-                  className="form-input"
-                  placeholder="Nom de l'organisation"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="website">Site web</label>
-                <input
-                  type="url"
-                  id="website"
-                  name="website"
-                  value={formData.website}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="https://exemple.com"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="description">Description de l'organisation</label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                className="form-textarea"
-                placeholder="Décrivez l'organisation et ses activités"
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <div className="form-section">
-            <h3>Contact</h3>
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="contactPerson">Personne de contact *</label>
-                <input
-                  type="text"
-                  id="contactPerson"
-                  name="contactPerson"
-                  value={formData.contactPerson}
-                  onChange={handleInputChange}
-                  required
-                  className="form-input"
-                  placeholder="Nom et prénom"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="email">Email *</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                  className="form-input"
-                  placeholder="email@exemple.com"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="phone">Téléphone</label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="+33 1 23 45 67 89"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="form-section">
+          <div className="flex flex-col gap-2 form-section">
             <h3>Détails du partenariat</h3>
+            <h4 className=""> Avec : <span className="text-sm font-bold">{formData.organizationName}</span></h4>
             <div className="form-group">
               <label htmlFor="partnershipType">Type de partenariat *</label>
               <select
@@ -165,7 +105,7 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave }) 
             </div>
 
             <div className="form-group">
-              <label htmlFor="objectives">Objectifs du partenariat</label>
+              <label htmlFor="objectives">Ajouter un message</label>
               <textarea
                 id="objectives"
                 name="objectives"
@@ -173,47 +113,6 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave }) 
                 onChange={handleInputChange}
                 className="form-textarea"
                 placeholder="Décrivez les objectifs du partenariat"
-                rows={3}
-              />
-            </div>
-
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="expectedDuration">Durée prévue</label>
-                <input
-                  type="text"
-                  id="expectedDuration"
-                  name="expectedDuration"
-                  value={formData.expectedDuration}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="Ex: 6 mois, 1 an, etc."
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="resources">Ressources disponibles</label>
-                <input
-                  type="text"
-                  id="resources"
-                  name="resources"
-                  value={formData.resources}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="Ex: personnel, équipements, financement"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="benefits">Bénéfices attendus</label>
-              <textarea
-                id="benefits"
-                name="benefits"
-                value={formData.benefits}
-                onChange={handleInputChange}
-                className="form-textarea"
-                placeholder="Décrivez les bénéfices attendus pour les deux parties"
                 rows={3}
               />
             </div>

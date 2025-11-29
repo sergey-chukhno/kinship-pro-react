@@ -20,9 +20,12 @@ interface OrganizationCardProps {
   organization: Organization;
   onEdit: () => void;
   onDelete: () => void;
+  onAttach?: () => void;
+  onPartnership?: () => void;
+  isPersonalUser?: boolean;
 }
 
-const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete }) => {
+const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete, onAttach, onPartnership, isPersonalUser = false }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return '#10b981';
@@ -46,7 +49,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
       case 'sub-organization': return 'Sous-organisation';
       case 'partner': return 'Partenaire';
       case 'schools': return 'Établissement scolaire';
-      case 'companies': return 'Entreprise';
+      case 'companies': return 'Organisation';
       default: return 'Organisation';
     }
   };
@@ -144,18 +147,70 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
             </div>
           )}
         </div>
-
-        <div className="organization-contact">
-          <div className="contact-person">
-            <i className="fas fa-user"></i>
-            <span>{organization.contactPerson}</span>
+        {(organization.contactPerson || organization.email) && (
+          <div className="organization-contact">
+            {organization.contactPerson && (
+              <div className="contact-person">
+                <i className="fas fa-user"></i>
+                <span>{organization.contactPerson}</span>
+              </div>
+            )}
+            {organization.email && (
+              <div className="contact-email">
+                <i className="fas fa-envelope"></i>
+                <a href={`mailto:${organization.email}`}>{organization.email}</a>
+              </div>
+            )}
           </div>
-          <div className="contact-email">
-            <i className="fas fa-envelope"></i>
-            <a href={`mailto:${organization.email}`}>{organization.email}</a>
-          </div>
-        </div>
+        )}
       </div>
+
+      {/* Email overlay on hover */}
+      {organization.email && (
+        <div className="organization-email-overlay">
+          <a 
+            href={`mailto:${organization.email}`}
+            className="email-overlay-link"
+            onClick={(e) => e.stopPropagation()}
+            title={`Envoyer un email à ${organization.email}`}
+          >
+            <i className="fas fa-envelope"></i>
+            <span>{organization.email}</span>
+          </a>
+        </div>
+      )}
+
+      {/* Hover Actions - Se rattacher et Demander un partenariat */}
+      {(onAttach || onPartnership) && (
+        <div className="organization-hover-actions">
+          {onAttach && (
+            <button 
+              className="btn-hover-action btn-attach" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onAttach();
+              }}
+              title="Se rattacher"
+            >
+              <i className="fas fa-link"></i>
+              <span>Se rattacher</span>
+            </button>
+          )}
+          {onPartnership && (
+            <button 
+              className="btn-hover-action btn-partnership" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onPartnership();
+              }}
+              title={isPersonalUser ? "Rejoindre la communauté" : "Proposer un partenariat"}
+            >
+              <i className="fas fa-handshake"></i>
+              <span>{isPersonalUser ? "Rejoindre la communauté" : "partenariat"}</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

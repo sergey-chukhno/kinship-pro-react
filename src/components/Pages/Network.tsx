@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
 import PartnershipModal from '../Modals/PartnershipModal';
 import OrganizationCard from '../Network/OrganizationCard';
-import { getSchools, getCompanies } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership, acceptPartnership, rejectPartnership } from '../../api/Projects';
+import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
+import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, getPersonalUserRequests } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import './Network.css';
@@ -31,6 +31,7 @@ interface School {
   school_type: string;
   status: string;
   logo_url: string | null;
+  email?: string | null;
 }
 
 interface Company {
@@ -40,14 +41,16 @@ interface Company {
   zip_code?: string;
   status: string;
   logo_url: string | null;
+  email?: string | null;
 }
 
 const Network: React.FC = () => {
   const { state } = useAppContext();
   const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
+  const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<'all' | 'schools' | 'companies' | 'partner' | 'partnership-requests'>('all');
+  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'my-requests' | 'search'>('schools');
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
@@ -62,8 +65,6 @@ const Network: React.FC = () => {
   const [companiesTotalPages, setCompaniesTotalPages] = useState(1);
   const [companiesTotalCount, setCompaniesTotalCount] = useState(0);
 
-  // Pagination for "all" tab
-  const [allPage, setAllPage] = useState(1);
 
   // Partners state
   const [partners, setPartners] = useState<Partnership[]>([]);
@@ -81,21 +82,156 @@ const Network: React.FC = () => {
   const [requestsTotalPages, setRequestsTotalPages] = useState(1);
   const [requestsTotalCount, setRequestsTotalCount] = useState(0);
 
+  // Sub-organizations state
+  const [subOrganizations, setSubOrganizations] = useState<any[]>([]);
+  const [subOrgsLoading, setSubOrgsLoading] = useState(false);
+  const [subOrgsError, setSubOrgsError] = useState<string | null>(null);
+
+  // Personal user requests state
+  const [myRequests, setMyRequests] = useState<{ partnerships: Partnership[]; attachRequests: any[] }>({ partnerships: [], attachRequests: [] });
+  const [myRequestsLoading, setMyRequestsLoading] = useState(false);
+  const [myRequestsError, setMyRequestsError] = useState<string | null>(null);
+
+  // Search results state
+  const [searchResults, setSearchResults] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchTotalPages, setSearchTotalPages] = useState(1);
+  const [searchTotalCount, setSearchTotalCount] = useState(0);
+
   // Reset page to 1 when search term changes
   useEffect(() => {
     setSchoolsPage(1);
     setCompaniesPage(1);
-    setAllPage(1);
     setPartnersPage(1);
     setRequestsPage(1);
+    setSearchPage(1);
   }, [searchTerm]);
 
-  // Reset allPage when switching to "all" tab
+  // Auto-switch to search tab when search term is entered
   useEffect(() => {
-    if (selectedType === 'all') {
-      setAllPage(1);
+    if (searchTerm && searchTerm.trim()) {
+      setSelectedType('search');
+    } else if (selectedType === 'search') {
+      setSelectedType('schools');
     }
-  }, [selectedType]);
+  }, [searchTerm, selectedType]);
+
+  // Fetch search results when search tab is selected
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (!searchTerm || !searchTerm.trim()) {
+        setSearchResults({ schools: [], companies: [] });
+        return;
+      }
+
+      setSearchLoading(true);
+      setSearchError(null);
+
+      try {
+        const params: any = {
+          q: searchTerm.trim(),
+          page: searchPage,
+          per_page: 50
+        };
+
+        const response = await searchOrganizations(params);
+        const responseData = response?.data ?? {};
+        
+        // Handle new structure: { schools: [], companies: [], meta: {} }
+        const schools = Array.isArray(responseData.schools) ? responseData.schools : [];
+        const companies = Array.isArray(responseData.companies) ? responseData.companies : [];
+        const meta = responseData.meta || {};
+
+        setSearchResults({ schools, companies });
+
+        if (meta) {
+          // Use the maximum of schools_pages and companies_pages for total pages
+          const maxPages = Math.max(meta.schools_pages || 1, meta.companies_pages || 1);
+          setSearchTotalPages(maxPages);
+          setSearchTotalCount(meta.total_count || (schools.length + companies.length));
+        } else {
+          setSearchTotalPages(1);
+          setSearchTotalCount(schools.length + companies.length);
+        }
+      } catch (err) {
+        console.error('Error fetching search results:', err);
+        setSearchError('Erreur lors de la recherche');
+        setSearchResults({ schools: [], companies: [] });
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+
+    if (selectedType === 'search') {
+      fetchSearchResults();
+    }
+  }, [selectedType, searchTerm, searchPage]);
+
+  // Fetch sub-organizations when tab is selected
+  useEffect(() => {
+    const fetchSubOrganizations = async () => {
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const organizationType = getOrganizationType(state.showingPageType);
+
+      if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+        setSubOrganizations([]);
+        return;
+      }
+
+      setSubOrgsLoading(true);
+      setSubOrgsError(null);
+
+      try {
+        const response = await getSubOrganizations(organizationId, organizationType);
+        const data = response.data ?? [];
+
+        if (Array.isArray(data)) {
+          setSubOrganizations(data);
+        } else {
+          setSubOrganizations([]);
+        }
+      } catch (err) {
+        console.error('Error fetching sub-organizations:', err);
+        setSubOrgsError('Erreur lors du chargement des sous-organisations');
+        setSubOrganizations([]);
+      } finally {
+        setSubOrgsLoading(false);
+      }
+    };
+
+    if (selectedType === 'sub-organizations') {
+      fetchSubOrganizations();
+    }
+  }, [selectedType, state.user, state.showingPageType]);
+
+  // Fetch schools count on mount (for displaying count in tab)
+  useEffect(() => {
+    const fetchSchoolsCount = async () => {
+      try {
+        const params: any = {
+          page: 1,
+          per_page: 1, // Just to get the meta.total_count
+          status: 'confirmed'
+        };
+
+        const response = await getSchools(params);
+        const meta = response?.data?.meta;
+
+        if (meta) {
+          setSchoolsTotalCount(meta.total_count || 0);
+          setSchoolsTotalPages(meta.total_pages || 1);
+        }
+      } catch (err) {
+        console.error('Error fetching schools count:', err);
+        setSchoolsTotalCount(0);
+      }
+    };
+
+    fetchSchoolsCount();
+  }, []);
+
 
   // Fetch schools from API
   useEffect(() => {
@@ -104,29 +240,40 @@ const Network: React.FC = () => {
       setSchoolsError(null);
       
       try {
-        // When on "all" tab, use allPage; otherwise use schoolsPage
-        const pageToFetch = selectedType === 'all' ? allPage : schoolsPage;
-        
-        const params: any = {
-          page: pageToFetch,
-          per_page: 50,
-          status: 'confirmed'
-        };
+        let response;
+        let data: any[] = [];
+        let meta: any = null;
 
-        // Add search parameter if query exists
         if (searchTerm && searchTerm.trim()) {
-          params.search = searchTerm.trim();
-        }
+          // Use search endpoint when there's a search term
+          const params: any = {
+            q: searchTerm.trim(),
+            page: schoolsPage,
+            per_page: 50
+          };
 
-        const response = await getSchools(params);
-        const data = response?.data?.data ?? [];
-        const meta = response?.data?.meta;
+          response = await searchOrganizations(params);
+          const responseData = response?.data ?? {};
+          data = Array.isArray(responseData.schools) ? responseData.schools : [];
+          meta = responseData.meta;
+        } else {
+          // Use regular endpoint when no search
+          const params: any = {
+            page: schoolsPage,
+            per_page: 50,
+            status: 'confirmed'
+          };
+
+          response = await getSchools(params);
+          data = response?.data?.data ?? [];
+          meta = response?.data?.meta;
+        }
 
         if (Array.isArray(data)) {
           setSchools(data);
           if (meta) {
-            setSchoolsTotalPages(meta.total_pages || 1);
-            setSchoolsTotalCount(meta.total_count || 0);
+            setSchoolsTotalPages(meta.schools_pages || meta.total_pages || 1);
+            setSchoolsTotalCount(meta.schools_count || meta.total_count || data.length);
           }
         } else {
           setSchools([]);
@@ -140,11 +287,11 @@ const Network: React.FC = () => {
       }
     };
 
-    // Only fetch schools when schools tab is selected or when search term changes
-    if (selectedType === 'schools' || selectedType === 'all') {
+    // Only fetch schools when schools tab is selected
+    if (selectedType === 'schools') {
       fetchSchools();
     }
-  }, [selectedType, searchTerm, schoolsPage, allPage]);
+  }, [selectedType, searchTerm, schoolsPage]);
 
   // Fetch companies from API
   useEffect(() => {
@@ -153,29 +300,40 @@ const Network: React.FC = () => {
       setCompaniesError(null);
       
       try {
-        // When on "all" tab, use allPage; otherwise use companiesPage
-        const pageToFetch = selectedType === 'all' ? allPage : companiesPage;
-        
-        const params: any = {
-          page: pageToFetch,
-          per_page: 50,
-          status: 'confirmed'
-        };
+        let response;
+        let data: any[] = [];
+        let meta: any = null;
 
-        // Add search parameter if query exists
         if (searchTerm && searchTerm.trim()) {
-          params.search = searchTerm.trim();
-        }
+          // Use search endpoint when there's a search term
+          const params: any = {
+            q: searchTerm.trim(),
+            page: companiesPage,
+            per_page: 50
+          };
 
-        const response = await getCompanies(params);
-        const data = response?.data?.data ?? [];
-        const meta = response?.data?.meta;
+          response = await searchOrganizations(params);
+          const responseData = response?.data ?? {};
+          data = Array.isArray(responseData.companies) ? responseData.companies : [];
+          meta = responseData.meta;
+        } else {
+          // Use regular endpoint when no search
+          const params: any = {
+            page: companiesPage,
+            per_page: 50,
+            status: 'confirmed'
+          };
+
+          response = await getCompanies(params);
+          data = response?.data?.data ?? [];
+          meta = response?.data?.meta;
+        }
 
         if (Array.isArray(data)) {
           setCompanies(data);
           if (meta) {
-            setCompaniesTotalPages(meta.total_pages || 1);
-            setCompaniesTotalCount(meta.total_count || 0);
+            setCompaniesTotalPages(meta.companies_pages || meta.total_pages || 1);
+            setCompaniesTotalCount(meta.companies_count || meta.total_count || data.length);
           }
         } else {
           setCompanies([]);
@@ -189,11 +347,37 @@ const Network: React.FC = () => {
       }
     };
 
-    // Only fetch companies when companies tab is selected or when search term changes
-    if (selectedType === 'companies' || selectedType === 'all') {
+    // Only fetch companies when companies tab is selected
+    if (selectedType === 'companies') {
       fetchCompanies();
     }
-  }, [selectedType, searchTerm, companiesPage, allPage]);
+  }, [selectedType, searchTerm, companiesPage]);
+
+  // Fetch companies count on mount (for displaying count in tab)
+  useEffect(() => {
+    const fetchCompaniesCount = async () => {
+      try {
+        const params: any = {
+          page: 1,
+          per_page: 1, // Just to get the meta.total_count
+          status: 'confirmed'
+        };
+
+        const response = await getCompanies(params);
+        const meta = response?.data?.meta;
+
+        if (meta) {
+          setCompaniesTotalCount(meta.total_count || 0);
+          setCompaniesTotalPages(meta.total_pages || 1);
+        }
+      } catch (err) {
+        console.error('Error fetching companies count:', err);
+        setCompaniesTotalCount(0);
+      }
+    };
+
+    fetchCompaniesCount();
+  }, []);
 
   // Fetch partners count on mount (for displaying count in tab)
   useEffect(() => {
@@ -210,6 +394,7 @@ const Network: React.FC = () => {
         const params: any = {
           page: 1,
           per_page: 1, // Just to get the meta.total_count
+          status: 'confirmed' // Only count confirmed partnerships
         };
 
         const response = await getPartnerships(organizationId, organizationType, params);
@@ -246,6 +431,7 @@ const Network: React.FC = () => {
         const params: any = {
           page: partnersPage,
           per_page: 50,
+          status: 'confirmed' // Only fetch confirmed partnerships
         };
 
         const response = await getPartnerships(organizationId, organizationType, params);
@@ -363,11 +549,17 @@ const Network: React.FC = () => {
   const filteredSchools = schools;
   const filteredCompanies = companies;
 
-  const handlePartnershipProposal = () => {
+  const handlePartnershipProposal = (organization?: Organization) => {
+    if (organization) {
+      setSelectedOrganization(organization);
+    }
     setIsPartnershipModalOpen(true);
   };
 
-  const handleAttachRequest = () => {
+  const handleAttachRequest = (organization?: Organization) => {
+    if (organization) {
+      setSelectedOrganization(organization);
+    }
     setIsAttachModalOpen(true);
   };
 
@@ -375,12 +567,14 @@ const Network: React.FC = () => {
     // TODO: Implement partnership creation
     console.log('Save partnership:', partnershipData);
     setIsPartnershipModalOpen(false);
+    setSelectedOrganization(null);
   };
 
   const handleSaveAttachRequest = (attachData: any) => {
     // TODO: Implement attach request
     console.log('Save attach request:', attachData);
     setIsAttachModalOpen(false);
+    setSelectedOrganization(null);
   };
 
   // Handle accept partnership request
@@ -423,6 +617,38 @@ const Network: React.FC = () => {
     }
   };
 
+  // Convert search results to organization-like format for display
+  const searchResultsAsOrganizations: Organization[] = [
+    // Convert schools
+    ...searchResults.schools.map((school: any) => ({
+      id: String(school.id),
+      name: school.name || 'Établissement scolaire',
+      type: 'schools' as const,
+      description: `${school.school_type || 'Établissement scolaire'} - ${school.city || ''} ${school.zip_code ? `(${school.zip_code})` : ''}`.trim(),
+      members: 0,
+      location: school.city && school.zip_code ? `${school.city}, ${school.zip_code}` : school.city || school.zip_code || '',
+      logo: school.logo_url || undefined,
+      status: school.status === 'confirmed' ? 'active' as const : 'pending' as const,
+      joinedDate: '',
+      contactPerson: '',
+      email: school.email || ''
+    })),
+    // Convert companies
+    ...searchResults.companies.map((company: any) => ({
+      id: String(company.id),
+      name: company.name || 'Organisation',
+      type: 'companies' as const,
+      description: `${company.city || ''} ${company.zip_code ? `(${company.zip_code})` : ''}`.trim() || 'Organisation',
+      members: 0,
+      location: company.city && company.zip_code ? `${company.city}, ${company.zip_code}` : company.city || company.zip_code || '',
+      logo: company.logo_url || undefined,
+      status: company.status === 'confirmed' ? 'active' as const : 'pending' as const,
+      joinedDate: '',
+      contactPerson: '',
+      email: company.email || ''
+    }))
+  ];
+
   // Convert schools to organization-like format for display
   const schoolsAsOrganizations: Organization[] = filteredSchools.map(school => ({
     id: String(school.id),
@@ -435,7 +661,7 @@ const Network: React.FC = () => {
     status: school.status === 'confirmed' ? 'active' as const : 'pending' as const,
     joinedDate: '',
     contactPerson: '',
-    email: ''
+    email: school.email || ''
   }));
 
   // Convert companies to organization-like format for display
@@ -450,35 +676,108 @@ const Network: React.FC = () => {
     status: company.status === 'confirmed' ? 'active' as const : 'pending' as const,
     joinedDate: '',
     contactPerson: '',
-    email: ''
+    email: company.email || ''
   }));
 
   // Convert partners to organization-like format for display
   // Partners contain organizations, so we need to extract and flatten them
-  const partnersAsOrganizations: Organization[] = partners.flatMap(partnership => {
-    // Get organizations from the partnership (partners array)
-    const organizationId = getOrganizationId(state.user, state.showingPageType);
-    return (partnership.partners || [])
-      .filter(partner => partner.id !== organizationId)
-      .map(partner => ({
-        id: String(partner.id),
-        name: partner.name,
-        type: 'partner' as const,
-        description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
-        members: 0,
-        location: '',
-        logo: undefined,
-        status: partnership.status === 'confirmed' ? 'active' as const : 'pending' as const,
-        joinedDate: partnership.created_at || '',
-        contactPerson: '',
-        email: ''
-      }));
-  });
+  // Only include confirmed partnerships in the partners list
+  const partnersAsOrganizations: Organization[] = partners
+    .filter(partnership => partnership.status === 'confirmed') // Only confirmed partnerships
+    .flatMap(partnership => {
+      // Get organizations from the partnership (partners array)
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      return (partnership.partners || [])
+        .filter(partner => partner.id !== organizationId)
+        .map(partner => ({
+          id: String(partner.id),
+          name: partner.name,
+          type: 'partner' as const,
+          description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
+          members: 0,
+          location: '',
+          logo: undefined,
+          status: 'active' as const, // All partners here are confirmed
+          joinedDate: partnership.created_at || '',
+          contactPerson: '',
+          email: ''
+        }));
+    });
 
   // Filter partners based on search term (client-side for partners)
   const filteredPartners = partnersAsOrganizations.filter(partner => {
     const matchesSearch = partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          partner.description.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
+
+  // Convert sub-organizations to organization-like format for display
+  const subOrgsAsOrganizations: Organization[] = subOrganizations.map(subOrg => ({
+    id: String(subOrg.id),
+    name: subOrg.name || subOrg.company_name || subOrg.school_name || 'Sous-organisation',
+    type: 'sub-organization' as const,
+    description: subOrg.description || subOrg.city ? `${subOrg.city}${subOrg.zip_code ? ` (${subOrg.zip_code})` : ''}` : 'Sous-organisation',
+    members: subOrg.members_count || 0,
+    location: subOrg.city && subOrg.zip_code ? `${subOrg.city}, ${subOrg.zip_code}` : subOrg.city || '',
+    logo: subOrg.logo_url || undefined,
+    status: subOrg.status === 'confirmed' ? 'active' as const : 'pending' as const,
+    joinedDate: subOrg.created_at || '',
+    contactPerson: '',
+    email: ''
+  }));
+
+  // Filter sub-organizations based on search term
+  const filteredSubOrgs = subOrgsAsOrganizations.filter(subOrg => {
+    const matchesSearch = subOrg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         subOrg.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         subOrg.location.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
+
+  // Convert personal user requests to organization-like format for display
+  const myRequestsAsOrganizations: Organization[] = [
+    // Partnership requests
+    ...myRequests.partnerships.flatMap(partnership => {
+      const userId = typeof state.user?.id === 'string' ? parseInt(state.user.id) : state.user?.id;
+      return (partnership.partners || [])
+        .filter(partner => partner.id !== userId)
+        .map(partner => ({
+          id: String(partnership.id),
+          name: partner.name,
+          type: 'partner' as const,
+          description: `Demande de partenariat ${partnership.partnership_type} - Statut: ${partnership.status === 'pending' ? 'En attente' : partnership.status === 'confirmed' ? 'Accepté' : 'Refusé'}`,
+          members: 0,
+          location: '',
+          logo: undefined,
+          status: partnership.status === 'confirmed' ? 'active' as const : partnership.status === 'pending' ? 'pending' as const : 'inactive' as const,
+          joinedDate: partnership.created_at || '',
+          contactPerson: '',
+          email: '',
+          partnershipId: partnership.id,
+          partnership: partnership
+        } as Organization & { partnershipId: number; partnership: Partnership }));
+    }),
+    // Attach requests
+    ...myRequests.attachRequests.map((request: any) => ({
+      id: String(request.id),
+      name: request.organization_name || request.name || 'Organisation',
+      type: 'sub-organization' as const,
+      description: `Demande de rattachement - Statut: ${request.status === 'pending' ? 'En attente' : request.status === 'accepted' ? 'Accepté' : 'Refusé'}`,
+      members: 0,
+      location: request.location || '',
+      logo: request.logo_url || undefined,
+      status: request.status === 'accepted' ? 'active' as const : request.status === 'pending' ? 'pending' as const : 'inactive' as const,
+      joinedDate: request.created_at || '',
+      contactPerson: '',
+      email: '',
+      attachRequestId: request.id
+    } as Organization & { attachRequestId: number }))
+  ];
+
+  // Filter my requests based on search term
+  const filteredMyRequests = myRequestsAsOrganizations.filter(request => {
+    const matchesSearch = request.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         request.description.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -504,10 +803,6 @@ const Network: React.FC = () => {
       } as Organization & { partnershipId: number; partnership: Partnership }));
   });
 
-  // Calculate total pages and count for "all" tab
-  const allTotalPages = Math.max(schoolsTotalPages, companiesTotalPages);
-  const allTotalCount = schoolsTotalCount + companiesTotalCount;
-
   // Filter requests based on search term
   const filteredRequests = requestsAsOrganizations.filter(request => {
     const matchesSearch = request.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -516,7 +811,9 @@ const Network: React.FC = () => {
   });
 
   // Combine schools, companies and partners based on selected type
-  const displayItems = selectedType === 'schools' 
+  const displayItems = selectedType === 'search'
+    ? searchResultsAsOrganizations
+    : selectedType === 'schools' 
     ? schoolsAsOrganizations 
     : selectedType === 'companies'
     ? companiesAsOrganizations
@@ -524,8 +821,10 @@ const Network: React.FC = () => {
     ? filteredPartners
     : selectedType === 'partnership-requests'
     ? filteredRequests
-    : selectedType === 'all'
-    ? [...schoolsAsOrganizations, ...companiesAsOrganizations]
+    : selectedType === 'sub-organizations'
+    ? filteredSubOrgs
+    : selectedType === 'my-requests'
+    ? filteredMyRequests
     : [];
 
   return (
@@ -537,12 +836,15 @@ const Network: React.FC = () => {
           <h2>Mon réseau Kinship</h2>
         </div>
         <div className="network-actions">
-          <button className="btn btn-outline" onClick={handlePartnershipProposal}>
-            <i className="fas fa-handshake"></i> Proposer un partenariat
-          </button>
-          <button className="btn btn-primary" onClick={handleAttachRequest}>
-            <i className="fas fa-link"></i> Demander un rattachement
-          </button>
+          {/* <button className="btn btn-outline" onClick={() => handlePartnershipProposal()}>
+            <i className="fas fa-handshake"></i> {(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Rejoindre une communauté' : 'Proposer un partenariat'}
+          </button> */}
+          {/* Personal users (teacher/user) cannot attach to organizations */}
+          {/* {(state.showingPageType !== 'teacher' && state.showingPageType !== 'user') && (
+            <button className="btn btn-primary" onClick={() => handleAttachRequest()}>
+              <i className="fas fa-link"></i> Demander un rattachement
+            </button>
+          )} */}
         </div>
       </div>
 
@@ -567,7 +869,7 @@ const Network: React.FC = () => {
             <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Établissements scolaires" className="summary-icon-img" />
           </div>
           <div className="summary-content">
-            <h3>{schoolsTotalCount > 0 ? schoolsTotalCount : filteredSchools.length}</h3>
+            <h3>{schoolsTotalCount}</h3>
             <p>Établissements scolaires</p>
           </div>
         </div>
@@ -576,7 +878,7 @@ const Network: React.FC = () => {
             <img src="/icons_logo/Icon=Reseau.svg" alt="Entreprises" className="summary-icon-img" />
           </div>
           <div className="summary-content">
-            <h3>{companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length}</h3>
+            <h3>{companiesTotalCount}</h3>
             <p>Organisations</p>
           </div>
         </div>
@@ -585,7 +887,7 @@ const Network: React.FC = () => {
             <img src="/icons_logo/Icon=Membres.svg" alt="Total" className="summary-icon-img" />
           </div>
           <div className="summary-content">
-            <h3>{(schoolsTotalCount > 0 ? schoolsTotalCount : filteredSchools.length) + (companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length)}</h3>
+            <h3>{schoolsTotalCount + companiesTotalCount}</h3>
             <p>Total</p>
           </div>
         </div>
@@ -594,12 +896,15 @@ const Network: React.FC = () => {
       {/* Type Filter */}
       <div className="network-filters">
         <div className="filter-tabs">
-          <button 
-            className={`filter-tab ${selectedType === 'all' ? 'active' : ''}`}
-            onClick={() => setSelectedType('all')}
-          >
-            Toutes ({allTotalCount > 0 ? allTotalCount : displayItems.length})
-          </button>
+          {/* Show search tab when there's a search term */}
+          {searchTerm && searchTerm.trim() && (
+            <button 
+              className={`filter-tab ${selectedType === 'search' ? 'active' : ''}`}
+              onClick={() => setSelectedType('search')}
+            >
+              Recherche ({searchTotalCount > 0 ? searchTotalCount : searchResultsAsOrganizations.length})
+            </button>
+          )}
           <button 
             className={`filter-tab ${selectedType === 'schools' ? 'active' : ''}`}
             onClick={() => setSelectedType('schools')}
@@ -612,11 +917,29 @@ const Network: React.FC = () => {
           >
             Entreprises ({companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length})
           </button>
+          {/* Show sub-organizations tab only for school (edu) and pro (company) roles */}
+          {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
+            <button 
+              className={`filter-tab ${selectedType === 'sub-organizations' ? 'active' : ''}`}
+              onClick={() => setSelectedType('sub-organizations')}
+            >
+              Sous-organisations ({filteredSubOrgs.length})
+            </button>
+          )}
+          {/* Show my requests tab only for personal users (teacher/user) */}
+          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
+            <button 
+              className={`filter-tab ${selectedType === 'my-requests' ? 'active' : ''}`}
+              onClick={() => setSelectedType('my-requests')}
+            >
+              Mes demandes ({filteredMyRequests.length})
+            </button>
+          )}
           <button 
             className={`filter-tab ${selectedType === 'partner' ? 'active' : ''}`}
             onClick={() => setSelectedType('partner')}
           >
-            Partenaires ({partnersTotalCount > 0 ? partnersTotalCount : filteredPartners.length})
+            {(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Mon réseau' : 'Partenaires'} ({partnersTotalCount > 0 ? partnersTotalCount : filteredPartners.length})
           </button>
           {requestsTotalCount > 0 && (
             <button 
@@ -631,16 +954,16 @@ const Network: React.FC = () => {
 
       {/* Organizations List */}
       <div className="organizations-list">
-        {schoolsLoading && (selectedType === 'schools' || selectedType === 'all') && (
+        {schoolsLoading && selectedType === 'schools' && (
           <div className="loading-message">Chargement des écoles...</div>
         )}
-        {schoolsError && (selectedType === 'schools' || selectedType === 'all') && (
+        {schoolsError && selectedType === 'schools' && (
           <div className="error-message">{schoolsError}</div>
         )}
-        {companiesLoading && (selectedType === 'companies' || selectedType === 'all') && (
+        {companiesLoading && selectedType === 'companies' && (
           <div className="loading-message">Chargement des entreprises...</div>
         )}
-        {companiesError && (selectedType === 'companies' || selectedType === 'all') && (
+        {companiesError && selectedType === 'companies' && (
           <div className="error-message">{companiesError}</div>
         )}
         {partnersLoading && selectedType === 'partner' && (
@@ -655,7 +978,25 @@ const Network: React.FC = () => {
         {requestsError && selectedType === 'partnership-requests' && (
           <div className="error-message">{requestsError}</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && (
+        {subOrgsLoading && selectedType === 'sub-organizations' && (
+          <div className="loading-message">Chargement des sous-organisations...</div>
+        )}
+        {subOrgsError && selectedType === 'sub-organizations' && (
+          <div className="error-message">{subOrgsError}</div>
+        )}
+        {myRequestsLoading && selectedType === 'my-requests' && (
+          <div className="loading-message">Chargement de vos demandes...</div>
+        )}
+        {myRequestsError && selectedType === 'my-requests' && (
+          <div className="error-message">{myRequestsError}</div>
+        )}
+        {searchLoading && selectedType === 'search' && (
+          <div className="loading-message">Recherche en cours...</div>
+        )}
+        {searchError && selectedType === 'search' && (
+          <div className="error-message">{searchError}</div>
+        )}
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !myRequestsLoading && !searchLoading && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
         <div className="grid !grid-cols-3">
@@ -696,7 +1037,7 @@ const Network: React.FC = () => {
                     <div className="organization-info">
                       <h3 className="organization-name">{organization.name}</h3>
                       <div className="organization-meta">
-                        <span className="organization-type">Demande de partenariat</span>
+                        <span className="organization-type">Demande</span>
                         <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
                           En attente
                         </span>
@@ -725,7 +1066,7 @@ const Network: React.FC = () => {
                     )}
                     {isInitiator && (
                       <div style={{ marginTop: '16px', padding: '12px', background: '#f3f4f6', borderRadius: '8px', color: '#6b7280', fontSize: '0.9rem' }}>
-                        <i className="fas fa-info-circle"></i> Vous êtes l'initiateur de cette demande
+                        <i className="fas fa-info-circle"></i> Votre demande de partenariat a été envoyée
                       </div>
                     )}
                   </div>
@@ -733,12 +1074,24 @@ const Network: React.FC = () => {
               );
             }
             
+            // Don't show hover actions for partners (they're already connected)
+            const isPartner = selectedType === 'partner';
+            
+            // Don't show hover actions for sub-organizations (they're part of the current organization)
+            const isSubOrganization = selectedType === 'sub-organizations';
+            
+            // Personal users (teacher/user) cannot attach to organizations
+            const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+            
             return (
           <OrganizationCard
             key={organization.id}
             organization={organization}
             onEdit={() => console.log('Edit organization:', organization.id)}
             onDelete={() => console.log('Delete organization:', organization.id)}
+            onAttach={!isPartner && !isSubOrganization && !isPersonalUser ? () => handleAttachRequest(organization) : undefined}
+            onPartnership={!isPartner && !isSubOrganization ? () => handlePartnershipProposal(organization) : undefined}
+            isPersonalUser={isPersonalUser}
           />
             );
           })}
@@ -787,55 +1140,6 @@ const Network: React.FC = () => {
               className="pagination-btn"
               onClick={() => setSchoolsPage(prev => Math.min(schoolsTotalPages, prev + 1))}
               disabled={schoolsPage === schoolsTotalPages || schoolsLoading}
-            >
-              Suivant <i className="fas fa-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Pagination for "All" tab */}
-      {selectedType === 'all' && allTotalPages > 1 && (
-        <div className="pagination-container">
-          <div className="pagination-info">
-            Page {allPage} sur {allTotalPages} ({allTotalCount} résultats)
-          </div>
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              onClick={() => setAllPage(prev => Math.max(1, prev - 1))}
-              disabled={allPage === 1 || schoolsLoading || companiesLoading}
-            >
-              <i className="fas fa-chevron-left"></i> Précédent
-            </button>
-            <div className="pagination-pages">
-              {Array.from({ length: Math.min(5, allTotalPages) }, (_, i) => {
-                let pageNum: number;
-                if (allTotalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (allPage <= 3) {
-                  pageNum = i + 1;
-                } else if (allPage >= allTotalPages - 2) {
-                  pageNum = allTotalPages - 4 + i;
-                } else {
-                  pageNum = allPage - 2 + i;
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    className={`pagination-page-btn ${allPage === pageNum ? 'active' : ''}`}
-                    onClick={() => setAllPage(pageNum)}
-                    disabled={schoolsLoading || companiesLoading}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              className="pagination-btn"
-              onClick={() => setAllPage(prev => Math.min(allTotalPages, prev + 1))}
-              disabled={allPage === allTotalPages || schoolsLoading || companiesLoading}
             >
               Suivant <i className="fas fa-chevron-right"></i>
             </button>
@@ -941,6 +1245,55 @@ const Network: React.FC = () => {
         </div>
       )}
 
+      {/* Pagination for Search */}
+      {selectedType === 'search' && searchTotalPages > 1 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            Page {searchPage} sur {searchTotalPages} ({searchTotalCount} résultats)
+          </div>
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => setSearchPage(prev => Math.max(1, prev - 1))}
+              disabled={searchPage === 1 || searchLoading}
+            >
+              <i className="fas fa-chevron-left"></i> Précédent
+            </button>
+            <div className="pagination-pages">
+              {Array.from({ length: Math.min(5, searchTotalPages) }, (_, i) => {
+                let pageNum: number;
+                if (searchTotalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (searchPage <= 3) {
+                  pageNum = i + 1;
+                } else if (searchPage >= searchTotalPages - 2) {
+                  pageNum = searchTotalPages - 4 + i;
+                } else {
+                  pageNum = searchPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    className={`pagination-page-btn ${searchPage === pageNum ? 'active' : ''}`}
+                    onClick={() => setSearchPage(pageNum)}
+                    disabled={searchLoading}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              className="pagination-btn"
+              onClick={() => setSearchPage(prev => Math.min(searchTotalPages, prev + 1))}
+              disabled={searchPage === searchTotalPages || searchLoading}
+            >
+              Suivant <i className="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Pagination for Companies */}
       {selectedType === 'companies' && companiesTotalPages > 1 && (
         <div className="pagination-container">
@@ -993,16 +1346,24 @@ const Network: React.FC = () => {
       {/* Partnership Modal */}
       {isPartnershipModalOpen && (
         <PartnershipModal
-          onClose={() => setIsPartnershipModalOpen(false)}
+          onClose={() => {
+            setIsPartnershipModalOpen(false);
+            setSelectedOrganization(null);
+          }}
           onSave={handleSavePartnership}
+          initialOrganization={selectedOrganization}
         />
       )}
 
       {/* Attach Organization Modal */}
       {isAttachModalOpen && (
         <AttachOrganizationModal
-          onClose={() => setIsAttachModalOpen(false)}
+          onClose={() => {
+            setIsAttachModalOpen(false);
+            setSelectedOrganization(null);
+          }}
           onSave={handleSaveAttachRequest}
+          initialOrganization={selectedOrganization}
         />
       )}
     </section>

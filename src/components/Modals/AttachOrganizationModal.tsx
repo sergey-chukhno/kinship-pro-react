@@ -1,12 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Modal.css';
+
+interface Organization {
+  id: string;
+  name: string;
+  type: 'sub-organization' | 'partner' | 'schools' | 'companies';
+  description: string;
+  members: number;
+  location: string;
+  website?: string;
+  logo?: string;
+  status: 'active' | 'pending' | 'inactive';
+  joinedDate: string;
+  contactPerson: string;
+  email: string;
+}
 
 interface AttachOrganizationModalProps {
   onClose: () => void;
   onSave: (attachData: any) => void;
+  initialOrganization?: Organization | null;
 }
 
-const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClose, onSave }) => {
+const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClose, onSave, initialOrganization }) => {
   const [formData, setFormData] = useState({
     organizationName: '',
     organizationType: '',
@@ -25,6 +41,36 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
     teamSize: '',
     experience: ''
   });
+
+  // Pre-fill form when initialOrganization is provided
+  useEffect(() => {
+    if (initialOrganization) {
+      const getOrganizationTypeLabel = (type: string) => {
+        switch (type) {
+          case 'schools': return 'Établissement scolaire';
+          case 'companies': return 'Entreprise';
+          default: return '';
+        }
+      };
+
+      // Extract city and postal code from location if available
+      const locationParts = initialOrganization.location ? initialOrganization.location.split(',') : [];
+      const city = locationParts[0]?.trim() || '';
+      const postalCode = locationParts[1]?.trim() || '';
+
+      setFormData(prev => ({
+        ...prev,
+        organizationName: initialOrganization.name || '',
+        organizationType: getOrganizationTypeLabel(initialOrganization.type) || '',
+        description: initialOrganization.description || '',
+        contactPerson: initialOrganization.contactPerson || '',
+        email: initialOrganization.email || '',
+        website: initialOrganization.website || '',
+        city: city,
+        postalCode: postalCode,
+      }));
+    }
+  }, [initialOrganization]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

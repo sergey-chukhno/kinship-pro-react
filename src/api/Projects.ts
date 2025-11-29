@@ -218,6 +218,62 @@ export const getOrganizationMembers = async (
 };
 
 /**
+ * Fetch sub-organizations (branches) for an organization
+ */
+export const getSubOrganizations = async (
+    organizationId: number,
+    organizationType: 'school' | 'company'
+): Promise<{ data: any[]; meta?: any }> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/branches`
+        : `/api/v1/companies/${organizationId}/branches`;
+
+    const response = await apiClient.get(endpoint);
+    
+    // Handle response structure: { data: [...], meta: {...} }
+    if (response.data?.data) {
+        return {
+            data: response.data.data,
+            meta: response.data.meta
+        };
+    }
+    
+    // Fallback for direct array response
+    return {
+        data: Array.isArray(response.data) ? response.data : [],
+        meta: undefined
+    };
+};
+
+/**
+ * Fetch personal user requests (partnership and attach requests)
+ */
+export const getPersonalUserRequests = async (
+    userId: number
+): Promise<{ partnerships: Partnership[]; attachRequests: any[] }> => {
+    try {
+        // Fetch partnership requests initiated by the user
+        const partnershipsResponse = await apiClient.get(`/api/v1/users/${userId}/partnership_requests`);
+        const partnerships = partnershipsResponse.data?.data || partnershipsResponse.data || [];
+
+        // Fetch attach requests initiated by the user
+        const attachResponse = await apiClient.get(`/api/v1/users/${userId}/attach_requests`);
+        const attachRequests = attachResponse.data?.data || attachResponse.data || [];
+
+        return {
+            partnerships: Array.isArray(partnerships) ? partnerships : [],
+            attachRequests: Array.isArray(attachRequests) ? attachRequests : []
+        };
+    } catch (err) {
+        console.error('Error fetching personal user requests:', err);
+        return {
+            partnerships: [],
+            attachRequests: []
+        };
+    }
+};
+
+/**
  * Create a new project (JSON format - without images)
  */
 export const createProjectJSON = async (
