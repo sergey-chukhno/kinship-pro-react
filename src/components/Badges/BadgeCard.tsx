@@ -52,7 +52,7 @@ const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete 
       <div className="badge-counters">
         <div className="badge-counter">
           <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="counter-icon" />
-          <span>{badge.recipients || 0}</span>
+          <span>0</span>
         </div>
       </div>
     </div>
