@@ -683,9 +683,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                 onChange={(e) => setSeries(e.target.value)}
               >
                 <option value="">Sélectionner une série</option>
-                <option value="universelle">Série TouKouLeur</option>
-                <option value="psychosociale">Série CPS</option>
-                <option value="audiovisuelle">Série Audiovisuelle</option>
+                <option value="universelle">Série Soft Skills 4LAB</option>
+                <option value="psychosociale" disabled>Série CPS</option>
+                <option value="audiovisuelle" disabled>Série Audiovisuelle</option>
               </select>
             </div>
 

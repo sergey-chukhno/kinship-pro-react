@@ -155,9 +155,9 @@ const Badges: React.FC = () => {
               onChange={(e) => setSelectedSeries(e.target.value)}
               className="filter-select"
             >
-              <option value="TouKouLeur">Série TouKouLeur</option>
-              <option value="CPS">Série CPS</option>
-              <option value="Audiovisuelle">Série Audiovisuelle</option>
+              <option value="TouKouLeur">Série Soft Skills 4LAB</option>
+              <option value="CPS" disabled>Série CPS</option>
+              <option value="Audiovisuelle" disabled>Série Audiovisuelle</option>
             </select>
           </div>
           {selectedSeries === 'TouKouLeur' && (
