@@ -882,7 +882,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                   onChange={handleInputChange}
                   className="form-select"
                 >
-                  <option value="public">Projet publique</option>
+                  <option value="public">Projet public</option>
                   <option value="private">Projet privé</option>
                 </select>
               </div>
