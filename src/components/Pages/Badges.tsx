@@ -123,9 +123,12 @@ const Badges: React.FC = () => {
         {/* Section Title + Actions */}
         {activeTab === 'cartography' && (
           <div className="section-title-row">
-            <div className="section-title-left">
-              <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
-              <h2>Cartographie des badges attribués</h2>
+            <div className="flex flex-col gap-2 items-center">
+              <div className="section-title-left">
+                <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
+                <h2>Cartographie des badges attribués</h2>
+              </div>
+              <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
             </div>
             <div className="badges-actions">
               <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
