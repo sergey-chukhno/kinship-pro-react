@@ -72,7 +72,12 @@ const ROLE_TRANSLATIONS: Record<string, string> = {
   responsable_programme: 'Responsable de programme',
   responsable: 'Responsable',
   other: 'Autre',
-  autre: 'Autre'
+  autre: 'Autre',
+  other_teacher: 'Enseignant',
+  other_school_admin: 'Responsable d\'établissement',
+  other_company_admin: 'Responsable d\'entreprise',
+  other_personal_user: 'Autre',
+
 };
 
 export const normalizeRoleKey = (role: string) =>

@@ -30,7 +30,7 @@ const tradFR = {
   education_rectorate_personnel: "Personnel du rectorat",
   administrative_staff: "Personnel administratif",
   cpe_student_life: "Conseiller Principal d'Education (CPE)",
-  other: "Autre",
+  other_teacher: "Autre",
 }
 
 const ROLE_ORDER = [
@@ -39,7 +39,7 @@ const ROLE_ORDER = [
   "education_rectorate_personnel",
   "administrative_staff",
   "cpe_student_life",
-  "other",
+  "other_teacher",
 ]
 
 const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -106,37 +106,28 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const fetchRoles = async () => {
       try {
         const response = await getTeacherRoles()
+        let data: any[] = []
+        
         if (response && Array.isArray(response.data)) {
-          const data = response.data
-          const sortedData = data.sort((a: any, b: any) => {
-            const indexA = ROLE_ORDER.indexOf(a.value)
-            const indexB = ROLE_ORDER.indexOf(b.value)
-            const posA = indexA === -1 ? 999 : indexA
-            const posB = indexB === -1 ? 999 : indexB
-            return posA - posB
-          })
-          setTeacherRoles(sortedData)
+          data = response.data
         } else if (response?.data?.data) {
-          const data = response.data.data
-          const sortedData = data.sort((a: any, b: any) => {
-            const indexA = ROLE_ORDER.indexOf(a.value)
-            const indexB = ROLE_ORDER.indexOf(b.value)
-            const posA = indexA === -1 ? 999 : indexA
-            const posB = indexB === -1 ? 999 : indexB
-            return posA - posB
-          })
-          setTeacherRoles(sortedData)
+          data = response.data.data
         } else if (response?.data) {
-          const data = response.data
-          const sortedData = data.sort((a: any, b: any) => {
-            const indexA = ROLE_ORDER.indexOf(a.value)
-            const indexB = ROLE_ORDER.indexOf(b.value)
-            const posA = indexA === -1 ? 999 : indexA
-            const posB = indexB === -1 ? 999 : indexB
-            return posA - posB
-          })
-          setTeacherRoles(sortedData)
+          data = response.data
         }
+        
+        // Filtrer le rôle "other" simple (ne garder que "other_teacher")
+        const filteredData = data.filter((role: any) => role.value !== "other")
+        
+        const sortedData = filteredData.sort((a: any, b: any) => {
+          const indexA = ROLE_ORDER.indexOf(a.value)
+          const indexB = ROLE_ORDER.indexOf(b.value)
+          const posA = indexA === -1 ? 999 : indexA
+          const posB = indexB === -1 ? 999 : indexB
+          return posA - posB
+        })
+        
+        setTeacherRoles(sortedData)
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)
       }
@@ -308,6 +299,9 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }
 
   const handleSubmit = (e: React.FormEvent) => {
+    console.log("user", user)
+    console.log("skills", skills)
+    console.log("selectedSchoolsList", selectedSchoolsList)
     e.preventDefault()
     const formData = {
       ...user,
@@ -335,7 +329,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <h2 className="form-title">Inscription Enseignant</h2>
       </div>
 
-      <div className="form-step visible">
+      <div className="visible form-step">
         <p>
           Cette application se conforme au Règlement Européen sur la Protection des Données Personnelles et à la loi informatique et Libertés du Nº78-17 du 6 janvier 1978.
           Responsable des traitements : DASEN pour les écoles publiques ou chef d'établissement pour les écoles privées. Traitements réalisés par Kinship en qualité de sous-traitant.
@@ -479,7 +473,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {/* Step 3 */}
       {currentStep >= 3 && (
-        <div className="form-step visible">
+        <div className="visible form-step">
           <h3 className="step-title">Établissement Scolaire *</h3>
 
           <div className="pur-fieldset">
@@ -541,7 +535,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {/* Step 4: Compétences (step séparé avec toggle switch et grille 2 colonnes) */}
       {currentStep >= 4 && (
-        <div className="form-step visible">
+        <div className="visible form-step">
           <h3 className="step-title">Mes Compétences</h3>
           <label className="toggle-switch-form">
             <span>Je veux ajouter et montrer mes compétences</span>
@@ -599,7 +593,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       {/* Step 5 */}
       {currentStep >= 5 && (
-        <div className="form-step visible">
+        <div className="visible form-step">
           <h3 className="step-title">Politique de confidentialité</h3>
           <div className="privacy-policy-scroll-box !bg-white">
             <pre>{longPolicyText}</pre>

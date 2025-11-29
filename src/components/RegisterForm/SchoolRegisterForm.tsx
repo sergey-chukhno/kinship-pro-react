@@ -25,7 +25,7 @@ const tradFR = {
   principal: "Principal",
   proviseur: "Proviseur",
   responsable_academique: "Responsable Académique",
-  other: "Autre",
+  other_school_admin: "Autre",
 }
 
 const ROLE_ORDER = [
@@ -34,7 +34,7 @@ const ROLE_ORDER = [
   "principal",
   "proviseur",
   "responsable_academique",
-  "other",
+  "other_school_admin",
 ]
 
 const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
@@ -48,6 +48,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     lastName: "",
     birthday: "",
     role: "",
+    roleAdditionalInfo: "",
     acceptPrivacyPolicy: false,
   })
 
@@ -70,6 +71,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     referentPhoneNumber: "",
     uaiCode: "",
     schoolId: undefined as number | undefined,
+    schoolType: undefined as string | undefined,
   })
 
   const [schoolRoles, setSchoolRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
@@ -95,9 +97,17 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         schoolCity: selectedSchool.city || "",
         schoolZipCode: selectedSchool.zip_code || "",
         schoolId: selectedSchool.id,
+        schoolType: selectedSchool.school_type || undefined,
       }))
       setSchoolQuery(selectedSchool.name)
       setShowSuggestions(false)
+      // Si le rôle est "other_school_admin", mettre à jour role_additional_information
+      if (user.role === "other_school_admin" && selectedSchool.name) {
+        setUser((prevUser) => ({
+          ...prevUser,
+          roleAdditionalInfo: `Responsable du ${selectedSchool.name}`,
+        }))
+      }
     }
   }
 
@@ -125,37 +135,28 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const fetchRoles = async () => {
       try {
         const response = await getSchoolRoles()
+        let data: any[] = []
+        
         if (response && Array.isArray(response.data)) {
-          const data = response.data
-          const sortedData = data.sort((a: any, b: any) => {
-            const indexA = ROLE_ORDER.indexOf(a.value)
-            const indexB = ROLE_ORDER.indexOf(b.value)
-            const posA = indexA === -1 ? 999 : indexA
-            const posB = indexB === -1 ? 999 : indexB
-            return posA - posB
-          })
-          setSchoolRoles(sortedData)
+          data = response.data
         } else if (response?.data?.data) {
-          const data = response.data.data
-          const sortedData = data.sort((a: any, b: any) => {
-            const indexA = ROLE_ORDER.indexOf(a.value)
-            const indexB = ROLE_ORDER.indexOf(b.value)
-            const posA = indexA === -1 ? 999 : indexA
-            const posB = indexB === -1 ? 999 : indexB
-            return posA - posB
-          })
-          setSchoolRoles(sortedData)
+          data = response.data.data
         } else if (response?.data) {
-          const data = response.data
-          const sortedData = data.sort((a: any, b: any) => {
-            const indexA = ROLE_ORDER.indexOf(a.value)
-            const indexB = ROLE_ORDER.indexOf(b.value)
-            const posA = indexA === -1 ? 999 : indexA
-            const posB = indexB === -1 ? 999 : indexB
-            return posA - posB
-          })
-          setSchoolRoles(sortedData)
+          data = response.data
         }
+        
+        // Filtrer le rôle "other" simple (ne garder que "other_school_admin")
+        const filteredData = data.filter((role: any) => role.value !== "other")
+        
+        const sortedData = filteredData.sort((a: any, b: any) => {
+          const indexA = ROLE_ORDER.indexOf(a.value)
+          const indexB = ROLE_ORDER.indexOf(b.value)
+          const posA = indexA === -1 ? 999 : indexA
+          const posB = indexB === -1 ? 999 : indexB
+          return posA - posB
+        })
+        
+        setSchoolRoles(sortedData)
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)
       }
@@ -166,12 +167,31 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setUser((prev) => ({ ...prev, [name]: value }))
+    setUser((prev) => {
+      const updated = { ...prev, [name]: value }
+      // Si le rôle est "other_school_admin" et qu'on a un nom d'école, générer automatiquement role_additional_information
+      if (name === "role" && value === "other_school_admin" && school.schoolName) {
+        updated.roleAdditionalInfo = `Responsable du ${school.schoolName}`
+      } else if (name === "role" && value !== "other_school_admin") {
+        updated.roleAdditionalInfo = ""
+      }
+      return updated
+    })
   }
 
   const handleSchoolChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setSchool((prev) => ({ ...prev, [name]: value }))
+    setSchool((prev) => {
+      const updated = { ...prev, [name]: value }
+      // Si le rôle est "other_school_admin" et que le nom de l'école change, mettre à jour role_additional_information
+      if (name === "schoolName" && user.role === "other_school_admin" && value) {
+        setUser((prevUser) => ({
+          ...prevUser,
+          roleAdditionalInfo: `Responsable du ${value}`,
+        }))
+      }
+      return updated
+    })
   }
 
   const isPersonalInfoValid = () => {
@@ -198,6 +218,8 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("user", user)
+    console.log("school", school)
     const formData = {
       ...user,
       ...school,
@@ -224,7 +246,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <h2 className="form-title">Inscription École</h2>
       </div>
 
-      <div className="form-step visible">
+      <div className="visible form-step">
         <p>
           Cette application se conforme au Règlement Européen sur la Protection des Données Personnelles et à la loi informatique et Libertés du Nº78-17 du 6 janvier 1978.
           Responsable des traitements : DASEN pour les écoles publiques ou chef d'établissement pour les écoles privées. Traitements réalisés par Kinship en qualité de sous-traitant.
@@ -367,7 +389,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       </div>
 
       {currentStep >= 3 && (
-        <div className="form-step visible">
+        <div className="visible form-step">
           <h3 className="step-title">Informations de l'établissement</h3>
           <div className="grid">
             <div className="form-field full-width">
@@ -379,9 +401,17 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                   placeholder="Rechercher votre établissement..."
                   value={schoolQuery}
                   onChange={(e) => {
-                    setSchoolQuery(e.target.value)
-                    setSchool((prev) => ({ ...prev, schoolName: e.target.value }))
+                    const value = e.target.value
+                    setSchoolQuery(value)
+                    setSchool((prev) => ({ ...prev, schoolName: value }))
                     setShowSuggestions(true)
+                    // Si le rôle est "other_school_admin", mettre à jour role_additional_information
+                    if (user.role === "other_school_admin" && value) {
+                      setUser((prevUser) => ({
+                        ...prevUser,
+                        roleAdditionalInfo: `Responsable du ${value}`,
+                      }))
+                    }
                   }}
                   onFocus={() => setShowSuggestions(true)}
                   required
@@ -481,7 +511,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       )}
 
       {currentStep >= 4 && (
-        <div className="form-step visible">
+        <div className="visible form-step">
           <h3 className="step-title">Politique de confidentialité</h3>
           <div className="privacy-policy-scroll-box !bg-white">
             <pre>{longPolicyText}</pre>

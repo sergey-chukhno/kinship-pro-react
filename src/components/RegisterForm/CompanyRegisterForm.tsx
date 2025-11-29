@@ -29,7 +29,7 @@ const tradFR = {
   directeur_organisation: "Directeur d'Organisation",
   directeur_entreprise: "Directeur d'Entreprise",
   responsable_rh_formation_secteur: "Responsable: RH, Formation, Secteur",
-  other: "Autre",
+  other_company_admin: "Autre",
 }
 
 const ROLE_ORDER = [
@@ -38,8 +38,7 @@ const ROLE_ORDER = [
   "directeur_organisation",
   "directeur_entreprise",
   "responsable_rh_formation_secteur",
-  "responsable_rh_formation_secteur",
-  "other",
+  "other_company_admin",
 ]
 
 const COMPANY_TYPES_TRANSLATIONS: Record<string, string> = {
@@ -222,37 +221,28 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const fetchRoles = async () => {
       try {
         const response = await getCompanyRoles()
+        let data: any[] = []
+        
         if (response && Array.isArray(response.data)) {
-          const data = response.data
-          const sortedData = data.sort((a: any, b: any) => {
-            const indexA = ROLE_ORDER.indexOf(a.value)
-            const indexB = ROLE_ORDER.indexOf(b.value)
-            const posA = indexA === -1 ? 999 : indexA
-            const posB = indexB === -1 ? 999 : indexB
-            return posA - posB
-          })
-          setCompanyRoles(sortedData)
+          data = response.data
         } else if (response?.data?.data) {
-          const data = response.data.data
-          const sortedData = data.sort((a: any, b: any) => {
-            const indexA = ROLE_ORDER.indexOf(a.value)
-            const indexB = ROLE_ORDER.indexOf(b.value)
-            const posA = indexA === -1 ? 999 : indexA
-            const posB = indexB === -1 ? 999 : indexB
-            return posA - posB
-          })
-          setCompanyRoles(sortedData)
+          data = response.data.data
         } else if (response?.data) {
-          const data = response.data
-          const sortedData = data.sort((a: any, b: any) => {
-            const indexA = ROLE_ORDER.indexOf(a.value)
-            const indexB = ROLE_ORDER.indexOf(b.value)
-            const posA = indexA === -1 ? 999 : indexA
-            const posB = indexB === -1 ? 999 : indexB
-            return posA - posB
-          })
-          setCompanyRoles(sortedData)
+          data = response.data
         }
+        
+        // Filtrer le rôle "other" simple (ne garder que "other_company_admin")
+        const filteredData = data.filter((role: any) => role.value !== "other")
+        
+        const sortedData = filteredData.sort((a: any, b: any) => {
+          const indexA = ROLE_ORDER.indexOf(a.value)
+          const indexB = ROLE_ORDER.indexOf(b.value)
+          const posA = indexA === -1 ? 999 : indexA
+          const posB = indexB === -1 ? 999 : indexB
+          return posA - posB
+        })
+        
+        setCompanyRoles(sortedData)
       } catch (error) {
         console.error("Erreur lors du chargement des rôles :", error)
       }
