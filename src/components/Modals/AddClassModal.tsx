@@ -235,14 +235,42 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           </div>
           <div className="form-group">
             <label htmlFor="level">Niveau de la classe</label>
-            <input 
-              type="text" 
+            <select
               id="level" 
               name="level" 
-              className='form-input'
+              className="form-select"
               value={level}
               onChange={(e) => setLevel(e.target.value)}
-            />
+              required
+            >
+              <option value="">Sélectionner un niveau</option>
+              <optgroup label="Maternelle/Primaire">
+                <option value="petite_section">Petite section</option>
+                <option value="moyenne_section">Moyenne section</option>
+                <option value="grande_section">Grande section</option>
+                <option value="cp">CP</option>
+                <option value="ce1">CE1</option>
+                <option value="ce2">CE2</option>
+                <option value="cm1">CM1</option>
+                <option value="cm2">CM2</option>
+              </optgroup>
+              <optgroup label="Collège">
+                <option value="sixieme">Sixième</option>
+                <option value="cinquieme">Cinquième</option>
+                <option value="quatrieme">Quatrième</option>
+                <option value="troisieme">Troisième</option>
+              </optgroup>
+              <optgroup label="Lycée">
+                <option value="seconde">Seconde</option>
+                <option value="premiere">Première</option>
+                <option value="terminale">Terminale</option>
+                <option value="cap">CAP</option>
+                <option value="bts">BTS</option>
+              </optgroup>
+              <optgroup label="Autre">
+                <option value="other">Autre</option>
+              </optgroup>
+            </select>
           </div>
 
           {/* Sélecteur d'école pour les teachers (toujours affiché si au moins une école disponible) */}
@@ -297,7 +325,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
                 </div>
               )}
               {selectedStaffIds.length > 0 && (
-                <div className="text-sm text-gray-600 mt-2">
+                <div className="mt-2 text-sm text-gray-600">
                   {selectedStaffIds.length} membre(s) sélectionné(s)
                 </div>
               )}
@@ -307,8 +335,8 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           {/* Indication pour le contexte teacher */}
           {isTeacherContext && (
             <div className="form-group">
-              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
-                <i className="fas fa-info-circle mr-2"></i>
+              <div className="p-3 text-sm text-gray-600 bg-blue-50 rounded">
+                <i className="mr-2 fas fa-info-circle"></i>
                 Cette classe vous sera automatiquement assignée en tant qu'enseignant.
               </div>
             </div>

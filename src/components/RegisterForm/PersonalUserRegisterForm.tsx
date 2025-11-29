@@ -47,7 +47,7 @@ const tradFR: Record<string, string> = {
   voluntary: "Volontaire",
   tutor: "Tuteur",
   employee: "Salarié",
-  other: "Autre",
+  other_personal_user: "Autre",
   monday: "Lundi",
   tuesday: "Mardi",
   wednesday: "Mercredi",
@@ -70,7 +70,7 @@ const ROLE_ORDER = [
   "benevole",
   "charge_de_mission",
   "employee",
-  "other",
+  "other_personal_user",
 ]
 
 const longPolicyText = privatePolicy
@@ -252,7 +252,10 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         const response = await getPersonalUserRoles()
         const data = response?.data?.data ?? response?.data ?? response ?? []
         if (Array.isArray(data)) {
-          const sortedData = data.sort((a: any, b: any) => {
+          // Filtrer le rôle "other" simple (ne garder que "other_personal_user")
+          const filteredData = data.filter((role: any) => role.value !== "other")
+          
+          const sortedData = filteredData.sort((a: any, b: any) => {
             const indexA = ROLE_ORDER.indexOf(a.value)
             const indexB = ROLE_ORDER.indexOf(b.value)
             // If not found, put at the end
