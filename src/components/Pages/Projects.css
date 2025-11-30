@@ -183,6 +183,24 @@
   gap: 28px;
 }
 
+/* No Projects Message */
+.no-projects-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  padding: 3rem;
+  background: var(--bg-primary, #f8fafc);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  margin-top: 2rem;
+}
+
+.no-projects-content {
+  text-align: center;
+  max-width: 500px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .filters-container {

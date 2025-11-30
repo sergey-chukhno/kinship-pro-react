@@ -459,25 +459,41 @@ const Projects: React.FC = () => {
         </div>
       </div>
 
-      <div className="projects-grid">
-        {filteredProjects.map((project) => {
-          const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-          // Pour les utilisateurs personnels, ne pas afficher le bouton "Supprimer"
-          // Pour les autres, le bouton sera affiché mais le backend vérifiera les permissions
-          const canDelete = !isPersonalUser;
-          
-          return (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onEdit={() => handleEditProject(project)}
-              onManage={() => handleManageProject(project)}
-              onDelete={canDelete ? () => handleDeleteProject(project.id) : undefined}
-              isPersonalUser={isPersonalUser}
-            />
-          );
-        })}
-      </div>
+      {filteredProjects.length > 0 ? (
+        <div className="projects-grid">
+          {filteredProjects.map((project) => {
+            const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+            // Pour les utilisateurs personnels, ne pas afficher le bouton "Supprimer"
+            // Pour les autres, le bouton sera affiché mais le backend vérifiera les permissions
+            const canDelete = !isPersonalUser;
+            
+            return (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onEdit={() => handleEditProject(project)}
+                onManage={() => handleManageProject(project)}
+                onDelete={canDelete ? () => handleDeleteProject(project.id) : undefined}
+                isPersonalUser={isPersonalUser}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <div className="no-projects-message">
+          <div className="no-projects-content">
+            <i className="fas fa-folder-open" style={{ fontSize: '3rem', color: '#9ca3af', marginBottom: '1rem' }}></i>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
+              Aucun projet trouvé
+            </h3>
+            <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>
+              {searchTerm || pathwayFilter !== 'all' || statusFilter !== 'all' || organizationFilter !== 'all' || visibilityFilter !== 'all' || startDate || endDate
+                ? 'Aucun projet ne correspond à vos critères de recherche. Essayez de modifier vos filtres.'
+                : 'Il n\'y a pas encore de projets disponibles.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {isProjectModalOpen && (
         <ProjectModal

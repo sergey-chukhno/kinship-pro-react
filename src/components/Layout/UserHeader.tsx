@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Menu, Transition } from '@headlessui/react';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './UserHeader.css';
@@ -13,13 +14,11 @@ interface UserHeaderProps {
 
 const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) => {
   const { state, setShowingPageType } = useAppContext();
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const user = state.user;
   const navigate = useNavigate();
 
   // Process organizations from available_contexts
-  const organizations = React.useMemo(() => {
+  const organizations = useMemo(() => {
     const contexts = state.user.available_contexts;
     if (!contexts) return [];
 
@@ -87,7 +86,6 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   const handlePageChange = (page: PageType) => {
     onPageChange(page);
     navigate(`/${page}`);
-    setOpen(false);
   };
 
   // Handle organization switching
@@ -128,9 +126,6 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
       navigate('/dashboard');
     }
 
-    // Close dropdown
-    setOpen(false);
-
     console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
   };
 
@@ -142,21 +137,6 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
     navigate('/login');
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [open]);
 
   return (
     <header className="user-header">
@@ -167,58 +147,114 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         <img src="./icons_logo/Property 1=Logo Kinship user.svg" alt="Logo" className="!w-[150px] !h-[40px] user-logo" />
       </div>
 
-      <div className="user-header-right" ref={dropdownRef}>
-        <div className="user-info" onClick={() => setOpen(!open)}>
-          <AvatarImage
-            src={user.avatar}
-            alt={user.name}
-            className="user-avatar"
-          />
-          <span className="user-name">{user.name}</span>
-          <img
-            src="/icons_logo/Icon=Chevron bas.svg"
-            alt="▼"
-            className={`dropdown-arrow ${open ? 'open' : ''}`}
-          />
-        </div>
+      <div className="user-header-right">
+        <Menu as="div" className="relative">
+          {({ open }) => (
+            <>
+              <Menu.Button className="user-info">
+                <AvatarImage
+                  src={user.avatar}
+                  alt={user.name}
+                  className="user-avatar"
+                />
+                <span className="user-name">{user.name}</span>
+                <img
+                  src="/icons_logo/Icon=Chevron bas.svg"
+                  alt="▼"
+                  className={`dropdown-arrow ${open ? 'open' : ''}`}
+                />
+              </Menu.Button>
 
-        {open && (
-          <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
-            <div className="menu-header">
-              <div className='flex flex-col gap-0.5'>
-                <div style={{ fontWeight: 700 }}>{user.name}</div>
-                <div className="dropdown-role" title={translateRole(user.role)}>{translateRole(user.role)}</div>
-                <div style={{ fontSize: '.85rem', color: 'var(--text-light)', overflowWrap: 'break-word' }} className='' title={user.email}>{user.email}</div>
-              </div>
-            </div>
-
-            <button onClick={() => handlePageChange('projects')}>Mes projets</button>
-            <button onClick={() => handlePageChange('network')}>Mon réseau</button>
-            <button onClick={() => handlePageChange('badges')}>Mes badges</button>
-
-            <div className="dropdown-divider" />
-
-            {organizations.length > 0 && (
-              <div className="org-section">
-                <div className="org-title">Mes organisations</div>
-                {organizations.map((org) => (
-                  <div
-                    key={`${org.type}-${org.id}`}
-                    className="org-item"
-                    onClick={() => handleOrganizationSwitch(org.id, org.type)}
-                  >
-                    <span>{org.name}</span>
-                    {org.isAdmin && <span className="admin-tag">Admin</span>}
+          <Transition
+            enter="transition ease-out duration-100"
+            enterFrom="transform opacity-0 scale-95"
+            enterTo="transform opacity-100 scale-100"
+            leave="transition ease-in duration-75"
+            leaveFrom="transform opacity-100 scale-100"
+            leaveTo="transform opacity-0 scale-95"
+          >
+            <Menu.Items className="dropdown-menu">
+              <div className="menu-header">
+                <div className='menu-header-content'>
+                  <div className="menu-header-name">{user.name}</div>
+                  <div className="dropdown-role" title={translateRole(user.role)}>{translateRole(user.role)}</div>
+                  <div className="menu-header-email" title={user.email}>
+                    <i className="fas fa-envelope email-icon"></i>
+                    <span className="email-text">{user.email}</span>
                   </div>
-                ))}
+                </div>
               </div>
-            )}
 
-            <button type="button" className="menu-item logout-item" onClick={handleLogout}>
-              <i className="fas fa-sign-out-alt logout-icon"></i> Se déconnecter
-            </button>
-          </div>
-        )}
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    className={`${active ? 'active' : ''}`}
+                    onClick={() => handlePageChange('projects')}
+                  >
+                    Mes projets
+                  </button>
+                )}
+              </Menu.Item>
+
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    className={`${active ? 'active' : ''}`}
+                    onClick={() => handlePageChange('network')}
+                  >
+                    Mon réseau
+                  </button>
+                )}
+              </Menu.Item>
+
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    className={`${active ? 'active' : ''}`}
+                    onClick={() => handlePageChange('badges')}
+                  >
+                    Mes badges
+                  </button>
+                )}
+              </Menu.Item>
+
+              <div className="dropdown-divider" />
+
+              {organizations.length > 0 && (
+                <div className="org-section">
+                  <div className="org-title">Changer d'organisation</div>
+                  {organizations.map((org) => (
+                    <Menu.Item key={`${org.type}-${org.id}`}>
+                      {({ active }) => (
+                        <div
+                          className={`org-item ${active ? 'active' : ''}`}
+                          onClick={() => handleOrganizationSwitch(org.id, org.type)}
+                        >
+                          <span>{org.name}</span>
+                          {org.isAdmin && <span className="admin-tag">Admin</span>}
+                        </div>
+                      )}
+                    </Menu.Item>
+                  ))}
+                </div>
+              )}
+
+              <Menu.Item>
+                {({ active }) => (
+                  <button
+                    type="button"
+                    className={`menu-item logout-item ${active ? 'active' : ''}`}
+                    onClick={handleLogout}
+                  >
+                    <i className="fas fa-sign-out-alt logout-icon"></i> Se déconnecter
+                  </button>
+                )}
+              </Menu.Item>
+            </Menu.Items>
+          </Transition>
+            </>
+          )}
+        </Menu>
       </div>
     </header>
   );

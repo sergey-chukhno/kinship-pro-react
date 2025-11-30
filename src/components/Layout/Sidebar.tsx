@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Menu, Transition } from '@headlessui/react';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './Sidebar.css';
@@ -13,12 +14,10 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const { state, setShowingPageType } = useAppContext();
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   // Process organizations from available_contexts
-  const organizations = React.useMemo(() => {
+  const organizations = useMemo(() => {
     const contexts = state.user.available_contexts;
     if (!contexts) return [];
 
@@ -121,9 +120,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       navigate('/dashboard');
     }
 
-    // Close dropdown
-    setIsDropdownOpen(false);
-
     console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
   };
 
@@ -141,22 +137,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 
 
   const unreadNotifications = 0; //state.notifications.filter(n => !n.isRead).length;
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    if (isDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isDropdownOpen]);
 
   return (
     <aside className="sidebar" role="navigation" aria-label="Sidebar">
@@ -222,62 +202,78 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       </nav>
 
       <div className="sidebar-footer">
-        <div
-          className={`user-profile dropdown ${isDropdownOpen ? 'open' : ''}`}
-          id="adminDropdown"
-          ref={dropdownRef}
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        >
-          <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
-          <div className="user-info">
-            <div className="user-name">{state.user.name}</div>
-          </div>
-          <span
-            className="dropdown-icon"
-          >
-            <img src="/icons_logo/Icon=Chevron droit.svg" alt="Ouvrir" className="chevron-icon" />
-          </span>
-          <div className="dropdown-menu" onClick={(e) => e.stopPropagation()}>
-            <div className="menu-header">
-              <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
-              <div>
-                <div style={{ fontWeight: 700 }}>{state.user.name}</div>
-                <div className="dropdown-role" title={translateRole(state.user.role)}>{translateRole(state.user.role)}</div>
-                <div style={{ fontSize: '.85rem', color: 'var(--text-light)' }}>{state.user.email}</div>
-              </div>
-            </div>
-            {organizations.length > 0 && (
-              <div className="org-section">
-                <div className="org-title">Mes organisations</div>
-                {organizations.map((org) => (
-                  <div
-                    key={`${org.type}-${org.id}`}
-                    className="org-item"
-                    onClick={() => handleOrganizationSwitch(org.id, org.type)}
-                  >
-                    <span>{org.name}</span>
-                    {org.isAdmin && <span className="admin-tag">Admin</span>}
+        <Menu as="div" className="relative">
+          {({ open }) => (
+            <>
+              <Menu.Button className={`user-profile dropdown ${open ? 'open' : ''}`}>
+                <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
+                <div className="user-info">
+                  <div className="user-name">{state.user.name}</div>
+                </div>
+                <span className="dropdown-icon">
+                  <img src="/icons_logo/Icon=Chevron droit.svg" alt="Ouvrir" className="chevron-icon" />
+                </span>
+              </Menu.Button>
+
+              <Transition
+                enter="transition ease-out duration-100"
+                enterFrom="transform opacity-0 scale-95"
+                enterTo="transform opacity-100 scale-100"
+                leave="transition ease-in duration-75"
+                leaveFrom="transform opacity-100 scale-100"
+                leaveTo="transform opacity-0 scale-95"
+              >
+                <Menu.Items className="dropdown-menu" anchor="left end">
+                  <div className="menu-header">
+                    <div className="menu-header-content">
+                      <div className="menu-header-name">{state.user.name}</div>
+                      <div className="dropdown-role" title={translateRole(state.user.role)}>{translateRole(state.user.role)}</div>
+                      <div className="menu-header-email" title={state.user.email}>
+                        <i className="fas fa-envelope email-icon"></i>
+                        <span className="email-text">{state.user.email}</span>
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-            {/* <button type="button" className="menu-item" onClick={() => {
-              onPageChange('settings');
-              navigate('/settings');
-            }}>
-              <i className="fas fa-cog"></i> Paramètres
-            </button> */}
-            <button type="button" className="menu-item" onClick={() => {
-              localStorage.removeItem('jwt_token');
-              localStorage.removeItem('selectedPageType');
-              localStorage.removeItem('selectedContextId');
-              localStorage.removeItem('selectedContextType');
-              navigate('/login');
-            }}>
-              <i className="fas fa-sign-out-alt"></i> Se déconnecter
-            </button>
-          </div>
-        </div>
+                  {organizations.length > 0 && (
+                    <div className="org-section">
+                      <div className="org-title">Changer d'organisation</div>
+                      {organizations.map((org) => (
+                        <Menu.Item key={`${org.type}-${org.id}`}>
+                          {({ active }) => (
+                            <div
+                              className={`org-item ${active ? 'active' : ''}`}
+                              onClick={() => handleOrganizationSwitch(org.id, org.type)}
+                            >
+                              <span>{org.name}</span>
+                              {org.isAdmin && <span className="admin-tag">Admin</span>}
+                            </div>
+                          )}
+                        </Menu.Item>
+                      ))}
+                    </div>
+                  )}
+                  <Menu.Item>
+                    {({ active }) => (
+                      <button
+                        type="button"
+                        className={`menu-item logout-item ${active ? 'active' : ''}`}
+                        onClick={() => {
+                          localStorage.removeItem('jwt_token');
+                          localStorage.removeItem('selectedPageType');
+                          localStorage.removeItem('selectedContextId');
+                          localStorage.removeItem('selectedContextType');
+                          navigate('/login');
+                        }}
+                      >
+                        <i className="fas fa-sign-out-alt logout-icon"></i> Se déconnecter
+                      </button>
+                    )}
+                  </Menu.Item>
+                </Menu.Items>
+              </Transition>
+            </>
+          )}
+        </Menu>
       </div>
     </aside>
   );

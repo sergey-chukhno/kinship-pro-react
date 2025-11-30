@@ -32,6 +32,13 @@
   align-items: center;
   gap: 0.6rem;
   cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.user-info:focus {
+  outline: none;
 }
 
 .user-avatar {
@@ -58,15 +65,15 @@
 .dropdown-menu {
   position: absolute;
   top: 125%;
-  left: -5px;
+  right: 0;
   background: white;
   border: 1px solid #ddd;
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   padding: 0.5rem 0;
   width: 220px;
-  animation: fadeIn 0.15s ease;
   z-index: 1000;
+  outline: none;
 }
 
 .dropdown-menu button {
@@ -81,7 +88,8 @@
   transition: background 0.15s ease;
 }
 
-.dropdown-menu button:hover {
+.dropdown-menu button:hover,
+.dropdown-menu button.active {
   background: #f5f5f5;
 }
 
@@ -121,20 +129,29 @@
 }
 
 .org-title {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #666;
-  margin-bottom: 0.4rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+  padding: 0 1rem;
 }
 
 .org-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.3rem 0;
+  padding: 0.5rem 1rem;
   font-size: 0.9rem;
   color: #333;
   cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.org-item:hover,
+.org-item.active {
+  background: #f5f5f5;
 }
 
 .admin-tag {
@@ -163,9 +180,24 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 16px;
   border-bottom: 1px solid #eee;
   margin-bottom: 8px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+}
+
+.menu-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.menu-header-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #1f2937;
+  line-height: 1.4;
 }
 
 .menu-header .avatar {
@@ -180,9 +212,44 @@
   font-size: 0.85rem;
   font-weight: 500;
   color: #6b7280;
-  margin: 2px 0;
-  max-width: 180px;
+  margin: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.menu-header-email {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 2px;
+  padding: 6px 8px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.menu-header-email:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.email-icon {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.email-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
