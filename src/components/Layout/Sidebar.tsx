@@ -16,6 +16,28 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const { state, setShowingPageType } = useAppContext();
   const navigate = useNavigate();
 
+  // Get currently selected context
+  const getCurrentContext = useMemo(() => {
+    const savedContextId = localStorage.getItem('selectedContextId');
+    const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+    
+    if (savedContextId && savedContextType) {
+      return {
+        id: savedContextId,
+        type: savedContextType
+      };
+    }
+    
+    // Fallback: determine from showingPageType
+    if (state.showingPageType === 'teacher') {
+      return { id: 'teacher-dashboard', type: 'teacher' as const };
+    } else if (state.showingPageType === 'user') {
+      return { id: 'user-dashboard', type: 'user' as const };
+    }
+    
+    return null;
+  }, [state.showingPageType]);
+
   // Process organizations from available_contexts
   const organizations = useMemo(() => {
     const contexts = state.user.available_contexts;
@@ -225,6 +247,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
               >
                 <Menu.Items className="dropdown-menu" anchor="left end">
                   <div className="menu-header">
+                    <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
                     <div className="menu-header-content">
                       <div className="menu-header-name">{state.user.name}</div>
                       <div className="dropdown-role" title={translateRole(state.user.role)}>{translateRole(state.user.role)}</div>
@@ -237,19 +260,27 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                   {organizations.length > 0 && (
                     <div className="org-section">
                       <div className="org-title">Changer d'organisation</div>
-                      {organizations.map((org) => (
-                        <Menu.Item key={`${org.type}-${org.id}`}>
-                          {({ active }) => (
-                            <div
-                              className={`org-item ${active ? 'active' : ''}`}
-                              onClick={() => handleOrganizationSwitch(org.id, org.type)}
-                            >
-                              <span>{org.name}</span>
-                              {org.isAdmin && <span className="admin-tag">Admin</span>}
-                            </div>
-                          )}
-                        </Menu.Item>
-                      ))}
+                      {organizations.map((org) => {
+                        const isSelected = getCurrentContext && 
+                          getCurrentContext.id.toString() === org.id.toString() && 
+                          getCurrentContext.type === org.type;
+                        return (
+                          <Menu.Item key={`${org.type}-${org.id}`}>
+                            {({ active }) => (
+                              <div
+                                className={`org-item ${active ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
+                                onClick={() => handleOrganizationSwitch(org.id, org.type)}
+                              >
+                                <span>{org.name}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {isSelected && <span className="selected-indicator">●</span>}
+                                  {org.isAdmin && <span className="admin-tag">Admin</span>}
+                                </div>
+                              </div>
+                            )}
+                          </Menu.Item>
+                        );
+                      })}
                     </div>
                   )}
                   <Menu.Item>
