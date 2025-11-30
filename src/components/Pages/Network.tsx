@@ -3,6 +3,7 @@ import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
 import PartnershipModal from '../Modals/PartnershipModal';
 import OrganizationDetailsModal from '../Modals/OrganizationDetailsModal';
 import PartnershipRequestDetailsModal from '../Modals/PartnershipRequestDetailsModal';
+import BranchRequestDetailsModal from '../Modals/BranchRequestDetailsModal';
 import JoinOrganizationModal from '../Modals/JoinOrganizationModal';
 import MemberModal from '../Modals/MemberModal';
 import OrganizationCard from '../Network/OrganizationCard';
@@ -10,7 +11,7 @@ import MemberCard from '../Members/MemberCard';
 import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations } from '../../api/Projects';
+import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest } from '../../api/Projects';
 import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
@@ -91,13 +92,15 @@ const Network: React.FC = () => {
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isPartnershipRequestDetailsModalOpen, setIsPartnershipRequestDetailsModalOpen] = useState(false);
+  const [isBranchRequestDetailsModalOpen, setIsBranchRequestDetailsModalOpen] = useState(false);
   const [isJoinOrganizationModalOpen, setIsJoinOrganizationModalOpen] = useState(false);
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
   const [selectedOrganizationForDetails, setSelectedOrganizationForDetails] = useState<Organization | null>(null);
   const [selectedPartnershipRequest, setSelectedPartnershipRequest] = useState<{ partnership: Partnership; partnerName: string } | null>(null);
+  const [selectedBranchRequest, setSelectedBranchRequest] = useState<BranchRequest | null>(null);
   const [selectedNetworkMember, setSelectedNetworkMember] = useState<Member | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'my-requests' | 'search'>('schools');
+  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search'>('schools');
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
@@ -142,8 +145,14 @@ const Network: React.FC = () => {
 
   // Sub-organizations state
   const [subOrganizations, setSubOrganizations] = useState<any[]>([]);
+  const [subOrgsIsParent, setSubOrgsIsParent] = useState<boolean>(false);
   const [subOrgsLoading, setSubOrgsLoading] = useState(false);
   const [subOrgsError, setSubOrgsError] = useState<string | null>(null);
+
+  // Branch requests state
+  const [branchRequests, setBranchRequests] = useState<BranchRequest[]>([]);
+  const [branchRequestsLoading, setBranchRequestsLoading] = useState(false);
+  const [branchRequestsError, setBranchRequestsError] = useState<string | null>(null);
 
   // Personal user requests state
   const [myRequests, setMyRequests] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
@@ -164,6 +173,11 @@ const Network: React.FC = () => {
     // This allows user to manually switch to another tab after typing
     if (searchTerm && searchTerm.trim() && selectedType !== 'search') {
       setSelectedType('search');
+    } else if (!searchTerm || !searchTerm.trim()) {
+      // When search is cleared, redirect to schools tab if currently on search tab
+      if (selectedType === 'search') {
+        setSelectedType('schools');
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]); // Intentionally excluding selectedType to allow manual tab switching after auto-switch
@@ -226,42 +240,93 @@ const Network: React.FC = () => {
     }
   }, [selectedType, searchTerm, searchPage]);
 
-  // Fetch sub-organizations when tab is selected
+  // Fetch sub-organizations (reusable function)
+  const fetchSubOrganizations = useCallback(async () => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      setSubOrganizations([]);
+      setSubOrgsIsParent(false);
+      return;
+    }
+
+    setSubOrgsLoading(true);
+    setSubOrgsError(null);
+
+    try {
+      const response = await getSubOrganizations(organizationId, organizationType);
+      const data = response.data ?? [];
+
+      if (Array.isArray(data)) {
+        setSubOrganizations(data);
+        setSubOrgsIsParent(response.isParent || false);
+      } else {
+        setSubOrganizations([]);
+        setSubOrgsIsParent(false);
+      }
+    } catch (err) {
+      console.error('Error fetching sub-organizations:', err);
+      // setSubOrgsError('Erreur lors du chargement des sous-organisations');
+      setSubOrganizations([]);
+      setSubOrgsIsParent(false);
+    } finally {
+      setSubOrgsLoading(false);
+    }
+  }, [state.user, state.showingPageType]);
+
+  // Fetch sub-organizations on mount and when context changes (for organizational users)
   useEffect(() => {
-    const fetchSubOrganizations = async () => {
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
-      const organizationType = getOrganizationType(state.showingPageType);
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
 
-      if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
-        setSubOrganizations([]);
-        return;
-      }
-
-      setSubOrgsLoading(true);
-      setSubOrgsError(null);
-
-      try {
-        const response = await getSubOrganizations(organizationId, organizationType);
-        const data = response.data ?? [];
-
-        if (Array.isArray(data)) {
-          setSubOrganizations(data);
-        } else {
-          setSubOrganizations([]);
-        }
-      } catch (err) {
-        console.error('Error fetching sub-organizations:', err);
-        setSubOrgsError('Erreur lors du chargement des sous-organisations');
-        setSubOrganizations([]);
-      } finally {
-        setSubOrgsLoading(false);
-      }
-    };
-
-    if (selectedType === 'sub-organizations') {
+    // Only fetch if user has an organizational context (edu or pro)
+    if (organizationId && organizationType && (organizationType === 'school' || organizationType === 'company')) {
       fetchSubOrganizations();
     }
-  }, [selectedType, state.user, state.showingPageType]);
+  }, [state.user, state.showingPageType, fetchSubOrganizations]);
+
+  // Fetch branch requests when tab is selected
+  const fetchBranchRequests = useCallback(async () => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      setBranchRequests([]);
+      return;
+    }
+
+    setBranchRequestsLoading(true);
+    setBranchRequestsError(null);
+
+    try {
+      const response = await getBranchRequests(organizationId, organizationType);
+      const data = response.data ?? [];
+
+      if (Array.isArray(data)) {
+        setBranchRequests(data);
+      } else {
+        setBranchRequests([]);
+      }
+    } catch (err) {
+      console.error('Error fetching branch requests:', err);
+      setBranchRequestsError('Erreur lors du chargement des demandes de rattachement');
+      setBranchRequests([]);
+    } finally {
+      setBranchRequestsLoading(false);
+    }
+  }, [state.user, state.showingPageType]);
+
+  // Fetch branch requests on mount and when context changes (for organizational users)
+  useEffect(() => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    // Only fetch if user has an organizational context (edu or pro)
+    if (organizationId && organizationType && (organizationType === 'school' || organizationType === 'company')) {
+      fetchBranchRequests();
+    }
+  }, [state.user, state.showingPageType, fetchBranchRequests]);
 
   // Fetch global schools count on mount (for summary cards - never changes)
   useEffect(() => {
@@ -928,11 +993,112 @@ const Network: React.FC = () => {
     }
   };
 
-  const handleSaveAttachRequest = (attachData: any) => {
-    // TODO: Implement attach request
-    console.log('Save attach request:', attachData);
-    setIsAttachModalOpen(false);
-    setSelectedOrganization(null);
+  const handleSaveAttachRequest = async (attachData: any) => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      showError('Contexte d\'organisation invalide');
+      return;
+    }
+
+    if (!selectedOrganization) {
+      showError('Aucune organisation sélectionnée');
+      return;
+    }
+
+    try {
+      const parentId = parseInt(selectedOrganization.id);
+      const message = attachData.motivation || 'Demande de rattachement';
+
+      if (organizationType === 'school') {
+        await createSchoolBranchRequest(organizationId, {
+          parent_school_id: parentId,
+          message: message
+        });
+      } else {
+        await createCompanyBranchRequest(organizationId, {
+          parent_company_id: parentId,
+          message: message
+        });
+      }
+
+      showSuccess('Demande de rattachement envoyée avec succès');
+      setIsAttachModalOpen(false);
+      setSelectedOrganization(null);
+
+      // Refresh branch requests (data is now loaded in background)
+      await fetchBranchRequests();
+    } catch (err: any) {
+      console.error('Error creating branch request:', err);
+      showError(err?.response?.data?.message || 'Erreur lors de l\'envoi de la demande de rattachement');
+    }
+  };
+
+  // Handle confirm branch request
+  const handleConfirmBranchRequest = async (requestId: number) => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      return;
+    }
+
+    try {
+      await confirmBranchRequest(organizationId, organizationType, requestId);
+      showSuccess('Demande de rattachement confirmée avec succès');
+      
+      // Refresh branch requests
+      await fetchBranchRequests();
+      
+      // Refresh sub-organizations (the confirmed request becomes a branch)
+      await fetchSubOrganizations();
+    } catch (err: any) {
+      console.error('Error confirming branch request:', err);
+      showError(err?.response?.data?.message || 'Erreur lors de la confirmation de la demande');
+    }
+  };
+
+  // Handle reject branch request
+  const handleRejectBranchRequest = async (requestId: number) => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      return;
+    }
+
+    try {
+      await rejectBranchRequest(organizationId, organizationType, requestId);
+      showSuccess('Demande de rattachement rejetée');
+      
+      // Refresh branch requests
+      await fetchBranchRequests();
+    } catch (err: any) {
+      console.error('Error rejecting branch request:', err);
+      showError(err?.response?.data?.message || 'Erreur lors du rejet de la demande');
+    }
+  };
+
+  // Handle delete/cancel branch request (by initiator)
+  const handleDeleteBranchRequest = async (requestId: number) => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      return;
+    }
+
+    try {
+      await deleteBranchRequest(organizationId, organizationType, requestId);
+      showSuccess('Demande de rattachement annulée');
+      
+      // Refresh branch requests
+      await fetchBranchRequests();
+    } catch (err: any) {
+      console.error('Error deleting branch request:', err);
+      showError(err?.response?.data?.message || 'Erreur lors de l\'annulation de la demande');
+    }
   };
 
   // Handle accept partnership request
@@ -1163,20 +1329,29 @@ const Network: React.FC = () => {
   // No filtering for partners - show all partners (for organizational users)
   const filteredPartners = partnersAsOrganizations;
 
+  // Get confirmed branch requests (used to hide "Se rattacher" button)
+  const confirmedBranchRequests = branchRequests.filter(req => req.status === 'confirmed');
+
   // Convert sub-organizations to organization-like format for display
-  const subOrgsAsOrganizations: Organization[] = subOrganizations.map(subOrg => ({
-    id: String(subOrg.id),
-    name: subOrg.name || subOrg.company_name || subOrg.school_name || 'Sous-organisation',
-    type: 'sub-organization' as const,
-    description: subOrg.description || subOrg.city ? `${subOrg.city}${subOrg.zip_code ? ` (${subOrg.zip_code})` : ''}` : 'Sous-organisation',
-    members_count: subOrg.members_count || 0,
-    location: subOrg.city && subOrg.zip_code ? `${subOrg.city}, ${subOrg.zip_code}` : subOrg.city || '',
-    logo: subOrg.logo_url || undefined,
-    status: subOrg.status === 'confirmed' ? 'active' as const : 'pending' as const,
-    joinedDate: subOrg.created_at || '',
-    contactPerson: '',
-    email: ''
-  }));
+  const subOrgsAsOrganizations: Organization[] = subOrganizations.map((subOrg) => {
+    // If isParent is true, all items come from parent endpoint (usually just one)
+    const isParent = subOrgsIsParent;
+    
+    return {
+      id: String(subOrg.id),
+      name: subOrg.name || subOrg.company_name || subOrg.school_name || 'Sous-organisation',
+      type: 'sub-organization' as const,
+      description: subOrg.description || (subOrg.city ? `${subOrg.city}${subOrg.zip_code ? ` (${subOrg.zip_code})` : ''}` : 'Sous-organisation'),
+      members_count: subOrg.members_count || 0,
+      location: subOrg.city && subOrg.zip_code ? `${subOrg.city}, ${subOrg.zip_code}` : subOrg.city || subOrg.zip_code || '',
+      logo: subOrg.logo_url || undefined,
+      status: subOrg.status === 'confirmed' ? 'active' as const : 'pending' as const,
+      joinedDate: subOrg.created_at || '',
+      contactPerson: subOrg.referent_phone_number ? `Tél: ${subOrg.referent_phone_number}` : '',
+      email: subOrg.email || '',
+      isParent: isParent
+    } as Organization & { isParent?: boolean };
+  });
 
   // No filtering for sub-organizations - show all sub-organizations
   const filteredSubOrgs = subOrgsAsOrganizations;
@@ -1251,6 +1426,40 @@ const Network: React.FC = () => {
   // No filtering for partnership requests - show all requests
   const filteredRequests = requestsAsOrganizations;
 
+  // Convert branch requests to organization-like format for display
+  const branchRequestsAsOrganizations: Organization[] = branchRequests.map(request => {
+    const parentOrg = request.parent_school || request.parent_company;
+    const childOrg = request.child_school || request.child_company;
+    
+    // Show the organization that is NOT the current user's organization
+    const displayOrg = request.initiator === 'child' ? parentOrg : childOrg;
+    
+    return {
+      id: String(request.id),
+      name: displayOrg?.name || 'Organisation inconnue',
+      type: request.parent_school || request.child_school ? 'schools' : 'companies',
+      description: request.message || '',
+      members_count: 0,
+      location: '',
+      status: request.status as 'active' | 'pending' | 'inactive',
+      joinedDate: request.created_at || '',
+      contactPerson: '',
+      email: '',
+      branchRequestId: request.id,
+      branchRequest: request,
+      initiator: request.initiator,
+      recipient: request.recipient
+    } as Organization & { branchRequestId: number; branchRequest: BranchRequest; initiator: string; recipient: string };
+  });
+
+  // Filter branch requests: exclude confirmed ones (they appear in sub-organizations)
+  const filteredBranchRequests = branchRequestsAsOrganizations.filter(
+    org => {
+      const branchRequest = (org as any).branchRequest;
+      return !branchRequest || branchRequest.status !== 'confirmed';
+    }
+  );
+
   // Combine schools, companies and partners based on selected type
   const displayItems = selectedType === 'search'
     ? searchResultsAsOrganizations
@@ -1264,6 +1473,8 @@ const Network: React.FC = () => {
     ? filteredRequests
     : selectedType === 'sub-organizations'
     ? filteredSubOrgs
+    : selectedType === 'branch-requests'
+    ? filteredBranchRequests
     : selectedType === 'my-requests'
     ? filteredMyRequests
     : [];
@@ -1373,12 +1584,20 @@ const Network: React.FC = () => {
           </button>
           {/* Show sub-organizations tab only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
-            <button 
-              className={`filter-tab ${selectedType === 'sub-organizations' ? 'active' : ''}`}
-              onClick={() => setSelectedType('sub-organizations')}
-            >
-              Sous-organisations ({filteredSubOrgs.length})
-            </button>
+            <>
+              <button 
+                className={`filter-tab ${selectedType === 'sub-organizations' ? 'active' : ''}`}
+                onClick={() => setSelectedType('sub-organizations')}
+              >
+                Sous-organisations ({filteredSubOrgs.length})
+              </button>
+              <button 
+                className={`filter-tab ${selectedType === 'branch-requests' ? 'active' : ''}`}
+                onClick={() => setSelectedType('branch-requests')}
+              >
+                Demandes de rattachement ({filteredBranchRequests.length})
+              </button>
+            </>
           )}
           {/* Show my requests tab only for personal users (teacher/user) */}
           {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
@@ -1639,6 +1858,12 @@ const Network: React.FC = () => {
         {subOrgsError && selectedType === 'sub-organizations' && (
           <div className="error-message">{subOrgsError}</div>
         )}
+        {branchRequestsLoading && selectedType === 'branch-requests' && (
+          <div className="loading-message">Chargement des demandes de rattachement...</div>
+        )}
+        {branchRequestsError && selectedType === 'branch-requests' && (
+          <div className="error-message">{branchRequestsError}</div>
+        )}
         {myRequestsLoading && selectedType === 'my-requests' && (
           <div className="loading-message">Chargement de vos demandes...</div>
         )}
@@ -1651,10 +1876,10 @@ const Network: React.FC = () => {
         {searchError && selectedType === 'search' && (
           <div className="error-message">{searchError}</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !myRequestsLoading && !searchLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !myRequestsLoading && !searchLoading && !(isPersonalUser && selectedType === 'partner') && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !(isPersonalUser && selectedType === 'partner') && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
         
@@ -1785,6 +2010,93 @@ const Network: React.FC = () => {
                 </div>
               );
             }
+
+            // Check if this is a branch request
+            const isBranchRequest = selectedType === 'branch-requests' && 
+              'branchRequestId' in organization;
+            
+            if (isBranchRequest && 'branchRequestId' in organization) {
+              const orgWithBranchRequest = organization as Organization & { branchRequestId: number; branchRequest: BranchRequest; initiator: string; recipient: string };
+              const branchRequestId = orgWithBranchRequest.branchRequestId;
+              const branchRequest = orgWithBranchRequest.branchRequest;
+              
+              // Check if current user is the recipient (can confirm/reject)
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              const organizationType = getOrganizationType(state.showingPageType);
+              
+              const isRecipient = branchRequest.recipient === 'parent' 
+                ? (organizationType === 'school' && branchRequest.parent_school?.id === organizationId) ||
+                  (organizationType === 'company' && branchRequest.parent_company?.id === organizationId)
+                : (organizationType === 'school' && branchRequest.child_school?.id === organizationId) ||
+                  (organizationType === 'company' && branchRequest.child_company?.id === organizationId);
+              
+              const canAction = isRecipient && branchRequest.status === 'pending';
+              
+              return (
+                <div 
+                  key={organization.id} 
+                  className="organization-card"
+                  onClick={() => {
+                    setSelectedBranchRequest(branchRequest);
+                    setIsBranchRequestDetailsModalOpen(true);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="organization-header">
+                    <div className="organization-logo">
+                      <div className="logo-placeholder">
+                        <i className="fas fa-building"></i>
+                      </div>
+                    </div>
+                    <div className="organization-info">
+                      <h3 className="organization-name">{organization.name}</h3>
+                      <div className="organization-meta">
+                        <span className="organization-type">Demande de rattachement</span>
+                        <span className="whitespace-nowrap organization-status" style={{ 
+                          color: branchRequest.status === 'pending' ? '#f59e0b' : 
+                                 branchRequest.status === 'confirmed' ? '#10b981' : '#ef4444'
+                        }}>
+                          {branchRequest.status === 'pending' ? 'En attente' : 
+                           branchRequest.status === 'confirmed' ? 'Confirmée' : 'Rejetée'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="organization-content">
+                    <p className="organization-description">{organization.description}</p>
+                    {canAction && (
+                      <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                        <button
+                          className="btn btn-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleConfirmBranchRequest(branchRequestId);
+                          }}
+                          style={{ flex: 1 }}
+                        >
+                          <i className="fas fa-check"></i> Accepter
+                        </button>
+                        <button
+                          className="btn btn-outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRejectBranchRequest(branchRequestId);
+                          }}
+                          style={{ flex: 1 }}
+                        >
+                          <i className="fas fa-times"></i> Refuser
+                        </button>
+                      </div>
+                    )}
+                    {!canAction && branchRequest.status === 'pending' && (
+                      <div style={{ marginTop: '16px', padding: '12px', background: '#f3f4f6', borderRadius: '8px', color: '#6b7280', fontSize: '0.9rem' }}>
+                        <i className="fas fa-info-circle"></i> {branchRequest.initiator === 'child' ? 'Votre demande de rattachement a été envoyée' : 'En attente de réponse'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
             
             // Don't show hover actions for partners (they're already connected)
             const isPartner = selectedType === 'partner';
@@ -1792,8 +2104,22 @@ const Network: React.FC = () => {
             // Don't show hover actions for sub-organizations (they're part of the current organization)
             const isSubOrganization = selectedType === 'sub-organizations';
             
+            // Don't show hover actions for branch requests
+            const isBranchRequestType = selectedType === 'branch-requests';
+            
             // Personal users (teacher/user) cannot attach to organizations
             const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+            
+            // Check if there's already a confirmed branch request with this organization
+            const targetOrgId = parseInt(organization.id);
+            const hasConfirmedBranchRequest = confirmedBranchRequests.some(req => {
+              const parentOrg = req.parent_school || req.parent_company;
+              const childOrg = req.child_school || req.child_company;
+              
+              // Check if this organization is involved in a confirmed branch request
+              return (parentOrg?.id === targetOrgId || childOrg?.id === targetOrgId) &&
+                     req.status === 'confirmed';
+            });
             
             return (
           <OrganizationCard
@@ -1801,8 +2127,8 @@ const Network: React.FC = () => {
             organization={organization}
             onEdit={() => console.log('Edit organization:', organization.id)}
             onDelete={() => console.log('Delete organization:', organization.id)}
-            onAttach={!isPartner && !isSubOrganization && !isPersonalUser ? () => handleAttachRequest(organization) : undefined}
-            onPartnership={!isPartner && !isSubOrganization && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined}
+            onAttach={!isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest ? () => handleAttachRequest(organization) : undefined}
+            onPartnership={!isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined}
             onJoin={isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined}
             isPersonalUser={isPersonalUser}
             onClick={() => handleViewDetails(organization)}
@@ -2113,11 +2439,37 @@ const Network: React.FC = () => {
         />
       )}
 
+      {/* Branch Request Details Modal */}
+      {isBranchRequestDetailsModalOpen && selectedBranchRequest && (
+        <BranchRequestDetailsModal
+          branchRequest={selectedBranchRequest}
+          user={state.user}
+          onClose={() => {
+            setIsBranchRequestDetailsModalOpen(false);
+            setSelectedBranchRequest(null);
+          }}
+          onAccept={handleConfirmBranchRequest}
+          onReject={handleRejectBranchRequest}
+          onDelete={handleDeleteBranchRequest}
+        />
+      )}
+
       {isDetailsModalOpen && selectedOrganizationForDetails && (() => {
         // Use the same logic as OrganizationCard to determine if actions should be shown
         const isPartner = selectedType === 'partner';
         const isSubOrganization = selectedType === 'sub-organizations';
         const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+        
+        // Check if there's already a confirmed branch request with this organization
+        const targetOrgId = parseInt(selectedOrganizationForDetails.id);
+        const hasConfirmedBranchRequest = confirmedBranchRequests.some(req => {
+          const parentOrg = req.parent_school || req.parent_company;
+          const childOrg = req.child_school || req.child_company;
+          
+          // Check if this organization is involved in a confirmed branch request
+          return (parentOrg?.id === targetOrgId || childOrg?.id === targetOrgId) &&
+                 req.status === 'confirmed';
+        });
         
         return (
           <OrganizationDetailsModal
@@ -2127,7 +2479,7 @@ const Network: React.FC = () => {
               setSelectedOrganizationForDetails(null);
             }}
             onAttach={
-              !isPartner && !isSubOrganization && !isPersonalUser
+              !isPartner && !isSubOrganization && !isPersonalUser && !hasConfirmedBranchRequest
                 ? () => handleAttachRequest(selectedOrganizationForDetails)
                 : undefined
             }

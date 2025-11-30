@@ -17,7 +17,7 @@ interface Organization {
 }
 
 interface OrganizationCardProps {
-  organization: Organization;
+  organization: Organization & { isParent?: boolean };
   onEdit: () => void;
   onDelete: () => void;
   onAttach?: () => void;
@@ -82,7 +82,9 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
         <div className="organization-info">
           <h3 className="organization-name">{organization.name}</h3>
           <div className="organization-meta">
-            <span className="organization-type">{getTypeLabel(organization.type)}</span>
+            <span className="organization-type">
+              {organization.isParent ? 'Parent' : getTypeLabel(organization.type)}
+            </span>
             <span 
               className="whitespace-nowrap organization-status" 
               style={{ color: getStatusColor(organization.status) }}

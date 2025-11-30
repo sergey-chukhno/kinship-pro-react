@@ -79,8 +79,10 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.organizationName && formData.contactPerson && formData.email) {
+    if (formData.organizationName && formData.motivation) {
       onSave(formData);
+    } else {
+      alert('Veuillez remplir tous les champs obligatoires');
     }
   };
 
@@ -162,7 +164,7 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
           <div className="form-section">
             <h3>Motivation et contexte</h3>
             <div className="form-group">
-              <label htmlFor="motivation">Pourquoi souhaitez-vous rejoindre le réseau Kinship ?</label>
+              <label htmlFor="motivation">Pourquoi souhaitez-vous vous rattacher { initialOrganization?.type === 'schools' ? 'à l\' établissement' : 'à l\'organisation' } : <span className="font-bold">{initialOrganization?.name}</span> ?</label>
               <textarea
                 id="motivation"
                 name="motivation"
@@ -174,7 +176,7 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
               />
             </div>
 
-            <div className="form-group">
+            {/* <div className="form-group">
               <label htmlFor="expectedBenefits">Quels bénéfices attendez-vous ?</label>
               <textarea
                 id="expectedBenefits"
@@ -185,9 +187,9 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
                 placeholder="Décrivez les bénéfices attendus"
                 rows={3}
               />
-            </div>
+            </div> */}
 
-            <div className="form-grid">
+            {/* <div className="form-grid">
               <div className="form-group">
                 <label htmlFor="currentProjects">Projets actuels</label>
                 <input
@@ -213,9 +215,9 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
                   placeholder="Ex: 5-10 personnes"
                 />
               </div>
-            </div>
+            </div> */}
 
-            <div className="form-group">
+            {/* <div className="form-group">
               <label htmlFor="experience">Expérience dans le domaine</label>
               <textarea
                 id="experience"
@@ -226,7 +228,7 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
                 placeholder="Décrivez votre expérience et expertise"
                 rows={3}
               />
-            </div>
+            </div> */}
           </div>
         </form>
 
