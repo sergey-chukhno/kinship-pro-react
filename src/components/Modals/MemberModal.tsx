@@ -250,14 +250,43 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 QR Code
               </button>
             )}
-            <button className="btn btn-outline btn-sm" onClick={onContactClick}>
-              <i className="fas fa-envelope"></i>
-              Contacter
-            </button>
-            <button className="btn btn-outline btn-sm" onClick={onDelete}>
-              <i className="fas fa-trash"></i>
-              Supprimer
-            </button>
+            {hideDeleteButton ? (
+              <button 
+                className="btn btn-outline btn-sm" 
+                onClick={async () => {
+                  if (member.email) {
+                    try {
+                      await navigator.clipboard.writeText(member.email);
+                      alert('Email copié dans le presse-papiers');
+                    } catch (err) {
+                      console.error('Failed to copy email:', err);
+                      // Fallback for older browsers
+                      const textArea = document.createElement('textarea');
+                      textArea.value = member.email;
+                      document.body.appendChild(textArea);
+                      textArea.select();
+                      document.execCommand('copy');
+                      document.body.removeChild(textArea);
+                      alert('Email copié dans le presse-papiers');
+                    }
+                  }
+                }}
+              >
+                <i className="fas fa-copy"></i>
+                Copier l'email
+              </button>
+            ) : (
+              <button className="btn btn-outline btn-sm" onClick={onContactClick}>
+                <i className="fas fa-envelope"></i>
+                Contacter
+              </button>
+            )}
+            {!hideDeleteButton && (
+              <button className="btn btn-outline btn-sm" onClick={onDelete}>
+                <i className="fas fa-trash"></i>
+                Supprimer
+              </button>
+            )}
           </div>
 
 

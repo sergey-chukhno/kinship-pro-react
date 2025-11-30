@@ -404,6 +404,9 @@ export const getPersonalUserOrganizations = async (): Promise<{ data: { schools:
         },
         meta: undefined
     };
+};
+
+/**
  * Fetch all members from teacher's classes (students + volunteers)
  * Returns members from all classes the teacher manages
  */

@@ -1,4 +1,4 @@
-import { Team, CreateTeamPayload } from '../api/Projects';
+import { Team, CreateTeamPayload, TeamMember } from '../api/Projects';
 
 /**
  * Map API team data to frontend team format
@@ -9,7 +9,7 @@ export const mapApiTeamToFrontendTeam = (apiTeam: Team): any => {
         name: apiTeam.title,
         description: apiTeam.description,
         chiefId: apiTeam.team_leader?.id?.toString() || '',
-        members: apiTeam.team_members?.map((tm) => tm.user?.id?.toString()) || [],
+        members: apiTeam.team_members?.map((tm: TeamMember) => tm.user?.id?.toString()) || [],
         number: 0 // Will be calculated based on order
     };
 };
