@@ -20,36 +20,15 @@ interface PartnershipModalProps {
   onClose: () => void;
   onSave: (partnershipData: any) => void;
   initialOrganization?: Organization | null;
+  organizationType?: 'school' | 'company';
 }
 
-const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, initialOrganization }) => {
+const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, initialOrganization, organizationType }) => {
   const [formData, setFormData] = useState({
-    organizationName: '',
-    contactPerson: '',
-    email: '',
-    phone: '',
-    website: '',
-    description: '',
     partnershipType: '',
-    objectives: '',
-    expectedDuration: '',
-    resources: '',
-    benefits: ''
+    description: ''
   });
 
-  // Pre-fill form when initialOrganization is provided
-  useEffect(() => {
-    if (initialOrganization) {
-      setFormData(prev => ({
-        ...prev,
-        organizationName: initialOrganization.name || '',
-        description: initialOrganization.description || '',
-        website: initialOrganization.website || '',
-        contactPerson: initialOrganization.contactPerson || '',
-        email: initialOrganization.email || '',
-      }));
-    }
-  }, [initialOrganization]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -58,7 +37,7 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, in
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.organizationName && formData.contactPerson && formData.email) {
+    if (formData.partnershipType && formData.description) {
       onSave(formData);
     }
   };
@@ -84,7 +63,10 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, in
         <form onSubmit={handleSubmit} className="modal-body">
           <div className="flex flex-col gap-2 form-section">
             <h3>Détails du partenariat</h3>
-            <h4 className=""> Avec : <span className="text-sm font-bold">{formData.organizationName}</span></h4>
+            {initialOrganization && (
+              <h4 className="">Avec : <span className="text-sm font-bold">{initialOrganization.name}</span></h4>
+            )}
+            
             <div className="form-group">
               <label htmlFor="partnershipType">Type de partenariat *</label>
               <select
@@ -105,12 +87,13 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, in
             </div>
 
             <div className="form-group">
-              <label htmlFor="objectives">Ajouter un message</label>
+              <label htmlFor="description">Ajouter un message *</label>
               <textarea
-                id="objectives"
-                name="objectives"
-                value={formData.objectives}
+                id="description"
+                name="description"
+                value={formData.description}
                 onChange={handleInputChange}
+                required
                 className="form-textarea"
                 placeholder="Décrivez les objectifs du partenariat"
                 rows={3}

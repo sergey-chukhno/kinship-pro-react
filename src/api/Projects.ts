@@ -26,6 +26,9 @@ export interface Partnership {
     partners: PartnershipPartner[];
     created_at: string;
     updated_at: string;
+    name?: string;
+    description?: string;
+    has_sponsorship?: boolean;
 }
 
 export interface OrganizationMember {
@@ -163,6 +166,73 @@ export const getPartnerships = async (
 };
 
 /**
+ * Fetch personal user network (for teacher/user roles)
+ */
+export const getPersonalUserNetwork = async (
+    params?: { page?: number; per_page?: number; skill_ids?: number[]; availability?: string[]; skill_name?: string }
+): Promise<{ data: any[]; meta?: any }> => {
+    const requestParams: any = { per_page: params?.per_page || 12 };
+    if (params?.page) requestParams.page = params.page;
+    if (params?.skill_ids && params.skill_ids.length > 0) requestParams.skill_ids = params.skill_ids;
+    if (params?.skill_name) requestParams.skill_name = params.skill_name;
+    
+    // Format availability array with brackets for Rails-style array parameters
+    if (params?.availability && params.availability.length > 0) {
+        // Use paramsSerializer to format arrays with brackets
+        requestParams.availability = params.availability;
+    }
+
+    const response = await apiClient.get('/api/v1/users/me/network', {
+        params: requestParams,
+        paramsSerializer: (params) => {
+            // Format arrays with brackets: availability[]=monday&availability[]=tuesday
+            const searchParams = new URLSearchParams();
+            Object.keys(params).forEach(key => {
+                const value = params[key];
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        searchParams.append(`${key}[]`, item);
+                    });
+                } else if (value !== undefined && value !== null) {
+                    searchParams.append(key, value.toString());
+                }
+            });
+            return searchParams.toString();
+        }
+    });
+    
+    // Handle response structure: { data: [...], meta: {...} }
+    if (response.data?.data) {
+        return {
+            data: response.data.data,
+            meta: response.data.meta
+        };
+    }
+    
+    // Fallback for direct array response
+    return {
+        data: Array.isArray(response.data) ? response.data : [],
+        meta: undefined
+    };
+};
+
+/**
+ * Join a school (for personal users)
+ */
+export const joinSchool = async (schoolId: number): Promise<any> => {
+    const response = await apiClient.post(`/api/v1/schools/${schoolId}/join`);
+    return response.data;
+};
+
+/**
+ * Join a company (for personal users)
+ */
+export const joinCompany = async (companyId: number): Promise<any> => {
+    const response = await apiClient.post(`/api/v1/companies/${companyId}/join`);
+    return response.data;
+};
+
+/**
  * Accept a partnership request
  */
 export const acceptPartnership = async (
@@ -174,7 +244,7 @@ export const acceptPartnership = async (
         ? `/api/v1/schools/${organizationId}/partnerships/${partnershipId}/confirm`
         : `/api/v1/companies/${organizationId}/partnerships/${partnershipId}/confirm`;
 
-    const response = await apiClient.put(endpoint);
+    const response = await apiClient.patch(endpoint);
     return response.data;
 };
 
@@ -191,6 +261,40 @@ export const rejectPartnership = async (
         : `/api/v1/companies/${organizationId}/partnerships/${partnershipId}/reject`;
 
     const response = await apiClient.put(endpoint);
+    return response.data;
+};
+
+/**
+ * Create a partnership request
+ */
+export interface CreatePartnershipPayload {
+    partnership_type: string;
+    name: string;
+    description: string;
+    partner_company_ids: number[];
+    partner_school_ids: number[];
+    share_members: boolean;
+    share_projects: boolean;
+    has_sponsorship: boolean;
+    initiator_role: 'beneficiary' | 'sponsor';
+    partner_role: 'beneficiary' | 'sponsor';
+}
+
+export interface CreatePartnershipResponse {
+    message: string;
+    data: Partnership;
+}
+
+export const createPartnership = async (
+    organizationId: number,
+    organizationType: 'school' | 'company',
+    payload: CreatePartnershipPayload
+): Promise<CreatePartnershipResponse> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/partnerships`
+        : `/api/v1/companies/${organizationId}/partnerships`;
+
+    const response = await apiClient.post(endpoint, payload);
     return response.data;
 };
 
@@ -271,6 +375,35 @@ export const getPersonalUserRequests = async (
             attachRequests: []
         };
     }
+};
+
+/**
+ * Fetch personal user organization requests (for teacher/user roles)
+ * Uses /api/v1/users/me/membership_requests endpoint
+ * Returns structure: { data: { schools: [...], companies: [...] }, meta: {...} }
+ */
+export const getPersonalUserOrganizations = async (): Promise<{ data: { schools: any[]; companies: any[] }; meta?: any }> => {
+    const response = await apiClient.get('/api/v1/users/me/membership_requests');
+    
+    // Handle response structure: { data: { schools: [...], companies: [...] }, meta: {...} }
+    if (response.data?.data) {
+        return {
+            data: {
+                schools: response.data.data.schools || [],
+                companies: response.data.data.companies || []
+            },
+            meta: response.data.meta
+        };
+    }
+    
+    // Fallback
+    return {
+        data: {
+            schools: [],
+            companies: []
+        },
+        meta: undefined
+    };
 };
 
 /**

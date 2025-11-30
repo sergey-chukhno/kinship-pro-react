@@ -14,6 +14,7 @@ interface MemberModalProps {
   onUpdate: (updates: Partial<Member>) => void;
   onDelete: () => void;
   onContactClick: () => void;
+  hideDeleteButton?: boolean; // Option to hide delete button and permissions (for network members)
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
@@ -21,7 +22,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
   onClose,
   onUpdate,
   onDelete,
-  onContactClick
+  onContactClick,
+  hideDeleteButton = false
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
@@ -557,10 +559,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
               </div>
 
               {/* Permissions Section */}
-              <div className="info-section">
-                <h3>Permissions</h3>
-                <p className="section-subtitle">Le membre peut gérer :</p>
-                <div className="permissions-grid">
+              {!hideDeleteButton && (
+                <div className="info-section">
+                  <h3>Permissions</h3>
+                  <p className="section-subtitle">Le membre peut gérer :</p>
+                  <div className="permissions-grid">
                   <div className="permission-item">
                     <label className="permission-checkbox">
                       <input
@@ -606,37 +609,40 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     </label>
                   </div>
                 </div>
-              </div>
+                </div>
+              )}
 
               {/* Proposals Section */}
-              <div className="info-section">
-                <h3>Propositions</h3>
-                <p className="section-subtitle">Le membre peut proposer :</p>
-                <div className="proposals-grid">
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={proposals.canProposeStage}
-                        onChange={() => handleProposalChange('canProposeStage')}
-                      />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Propose un stage</span>
-                    </label>
-                  </div>
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={proposals.canProposeAtelier}
-                        onChange={() => handleProposalChange('canProposeAtelier')}
-                      />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Propose un atelier pro</span>
-                    </label>
+              {!hideDeleteButton && (
+                <div className="info-section">
+                  <h3>Propositions</h3>
+                  <p className="section-subtitle">Le membre peut proposer :</p>
+                  <div className="proposals-grid">
+                    <div className="permission-item">
+                      <label className="permission-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={proposals.canProposeStage}
+                          onChange={() => handleProposalChange('canProposeStage')}
+                        />
+                        <span className="checkmark"></span>
+                        <span className="permission-label">Propose un stage</span>
+                      </label>
+                    </div>
+                    <div className="permission-item">
+                      <label className="permission-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={proposals.canProposeAtelier}
+                          onChange={() => handleProposalChange('canProposeAtelier')}
+                        />
+                        <span className="checkmark"></span>
+                        <span className="permission-label">Propose un atelier pro</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="modal-footer">

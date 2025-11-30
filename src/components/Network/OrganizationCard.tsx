@@ -22,11 +22,14 @@ interface OrganizationCardProps {
   onDelete: () => void;
   onAttach?: () => void;
   onPartnership?: () => void;
+  onJoin?: () => void;
   isPersonalUser?: boolean;
   onClick?: () => void;
+  hideJoinButton?: boolean;
+  hideMembersCount?: boolean;
 }
 
-const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete, onAttach, onPartnership, isPersonalUser = false, onClick }) => {
+const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete, onAttach, onPartnership, onJoin, isPersonalUser = false, onClick, hideJoinButton = false, hideMembersCount = false }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return '#10b981';
@@ -124,10 +127,12 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
             <i className="fas fa-map-marker-alt"></i>
             <span>{organization.location}</span>
           </div>
-          <div className="detail-item">
-            <i className="fas fa-users"></i>
-            <span>{organization.members_count} membres</span>
-          </div>
+          {!hideMembersCount && (
+            <div className="detail-item">
+              <i className="fas fa-users"></i>
+              <span>{organization.members_count} membres</span>
+            </div>
+          )}
           {organization.joinedDate && (
           <div className="detail-item">
             <i className="fas fa-calendar"></i>
@@ -171,8 +176,8 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
       </div>
 
 
-      {/* Hover Actions - Se rattacher et Demander un partenariat */}
-      {(onAttach || onPartnership) && (
+      {/* Hover Actions - Se rattacher, Demander un partenariat, ou Rejoindre */}
+      {(onAttach || onPartnership || (onJoin && !hideJoinButton)) && (
         <div className="organization-hover-actions">
           {onAttach && (
             <button 
@@ -187,6 +192,19 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
               <span>Se rattacher</span>
             </button>
           )}
+          {onJoin && !hideJoinButton && (
+            <button 
+              className="btn-hover-action btn-partnership" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onJoin();
+              }}
+              title="Rejoindre l'organisation"
+            >
+              <i className="fas fa-user-plus"></i>
+              <span>Rejoindre</span>
+            </button>
+          )}
           {onPartnership && (
             <button 
               className="btn-hover-action btn-partnership" 
@@ -194,10 +212,10 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
                 e.stopPropagation();
                 onPartnership();
               }}
-              title={isPersonalUser ? "Rejoindre la communauté" : "Proposer un partenariat"}
+              title="Proposer un partenariat"
             >
               <i className="fas fa-handshake"></i>
-              <span>{isPersonalUser ? "Rejoindre la communauté" : "partenariat"}</span>
+              <span>Partenariat</span>
             </button>
           )}
         </div>

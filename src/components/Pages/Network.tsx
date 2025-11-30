@@ -1,12 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
 import PartnershipModal from '../Modals/PartnershipModal';
 import OrganizationDetailsModal from '../Modals/OrganizationDetailsModal';
+import PartnershipRequestDetailsModal from '../Modals/PartnershipRequestDetailsModal';
+import JoinOrganizationModal from '../Modals/JoinOrganizationModal';
+import MemberModal from '../Modals/MemberModal';
 import OrganizationCard from '../Network/OrganizationCard';
+import MemberCard from '../Members/MemberCard';
+import { Member } from '../../types';
+import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, getPersonalUserRequests } from '../../api/Projects';
+import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations } from '../../api/Projects';
+import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
+import { useToast } from '../../hooks/useToast';
 import './Network.css';
 
 interface Organization {
@@ -23,6 +31,7 @@ interface Organization {
   contactPerson: string;
   email: string;
 }
+
 
 interface School {
   id: number;
@@ -47,13 +56,33 @@ interface Company {
   members_count?: number;
 }
 
+// NetworkUser interface for API response
+interface NetworkUser {
+  id: number;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  job: string | null;
+  avatar_url: string | null;
+  skills: Array<{ id: number; name: string }>;
+  availability?: string[] | { [key: string]: boolean } | null; // Availability can be array or object
+  common_organizations: Array<{ id: number; name: string; type: string }>;
+}
+
 const Network: React.FC = () => {
   const { state } = useAppContext();
+  const { showSuccess, showError } = useToast();
   const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isPartnershipRequestDetailsModalOpen, setIsPartnershipRequestDetailsModalOpen] = useState(false);
+  const [isJoinOrganizationModalOpen, setIsJoinOrganizationModalOpen] = useState(false);
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
   const [selectedOrganizationForDetails, setSelectedOrganizationForDetails] = useState<Organization | null>(null);
+  const [selectedPartnershipRequest, setSelectedPartnershipRequest] = useState<{ partnership: Partnership; partnerName: string } | null>(null);
+  const [selectedNetworkMember, setSelectedNetworkMember] = useState<Member | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'my-requests' | 'search'>('schools');
   const [schools, setSchools] = useState<School[]>([]);
@@ -74,13 +103,21 @@ const Network: React.FC = () => {
   const [companiesTotalCount, setCompaniesTotalCount] = useState(0);
 
 
-  // Partners state
-  const [partners, setPartners] = useState<Partnership[]>([]);
+  // Partners state (for organizational users) or Network users (for personal users)
+  const [partners, setPartners] = useState<Partnership[] | NetworkUser[]>([]);
   const [partnersLoading, setPartnersLoading] = useState(false);
   const [partnersError, setPartnersError] = useState<string | null>(null);
   const [partnersPage, setPartnersPage] = useState(1);
   const [partnersTotalPages, setPartnersTotalPages] = useState(1);
   const [partnersTotalCount, setPartnersTotalCount] = useState(0);
+
+  // Filters for personal user network
+  const [competenceFilter, setCompetenceFilter] = useState('');
+  const [availabilityFilter, setAvailabilityFilter] = useState<string[]>([]);
+  const [organizationFilter, setOrganizationFilter] = useState('');
+  const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
+  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [isAvailabilityDropdownOpen, setIsAvailabilityDropdownOpen] = useState(false);
 
   // Partnership requests state
   const [partnershipRequests, setPartnershipRequests] = useState<Partnership[]>([]);
@@ -96,7 +133,7 @@ const Network: React.FC = () => {
   const [subOrgsError, setSubOrgsError] = useState<string | null>(null);
 
   // Personal user requests state
-  const [myRequests, setMyRequests] = useState<{ partnerships: Partnership[]; attachRequests: any[] }>({ partnerships: [], attachRequests: [] });
+  const [myRequests, setMyRequests] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
   const [myRequestsLoading, setMyRequestsLoading] = useState(false);
   const [myRequestsError, setMyRequestsError] = useState<string | null>(null);
 
@@ -108,21 +145,20 @@ const Network: React.FC = () => {
   const [searchTotalPages, setSearchTotalPages] = useState(1);
   const [searchTotalCount, setSearchTotalCount] = useState(0);
 
-  // Reset page to 1 when search term changes
+  // Auto-switch to search tab when user starts typing in search
   useEffect(() => {
-    setSchoolsPage(1);
-    setCompaniesPage(1);
-    setPartnersPage(1);
-    setRequestsPage(1);
-    setSearchPage(1);
-  }, [searchTerm]);
-
-  // Auto-switch to search tab when search term is entered
-  useEffect(() => {
-    if (searchTerm && searchTerm.trim()) {
+    // Only auto-switch if there's a search term and we're not already on search tab
+    // This allows user to manually switch to another tab after typing
+    if (searchTerm && searchTerm.trim() && selectedType !== 'search') {
       setSelectedType('search');
-    } else if (selectedType === 'search') {
-      setSelectedType('schools');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]); // Intentionally excluding selectedType to allow manual tab switching after auto-switch
+
+  // Reset search page to 1 when search term changes (only for search tab)
+  useEffect(() => {
+    if (selectedType === 'search') {
+      setSearchPage(1);
     }
   }, [searchTerm, selectedType]);
 
@@ -272,40 +308,22 @@ const Network: React.FC = () => {
       setSchoolsError(null);
       
       try {
-        let response;
-        let data: any[] = [];
-        let meta: any = null;
-        
-        if (searchTerm && searchTerm.trim()) {
-          // Use search endpoint when there's a search term
+        // Always use regular endpoint for schools tab (no search)
         const params: any = {
-            q: searchTerm.trim(),
-            page: schoolsPage,
-            per_page: 50
-          };
-
-          response = await searchOrganizations(params);
-          const responseData = response?.data ?? {};
-          data = Array.isArray(responseData.schools) ? responseData.schools : [];
-          meta = responseData.meta;
-        } else {
-          // Use regular endpoint when no search
-          const params: any = {
-            page: schoolsPage,
+          page: schoolsPage,
           per_page: 50,
           status: 'confirmed'
         };
 
-          response = await getSchools(params);
-          data = response?.data?.data ?? [];
-          meta = response?.data?.meta;
-        }
+        const response = await getSchools(params);
+        const data = response?.data?.data ?? [];
+        const meta = response?.data?.meta;
 
         if (Array.isArray(data)) {
           setSchools(data);
           if (meta) {
-            setSchoolsTotalPages(meta.schools_pages || meta.total_pages || 1);
-            setSchoolsTotalCount(meta.schools_count || meta.total_count || data.length);
+            setSchoolsTotalPages(meta.total_pages || 1);
+            setSchoolsTotalCount(meta.total_count || data.length);
           }
         } else {
           setSchools([]);
@@ -323,7 +341,7 @@ const Network: React.FC = () => {
     if (selectedType === 'schools') {
       fetchSchools();
     }
-  }, [selectedType, searchTerm, schoolsPage]);
+  }, [selectedType, schoolsPage]);
 
   // Fetch companies from API
   useEffect(() => {
@@ -332,40 +350,22 @@ const Network: React.FC = () => {
       setCompaniesError(null);
       
       try {
-        let response;
-        let data: any[] = [];
-        let meta: any = null;
-        
-        if (searchTerm && searchTerm.trim()) {
-          // Use search endpoint when there's a search term
+        // Always use regular endpoint for companies tab (no search)
         const params: any = {
-            q: searchTerm.trim(),
-            page: companiesPage,
-            per_page: 50
-          };
-
-          response = await searchOrganizations(params);
-          const responseData = response?.data ?? {};
-          data = Array.isArray(responseData.companies) ? responseData.companies : [];
-          meta = responseData.meta;
-        } else {
-          // Use regular endpoint when no search
-          const params: any = {
-            page: companiesPage,
+          page: companiesPage,
           per_page: 50,
           status: 'confirmed'
         };
 
-          response = await getCompanies(params);
-          data = response?.data?.data ?? [];
-          meta = response?.data?.meta;
-        }
+        const response = await getCompanies(params);
+        const data = response?.data?.data ?? [];
+        const meta = response?.data?.meta;
 
         if (Array.isArray(data)) {
           setCompanies(data);
           if (meta) {
-            setCompaniesTotalPages(meta.companies_pages || meta.total_pages || 1);
-            setCompaniesTotalCount(meta.companies_count || meta.total_count || data.length);
+            setCompaniesTotalPages(meta.total_pages || 1);
+            setCompaniesTotalCount(meta.total_count || data.length);
           }
         } else {
           setCompanies([]);
@@ -383,7 +383,7 @@ const Network: React.FC = () => {
     if (selectedType === 'companies') {
       fetchCompanies();
     }
-  }, [selectedType, searchTerm, companiesPage]);
+  }, [selectedType, companiesPage]);
 
   // Fetch companies count on mount (for displaying count in tab)
   useEffect(() => {
@@ -411,170 +411,396 @@ const Network: React.FC = () => {
     fetchCompaniesCount();
   }, []);
 
-  // Fetch partners count on mount (for displaying count in tab)
-  useEffect(() => {
-    const fetchPartnersCount = async () => {
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
-      const organizationType = getOrganizationType(state.showingPageType);
+  // Function to fetch partners count (reusable)
+  const fetchPartnersCount = useCallback(async () => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
 
-      if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
-        setPartnersTotalCount(0);
-        return;
-      }
-
+    // For personal users, use the personal network endpoint
+    if (isPersonalUser) {
       try {
         const params: any = {
           page: 1,
-          per_page: 1, // Just to get the meta.total_count
-          status: 'confirmed' // Only count confirmed partnerships
+          per_page: 1 // Just to get the meta.total_count
         };
 
-        const response = await getPartnerships(organizationId, organizationType, params);
+        const response = await getPersonalUserNetwork(params);
         const meta = response.meta;
 
         if (meta) {
           setPartnersTotalCount(meta.total_count || 0);
           setPartnersTotalPages(meta.total_pages || 1);
+        } else {
+          // Fallback: use data length if no meta
+          setPartnersTotalCount(response.data?.length || 0);
+          setPartnersTotalPages(1);
         }
       } catch (err) {
-        console.error('Error fetching partners count:', err);
+        console.error('Error fetching personal user network count:', err);
         setPartnersTotalCount(0);
       }
-    };
+      return;
+    }
 
-    fetchPartnersCount();
+    // For organizational users (school/company), use the partnerships endpoint
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      setPartnersTotalCount(0);
+      return;
+    }
+
+    try {
+      const params: any = {
+        page: 1,
+        per_page: 1, // Just to get the meta.total_count
+        status: 'confirmed' // Only count confirmed partnerships
+      };
+
+      const response = await getPartnerships(organizationId, organizationType, params);
+      const meta = response.meta;
+
+      if (meta) {
+        setPartnersTotalCount(meta.total_count || 0);
+        setPartnersTotalPages(meta.total_pages || 1);
+      }
+    } catch (err) {
+      console.error('Error fetching partners count:', err);
+      setPartnersTotalCount(0);
+    }
   }, [state.user, state.showingPageType]);
 
-  // Fetch partners data when partner tab is selected
-  useEffect(() => {
-    const fetchPartners = async () => {
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
-      const organizationType = getOrganizationType(state.showingPageType);
+  // Function to fetch partners (reusable)
+  const fetchPartners = useCallback(async () => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
 
-      if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
-        setPartners([]);
-        return;
-      }
+    setPartnersLoading(true);
+    setPartnersError(null);
 
-      setPartnersLoading(true);
-      setPartnersError(null);
-
+    // For personal users, use the personal network endpoint
+    if (isPersonalUser) {
       try {
+        // Get skill IDs from skill names if filter is set
+        let skillIds: number[] = [];
+        if (competenceFilter && skillsOptions.length > 0) {
+          // We need to match skill names to IDs - for now, we'll pass skill names
+          // The API might accept skill names or IDs
+          const skill = skillsOptions.find(s => s === competenceFilter);
+          // If the API expects IDs, we'd need to fetch the skill list with IDs
+          // For now, we'll pass the filter as-is and let the API handle it
+        }
+
         const params: any = {
           page: partnersPage,
-          per_page: 50,
-          status: 'confirmed' // Only fetch confirmed partnerships
+          per_page: 12
         };
 
-        const response = await getPartnerships(organizationId, organizationType, params);
+        // Add filters if set
+        if (competenceFilter) {
+          // The API might accept skill_ids or skill names - adjust based on API docs
+          // For now, we'll pass it as a query parameter
+          params.skill_name = competenceFilter;
+        }
+        if (availabilityFilter.length > 0) {
+          params.availability = availabilityFilter;
+        }
+        // Note: organization filter is applied client-side since it's in common_organizations
+
+        const response = await getPersonalUserNetwork(params);
         const data = response.data ?? [];
         const meta = response.meta;
 
         if (Array.isArray(data)) {
-          setPartners(data);
+          // Store network users directly
+          setPartners(data as NetworkUser[]);
           if (meta) {
             setPartnersTotalPages(meta.total_pages || 1);
             setPartnersTotalCount(meta.total_count || 0);
+          } else {
+            // Fallback: use data length if no meta
+            setPartnersTotalCount(data.length);
+            setPartnersTotalPages(1);
           }
         } else {
           setPartners([]);
         }
       } catch (err) {
-        console.error('Error fetching partners:', err);
-        setPartnersError('Erreur lors du chargement des partenaires');
+        console.error('Error fetching personal user network:', err);
+        setPartnersError('Erreur lors du chargement de votre réseau');
         setPartners([]);
       } finally {
         setPartnersLoading(false);
       }
+      return;
+    }
+
+    // For organizational users (school/company), use the partnerships endpoint
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      setPartners([]);
+      setPartnersLoading(false);
+      return;
+    }
+
+    try {
+      const params: any = {
+        page: partnersPage,
+        per_page: 50,
+        status: 'confirmed' // Only fetch confirmed partnerships
+      };
+
+      const response = await getPartnerships(organizationId, organizationType, params);
+      const data = response.data ?? [];
+      const meta = response.meta;
+
+      if (Array.isArray(data)) {
+        setPartners(data);
+        if (meta) {
+          setPartnersTotalPages(meta.total_pages || 1);
+          setPartnersTotalCount(meta.total_count || 0);
+        }
+      } else {
+        setPartners([]);
+      }
+    } catch (err) {
+      console.error('Error fetching partners:', err);
+      setPartnersError('Erreur lors du chargement des partenaires');
+      setPartners([]);
+    } finally {
+      setPartnersLoading(false);
+    }
+  }, [state.user, state.showingPageType, partnersPage, competenceFilter, availabilityFilter, skillsOptions]);
+
+  // Fetch skills for personal users
+  const fetchSkills = useCallback(async () => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    if (!isPersonalUser) return;
+
+    try {
+      setSkillsLoading(true);
+      const response = await getSkills();
+      const rawSkills = response.data?.data || response.data || [];
+      const parsedSkills: string[] = rawSkills
+        .map((skill: any) => {
+          if (typeof skill === 'string') return skill;
+          if (skill?.attributes?.name) return skill.attributes.name;
+          return skill?.name || '';
+        })
+        .filter(
+          (skillName: string | undefined): skillName is string =>
+            typeof skillName === 'string' && skillName.trim().length > 0
+        );
+      const normalizedSkills = Array.from(new Set(parsedSkills)).sort((a, b) =>
+        a.localeCompare(b, 'fr', { sensitivity: 'base' })
+      );
+      setSkillsOptions(normalizedSkills);
+    } catch (err) {
+      console.error('Erreur récupération des compétences :', err);
+    } finally {
+      setSkillsLoading(false);
+    }
+  }, [state.showingPageType]);
+
+  useEffect(() => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    if (isPersonalUser && selectedType === 'partner') {
+      fetchSkills();
+    }
+  }, [state.showingPageType, selectedType, fetchSkills]);
+
+  // Close availability dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (isAvailabilityDropdownOpen && !target.closest('.filter-group')) {
+        setIsAvailabilityDropdownOpen(false);
+      }
     };
 
+    if (isAvailabilityDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isAvailabilityDropdownOpen]);
+
+  // Handle join organization request (opens modal)
+  const handleJoinOrganizationRequest = (organization: Organization) => {
+    setSelectedOrganization(organization);
+    setIsJoinOrganizationModalOpen(true);
+  };
+
+  // Handle save join organization (for personal users)
+  const handleSaveJoinOrganization = async (message: string) => {
+    if (!selectedOrganization) return;
+
+    const organizationId = parseInt(selectedOrganization.id);
+    const organizationType = selectedOrganization.type === 'schools' ? 'school' : 'company';
+
+    try {
+      if (organizationType === 'school') {
+        await joinSchool(organizationId);
+        showSuccess('Demande de rattachement à l\'établissement envoyée avec succès');
+      } else {
+        await joinCompany(organizationId);
+        showSuccess('Demande de rattachement à l\'organisation envoyée avec succès');
+      }
+      
+      // Close modal and clear selection
+      setIsJoinOrganizationModalOpen(false);
+      setSelectedOrganization(null);
+      
+      // Refresh network after joining
+      if (selectedType === 'partner') {
+        await fetchPartners();
+      }
+    } catch (err: any) {
+      console.error('Error joining organization:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Erreur lors de la demande de rattachement';
+      showError(errorMessage);
+    }
+  };
+
+  // Fetch partners count on mount (for displaying count in tab)
+  useEffect(() => {
+    fetchPartnersCount();
+  }, [fetchPartnersCount]);
+
+  // Fetch partners data when partner tab is selected
+  useEffect(() => {
     // Only fetch partners data when partner tab is selected
     if (selectedType === 'partner') {
       fetchPartners();
     }
-  }, [selectedType, state.user, state.showingPageType, partnersPage]);
+  }, [selectedType, fetchPartners]);
+
+  // Function to fetch partnership requests count (reusable)
+  const fetchRequestsCount = useCallback(async () => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      setRequestsTotalCount(0);
+      return;
+    }
+
+    try {
+      const params: any = {
+        page: 1,
+        per_page: 1,
+        status: 'pending'
+      };
+
+      const response = await getPartnerships(organizationId, organizationType, params);
+      const meta = response.meta;
+
+      if (meta) {
+        setRequestsTotalCount(meta.total_count || 0);
+        setRequestsTotalPages(meta.total_pages || 1);
+      }
+    } catch (err) {
+      console.error('Error fetching partnership requests count:', err);
+      setRequestsTotalCount(0);
+    }
+  }, [state.user, state.showingPageType]);
+
+  // Function to fetch partnership requests (reusable)
+  const fetchRequests = useCallback(async () => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      setPartnershipRequests([]);
+      return;
+    }
+
+    setRequestsLoading(true);
+    setRequestsError(null);
+
+    try {
+      const params: any = {
+        page: requestsPage,
+        per_page: 50,
+        status: 'pending'
+      };
+
+      const response = await getPartnerships(organizationId, organizationType, params);
+      const data = response.data ?? [];
+      const meta = response.meta;
+
+      if (Array.isArray(data)) {
+        setPartnershipRequests(data);
+        if (meta) {
+          setRequestsTotalPages(meta.total_pages || 1);
+          setRequestsTotalCount(meta.total_count || 0);
+        }
+      } else {
+        setPartnershipRequests([]);
+      }
+    } catch (err) {
+      console.error('Error fetching partnership requests:', err);
+      setRequestsError('Erreur lors du chargement des demandes de partenariats');
+      setPartnershipRequests([]);
+    } finally {
+      setRequestsLoading(false);
+    }
+  }, [state.user, state.showingPageType, requestsPage]);
 
   // Fetch partnership requests count on mount (for displaying count in tab)
   useEffect(() => {
-    const fetchRequestsCount = async () => {
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
-      const organizationType = getOrganizationType(state.showingPageType);
-
-      if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
-        setRequestsTotalCount(0);
-        return;
-      }
-
-      try {
-        const params: any = {
-          page: 1,
-          per_page: 1,
-          status: 'pending'
-        };
-
-        const response = await getPartnerships(organizationId, organizationType, params);
-        const meta = response.meta;
-
-        if (meta) {
-          setRequestsTotalCount(meta.total_count || 0);
-          setRequestsTotalPages(meta.total_pages || 1);
-        }
-      } catch (err) {
-        console.error('Error fetching partnership requests count:', err);
-        setRequestsTotalCount(0);
-      }
-    };
-
     fetchRequestsCount();
-  }, [state.user, state.showingPageType]);
+  }, [fetchRequestsCount]);
 
   // Fetch partnership requests when tab is selected
   useEffect(() => {
-    const fetchRequests = async () => {
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
-      const organizationType = getOrganizationType(state.showingPageType);
-
-      if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
-        setPartnershipRequests([]);
-        return;
-      }
-
-      setRequestsLoading(true);
-      setRequestsError(null);
-
-      try {
-        const params: any = {
-          page: requestsPage,
-          per_page: 50,
-          status: 'pending'
-        };
-
-        const response = await getPartnerships(organizationId, organizationType, params);
-        const data = response.data ?? [];
-        const meta = response.meta;
-
-        if (Array.isArray(data)) {
-          setPartnershipRequests(data);
-          if (meta) {
-            setRequestsTotalPages(meta.total_pages || 1);
-            setRequestsTotalCount(meta.total_count || 0);
-          }
-        } else {
-          setPartnershipRequests([]);
-        }
-      } catch (err) {
-        console.error('Error fetching partnership requests:', err);
-        setRequestsError('Erreur lors du chargement des demandes de partenariats');
-        setPartnershipRequests([]);
-      } finally {
-        setRequestsLoading(false);
-      }
-    };
-
     if (selectedType === 'partnership-requests') {
       fetchRequests();
     }
-  }, [selectedType, state.user, state.showingPageType, requestsPage]);
+  }, [selectedType, fetchRequests]);
+
+  // Function to fetch personal user organization requests
+  const fetchMyRequests = useCallback(async () => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    
+    if (!isPersonalUser) {
+      setMyRequests({ schools: [], companies: [] });
+      return;
+    }
+
+    setMyRequestsLoading(true);
+    setMyRequestsError(null);
+
+    try {
+      const response = await getPersonalUserOrganizations();
+      const data = response.data;
+
+      if (data) {
+        setMyRequests({
+          schools: data.schools || [],
+          companies: data.companies || []
+        });
+      } else {
+        setMyRequests({ schools: [], companies: [] });
+      }
+    } catch (err) {
+      console.error('Error fetching personal user organizations:', err);
+      setMyRequestsError('Erreur lors du chargement de vos demandes');
+      setMyRequests({ schools: [], companies: [] });
+    } finally {
+      setMyRequestsLoading(false);
+    }
+  }, [state.showingPageType]);
+
+  // Fetch my requests when tab is selected
+  useEffect(() => {
+    if (selectedType === 'my-requests') {
+      fetchMyRequests();
+    }
+  }, [selectedType, fetchMyRequests]);
 
   // No client-side filtering for schools and companies - search is done server-side
   // This ensures pagination works correctly with server-side search
@@ -600,11 +826,89 @@ const Network: React.FC = () => {
     setIsDetailsModalOpen(true);
   };
 
-  const handleSavePartnership = (partnershipData: any) => {
-    // TODO: Implement partnership creation
-    console.log('Save partnership:', partnershipData);
-    setIsPartnershipModalOpen(false);
-    setSelectedOrganization(null);
+  const handleSavePartnership = async (partnershipData: any) => {
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+
+    if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      console.error('Invalid organization context for partnership creation');
+      return;
+    }
+
+    if (!selectedOrganization) {
+      console.error('No organization selected for partnership');
+      return;
+    }
+
+    try {
+      // Determine partner IDs based on organization type
+      const partnerId = parseInt(selectedOrganization.id);
+      const isPartnerCompany = selectedOrganization.type === 'companies';
+      const isPartnerSchool = selectedOrganization.type === 'schools';
+
+      if (!isPartnerCompany && !isPartnerSchool) {
+        console.error('Selected organization is not a valid company or school');
+        return;
+      }
+
+      // Determine roles based on organization type and partner type
+      let initiatorRole: 'beneficiary' | 'sponsor' = 'beneficiary';
+      let partnerRole: 'beneficiary' | 'sponsor' = 'sponsor';
+      let hasSponsorship = false;
+
+      // If school (edu) partnering with company: school = beneficiary, company = sponsor
+      if (organizationType === 'school' && isPartnerCompany) {
+        initiatorRole = 'beneficiary';
+        partnerRole = 'sponsor';
+        hasSponsorship = true;
+      }
+      // If company (pro) partnering with school: company = sponsor, school = beneficiary
+      else if (organizationType === 'company' && isPartnerSchool) {
+        initiatorRole = 'sponsor';
+        partnerRole = 'beneficiary';
+        hasSponsorship = true;
+      }
+
+      // Build payload with hardcoded values
+      const payload: CreatePartnershipPayload = {
+        partnership_type: 'bilateral',
+        name: `${selectedOrganization.name} Partnership`,
+        description: partnershipData.description || '',
+        partner_company_ids: isPartnerCompany ? [partnerId] : [],
+        partner_school_ids: isPartnerSchool ? [partnerId] : [],
+        share_members: false,
+        share_projects: false,
+        has_sponsorship: hasSponsorship,
+        initiator_role: initiatorRole,
+        partner_role: partnerRole
+      };
+
+      // Create partnership
+      const response = await createPartnership(organizationId, organizationType, payload);
+      
+      // Success - close modal
+      setIsPartnershipModalOpen(false);
+      setSelectedOrganization(null);
+      
+      console.log('Partnership created successfully:', response);
+      
+      // Show success toast
+      showSuccess('Demande de partenariat créée avec succès');
+      
+      // Refresh partners list and count (always refresh, not just if on partner tab)
+      await fetchPartnersCount();
+      await fetchPartners();
+      
+      // Also refresh partnership requests count and list (the new partnership is pending)
+      await fetchRequestsCount();
+      if (selectedType === 'partnership-requests') {
+        await fetchRequests();
+      }
+    } catch (err: any) {
+      console.error('Error creating partnership:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Erreur lors de la création du partenariat';
+      showError(errorMessage);
+    }
   };
 
   const handleSaveAttachRequest = (attachData: any) => {
@@ -625,11 +929,21 @@ const Network: React.FC = () => {
 
     try {
       await acceptPartnership(organizationId, organizationType, partnershipId);
+      
+      // Show success toast
+      showSuccess('Partenariat accepté avec succès');
+      
       // Remove from requests and update count
       setPartnershipRequests(prev => prev.filter(p => p.id !== partnershipId));
       setRequestsTotalCount(prev => Math.max(0, prev - 1));
+      
+      // Refresh partners list and count (the partnership is now confirmed)
+      await fetchPartnersCount();
+      await fetchPartners();
     } catch (err) {
       console.error('Error accepting partnership:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de l\'acceptation du partenariat';
+      showError(errorMessage);
       setRequestsError('Erreur lors de l\'acceptation du partenariat');
     }
   };
@@ -717,36 +1031,111 @@ const Network: React.FC = () => {
   }));
 
   // Convert partners to organization-like format for display
-  // Partners contain organizations, so we need to extract and flatten them
-  // Only include confirmed partnerships in the partners list
-  const partnersAsOrganizations: Organization[] = partners
-    .filter(partnership => partnership.status === 'confirmed') // Only confirmed partnerships
-    .flatMap(partnership => {
-    // Get organizations from the partnership (partners array)
-    const organizationId = getOrganizationId(state.user, state.showingPageType);
-    return (partnership.partners || [])
-      .filter(partner => partner.id !== organizationId)
-      .map(partner => ({
-        id: String(partner.id),
-        name: partner.name,
-        type: 'partner' as const,
-        description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
-        members_count: 0, // Partners don't have members_count in the API
-        location: '',
-        logo: undefined,
-          status: 'active' as const, // All partners here are confirmed
-        joinedDate: partnership.created_at || '',
-        contactPerson: '',
-        email: ''
-      }));
-  });
+  const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+  
+  // For personal users, partners are NetworkUser[] - no conversion needed
+  // For organizational users, convert partnerships to organizations
+  const partnersAsOrganizations: Organization[] = isPersonalUser
+    ? [] // Personal users don't use Organization format
+    : // For organizational users, use the existing partnership conversion logic
+      (partners as Partnership[])
+        .filter(partnership => partnership.status === 'confirmed') // Only confirmed partnerships
+        .flatMap(partnership => {
+          // Get organizations from the partnership (partners array)
+          const organizationId = getOrganizationId(state.user, state.showingPageType);
+          return (partnership.partners || [])
+            .filter(partner => partner.id !== organizationId)
+            .map(partner => ({
+              id: String(partner.id),
+              name: partner.name,
+              type: 'partner' as const,
+              description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
+              members_count: 0, // Partners don't have members_count in the API
+              location: '',
+              logo: undefined,
+              status: 'active' as const, // All partners here are confirmed
+              joinedDate: partnership.created_at || '',
+              contactPerson: '',
+              email: ''
+            }));
+        });
 
-  // Filter partners based on search term (client-side for partners)
-  const filteredPartners = partnersAsOrganizations.filter(partner => {
-    const matchesSearch = partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         partner.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  // Convert NetworkUser to Member format for MemberCard
+  const networkUsersAsMembers: Member[] = isPersonalUser
+    ? (partners as NetworkUser[]).map((user: NetworkUser) => {
+        // Extract first and last name from full_name
+        const nameParts = user.full_name.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        // Translate role
+        const translatedRole = translateRole(user.role);
+        const translatedRoles = translateRoles([user.role || 'member']);
+        
+        return {
+          id: String(user.id),
+          firstName,
+          lastName,
+          fullName: user.full_name,
+          email: user.email,
+          profession: translateRole(user.job) || translatedRole,
+          roles: translatedRoles,
+          skills: user.skills.map((skill: { id: number; name: string }) => skill.name),
+          availability: (() => {
+            // Convert availability to array of strings
+            if (!user.availability) return [];
+            if (Array.isArray(user.availability)) {
+              return user.availability;
+            }
+            // If it's an object like { monday: true, tuesday: false, ... }
+            if (typeof user.availability === 'object') {
+              const dayLabels: { [key: string]: string } = {
+                monday: 'Lundi',
+                tuesday: 'Mardi',
+                wednesday: 'Mercredi',
+                thursday: 'Jeudi',
+                friday: 'Vendredi',
+                saturday: 'Samedi',
+                sunday: 'Dimanche',
+                other: 'Autre'
+              };
+              return Object.entries(user.availability)
+                .filter(([_, value]) => value === true)
+                .map(([key, _]) => dayLabels[key] || key);
+            }
+            return [];
+          })(),
+          avatar: user.avatar_url || '',
+          isTrusted: false,
+          badges: [],
+          organization: user.common_organizations?.map(org => org.name).join(', ') || ''
+        } as Member;
+      })
+    : [];
+
+  // Get unique organizations for filter dropdown
+  const organizationOptions = isPersonalUser
+    ? Array.from(new Set(
+        networkUsersAsMembers
+          .map(member => member.organization)
+          .filter((org): org is string => !!org)
+      )).sort()
+    : [];
+
+  // Filter personal user network by skills, availability, and organization
+  const filteredNetworkUsers: Member[] = isPersonalUser
+    ? networkUsersAsMembers.filter((member: Member) => {
+        const matchesCompetence = !competenceFilter || 
+          member.skills.some(skill => skill.toLowerCase().includes(competenceFilter.toLowerCase()));
+        const matchesOrganization = !organizationFilter || 
+          member.organization?.toLowerCase().includes(organizationFilter.toLowerCase());
+        // Note: availability is not in the NetworkUser interface, so we skip that filter for now
+        return matchesCompetence && matchesOrganization;
+      })
+    : [];
+
+  // No filtering for partners - show all partners (for organizational users)
+  const filteredPartners = partnersAsOrganizations;
 
   // Convert sub-organizations to organization-like format for display
   const subOrgsAsOrganizations: Organization[] = subOrganizations.map(subOrg => ({
@@ -763,60 +1152,53 @@ const Network: React.FC = () => {
     email: ''
   }));
 
-  // Filter sub-organizations based on search term
-  const filteredSubOrgs = subOrgsAsOrganizations.filter(subOrg => {
-    const matchesSearch = subOrg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         subOrg.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         subOrg.location.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  // No filtering for sub-organizations - show all sub-organizations
+  const filteredSubOrgs = subOrgsAsOrganizations;
 
-  // Convert personal user requests to organization-like format for display
+  // Convert personal user organization requests to organization-like format for display
   const myRequestsAsOrganizations: Organization[] = [
-    // Partnership requests
-    ...myRequests.partnerships.flatMap(partnership => {
-      const userId = typeof state.user?.id === 'string' ? parseInt(state.user.id) : state.user?.id;
-      return (partnership.partners || [])
-        .filter(partner => partner.id !== userId)
-        .map(partner => ({
-          id: String(partnership.id),
-          name: partner.name,
-          type: 'partner' as const,
-          description: `Demande de partenariat ${partnership.partnership_type} - Statut: ${partnership.status === 'pending' ? 'En attente' : partnership.status === 'confirmed' ? 'Accepté' : 'Refusé'}`,
-          members_count: 0, // Partners don't have members_count in the API
-          location: '',
-          logo: undefined,
-          status: partnership.status === 'confirmed' ? 'active' as const : partnership.status === 'pending' ? 'pending' as const : 'inactive' as const,
-          joinedDate: partnership.created_at || '',
-          contactPerson: '',
-          email: '',
-          partnershipId: partnership.id,
-          partnership: partnership
-        } as Organization & { partnershipId: number; partnership: Partnership }));
+    // School membership requests
+    ...myRequests.schools.map((request: any) => {
+      const school = request.school || {};
+      return {
+        id: String(school.id || request.id),
+        name: school.name || 'École',
+        type: 'schools' as const,
+        description: `Demande de rattachement - Statut: ${request.status === 'pending' ? 'En attente' : request.status === 'accepted' || request.status === 'confirmed' ? 'Accepté' : 'Refusé'}`,
+        members_count: 0,
+        location: school.city || '',
+        logo: school.logo_url || undefined,
+        status: (request.status === 'accepted' || request.status === 'confirmed') ? 'active' as const : request.status === 'pending' ? 'pending' as const : 'inactive' as const,
+        joinedDate: request.requested_at || request.updated_at || '',
+        contactPerson: '',
+        email: '',
+        membershipRequestId: request.id,
+        role: request.role
+      } as Organization & { membershipRequestId: number; role: string };
     }),
-    // Attach requests
-    ...myRequests.attachRequests.map((request: any) => ({
-      id: String(request.id),
-      name: request.organization_name || request.name || 'Organisation',
-      type: 'sub-organization' as const,
-      description: `Demande de rattachement - Statut: ${request.status === 'pending' ? 'En attente' : request.status === 'accepted' ? 'Accepté' : 'Refusé'}`,
-      members_count: request.members_count || 0,
-      location: request.location || '',
-      logo: request.logo_url || undefined,
-      status: request.status === 'accepted' ? 'active' as const : request.status === 'pending' ? 'pending' as const : 'inactive' as const,
-      joinedDate: request.created_at || '',
-      contactPerson: '',
-      email: '',
-      attachRequestId: request.id
-    } as Organization & { attachRequestId: number }))
+    // Company membership requests
+    ...myRequests.companies.map((request: any) => {
+      const company = request.company || {};
+      return {
+        id: String(company.id || request.id),
+        name: company.name || 'Entreprise',
+        type: 'companies' as const,
+        description: `Demande de rattachement - Statut: ${request.status === 'pending' ? 'En attente' : request.status === 'accepted' || request.status === 'confirmed' ? 'Accepté' : 'Refusé'}`,
+        members_count: 0,
+        location: company.city || '',
+        logo: company.logo_url || undefined,
+        status: (request.status === 'accepted' || request.status === 'confirmed') ? 'active' as const : request.status === 'pending' ? 'pending' as const : 'inactive' as const,
+        joinedDate: request.requested_at || request.updated_at || '',
+        contactPerson: '',
+        email: '',
+        membershipRequestId: request.id,
+        role: request.role
+      } as Organization & { membershipRequestId: number; role: string };
+    })
   ];
 
-  // Filter my requests based on search term
-  const filteredMyRequests = myRequestsAsOrganizations.filter(request => {
-    const matchesSearch = request.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  // No filtering for my requests - show all requests
+  const filteredMyRequests = myRequestsAsOrganizations;
 
   // Convert partnership requests to organization-like format for display
   const requestsAsOrganizations: Organization[] = partnershipRequests.flatMap(partnership => {
@@ -840,12 +1222,8 @@ const Network: React.FC = () => {
       } as Organization & { partnershipId: number; partnership: Partnership }));
   });
 
-  // Filter requests based on search term
-  const filteredRequests = requestsAsOrganizations.filter(request => {
-    const matchesSearch = request.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  // No filtering for partnership requests - show all requests
+  const filteredRequests = requestsAsOrganizations;
 
   // Combine schools, companies and partners based on selected type
   const displayItems = selectedType === 'search'
@@ -894,7 +1272,19 @@ const Network: React.FC = () => {
             className="search-input !w-full"
             placeholder="Rechercher par nom, code postal ou ville"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              // Ne jamais changer l'onglet automatiquement lors de la saisie
+              const newValue = e.target.value;
+              setSearchTerm(newValue);
+              // S'assurer que l'onglet ne change pas automatiquement
+              // L'utilisateur doit cliquer explicitement sur l'onglet "Recherche"
+            }}
+            onKeyDown={(e) => {
+              // Empêcher toute action automatique sur Enter si on n'est pas sur l'onglet recherche
+              if (e.key === 'Enter' && selectedType !== 'search' && searchTerm.trim()) {
+                e.preventDefault();
+              }
+            }}
           />
         </div>
       </div>
@@ -932,15 +1322,16 @@ const Network: React.FC = () => {
 
       {/* Type Filter */}
       <div className="network-filters">
+
         <div className="filter-tabs">
-          {/* Show search tab when there's a search term */}
+          {/* Show search tab only when there's a search term */}
           {searchTerm && searchTerm.trim() && (
-          <button 
+            <button 
               className={`filter-tab ${selectedType === 'search' ? 'active' : ''}`}
               onClick={() => setSelectedType('search')}
-          >
+            >
               Recherche ({searchTotalCount > 0 ? searchTotalCount : searchResultsAsOrganizations.length})
-          </button>
+            </button>
           )}
           <button 
             className={`filter-tab ${selectedType === 'schools' ? 'active' : ''}`}
@@ -952,7 +1343,7 @@ const Network: React.FC = () => {
             className={`filter-tab ${selectedType === 'companies' ? 'active' : ''}`}
             onClick={() => setSelectedType('companies')}
           >
-            Entreprises ({companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length})
+            Organisations ({companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length})
           </button>
           {/* Show sub-organizations tab only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
@@ -987,6 +1378,207 @@ const Network: React.FC = () => {
             </button>
           )}
         </div>
+                {/* Filters for personal user network */}
+                {isPersonalUser && selectedType === 'partner' && (
+          <div className="network-user-filters" style={{ 
+            marginBottom: '20px', 
+            padding: '16px', 
+            background: '#f9fafb', 
+            borderRadius: '12px',
+            border: '1px solid #e5e7eb'
+          }}>
+            <div style={{ marginBottom: '12px', fontSize: '1rem', fontWeight: 600, color: '#1f2937' }}>
+              <i className="fas fa-filter" style={{ marginRight: '8px' }}></i>
+              Filtres
+            </div>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <div className="filter-group" style={{ flex: '1', minWidth: '200px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
+                  <i className="fas fa-tools" style={{ marginRight: '6px' }}></i>
+                  Compétence
+                </label>
+                <select
+                  value={competenceFilter}
+                  onChange={(e) => {
+                    setCompetenceFilter(e.target.value);
+                    setPartnersPage(1); // Reset to first page when filter changes
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    background: 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">Toutes les compétences</option>
+                  {skillsOptions.map((skill) => (
+                    <option key={skill} value={skill}>
+                      {skill}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-group" style={{ flex: '1', minWidth: '200px', position: 'relative' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
+                  <i className="fas fa-calendar-alt" style={{ marginRight: '6px' }}></i>
+                  Disponibilité
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsAvailabilityDropdownOpen(!isAvailabilityDropdownOpen)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      background: 'white',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <span style={{ color: availabilityFilter.length > 0 ? '#1f2937' : '#9ca3af' }}>
+                      {availabilityFilter.length > 0 
+                        ? `${availabilityFilter.length} jour${availabilityFilter.length > 1 ? 's' : ''} sélectionné${availabilityFilter.length > 1 ? 's' : ''}`
+                        : 'Toutes les disponibilités'}
+                    </span>
+                    <i className={`fas fa-chevron-${isAvailabilityDropdownOpen ? 'up' : 'down'}`} style={{ fontSize: '0.75rem', color: '#9ca3af' }}></i>
+                  </button>
+                  {isAvailabilityDropdownOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        marginTop: '4px',
+                        padding: '8px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        background: 'white',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        zIndex: 1000,
+                        maxHeight: '200px',
+                        overflowY: 'auto'
+                      }}
+                    >
+                      {[
+                        { value: 'monday', label: 'Lundi' },
+                        { value: 'tuesday', label: 'Mardi' },
+                        { value: 'wednesday', label: 'Mercredi' },
+                        { value: 'thursday', label: 'Jeudi' },
+                        { value: 'friday', label: 'Vendredi' },
+                        { value: 'saturday', label: 'Samedi' },
+                        { value: 'sunday', label: 'Dimanche' },
+                        { value: 'other', label: 'Autre' }
+                      ].map((option) => (
+                        <label
+                          key={option.value}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            borderRadius: '4px',
+                            transition: 'background-color 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={availabilityFilter.includes(option.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setAvailabilityFilter([...availabilityFilter, option.value]);
+                              } else {
+                                setAvailabilityFilter(availabilityFilter.filter(a => a !== option.value));
+                              }
+                              setPartnersPage(1); // Reset to first page when filter changes
+                            }}
+                            style={{
+                              marginRight: '10px',
+                              cursor: 'pointer',
+                              width: '16px',
+                              height: '16px'
+                            }}
+                          />
+                          <span style={{ fontSize: '0.875rem', color: '#374151' }}>{option.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="filter-group" style={{ flex: '1', minWidth: '200px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
+                  <i className="fas fa-building" style={{ marginRight: '6px' }}></i>
+                  Établissement / Organisation
+                </label>
+                <select
+                  value={organizationFilter}
+                  onChange={(e) => {
+                    setOrganizationFilter(e.target.value);
+                    setPartnersPage(1); // Reset to first page when filter changes
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '0.875rem',
+                    background: 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">Tous les établissements</option>
+                  {organizationOptions.map((org) => (
+                    <option key={org} value={org}>
+                      {org}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {(competenceFilter || availabilityFilter.length > 0 || organizationFilter) && (
+              <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  onClick={() => {
+                    setCompetenceFilter('');
+                    setAvailabilityFilter([]);
+                    setOrganizationFilter('');
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    background: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <i className="fas fa-times"></i>
+                  Réinitialiser les filtres
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Organizations List */}
@@ -1033,11 +1625,49 @@ const Network: React.FC = () => {
         {searchError && selectedType === 'search' && (
           <div className="error-message">{searchError}</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !myRequestsLoading && !searchLoading && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !myRequestsLoading && !searchLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
-        <div className="grid !grid-cols-3">
-          {displayItems.map((organization) => {
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !myRequestsLoading && !searchLoading && !(isPersonalUser && selectedType === 'partner') && (
+          <div className="empty-message">Aucun résultat trouvé</div>
+        )}
+        
+        {/* Display network users for personal users using MemberCard */}
+        {isPersonalUser && selectedType === 'partner' && (
+          <div className="members-grid">
+            {filteredNetworkUsers.length > 0 ? filteredNetworkUsers.map((member) => (
+              <MemberCard
+                key={member.id}
+                member={member}
+                badgeCount={member.badges?.length || 0}
+                onClick={() => {
+                  // Handle member card click - could open a profile modal
+                  console.log('View member profile:', member.id);
+                }}
+                onContactClick={() => {
+                  // Handle contact click - mailto is handled in MemberCard
+                  console.log('Contact member:', member.email);
+                }}
+                onViewProfile={() => {
+                  // Open member profile modal
+                  setSelectedNetworkMember(member);
+                }}
+                onRoleChange={(newRole) => {
+                  // For network users, role change might not be applicable
+                  console.log('Role change not applicable for network users');
+                }}
+                disableRoleDropdown={true}
+              />
+            )) : (
+              <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>
+            )}
+          </div>
+        )}
+        
+        {/* Display organizations for other tabs */}
+        {!(isPersonalUser && selectedType === 'partner') && (
+          <div className="grid !grid-cols-3">
+            {displayItems.map((organization) => {
             // Check if this is a partnership request
             const isPartnershipRequest = selectedType === 'partnership-requests' && 
               'partnershipId' in organization;
@@ -1064,7 +1694,15 @@ const Network: React.FC = () => {
                                  partnership.initiator_id === organizationId;
               
               return (
-                <div key={organization.id} className="organization-card">
+                <div 
+                  key={organization.id} 
+                  className="organization-card"
+                  onClick={() => {
+                    setSelectedPartnershipRequest({ partnership, partnerName: organization.name });
+                    setIsPartnershipRequestDetailsModalOpen(true);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div className="organization-header">
                     <div className="organization-logo">
                       <div className="logo-placeholder">
@@ -1087,14 +1725,20 @@ const Network: React.FC = () => {
                       <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                         <button
                           className="btn btn-primary"
-                          onClick={() => handleAcceptPartnership(partnershipId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAcceptPartnership(partnershipId);
+                          }}
                           style={{ flex: 1 }}
                         >
                           <i className="fas fa-check"></i> Accepter
                         </button>
                         <button
                           className="btn btn-outline"
-                          onClick={() => handleRejectPartnership(partnershipId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRejectPartnership(partnershipId);
+                          }}
                           style={{ flex: 1 }}
                         >
                           <i className="fas fa-times"></i> Refuser
@@ -1127,13 +1771,17 @@ const Network: React.FC = () => {
             onEdit={() => console.log('Edit organization:', organization.id)}
             onDelete={() => console.log('Delete organization:', organization.id)}
             onAttach={!isPartner && !isSubOrganization && !isPersonalUser ? () => handleAttachRequest(organization) : undefined}
-            onPartnership={!isPartner && !isSubOrganization ? () => handlePartnershipProposal(organization) : undefined}
+            onPartnership={!isPartner && !isSubOrganization && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined}
+            onJoin={isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined}
             isPersonalUser={isPersonalUser}
             onClick={() => handleViewDetails(organization)}
+            hideJoinButton={selectedType === 'my-requests'}
+            hideMembersCount={selectedType === 'my-requests'}
           />
             );
           })}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Pagination for Schools */}
@@ -1381,6 +2029,19 @@ const Network: React.FC = () => {
         </div>
       )}
 
+      {/* Join Organization Modal (for personal users) */}
+      {isJoinOrganizationModalOpen && selectedOrganization && (
+        <JoinOrganizationModal
+          onClose={() => {
+            setIsJoinOrganizationModalOpen(false);
+            setSelectedOrganization(null);
+          }}
+          onSave={handleSaveJoinOrganization}
+          initialOrganization={selectedOrganization}
+          organizationType={selectedOrganization.type === 'schools' ? 'school' : 'company'}
+        />
+      )}
+
       {/* Partnership Modal */}
       {isPartnershipModalOpen && (
         <PartnershipModal
@@ -1390,6 +2051,7 @@ const Network: React.FC = () => {
           }}
           onSave={handleSavePartnership}
           initialOrganization={selectedOrganization}
+          organizationType={getOrganizationType(state.showingPageType)}
         />
       )}
 
@@ -1402,6 +2064,20 @@ const Network: React.FC = () => {
           }}
           onSave={handleSaveAttachRequest}
           initialOrganization={selectedOrganization}
+        />
+      )}
+
+      {/* Partnership Request Details Modal */}
+      {isPartnershipRequestDetailsModalOpen && selectedPartnershipRequest && (
+        <PartnershipRequestDetailsModal
+          partnership={selectedPartnershipRequest.partnership}
+          partnerName={selectedPartnershipRequest.partnerName}
+          onClose={() => {
+            setIsPartnershipRequestDetailsModalOpen(false);
+            setSelectedPartnershipRequest(null);
+          }}
+          onAccept={handleAcceptPartnership}
+          onReject={handleRejectPartnership}
         />
       )}
 
@@ -1424,14 +2100,46 @@ const Network: React.FC = () => {
                 : undefined
             }
             onPartnership={
-              !isPartner && !isSubOrganization
+              !isPartner && !isSubOrganization && selectedType !== 'my-requests'
                 ? () => handlePartnershipProposal(selectedOrganizationForDetails)
                 : undefined
             }
+            onJoin={
+              isPersonalUser && 
+              selectedOrganizationForDetails && 
+              (selectedOrganizationForDetails.type === 'schools' || selectedOrganizationForDetails.type === 'companies') &&
+              selectedType !== 'my-requests'
+                ? () => handleJoinOrganizationRequest(selectedOrganizationForDetails)
+                : undefined
+            }
             isPersonalUser={isPersonalUser}
+            hideJoinButton={selectedType === 'my-requests'}
+            hideMembersCount={selectedType === 'my-requests'}
           />
         );
       })()}
+
+      {/* Member Profile Modal for network members */}
+      {selectedNetworkMember && (
+        <MemberModal
+          member={selectedNetworkMember}
+          onClose={() => setSelectedNetworkMember(null)}
+          onUpdate={() => {
+            // For network members, updates might not be applicable
+            // But we can refresh the network list if needed
+            console.log('Update network member:', selectedNetworkMember.id);
+          }}
+          onDelete={() => {
+            // For network members, deletion is not applicable
+            console.log('Delete not applicable for network members');
+          }}
+          onContactClick={() => {
+            // Contact is handled via mailto in MemberCard
+            console.log('Contact network member:', selectedNetworkMember.email);
+          }}
+          hideDeleteButton={true}
+        />
+      )}
     </section>
   );
 };

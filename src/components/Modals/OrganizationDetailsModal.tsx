@@ -21,10 +21,13 @@ interface OrganizationDetailsModalProps {
   onClose: () => void;
   onAttach?: () => void;
   onPartnership?: () => void;
+  onJoin?: () => void;
   isPersonalUser?: boolean;
+  hideJoinButton?: boolean;
+  hideMembersCount?: boolean;
 }
 
-const OrganizationDetailsModal: React.FC<OrganizationDetailsModalProps> = ({ organization, onClose, onAttach, onPartnership, isPersonalUser = false }) => {
+const OrganizationDetailsModal: React.FC<OrganizationDetailsModalProps> = ({ organization, onClose, onAttach, onPartnership, onJoin, isPersonalUser = false, hideJoinButton = false, hideMembersCount = false }) => {
   if (!organization) return null;
 
   const getStatusColor = (status: string) => {
@@ -151,10 +154,12 @@ const OrganizationDetailsModal: React.FC<OrganizationDetailsModalProps> = ({ org
                 <i className="fas fa-map-marker-alt" style={{ color: 'var(--primary)', width: '20px' }}></i>
                 <span style={{ color: '#374151' }}>{organization.location}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <i className="fas fa-users" style={{ color: 'var(--primary)', width: '20px' }}></i>
-                <span style={{ color: '#374151' }}>{organization.members_count} membres</span>
-              </div>
+              {!hideMembersCount && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <i className="fas fa-users" style={{ color: 'var(--primary)', width: '20px' }}></i>
+                  <span style={{ color: '#374151' }}>{organization.members_count} membres</span>
+                </div>
+              )}
               {organization.joinedDate && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <i className="fas fa-calendar" style={{ color: 'var(--primary)', width: '20px' }}></i>
@@ -206,7 +211,7 @@ const OrganizationDetailsModal: React.FC<OrganizationDetailsModalProps> = ({ org
         </div>
 
         <div className="modal-footer" style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          {(onAttach || onPartnership) && (
+          {(onAttach || onPartnership || (onJoin && !hideJoinButton)) && (
             <>
               {onAttach && (
                 <button
@@ -236,6 +241,36 @@ const OrganizationDetailsModal: React.FC<OrganizationDetailsModalProps> = ({ org
                 >
                   <i className="fas fa-link"></i>
                   <span>Se rattacher</span>
+                </button>
+              )}
+              {onJoin && !hideJoinButton && (
+                <button
+                  onClick={() => {
+                    onJoin();
+                    onClose();
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 20px',
+                    background: 'var(--primary)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--secondary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'var(--primary)';
+                  }}
+                >
+                  <i className="fas fa-user-plus"></i>
+                  <span>Rejoindre</span>
                 </button>
               )}
               {onPartnership && (

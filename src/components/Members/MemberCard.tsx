@@ -10,6 +10,8 @@ interface MemberCardProps {
   onClick: () => void;
   onContactClick: () => void;
   onRoleChange: (newRole: string) => void;
+  disableRoleDropdown?: boolean; // New prop to disable role dropdown
+  onViewProfile?: () => void; // Optional prop for viewing profile
 }
 
 const MemberCard: React.FC<MemberCardProps> = ({
@@ -17,7 +19,9 @@ const MemberCard: React.FC<MemberCardProps> = ({
   badgeCount,
   onClick,
   onContactClick,
-  onRoleChange
+  onRoleChange,
+  disableRoleDropdown = false,
+  onViewProfile
 }) => {
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -73,7 +77,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
         )}
         <div className="member-info">
           <h3 className="member-name">{member.firstName} {member.lastName}</h3>
-          <p className="member-profession break-words">{member.profession}</p>
+          <p className="break-words member-profession">{member.profession}</p>
         </div>
       </div>
 
@@ -83,10 +87,10 @@ const MemberCard: React.FC<MemberCardProps> = ({
             <RolePill
               role={role}
               color={getRoleColor(role)}
-              onClick={handleRoleClick}
-              isDropdown={true}
+              onClick={disableRoleDropdown ? undefined : handleRoleClick}
+              isDropdown={!disableRoleDropdown}
             />
-            {isRoleDropdownOpen && (
+            {!disableRoleDropdown && isRoleDropdownOpen && (
               <div className="role-dropdown">
                 <div 
                   className={`role-option  ${role === 'Admin' ? 'selected' : ''}`} 
@@ -121,17 +125,40 @@ const MemberCard: React.FC<MemberCardProps> = ({
 
       <div className="member-footer">
         <div className="member-actions">
-          <button
-            className="btn btn-outline btn-sm"
+          {member.email ? (
+            <a
+              href={`mailto:${member.email}`}
+              className="btn btn-outline btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <i className="fas fa-envelope"></i>
+              Contacter
+            </a>
+          ) : (
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onContactClick();
+              }}
+            >
+              <i className="fas fa-envelope"></i>
+              Contacter
+            </button>
+          )}
+          <button 
+            className="btn btn-primary btn-sm"
             onClick={(e) => {
               e.stopPropagation();
-              onContactClick();
+              if (onViewProfile) {
+                onViewProfile();
+              } else {
+                onClick(); // Fallback to card onClick if onViewProfile is not provided
+              }
             }}
           >
-            <i className="fas fa-envelope"></i>
-            Contacter
-          </button>
-          <button className="btn btn-primary btn-sm">
             <i className="fas fa-eye"></i>
             Voir profil
           </button>
