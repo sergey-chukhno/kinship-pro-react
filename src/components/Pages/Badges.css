@@ -84,6 +84,9 @@
   -moz-appearance: none !important;
   appearance: none !important;
 }
+.big-select {
+  min-width: 190px !important;
+}
 
 .filter-select:focus {
   outline: none;

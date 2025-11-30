@@ -158,7 +158,7 @@ const Badges: React.FC = () => {
             <select
               value={selectedSeries}
               onChange={(e) => setSelectedSeries(e.target.value)}
-              className="filter-select"
+              className="filter-select big-select"
             >
               <option value="TouKouLeur">Série Soft Skills 4LAB</option>
               <option value="CPS" disabled>Série CPS</option>

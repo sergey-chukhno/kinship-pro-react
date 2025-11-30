@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Project } from '../../types';
 import ProjectModal from '../Modals/ProjectModal';
+import SubscriptionRequiredModal from '../Modals/SubscriptionRequiredModal';
 import ProjectCard from '../Projects/ProjectCard';
 import './Projects.css';
 
@@ -16,6 +17,7 @@ const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
   const { selectedProject } = state;
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
@@ -142,8 +144,17 @@ const Projects: React.FC = () => {
 
 
   const handleCreateProject = () => {
-    setSelectedProject(null);
-    setIsProjectModalOpen(true);
+    // Check if user is a personal user (teacher or user)
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    
+    if (isPersonalUser) {
+      // Show subscription required modal for personal users
+      setIsSubscriptionModalOpen(true);
+    } else {
+      // Open project creation modal for organizational users
+      setSelectedProject(null);
+      setIsProjectModalOpen(true);
+    }
   };
 
   const handleEditProject = (project: Project) => {
@@ -229,7 +240,7 @@ const Projects: React.FC = () => {
         </div>
         <div className="projects-actions">
           <div className="dropdown" style={{ position: 'relative' }}>
-            <button className="btn btn-outline" onClick={handleExportProjects}>
+            <button className="btn btn-outline" disabled title="Disponible très bientôt" onClick={handleExportProjects}>
               <i className="fas fa-download"></i> Exporter
             </button>
           </div>
@@ -329,6 +340,13 @@ const Projects: React.FC = () => {
             setSelectedProject(null);
           }}
           onSave={handleSaveProject}
+        />
+      )}
+
+      {isSubscriptionModalOpen && (
+        <SubscriptionRequiredModal
+          onClose={() => setIsSubscriptionModalOpen(false)}
+          featureName="La création de projets"
         />
       )}
 
