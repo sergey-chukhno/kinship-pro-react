@@ -122,6 +122,8 @@ body {
   background: var(--card-bg, #ffffff);
   color: var(--text-primary, #374151);
   transition: all 0.2s ease;
+  -webkit-appearance: none !important;
+  appearance: none !important;
 }
 
 .form-input:focus,

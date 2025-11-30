@@ -26,6 +26,9 @@ export interface Partnership {
     partners: PartnershipPartner[];
     created_at: string;
     updated_at: string;
+    name?: string;
+    description?: string;
+    has_sponsorship?: boolean;
 }
 
 export interface OrganizationMember {
@@ -163,6 +166,73 @@ export const getPartnerships = async (
 };
 
 /**
+ * Fetch personal user network (for teacher/user roles)
+ */
+export const getPersonalUserNetwork = async (
+    params?: { page?: number; per_page?: number; skill_ids?: number[]; availability?: string[]; skill_name?: string }
+): Promise<{ data: any[]; meta?: any }> => {
+    const requestParams: any = { per_page: params?.per_page || 12 };
+    if (params?.page) requestParams.page = params.page;
+    if (params?.skill_ids && params.skill_ids.length > 0) requestParams.skill_ids = params.skill_ids;
+    if (params?.skill_name) requestParams.skill_name = params.skill_name;
+    
+    // Format availability array with brackets for Rails-style array parameters
+    if (params?.availability && params.availability.length > 0) {
+        // Use paramsSerializer to format arrays with brackets
+        requestParams.availability = params.availability;
+    }
+
+    const response = await apiClient.get('/api/v1/users/me/network', {
+        params: requestParams,
+        paramsSerializer: (params) => {
+            // Format arrays with brackets: availability[]=monday&availability[]=tuesday
+            const searchParams = new URLSearchParams();
+            Object.keys(params).forEach(key => {
+                const value = params[key];
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        searchParams.append(`${key}[]`, item);
+                    });
+                } else if (value !== undefined && value !== null) {
+                    searchParams.append(key, value.toString());
+                }
+            });
+            return searchParams.toString();
+        }
+    });
+    
+    // Handle response structure: { data: [...], meta: {...} }
+    if (response.data?.data) {
+        return {
+            data: response.data.data,
+            meta: response.data.meta
+        };
+    }
+    
+    // Fallback for direct array response
+    return {
+        data: Array.isArray(response.data) ? response.data : [],
+        meta: undefined
+    };
+};
+
+/**
+ * Join a school (for personal users)
+ */
+export const joinSchool = async (schoolId: number): Promise<any> => {
+    const response = await apiClient.post(`/api/v1/schools/${schoolId}/join`);
+    return response.data;
+};
+
+/**
+ * Join a company (for personal users)
+ */
+export const joinCompany = async (companyId: number): Promise<any> => {
+    const response = await apiClient.post(`/api/v1/companies/${companyId}/join`);
+    return response.data;
+};
+
+/**
  * Accept a partnership request
  */
 export const acceptPartnership = async (
@@ -174,7 +244,7 @@ export const acceptPartnership = async (
         ? `/api/v1/schools/${organizationId}/partnerships/${partnershipId}/confirm`
         : `/api/v1/companies/${organizationId}/partnerships/${partnershipId}/confirm`;
 
-    const response = await apiClient.put(endpoint);
+    const response = await apiClient.patch(endpoint);
     return response.data;
 };
 
@@ -191,6 +261,40 @@ export const rejectPartnership = async (
         : `/api/v1/companies/${organizationId}/partnerships/${partnershipId}/reject`;
 
     const response = await apiClient.put(endpoint);
+    return response.data;
+};
+
+/**
+ * Create a partnership request
+ */
+export interface CreatePartnershipPayload {
+    partnership_type: string;
+    name: string;
+    description: string;
+    partner_company_ids: number[];
+    partner_school_ids: number[];
+    share_members: boolean;
+    share_projects: boolean;
+    has_sponsorship: boolean;
+    initiator_role: 'beneficiary' | 'sponsor';
+    partner_role: 'beneficiary' | 'sponsor';
+}
+
+export interface CreatePartnershipResponse {
+    message: string;
+    data: Partnership;
+}
+
+export const createPartnership = async (
+    organizationId: number,
+    organizationType: 'school' | 'company',
+    payload: CreatePartnershipPayload
+): Promise<CreatePartnershipResponse> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/partnerships`
+        : `/api/v1/companies/${organizationId}/partnerships`;
+
+    const response = await apiClient.post(endpoint, payload);
     return response.data;
 };
 
@@ -215,6 +319,168 @@ export const getOrganizationMembers = async (
     // Extract data array from paginated response
     // Backend returns: { data: [...], meta: {...} }
     return response.data?.data || response.data || [];
+};
+
+/**
+ * Fetch parent organization for a school
+ */
+export const getSchoolParent = async (
+    schoolId: number
+): Promise<{ data: any; meta?: any }> => {
+    const endpoint = `/api/v1/schools/${schoolId}/parent`;
+    const response = await apiClient.get(endpoint);
+    
+    // Handle response structure: { data: {...}, meta: {...} }
+    if (response.data?.data) {
+        return {
+            data: response.data.data,
+            meta: response.data.meta
+        };
+    }
+    
+    // Fallback for direct object response
+    return {
+        data: response.data || null,
+        meta: undefined
+    };
+};
+
+/**
+ * Fetch parent organization for a company
+ */
+export const getCompanyParent = async (
+    companyId: number
+): Promise<{ data: any; meta?: any }> => {
+    const endpoint = `/api/v1/companies/${companyId}/parent`;
+    const response = await apiClient.get(endpoint);
+    
+    // Handle response structure: { data: {...}, meta: {...} }
+    if (response.data?.data) {
+        return {
+            data: response.data.data,
+            meta: response.data.meta
+        };
+    }
+    
+    // Fallback for direct object response
+    return {
+        data: response.data || null,
+        meta: undefined
+    };
+};
+
+/**
+ * Fetch sub-organizations (branches) for an organization
+ * If branches endpoint returns 400, try to get parent organization instead
+ */
+export const getSubOrganizations = async (
+    organizationId: number,
+    organizationType: 'school' | 'company'
+): Promise<{ data: any[]; meta?: any; isParent?: boolean }> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/branches`
+        : `/api/v1/companies/${organizationId}/branches`;
+
+    try {
+        const response = await apiClient.get(endpoint);
+        
+        // Handle response structure: { data: [...], meta: {...} }
+        if (response.data?.data) {
+            return {
+                data: response.data.data,
+                meta: response.data.meta,
+                isParent: false // Data comes from branches endpoint
+            };
+        }
+        
+        // Fallback for direct array response
+        return {
+            data: Array.isArray(response.data) ? response.data : [],
+            meta: undefined,
+            isParent: false // Data comes from branches endpoint
+        };
+    } catch (err: any) {
+        // If it's a 400 error, try to get parent organization
+        if (err?.response?.status === 400) {
+            try {
+                let parentResponse;
+                if (organizationType === 'school') {
+                    parentResponse = await getSchoolParent(organizationId);
+                } else {
+                    parentResponse = await getCompanyParent(organizationId);
+                }
+                // If parent exists, return it as an array with one element
+                if (parentResponse.data) {
+                    return {
+                        data: [parentResponse.data],
+                        meta: parentResponse.meta,
+                        isParent: true // Data comes from parent endpoint
+                    };
+                }
+            } catch (parentErr) {
+                console.error(`Error fetching ${organizationType} parent:`, parentErr);
+            }
+        }
+        // Re-throw the original error if it's not a 400 error or if parent fetch fails
+        throw err;
+    }
+};
+
+/**
+ * Fetch personal user requests (partnership and attach requests)
+ */
+export const getPersonalUserRequests = async (
+    userId: number
+): Promise<{ partnerships: Partnership[]; attachRequests: any[] }> => {
+    try {
+        // Fetch partnership requests initiated by the user
+        const partnershipsResponse = await apiClient.get(`/api/v1/users/${userId}/partnership_requests`);
+        const partnerships = partnershipsResponse.data?.data || partnershipsResponse.data || [];
+
+        // Fetch attach requests initiated by the user
+        const attachResponse = await apiClient.get(`/api/v1/users/${userId}/attach_requests`);
+        const attachRequests = attachResponse.data?.data || attachResponse.data || [];
+
+        return {
+            partnerships: Array.isArray(partnerships) ? partnerships : [],
+            attachRequests: Array.isArray(attachRequests) ? attachRequests : []
+        };
+    } catch (err) {
+        console.error('Error fetching personal user requests:', err);
+        return {
+            partnerships: [],
+            attachRequests: []
+        };
+    }
+};
+
+/**
+ * Fetch personal user organization requests (for teacher/user roles)
+ * Uses /api/v1/users/me/membership_requests endpoint
+ * Returns structure: { data: { schools: [...], companies: [...] }, meta: {...} }
+ */
+export const getPersonalUserOrganizations = async (): Promise<{ data: { schools: any[]; companies: any[] }; meta?: any }> => {
+    const response = await apiClient.get('/api/v1/users/me/membership_requests');
+    
+    // Handle response structure: { data: { schools: [...], companies: [...] }, meta: {...} }
+    if (response.data?.data) {
+        return {
+            data: {
+                schools: response.data.data.schools || [],
+                companies: response.data.data.companies || []
+            },
+            meta: response.data.meta
+        };
+    }
+    
+    // Fallback
+    return {
+        data: {
+            schools: [],
+            companies: []
+        },
+        meta: undefined
+    };
 };
 
 /**
@@ -655,4 +921,150 @@ export const deleteProjectTeam = async (
     teamId: number
 ): Promise<void> => {
     await apiClient.delete(`/api/v1/projects/${projectId}/teams/${teamId}`);
+};
+
+/**
+ * Branch Request interfaces
+ */
+export interface BranchRequest {
+    id: number;
+    parent_school?: {
+        id: number;
+        name: string;
+        [key: string]: any;
+    };
+    parent_company?: {
+        id: number;
+        name: string;
+        [key: string]: any;
+    };
+    child_school?: {
+        id: number;
+        name: string;
+        [key: string]: any;
+    };
+    child_company?: {
+        id: number;
+        name: string;
+        [key: string]: any;
+    };
+    initiator: 'parent' | 'child';
+    recipient: 'parent' | 'child';
+    status: 'pending' | 'confirmed' | 'rejected';
+    message: string;
+    confirmed_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CreateBranchRequestPayload {
+    parent_school_id?: number;
+    parent_company_id?: number;
+    message: string;
+}
+
+export interface CreateBranchRequestResponse {
+    message: string;
+    data: BranchRequest;
+}
+
+/**
+ * Create a branch request (for schools)
+ */
+export const createSchoolBranchRequest = async (
+    schoolId: number,
+    payload: CreateBranchRequestPayload
+): Promise<CreateBranchRequestResponse> => {
+    const response = await apiClient.post(
+        `/api/v1/schools/${schoolId}/branch_requests`,
+        payload
+    );
+    return response.data;
+};
+
+/**
+ * Create a branch request (for companies)
+ */
+export const createCompanyBranchRequest = async (
+    companyId: number,
+    payload: CreateBranchRequestPayload
+): Promise<CreateBranchRequestResponse> => {
+    const response = await apiClient.post(
+        `/api/v1/companies/${companyId}/branch_requests`,
+        payload
+    );
+    return response.data;
+};
+
+/**
+ * Fetch branch requests for an organization
+ */
+export const getBranchRequests = async (
+    organizationId: number,
+    organizationType: 'school' | 'company'
+): Promise<{ data: BranchRequest[]; meta?: any }> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/branch_requests`
+        : `/api/v1/companies/${organizationId}/branch_requests`;
+
+    const response = await apiClient.get(endpoint);
+    
+    // Handle response structure: { data: [...], meta: {...} }
+    if (response.data?.data) {
+        return {
+            data: response.data.data,
+            meta: response.data.meta
+        };
+    }
+    
+    // Fallback for direct array response
+    return {
+        data: Array.isArray(response.data) ? response.data : [],
+        meta: undefined
+    };
+};
+
+/**
+ * Confirm a branch request
+ */
+export const confirmBranchRequest = async (
+    organizationId: number,
+    organizationType: 'school' | 'company',
+    requestId: number
+): Promise<void> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/branch_requests/${requestId}/confirm`
+        : `/api/v1/companies/${organizationId}/branch_requests/${requestId}/confirm`;
+
+    await apiClient.patch(endpoint);
+};
+
+/**
+ * Reject a branch request
+ */
+export const rejectBranchRequest = async (
+    organizationId: number,
+    organizationType: 'school' | 'company',
+    requestId: number
+): Promise<void> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/branch_requests/${requestId}/reject`
+        : `/api/v1/companies/${organizationId}/branch_requests/${requestId}/reject`;
+
+    await apiClient.patch(endpoint);
+};
+
+/**
+ * Delete/Cancel a branch request (only by initiator)
+ */
+export const deleteBranchRequest = async (
+    organizationId: number,
+    organizationType: 'school' | 'company',
+    requestId: number
+): Promise<void> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/branch_requests/${requestId}`
+        : `/api/v1/companies/${organizationId}/branch_requests/${requestId}`;
+
+    await apiClient.delete(endpoint);
 };

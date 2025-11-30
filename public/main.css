@@ -2777,8 +2777,8 @@
       width: 100%;
       box-sizing: border-box;
       appearance: none;
-      -webkit-appearance: none;
-      -moz-appearance: none;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
     }
 
     /* Dropdown Option Styling */

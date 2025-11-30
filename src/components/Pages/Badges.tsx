@@ -123,7 +123,7 @@ const Badges: React.FC = () => {
         {/* Section Title + Actions */}
         {activeTab === 'cartography' && (
           <div className="section-title-row">
-            <div className="flex flex-col gap-2 items-center">
+            <div className="flex flex-col gap-2 items-start">
               <div className="section-title-left">
                 <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
                 <h2>Cartographie des badges attribués</h2>
@@ -219,7 +219,7 @@ const Badges: React.FC = () => {
                   )}
                   <span>{section.label}</span>
                 </div>
-                <div className="level-count  bg-red-500">
+                <div className="bg-red-500 level-count">
                   {badgesByLevel[section.key]?.length || 0} badges
                 </div>
               </div>

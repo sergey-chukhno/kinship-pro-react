@@ -208,8 +208,13 @@ const AuthPage: React.FC = () => {
         }
       })
       .catch((error) => {
-        console.error("Login error:", error)
-        showError("Erreur de connexion (simulation)")
+       if (error.response?.data?.message === "Invalid credentials") {
+        showError("Email ou mot de passe incorrect")
+       } else if (error.response?.data?.message === "Please confirm your email address before logging in") {
+        showError("Veuillez confirmer votre adresse email avant de vous connecter")
+       } else {
+        showError(error.response?.data?.message || "Échec de la connexion (simulation)")
+       }
       })
   }
 

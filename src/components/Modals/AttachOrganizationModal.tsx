@@ -1,12 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './Modal.css';
+
+interface Organization {
+  id: string;
+  name: string;
+  type: 'sub-organization' | 'partner' | 'schools' | 'companies';
+  description: string;
+  members_count: number;
+  location: string;
+  website?: string;
+  logo?: string;
+  status: 'active' | 'pending' | 'inactive';
+  joinedDate: string;
+  contactPerson: string;
+  email: string;
+}
 
 interface AttachOrganizationModalProps {
   onClose: () => void;
   onSave: (attachData: any) => void;
+  initialOrganization?: Organization | null;
 }
 
-const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClose, onSave }) => {
+const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClose, onSave, initialOrganization }) => {
   const [formData, setFormData] = useState({
     organizationName: '',
     organizationType: '',
@@ -26,6 +42,36 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
     experience: ''
   });
 
+  // Pre-fill form when initialOrganization is provided
+  useEffect(() => {
+    if (initialOrganization) {
+      const getOrganizationTypeLabel = (type: string) => {
+        switch (type) {
+          case 'schools': return 'Établissement scolaire';
+          case 'companies': return 'Entreprise';
+          default: return '';
+        }
+      };
+
+      // Extract city and postal code from location if available
+      const locationParts = initialOrganization.location ? initialOrganization.location.split(',') : [];
+      const city = locationParts[0]?.trim() || '';
+      const postalCode = locationParts[1]?.trim() || '';
+
+      setFormData(prev => ({
+        ...prev,
+        organizationName: initialOrganization.name || '',
+        organizationType: getOrganizationTypeLabel(initialOrganization.type) || '',
+        description: initialOrganization.description || '',
+        contactPerson: initialOrganization.contactPerson || '',
+        email: initialOrganization.email || '',
+        website: initialOrganization.website || '',
+        city: city,
+        postalCode: postalCode,
+      }));
+    }
+  }, [initialOrganization]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -33,8 +79,10 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.organizationName && formData.contactPerson && formData.email) {
+    if (formData.organizationName && formData.motivation) {
       onSave(formData);
+    } else {
+      alert('Veuillez remplir tous les champs obligatoires');
     }
   };
 
@@ -61,29 +109,43 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
           <div className="form-section">
             <h3>Informations de l'organisation</h3>
             <div className="form-grid">
+
               <div className="form-group">
                 <label htmlFor="organizationName">Nom de l'organisation *</label>
-                <input
+                {/* <input
+                disabled={true}
                   type="text"
                   id="organizationName"
                   name="organizationName"
                   value={formData.organizationName}
                   onChange={handleInputChange}
                   required
-                  className="form-input"
-                  placeholder="Nom de l'organisation"
-                />
+                  className="form-select disabled:bg-gray-100"
+                /> */}
+                          <select
+                   disabled={true}
+                  id="organizationType"
+                  name="organizationType"
+                  value={formData.organizationName}
+                  onChange={handleInputChange}
+                  required
+                  className="form-select disabled:bg-gray-100"
+                >
+                  <option value={formData.organizationName}>{formData.organizationName}</option>
+                  
+                </select>
               </div>
 
               <div className="form-group">
-                <label htmlFor="organizationType">Type d'organisation *</label>
+                <label htmlFor="organizationType">Type d'organisation</label>
                 <select
+                   disabled={true}
                   id="organizationType"
                   name="organizationType"
                   value={formData.organizationType}
                   onChange={handleInputChange}
                   required
-                  className="form-select"
+                  className="form-select disabled:bg-gray-100"
                 >
                   <option value="">Sélectionner un type</option>
                   {organizationTypes.map((type) => (
@@ -95,140 +157,14 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="description">Description de l'organisation</label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                className="form-textarea"
-                placeholder="Décrivez l'organisation et ses activités"
-                rows={3}
-              />
-            </div>
+
           </div>
 
-          <div className="form-section">
-            <h3>Contact</h3>
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="contactPerson">Personne de contact *</label>
-                <input
-                  type="text"
-                  id="contactPerson"
-                  name="contactPerson"
-                  value={formData.contactPerson}
-                  onChange={handleInputChange}
-                  required
-                  className="form-input"
-                  placeholder="Nom et prénom"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="email">Email *</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                  className="form-input"
-                  placeholder="email@exemple.com"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="phone">Téléphone</label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="+33 1 23 45 67 89"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="form-section">
-            <h3>Adresse</h3>
-            <div className="form-grid">
-              <div className="form-group">
-                <label htmlFor="address">Adresse</label>
-                <input
-                  type="text"
-                  id="address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="Numéro et nom de rue"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="city">Ville</label>
-                <input
-                  type="text"
-                  id="city"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="Ville"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="postalCode">Code postal</label>
-                <input
-                  type="text"
-                  id="postalCode"
-                  name="postalCode"
-                  value={formData.postalCode}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="75001"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="country">Pays</label>
-                <input
-                  type="text"
-                  id="country"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  placeholder="France"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="website">Site web</label>
-              <input
-                type="url"
-                id="website"
-                name="website"
-                value={formData.website}
-                onChange={handleInputChange}
-                className="form-input"
-                placeholder="https://exemple.com"
-              />
-            </div>
-          </div>
 
           <div className="form-section">
             <h3>Motivation et contexte</h3>
             <div className="form-group">
-              <label htmlFor="motivation">Pourquoi souhaitez-vous rejoindre le réseau Kinship ?</label>
+              <label htmlFor="motivation">Pourquoi souhaitez-vous vous rattacher { initialOrganization?.type === 'schools' ? 'à l\' établissement' : 'à l\'organisation' } : <span className="font-bold">{initialOrganization?.name}</span> ?</label>
               <textarea
                 id="motivation"
                 name="motivation"
@@ -240,7 +176,7 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
               />
             </div>
 
-            <div className="form-group">
+            {/* <div className="form-group">
               <label htmlFor="expectedBenefits">Quels bénéfices attendez-vous ?</label>
               <textarea
                 id="expectedBenefits"
@@ -251,9 +187,9 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
                 placeholder="Décrivez les bénéfices attendus"
                 rows={3}
               />
-            </div>
+            </div> */}
 
-            <div className="form-grid">
+            {/* <div className="form-grid">
               <div className="form-group">
                 <label htmlFor="currentProjects">Projets actuels</label>
                 <input
@@ -279,9 +215,9 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
                   placeholder="Ex: 5-10 personnes"
                 />
               </div>
-            </div>
+            </div> */}
 
-            <div className="form-group">
+            {/* <div className="form-group">
               <label htmlFor="experience">Expérience dans le domaine</label>
               <textarea
                 id="experience"
@@ -292,7 +228,7 @@ const AttachOrganizationModal: React.FC<AttachOrganizationModalProps> = ({ onClo
                 placeholder="Décrivez votre expérience et expertise"
                 rows={3}
               />
-            </div>
+            </div> */}
           </div>
         </form>
 

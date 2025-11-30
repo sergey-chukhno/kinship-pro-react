@@ -50,3 +50,13 @@ export function getSchools(params?: SchoolSearchParams) {
 export function getCompanyTypes() {
     return axiosClient.get('/api/v1/company_types');
 }
+
+export interface OrganizationSearchParams {
+    q?: string;
+    page?: number;
+    per_page?: number;
+}
+
+export function searchOrganizations(params?: OrganizationSearchParams) {
+    return axiosClient.get('/api/v1/organizations/search', { params });
+}

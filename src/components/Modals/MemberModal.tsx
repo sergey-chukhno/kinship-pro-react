@@ -14,6 +14,7 @@ interface MemberModalProps {
   onUpdate: (updates: Partial<Member>) => void;
   onDelete: () => void;
   onContactClick: () => void;
+  hideDeleteButton?: boolean; // Option to hide delete button and permissions (for network members)
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
@@ -21,7 +22,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
   onClose,
   onUpdate,
   onDelete,
-  onContactClick
+  onContactClick,
+  hideDeleteButton = false
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
@@ -248,14 +250,43 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 QR Code
               </button>
             )}
-            <button className="btn btn-outline btn-sm" onClick={onContactClick}>
-              <i className="fas fa-envelope"></i>
-              Contacter
-            </button>
-            <button className="btn btn-outline btn-sm" onClick={onDelete}>
-              <i className="fas fa-trash"></i>
-              Supprimer
-            </button>
+            {hideDeleteButton ? (
+              <button 
+                className="btn btn-outline btn-sm" 
+                onClick={async () => {
+                  if (member.email) {
+                    try {
+                      await navigator.clipboard.writeText(member.email);
+                      alert('Email copié dans le presse-papiers');
+                    } catch (err) {
+                      console.error('Failed to copy email:', err);
+                      // Fallback for older browsers
+                      const textArea = document.createElement('textarea');
+                      textArea.value = member.email;
+                      document.body.appendChild(textArea);
+                      textArea.select();
+                      document.execCommand('copy');
+                      document.body.removeChild(textArea);
+                      alert('Email copié dans le presse-papiers');
+                    }
+                  }
+                }}
+              >
+                <i className="fas fa-copy"></i>
+                Copier l'email
+              </button>
+            ) : (
+              <button className="btn btn-outline btn-sm" onClick={onContactClick}>
+                <i className="fas fa-envelope"></i>
+                Contacter
+              </button>
+            )}
+            {!hideDeleteButton && (
+              <button className="btn btn-outline btn-sm" onClick={onDelete}>
+                <i className="fas fa-trash"></i>
+                Supprimer
+              </button>
+            )}
           </div>
 
 
@@ -385,6 +416,27 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Services Section - only show for network members */}
+                {(member.take_trainee || member.propose_workshop) && (
+                  <div className="info-section">
+                    <h3>Services proposés</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {member.take_trainee && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <i className="fas fa-check-circle" style={{ color: '#10b981', fontSize: '1.2rem' }}></i>
+                          <span style={{ color: '#374151' }}>Accepte des stagiaires</span>
+                        </div>
+                      )}
+                      {member.propose_workshop && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <i className="fas fa-check-circle" style={{ color: '#10b981', fontSize: '1.2rem' }}></i>
+                          <span style={{ color: '#374151' }}>Propose des ateliers</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="info-section">
                   <h3>Badges reçus</h3>
@@ -557,10 +609,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
               </div>
 
               {/* Permissions Section */}
-              <div className="info-section">
-                <h3>Permissions</h3>
-                <p className="section-subtitle">Le membre peut gérer :</p>
-                <div className="permissions-grid">
+              {!hideDeleteButton && (
+                <div className="info-section">
+                  <h3>Permissions</h3>
+                  <p className="section-subtitle">Le membre peut gérer :</p>
+                  <div className="permissions-grid">
                   <div className="permission-item">
                     <label className="permission-checkbox">
                       <input
@@ -606,37 +659,40 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     </label>
                   </div>
                 </div>
-              </div>
+                </div>
+              )}
 
               {/* Proposals Section */}
-              <div className="info-section">
-                <h3>Propositions</h3>
-                <p className="section-subtitle">Le membre peut proposer :</p>
-                <div className="proposals-grid">
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={proposals.canProposeStage}
-                        onChange={() => handleProposalChange('canProposeStage')}
-                      />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Propose un stage</span>
-                    </label>
-                  </div>
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={proposals.canProposeAtelier}
-                        onChange={() => handleProposalChange('canProposeAtelier')}
-                      />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Propose un atelier pro</span>
-                    </label>
+              {!hideDeleteButton && (
+                <div className="info-section">
+                  <h3>Propositions</h3>
+                  <p className="section-subtitle">Le membre peut proposer :</p>
+                  <div className="proposals-grid">
+                    <div className="permission-item">
+                      <label className="permission-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={proposals.canProposeStage}
+                          onChange={() => handleProposalChange('canProposeStage')}
+                        />
+                        <span className="checkmark"></span>
+                        <span className="permission-label">Propose un stage</span>
+                      </label>
+                    </div>
+                    <div className="permission-item">
+                      <label className="permission-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={proposals.canProposeAtelier}
+                          onChange={() => handleProposalChange('canProposeAtelier')}
+                        />
+                        <span className="checkmark"></span>
+                        <span className="permission-label">Propose un atelier pro</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="modal-footer">

@@ -9,13 +9,18 @@
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .organization-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-color: var(--primary, #5570F1);
+}
+
+.organization-card:hover .organization-hover-actions {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .organization-header {
@@ -197,11 +202,77 @@
   color: var(--primary, #5570F1);
   text-decoration: none;
   transition: color 0.2s ease;
+  overflow-wrap: anywhere;
 }
 
 .contact-email a:hover {
-  color: var(--secondary, #524c9c);
+  color: var(--primary, #5570F1);
 }
+
+/* Hover Actions - Se rattacher et Demander un partenariat */
+.organization-hover-actions {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 255, 255, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border, #e5e7eb);
+  border-radius: 0 0 16px 16px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.btn-hover-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-hover-action i {
+  font-size: 0.9rem;
+}
+
+.btn-attach {
+  background: var(--primary, #5570F1);
+  color: #ffffff;
+}
+
+.btn-attach:hover {
+  background: var(--secondary, #524c9c);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(85, 112, 241, 0.3);
+}
+
+.btn-partnership {
+  background: var(--card-bg, #ffffff);
+  color: var(--primary, #5570F1);
+  border: 1.5px solid var(--primary, #5570F1);
+}
+
+.btn-partnership:hover {
+  background: var(--primary-light, rgba(85, 112, 241, 0.1));
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(85, 112, 241, 0.2);
+}
+
 
 /* Responsive design */
 @media (max-width: 768px) {
@@ -237,5 +308,30 @@
   
   .organization-contact {
     padding: 8px;
+  }
+
+  .organization-hover-actions {
+    opacity: 1;
+    transform: translateY(0);
+    position: relative;
+    margin-top: 16px;
+    border-top: 1px solid var(--border, #e5e7eb);
+    border-radius: 0;
+    background: transparent;
+    backdrop-filter: none;
+    padding: 12px 0 0 0;
+  }
+
+  .btn-hover-action {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+  }
+
+  .btn-hover-action span {
+    display: none;
+  }
+
+  .btn-hover-action i {
+    font-size: 1rem;
   }
 }
