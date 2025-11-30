@@ -65,9 +65,22 @@ interface NetworkUser {
   email: string;
   role: string;
   job: string | null;
+  take_trainee?: boolean;
+  propose_workshop?: boolean;
   avatar_url: string | null;
   skills: Array<{ id: number; name: string }>;
-  availability?: string[] | { [key: string]: boolean } | null; // Availability can be array or object
+  availability?: {
+    id: number;
+    monday: boolean;
+    tuesday: boolean;
+    wednesday: boolean;
+    thursday: boolean;
+    friday: boolean;
+    saturday: boolean;
+    sunday: boolean;
+    other: boolean;
+    available: boolean;
+  } | null;
   common_organizations: Array<{ id: number; name: string; type: string }>;
 }
 
@@ -654,6 +667,9 @@ const Network: React.FC = () => {
       setIsJoinOrganizationModalOpen(false);
       setSelectedOrganization(null);
       
+      // Refresh membership requests to update the list
+      await fetchMyRequests();
+      
       // Refresh network after joining
       if (selectedType === 'partner') {
         await fetchPartners();
@@ -795,12 +811,13 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType]);
 
-  // Fetch my requests when tab is selected
+  // Fetch my requests on component mount if user is personal user (before tab selection)
   useEffect(() => {
-    if (selectedType === 'my-requests') {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    if (isPersonalUser) {
       fetchMyRequests();
     }
-  }, [selectedType, fetchMyRequests]);
+  }, [state.showingPageType, fetchMyRequests]);
 
   // No client-side filtering for schools and companies - search is done server-side
   // This ensures pagination works correctly with server-side search
@@ -1082,33 +1099,42 @@ const Network: React.FC = () => {
           roles: translatedRoles,
           skills: user.skills.map((skill: { id: number; name: string }) => skill.name),
           availability: (() => {
-            // Convert availability to array of strings
-            if (!user.availability) return [];
-            if (Array.isArray(user.availability)) {
-              return user.availability;
+            // Convert availability object to array of strings
+            if (!user.availability || typeof user.availability !== 'object') return [];
+            
+            const dayLabels: { [key: string]: string } = {
+              monday: 'Lundi',
+              tuesday: 'Mardi',
+              wednesday: 'Mercredi',
+              thursday: 'Jeudi',
+              friday: 'Vendredi',
+              saturday: 'Samedi',
+              sunday: 'Dimanche',
+              other: 'Autre'
+            };
+            
+            // Convert availability object to array of day labels
+            const availabilityArray: string[] = [];
+            Object.entries(user.availability).forEach(([key, value]) => {
+              // Skip 'id' and 'available' keys, only process day keys
+              if (key !== 'id' && key !== 'available' && value === true && dayLabels[key]) {
+                availabilityArray.push(dayLabels[key]);
+              }
+            });
+            
+            // If 'available' is true but no specific days, add "Disponible"
+            if (user.availability.available && availabilityArray.length === 0) {
+              availabilityArray.push('Disponible');
             }
-            // If it's an object like { monday: true, tuesday: false, ... }
-            if (typeof user.availability === 'object') {
-              const dayLabels: { [key: string]: string } = {
-                monday: 'Lundi',
-                tuesday: 'Mardi',
-                wednesday: 'Mercredi',
-                thursday: 'Jeudi',
-                friday: 'Vendredi',
-                saturday: 'Samedi',
-                sunday: 'Dimanche',
-                other: 'Autre'
-              };
-              return Object.entries(user.availability)
-                .filter(([_, value]) => value === true)
-                .map(([key, _]) => dayLabels[key] || key);
-            }
-            return [];
+            
+            return availabilityArray;
           })(),
           avatar: user.avatar_url || '',
           isTrusted: false,
           badges: [],
-          organization: user.common_organizations?.map(org => org.name).join(', ') || ''
+          organization: user.common_organizations?.map(org => org.name).join(', ') || '',
+          take_trainee: user.take_trainee || false,
+          propose_workshop: user.propose_workshop || false
         } as Member;
       })
     : [];
@@ -1659,7 +1685,7 @@ const Network: React.FC = () => {
                 disableRoleDropdown={true}
               />
             )) : (
-              <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>
+              null
             )}
           </div>
         )}
@@ -1677,21 +1703,26 @@ const Network: React.FC = () => {
               const partnershipId = orgWithPartnership.partnershipId;
               const partnership = orgWithPartnership.partnership;
               
-              // Check if current user is the initiator
-              const organizationId = getOrganizationId(state.user, state.showingPageType);
-              const organizationType = getOrganizationType(state.showingPageType);
-              
-              // Determine expected initiator type based on current organization type
-              let expectedInitiatorType: string | undefined;
-              if (organizationType === 'school') {
-                expectedInitiatorType = 'School';
-              } else if (organizationType === 'company') {
-                expectedInitiatorType = 'Company';
-              }
-              
-              const isInitiator = expectedInitiatorType && 
-                                 partnership.initiator_type === expectedInitiatorType && 
-                                 partnership.initiator_id === organizationId;
+              // Check if current user is the initiator by checking all their organization/school IDs
+              const isInitiator = (() => {
+                if (!partnership.initiator_id || !partnership.initiator_type) {
+                  return false;
+                }
+                
+                // Check all companies
+                const companyIds = state.user.available_contexts?.companies?.map(c => c.id) || [];
+                if (partnership.initiator_type === 'Company' && companyIds.includes(partnership.initiator_id)) {
+                  return true;
+                }
+                
+                // Check all schools
+                const schoolIds = state.user.available_contexts?.schools?.map(s => s.id) || [];
+                if (partnership.initiator_type === 'School' && schoolIds.includes(partnership.initiator_id)) {
+                  return true;
+                }
+                
+                return false;
+              })();
               
               return (
                 <div 
@@ -2072,6 +2103,7 @@ const Network: React.FC = () => {
         <PartnershipRequestDetailsModal
           partnership={selectedPartnershipRequest.partnership}
           partnerName={selectedPartnershipRequest.partnerName}
+          user={state.user}
           onClose={() => {
             setIsPartnershipRequestDetailsModalOpen(false);
             setSelectedPartnershipRequest(null);

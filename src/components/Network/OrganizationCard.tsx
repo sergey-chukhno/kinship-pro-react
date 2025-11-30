@@ -91,7 +91,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
             </span>
           </div>
         </div>
-        {
+        {/* {
           organization.type !== 'schools' && (
             <div className="organization-actions">
               <button 
@@ -116,7 +116,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
               </button>
             </div>
           )
-        }
+        } */}
       </div>
 
       <div className="organization-content">
@@ -133,7 +133,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
               <span>{organization.members_count} membres</span>
             </div>
           )}
-          {organization.joinedDate && (
+          {organization.joinedDate && organization.status === 'active' && (
           <div className="detail-item">
             <i className="fas fa-calendar"></i>
             <span>Rejoint le {formatDate(organization.joinedDate)}</span>

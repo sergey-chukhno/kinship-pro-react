@@ -160,7 +160,7 @@ const OrganizationDetailsModal: React.FC<OrganizationDetailsModalProps> = ({ org
                   <span style={{ color: '#374151' }}>{organization.members_count} membres</span>
                 </div>
               )}
-              {organization.joinedDate && (
+              {organization.joinedDate && organization.status === 'active' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <i className="fas fa-calendar" style={{ color: 'var(--primary)', width: '20px' }}></i>
                   <span style={{ color: '#374151' }}>Rejoint le {formatDate(organization.joinedDate)}</span>

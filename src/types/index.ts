@@ -16,6 +16,8 @@ export interface Member {
   organization?: string;
   canProposeStage?: boolean;
   canProposeAtelier?: boolean;
+  take_trainee?: boolean; // Indique si l'utilisateur accepte des stagiaires
+  propose_workshop?: boolean; // Indique si l'utilisateur propose des ateliers
   claim_token?: string; // Token for student QR code
   hasTemporaryEmail?: boolean; // Indicates if email is temporary
   birthday?: string; // Date de naissance

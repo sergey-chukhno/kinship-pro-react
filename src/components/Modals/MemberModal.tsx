@@ -417,6 +417,27 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   </div>
                 </div>
 
+                {/* Services Section - only show for network members */}
+                {(member.take_trainee || member.propose_workshop) && (
+                  <div className="info-section">
+                    <h3>Services proposés</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {member.take_trainee && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <i className="fas fa-check-circle" style={{ color: '#10b981', fontSize: '1.2rem' }}></i>
+                          <span style={{ color: '#374151' }}>Accepte des stagiaires</span>
+                        </div>
+                      )}
+                      {member.propose_workshop && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <i className="fas fa-check-circle" style={{ color: '#10b981', fontSize: '1.2rem' }}></i>
+                          <span style={{ color: '#374151' }}>Propose des ateliers</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="info-section">
                   <h3>Badges reçus</h3>
                   <div className="badges-grid">
