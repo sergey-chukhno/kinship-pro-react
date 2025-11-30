@@ -121,20 +121,25 @@ const Badges: React.FC = () => {
     <section className="badges-container with-sidebar">
       <div className="badges-content">
         {/* Section Title + Actions */}
-        <div className="section-title-row">
-          <div className="section-title-left">
-            <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
-            <h2>Cartographie des badges attribués</h2>
+        {activeTab === 'cartography' && (
+          <div className="section-title-row">
+            <div className="flex flex-col gap-2 items-center">
+              <div className="section-title-left">
+                <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
+                <h2>Cartographie des badges attribués</h2>
+              </div>
+              <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
+            </div>
+            <div className="badges-actions">
+              <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
+                <i className="fas fa-search"></i> Explorer les badges
+              </button>
+              <button className="btn btn-outline" onClick={handleExportBadges}>
+                <i className="fas fa-download"></i> Exporter
+              </button>
+            </div>
           </div>
-          <div className="badges-actions">
-            <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
-              <i className="fas fa-search"></i> Explorer les badges
-            </button>
-            <button className="btn btn-outline" onClick={handleExportBadges}>
-              <i className="fas fa-download"></i> Exporter
-            </button>
-          </div>
-        </div>
+        )}
 
         {activeTab === 'cartography' && (
           <>
@@ -155,9 +160,9 @@ const Badges: React.FC = () => {
               onChange={(e) => setSelectedSeries(e.target.value)}
               className="filter-select"
             >
-              <option value="TouKouLeur">Série TouKouLeur</option>
-              <option value="CPS">Série CPS</option>
-              <option value="Audiovisuelle">Série Audiovisuelle</option>
+              <option value="TouKouLeur">Série Soft Skills 4LAB</option>
+              <option value="CPS" disabled>Série CPS</option>
+              <option value="Audiovisuelle" disabled>Série Audiovisuelle</option>
             </select>
           </div>
           {selectedSeries === 'TouKouLeur' && (

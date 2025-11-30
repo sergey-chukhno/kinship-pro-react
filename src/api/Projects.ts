@@ -404,6 +404,36 @@ export const getPersonalUserOrganizations = async (): Promise<{ data: { schools:
         },
         meta: undefined
     };
+ * Fetch all members from teacher's classes (students + volunteers)
+ * Returns members from all classes the teacher manages
+ */
+export const getTeacherMembers = async (params?: {
+    search?: string;
+    member_type?: 'student' | 'volunteer';
+    per_page?: number;
+    page?: number;
+}): Promise<OrganizationMember[]> => {
+    const response = await apiClient.get('/api/v1/teachers/members', {
+        params: {
+            ...params,
+            per_page: params?.per_page || 1000  // Load all members by default
+        }
+    });
+    
+    // Extract data array from paginated response
+    // Backend returns: { data: [...], meta: {...} }
+    const members = response.data?.data || response.data || [];
+    
+    // Map to OrganizationMember format (backend already provides compatible fields)
+    return members.map((member: any) => ({
+        id: member.id,
+        first_name: member.first_name,
+        last_name: member.last_name,
+        full_name: member.full_name,
+        email: member.email,
+        role: member.role,
+        avatar_url: member.avatar_url || null
+    }));
 };
 
 /**
