@@ -1,7 +1,7 @@
 import axiosClient from "./config";
 
-export function getAllProjects() {
-    return axiosClient.get('/api/v1/projects');
+export function getAllProjects(params?: { organization_type?: string }) {
+    return axiosClient.get('/api/v1/projects', { params });
 }
 
 export function getProjectById(projectId: number) {

@@ -38,91 +38,213 @@
   align-items: center;
 }
 
-/* Search Container - matches Members page */
+/* Search Container - Professional Design */
 .projects-search-container {
   display: flex;
-  flex-direction: row;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+  width: 100%;
 }
 
 .search-bar {
   position: relative;
-  max-width: 350px;
-  flex: 0 0 auto;
-  min-width: 280px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .search-icon {
   position: absolute;
-  left: 12px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-secondary, #6b7280);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   z-index: 1;
+  transition: color 0.2s ease;
+}
+
+.search-bar:focus-within .search-icon {
+  color: var(--primary, #5570F1);
 }
 
 .search-input {
   width: 100%;
-  padding: 12px 12px 12px 40px;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  font-size: 0.9rem;
-  background: var(--bg-primary, #ffffff);
+  padding: 12px 16px 12px 44px;
+  border: 1.5px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: var(--card-bg, #ffffff);
   color: var(--text-primary, #374151);
-  transition: border-color 0.2s ease;
+  transition: all 0.2s ease;
+  font-weight: 400;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.search-input:hover {
+  border-color: var(--primary, #5570F1);
+  box-shadow: 0 2px 4px rgba(85, 112, 241, 0.1);
 }
 
 .search-input:focus {
   outline: none;
   border-color: var(--primary, #5570F1);
-  box-shadow: 0 0 0 3px rgba(85, 112, 241, 0.1);
+  box-shadow: 0 0 0 3px rgba(85, 112, 241, 0.1), 0 2px 4px rgba(85, 112, 241, 0.15);
+  background-color: var(--card-bg, #ffffff);
 }
 
 .search-input::placeholder {
   color: var(--text-secondary, #6b7280);
 }
 
-/* Filters Container - matches Events page */
+/* Filters Container - Professional Design */
 .filters-container {
   display: flex;
-  gap: 8px;
-  flex-wrap: nowrap;
-  align-items: center;
-  flex: 0 0 auto;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  width: 100%;
+  padding: 16px;
+  background: var(--bg-primary, #f8fafc);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+  max-width: 220px;
 }
 
+.filter-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
 
 .filter-select {
-  padding: 8px 10px;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  background: var(--bg-primary, #ffffff);
+  padding: 10px 14px;
+  border: 1.5px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: var(--card-bg, #ffffff);
   color: var(--text-primary, #374151);
-  min-width: 120px;
-  max-width: 130px;
-  transition: border-color 0.2s ease;
+  width: 100%;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Custom dropdown arrow for select elements only */
+.filter-group select.filter-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* Date inputs should not have the dropdown arrow */
+.filter-group input[type="date"].filter-select {
+  background-image: none;
+  padding-right: 14px;
+}
+
+.filter-select:hover {
+  border-color: var(--primary, #5570F1);
+  box-shadow: 0 2px 4px rgba(85, 112, 241, 0.1);
 }
 
 .filter-select:focus {
   outline: none;
   border-color: var(--primary, #5570F1);
-  box-shadow: 0 0 0 3px rgba(85, 112, 241, 0.1);
+  box-shadow: 0 0 0 3px rgba(85, 112, 241, 0.1), 0 2px 4px rgba(85, 112, 241, 0.15);
+  background-color: var(--card-bg, #ffffff);
+}
+
+.filter-select option {
+  padding: 8px;
+  font-weight: 400;
 }
 
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 28px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .filters-container {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .filter-group {
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  .search-input {
+    font-size: 0.9rem;
+    padding: 10px 14px 10px 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .filters-container {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .filter-group label {
+    font-size: 0.7rem;
+  }
+
+  .filter-select {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+  }
+}
+
+/* Filter Tabs - matches Network page */
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-primary, #f8fafc);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.filter-tab {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.filter-tab.active {
+  background: var(--primary, #5570F1);
+  color: white;
+}
+
+.filter-tab:hover:not(.active) {
+  background: var(--border, #e5e7eb);
+  color: var(--text-primary, #374151);
 }

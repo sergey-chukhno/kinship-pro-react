@@ -8,7 +8,7 @@ import './Projects.css';
 
 // Imports API (Ajustez les chemins si nécessaire, basés sur la structure de Members.tsx)
 import { getCurrentUser } from '../../api/Authentication';
-import { deleteProject, getAllProjects} from '../../api/Project';
+import { deleteProject, getAllProjects, getAllUserProjects} from '../../api/Project';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
 import { getTeacherProjects } from '../../api/Projects';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
@@ -21,6 +21,11 @@ const Projects: React.FC = () => {
   
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
+  const [myProjects, setMyProjects] = useState<Project[]>([]);
+  
+  // Tab state for personal users
+  const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets'>('nouveautes');
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,6 +33,8 @@ const Projects: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [organizationFilter, setOrganizationFilter] = useState<'all' | 'établissement' | 'association' | 'entreprise'>('all');
+  const [visibilityFilter, setVisibilityFilter] = useState('all');
 
   // Fonction pour obtenir l'organizationId sélectionné (comme dans Dashboard)
   const getSelectedOrganizationId = (): number | undefined => {
@@ -73,57 +80,105 @@ const Projects: React.FC = () => {
     return defaultOrgId;
   };
 
-  // Fonction pour récupérer les projets (réutilisable)
-  const fetchProjects = React.useCallback(async () => {
+  // Fonction pour récupérer les projets publics (Nouveautés)
+  const fetchPublicProjects = React.useCallback(async () => {
     try {
       const currentUser = await getCurrentUser();
+      
+      // Préparer les paramètres d'URL selon le filtre de type d'organisation
+      let apiParams: { organization_type?: string } | undefined = undefined;
+      if (organizationFilter !== 'all') {
+        apiParams = { organization_type: organizationFilter };
+      }
+      
+      const response = await getAllProjects(apiParams);
+      const rawProjects = response.data?.data || response.data || [];
+      // Filtrer uniquement les projets publics
+      const publicProjects = rawProjects.filter((p: any) => !p.private);
+      const formattedProjects: Project[] = publicProjects.map((p: any) => {
+        return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+      });
+      setProjects(formattedProjects);
+    } catch (err) {
+      console.error('Erreur lors de la récupération des projets publics:', err);
+      setProjects([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType, organizationFilter]);
 
+  // Fonction pour récupérer les projets de l'utilisateur (Mes projets)
+  const fetchMyProjects = React.useCallback(async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      
       if (state.showingPageType === 'teacher') {
-        // Pour les enseignants : charger uniquement leurs projets (créés + classes gérées)
+        // Pour les enseignants : utiliser getTeacherProjects
         const response = await getTeacherProjects({ per_page: 12 });
         const rawProjects = response.data || [];
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
-        setProjects(formattedProjects);
+        setMyProjects(formattedProjects);
       } else if (state.showingPageType === 'user') {
-        // Pour les utilisateurs personnels : charger tous les projets publics
-        const response = await getAllProjects();
+        // Pour les utilisateurs : utiliser getAllUserProjects
+        const response = await getAllUserProjects();
         const rawProjects = response.data?.data || response.data || [];
-        // Filtrer uniquement les projets publics
-        const publicProjects = rawProjects.filter((p: any) => !p.private);
-        const formattedProjects: Project[] = publicProjects.map((p: any) => {
+        const formattedProjects: Project[] = rawProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
-        setProjects(formattedProjects);
+        setMyProjects(formattedProjects);
+      }
+    } catch (err) {
+      console.error('Erreur lors de la récupération de mes projets:', err);
+      setMyProjects([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType]);
+
+  // Fonction pour récupérer les projets (réutilisable)
+  const fetchProjects = React.useCallback(async () => {
+    try {
+      const currentUser = await getCurrentUser();
+
+      if (isPersonalUser) {
+        // Pour les utilisateurs personnels : charger les projets publics (Nouveautés)
+        await fetchPublicProjects();
+        // Charger aussi les projets de l'utilisateur (Mes projets)
+        await fetchMyProjects();
       } else {
-        // Logique pour école/entreprise - utiliser l'organizationId sélectionné
-        const isEdu = state.showingPageType === 'edu';
-
-        // 1. Récupération de l'ID du contexte sélectionné (Company vs School)
-        const contextId = getSelectedOrganizationId();
-
-        if (!contextId) {
-          console.warn('⚠️ [Projects] Aucun contextId trouvé pour le type:', state.showingPageType);
-          setProjects([]);
-          return;
-        }
-
-        // 2. Choix de la fonction API
+        // Pour les rôles pro et edu, utiliser getAllProjects avec le filtre organization_type si sélectionné
+        // Sinon, utiliser getSchoolProjects/getCompanyProjects pour l'organisation spécifique
         let response;
-        if (isEdu) {
-          // Use getSchoolProjects for schools (returns all school projects, not just user's projects)
-          // perPage: 12 for Projects page (vs 3 for Dashboard)
-          response = await getSchoolProjects(contextId, false, 12);
+        
+        if (organizationFilter !== 'all') {
+          // Si un filtre de type d'organisation est sélectionné, utiliser getAllProjects
+          const apiParams = { organization_type: organizationFilter };
+          response = await getAllProjects(apiParams);
         } else {
-          // Use getCompanyProjects for companies (returns all company projects, not just user's projects)
-          response = await getCompanyProjects(contextId, false);
+          // Sinon, utiliser l'API spécifique à l'organisation
+          const isEdu = state.showingPageType === 'edu';
+          const contextId = getSelectedOrganizationId();
+
+          if (!contextId) {
+            console.warn('⚠️ [Projects] Aucun contextId trouvé pour le type:', state.showingPageType);
+            setProjects([]);
+            return;
+          }
+
+          if (isEdu) {
+            // Use getSchoolProjects for schools (returns all school projects, not just user's projects)
+            // perPage: 12 for Projects page (vs 3 for Dashboard)
+            response = await getSchoolProjects(contextId, false, 12);
+          } else {
+            // Use getCompanyProjects for companies (returns all company projects, not just user's projects)
+            response = await getCompanyProjects(contextId, false);
+          }
         }
 
         // Gestion de la structure de réponse { data: [ ... ], meta: ... }
         const rawProjects = response.data?.data || response.data || [];
 
-        // 3. Mapping des données API vers le type Project (using centralized mapper)
+        // Mapping des données API vers le type Project (using centralized mapper)
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
             return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
@@ -134,13 +189,24 @@ const Projects: React.FC = () => {
       console.error('Erreur lors de la récupération des projets:', err);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, state.user]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
+  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, isPersonalUser, organizationFilter]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
 
   // --- Fetch des projets au chargement ---
   useEffect(() => {
     fetchProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]); // Retirer state.user.available_contexts pour éviter les re-renders, le contexte est lu depuis localStorage
+
+  // Re-fetch projects when organization filter changes
+  useEffect(() => {
+    if (isPersonalUser && activeTab === 'nouveautes') {
+      fetchPublicProjects();
+    } else if (!isPersonalUser) {
+      // Pour les rôles pro et edu, recharger les projets avec le nouveau filtre
+      fetchProjects();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationFilter, isPersonalUser, activeTab]);
 
 
   const handleCreateProject = () => {
@@ -176,6 +242,10 @@ const Projects: React.FC = () => {
     
     // Rafraîchir la liste des projets après création/modification
     await fetchProjects();
+    // Si on est sur l'onglet "Mes projets", rafraîchir aussi
+    if (isPersonalUser && activeTab === 'mes-projets') {
+      await fetchMyProjects();
+    }
   };
 
   const handleManageProject = (project: Project) => {
@@ -183,20 +253,36 @@ const Projects: React.FC = () => {
     setCurrentPage('project-management');
   };
 
-  const handleDeleteProject = (projectId: string) => {
-    deleteProject(Number(projectId));
-    // Mise à jour de l'affichage local
-    setProjects(prev => prev.filter(p => p.id !== projectId));
-    setSelectedProject(null);
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await deleteProject(Number(projectId));
+      // Mise à jour de l'affichage local
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      setMyProjects(prev => prev.filter(p => p.id !== projectId));
+      setSelectedProject(null);
+      
+      // Rafraîchir si on est sur l'onglet "Mes projets"
+      if (isPersonalUser && activeTab === 'mes-projets') {
+        await fetchMyProjects();
+      }
+    } catch (err) {
+      console.error('Erreur lors de la suppression du projet:', err);
+    }
   };
 
   const handleExportProjects = () => {
     console.log('Export projects');
   };
 
+  // Select projects to display based on active tab (for personal users)
+  const projectsToDisplay = isPersonalUser 
+    ? (activeTab === 'nouveautes' ? projects : myProjects)
+    : projects;
+
+
   // Filter projects based on search and filter criteria
-  // Note: On filtre maintenant sur 'projects' (local state) et non 'state.projects'
-  const filteredProjects = projects.filter(project => {
+  // Note: On filtre maintenant sur 'projectsToDisplay' (local state) et non 'state.projects'
+  const filteredProjects = projectsToDisplay.filter(project => {
     // Search filter
     const matchesSearch = searchTerm === '' ||
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -215,6 +301,14 @@ const Projects: React.FC = () => {
       (statusFilter === 'En cours' && project.status === 'in_progress') ||
       (statusFilter === 'Terminée' && project.status === 'ended');
 
+    // Organization filter is now handled by API, no client-side filtering needed
+    const matchesOrganization = true;
+
+    // Visibility filter
+    const matchesVisibility = visibilityFilter === 'all' ||
+      (visibilityFilter === 'public' && (!project.visibility || project.visibility === 'public')) ||
+      (visibilityFilter === 'private' && project.visibility === 'private');
+
     // Date filters
     let matchesStartDate = true;
     let matchesEndDate = true;
@@ -227,7 +321,7 @@ const Projects: React.FC = () => {
       matchesEndDate = new Date(project.endDate) <= new Date(endDate);
     }
 
-    return matchesSearch && matchesPathway && matchesStatus && matchesStartDate && matchesEndDate;
+    return matchesSearch && matchesPathway && matchesStatus && matchesOrganization && matchesVisibility && matchesStartDate && matchesEndDate;
   });
 
   return (
@@ -236,7 +330,7 @@ const Projects: React.FC = () => {
       <div className="flex justify-between items-start">
         <div className="flex gap-2 items-center w-full section-title-left">
           <img src="/icons_logo/Icon=projet.svg" alt="Projets" className="section-icon" />
-          <h2>{(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Découvrir les projets' : 'Gestion des projets'}</h2>
+          <h2>{(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Rechercher une idée de projet sur Kinship' : 'Gestion des projets'}</h2>
         </div>
         <div className="projects-actions">
           <div className="dropdown" style={{ position: 'relative' }}>
@@ -250,13 +344,31 @@ const Projects: React.FC = () => {
         </div>
       </div>
 
+      {/* Tabs for personal users */}
+      {isPersonalUser && (
+        <div className="filter-tabs" style={{ marginBottom: '24px' }}>
+          <button 
+            className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
+            onClick={() => setActiveTab('nouveautes')}
+          >
+            Nouveautés ({projects.length})
+          </button>
+          <button 
+            className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
+            onClick={() => setActiveTab('mes-projets')}
+          >
+            Mes projets ({myProjects.length})
+          </button>
+        </div>
+      )}
+
       {/* Search Bar */}
-      <div className="projects-search-container">
+      <div className="w-full projects-search-container">
         <div className="search-bar">
           <i className="fas fa-search search-icon"></i>
           <input
             type="text"
-            className="search-input"
+            className="w-full search-input"
             placeholder="Rechercher un projet par titre, mot clé, parcours, statut..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -264,7 +376,9 @@ const Projects: React.FC = () => {
         </div>
         <div className="filters-container">
           <div className="filter-group">
+            <label htmlFor="pathway-filter">Parcours</label>
             <select
+              id="pathway-filter"
               className="filter-select"
               value={pathwayFilter}
               onChange={(e) => setPathwayFilter(e.target.value)}
@@ -282,7 +396,9 @@ const Projects: React.FC = () => {
             </select>
           </div>
           <div className="filter-group">
+            <label htmlFor="status-filter">Statut</label>
             <select
+              id="status-filter"
               className="filter-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -294,7 +410,9 @@ const Projects: React.FC = () => {
             </select>
           </div>
           <div className="filter-group">
+            <label htmlFor="start-date-filter">Date de début</label>
             <input
+              id="start-date-filter"
               type="date"
               className="filter-select"
               value={startDate}
@@ -302,12 +420,41 @@ const Projects: React.FC = () => {
             />
           </div>
           <div className="filter-group">
+            <label htmlFor="end-date-filter">Date de fin</label>
             <input
+              id="end-date-filter"
               type="date"
               className="filter-select"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
+          </div>
+          <div className="filter-group">
+            <label htmlFor="organization-filter">Type d'organisation</label>
+            <select
+              id="organization-filter"
+              className="filter-select"
+              value={organizationFilter}
+              onChange={(e) => setOrganizationFilter(e.target.value as 'all' | 'établissement' | 'association' | 'entreprise')}
+            >
+              <option value="all">Tous les types</option>
+              <option value="établissement">Établissement</option>
+              <option value="association">Association</option>
+              <option value="entreprise">Entreprise</option>
+            </select>
+          </div>
+          <div className="filter-group">
+            <label htmlFor="visibility-filter">Visibilité</label>
+            <select
+              id="visibility-filter"
+              className="filter-select"
+              value={visibilityFilter}
+              onChange={(e) => setVisibilityFilter(e.target.value)}
+            >
+              <option value="all">Tous les projets</option>
+              <option value="public">Publics</option>
+              <option value="private">Privés</option>
+            </select>
           </div>
         </div>
       </div>
