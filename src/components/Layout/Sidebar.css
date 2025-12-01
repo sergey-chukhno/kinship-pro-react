@@ -343,6 +343,7 @@
 
 .logout-item:hover {
   background-color: #f5f5f5 !important;
+  text-decoration: none !important;
 }
 
 .logout-icon {
