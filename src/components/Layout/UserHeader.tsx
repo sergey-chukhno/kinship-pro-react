@@ -171,7 +171,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
 
       <div className="user-header-right">
         <Menu as="div" className="relative">
-          {({ open }) => (
+          {({ open }: { open: boolean }) => (
             <>
               <Menu.Button className="user-info">
                 <AvatarImage
@@ -208,7 +208,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
               </div>
 
               <Menu.Item>
-                {({ active }) => (
+                {({ active }: { active: boolean }) => (
                   <button
                     className={`${active ? 'active' : ''}`}
                     onClick={() => handlePageChange('projects')}
@@ -219,7 +219,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
               </Menu.Item>
 
               <Menu.Item>
-                {({ active }) => (
+                {({ active }: { active: boolean }) => (
                   <button
                     className={`${active ? 'active' : ''}`}
                     onClick={() => handlePageChange('network')}
@@ -230,7 +230,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
               </Menu.Item>
 
               <Menu.Item>
-                {({ active }) => (
+                {({ active }: { active: boolean }) => (
                   <button
                     className={`${active ? 'active' : ''}`}
                     onClick={() => handlePageChange('badges')}
@@ -251,7 +251,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                       getCurrentContext.type === org.type;
                     return (
                       <Menu.Item key={`${org.type}-${org.id}`}>
-                        {({ active }) => (
+                        {({ active }: { active: boolean }) => (
                           <div
                             className={`org-item ${active ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
                             onClick={() => handleOrganizationSwitch(org.id, org.type)}
@@ -270,7 +270,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
               )}
 
               <Menu.Item>
-                {({ active }) => (
+                {({ active }: { active: boolean }) => (
                   <button
                     type="button"
                     className={`menu-item logout-item ${active ? 'active' : ''}`}
