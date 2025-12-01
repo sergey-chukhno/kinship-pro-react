@@ -225,7 +225,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 
       <div className="sidebar-footer">
         <Menu as="div" className="relative">
-          {({ open }) => (
+          {({ open }: { open: boolean }) => (
             <>
               <Menu.Button className={`user-profile dropdown ${open ? 'open' : ''}`}>
                 <AvatarImage src={state.user.avatar} alt="Profile" className="avatar" />
@@ -266,7 +266,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                           getCurrentContext.type === org.type;
                         return (
                           <Menu.Item key={`${org.type}-${org.id}`}>
-                            {({ active }) => (
+                            {({ active }: { active: boolean }) => (
                               <div
                                 className={`org-item ${active ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
                                 onClick={() => handleOrganizationSwitch(org.id, org.type)}
@@ -284,7 +284,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                     </div>
                   )}
                   <Menu.Item>
-                    {({ active }) => (
+                    {({ active }: { active: boolean }) => (
                       <button
                         type="button"
                         className={`menu-item logout-item ${active ? 'active' : ''}`}

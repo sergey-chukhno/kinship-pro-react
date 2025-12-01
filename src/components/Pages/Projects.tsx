@@ -24,8 +24,12 @@ const Projects: React.FC = () => {
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   
   // Tab state for personal users
+  // Teachers should only see their own projects, not public projects
   const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets'>('nouveautes');
+  const isTeacher = state.showingPageType === 'teacher';
+  // For teachers, default to 'mes-projets' since they shouldn't see public projects
+  // For regular users, default to 'nouveautes' to show public projects
+  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets'>(isTeacher ? 'mes-projets' : 'nouveautes');
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -140,7 +144,11 @@ const Projects: React.FC = () => {
     try {
       const currentUser = await getCurrentUser();
 
-      if (isPersonalUser) {
+      if (isTeacher) {
+        // Pour les enseignants : charger uniquement leurs projets (créés + participants)
+        // Ne pas charger les projets publics
+        await fetchMyProjects();
+      } else if (state.showingPageType === 'user') {
         // Pour les utilisateurs personnels : charger les projets publics (Nouveautés)
         await fetchPublicProjects();
         // Charger aussi les projets de l'utilisateur (Mes projets)
@@ -166,12 +174,14 @@ const Projects: React.FC = () => {
           }
 
           if (isEdu) {
-            // Use getSchoolProjects for schools (returns all school projects, not just user's projects)
+            // Use getSchoolProjects for schools (returns all school projects + branches + partners)
+            // Always include branches for Projects page
             // perPage: 12 for Projects page (vs 3 for Dashboard)
-            response = await getSchoolProjects(contextId, false, 12);
+            response = await getSchoolProjects(contextId, true, 12);
           } else {
-            // Use getCompanyProjects for companies (returns all company projects, not just user's projects)
-            response = await getCompanyProjects(contextId, false);
+            // Use getCompanyProjects for companies (returns all company projects + branches + partners)
+            // Always include branches for Projects page
+            response = await getCompanyProjects(contextId, true, 12);
           }
         }
 
@@ -189,7 +199,7 @@ const Projects: React.FC = () => {
       console.error('Erreur lors de la récupération des projets:', err);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, isPersonalUser, organizationFilter]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
+  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, isPersonalUser, isTeacher, organizationFilter]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
 
   // --- Fetch des projets au chargement ---
   useEffect(() => {
@@ -199,19 +209,22 @@ const Projects: React.FC = () => {
 
   // Re-fetch projects when organization filter changes
   useEffect(() => {
-    if (isPersonalUser && activeTab === 'nouveautes') {
+    if (isTeacher) {
+      // Teachers only see their own projects, no public projects
+      fetchMyProjects();
+    } else if (state.showingPageType === 'user' && activeTab === 'nouveautes') {
       fetchPublicProjects();
     } else if (!isPersonalUser) {
       // Pour les rôles pro et edu, recharger les projets avec le nouveau filtre
       fetchProjects();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationFilter, isPersonalUser, activeTab]);
+  }, [organizationFilter, isPersonalUser, isTeacher, activeTab]);
 
 
   const handleCreateProject = () => {
     // Check if user is a personal user (teacher or user)
-    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    const isPersonalUser = state.showingPageType === 'user';
     
     if (isPersonalUser) {
       // Show subscription required modal for personal users
@@ -274,10 +287,15 @@ const Projects: React.FC = () => {
     console.log('Export projects');
   };
 
-  // Select projects to display based on active tab (for personal users)
-  const projectsToDisplay = isPersonalUser 
-    ? (activeTab === 'nouveautes' ? projects : myProjects)
-    : projects;
+  // Select projects to display based on active tab
+  // Teachers only see their own projects (myProjects)
+  // Regular users see public projects or their own projects based on activeTab
+  // Organization users (school/company) see their organization's projects
+  const projectsToDisplay = isTeacher 
+    ? myProjects  // Teachers only see their own projects
+    : (isPersonalUser 
+      ? (activeTab === 'nouveautes' ? projects : myProjects)
+      : projects);
 
 
   // Filter projects based on search and filter criteria
@@ -344,8 +362,8 @@ const Projects: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs for personal users */}
-      {isPersonalUser && (
+      {/* Tabs for personal users (but not teachers - teachers only see their projects) */}
+      {state.showingPageType === 'user' && (
         <div className="filter-tabs" style={{ marginBottom: '24px' }}>
           <button 
             className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
