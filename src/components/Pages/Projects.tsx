@@ -211,7 +211,7 @@ const Projects: React.FC = () => {
 
   const handleCreateProject = () => {
     // Check if user is a personal user (teacher or user)
-    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    const isPersonalUser = state.showingPageType === 'user';
     
     if (isPersonalUser) {
       // Show subscription required modal for personal users
