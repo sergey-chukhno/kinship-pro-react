@@ -307,14 +307,34 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         try {
           let membersData: any[] = [];
           
-          // If teacher selected "school" context and has a school selected, fetch school members
+          // For teachers, always use getTeacherMembers() which returns students from their classes
+          // This works for both independent and school contexts since getTeacherMembers
+          // returns all students from all classes the teacher manages (regardless of school)
+          console.log('Fetching teacher class members');
+          membersData = await getTeacherMembers({ per_page: 1000 });
+          
+          // If teacher selected "school" context, filter members to only show those from the selected school
           if (teacherProjectContext === 'school' && selectedSchoolId) {
-            console.log('Fetching school members for teacher:', selectedSchoolId);
-            membersData = await getOrganizationMembers(selectedSchoolId, 'school');
-          } else {
-            // For "independent" context or no school selected, fetch teacher's class members
-            console.log('Fetching teacher class members');
-            membersData = await getTeacherMembers({ per_page: 1000 });
+            console.log('Filtering teacher members by school:', selectedSchoolId);
+            // Filter members to only include those from classes belonging to the selected school
+            // We need to check if the member's classes belong to the selected school
+            // Since getTeacherMembers returns members from teacher's classes, we filter client-side
+            // by checking if any of the member's classes belong to the selected school
+            const filteredMembers = membersData.filter((member: any) => {
+              // Check if member has classes in the selected school
+              // The member object should have a 'classes' array from the API response
+              if (member.classes && Array.isArray(member.classes)) {
+                return member.classes.some((cls: any) => {
+                  // Check both school_id directly and school.id
+                  const classSchoolId = cls.school_id || cls.school?.id;
+                  return classSchoolId === selectedSchoolId;
+                });
+              }
+              // If no classes info, exclude the member (should not happen, but safer)
+              return false;
+            });
+            membersData = filteredMembers;
+            console.log(`Filtered to ${membersData.length} members from school ${selectedSchoolId}`);
           }
           
           console.log('Members fetched:', membersData);
