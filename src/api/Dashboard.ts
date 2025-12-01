@@ -123,10 +123,11 @@ export const getTeacherRecentMembers = (
 
 export const getCompanyProjects = (
   companyId: number,
-  includeBranches = false
+  includeBranches = false,
+  perPage = 12
 ) => {
   return axiosClient.get(`/api/v1/companies/${companyId}/projects`, {
-    params: { include_branches: includeBranches },
+    params: { include_branches: includeBranches, per_page: perPage },
   });
 };
 
