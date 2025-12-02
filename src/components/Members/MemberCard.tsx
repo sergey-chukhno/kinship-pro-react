@@ -11,6 +11,7 @@ interface MemberCardProps {
   onContactClick: () => void;
   onRoleChange: (newRole: string) => void;
   disableRoleDropdown?: boolean; // New prop to disable role dropdown
+  isSuperadmin?: boolean; // New prop to indicate if member is superadmin
   onViewProfile?: () => void; // Optional prop for viewing profile
 }
 
@@ -21,6 +22,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
   onContactClick,
   onRoleChange,
   disableRoleDropdown = false,
+  isSuperadmin = false,
   onViewProfile
 }) => {
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
@@ -82,15 +84,19 @@ const MemberCard: React.FC<MemberCardProps> = ({
       </div>
 
       <div className="member-roles">
-        {member.roles.map((role, index) => (
-          <div key={index} className="role-container" ref={dropdownRef}>
-            <RolePill
-              role={role}
-              color={getRoleColor(role)}
-              onClick={disableRoleDropdown ? undefined : handleRoleClick}
-              isDropdown={!disableRoleDropdown}
-            />
-            {!disableRoleDropdown && isRoleDropdownOpen && (
+        {member.roles.map((role, index) => {
+          // Disable dropdown if member is superadmin or if explicitly disabled
+          const shouldDisableRoleDropdown = disableRoleDropdown || isSuperadmin;
+          
+          return (
+            <div key={index} className={`role-container ${shouldDisableRoleDropdown ? 'role-disabled' : ''}`} ref={dropdownRef}>
+              <RolePill
+                role={role}
+                color={getRoleColor(role)}
+                onClick={shouldDisableRoleDropdown ? undefined : handleRoleClick}
+                isDropdown={!shouldDisableRoleDropdown}
+              />
+              {!shouldDisableRoleDropdown && isRoleDropdownOpen && (
               <div className="role-dropdown">
                 <div 
                   className={`role-option  ${role === 'Admin' ? 'selected' : ''}`} 
@@ -117,9 +123,10 @@ const MemberCard: React.FC<MemberCardProps> = ({
                   Intervenant
                 </div>
               </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          );
+        })}
       </div>
 
 
