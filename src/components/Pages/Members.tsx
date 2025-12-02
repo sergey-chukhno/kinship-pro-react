@@ -154,6 +154,13 @@ const Members: React.FC = () => {
 
             const displayProfession = translateRole(profile.role_in_system || '');
 
+            // Check if member is superadmin
+            const isSuperadmin = 
+              profile.role_in_school === 'superadmin' || 
+              m.role_in_school === 'superadmin' ||
+              profile.role_in_company === 'superadmin' || 
+              m.role_in_company === 'superadmin';
+
             return {
               id: (profile.id || m.id).toString(),
               firstName: profile.first_name,
@@ -172,12 +179,18 @@ const Members: React.FC = () => {
               canProposeAtelier: false,
               claimToken: profile.claim_token || m.claim_token,
               hasTemporaryEmail: profile.has_temporary_email || m.has_temporary_email || false,
-            } as Member;
+              isSuperadmin: isSuperadmin, // Store superadmin status
+            } as Member & { isSuperadmin?: boolean };
 
           } catch (err) {
             console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
             // FALLBACK
             const fallbackRole = m.role_in_company || m.role_in_school || m.role_in_system || m.role || 'member';
+
+            // Check if member is superadmin in fallback case
+            const isSuperadmin = 
+              m.role_in_school === 'superadmin' || 
+              m.role_in_company === 'superadmin';
 
             return {
               // ... (votre code fallback inchangé)
@@ -198,7 +211,8 @@ const Members: React.FC = () => {
               canProposeAtelier: false,
               claimToken: m.claim_token,
               hasTemporaryEmail: m.has_temporary_email || false,
-            } as Member;
+              isSuperadmin: isSuperadmin, // Store superadmin status
+            } as Member & { isSuperadmin?: boolean };
           }
         })
       );
@@ -293,6 +307,11 @@ const Members: React.FC = () => {
         const volunteerRole = vol.role_in_school || vol.role_in_system || vol.role || 'volunteer';
         const volunteerProfession = translateRole(vol.role_in_system || vol.user?.job || volunteerRole);
 
+        // Check if volunteer is superadmin
+        const isSuperadmin = 
+          vol.role_in_school === 'superadmin' || 
+          vol.role_in_company === 'superadmin';
+
         return {
           id: (vol.id || vol.user_id || vol.user?.id || Date.now()).toString(),
           firstName: vol.first_name || vol.user?.first_name || 'Volontaire',
@@ -314,8 +333,9 @@ const Members: React.FC = () => {
           birthday: vol.birthday,
           role: volunteerRole,
           levelId: undefined,
-          roleAdditionalInfo: vol.role_additional_information || ''
-        };
+          roleAdditionalInfo: vol.role_additional_information || '',
+          isSuperadmin: isSuperadmin, // Store superadmin status
+        } as Member & { isSuperadmin?: boolean };
       });
 
       setCommunityLists(mappedVolunteers);
@@ -886,6 +906,9 @@ const Members: React.FC = () => {
                   roles: translateRoles(member.roles),
                   profession: translateRole(member.profession || '')
                 };
+                // Check if member is superadmin (from stored data or check roles)
+                const isSuperadmin = (member as any).isSuperadmin || 
+                  member.roles.some(role => role.toLowerCase() === 'superadmin');
                 return (
                   <MemberCard
                     key={member.id}
@@ -896,7 +919,16 @@ const Members: React.FC = () => {
                       setContactEmail(member.email);
                       setIsContactModalOpen(true);
                     }}
-                    onRoleChange={(newRole) => handleRoleChange(member, newRole, 'members')}
+                    onRoleChange={(newRole) => {
+                      // Prevent role change for superadmins
+                      if (isSuperadmin) {
+                        showError("Le rôle superadmin ne peut pas être modifié");
+                        return;
+                      }
+                      handleRoleChange(member, newRole, 'members');
+                    }}
+                    isSuperadmin={isSuperadmin}
+                    disableRoleDropdown={isSuperadmin}
                   />
                 );
               })
@@ -1051,6 +1083,9 @@ const Members: React.FC = () => {
                       roles: translateRoles(communityItem.roles),
                       profession: translateRole(communityItem.profession || '')
                     };
+                    // Check if member is superadmin (from stored data or check roles)
+                    const isSuperadmin = (communityItem as any).isSuperadmin || 
+                      communityItem.roles.some(role => role.toLowerCase() === 'superadmin');
                     return (
                       <MemberCard
                         key={communityItem.id}
@@ -1061,7 +1096,16 @@ const Members: React.FC = () => {
                           setContactEmail(communityItem.email);
                           setIsContactModalOpen(true);
                         }}
-                        onRoleChange={(newRole) => handleRoleChange(communityItem, newRole, 'community')}
+                        onRoleChange={(newRole) => {
+                          // Prevent role change for superadmins
+                          if (isSuperadmin) {
+                            showError("Le rôle superadmin ne peut pas être modifié");
+                            return;
+                          }
+                          handleRoleChange(communityItem, newRole, 'community');
+                        }}
+                        isSuperadmin={isSuperadmin}
+                        disableRoleDropdown={isSuperadmin}
                       />
                     );
                   })

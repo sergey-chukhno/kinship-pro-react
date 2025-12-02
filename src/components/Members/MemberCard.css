@@ -93,6 +93,16 @@
   display: inline-block;
 }
 
+.role-container.role-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.role-container.role-disabled .role-pill {
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
 .role-dropdown {
   position: absolute;
   top: 100%;

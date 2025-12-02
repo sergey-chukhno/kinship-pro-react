@@ -505,6 +505,7 @@ export const getTeacherMembers = async (params?: {
     const members = response.data?.data || response.data || [];
     
     // Map to OrganizationMember format (backend already provides compatible fields)
+    // Preserve classes information for filtering by school
     return members.map((member: any) => ({
         id: member.id,
         first_name: member.first_name,
@@ -512,7 +513,8 @@ export const getTeacherMembers = async (params?: {
         full_name: member.full_name,
         email: member.email,
         role: member.role,
-        avatar_url: member.avatar_url || null
+        avatar_url: member.avatar_url || null,
+        classes: member.classes || [] // Preserve classes for school filtering
     }));
 };
 
