@@ -53,6 +53,7 @@ const tradFR: Record<string, string> = {
   wednesday: "Mercredi",
   thursday: "Jeudi",
   friday: "Vendredi",
+  other: "Autre",
   eleve_primaire: "Elève du primaire",
   collegien: "Collégien",
   lyceen: "Lycéen",
