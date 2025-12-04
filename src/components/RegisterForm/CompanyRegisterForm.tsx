@@ -129,7 +129,10 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const fetchCompanyTypes = async () => {
       try {
         const response = await getCompanyTypes()
+        console.log("Company Types API Response:", response)
         const data = response?.data?.data ?? response?.data ?? response ?? []
+        console.log("Company Types Data:", data)
+        
         if (Array.isArray(data)) {
           const normalized = data.map((s: any) => ({
             id: Number(s.id),
@@ -137,16 +140,23 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             requires_additional_info: s.requires_additional_info
           }))
 
+          console.log("Normalized Company Types:", normalized)
+
           const sorted = normalized.sort((a, b) => {
             if (a.name === "Other") return 1;
             if (b.name === "Other") return -1;
-            return COMPANY_TYPES_TRANSLATIONS[a.name].localeCompare(COMPANY_TYPES_TRANSLATIONS[b.name]);
+            const aTranslated = COMPANY_TYPES_TRANSLATIONS[a.name] || a.name;
+            const bTranslated = COMPANY_TYPES_TRANSLATIONS[b.name] || b.name;
+            return aTranslated.localeCompare(bTranslated);
           });
 
+          console.log("Sorted Company Types:", sorted)
           setCompanyTypes(sorted)
+        } else {
+          console.warn("Company Types data is not an array:", data)
         }
       } catch (error) {
-        console.error("Erreur lors du chargement des compétences :", error)
+        console.error("Erreur lors du chargement des types d'organisation :", error)
       }
     }
 
