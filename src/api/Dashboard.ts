@@ -73,6 +73,10 @@ export const getTeacherClass = (classId: number) => {
   return axiosClient.get(`/api/v1/teachers/classes/${classId}`);
 };
 
+export const removeTeacherStudent = (classId: number, studentId: number) => {
+  return axiosClient.delete(`/api/v1/teachers/classes/${classId}/students/${studentId}`);
+};
+
 export const getSchoolProjects = (
   schoolId: number,
   includeBranches = false,
