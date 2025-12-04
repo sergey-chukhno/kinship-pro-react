@@ -518,6 +518,10 @@ const Members: React.FC = () => {
     setIsAddModalOpen(false);
   };
 
+  const handleMemberCreated = async () => {
+    await fetchMembers();
+  };
+
   const handleAddStudent = (studentData: Omit<Member, 'id'>) => {
     // showSuccess(`L'étudiant ${studentData.fullName} a été ajouté avec succès`);
     setIsAddModalOpen(false);
@@ -1131,7 +1135,11 @@ const Members: React.FC = () => {
       )}
 
       {isAddModalOpen && state.showingPageType !== 'edu' && state.showingPageType !== 'teacher' && (
-        <AddMemberModal onClose={() => setIsAddModalOpen(false)} onAdd={handleAddMember} />
+        <AddMemberModal 
+          onClose={() => setIsAddModalOpen(false)} 
+          onAdd={handleAddMember}
+          onSuccess={handleMemberCreated}
+        />
       )}
 
       {isAddModalOpen && (state.showingPageType === 'edu' || state.showingPageType === 'teacher') && (
