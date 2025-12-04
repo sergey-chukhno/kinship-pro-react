@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentUser } from '../../api/Authentication';
-import { getCompanyMembersAccepted, updateCompanyMemberRole } from '../../api/CompanyDashboard/Members';
+import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole } from '../../api/CompanyDashboard/Members';
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel } from '../../api/SchoolDashboard/Levels';
-import { getSchoolMembersAccepted, getSchoolVolunteers, updateSchoolMemberRole } from '../../api/SchoolDashboard/Members';
+import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole } from '../../api/SchoolDashboard/Members';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getSkills } from '../../api/Skills';
 import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass } from '../../api/Dashboard';
@@ -93,6 +93,7 @@ const Members: React.FC = () => {
   const [classSearchTerm, setClassSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<number | null>(null);
   const [availableSchoolsForFilter, setAvailableSchoolsForFilter] = useState<Array<{ id: number; name: string }>>([]);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
 
   const fetchMembers = async () => {
     // Ne pas récupérer les membres pour les teachers
@@ -382,6 +383,31 @@ const Members: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fetchPendingRequestsCount = useCallback(async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      const isEdu = state.showingPageType === 'edu';
+      const contextId = isEdu
+        ? currentUser.data?.available_contexts?.schools?.[0]?.id
+        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+
+      if (!contextId) {
+        setPendingRequestsCount(0);
+        return;
+      }
+
+      const pendingRes = isEdu
+        ? await getSchoolMembersPending(contextId)
+        : await getCompanyMembersPending(contextId);
+
+      const pendingList = pendingRes.data?.data || pendingRes.data || [];
+      setPendingRequestsCount(Array.isArray(pendingList) ? pendingList.length : 0);
+    } catch (error) {
+      console.error('Error fetching pending requests count:', error);
+      setPendingRequestsCount(0);
+    }
+  }, [state.showingPageType]);
+
   useEffect(() => {
     let isMounted = true;
     let abortController = new AbortController();
@@ -393,7 +419,8 @@ const Members: React.FC = () => {
         await Promise.all([
           fetchLevels(),
           fetchMembers(),
-          fetchCommunityVolunteers()
+          fetchCommunityVolunteers(),
+          fetchPendingRequestsCount()
         ]);
       } catch (error) {
         if (isMounted && !abortController.signal.aborted) {
@@ -418,6 +445,13 @@ const Members: React.FC = () => {
       setActiveTab('class');
     }
   }, [isSchoolContext, isTeacherContext, activeTab]);
+
+  // Refresh pending count when returning from membership requests page
+  useEffect(() => {
+    if (state.currentPage === 'members') {
+      fetchPendingRequestsCount();
+    }
+  }, [state.currentPage, fetchPendingRequestsCount]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -832,10 +866,35 @@ const Members: React.FC = () => {
               company.role === 'admin' || company.role === 'superadmin'
             );
             return isAdmin ? (
-              <div className="">
+              <div className="relative">
                 <button className="btn btn-outline" onClick={handleMembershipRequests}>
                   <i className="fas fa-user-plus"></i>
                   Gérer demandes d'adhésion
+                  {pendingRequestsCount > 0 && (
+                    <span 
+                      className="pending-requests-badge"
+                      style={{
+                        backgroundColor: state.showingPageType === 'pro' 
+                          ? '#5570F1' // Blue for companies
+                          : state.showingPageType === 'edu' 
+                          ? '#10b981' // Green for schools
+                          : '#ffa600ff', // Orange for teachers
+                        color: 'white',
+                        borderRadius: '12px',
+                        padding: '2px 8px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        marginLeft: '8px',
+                        minWidth: '24px',
+                        textAlign: 'center',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      +{pendingRequestsCount}
+                    </span>
+                  )}
                 </button>
               </div>
             ) : null;
