@@ -8,7 +8,17 @@ export function getCompanyMembersPending(companyId: number) {
     return axiosClient.get(`/api/v1/companies/${companyId}/members?status=pending`);
 }
 
-export function addCompanyMember(companyId: number, memberData: { user_id: number; role: string; }) {
+export function addCompanyMember(
+  companyId: number, 
+  memberData: {
+    email?: string;
+    first_name: string;
+    last_name: string;
+    birthday?: string;  // Required if no email
+    role?: string;      // Company role (member, admin, superadmin) - defaults to 'member'
+    user_role?: string; // System role (voluntary, employee, etc.)
+  }
+) {
     return axiosClient.post(`/api/v1/companies/${companyId}/members`, memberData);
 }
 

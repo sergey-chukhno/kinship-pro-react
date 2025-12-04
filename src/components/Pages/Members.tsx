@@ -177,7 +177,7 @@ const Members: React.FC = () => {
               organization: '',
               canProposeStage: false,
               canProposeAtelier: false,
-              claimToken: profile.claim_token || m.claim_token,
+              claim_token: profile.claim_token || m.claim_token,
               hasTemporaryEmail: profile.has_temporary_email || m.has_temporary_email || false,
               isSuperadmin: isSuperadmin, // Store superadmin status
             } as Member & { isSuperadmin?: boolean };
@@ -209,7 +209,7 @@ const Members: React.FC = () => {
               organization: '',
               canProposeStage: false,
               canProposeAtelier: false,
-              claimToken: m.claim_token,
+              claim_token: m.claim_token,
               hasTemporaryEmail: m.has_temporary_email || false,
               isSuperadmin: isSuperadmin, // Store superadmin status
             } as Member & { isSuperadmin?: boolean };
@@ -328,7 +328,7 @@ const Members: React.FC = () => {
           organization: vol.organization || '',
           canProposeStage: false,
           canProposeAtelier: false,
-          claimToken: vol.claim_token,
+          claim_token: vol.claim_token,
           hasTemporaryEmail: vol.has_temporary_email || false,
           birthday: vol.birthday,
           role: volunteerRole,
@@ -516,6 +516,10 @@ const Members: React.FC = () => {
   const handleAddMember = (memberData: Omit<Member, 'id'>) => {
     addMember({ ...memberData, id: Date.now().toString() });
     setIsAddModalOpen(false);
+  };
+
+  const handleMemberCreated = async () => {
+    await fetchMembers();
   };
 
   const handleAddStudent = (studentData: Omit<Member, 'id'>) => {
@@ -1131,7 +1135,11 @@ const Members: React.FC = () => {
       )}
 
       {isAddModalOpen && state.showingPageType !== 'edu' && state.showingPageType !== 'teacher' && (
-        <AddMemberModal onClose={() => setIsAddModalOpen(false)} onAdd={handleAddMember} />
+        <AddMemberModal 
+          onClose={() => setIsAddModalOpen(false)} 
+          onAdd={handleAddMember}
+          onSuccess={handleMemberCreated}
+        />
       )}
 
       {isAddModalOpen && (state.showingPageType === 'edu' || state.showingPageType === 'teacher') && (

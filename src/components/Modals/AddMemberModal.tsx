@@ -1,15 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Member } from '../../types';
 import './Modal.css';
-import { submitPersonalUserRegistration, getCurrentUser } from '../../api/Authentication';
-import { getSkills, getPersonalUserRoles } from '../../api/RegistrationRessource'; // 1. Import fetch roles
+import { getCurrentUser } from '../../api/Authentication';
+import { getPersonalUserRoles } from '../../api/RegistrationRessource';
+import { addCompanyMember } from '../../api/CompanyDashboard/Members';
 import { useAppContext } from '../../context/AppContext';
 import AvatarImage from '../UI/AvatarImage';
 import { useToast } from '../../hooks/useToast';
+import QRCodePrintModal from './QRCodePrintModal';
 
 interface AddMemberModalProps {
   onClose: () => void;
   onAdd: (member: Omit<Member, 'id'>) => void;
+  onSuccess?: () => void;
 }
 
 // Traduction identique à celle de PersonalUserRegisterForm.tsx pour l'affichage
@@ -27,76 +30,49 @@ const tradFR: Record<string, string> = {
   member: "Membre"
 };
 
-const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
+const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess }) => {
   const { state } = useAppContext();
-  const { showWarning, showSuccess, showError } = useToast();
+  const { showSuccess, showError } = useToast();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
-    profession: '',
-    roles: [] as string[], // Sera rempli par le select
-    skills: [] as string[],
-    availability: [] as string[],
-    avatar: '',
-    isTrusted: false,
-    organization: '',
-    badges: [] as string[],
-    canProposeStage: false,
-    canProposeAtelier: false
+    birthday: '',
+    role: 'voluntary',
+    avatar: ''
   });
 
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
-  const [selectedAvailability, setSelectedAvailability] = useState<string[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [isUsingDefaultAvatar, setIsUsingDefaultAvatar] = useState<boolean>(true);
 
   // State pour les données API
-  const [apiSkills, setApiSkills] = useState<{ id: number, name: string }[]>([]);
-  const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]); // 2. State roles
+  const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]);
+
+  // State pour le QR Code
+  const [showQRCodeModal, setShowQRCodeModal] = useState<boolean>(false);
+  const [memberData, setMemberData] = useState<{ claimToken: string; fullName: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Chargement des Skills ET des Roles au montage
+  // Chargement des Roles au montage
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchRoles = async () => {
       try {
-        // 1. Fetch Skills
-        const skillsRes = await getSkills();
-        const skillsData = skillsRes?.data?.data ?? skillsRes?.data ?? skillsRes ?? [];
-        if (Array.isArray(skillsData)) {
-          setApiSkills(skillsData.map((s: any) => ({ id: Number(s.id), name: s.name })));
-        }
-
-        // 2. Fetch Roles
         const rolesRes = await getPersonalUserRoles();
         const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
         if (Array.isArray(rolesData)) {
           setApiRoles(rolesData);
           // Sélectionner le premier rôle par défaut si disponible
           if (rolesData.length > 0) {
-            setFormData(prev => ({ ...prev, roles: [rolesData[0].value] }));
+            setFormData(prev => ({ ...prev, role: rolesData[0].value }));
           }
         }
       } catch (error) {
-        console.error("Erreur chargement données (skills/roles)", error);
+        console.error("Erreur chargement des rôles", error);
       }
     };
-    fetchData();
+    fetchRoles();
   }, []);
-
-  const disponibilites = [
-    'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Autre'
-  ];
-
-  const dayMapping: Record<string, string> = {
-    'Lundi': 'monday',
-    'Mardi': 'tuesday',
-    'Mercredi': 'wednesday',
-    'Jeudi': 'thursday',
-    'Vendredi': 'friday',
-    'Autre': 'other'
-  };
 
   // Mise à jour de la génération d'avatar pour accepter les clés dynamiques
   const generateDefaultAvatar = (role: string, firstName: string, lastName: string) => {
@@ -139,24 +115,22 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
       const processedValue = (name === 'firstName' || name === 'lastName') 
         ? capitalizeName(value) 
         : value;
-      setFormData(prev => ({ ...prev, [name]: processedValue }));
+      
+      setFormData(prev => {
+        const updated = { ...prev, [name]: processedValue };
+        return updated;
+      });
 
       // Mise à jour de l'avatar si on change le nom/rôle
-      if (isUsingDefaultAvatar && (name === 'roles' || name === 'firstName' || name === 'lastName')) {
+      if (isUsingDefaultAvatar && (name === 'role' || name === 'firstName' || name === 'lastName')) {
         const firstName = name === 'firstName' ? processedValue : formData.firstName;
         const lastName = name === 'lastName' ? processedValue : formData.lastName;
-        // Pour le select multiple 'roles', value est la valeur unique sélectionnée ici
-        const role = name === 'roles' ? value : (formData.roles[0] || 'voluntary');
+        const role = name === 'role' ? value : (formData.role || 'voluntary');
 
         if (firstName && lastName) {
           const newAvatar = generateDefaultAvatar(role, firstName, lastName);
           setAvatarPreview(newAvatar);
         }
-      }
-
-      // Cas spécifique pour le select qui renvoie une string unique mais qu'on stocke en array pour le UserType Member
-      if (name === 'roles') {
-        setFormData(prev => ({ ...prev, roles: [value] }));
       }
     }
   };
@@ -177,131 +151,130 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
 
   const handleResetToDefaultAvatar = () => {
     if (formData.firstName && formData.lastName) {
-      const defaultAvatar = generateDefaultAvatar(formData.roles[0] || 'voluntary', formData.firstName, formData.lastName);
+      const defaultAvatar = generateDefaultAvatar(formData.role || 'voluntary', formData.firstName, formData.lastName);
       setAvatarPreview(defaultAvatar);
       setFormData(prev => ({ ...prev, avatar: '' }));
       setIsUsingDefaultAvatar(true);
     }
   };
 
-  const handleSkillToggle = (skillName: string) => {
-    setSelectedSkills(prev => {
-      const newSkills = prev.includes(skillName)
-        ? prev.filter(s => s !== skillName)
-        : [...prev, skillName];
-      setFormData(prevData => ({ ...prevData, skills: newSkills }));
-      return newSkills;
-    });
-  };
-
-  const handleAvailabilityToggle = (day: string) => {
-    setSelectedAvailability(prev => {
-      const newAvailability = prev.includes(day)
-        ? prev.filter(d => d !== day)
-        : [...prev, day];
-      setFormData(prevData => ({ ...prevData, availability: newAvailability }));
-      return newAvailability;
-    });
-  };
-
-  const generateStrongPassword = () => {
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let password = "A1!";
-    for (let i = 0; i < 10; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validation
     if (!formData.firstName || !formData.lastName) {
-      showWarning('Prénom et nom sont obligatoires');
+      showError('Prénom et nom sont obligatoires');
       return;
     }
-    if (selectedSkills.length === 0) {
-      showWarning('Veuillez sélectionner au moins une compétence');
-      return;
-    }
-    if (selectedAvailability.length === 0) {
-      showWarning('Veuillez sélectionner au moins une disponibilité');
+
+    if (!formData.email && !formData.birthday) {
+      showError('Email ou date de naissance est obligatoire');
       return;
     }
 
     try {
-      // 1. Récupération Organisation selon le mode
+      // Get company ID
       const currentUser = await getCurrentUser();
-      const isEdu = state.showingPageType === 'edu';
+      const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
 
-      const contextId = isEdu
-        ? currentUser.data?.available_contexts?.schools?.[0]?.id
-        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+      if (!companyId) {
+        showError("Impossible de récupérer l'identifiant de l'entreprise");
+        return;
+      }
 
-      // 2. Disponibilités
-      const apiAvailability = {
-        monday: false, tuesday: false, wednesday: false, thursday: false, friday: false, other: false
-      };
-      selectedAvailability.forEach(day => {
-        const key = dayMapping[day];
-        if (key) (apiAvailability as any)[key] = true;
-      });
-
-      // 3. Compétences
-      const skillIds = apiSkills
-        .filter(apiSkill => selectedSkills.includes(apiSkill.name))
-        .map(s => s.id);
-
-      // 4. Password & Rôle
-      const tempPassword = generateStrongPassword();
-      const selectedRole = formData.roles[0] || 'voluntary'; // Fallback
-
-      const apiPayload = {
-        email: formData.email || `temp.${Date.now()}@kinship.placeholder`,
-        hasTemporaryEmail: !formData.email,
-        password: tempPassword,
-        passwordConfirmation: tempPassword,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        birthday: "2000-01-01",
-        role: selectedRole, // Utilisation du rôle dynamique
-        job: formData.profession,
-        companyName: formData.organization,
-        proposeWorkshop: formData.canProposeAtelier,
-        takeTrainee: formData.canProposeStage,
-        acceptPrivacyPolicy: true,
-        availability: apiAvailability,
-        selectedSkills: skillIds,
-        selectedSubSkills: [],
-        selectedCompanies: !isEdu && contextId ? [Number(contextId)] : [],
-        selectedSchools: isEdu && contextId ? [Number(contextId)] : []
+      // Build payload
+      const payload: any = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        role: 'member',  // Default company role
+        user_role: formData.role  // System role
       };
 
-      // 5. Envoi
-      await submitPersonalUserRegistration(apiPayload);
+      if (formData.email) {
+        payload.email = formData.email;
+      } else {
+        payload.birthday = formData.birthday;
+      }
 
+      // Call API
+      const response = await addCompanyMember(companyId, payload);
+
+      console.log('Response complète:', response);
+      console.log('Response data:', response.data);
+
+      // Extract data
+      const claimToken = response.data?.data?.claim_token;
+      const fullName = response.data?.data?.full_name || `${formData.firstName} ${formData.lastName}`;
+
+      console.log('Claim token:', claimToken);
+      console.log('Full name:', fullName);
+
+      // Create member data for callback
       const finalAvatar = formData.avatar || generateDefaultAvatar(
-        selectedRole,
+        formData.role,
         formData.firstName,
         formData.lastName
       );
 
-      const memberData = {
-        ...formData,
+      const memberDataForCallback = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: response.data?.data?.email || formData.email || '',
         avatar: finalAvatar,
-        skills: selectedSkills,
-        availability: selectedAvailability
+        profession: tradFR[formData.role] || formData.role, // Translate role to profession
+        roles: [formData.role],
+        claim_token: claimToken,
+        hasTemporaryEmail: response.data?.data?.has_temporary_email || false,
+        role: formData.role,
+        skills: [],
+        availability: [],
+        isTrusted: false,
+        organization: '',
+        badges: [],
+        canProposeStage: false,
+        canProposeAtelier: false
       };
 
-      onAdd(memberData);
-      showSuccess("Membre ajouté avec succès !");
-      onClose();
+      onAdd(memberDataForCallback);
 
-    } catch (error) {
+      // Show success message
+      showSuccess(`Membre ${fullName} ajouté avec succès !`);
+
+      // Refetch data if callback provided
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      // Show QR code modal if claim token exists
+      if (claimToken) {
+        setMemberData({ claimToken, fullName });
+        setShowQRCodeModal(true);
+        // Don't close modal yet
+      } else {
+        console.warn('Pas de claim_token dans la réponse');
+        onClose();
+      }
+
+    } catch (error: any) {
       console.error("Erreur lors de l'ajout du membre", error);
-      showError("Erreur lors de l'enregistrement ou de la récupération de l'organisation.");
+      console.error("Erreur détails:", error.response?.data);
+      showError(error.response?.data?.message || "Erreur lors de l'enregistrement du membre.");
     }
   };
+
+  // Si le modal QR code doit être affiché, afficher seulement celui-là
+  if (showQRCodeModal && memberData) {
+    return (
+      <QRCodePrintModal
+        onClose={() => {
+          setShowQRCodeModal(false);
+          onClose();
+        }}
+        claimToken={memberData.claimToken}
+        studentName={memberData.fullName}
+      />
+    );
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -390,41 +363,37 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
                 value={formData.email}
                 onChange={handleInputChange}
                 className="form-input"
+                placeholder="Optionnel - laisser vide pour créer un email temporaire"
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="profession">Profession</label>
+              <label htmlFor="birthday">
+                Date de naissance {!formData.email && '*'}
+              </label>
               <input
-                type="text"
-                id="profession"
-                name="profession"
-                value={formData.profession}
+                type="date"
+                id="birthday"
+                name="birthday"
+                max={new Date().toISOString().split('T')[0]}
+                value={formData.birthday}
                 onChange={handleInputChange}
+                required={!formData.email}
                 className="form-input"
               />
+              {!formData.email && (
+                <p className="form-hint">Requis si aucun email n'est fourni</p>
+              )}
             </div>
 
             <div className="form-group">
-              <label htmlFor="organization">Organisation</label>
-              <input
-                type="text"
-                id="organization"
-                name="organization"
-                value={formData.organization}
-                onChange={handleInputChange}
-                className="form-input"
-              />
-            </div>
-
-            {/* Remplacement du Select Statique par les données de l'API */}
-            <div className="form-group">
-              <label htmlFor="roles">Rôle</label>
+              <label htmlFor="role">Rôle *</label>
               <select
-                id="roles"
-                name="roles"
-                value={formData.roles[0] || ''}
+                id="role"
+                name="role"
+                value={formData.role || ''}
                 onChange={handleInputChange}
+                required
                 className="form-select"
               >
                 {apiRoles.length > 0 ? (
@@ -437,96 +406,6 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd }) => {
                   <option value="">Chargement...</option>
                 )}
               </select>
-            </div>
-          </div>
-
-          <div className="form-section">
-            <h3>Compétences *</h3>
-            <p className="section-description">Sélectionnez au moins une compétence</p>
-            <div className="competencies-grid">
-              {apiSkills.length > 0 ? (
-                apiSkills.map((skill) => (
-                  <label key={skill.id} className="competency-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selectedSkills.includes(skill.name)}
-                      onChange={() => handleSkillToggle(skill.name)}
-                    />
-                    <span className="checkmark"></span>
-                    <span className="competency-label">{skill.name}</span>
-                  </label>
-                ))
-              ) : (
-                <p>Chargement des compétences...</p>
-              )}
-            </div>
-            {selectedSkills.length > 0 && (
-              <div className="selected-skills">
-                <p>Compétences sélectionnées ({selectedSkills.length}):</p>
-                <div className="skills-list">
-                  {selectedSkills.map((skill) => (
-                    <span key={skill} className="skill-tag">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="form-section">
-            <h3>Disponibilités *</h3>
-            <p className="section-description">Sélectionnez au moins un jour de disponibilité</p>
-            <div className="availability-grid">
-              {disponibilites.map((day) => (
-                <label key={day} className="availability-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedAvailability.includes(day)}
-                    onChange={() => handleAvailabilityToggle(day)}
-                  />
-                  <span className="checkmark"></span>
-                  <span className="availability-label">{day}</span>
-                </label>
-              ))}
-            </div>
-            {selectedAvailability.length > 0 && (
-              <div className="selected-availability">
-                <p>Disponibilités sélectionnées ({selectedAvailability.length}):</p>
-                <div className="availability-list">
-                  {selectedAvailability.map((day) => (
-                    <span key={day} className="availability-tag">
-                      {day}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="form-section">
-            <h3>Propositions</h3>
-            <div className="proposals-grid">
-              <label className="flex gap-2 items-center">
-                <input
-                  type="checkbox"
-                  name="canProposeStage"
-                  checked={formData.canProposeStage}
-                  onChange={handleInputChange}
-                />
-                {/* <span className="checkmark"></span> */}
-                <span className="proposal-label">Propose un stage</span>
-              </label>
-              <label className="flex gap-2 items-center">
-                <input
-                  type="checkbox"
-                  name="canProposeAtelier"
-                  checked={formData.canProposeAtelier}
-                  onChange={handleInputChange}
-                />
-                {/* <span className="checkmark"></span> */}
-                <span className="proposal-label">Propose un atelier pro</span>
-              </label>
             </div>
           </div>
         </form>
