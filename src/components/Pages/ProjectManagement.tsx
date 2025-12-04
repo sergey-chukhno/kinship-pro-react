@@ -798,7 +798,7 @@ const ProjectManagement: React.FC = () => {
       setProject(mappedProject);
       setSelectedProject(mappedProject);
       
-      setIsEditModalOpen(false);
+    setIsEditModalOpen(false);
       setEditImagePreview('');
     } catch (error: any) {
       console.error('Error updating project:', error);
@@ -909,7 +909,7 @@ const ProjectManagement: React.FC = () => {
       showSuccess('Demande rejetée');
       
       // Remove from requests
-      setRequests(requests.filter(r => r.id !== requestId));
+    setRequests(requests.filter(r => r.id !== requestId));
     } catch (error: any) {
       console.error('Error rejecting request:', error);
       const errorMessage = error.response?.data?.message || 'Erreur lors du rejet de la demande';
@@ -1120,14 +1120,14 @@ const ProjectManagement: React.FC = () => {
       
       console.log('Team data before mapping:', teamData);
       console.log('Backend payload:', backendPayload);
-      
-      if (selectedTeam) {
+
+    if (selectedTeam) {
         // Update existing team
         const teamId = parseInt(selectedTeam.id);
         await updateProjectTeam(projectId, teamId, backendPayload);
         showSuccess('Équipe modifiée avec succès');
-      } else {
-        // Create new team
+    } else {
+      // Create new team
         await createProjectTeam(projectId, backendPayload);
         showSuccess('Équipe créée avec succès');
       }
@@ -1332,7 +1332,7 @@ const ProjectManagement: React.FC = () => {
     try {
       const members = await fetchAvailableMembers();
       setAvailableMembers(members);
-      setIsAddParticipantModalOpen(true);
+    setIsAddParticipantModalOpen(true);
     } catch (error) {
       console.error('Error loading available members:', error);
       showError('Erreur lors du chargement des membres disponibles');
@@ -1379,7 +1379,7 @@ const ProjectManagement: React.FC = () => {
       const stats = await getProjectStats(projectId);
       setProjectStats(stats);
       
-      setIsAddParticipantModalOpen(false);
+    setIsAddParticipantModalOpen(false);
     } catch (error: any) {
       console.error('Error adding participant:', error);
       const errorMessage = error.response?.data?.message || 'Erreur lors de l\'ajout du participant';
@@ -1759,9 +1759,9 @@ const ProjectManagement: React.FC = () => {
                 )}
                 {/* Edit button for owners/admins */}
                 {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && (
-                  <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
-                    <i className="fas fa-edit"></i>
-                  </button>
+                <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
+                  <i className="fas fa-edit"></i>
+                </button>
                 )}
               </div>
             </div>
@@ -1809,12 +1809,12 @@ const ProjectManagement: React.FC = () => {
               </div>
               <div className="project-tags-row">
                 {project.pathway && (
-                  <div className="pathway-section">
-                    <div className="section-label">Parcours</div>
-                    <div className="pathway-container">
-                      <span className={`pathway-pill pathway-${project.pathway}`}>{project.pathway}</span>
-                    </div>
+                <div className="pathway-section">
+                  <div className="section-label">Parcours</div>
+                  <div className="pathway-container">
+                    <span className={`pathway-pill pathway-${project.pathway}`}>{project.pathway}</span>
                   </div>
+                </div>
                 )}
                 <div className="tags-section">
                   <div className="section-label">Tags</div>
@@ -1922,72 +1922,72 @@ const ProjectManagement: React.FC = () => {
 
         {/* Project Management Tabs */}
         {shouldShowTabs() && (
-          <div className="project-management-tabs">
-            <button 
-              type="button" 
-              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              Vue d'ensemble
-            </button>
-            <button 
-              type="button" 
-              className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
-              onClick={() => setActiveTab('requests')}
-            >
-              Demandes
-            </button>
-            <button 
-              type="button" 
-              className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
-              onClick={() => setActiveTab('participants')}
-            >
-              Participants
-            </button>
-            <button 
-              type="button" 
-              className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
-              onClick={() => setActiveTab('equipes')}
-            >
-              Équipes
-            </button>
-            <button 
-              type="button" 
-              className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
-              onClick={() => setActiveTab('kanban')}
-            >
-              Kanban
-            </button>
-            <button 
-              type="button" 
-              className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
-              onClick={() => setActiveTab('badges')}
-            >
-              Badges
-            </button>
-          </div>
+        <div className="project-management-tabs">
+          <button 
+            type="button" 
+            className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            Vue d'ensemble
+          </button>
+          <button 
+            type="button" 
+            className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+            onClick={() => setActiveTab('requests')}
+          >
+            Demandes
+          </button>
+          <button 
+            type="button" 
+            className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
+            onClick={() => setActiveTab('participants')}
+          >
+            Participants
+          </button>
+          <button 
+            type="button" 
+            className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
+            onClick={() => setActiveTab('equipes')}
+          >
+            Équipes
+          </button>
+          <button 
+            type="button" 
+            className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
+            onClick={() => setActiveTab('kanban')}
+          >
+            Kanban
+          </button>
+          <button 
+            type="button" 
+            className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
+            onClick={() => setActiveTab('badges')}
+          >
+            Badges
+          </button>
+        </div>
         )}
 
         {/* Tab Content */}
         {shouldShowTabs() && (
           <>
-            {activeTab === 'overview' && (
+        {activeTab === 'overview' && (
           <div className="tab-content active overview-tab-content">
             <div className="overview-grid">
               {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
               {false && (
-                <div className="stat-card">
-                  <div className="stat-icon">
-                    <i className="fas fa-chart-line"></i>
-                  </div>
-                  <div className="stat-content">
-                    <div className="stat-value">{project.progress || 0}%</div>
-                    <div className="stat-label">Progression</div>
-                    <div className="progress-bar">
-                      <div className="progress-fill" style={{ width: `${project.progress || 0}%` }}></div>
-                    </div>
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <i className="fas fa-chart-line"></i>
+                </div>
+                <div className="stat-content">
+                  <div className="stat-value">{project.progress || 0}%</div>
+                  <div className="stat-label">Progression</div>
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${project.progress || 0}%` }}></div>
                   </div>
                 </div>
+              </div>
               )}
               
               {/* Carte Jours restants */}
@@ -1996,37 +1996,37 @@ const ProjectManagement: React.FC = () => {
                 const status = getDaysRemainingStatus(daysRemaining);
                 
                 return (
-                  <div className="stat-card">
-                    <div className="stat-icon">
-                      <i className="fas fa-clock"></i>
-                    </div>
-                    <div className="stat-content">
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <i className="fas fa-clock"></i>
+                </div>
+                <div className="stat-content">
                       <div className="stat-value">{Math.max(0, daysRemaining)}</div>
-                      <div className="stat-label">Jours restants</div>
+                  <div className="stat-label">Jours restants</div>
                       <div className={`stat-change ${status.className}`}>
                         {status.text}
-                      </div>
-                    </div>
+                </div>
+              </div>
                   </div>
                 );
               })()}
               
               {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
               {false && (
-                <div className="stat-card">
-                  <div className="stat-icon">
-                    <i className="fas fa-tasks"></i>
-                  </div>
-                  <div className="stat-content">
-                    <div className="stat-value">12/18</div>
-                    <div className="stat-label">Tâches complétées</div>
-                    <div className="task-progress">
-                      {Array.from({ length: 18 }, (_, i) => (
-                        <div key={i} className={`task-bar ${i < 12 ? 'completed' : ''}`}></div>
-                      ))}
-                    </div>
+              <div className="stat-card">
+                <div className="stat-icon">
+                  <i className="fas fa-tasks"></i>
+                </div>
+                <div className="stat-content">
+                  <div className="stat-value">12/18</div>
+                  <div className="stat-label">Tâches complétées</div>
+                  <div className="task-progress">
+                    {Array.from({ length: 18 }, (_, i) => (
+                      <div key={i} className={`task-bar ${i < 12 ? 'completed' : ''}`}></div>
+                    ))}
                   </div>
                 </div>
+              </div>
               )}
               
               {/* Carte Participants */}
@@ -2034,18 +2034,18 @@ const ProjectManagement: React.FC = () => {
                 const newMembersThisMonth = calculateNewMembersThisMonth(apiProjectData);
                 
                 return (
-                  <div className="stat-card">
-                    <div className="stat-icon">
+              <div className="stat-card">
+                <div className="stat-icon">
                       <i className="fas fa-users"></i>
-                    </div>
-                    <div className="stat-content">
+                </div>
+                <div className="stat-content">
                       <div className="stat-value">
                         {isLoadingStats ? '...' : (projectStats?.overview?.total_members || 0)}
-                      </div>
+                </div>
                       <div className="stat-label">Participants</div>
                       <div className="stat-change positive">
                         +{newMembersThisMonth} nouveaux ce mois
-                      </div>
+              </div>
                     </div>
                   </div>
                 );
@@ -2084,7 +2084,7 @@ const ProjectManagement: React.FC = () => {
                       {participant.organization && (
                         <div className="member-organization" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                           {participant.organization}
-                        </div>
+                    </div>
                       )}
                       {participant.profession && (
                         <div className="member-profession" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
@@ -2130,8 +2130,8 @@ const ProjectManagement: React.FC = () => {
                           title="Retirer"
                           onClick={() => handleRemoveParticipant(participant.id)}
                         >
-                          <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
-                        </button>
+                        <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
+                      </button>
                       )}
                     </div>
                   </div>
@@ -2249,23 +2249,23 @@ const ProjectManagement: React.FC = () => {
                         </div>
                     </div>
                     
-                      <div className="request-skills">
-                        <h4>Compétences</h4>
-                        <div className="skills-list">
+                    <div className="request-skills">
+                      <h4>Compétences</h4>
+                      <div className="skills-list">
                           {(participant.skills || []).map((skill: string, index: number) => (
-                            <span key={index} className="skill-pill">{skill}</span>
-                          ))}
-                        </div>
+                          <span key={index} className="skill-pill">{skill}</span>
+                        ))}
                       </div>
-                      
-                      <div className="request-availability">
-                        <h4>Disponibilités</h4>
-                        <div className="availability-list">
+                    </div>
+                    
+                    <div className="request-availability">
+                      <h4>Disponibilités</h4>
+                      <div className="availability-list">
                           {(participant.availability || []).map((day: string, index: number) => (
-                            <span key={index} className="availability-pill">{day}</span>
-                          ))}
-                        </div>
+                          <span key={index} className="availability-pill">{day}</span>
+                        ))}
                       </div>
+                    </div>
                       
                       <div className="request-role-selector" style={{ marginTop: '1rem' }}>
                         <h4>Rôle dans le projet</h4>
@@ -2303,14 +2303,14 @@ const ProjectManagement: React.FC = () => {
                     <div className="request-actions">
                       <div className="action-buttons">
                         {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
-                          <button 
-                            className="btn-reject"
-                            onClick={() => handleRemoveParticipant(participant.id)}
-                            title="Retirer du projet"
-                          >
-                            <i className="fas fa-user-minus"></i>
-                            Retirer
-                          </button>
+                        <button 
+                          className="btn-reject"
+                          onClick={() => handleRemoveParticipant(participant.id)}
+                          title="Retirer du projet"
+                        >
+                          <i className="fas fa-user-minus"></i>
+                          Retirer
+                        </button>
                         )}
                         <button 
                           className="btn-accept"
@@ -2340,10 +2340,10 @@ const ProjectManagement: React.FC = () => {
                 <div className="section-actions">
                   <span className="team-count">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
                   {shouldShowTabs() && (
-                    <button className="btn btn-primary" onClick={handleCreateTeam}>
-                      <i className="fas fa-plus"></i>
-                      Créer une équipe
-                    </button>
+                  <button className="btn btn-primary" onClick={handleCreateTeam}>
+                    <i className="fas fa-plus"></i>
+                    Créer une équipe
+                  </button>
                   )}
                 </div>
               </div>
@@ -2360,10 +2360,10 @@ const ProjectManagement: React.FC = () => {
                   <h4>Aucune équipe créée</h4>
                   <p>Créez votre première équipe pour organiser vos participants et améliorer la collaboration.</p>
                   {shouldShowTabs() && (
-                    <button className="btn btn-primary" onClick={handleCreateTeam}>
-                      <i className="fas fa-plus"></i>
-                      Créer une équipe
-                    </button>
+                  <button className="btn btn-primary" onClick={handleCreateTeam}>
+                    <i className="fas fa-plus"></i>
+                    Créer une équipe
+                  </button>
                   )}
                 </div>
               ) : (
@@ -2429,20 +2429,20 @@ const ProjectManagement: React.FC = () => {
                                 </button>
                                 {shouldShowTabs() && (
                                   <>
-                                    <button 
-                                      className="btn-icon edit-btn" 
-                                      title="Modifier l'équipe"
-                                      onClick={() => handleEditTeam(team)}
-                                    >
-                                      <i className="fas fa-edit"></i>
-                                    </button>
-                                    <button 
-                                      className="btn-icon delete-btn" 
-                                      title="Supprimer l'équipe"
-                                      onClick={() => handleDeleteTeam(team.id)}
-                                    >
-                                      <i className="fas fa-trash"></i>
-                                    </button>
+                                <button 
+                                  className="btn-icon edit-btn" 
+                                  title="Modifier l'équipe"
+                                  onClick={() => handleEditTeam(team)}
+                                >
+                                  <i className="fas fa-edit"></i>
+                                </button>
+                                <button 
+                                  className="btn-icon delete-btn" 
+                                  title="Supprimer l'équipe"
+                                  onClick={() => handleDeleteTeam(team.id)}
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
                                   </>
                                 )}
                               </div>
@@ -2668,9 +2668,9 @@ const ProjectManagement: React.FC = () => {
                   <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+                    </div>
+                              </div>
+                            )}
           </>
         )}
 
@@ -2800,21 +2800,21 @@ const ProjectManagement: React.FC = () => {
               </div>
 
               {state.showingPageType !== 'pro' && (
-                <div className="form-group">
-                  <label htmlFor="project-pathway">Parcours</label>
-                  <select
-                    id="project-pathway"
-                    value={editForm.pathway}
-                    onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
-                    className="form-input"
-                  >
-                    <option value="sante">Santé</option>
-                    <option value="eac">EAC</option>
-                    <option value="citoyen">Citoyen</option>
-                    <option value="creativite">Créativité</option>
-                    <option value="avenir">Avenir</option>
-                  </select>
-                </div>
+              <div className="form-group">
+                <label htmlFor="project-pathway">Parcours</label>
+                <select
+                  id="project-pathway"
+                  value={editForm.pathway}
+                  onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="sante">Santé</option>
+                  <option value="eac">EAC</option>
+                  <option value="citoyen">Citoyen</option>
+                  <option value="creativite">Créativité</option>
+                  <option value="avenir">Avenir</option>
+                </select>
+              </div>
               )}
 
               <div className="form-group">
