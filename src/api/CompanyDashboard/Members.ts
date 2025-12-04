@@ -30,6 +30,10 @@ export function updateCompanyMemberRole(companyId: number, memberId: number, new
     return axiosClient.put(`/api/v1/companies/${companyId}/members/${memberId}`, { role: newRole });
 }
 
-export function acceptMember(companyId: number, memberId: number) {
-    return axiosClient.put(`/api/v1/companies/${companyId}/members/${memberId}`, {status: "confirmed"});
+export function acceptMember(companyId: number, memberId: number, role?: string) {
+    const payload: { status: string; role?: string } = { status: "confirmed" };
+    if (role) {
+        payload.role = role;
+    }
+    return axiosClient.put(`/api/v1/companies/${companyId}/members/${memberId}`, payload);
 }
