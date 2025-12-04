@@ -5,8 +5,8 @@ import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './MembershipRequests.css';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getCurrentUser } from '../../api/Authentication';
-import { acceptMember, getCompanyMembersPending } from '../../api/CompanyDashboard/Members';
-import { acceptSchoolMember, getSchoolMembersPending } from '../../api/SchoolDashboard/Members';
+import { acceptMember, getCompanyMembersPending, removeCompanyMember } from '../../api/CompanyDashboard/Members';
+import { acceptSchoolMember, getSchoolMembersPending, removeSchoolMember } from '../../api/SchoolDashboard/Members';
 import { useToast } from '../../hooks/useToast';
 
 interface MembershipRequest {
@@ -24,7 +24,8 @@ interface MembershipRequest {
 }
 
 const MembershipRequests: React.FC = () => {
-  const { state, acceptMembershipRequest, rejectMembershipRequest, updateMembershipRequestRole, setCurrentPage } = useAppContext();  const [requests, setRequests] = useState<MembershipRequest[]>([]);
+  const { state, acceptMembershipRequest, rejectMembershipRequest, updateMembershipRequestRole, setCurrentPage } = useAppContext();
+  const [requests, setRequests] = useState<MembershipRequest[]>([]);
   const [selectedRole, setSelectedRole] = useState<{ [key: string]: string }>({});
   const [openDropdowns, setOpenDropdowns] = useState<{ [key: string]: boolean }>({});
   const [loading, setLoading] = useState(true);
@@ -129,6 +130,17 @@ const MembershipRequests: React.FC = () => {
     fetchPendingMembers();
   }, [state.showingPageType]); // Ajout dépendance
 
+  // Convert display role name to backend enum value
+  const convertRoleToBackend = (displayRole: string): string => {
+    const roleMap: { [key: string]: string } = {
+      'Admin': 'admin',
+      'Référent': 'referent',
+      'Membre': 'member',
+      'Intervenant': 'intervenant'
+    };
+    return roleMap[displayRole] || 'member';
+  };
+
   const handleRoleChange = (requestId: string, role: string) => {
     setSelectedRole(prev => ({ ...prev, [requestId]: role }));
     updateMembershipRequestRole(requestId, role);
@@ -154,11 +166,15 @@ const MembershipRequests: React.FC = () => {
 
     try {
       const isEdu = state.showingPageType === 'edu';
+      
+      // Get the selected role for this request, or use the default assigned role
+      const selectedRoleDisplay = selectedRole[requestId] || requests.find(r => r.id === requestId)?.assignedRole || 'Membre';
+      const backendRole = convertRoleToBackend(selectedRoleDisplay);
 
       if (isEdu) {
-        await acceptSchoolMember(contextId, Number(requestId));
+        await acceptSchoolMember(contextId, Number(requestId), backendRole);
       } else {
-        await acceptMember(contextId, Number(requestId));
+        await acceptMember(contextId, Number(requestId), backendRole);
       }
 
       setRequests(prev => prev.filter(req => req.id !== requestId));
@@ -169,11 +185,27 @@ const MembershipRequests: React.FC = () => {
   };
 
   const handleReject = async (requestId: string) => {
+    if (!contextId) {
+      console.error("ID du contexte manquant");
+      return;
+    }
+
     try {
-      await rejectMembershipRequest(requestId);
+      const isEdu = state.showingPageType === 'edu';
+
+      // Use DELETE endpoint to properly reject the membership request
+      if (isEdu) {
+        await removeSchoolMember(contextId, Number(requestId));
+      } else {
+        await removeCompanyMember(contextId, Number(requestId));
+      }
+
+      // Remove from local state
       setRequests(prev => prev.filter(req => req.id !== requestId));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur lors du rejet:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Une erreur est survenue lors du rejet.";
+      showError(errorMessage);
     }
   };
 

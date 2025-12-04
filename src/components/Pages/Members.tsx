@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentUser } from '../../api/Authentication';
-import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole } from '../../api/CompanyDashboard/Members';
+import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole, removeCompanyMember } from '../../api/CompanyDashboard/Members';
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel } from '../../api/SchoolDashboard/Levels';
-import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole } from '../../api/SchoolDashboard/Members';
+import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole, removeSchoolMember } from '../../api/SchoolDashboard/Members';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getSkills } from '../../api/Skills';
-import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass } from '../../api/Dashboard';
+import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { ClassList, Member } from '../../types';
@@ -17,6 +17,7 @@ import AddStudentModal from '../Modals/AddStudentModal';
 import ClassStudentsModal from '../Modals/ClassStudentsModal';
 import ContactModal from '../Modals/ContactModal';
 import MemberModal from '../Modals/MemberModal';
+import ConfirmModal from '../Modals/ConfirmModal';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './Members.css';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -94,6 +95,8 @@ const Members: React.FC = () => {
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<number | null>(null);
   const [availableSchoolsForFilter, setAvailableSchoolsForFilter] = useState<Array<{ id: number; name: string }>>([]);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
 
   const fetchMembers = async () => {
     // Ne pas récupérer les membres pour les teachers
@@ -846,6 +849,98 @@ const Members: React.FC = () => {
     }
   };
 
+  const handleDeleteMember = (member: Member) => {
+    // Check if member is superadmin
+    const isSuperadmin = (member as any).isSuperadmin || 
+      member.roles.some(role => role.toLowerCase() === 'superadmin');
+    
+    if (isSuperadmin) {
+      showError("Impossible de supprimer un superadmin. Transférez d'abord le rôle de superadmin.");
+      return;
+    }
+
+    setMemberToDelete(member);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteMember = async () => {
+    if (!memberToDelete) return;
+
+    try {
+      const currentUser = await getCurrentUser();
+      const isEdu = state.showingPageType === 'edu';
+      const isTeacher = state.showingPageType === 'teacher';
+
+      if (isTeacher) {
+        // For teachers, remove student from class
+        if (!memberToDelete.levelId) {
+          showError("Impossible de déterminer la classe de l'étudiant");
+          setIsDeleteConfirmOpen(false);
+          setMemberToDelete(null);
+          return;
+        }
+
+        await removeTeacherStudent(Number(memberToDelete.levelId), Number(memberToDelete.id));
+        showSuccess(`${memberToDelete.fullName || memberToDelete.firstName} a été retiré de la classe avec succès`);
+        
+        // Refresh members and levels
+        await fetchMembers();
+        await fetchLevels();
+      } else {
+        // For companies and schools
+        const contextId = isEdu
+          ? currentUser.data?.available_contexts?.schools?.[0]?.id
+          : currentUser.data?.available_contexts?.companies?.[0]?.id;
+
+        if (!contextId) {
+          showError("Impossible de trouver le contexte");
+          setIsDeleteConfirmOpen(false);
+          setMemberToDelete(null);
+          return;
+        }
+
+        if (isEdu) {
+          await removeSchoolMember(contextId, Number(memberToDelete.id));
+        } else {
+          await removeCompanyMember(contextId, Number(memberToDelete.id));
+        }
+
+        showSuccess(`${memberToDelete.fullName || memberToDelete.firstName} a été supprimé avec succès`);
+        
+        // Remove from local state
+        deleteMember(memberToDelete.id);
+        
+        // Refresh members list
+        await fetchMembers();
+        
+        // Refresh community volunteers if applicable
+        if (isEdu) {
+          await fetchCommunityVolunteers();
+        }
+      }
+
+      // Close modal and reset state
+      setIsDeleteConfirmOpen(false);
+      setMemberToDelete(null);
+      setSelectedMember(null);
+    } catch (err: any) {
+      console.error("Erreur lors de la suppression du membre :", err);
+      
+      // Handle specific error messages from backend
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message;
+      
+      if (errorMessage?.includes('Superadmin cannot be removed')) {
+        showError("Impossible de supprimer un superadmin. Transférez d'abord le rôle de superadmin.");
+      } else if (errorMessage?.includes('Only superadmins can remove admins')) {
+        showError("Seuls les superadmins peuvent supprimer des admins.");
+      } else if (errorMessage?.includes('Forbidden')) {
+        showError("Vous n'avez pas les permissions nécessaires pour supprimer ce membre.");
+      } else {
+        showError(errorMessage || "Erreur lors de la suppression du membre");
+      }
+    }
+  };
+
 
   return (
     <section className="members-container with-sidebar">
@@ -1188,10 +1283,30 @@ const Members: React.FC = () => {
           member={selectedMember}
           onClose={() => setSelectedMember(null)}
           onUpdate={(updates) => handleUpdateMember(selectedMember.id, updates)}
-          onDelete={() => deleteMember(selectedMember.id)}
+          onDelete={() => handleDeleteMember(selectedMember)}
           onContactClick={() => setIsContactModalOpen(true)}
+          isSuperadmin={(selectedMember as any).isSuperadmin || 
+            selectedMember.roles.some(role => role.toLowerCase() === 'superadmin')}
         />
       )}
+
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        title="Confirmer la suppression"
+        message={
+          memberToDelete
+            ? `Êtes-vous sûr de vouloir supprimer ${memberToDelete.fullName || `${memberToDelete.firstName} ${memberToDelete.lastName}`} ?\n\nCette action est irréversible.`
+            : ''
+        }
+        confirmText="Supprimer"
+        cancelText="Annuler"
+        variant="danger"
+        onConfirm={confirmDeleteMember}
+        onCancel={() => {
+          setIsDeleteConfirmOpen(false);
+          setMemberToDelete(null);
+        }}
+      />
 
       {isAddModalOpen && state.showingPageType !== 'edu' && state.showingPageType !== 'teacher' && (
         <AddMemberModal 
