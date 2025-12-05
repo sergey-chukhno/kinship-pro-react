@@ -67,8 +67,15 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
     });
   };
 
+  // Check if there are hover actions - if so, disable onClick on the card
+  const hasHoverActions = onAttach || onPartnership || (onJoin && !hideJoinButton);
+
   return (
-    <div className="organization-card" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
+    <div 
+      className="organization-card" 
+      onClick={hasHoverActions ? undefined : onClick} 
+      style={{ cursor: hasHoverActions ? 'default' : (onClick ? 'pointer' : 'default') }}
+    >
       <div className="organization-header">
         <div className="organization-logo">
           {organization.logo ? (

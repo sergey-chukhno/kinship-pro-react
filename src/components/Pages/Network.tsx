@@ -2215,7 +2215,13 @@ const Network: React.FC = () => {
         )}
         
         {/* Display organizations for other tabs */}
-        {!(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && (selectedType === 'search' || !(isOrgDashboard && activeCard)) && (
+        {!(isPersonalUser && selectedType === 'partner') && 
+         !(isOrgDashboard && activeCard === 'members') && 
+         (selectedType === 'search' || 
+          selectedType === 'partnership-requests' || 
+          selectedType === 'branch-requests' || 
+          (isOrgDashboard && (activeCard === 'partners' || activeCard === 'branches')) || 
+          !(isOrgDashboard && activeCard)) && (
           <div className="grid !grid-cols-3">
             {displayItems.length > 0 ? (
               displayItems.map((organization) => {
@@ -2277,6 +2283,42 @@ const Network: React.FC = () => {
                   </div>
                   <div className="organization-content">
                     <p className="organization-description">{organization.description}</p>
+                    {/* Indicateur visuel pour demande envoyée/reçue */}
+                    <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isInitiator ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: '#dbeafe',
+                          color: '#1e40af',
+                          border: '1px solid #93c5fd'
+                        }}>
+                          <i className="fas fa-paper-plane" style={{ fontSize: '0.7rem' }}></i>
+                          Demande envoyée
+                        </span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: '#fef3c7',
+                          color: '#92400e',
+                          border: '1px solid #fcd34d'
+                        }}>
+                          <i className="fas fa-inbox" style={{ fontSize: '0.7rem' }}></i>
+                          Demande reçue
+                        </span>
+                      )}
+                    </div>
                     {!isInitiator && (
                       <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                         <button
@@ -2364,6 +2406,51 @@ const Network: React.FC = () => {
                   </div>
                   <div className="organization-content">
                     <p className="organization-description">{organization.description}</p>
+                    {/* Indicateur visuel pour demande envoyée/reçue */}
+                    <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {(() => {
+                        // Determine if current user is the initiator
+                        const currentUserIsInitiator = branchRequest.initiator === 'child' 
+                          ? (organizationType === 'company' && branchRequest.child_company?.id === organizationId) ||
+                            (organizationType === 'school' && branchRequest.child_school?.id === organizationId)
+                          : (organizationType === 'company' && branchRequest.parent_company?.id === organizationId) ||
+                            (organizationType === 'school' && branchRequest.parent_school?.id === organizationId);
+                        
+                        return currentUserIsInitiator ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            background: '#dbeafe',
+                            color: '#1e40af',
+                            border: '1px solid #93c5fd'
+                          }}>
+                            <i className="fas fa-paper-plane" style={{ fontSize: '0.7rem' }}></i>
+                            Demande envoyée
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            background: '#fef3c7',
+                            color: '#92400e',
+                            border: '1px solid #fcd34d'
+                          }}>
+                            <i className="fas fa-inbox" style={{ fontSize: '0.7rem' }}></i>
+                            Demande reçue
+                          </span>
+                        );
+                      })()}
+                    </div>
                     {canAction && (
                       <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                         <button
@@ -2399,10 +2486,15 @@ const Network: React.FC = () => {
             }
             
             // Don't show hover actions for partners (they're already connected)
-            const isPartner = selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners');
+            // For search results, also check if the organization is already a partner
+            const targetOrgId = parseInt(organization.id);
+            const isPartnerFromList = partnersAsOrganizations.some(partner => parseInt(partner.id) === targetOrgId);
+            const isPartner = selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners') || isPartnerFromList;
             
             // Don't show hover actions for sub-organizations (they're part of the current organization)
-            const isSubOrganization = selectedType === 'sub-organizations' || (isOrgDashboard && activeCard === 'branches');
+            // For search results, also check if the organization is already a sub-organization
+            const isSubOrganizationFromList = subOrgsAsOrganizations.some(subOrg => parseInt(subOrg.id) === targetOrgId);
+            const isSubOrganization = selectedType === 'sub-organizations' || (isOrgDashboard && activeCard === 'branches') || isSubOrganizationFromList;
             
             // Don't show hover actions for branch requests
             const isBranchRequestType = selectedType === 'branch-requests';
@@ -2414,7 +2506,6 @@ const Network: React.FC = () => {
             const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
             
             // Check if there's already a confirmed branch request with this organization
-            const targetOrgId = parseInt(organization.id);
             const hasConfirmedBranchRequest = confirmedBranchRequests.some(req => {
               const parentOrg = req.parent_school || req.parent_company;
               const childOrg = req.child_school || req.child_company;
@@ -2474,6 +2565,42 @@ const Network: React.FC = () => {
                   </div>
                   <div className="organization-content">
                     <p className="organization-description">{organization.description}</p>
+                    {/* Indicateur visuel pour demande envoyée/reçue */}
+                    <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isInitiator ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: '#dbeafe',
+                          color: '#1e40af',
+                          border: '1px solid #93c5fd'
+                        }}>
+                          <i className="fas fa-paper-plane" style={{ fontSize: '0.7rem' }}></i>
+                          Demande envoyée
+                        </span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: '#fef3c7',
+                          color: '#92400e',
+                          border: '1px solid #fcd34d'
+                        }}>
+                          <i className="fas fa-inbox" style={{ fontSize: '0.7rem' }}></i>
+                          Demande reçue
+                        </span>
+                      )}
+                    </div>
                     {!isInitiator && (
                       <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                         <button
