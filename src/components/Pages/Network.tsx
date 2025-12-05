@@ -1664,14 +1664,14 @@ const Network: React.FC = () => {
   // For school/company dashboards, use activeCard; for personal users, use selectedType
   const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
   
-  const displayItems = isOrgDashboard && activeCard
+  const displayItems = selectedType === 'search'
+    ? searchResultsAsOrganizations
+    : isOrgDashboard && activeCard
     ? (activeCard === 'partners'
         ? filteredPartners
         : activeCard === 'branches'
         ? filteredSubOrgs
         : []) // members are displayed separately
-    : selectedType === 'search'
-    ? searchResultsAsOrganizations
     : selectedType === 'schools' 
     ? schoolsAsOrganizations 
     : selectedType === 'companies'
@@ -1841,14 +1841,14 @@ const Network: React.FC = () => {
               </button>
             </>
           )}
-          {/* Show sub-organizations tab only for school (edu) and pro (company) roles */}
+          {/* Show partnership requests and branch requests tabs only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
             <>
               <button 
-                className={`filter-tab ${selectedType === 'sub-organizations' ? 'active' : ''}`}
-                onClick={() => setSelectedType('sub-organizations')}
+                className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
+                onClick={() => setSelectedType('partnership-requests')}
               >
-                Sous-organisations ({filteredSubOrgs.length})
+                Demandes de partenariats ({requestsTotalCount})
               </button>
               <button 
                 className={`filter-tab ${selectedType === 'branch-requests' ? 'active' : ''}`}
@@ -1874,15 +1874,6 @@ const Network: React.FC = () => {
               onClick={() => setSelectedType('partner')}
             >
               Mon réseau ({partnersTotalCount > 0 ? partnersTotalCount : filteredPartners.length})
-            </button>
-          )}
-          {/* Show partnership requests tab only for school/company dashboards */}
-          {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && requestsTotalCount > 0 && (
-            <button 
-              className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
-              onClick={() => setSelectedType('partnership-requests')}
-            >
-              Demandes de partenariats ({requestsTotalCount})
             </button>
           )}
         </div>
@@ -2224,9 +2215,10 @@ const Network: React.FC = () => {
         )}
         
         {/* Display organizations for other tabs */}
-        {!(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && (
+        {!(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && (selectedType === 'search' || !(isOrgDashboard && activeCard)) && (
           <div className="grid !grid-cols-3">
-            {displayItems.map((organization) => {
+            {displayItems.length > 0 ? (
+              displayItems.map((organization) => {
             // Check if this is a partnership request
             const isPartnershipRequest = selectedType === 'partnership-requests' && 
               'partnershipId' in organization;
@@ -2531,13 +2523,19 @@ const Network: React.FC = () => {
             hideMembersCount={selectedType === 'my-requests'}
           />
             );
-          })}
+          })
+            ) : (
+              // Empty state for search and other tabs
+              selectedType === 'search' && !searchLoading ? (
+                <div className="empty-message">Aucun résultat de recherche trouvé</div>
+              ) : null
+            )}
           </div>
         )}
       </div>
 
       {/* Pagination for Schools */}
-      {selectedType === 'schools' && schoolsTotalPages > 1 && (
+      {selectedType === 'schools' && schoolsTotalPages > 1 && (schoolsTotalCount > 0 || filteredSchools.length > 0) && !(isOrgDashboard && activeCard) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {schoolsPage} sur {schoolsTotalPages} ({schoolsTotalCount} résultats)
@@ -2586,7 +2584,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Partnership Requests */}
-      {selectedType === 'partnership-requests' && requestsTotalPages > 1 && (
+      {selectedType === 'partnership-requests' && requestsTotalPages > 1 && (requestsTotalCount > 0 || filteredRequests.length > 0) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {requestsPage} sur {requestsTotalPages} ({requestsTotalCount} résultats)
@@ -2635,7 +2633,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Partners */}
-      {selectedType === 'partner' && partnersTotalPages > 1 && (
+      {selectedType === 'partner' && partnersTotalPages > 1 && (partnersTotalCount > 0 || filteredPartners.length > 0) && !(isOrgDashboard && activeCard === 'partners') && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {partnersPage} sur {partnersTotalPages} ({partnersTotalCount} résultats)
@@ -2684,7 +2682,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Search */}
-      {selectedType === 'search' && searchTotalPages > 1 && (
+      {selectedType === 'search' && searchTotalPages > 1 && (searchTotalCount > 0 || searchResultsAsOrganizations.length > 0) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {searchPage} sur {searchTotalPages} ({searchTotalCount} résultats)
@@ -2733,7 +2731,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Companies */}
-      {selectedType === 'companies' && companiesTotalPages > 1 && (
+      {selectedType === 'companies' && companiesTotalPages > 1 && (companiesTotalCount > 0 || filteredCompanies.length > 0) && !(isOrgDashboard && activeCard) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {companiesPage} sur {companiesTotalPages} ({companiesTotalCount} résultats)
