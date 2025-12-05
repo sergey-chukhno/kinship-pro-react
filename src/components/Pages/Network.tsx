@@ -936,14 +936,19 @@ const Network: React.FC = () => {
   }, [state.user, state.showingPageType, partners, partnershipRequests, partnersTotalCount]);
 
   // Function to count branches (0 if it's a branch itself)
+  // Includes confirmed branches + pending branch requests
   const countBranches = useCallback((): number => {
     // If isParent is false, it means this organization is a branch, so return 0
     if (subOrgsIsParent === false && subOrganizations.length > 0) {
       return 0;
     }
-    // Otherwise, return the number of branches
-    return subOrganizations.length;
-  }, [subOrganizations, subOrgsIsParent]);
+    // Count confirmed branches
+    const confirmedBranchesCount = subOrganizations.length;
+    // Count pending branch requests (exclude confirmed ones as they're already in subOrganizations)
+    const pendingBranchRequestsCount = branchRequests.filter(req => req.status === 'pending').length;
+    // Return total: confirmed branches + pending requests
+    return confirmedBranchesCount + pendingBranchRequestsCount;
+  }, [subOrganizations, subOrgsIsParent, branchRequests]);
 
   // Function to fetch network members (from partners with share_members=true + all branch members)
   const fetchNetworkMembers = useCallback(async () => {
@@ -1666,26 +1671,26 @@ const Network: React.FC = () => {
   
   const displayItems = selectedType === 'search'
     ? searchResultsAsOrganizations
-    : isOrgDashboard && activeCard
-    ? (activeCard === 'partners'
-        ? filteredPartners
-        : activeCard === 'branches'
-        ? filteredSubOrgs
-        : []) // members are displayed separately
+    : selectedType === 'branch-requests'
+    ? filteredBranchRequests
+    : selectedType === 'partnership-requests'
+    ? filteredRequests
     : selectedType === 'schools' 
     ? schoolsAsOrganizations 
     : selectedType === 'companies'
     ? companiesAsOrganizations
     : selectedType === 'partner'
     ? filteredPartners
-    : selectedType === 'partnership-requests'
-    ? filteredRequests
     : selectedType === 'sub-organizations'
     ? filteredSubOrgs
-    : selectedType === 'branch-requests'
-    ? filteredBranchRequests
     : selectedType === 'my-requests'
     ? filteredMyRequests
+    : isOrgDashboard && activeCard
+    ? (activeCard === 'partners'
+        ? filteredPartners
+        : activeCard === 'branches'
+        ? filteredSubOrgs
+        : []) // members are displayed separately
     : [];
 
   return (
@@ -2635,17 +2640,25 @@ const Network: React.FC = () => {
               );
             }
             
+            // Determine which hover actions should be available
+            const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest ? () => handleAttachRequest(organization) : undefined;
+            const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined;
+            const joinAction = isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined;
+            
+            // Check if there are any hover actions
+            const hasHoverActions = !!attachAction || !!partnershipAction || !!joinAction;
+            
             return (
           <OrganizationCard
             key={organization.id}
             organization={organization}
             onEdit={() => console.log('Edit organization:', organization.id)}
             onDelete={() => console.log('Delete organization:', organization.id)}
-            onAttach={!isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest ? () => handleAttachRequest(organization) : undefined}
-            onPartnership={!isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined}
-            onJoin={isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined}
+            onAttach={attachAction}
+            onPartnership={partnershipAction}
+            onJoin={joinAction}
             isPersonalUser={isPersonalUser}
-            onClick={() => handleViewDetails(organization)}
+            onClick={hasHoverActions ? undefined : () => handleViewDetails(organization)}
             hideJoinButton={selectedType === 'my-requests'}
             hideMembersCount={selectedType === 'my-requests'}
           />

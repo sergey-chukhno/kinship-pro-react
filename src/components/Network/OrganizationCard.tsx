@@ -70,10 +70,23 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
   // Check if there are hover actions - if so, disable onClick on the card
   const hasHoverActions = onAttach || onPartnership || (onJoin && !hideJoinButton);
 
+  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // If there are hover actions, prevent the modal from opening
+    if (hasHoverActions) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+    // Otherwise, call the onClick handler if it exists
+    if (onClick) {
+      onClick();
+    }
+  };
+
   return (
     <div 
-      className="organization-card" 
-      onClick={hasHoverActions ? undefined : onClick} 
+      className={`organization-card ${hasHoverActions ? 'has-hover-actions' : ''}`}
+      onClick={hasHoverActions ? undefined : handleCardClick}
       style={{ cursor: hasHoverActions ? 'default' : (onClick ? 'pointer' : 'default') }}
     >
       <div className="organization-header">

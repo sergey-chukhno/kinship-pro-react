@@ -215,6 +215,11 @@
   gap: 16px;
 }
 
+/* Ensure grid container allows overflow for hover buttons */
+.grid {
+  overflow: visible !important;
+}
+
 /* Pagination Styles */
 .pagination-container {
   display: flex;

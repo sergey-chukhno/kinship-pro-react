@@ -4,6 +4,7 @@
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 16px;
   padding: 20px;
+  padding-bottom: 20px;
   margin-bottom: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -12,16 +13,23 @@
   overflow: visible;
 }
 
-.organization-card:hover {
+.organization-card.has-hover-actions {
+  cursor: default;
+}
+
+.organization-card.has-hover-actions:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--primary, #5570F1);
+  z-index: 10;
+}
+
+.organization-card:not(.has-hover-actions):hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-color: var(--primary, #5570F1);
 }
 
-.organization-card:hover .organization-hover-actions {
-  opacity: 1;
-  transform: translateY(0);
-}
 
 .organization-header {
   display: flex;
@@ -224,10 +232,37 @@
   border-top: 1px solid var(--border, #e5e7eb);
   border-radius: 0 0 16px 16px;
   opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 10;
+  visibility: hidden;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              visibility 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+  pointer-events: none;
+  will-change: opacity, visibility, max-height, padding;
+}
+
+/* Show hover actions when card is hovered */
+.organization-card.has-hover-actions:hover .organization-hover-actions {
+  opacity: 1;
+  visibility: visible;
+  max-height: 200px;
+  padding: 16px 20px;
+  pointer-events: auto;
+}
+
+/* Ensure the card container allows overflow when hovered */
+.organization-card.has-hover-actions {
+  overflow: visible !important;
+}
+
+.organization-card.has-hover-actions:hover {
+  overflow: visible !important;
 }
 
 .btn-hover-action {
@@ -312,6 +347,7 @@
 
   .organization-hover-actions {
     opacity: 1;
+    visibility: visible;
     transform: translateY(0);
     position: relative;
     margin-top: 16px;
@@ -320,6 +356,7 @@
     background: transparent;
     backdrop-filter: none;
     padding: 12px 0 0 0;
+    pointer-events: auto;
   }
 
   .btn-hover-action {
