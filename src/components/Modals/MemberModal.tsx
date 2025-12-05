@@ -15,6 +15,7 @@ interface MemberModalProps {
   onDelete: () => void;
   onContactClick: () => void;
   hideDeleteButton?: boolean; // Option to hide delete button and permissions (for network members)
+  isSuperadmin?: boolean; // Hide delete button for superadmins
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
@@ -23,7 +24,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
   onUpdate,
   onDelete,
   onContactClick,
-  hideDeleteButton = false
+  hideDeleteButton = false,
+  isSuperadmin = false
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
@@ -281,7 +283,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 Contacter
               </button>
             )}
-            {!hideDeleteButton && (
+            {!hideDeleteButton && !isSuperadmin && (
               <button className="btn btn-outline btn-sm" onClick={onDelete}>
                 <i className="fas fa-trash"></i>
                 Supprimer
