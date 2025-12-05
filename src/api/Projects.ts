@@ -303,18 +303,23 @@ export const createPartnership = async (
  */
 export const getOrganizationMembers = async (
     organizationId: number,
-    organizationType: 'school' | 'company'
+    organizationType: 'school' | 'company',
+    includePending: boolean = false
 ): Promise<OrganizationMember[]> => {
     const endpoint = organizationType === 'school'
         ? `/api/v1/schools/${organizationId}/members`
         : `/api/v1/companies/${organizationId}/members`;
 
-    const response = await apiClient.get(endpoint, {
-        params: { 
-            status: 'confirmed',
-            per_page: 1000  // Load all members (adjust if needed)
-        }
-    });
+    const params: any = { 
+        per_page: 1000  // Load all members (adjust if needed)
+    };
+    
+    // Only filter by status if not including pending
+    if (!includePending) {
+        params.status = 'confirmed';
+    }
+
+    const response = await apiClient.get(endpoint, { params });
     
     // Extract data array from paginated response
     // Backend returns: { data: [...], meta: {...} }
