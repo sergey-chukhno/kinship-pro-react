@@ -938,19 +938,16 @@ const Network: React.FC = () => {
   }, [state.user, state.showingPageType, partners, partnershipRequests, partnersTotalCount, requestsTotalCount]);
 
   // Function to count branches (0 if it's a branch itself)
-  // Includes confirmed branches + pending branch requests
+  // Only confirmed branches (exclude pending requests)
   const countBranches = useCallback((): number => {
     // If isParent is false, it means this organization is a branch, so return 0
     if (subOrgsIsParent === false && subOrganizations.length > 0) {
       return 0;
     }
-    // Count confirmed branches
+    // Count confirmed branches only
     const confirmedBranchesCount = subOrganizations.length;
-    // Count pending branch requests (exclude confirmed ones as they're already in subOrganizations)
-    const pendingBranchRequestsCount = branchRequests.filter(req => req.status === 'pending').length;
-    // Return total: confirmed branches + pending requests
-    return confirmedBranchesCount + pendingBranchRequestsCount;
-  }, [subOrganizations, subOrgsIsParent, branchRequests]);
+    return confirmedBranchesCount;
+  }, [subOrganizations, subOrgsIsParent]);
 
   // Function to fetch network members (from partners with share_members=true + all branch members)
   const fetchNetworkMembers = useCallback(async () => {
