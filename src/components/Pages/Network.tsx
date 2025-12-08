@@ -938,19 +938,16 @@ const Network: React.FC = () => {
   }, [state.user, state.showingPageType, partners, partnershipRequests, partnersTotalCount, requestsTotalCount]);
 
   // Function to count branches (0 if it's a branch itself)
-  // Includes confirmed branches + pending branch requests
+  // Only confirmed branches (exclude pending requests)
   const countBranches = useCallback((): number => {
     // If isParent is false, it means this organization is a branch, so return 0
     if (subOrgsIsParent === false && subOrganizations.length > 0) {
       return 0;
     }
-    // Count confirmed branches
+    // Count confirmed branches only
     const confirmedBranchesCount = subOrganizations.length;
-    // Count pending branch requests (exclude confirmed ones as they're already in subOrganizations)
-    const pendingBranchRequestsCount = branchRequests.filter(req => req.status === 'pending').length;
-    // Return total: confirmed branches + pending requests
-    return confirmedBranchesCount + pendingBranchRequestsCount;
-  }, [subOrganizations, subOrgsIsParent, branchRequests]);
+    return confirmedBranchesCount;
+  }, [subOrganizations, subOrgsIsParent]);
 
   // Function to fetch network members (from partners with share_members=true + all branch members)
   const fetchNetworkMembers = useCallback(async () => {
@@ -1222,16 +1219,43 @@ const Network: React.FC = () => {
       const parentId = parseInt(selectedOrganization.id);
       const message = attachData.motivation || 'Demande de rattachement';
 
+      // Validate: Branch requests can only be same-type (company->company, school->school)
+      // Partnerships can be cross-type, but branches cannot
+      if (organizationType === 'school' && selectedOrganization.type !== 'schools') {
+        showError('Une école ne peut devenir une branche que d\'une autre école. Pour collaborer avec une organisation, utilisez la fonctionnalité de partenariat.');
+        return;
+      }
+      
+      if (organizationType === 'company' && selectedOrganization.type !== 'companies') {
+        showError('Une organisation ne peut devenir une branche que d\'une autre organisation. Pour collaborer avec une école, utilisez la fonctionnalité de partenariat.');
+        return;
+      }
+
+      // Use current organization type to determine which endpoint to call
+      // Use parent organization type to determine which parameter to send
       if (organizationType === 'school') {
-        await createSchoolBranchRequest(organizationId, {
-          parent_school_id: parentId,
-          message: message
-        });
+        // Current org is a school - use school endpoint
+        const payload: any = { message: message };
+        if (selectedOrganization.type === 'schools') {
+          payload.parent_school_id = parentId;
+        } else {
+          showError('Type d\'organisation parent non supporté pour le rattachement');
+          return;
+        }
+        await createSchoolBranchRequest(organizationId, payload);
+      } else if (organizationType === 'company') {
+        // Current org is a company - use company endpoint
+        const payload: any = { message: message };
+        if (selectedOrganization.type === 'companies') {
+          payload.parent_company_id = parentId;
+        } else {
+          showError('Type d\'organisation parent non supporté pour le rattachement');
+          return;
+        }
+        await createCompanyBranchRequest(organizationId, payload);
       } else {
-        await createCompanyBranchRequest(organizationId, {
-          parent_company_id: parentId,
-          message: message
-        });
+        showError('Type d\'organisation non supporté pour le rattachement');
+        return;
       }
 
       showSuccess('Demande de rattachement envoyée avec succès');
@@ -1363,8 +1387,10 @@ const Network: React.FC = () => {
   };
 
   // Convert search results to organization-like format for display
+  // Display all schools and companies for all dashboards (partnerships can be cross-type)
+  // Branch requests will be validated separately to ensure same-type only
   const searchResultsAsOrganizations: Organization[] = [
-    // Convert schools
+    // Convert schools (show all for all dashboards)
     ...searchResults.schools.map((school: any) => ({
       id: String(school.id),
       name: school.name || 'Établissement scolaire',
@@ -1378,7 +1404,7 @@ const Network: React.FC = () => {
       contactPerson: '',
       email: school.email || ''
     })),
-    // Convert companies
+    // Convert companies (show all for all dashboards)
     ...searchResults.companies.map((company: any) => ({
       id: String(company.id),
       name: company.name || 'Organisation',
@@ -1577,6 +1603,14 @@ const Network: React.FC = () => {
 
   // Get confirmed branch requests (used to hide "Se rattacher" button)
   const confirmedBranchRequests = branchRequests.filter(req => req.status === 'confirmed');
+  
+  // Check if current organization has any branch requests (pending or confirmed) as a child
+  // If yes, hide "Se rattacher" button for all organizations (one branch relationship only)
+  const currentOrganizationId = getOrganizationId(state.user, state.showingPageType);
+  const hasAnyBranchRequest = currentOrganizationId ? branchRequests.some(req => {
+    const childOrg = req.child_school || req.child_company;
+    return childOrg?.id === currentOrganizationId;
+  }) : false;
 
   // Convert sub-organizations to organization-like format for display
   const subOrgsAsOrganizations: Organization[] = subOrganizations.map((subOrg) => {
@@ -2763,7 +2797,8 @@ const Network: React.FC = () => {
             }
             
             // Determine which hover actions should be available
-            const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest ? () => handleAttachRequest(organization) : undefined;
+            // Hide "Se rattacher" if current org already has a branch request (pending or confirmed)
+            const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest ? () => handleAttachRequest(organization) : undefined;
             const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined;
             const joinAction = isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined;
             
@@ -3134,7 +3169,7 @@ const Network: React.FC = () => {
               setSelectedOrganizationForDetails(null);
             }}
             onAttach={
-              !isPartner && !isSubOrganization && !isPersonalUser && !hasConfirmedBranchRequest
+              !isPartner && !isSubOrganization && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest
                 ? () => handleAttachRequest(selectedOrganizationForDetails)
                 : undefined
             }
