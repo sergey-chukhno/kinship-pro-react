@@ -100,7 +100,8 @@ const Network: React.FC = () => {
   const [selectedBranchRequest, setSelectedBranchRequest] = useState<BranchRequest | null>(null);
   const [selectedNetworkMember, setSelectedNetworkMember] = useState<Member | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search'>('schools');
+  const isOrgDashboardInitial = state.showingPageType === 'edu' || state.showingPageType === 'pro';
+  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | null>(isOrgDashboardInitial ? null : 'schools');
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
@@ -1760,7 +1761,10 @@ const Network: React.FC = () => {
         <div className="network-summary">
           <div 
             className={`summary-card ${activeCard === 'partners' ? 'active' : ''}`}
-            onClick={() => setActiveCard('partners')}
+            onClick={() => {
+              setActiveCard('partners');
+              setSelectedType(null);
+            }}
             style={{ cursor: 'pointer' }}
           >
             <div className="summary-icon">
@@ -1773,7 +1777,10 @@ const Network: React.FC = () => {
           </div>
           <div 
             className={`summary-card ${activeCard === 'branches' ? 'active' : ''}`}
-            onClick={() => setActiveCard('branches')}
+            onClick={() => {
+              setActiveCard('branches');
+              setSelectedType(null);
+            }}
             style={{ cursor: 'pointer' }}
           >
             <div className="summary-icon">
@@ -1786,7 +1793,10 @@ const Network: React.FC = () => {
           </div>
           <div 
             className={`summary-card ${activeCard === 'members' ? 'active' : ''}`}
-            onClick={() => setActiveCard('members')}
+            onClick={() => {
+              setActiveCard('members');
+              setSelectedType(null);
+            }}
             style={{ cursor: 'pointer' }}
           >
             <div className="summary-icon">
@@ -1838,7 +1848,7 @@ const Network: React.FC = () => {
           {searchTerm && searchTerm.trim() && (
             <button 
               className={`filter-tab ${selectedType === 'search' ? 'active' : ''}`}
-              onClick={() => setSelectedType('search')}
+              onClick={() => { setActiveCard(null); setSelectedType('search'); }}
             >
               Recherche ({searchTotalCount > 0 ? searchTotalCount : searchResultsAsOrganizations.length})
             </button>
@@ -1848,13 +1858,13 @@ const Network: React.FC = () => {
             <>
               <button 
                 className={`filter-tab ${selectedType === 'schools' ? 'active' : ''}`}
-                onClick={() => setSelectedType('schools')}
+                onClick={() => { setActiveCard(null); setSelectedType('schools'); }}
               >
                 Établissements scolaires ({schoolsTotalCount > 0 ? schoolsTotalCount : filteredSchools.length})
               </button>
               <button 
                 className={`filter-tab ${selectedType === 'companies' ? 'active' : ''}`}
-                onClick={() => setSelectedType('companies')}
+                onClick={() => { setActiveCard(null); setSelectedType('companies'); }}
               >
                 Organisations ({companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length})
               </button>
@@ -1865,13 +1875,13 @@ const Network: React.FC = () => {
             <>
               <button 
                 className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
-                onClick={() => setSelectedType('partnership-requests')}
+                onClick={() => { setActiveCard(null); setSelectedType('partnership-requests'); }}
               >
                 Demandes de partenariats ({requestsTotalCount})
               </button>
               <button 
                 className={`filter-tab ${selectedType === 'branch-requests' ? 'active' : ''}`}
-                onClick={() => setSelectedType('branch-requests')}
+                onClick={() => { setActiveCard(null); setSelectedType('branch-requests'); }}
               >
                 Demandes de rattachement ({filteredBranchRequests.length})
               </button>
@@ -1881,7 +1891,7 @@ const Network: React.FC = () => {
           {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
             <button 
               className={`filter-tab ${selectedType === 'my-requests' ? 'active' : ''}`}
-              onClick={() => setSelectedType('my-requests')}
+              onClick={() => { setActiveCard(null); setSelectedType('my-requests'); }}
             >
               Mes demandes ({filteredMyRequests.length})
             </button>
@@ -1890,7 +1900,7 @@ const Network: React.FC = () => {
           {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
             <button 
               className={`filter-tab ${selectedType === 'partner' ? 'active' : ''}`}
-              onClick={() => setSelectedType('partner')}
+              onClick={() => { setActiveCard(null); setSelectedType('partner'); }}
             >
               Mon réseau ({partnersTotalCount > 0 ? partnersTotalCount : filteredPartners.length})
             </button>
