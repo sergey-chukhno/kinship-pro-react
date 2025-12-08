@@ -126,6 +126,7 @@ const Network: React.FC = () => {
   const [partnersPage, setPartnersPage] = useState(1);
   const [partnersTotalPages, setPartnersTotalPages] = useState(1);
   const [partnersTotalCount, setPartnersTotalCount] = useState(0);
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
 
   // Filters for personal user network
   const [competenceFilter, setCompetenceFilter] = useState('');
@@ -1415,7 +1416,7 @@ const Network: React.FC = () => {
                 id: String(partner.id),
                 name: partner.name,
                 type: 'partner' as const,
-                description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
+                description: partnership.description || '',
                 members_count: 0,
                 location: '',
                 logo: undefined,
@@ -1434,7 +1435,7 @@ const Network: React.FC = () => {
               id: String(partnership.id), // Use partnership ID for pending requests
               name: partner.name,
               type: 'partner' as const,
-              description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
+              description: partnership.description || '',
               members_count: 0,
               location: '',
               logo: undefined,
@@ -1534,6 +1535,18 @@ const Network: React.FC = () => {
   // No filtering for partners - show all partners (for organizational users)
   const filteredPartners = partnersAsOrganizations;
 
+  const toggleMessage = (key: string) => {
+    setExpandedMessages(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
   // Get confirmed branch requests (used to hide "Se rattacher" button)
   const confirmedBranchRequests = branchRequests.filter(req => req.status === 'confirmed');
 
@@ -1615,7 +1628,7 @@ const Network: React.FC = () => {
         id: String(partnership.id), // Use partnership ID for the card
         name: partner.name,
         type: 'partner' as const,
-        description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
+        description: partnership.description || '',
         members_count: 0, // Partners don't have members_count in the API
         location: '',
         logo: undefined,
@@ -1624,8 +1637,9 @@ const Network: React.FC = () => {
         contactPerson: '',
         email: '',
         partnershipId: partnership.id, // Store partnership ID for accept/reject
-        partnership: partnership // Store full partnership data
-      } as Organization & { partnershipId: number; partnership: Partnership }));
+        partnership: partnership, // Store full partnership data
+        message: partnership.description || ''
+      } as Organization & { partnershipId: number; partnership: Partnership; message?: string }));
   });
 
   // No filtering for partnership requests - show all requests
@@ -2259,7 +2273,22 @@ const Network: React.FC = () => {
                 
                 return false;
               })();
-              
+
+              const message = (orgWithPartnership as any).message || organization.description || '';
+              const messageKey = `pr-${organization.id}`;
+              const maxMsgLength = 180;
+              const isMessageExpanded = expandedMessages.has(messageKey);
+              const messagePreview = !isMessageExpanded && message.length > maxMsgLength
+                ? `${message.slice(0, maxMsgLength)}…`
+                : message;
+
+              // Determine organization type from partnership partner
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              const partner = (partnership.partners || []).find(p => p.id !== organizationId);
+              const isSchool = partner?.type === 'School';
+              const orgTypeLabel = isSchool ? 'Établissement scolaire' : 'Organisation';
+              const orgTypeColor = isSchool ? '#10b981' : '#3b82f6';
+
               return (
                 <div 
                   key={organization.id} 
@@ -2279,7 +2308,15 @@ const Network: React.FC = () => {
                     <div className="organization-info">
                       <h3 className="organization-name">{organization.name}</h3>
                       <div className="organization-meta">
-                        <span className="organization-type">Demande</span>
+                        <span 
+                          className="organization-type"
+                          style={{
+                            background: `${orgTypeColor}15`,
+                            color: orgTypeColor
+                          }}
+                        >
+                          {orgTypeLabel}
+                        </span>
                         <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
                           En attente
                         </span>
@@ -2287,7 +2324,23 @@ const Network: React.FC = () => {
                     </div>
                   </div>
                   <div className="organization-content">
-                    <p className="organization-description">{organization.description}</p>
+                    {message && (
+                      <div className="organization-description" style={{ marginBottom: '12px' }}>
+                        <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{messagePreview}</p>
+                        {message.length > maxMsgLength && (
+                          <button
+                            className="btn btn-link"
+                            style={{ padding: 0, marginTop: '6px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleMessage(messageKey);
+                            }}
+                          >
+                            Voir {isMessageExpanded ? 'moins' : 'plus'}
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {/* Indicateur visuel pour demande envoyée/reçue */}
                     <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {isInitiator ? (
@@ -2379,6 +2432,11 @@ const Network: React.FC = () => {
               
               const canAction = isRecipient && branchRequest.status === 'pending';
               
+              // Determine organization type from branch request
+              const isSchool = organization.type === 'schools';
+              const orgTypeLabel = isSchool ? 'Établissement scolaire' : 'Organisation';
+              const orgTypeColor = isSchool ? '#10b981' : '#3b82f6';
+              
               return (
                 <div 
                   key={organization.id} 
@@ -2398,7 +2456,15 @@ const Network: React.FC = () => {
                     <div className="organization-info">
                       <h3 className="organization-name">{organization.name}</h3>
                       <div className="organization-meta">
-                        <span className="organization-type">Demande de rattachement</span>
+                        <span 
+                          className="organization-type"
+                          style={{
+                            background: `${orgTypeColor}15`,
+                            color: orgTypeColor
+                          }}
+                        >
+                          {orgTypeLabel}
+                        </span>
                         <span className="whitespace-nowrap organization-status" style={{ 
                           color: branchRequest.status === 'pending' ? '#f59e0b' : 
                                  branchRequest.status === 'confirmed' ? '#10b981' : '#ef4444'
@@ -2544,6 +2610,13 @@ const Network: React.FC = () => {
                 return false;
               })();
               
+              // Determine organization type from partnership partner
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              const partner = (partnership.partners || []).find(p => p.id !== organizationId);
+              const isSchool = partner?.type === 'School';
+              const orgTypeLabel = isSchool ? 'Établissement scolaire' : 'Organisation';
+              const orgTypeColor = isSchool ? '#10b981' : '#3b82f6';
+              
               return (
                 <div 
                   key={organization.id} 
@@ -2563,7 +2636,15 @@ const Network: React.FC = () => {
                     <div className="organization-info">
                       <h3 className="organization-name">{organization.name}</h3>
                       <div className="organization-meta">
-                        <span className="organization-type">Partenariat</span>
+                        <span 
+                          className="organization-type"
+                          style={{
+                            background: `${orgTypeColor}15`,
+                            color: orgTypeColor
+                          }}
+                        >
+                          {orgTypeLabel}
+                        </span>
                         <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
                           En attente
                         </span>

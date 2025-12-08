@@ -58,6 +58,14 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
     }
   };
 
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'schools': return '#10b981'; // Green for schools
+      case 'companies': return '#3b82f6'; // Blue for companies
+      default: return '#3b82f6'; // Default to blue
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('fr-FR', {
@@ -102,7 +110,13 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
         <div className="organization-info">
           <h3 className="organization-name">{organization.name}</h3>
           <div className="organization-meta">
-            <span className="organization-type">
+            <span 
+              className="organization-type"
+              style={{
+                background: `${getTypeColor(organization.type)}15`,
+                color: getTypeColor(organization.type)
+              }}
+            >
               {organization.isParent ? 'Parent' : getTypeLabel(organization.type)}
             </span>
             <span 
