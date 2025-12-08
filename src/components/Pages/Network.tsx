@@ -1574,6 +1574,14 @@ const Network: React.FC = () => {
 
   // Get confirmed branch requests (used to hide "Se rattacher" button)
   const confirmedBranchRequests = branchRequests.filter(req => req.status === 'confirmed');
+  
+  // Check if current organization has any branch requests (pending or confirmed) as a child
+  // If yes, hide "Se rattacher" button for all organizations (one branch relationship only)
+  const currentOrganizationId = getOrganizationId(state.user, state.showingPageType);
+  const hasAnyBranchRequest = currentOrganizationId ? branchRequests.some(req => {
+    const childOrg = req.child_school || req.child_company;
+    return childOrg?.id === currentOrganizationId;
+  }) : false;
 
   // Convert sub-organizations to organization-like format for display
   const subOrgsAsOrganizations: Organization[] = subOrganizations.map((subOrg) => {
@@ -2760,7 +2768,8 @@ const Network: React.FC = () => {
             }
             
             // Determine which hover actions should be available
-            const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest ? () => handleAttachRequest(organization) : undefined;
+            // Hide "Se rattacher" if current org already has a branch request (pending or confirmed)
+            const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest ? () => handleAttachRequest(organization) : undefined;
             const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined;
             const joinAction = isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined;
             
@@ -3131,7 +3140,7 @@ const Network: React.FC = () => {
               setSelectedOrganizationForDetails(null);
             }}
             onAttach={
-              !isPartner && !isSubOrganization && !isPersonalUser && !hasConfirmedBranchRequest
+              !isPartner && !isSubOrganization && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest
                 ? () => handleAttachRequest(selectedOrganizationForDetails)
                 : undefined
             }
