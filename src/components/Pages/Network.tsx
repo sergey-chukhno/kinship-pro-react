@@ -2494,12 +2494,14 @@ const Network: React.FC = () => {
             // For search results, also check if the organization is already a partner
             const targetOrgId = parseInt(organization.id);
             const isPartnerFromList = partnersAsOrganizations.some(partner => parseInt(partner.id) === targetOrgId);
-            const isPartner = selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners') || isPartnerFromList;
+            // Do not block hover actions during search even if the active card is "partners"
+            const isPartner = selectedType === 'partner' || ((isOrgDashboard && activeCard === 'partners') && selectedType !== 'search') || isPartnerFromList;
             
             // Don't show hover actions for sub-organizations (they're part of the current organization)
             // For search results, also check if the organization is already a sub-organization
             const isSubOrganizationFromList = subOrgsAsOrganizations.some(subOrg => parseInt(subOrg.id) === targetOrgId);
-            const isSubOrganization = selectedType === 'sub-organizations' || (isOrgDashboard && activeCard === 'branches') || isSubOrganizationFromList;
+            // Do not block hover actions during search even if the active card is "branches"
+            const isSubOrganization = selectedType === 'sub-organizations' || ((isOrgDashboard && activeCard === 'branches') && selectedType !== 'search') || isSubOrganizationFromList;
             
             // Don't show hover actions for branch requests
             const isBranchRequestType = selectedType === 'branch-requests';
