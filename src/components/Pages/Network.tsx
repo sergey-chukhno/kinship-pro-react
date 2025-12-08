@@ -957,6 +957,10 @@ const Network: React.FC = () => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     const organizationId = getOrganizationId(state.user, state.showingPageType);
     const organizationType = getOrganizationType(state.showingPageType);
+    const organizationName =
+      organizationType === 'school'
+        ? state.user.available_contexts?.schools?.find((s: any) => s.id === organizationId)?.name
+        : state.user.available_contexts?.companies?.find((c: any) => c.id === organizationId)?.name;
 
     if (isPersonalUser || !organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
       setNetworkMembers([]);
@@ -968,6 +972,29 @@ const Network: React.FC = () => {
 
     try {
       const allMembers: Member[] = [];
+
+      // 0. Get members from current organization (always included)
+      try {
+        const selfMembers = await getOrganizationMembers(organizationId, organizationType, true);
+        const convertedSelfMembers: Member[] = selfMembers.map((m: any) => ({
+          id: String(m.id),
+          firstName: m.first_name,
+          lastName: m.last_name,
+          fullName: m.full_name || `${m.first_name} ${m.last_name}`,
+          email: m.email || '',
+          profession: (m.profession || ''),
+          roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
+          skills: [],
+          availability: [],
+          avatar: m.avatar_url || '',
+          isTrusted: false,
+          badges: [],
+          organization: organizationName || (organizationType === 'school' ? 'Mon établissement' : 'Mon organisation')
+        }));
+        allMembers.push(...convertedSelfMembers);
+      } catch (err) {
+        console.error('Error fetching members from current organization:', err);
+      }
 
       // 1. Get members from partners with share_members = true
       const allPartnerships = [
@@ -991,8 +1018,8 @@ const Network: React.FC = () => {
                 lastName: m.last_name,
                 fullName: m.full_name || `${m.first_name} ${m.last_name}`,
                 email: m.email || '',
-                profession: translateRole(m.role) || '',
-                roles: translateRoles([m.role || 'member']),
+                profession: (m.profession || ''),
+                roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
                 skills: [],
                 availability: [],
                 avatar: m.avatar_url || '',
@@ -1023,8 +1050,8 @@ const Network: React.FC = () => {
             lastName: m.last_name,
             fullName: m.full_name || `${m.first_name} ${m.last_name}`,
             email: m.email || '',
-            profession: translateRole(m.role) || '',
-            roles: translateRoles([m.role || 'member']),
+            profession: (m.profession || ''),
+            roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
             skills: [],
             availability: [],
             avatar: m.avatar_url || '',
@@ -1060,10 +1087,10 @@ const Network: React.FC = () => {
     return networkMembers.length;
   }, [networkMembers]);
 
-  // Fetch network members when activeCard is 'members'
+  // Fetch network members for org dashboards (counter + card)
   useEffect(() => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-    if (!isPersonalUser && activeCard === 'members') {
+    if (!isPersonalUser) {
       fetchNetworkMembers();
     }
   }, [activeCard, state.showingPageType, fetchNetworkMembers]);
@@ -2191,8 +2218,9 @@ const Network: React.FC = () => {
                     key={member.id}
                     member={member}
                     badgeCount={member.badges?.length || 0}
+                    categoryTag={{ label: 'Membre individuel', color: '#ec4899' }}
                     onClick={() => {
-                      console.log('View member profile:', member.id);
+                      setSelectedNetworkMember(member);
                     }}
                     onContactClick={() => {
                       console.log('Contact member:', member.email);
@@ -2219,6 +2247,7 @@ const Network: React.FC = () => {
                 key={member.id}
                 member={member}
                 badgeCount={member.badges?.length || 0}
+                categoryTag={{ label: 'Membre individuel', color: '#ec4899' }}
                 onClick={() => {
                   // Handle member card click - could open a profile modal
                   console.log('View member profile:', member.id);
