@@ -5,6 +5,7 @@ import './MemberCard.css';
 import AvatarImage from '../UI/AvatarImage';
 
 interface MemberCardProps {
+  categoryTag?: { label: string; color: string };// Optional pill tag
   member: Member;
   badgeCount: number;
   onClick: () => void;
@@ -23,7 +24,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
   onRoleChange,
   disableRoleDropdown = false,
   isSuperadmin = false,
-  onViewProfile
+  onViewProfile,
+  categoryTag
 }) => {
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -79,7 +81,24 @@ const MemberCard: React.FC<MemberCardProps> = ({
         )}
         <div className="member-info">
           <h3 className="member-name">{member.firstName} {member.lastName}</h3>
-          <p className="break-words member-profession">{member.profession}</p>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: 4 }}>
+            {categoryTag && (
+              <span
+                className="organization-type"
+                style={{ background: `${categoryTag.color}1a`, color: categoryTag.color }}
+              >
+                {categoryTag.label}
+              </span>
+            )}
+            {member.organization && (
+              <span className="organization-type" style={{ background: "#eef2ff", color: "#4338ca" }}>
+                {member.organization}
+              </span>
+            )}
+          </div>
+          {member.profession && (
+            <p className="break-words member-profession" style={{ marginTop: 4 }}>{member.profession}</p>
+          )}
         </div>
       </div>
 
