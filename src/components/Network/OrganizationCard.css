@@ -4,6 +4,7 @@
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 16px;
   padding: 20px;
+  padding-bottom: 20px;
   margin-bottom: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -12,16 +13,23 @@
   overflow: visible;
 }
 
-.organization-card:hover {
+.organization-card.has-hover-actions {
+  cursor: default;
+}
+
+.organization-card.has-hover-actions:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--primary, #5570F1);
+  z-index: 10;
+}
+
+.organization-card:not(.has-hover-actions):hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-color: var(--primary, #5570F1);
 }
 
-.organization-card:hover .organization-hover-actions {
-  opacity: 1;
-  transform: translateY(0);
-}
 
 .organization-header {
   display: flex;
@@ -211,23 +219,26 @@
 
 /* Hover Actions - Se rattacher et Demander un partenariat */
 .organization-hover-actions {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
   display: flex;
   gap: 8px;
-  padding: 16px 20px;
-  background: linear-gradient(to top, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 255, 255, 0.9) 100%);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  margin-top: 12px;
+  padding: 12px 0 0 0;
   border-top: 1px solid var(--border, #e5e7eb);
-  border-radius: 0 0 16px 16px;
+  background: transparent;
   opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 10;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+/* Show hover actions when card is hovered */
+.organization-card.has-hover-actions:hover .organization-hover-actions {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .btn-hover-action {
@@ -312,6 +323,7 @@
 
   .organization-hover-actions {
     opacity: 1;
+    visibility: visible;
     transform: translateY(0);
     position: relative;
     margin-top: 16px;
@@ -320,6 +332,7 @@
     background: transparent;
     backdrop-filter: none;
     padding: 12px 0 0 0;
+    pointer-events: auto;
   }
 
   .btn-hover-action {

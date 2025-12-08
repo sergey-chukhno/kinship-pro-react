@@ -11,7 +11,7 @@ import MemberCard from '../Members/MemberCard';
 import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest } from '../../api/Projects';
+import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationMembers } from '../../api/Projects';
 import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
@@ -100,7 +100,8 @@ const Network: React.FC = () => {
   const [selectedBranchRequest, setSelectedBranchRequest] = useState<BranchRequest | null>(null);
   const [selectedNetworkMember, setSelectedNetworkMember] = useState<Member | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search'>('schools');
+  const isOrgDashboardInitial = state.showingPageType === 'edu' || state.showingPageType === 'pro';
+  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | null>(isOrgDashboardInitial ? null : 'schools');
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
@@ -126,6 +127,7 @@ const Network: React.FC = () => {
   const [partnersPage, setPartnersPage] = useState(1);
   const [partnersTotalPages, setPartnersTotalPages] = useState(1);
   const [partnersTotalCount, setPartnersTotalCount] = useState(0);
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
 
   // Filters for personal user network
   const [competenceFilter, setCompetenceFilter] = useState('');
@@ -166,6 +168,14 @@ const Network: React.FC = () => {
   const [searchPage, setSearchPage] = useState(1);
   const [searchTotalPages, setSearchTotalPages] = useState(1);
   const [searchTotalCount, setSearchTotalCount] = useState(0);
+
+  // Active card state (for school/company dashboards)
+  const [activeCard, setActiveCard] = useState<'partners' | 'branches' | 'members' | null>('partners');
+  
+  // Network members state (for "Membres de mon réseau" card)
+  const [networkMembers, setNetworkMembers] = useState<Member[]>([]);
+  const [networkMembersLoading, setNetworkMembersLoading] = useState(false);
+  const [networkMembersError, setNetworkMembersError] = useState<string | null>(null);
 
   // Auto-switch to search tab when user starts typing in search
   useEffect(() => {
@@ -751,13 +761,13 @@ const Network: React.FC = () => {
     fetchPartnersCount();
   }, [fetchPartnersCount]);
 
-  // Fetch partners data when partner tab is selected
+  // Fetch partners data when partner tab is selected OR when activeCard is 'partners'
   useEffect(() => {
-    // Only fetch partners data when partner tab is selected
-    if (selectedType === 'partner') {
+    const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
+    if (selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners')) {
       fetchPartners();
     }
-  }, [selectedType, fetchPartners]);
+  }, [selectedType, activeCard, state.showingPageType, fetchPartners]);
 
   // Function to fetch partnership requests count (reusable)
   const fetchRequestsCount = useCallback(async () => {
@@ -836,12 +846,13 @@ const Network: React.FC = () => {
     fetchRequestsCount();
   }, [fetchRequestsCount]);
 
-  // Fetch partnership requests when tab is selected
+  // Fetch partnership requests when tab is selected OR when activeCard is 'partners'
   useEffect(() => {
-    if (selectedType === 'partnership-requests') {
+    const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
+    if (selectedType === 'partnership-requests' || (isOrgDashboard && activeCard === 'partners')) {
       fetchRequests();
     }
-  }, [selectedType, fetchRequests]);
+  }, [selectedType, activeCard, state.showingPageType, fetchRequests]);
 
   // Function to fetch personal user organization requests
   const fetchMyRequests = useCallback(async () => {
@@ -883,6 +894,203 @@ const Network: React.FC = () => {
       fetchMyRequests();
     }
   }, [state.showingPageType, fetchMyRequests]);
+
+  // Function to count all unique partners (confirmed + pending)
+  const countAllPartners = useCallback((): number => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    
+    if (isPersonalUser) {
+      // For personal users, count network users
+      return partnersTotalCount;
+    }
+
+    // For organizational users, count all unique partners from confirmed and pending partnerships
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    if (!organizationId) return 0;
+
+    // Get all unique partner IDs from confirmed partnerships
+    const confirmedPartnerIds = new Set<number>();
+    (partners as Partnership[])
+      .filter(p => p.status === 'confirmed')
+      .forEach(partnership => {
+        (partnership.partners || []).forEach(partner => {
+          if (partner.id !== organizationId) {
+            confirmedPartnerIds.add(partner.id);
+          }
+        });
+      });
+
+    // Get all unique partner IDs from pending partnerships
+    const pendingPartnerIds = new Set<number>();
+    partnershipRequests.forEach(partnership => {
+      (partnership.partners || []).forEach(partner => {
+        if (partner.id !== organizationId) {
+          pendingPartnerIds.add(partner.id);
+        }
+      });
+    });
+
+    // If the backend reports more pending requests than we have loaded,
+    // use that count to avoid undercounting pending partners.
+    const pendingCount = Math.max(pendingPartnerIds.size, requestsTotalCount || 0);
+
+    return confirmedPartnerIds.size + pendingCount;
+  }, [state.user, state.showingPageType, partners, partnershipRequests, partnersTotalCount, requestsTotalCount]);
+
+  // Function to count branches (0 if it's a branch itself)
+  // Only confirmed branches (exclude pending requests)
+  const countBranches = useCallback((): number => {
+    // If isParent is false, it means this organization is a branch, so return 0
+    if (subOrgsIsParent === false && subOrganizations.length > 0) {
+      return 0;
+    }
+    // Count confirmed branches only
+    const confirmedBranchesCount = subOrganizations.length;
+    return confirmedBranchesCount;
+  }, [subOrganizations, subOrgsIsParent]);
+
+  // Function to fetch network members (from partners with share_members=true + all branch members)
+  const fetchNetworkMembers = useCallback(async () => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    const organizationType = getOrganizationType(state.showingPageType);
+    const organizationName =
+      organizationType === 'school'
+        ? state.user.available_contexts?.schools?.find((s: any) => s.id === organizationId)?.name
+        : state.user.available_contexts?.companies?.find((c: any) => c.id === organizationId)?.name;
+
+    if (isPersonalUser || !organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      setNetworkMembers([]);
+      return;
+    }
+
+    setNetworkMembersLoading(true);
+    setNetworkMembersError(null);
+
+    try {
+      const allMembers: Member[] = [];
+
+      // 0. Get members from current organization (always included)
+      try {
+        const selfMembers = await getOrganizationMembers(organizationId, organizationType, true);
+        const convertedSelfMembers: Member[] = selfMembers.map((m: any) => ({
+          id: String(m.id),
+          firstName: m.first_name,
+          lastName: m.last_name,
+          fullName: m.full_name || `${m.first_name} ${m.last_name}`,
+          email: m.email || '',
+          profession: (m.profession || ''),
+          roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
+          skills: [],
+          availability: [],
+          avatar: m.avatar_url || '',
+          isTrusted: false,
+          badges: [],
+          organization: organizationName || (organizationType === 'school' ? 'Mon établissement' : 'Mon organisation')
+        }));
+        allMembers.push(...convertedSelfMembers);
+      } catch (err) {
+        console.error('Error fetching members from current organization:', err);
+      }
+
+      // 1. Get members from partners with share_members = true
+      const allPartnerships = [
+        ...(partners as Partnership[]).filter(p => p.status === 'confirmed'),
+        ...partnershipRequests
+      ];
+
+      for (const partnership of allPartnerships) {
+        if (partnership.share_members) {
+          const partnerOrgs = (partnership.partners || []).filter(p => p.id !== organizationId);
+          
+          for (const partner of partnerOrgs) {
+            try {
+              const partnerType = partner.type === 'School' ? 'school' : 'company';
+              const members = await getOrganizationMembers(partner.id, partnerType, true); // Include pending members
+              
+              // Convert OrganizationMember[] to Member[]
+              const convertedMembers: Member[] = members.map((m: any) => ({
+                id: String(m.id),
+                firstName: m.first_name,
+                lastName: m.last_name,
+                fullName: m.full_name || `${m.first_name} ${m.last_name}`,
+                email: m.email || '',
+                profession: (m.profession || ''),
+                roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
+                skills: [],
+                availability: [],
+                avatar: m.avatar_url || '',
+                isTrusted: false,
+                badges: [],
+                organization: partner.name
+              }));
+              
+              allMembers.push(...convertedMembers);
+            } catch (err) {
+              console.error(`Error fetching members from partner ${partner.id}:`, err);
+              // Continue with other partners
+            }
+          }
+        }
+      }
+
+      // 2. Get all members from branches
+      for (const branch of subOrganizations) {
+        try {
+          const branchType = organizationType; // Same type as parent
+          const members = await getOrganizationMembers(branch.id, branchType, true); // Include pending members
+          
+          // Convert OrganizationMember[] to Member[]
+          const convertedMembers: Member[] = members.map((m: any) => ({
+            id: String(m.id),
+            firstName: m.first_name,
+            lastName: m.last_name,
+            fullName: m.full_name || `${m.first_name} ${m.last_name}`,
+            email: m.email || '',
+            profession: (m.profession || ''),
+            roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
+            skills: [],
+            availability: [],
+            avatar: m.avatar_url || '',
+            isTrusted: false,
+            badges: [],
+            organization: branch.name || branch.company_name || branch.school_name || 'Branche'
+          }));
+          
+          allMembers.push(...convertedMembers);
+        } catch (err) {
+          console.error(`Error fetching members from branch ${branch.id}:`, err);
+          // Continue with other branches
+        }
+      }
+
+      // Remove duplicates based on user ID
+      const uniqueMembers = Array.from(
+        new Map(allMembers.map(m => [m.id, m])).values()
+      );
+
+      setNetworkMembers(uniqueMembers);
+    } catch (err) {
+      console.error('Error fetching network members:', err);
+      setNetworkMembersError('Erreur lors du chargement des membres du réseau');
+      setNetworkMembers([]);
+    } finally {
+      setNetworkMembersLoading(false);
+    }
+  }, [state.user, state.showingPageType, partners, partnershipRequests, subOrganizations]);
+
+  // Count network members
+  const countNetworkMembers = useCallback((): number => {
+    return networkMembers.length;
+  }, [networkMembers]);
+
+  // Fetch network members for org dashboards (counter + card)
+  useEffect(() => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    if (!isPersonalUser) {
+      fetchNetworkMembers();
+    }
+  }, [activeCard, state.showingPageType, fetchNetworkMembers]);
 
   // No client-side filtering for schools and companies - search is done server-side
   // This ensures pagination works correctly with server-side search
@@ -1011,16 +1219,43 @@ const Network: React.FC = () => {
       const parentId = parseInt(selectedOrganization.id);
       const message = attachData.motivation || 'Demande de rattachement';
 
+      // Validate: Branch requests can only be same-type (company->company, school->school)
+      // Partnerships can be cross-type, but branches cannot
+      if (organizationType === 'school' && selectedOrganization.type !== 'schools') {
+        showError('Une école ne peut devenir une branche que d\'une autre école. Pour collaborer avec une organisation, utilisez la fonctionnalité de partenariat.');
+        return;
+      }
+      
+      if (organizationType === 'company' && selectedOrganization.type !== 'companies') {
+        showError('Une organisation ne peut devenir une branche que d\'une autre organisation. Pour collaborer avec une école, utilisez la fonctionnalité de partenariat.');
+        return;
+      }
+
+      // Use current organization type to determine which endpoint to call
+      // Use parent organization type to determine which parameter to send
       if (organizationType === 'school') {
-        await createSchoolBranchRequest(organizationId, {
-          parent_school_id: parentId,
-          message: message
-        });
+        // Current org is a school - use school endpoint
+        const payload: any = { message: message };
+        if (selectedOrganization.type === 'schools') {
+          payload.parent_school_id = parentId;
+        } else {
+          showError('Type d\'organisation parent non supporté pour le rattachement');
+          return;
+        }
+        await createSchoolBranchRequest(organizationId, payload);
+      } else if (organizationType === 'company') {
+        // Current org is a company - use company endpoint
+        const payload: any = { message: message };
+        if (selectedOrganization.type === 'companies') {
+          payload.parent_company_id = parentId;
+        } else {
+          showError('Type d\'organisation parent non supporté pour le rattachement');
+          return;
+        }
+        await createCompanyBranchRequest(organizationId, payload);
       } else {
-        await createCompanyBranchRequest(organizationId, {
-          parent_company_id: parentId,
-          message: message
-        });
+        showError('Type d\'organisation non supporté pour le rattachement');
+        return;
       }
 
       showSuccess('Demande de rattachement envoyée avec succès');
@@ -1152,8 +1387,10 @@ const Network: React.FC = () => {
   };
 
   // Convert search results to organization-like format for display
+  // Display all schools and companies for all dashboards (partnerships can be cross-type)
+  // Branch requests will be validated separately to ensure same-type only
   const searchResultsAsOrganizations: Organization[] = [
-    // Convert schools
+    // Convert schools (show all for all dashboards)
     ...searchResults.schools.map((school: any) => ({
       id: String(school.id),
       name: school.name || 'Établissement scolaire',
@@ -1167,7 +1404,7 @@ const Network: React.FC = () => {
       contactPerson: '',
       email: school.email || ''
     })),
-    // Convert companies
+    // Convert companies (show all for all dashboards)
     ...searchResults.companies.map((company: any) => ({
       id: String(company.id),
       name: company.name || 'Organisation',
@@ -1217,31 +1454,54 @@ const Network: React.FC = () => {
   const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   
   // For personal users, partners are NetworkUser[] - no conversion needed
-  // For organizational users, convert partnerships to organizations
+  // For organizational users, convert partnerships to organizations (confirmed + pending)
   const partnersAsOrganizations: Organization[] = isPersonalUser
     ? [] // Personal users don't use Organization format
-    : // For organizational users, use the existing partnership conversion logic
-      (partners as Partnership[])
-        .filter(partnership => partnership.status === 'confirmed') // Only confirmed partnerships
-        .flatMap(partnership => {
-          // Get organizations from the partnership (partners array)
+    : // For organizational users, combine confirmed and pending partnerships
+      [
+        // Confirmed partnerships
+        ...(partners as Partnership[])
+          .filter(partnership => partnership.status === 'confirmed')
+          .flatMap(partnership => {
+            const organizationId = getOrganizationId(state.user, state.showingPageType);
+            return (partnership.partners || [])
+              .filter(partner => partner.id !== organizationId)
+              .map(partner => ({
+                id: String(partner.id),
+                name: partner.name,
+                type: 'partner' as const,
+                description: partnership.description || '',
+                members_count: 0,
+                location: '',
+                logo: undefined,
+                status: 'active' as const,
+                joinedDate: partnership.created_at || '',
+                contactPerson: '',
+                email: ''
+              }));
+          }),
+        // Pending partnerships (from partnershipRequests)
+        ...partnershipRequests.flatMap(partnership => {
           const organizationId = getOrganizationId(state.user, state.showingPageType);
           return (partnership.partners || [])
             .filter(partner => partner.id !== organizationId)
             .map(partner => ({
-              id: String(partner.id),
+              id: String(partnership.id), // Use partnership ID for pending requests
               name: partner.name,
               type: 'partner' as const,
-              description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
-              members_count: 0, // Partners don't have members_count in the API
+              description: partnership.description || '',
+              members_count: 0,
               location: '',
               logo: undefined,
-              status: 'active' as const, // All partners here are confirmed
+              status: 'pending' as const,
               joinedDate: partnership.created_at || '',
               contactPerson: '',
-              email: ''
-            }));
-        });
+              email: '',
+              partnershipId: partnership.id,
+              partnership: partnership
+            } as Organization & { partnershipId: number; partnership: Partnership }));
+        })
+      ];
 
   // Convert NetworkUser to Member format for MemberCard
   const networkUsersAsMembers: Member[] = isPersonalUser
@@ -1329,8 +1589,28 @@ const Network: React.FC = () => {
   // No filtering for partners - show all partners (for organizational users)
   const filteredPartners = partnersAsOrganizations;
 
+  const toggleMessage = (key: string) => {
+    setExpandedMessages(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
   // Get confirmed branch requests (used to hide "Se rattacher" button)
   const confirmedBranchRequests = branchRequests.filter(req => req.status === 'confirmed');
+  
+  // Check if current organization has any branch requests (pending or confirmed) as a child
+  // If yes, hide "Se rattacher" button for all organizations (one branch relationship only)
+  const currentOrganizationId = getOrganizationId(state.user, state.showingPageType);
+  const hasAnyBranchRequest = currentOrganizationId ? branchRequests.some(req => {
+    const childOrg = req.child_school || req.child_company;
+    return childOrg?.id === currentOrganizationId;
+  }) : false;
 
   // Convert sub-organizations to organization-like format for display
   const subOrgsAsOrganizations: Organization[] = subOrganizations.map((subOrg) => {
@@ -1410,7 +1690,7 @@ const Network: React.FC = () => {
         id: String(partnership.id), // Use partnership ID for the card
         name: partner.name,
         type: 'partner' as const,
-        description: `Partenariat ${partnership.partnership_type} - Rôle: ${partner.role_in_partnership}`,
+        description: partnership.description || '',
         members_count: 0, // Partners don't have members_count in the API
         location: '',
         logo: undefined,
@@ -1419,8 +1699,9 @@ const Network: React.FC = () => {
         contactPerson: '',
         email: '',
         partnershipId: partnership.id, // Store partnership ID for accept/reject
-        partnership: partnership // Store full partnership data
-      } as Organization & { partnershipId: number; partnership: Partnership }));
+        partnership: partnership, // Store full partnership data
+        message: partnership.description || ''
+      } as Organization & { partnershipId: number; partnership: Partnership; message?: string }));
   });
 
   // No filtering for partnership requests - show all requests
@@ -1460,23 +1741,32 @@ const Network: React.FC = () => {
     }
   );
 
-  // Combine schools, companies and partners based on selected type
+  // Combine schools, companies and partners based on selected type or activeCard
+  // For school/company dashboards, use activeCard; for personal users, use selectedType
+  const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
+  
   const displayItems = selectedType === 'search'
     ? searchResultsAsOrganizations
+    : selectedType === 'branch-requests'
+    ? filteredBranchRequests
+    : selectedType === 'partnership-requests'
+    ? filteredRequests
     : selectedType === 'schools' 
     ? schoolsAsOrganizations 
     : selectedType === 'companies'
     ? companiesAsOrganizations
     : selectedType === 'partner'
     ? filteredPartners
-    : selectedType === 'partnership-requests'
-    ? filteredRequests
     : selectedType === 'sub-organizations'
     ? filteredSubOrgs
-    : selectedType === 'branch-requests'
-    ? filteredBranchRequests
     : selectedType === 'my-requests'
     ? filteredMyRequests
+    : isOrgDashboard && activeCard
+    ? (activeCard === 'partners'
+        ? filteredPartners
+        : activeCard === 'branches'
+        ? filteredSubOrgs
+        : []) // members are displayed separately
     : [];
 
   return (
@@ -1527,35 +1817,89 @@ const Network: React.FC = () => {
       </div>
 
       {/* Network Summary Cards */}
-      <div className="network-summary">
-        <div className="summary-card">
-          <div className="summary-icon">
-            <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Établissements scolaires" className="summary-icon-img" />
+      {/* Show different cards for school/company dashboards vs personal users */}
+      {(state.showingPageType === 'edu' || state.showingPageType === 'pro') ? (
+        <div className="network-summary">
+          <div 
+            className={`summary-card ${activeCard === 'partners' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveCard('partners');
+              setSelectedType(null);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="summary-icon">
+              <img src="/icons_logo/Icon=Reseau.svg" alt="Mes partenaires" className="summary-icon-img" />
+            </div>
+            <div className="summary-content">
+              <h3>{countAllPartners()}</h3>
+              <p>Mes partenaires</p>
+            </div>
           </div>
-          <div className="summary-content">
-            <h3>{globalSchoolsTotalCount}</h3>
-            <p>Établissements scolaires</p>
+          <div 
+            className={`summary-card ${activeCard === 'branches' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveCard('branches');
+              setSelectedType(null);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="summary-icon">
+              <img src="/icons_logo/Icon=Reseau.svg" alt="Mes sous-organisations" className="summary-icon-img" />
+            </div>
+            <div className="summary-content">
+              <h3>{countBranches()}</h3>
+              <p>Mes sous-organisations</p>
+            </div>
+          </div>
+          <div 
+            className={`summary-card ${activeCard === 'members' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveCard('members');
+              setSelectedType(null);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="summary-icon">
+              <img src="/icons_logo/Icon=Membres.svg" alt="Membres de mon réseau" className="summary-icon-img" />
+            </div>
+            <div className="summary-content">
+              <h3>{countNetworkMembers()}</h3>
+              <p>Membres de mon réseau</p>
+            </div>
           </div>
         </div>
-        <div className="summary-card">
-          <div className="summary-icon">
-            <img src="/icons_logo/Icon=Reseau.svg" alt="Entreprises" className="summary-icon-img" />
+      ) : (
+        <div className="network-summary">
+          <div className="summary-card">
+            <div className="summary-icon">
+              <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Établissements scolaires" className="summary-icon-img" />
+            </div>
+            <div className="summary-content">
+              <h3>{globalSchoolsTotalCount}</h3>
+              <p>Établissements scolaires</p>
+            </div>
           </div>
-          <div className="summary-content">
-            <h3>{globalCompaniesTotalCount}</h3>
-            <p>Organisations</p>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <img src="/icons_logo/Icon=Reseau.svg" alt="Entreprises" className="summary-icon-img" />
+            </div>
+            <div className="summary-content">
+              <h3>{globalCompaniesTotalCount}</h3>
+              <p>Organisations</p>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <img src="/icons_logo/Icon=Membres.svg" alt="Total" className="summary-icon-img" />
+            </div>
+            <div className="summary-content">
+              <h3>{globalSchoolsTotalCount + globalCompaniesTotalCount}</h3>
+              <p>Total</p>
+            </div>
           </div>
         </div>
-        <div className="summary-card">
-          <div className="summary-icon">
-            <img src="/icons_logo/Icon=Membres.svg" alt="Total" className="summary-icon-img" />
-          </div>
-          <div className="summary-content">
-            <h3>{globalSchoolsTotalCount + globalCompaniesTotalCount}</h3>
-            <p>Total</p>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Type Filter */}
       <div className="network-filters">
@@ -1565,35 +1909,40 @@ const Network: React.FC = () => {
           {searchTerm && searchTerm.trim() && (
             <button 
               className={`filter-tab ${selectedType === 'search' ? 'active' : ''}`}
-              onClick={() => setSelectedType('search')}
+              onClick={() => { setActiveCard(null); setSelectedType('search'); }}
             >
               Recherche ({searchTotalCount > 0 ? searchTotalCount : searchResultsAsOrganizations.length})
             </button>
           )}
-          <button 
-            className={`filter-tab ${selectedType === 'schools' ? 'active' : ''}`}
-            onClick={() => setSelectedType('schools')}
-          >
-            Établissements scolaires ({schoolsTotalCount > 0 ? schoolsTotalCount : filteredSchools.length})
-          </button>
-          <button 
-            className={`filter-tab ${selectedType === 'companies' ? 'active' : ''}`}
-            onClick={() => setSelectedType('companies')}
-          >
-            Organisations ({companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length})
-          </button>
-          {/* Show sub-organizations tab only for school (edu) and pro (company) roles */}
+          {/* Hide schools and companies tabs for school/company dashboards */}
+          {(state.showingPageType !== 'edu' && state.showingPageType !== 'pro') && (
+            <>
+              <button 
+                className={`filter-tab ${selectedType === 'schools' ? 'active' : ''}`}
+                onClick={() => { setActiveCard(null); setSelectedType('schools'); }}
+              >
+                Établissements scolaires ({schoolsTotalCount > 0 ? schoolsTotalCount : filteredSchools.length})
+              </button>
+              <button 
+                className={`filter-tab ${selectedType === 'companies' ? 'active' : ''}`}
+                onClick={() => { setActiveCard(null); setSelectedType('companies'); }}
+              >
+                Organisations ({companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length})
+              </button>
+            </>
+          )}
+          {/* Show partnership requests and branch requests tabs only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
             <>
               <button 
-                className={`filter-tab ${selectedType === 'sub-organizations' ? 'active' : ''}`}
-                onClick={() => setSelectedType('sub-organizations')}
+                className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
+                onClick={() => { setActiveCard(null); setSelectedType('partnership-requests'); }}
               >
-                Sous-organisations ({filteredSubOrgs.length})
+                Demandes de partenariats ({requestsTotalCount})
               </button>
               <button 
                 className={`filter-tab ${selectedType === 'branch-requests' ? 'active' : ''}`}
-                onClick={() => setSelectedType('branch-requests')}
+                onClick={() => { setActiveCard(null); setSelectedType('branch-requests'); }}
               >
                 Demandes de rattachement ({filteredBranchRequests.length})
               </button>
@@ -1603,23 +1952,18 @@ const Network: React.FC = () => {
           {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
             <button 
               className={`filter-tab ${selectedType === 'my-requests' ? 'active' : ''}`}
-              onClick={() => setSelectedType('my-requests')}
+              onClick={() => { setActiveCard(null); setSelectedType('my-requests'); }}
             >
               Mes demandes ({filteredMyRequests.length})
             </button>
           )}
-          <button 
-            className={`filter-tab ${selectedType === 'partner' ? 'active' : ''}`}
-            onClick={() => setSelectedType('partner')}
-          >
-            {(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Mon réseau' : 'Partenaires'} ({partnersTotalCount > 0 ? partnersTotalCount : filteredPartners.length})
-          </button>
-          {requestsTotalCount > 0 && (
+          {/* Show partners tab only for personal users (for school/company, partners are shown via activeCard) */}
+          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
             <button 
-              className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
-              onClick={() => setSelectedType('partnership-requests')}
+              className={`filter-tab ${selectedType === 'partner' ? 'active' : ''}`}
+              onClick={() => { setActiveCard(null); setSelectedType('partner'); }}
             >
-              Demandes de partenariats ({requestsTotalCount})
+              Mon réseau ({partnersTotalCount > 0 ? partnersTotalCount : filteredPartners.length})
             </button>
           )}
         </div>
@@ -1840,11 +2184,17 @@ const Network: React.FC = () => {
         {companiesError && selectedType === 'companies' && (
           <div className="error-message">{companiesError}</div>
         )}
-        {partnersLoading && selectedType === 'partner' && (
+        {partnersLoading && (selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners')) && (
           <div className="loading-message">Chargement des partenaires...</div>
         )}
-        {partnersError && selectedType === 'partner' && (
+        {partnersError && (selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners')) && (
           <div className="error-message">{partnersError}</div>
+        )}
+        {subOrgsLoading && (selectedType === 'sub-organizations' || (isOrgDashboard && activeCard === 'branches')) && (
+          <div className="loading-message">Chargement des sous-organisations...</div>
+        )}
+        {subOrgsError && (selectedType === 'sub-organizations' || (isOrgDashboard && activeCard === 'branches')) && (
+          <div className="error-message">{subOrgsError}</div>
         )}
         {requestsLoading && selectedType === 'partnership-requests' && (
           <div className="loading-message">Chargement des demandes de partenariats...</div>
@@ -1876,13 +2226,53 @@ const Network: React.FC = () => {
         {searchError && selectedType === 'search' && (
           <div className="error-message">{searchError}</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !(isPersonalUser && selectedType === 'partner') && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
         
+        {/* Display network members for school/company dashboards when activeCard is 'members' */}
+        {isOrgDashboard && activeCard === 'members' && (
+          <>
+            {networkMembersLoading && (
+              <div className="loading-message">Chargement des membres du réseau...</div>
+            )}
+            {networkMembersError && (
+              <div className="error-message">{networkMembersError}</div>
+            )}
+            {!networkMembersLoading && !networkMembersError && networkMembers.length === 0 && (
+              <div className="empty-message">Aucun membre du réseau trouvé</div>
+            )}
+            {!networkMembersLoading && !networkMembersError && networkMembers.length > 0 && (
+              <div className="members-grid">
+                {networkMembers.map((member) => (
+                  <MemberCard
+                    key={member.id}
+                    member={member}
+                    badgeCount={member.badges?.length || 0}
+                    categoryTag={{ label: 'Membre individuel', color: '#ec4899' }}
+                    onClick={() => {
+                      setSelectedNetworkMember(member);
+                    }}
+                    onContactClick={() => {
+                      console.log('Contact member:', member.email);
+                    }}
+                    onViewProfile={() => {
+                      setSelectedNetworkMember(member);
+                    }}
+                    onRoleChange={(newRole) => {
+                      console.log('Role change not applicable for network members');
+                    }}
+                    disableRoleDropdown={true}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
         {/* Display network users for personal users using MemberCard */}
         {isPersonalUser && selectedType === 'partner' && (
           <div className="members-grid">
@@ -1891,6 +2281,7 @@ const Network: React.FC = () => {
                 key={member.id}
                 member={member}
                 badgeCount={member.badges?.length || 0}
+                categoryTag={{ label: 'Membre individuel', color: '#ec4899' }}
                 onClick={() => {
                   // Handle member card click - could open a profile modal
                   console.log('View member profile:', member.id);
@@ -1916,9 +2307,16 @@ const Network: React.FC = () => {
         )}
         
         {/* Display organizations for other tabs */}
-        {!(isPersonalUser && selectedType === 'partner') && (
+        {!(isPersonalUser && selectedType === 'partner') && 
+         !(isOrgDashboard && activeCard === 'members') && 
+         (selectedType === 'search' || 
+          selectedType === 'partnership-requests' || 
+          selectedType === 'branch-requests' || 
+          (isOrgDashboard && (activeCard === 'partners' || activeCard === 'branches')) || 
+          !(isOrgDashboard && activeCard)) && (
           <div className="grid !grid-cols-3">
-            {displayItems.map((organization) => {
+            {displayItems.length > 0 ? (
+              displayItems.map((organization) => {
             // Check if this is a partnership request
             const isPartnershipRequest = selectedType === 'partnership-requests' && 
               'partnershipId' in organization;
@@ -1948,7 +2346,22 @@ const Network: React.FC = () => {
                 
                 return false;
               })();
-              
+
+              const message = (orgWithPartnership as any).message || organization.description || '';
+              const messageKey = `pr-${organization.id}`;
+              const maxMsgLength = 180;
+              const isMessageExpanded = expandedMessages.has(messageKey);
+              const messagePreview = !isMessageExpanded && message.length > maxMsgLength
+                ? `${message.slice(0, maxMsgLength)}…`
+                : message;
+
+              // Determine organization type from partnership partner
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              const partner = (partnership.partners || []).find(p => p.id !== organizationId);
+              const isSchool = partner?.type === 'School';
+              const orgTypeLabel = isSchool ? 'Établissement scolaire' : 'Organisation';
+              const orgTypeColor = isSchool ? '#10b981' : '#3b82f6';
+
               return (
                 <div 
                   key={organization.id} 
@@ -1968,7 +2381,15 @@ const Network: React.FC = () => {
                     <div className="organization-info">
                       <h3 className="organization-name">{organization.name}</h3>
                       <div className="organization-meta">
-                        <span className="organization-type">Demande</span>
+                        <span 
+                          className="organization-type"
+                          style={{
+                            background: `${orgTypeColor}15`,
+                            color: orgTypeColor
+                          }}
+                        >
+                          {orgTypeLabel}
+                        </span>
                         <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
                           En attente
                         </span>
@@ -1976,7 +2397,59 @@ const Network: React.FC = () => {
                     </div>
                   </div>
                   <div className="organization-content">
-                    <p className="organization-description">{organization.description}</p>
+                    {message && (
+                      <div className="organization-description" style={{ marginBottom: '12px' }}>
+                        <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{messagePreview}</p>
+                        {message.length > maxMsgLength && (
+                          <button
+                            className="btn btn-link"
+                            style={{ padding: 0, marginTop: '6px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleMessage(messageKey);
+                            }}
+                          >
+                            Voir {isMessageExpanded ? 'moins' : 'plus'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {/* Indicateur visuel pour demande envoyée/reçue */}
+                    <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isInitiator ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: '#dbeafe',
+                          color: '#1e40af',
+                          border: '1px solid #93c5fd'
+                        }}>
+                          <i className="fas fa-paper-plane" style={{ fontSize: '0.7rem' }}></i>
+                          Demande envoyée
+                        </span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: '#fef3c7',
+                          color: '#92400e',
+                          border: '1px solid #fcd34d'
+                        }}>
+                          <i className="fas fa-inbox" style={{ fontSize: '0.7rem' }}></i>
+                          Demande reçue
+                        </span>
+                      )}
+                    </div>
                     {!isInitiator && (
                       <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                         <button
@@ -2032,6 +2505,11 @@ const Network: React.FC = () => {
               
               const canAction = isRecipient && branchRequest.status === 'pending';
               
+              // Determine organization type from branch request
+              const isSchool = organization.type === 'schools';
+              const orgTypeLabel = isSchool ? 'Établissement scolaire' : 'Organisation';
+              const orgTypeColor = isSchool ? '#10b981' : '#3b82f6';
+              
               return (
                 <div 
                   key={organization.id} 
@@ -2051,7 +2529,15 @@ const Network: React.FC = () => {
                     <div className="organization-info">
                       <h3 className="organization-name">{organization.name}</h3>
                       <div className="organization-meta">
-                        <span className="organization-type">Demande de rattachement</span>
+                        <span 
+                          className="organization-type"
+                          style={{
+                            background: `${orgTypeColor}15`,
+                            color: orgTypeColor
+                          }}
+                        >
+                          {orgTypeLabel}
+                        </span>
                         <span className="whitespace-nowrap organization-status" style={{ 
                           color: branchRequest.status === 'pending' ? '#f59e0b' : 
                                  branchRequest.status === 'confirmed' ? '#10b981' : '#ef4444'
@@ -2064,6 +2550,51 @@ const Network: React.FC = () => {
                   </div>
                   <div className="organization-content">
                     <p className="organization-description">{organization.description}</p>
+                    {/* Indicateur visuel pour demande envoyée/reçue */}
+                    <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {(() => {
+                        // Determine if current user is the initiator
+                        const currentUserIsInitiator = branchRequest.initiator === 'child' 
+                          ? (organizationType === 'company' && branchRequest.child_company?.id === organizationId) ||
+                            (organizationType === 'school' && branchRequest.child_school?.id === organizationId)
+                          : (organizationType === 'company' && branchRequest.parent_company?.id === organizationId) ||
+                            (organizationType === 'school' && branchRequest.parent_school?.id === organizationId);
+                        
+                        return currentUserIsInitiator ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            background: '#dbeafe',
+                            color: '#1e40af',
+                            border: '1px solid #93c5fd'
+                          }}>
+                            <i className="fas fa-paper-plane" style={{ fontSize: '0.7rem' }}></i>
+                            Demande envoyée
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            background: '#fef3c7',
+                            color: '#92400e',
+                            border: '1px solid #fcd34d'
+                          }}>
+                            <i className="fas fa-inbox" style={{ fontSize: '0.7rem' }}></i>
+                            Demande reçue
+                          </span>
+                        );
+                      })()}
+                    </div>
                     {canAction && (
                       <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                         <button
@@ -2099,19 +2630,28 @@ const Network: React.FC = () => {
             }
             
             // Don't show hover actions for partners (they're already connected)
-            const isPartner = selectedType === 'partner';
+            // For search results, also check if the organization is already a partner
+            const targetOrgId = parseInt(organization.id);
+            const isPartnerFromList = partnersAsOrganizations.some(partner => parseInt(partner.id) === targetOrgId);
+            // Do not block hover actions during search even if the active card is "partners"
+            const isPartner = selectedType === 'partner' || ((isOrgDashboard && activeCard === 'partners') && selectedType !== 'search') || isPartnerFromList;
             
             // Don't show hover actions for sub-organizations (they're part of the current organization)
-            const isSubOrganization = selectedType === 'sub-organizations';
+            // For search results, also check if the organization is already a sub-organization
+            const isSubOrganizationFromList = subOrgsAsOrganizations.some(subOrg => parseInt(subOrg.id) === targetOrgId);
+            // Do not block hover actions during search even if the active card is "branches"
+            const isSubOrganization = selectedType === 'sub-organizations' || ((isOrgDashboard && activeCard === 'branches') && selectedType !== 'search') || isSubOrganizationFromList;
             
             // Don't show hover actions for branch requests
             const isBranchRequestType = selectedType === 'branch-requests';
+            
+            // Check if this is a pending partnership (from activeCard === 'partners')
+            const isPendingPartnership = isOrgDashboard && activeCard === 'partners' && 'partnershipId' in organization;
             
             // Personal users (teacher/user) cannot attach to organizations
             const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
             
             // Check if there's already a confirmed branch request with this organization
-            const targetOrgId = parseInt(organization.id);
             const hasConfirmedBranchRequest = confirmedBranchRequests.some(req => {
               const parentOrg = req.parent_school || req.parent_company;
               const childOrg = req.child_school || req.child_company;
@@ -2121,28 +2661,178 @@ const Network: React.FC = () => {
                      req.status === 'confirmed';
             });
             
+            // If this is a pending partnership from activeCard, show partnership request actions
+            if (isPendingPartnership && 'partnershipId' in organization) {
+              const orgWithPartnership = organization as Organization & { partnershipId: number; partnership: Partnership };
+              const partnershipId = orgWithPartnership.partnershipId;
+              const partnership = orgWithPartnership.partnership;
+              
+              // Check if current user is the initiator
+              const isInitiator = (() => {
+                if (!partnership.initiator_id || !partnership.initiator_type) {
+                  return false;
+                }
+                const companyIds = state.user.available_contexts?.companies?.map(c => c.id) || [];
+                if (partnership.initiator_type === 'Company' && companyIds.includes(partnership.initiator_id)) {
+                  return true;
+                }
+                const schoolIds = state.user.available_contexts?.schools?.map(s => s.id) || [];
+                if (partnership.initiator_type === 'School' && schoolIds.includes(partnership.initiator_id)) {
+                  return true;
+                }
+                return false;
+              })();
+              
+              // Determine organization type from partnership partner
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              const partner = (partnership.partners || []).find(p => p.id !== organizationId);
+              const isSchool = partner?.type === 'School';
+              const orgTypeLabel = isSchool ? 'Établissement scolaire' : 'Organisation';
+              const orgTypeColor = isSchool ? '#10b981' : '#3b82f6';
+              
+              return (
+                <div 
+                  key={organization.id} 
+                  className="organization-card"
+                  onClick={() => {
+                    setSelectedPartnershipRequest({ partnership, partnerName: organization.name });
+                    setIsPartnershipRequestDetailsModalOpen(true);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="organization-header">
+                    <div className="organization-logo">
+                      <div className="logo-placeholder">
+                        <i className="fas fa-building"></i>
+                      </div>
+                    </div>
+                    <div className="organization-info">
+                      <h3 className="organization-name">{organization.name}</h3>
+                      <div className="organization-meta">
+                        <span 
+                          className="organization-type"
+                          style={{
+                            background: `${orgTypeColor}15`,
+                            color: orgTypeColor
+                          }}
+                        >
+                          {orgTypeLabel}
+                        </span>
+                        <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
+                          En attente
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="organization-content">
+                    <p className="organization-description">{organization.description}</p>
+                    {/* Indicateur visuel pour demande envoyée/reçue */}
+                    <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isInitiator ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: '#dbeafe',
+                          color: '#1e40af',
+                          border: '1px solid #93c5fd'
+                        }}>
+                          <i className="fas fa-paper-plane" style={{ fontSize: '0.7rem' }}></i>
+                          Demande envoyée
+                        </span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: '#fef3c7',
+                          color: '#92400e',
+                          border: '1px solid #fcd34d'
+                        }}>
+                          <i className="fas fa-inbox" style={{ fontSize: '0.7rem' }}></i>
+                          Demande reçue
+                        </span>
+                      )}
+                    </div>
+                    {!isInitiator && (
+                      <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                        <button
+                          className="btn btn-primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAcceptPartnership(partnershipId);
+                          }}
+                          style={{ flex: 1 }}
+                        >
+                          <i className="fas fa-check"></i> Accepter
+                        </button>
+                        <button
+                          className="btn btn-outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRejectPartnership(partnershipId);
+                          }}
+                          style={{ flex: 1 }}
+                        >
+                          <i className="fas fa-times"></i> Refuser
+                        </button>
+                      </div>
+                    )}
+                    {isInitiator && (
+                      <div style={{ marginTop: '16px', padding: '12px', background: '#f3f4f6', borderRadius: '8px', color: '#6b7280', fontSize: '0.9rem' }}>
+                        <i className="fas fa-info-circle"></i> Votre demande de partenariat a été envoyée
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            
+            // Determine which hover actions should be available
+            // Hide "Se rattacher" if current org already has a branch request (pending or confirmed)
+            const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest ? () => handleAttachRequest(organization) : undefined;
+            const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined;
+            const joinAction = isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined;
+            
+            // Check if there are any hover actions
+            const hasHoverActions = !!attachAction || !!partnershipAction || !!joinAction;
+            
             return (
           <OrganizationCard
             key={organization.id}
             organization={organization}
             onEdit={() => console.log('Edit organization:', organization.id)}
             onDelete={() => console.log('Delete organization:', organization.id)}
-            onAttach={!isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest ? () => handleAttachRequest(organization) : undefined}
-            onPartnership={!isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined}
-            onJoin={isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined}
+            onAttach={attachAction}
+            onPartnership={partnershipAction}
+            onJoin={joinAction}
             isPersonalUser={isPersonalUser}
-            onClick={() => handleViewDetails(organization)}
+            onClick={hasHoverActions ? undefined : () => handleViewDetails(organization)}
             hideJoinButton={selectedType === 'my-requests'}
             hideMembersCount={selectedType === 'my-requests'}
           />
             );
-          })}
+          })
+            ) : (
+              // Empty state for search and other tabs
+              selectedType === 'search' && !searchLoading ? (
+                <div className="empty-message">Aucun résultat de recherche trouvé</div>
+              ) : null
+            )}
           </div>
         )}
       </div>
 
       {/* Pagination for Schools */}
-      {selectedType === 'schools' && schoolsTotalPages > 1 && (
+      {selectedType === 'schools' && schoolsTotalPages > 1 && (schoolsTotalCount > 0 || filteredSchools.length > 0) && !(isOrgDashboard && activeCard) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {schoolsPage} sur {schoolsTotalPages} ({schoolsTotalCount} résultats)
@@ -2191,7 +2881,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Partnership Requests */}
-      {selectedType === 'partnership-requests' && requestsTotalPages > 1 && (
+      {selectedType === 'partnership-requests' && requestsTotalPages > 1 && (requestsTotalCount > 0 || filteredRequests.length > 0) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {requestsPage} sur {requestsTotalPages} ({requestsTotalCount} résultats)
@@ -2240,7 +2930,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Partners */}
-      {selectedType === 'partner' && partnersTotalPages > 1 && (
+      {selectedType === 'partner' && partnersTotalPages > 1 && (partnersTotalCount > 0 || filteredPartners.length > 0) && !(isOrgDashboard && activeCard === 'partners') && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {partnersPage} sur {partnersTotalPages} ({partnersTotalCount} résultats)
@@ -2289,7 +2979,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Search */}
-      {selectedType === 'search' && searchTotalPages > 1 && (
+      {selectedType === 'search' && searchTotalPages > 1 && (searchTotalCount > 0 || searchResultsAsOrganizations.length > 0) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {searchPage} sur {searchTotalPages} ({searchTotalCount} résultats)
@@ -2338,7 +3028,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Companies */}
-      {selectedType === 'companies' && companiesTotalPages > 1 && (
+      {selectedType === 'companies' && companiesTotalPages > 1 && (companiesTotalCount > 0 || filteredCompanies.length > 0) && !(isOrgDashboard && activeCard) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {companiesPage} sur {companiesTotalPages} ({companiesTotalCount} résultats)
@@ -2479,7 +3169,7 @@ const Network: React.FC = () => {
               setSelectedOrganizationForDetails(null);
             }}
             onAttach={
-              !isPartner && !isSubOrganization && !isPersonalUser && !hasConfirmedBranchRequest
+              !isPartner && !isSubOrganization && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest
                 ? () => handleAttachRequest(selectedOrganizationForDetails)
                 : undefined
             }

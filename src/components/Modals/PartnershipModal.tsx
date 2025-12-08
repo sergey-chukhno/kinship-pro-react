@@ -37,8 +37,9 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, in
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.partnershipType && formData.description) {
-      onSave(formData);
+    // Partnership type not used for now; only message is required
+    if (formData.description.trim()) {
+      onSave({ description: formData.description });
     }
   };
 
@@ -68,16 +69,19 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, in
             )}
             
             <div className="form-group">
-              <label htmlFor="partnershipType">Type de partenariat *</label>
+              <label htmlFor="partnershipType" style={{ color: '#9ca3af' }}>
+                Type de partenariat (désactivé pour l'instant)
+              </label>
               <select
                 id="partnershipType"
                 name="partnershipType"
                 value={formData.partnershipType}
                 onChange={handleInputChange}
-                required
+                disabled
                 className="form-select"
+                style={{ backgroundColor: '#f3f4f6', color: '#9ca3af', cursor: 'not-allowed' }}
               >
-                <option value="">Sélectionner un type</option>
+                <option value="">(Inactif pour le moment)</option>
                 {partnershipTypes.map((type) => (
                   <option key={type} value={type}>
                     {type}

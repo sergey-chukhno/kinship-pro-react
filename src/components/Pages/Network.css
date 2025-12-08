@@ -120,6 +120,29 @@
   border-color: var(--primary, #5570F1);
 }
 
+.summary-card.active {
+  background: var(--primary, #5570F1);
+  border-color: var(--primary, #5570F1);
+  color: white;
+}
+
+.summary-card.active .summary-content h3 {
+  color: white;
+}
+
+.summary-card.active .summary-content p {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.summary-card.active .summary-icon {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.summary-card.active:hover {
+  background: var(--primary-dark, #4c63d2);
+  border-color: var(--primary-dark, #4c63d2);
+}
+
 .summary-icon {
   width: 48px;
   height: 48px;
@@ -190,6 +213,11 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Ensure grid container allows overflow for hover buttons */
+.grid {
+  overflow: visible !important;
 }
 
 /* Pagination Styles */

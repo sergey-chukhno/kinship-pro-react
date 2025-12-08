@@ -58,6 +58,14 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
     }
   };
 
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'schools': return '#10b981'; // Green for schools
+      case 'companies': return '#3b82f6'; // Blue for companies
+      default: return '#3b82f6'; // Default to blue
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('fr-FR', {
@@ -67,8 +75,28 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
     });
   };
 
+  // Check if there are hover actions - if so, disable onClick on the card
+  const hasHoverActions = onAttach || onPartnership || (onJoin && !hideJoinButton);
+
+  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // If there are hover actions, prevent the modal from opening
+    if (hasHoverActions) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+    // Otherwise, call the onClick handler if it exists
+    if (onClick) {
+      onClick();
+    }
+  };
+
   return (
-    <div className="organization-card" onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default' }}>
+    <div 
+      className={`organization-card ${hasHoverActions ? 'has-hover-actions' : ''}`}
+      onClick={hasHoverActions ? undefined : handleCardClick}
+      style={{ cursor: hasHoverActions ? 'default' : (onClick ? 'pointer' : 'default') }}
+    >
       <div className="organization-header">
         <div className="organization-logo">
           {organization.logo ? (
@@ -82,7 +110,13 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
         <div className="organization-info">
           <h3 className="organization-name">{organization.name}</h3>
           <div className="organization-meta">
-            <span className="organization-type">
+            <span 
+              className="organization-type"
+              style={{
+                background: `${getTypeColor(organization.type)}15`,
+                color: getTypeColor(organization.type)
+              }}
+            >
               {organization.isParent ? 'Parent' : getTypeLabel(organization.type)}
             </span>
             <span 
