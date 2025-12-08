@@ -1219,16 +1219,43 @@ const Network: React.FC = () => {
       const parentId = parseInt(selectedOrganization.id);
       const message = attachData.motivation || 'Demande de rattachement';
 
+      // Validate: Branch requests can only be same-type (company->company, school->school)
+      // Partnerships can be cross-type, but branches cannot
+      if (organizationType === 'school' && selectedOrganization.type !== 'schools') {
+        showError('Une école ne peut devenir une branche que d\'une autre école. Pour collaborer avec une organisation, utilisez la fonctionnalité de partenariat.');
+        return;
+      }
+      
+      if (organizationType === 'company' && selectedOrganization.type !== 'companies') {
+        showError('Une organisation ne peut devenir une branche que d\'une autre organisation. Pour collaborer avec une école, utilisez la fonctionnalité de partenariat.');
+        return;
+      }
+
+      // Use current organization type to determine which endpoint to call
+      // Use parent organization type to determine which parameter to send
       if (organizationType === 'school') {
-        await createSchoolBranchRequest(organizationId, {
-          parent_school_id: parentId,
-          message: message
-        });
+        // Current org is a school - use school endpoint
+        const payload: any = { message: message };
+        if (selectedOrganization.type === 'schools') {
+          payload.parent_school_id = parentId;
+        } else {
+          showError('Type d\'organisation parent non supporté pour le rattachement');
+          return;
+        }
+        await createSchoolBranchRequest(organizationId, payload);
+      } else if (organizationType === 'company') {
+        // Current org is a company - use company endpoint
+        const payload: any = { message: message };
+        if (selectedOrganization.type === 'companies') {
+          payload.parent_company_id = parentId;
+        } else {
+          showError('Type d\'organisation parent non supporté pour le rattachement');
+          return;
+        }
+        await createCompanyBranchRequest(organizationId, payload);
       } else {
-        await createCompanyBranchRequest(organizationId, {
-          parent_company_id: parentId,
-          message: message
-        });
+        showError('Type d\'organisation non supporté pour le rattachement');
+        return;
       }
 
       showSuccess('Demande de rattachement envoyée avec succès');
@@ -1360,8 +1387,10 @@ const Network: React.FC = () => {
   };
 
   // Convert search results to organization-like format for display
+  // Display all schools and companies for all dashboards (partnerships can be cross-type)
+  // Branch requests will be validated separately to ensure same-type only
   const searchResultsAsOrganizations: Organization[] = [
-    // Convert schools
+    // Convert schools (show all for all dashboards)
     ...searchResults.schools.map((school: any) => ({
       id: String(school.id),
       name: school.name || 'Établissement scolaire',
@@ -1375,7 +1404,7 @@ const Network: React.FC = () => {
       contactPerson: '',
       email: school.email || ''
     })),
-    // Convert companies
+    // Convert companies (show all for all dashboards)
     ...searchResults.companies.map((company: any) => ({
       id: String(company.id),
       name: company.name || 'Organisation',
