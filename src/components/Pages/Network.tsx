@@ -2282,6 +2282,13 @@ const Network: React.FC = () => {
                 ? `${message.slice(0, maxMsgLength)}…`
                 : message;
 
+              // Determine organization type from partnership partner
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              const partner = (partnership.partners || []).find(p => p.id !== organizationId);
+              const isSchool = partner?.type === 'School';
+              const orgTypeLabel = isSchool ? 'Établissement scolaire' : 'Organisation';
+              const orgTypeColor = isSchool ? '#10b981' : '#3b82f6';
+
               return (
                 <div 
                   key={organization.id} 
@@ -2301,7 +2308,15 @@ const Network: React.FC = () => {
                     <div className="organization-info">
                       <h3 className="organization-name">{organization.name}</h3>
                       <div className="organization-meta">
-                        <span className="organization-type">Demande</span>
+                        <span 
+                          className="organization-type"
+                          style={{
+                            background: `${orgTypeColor}15`,
+                            color: orgTypeColor
+                          }}
+                        >
+                          {orgTypeLabel}
+                        </span>
                         <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
                           En attente
                         </span>
@@ -2417,6 +2432,11 @@ const Network: React.FC = () => {
               
               const canAction = isRecipient && branchRequest.status === 'pending';
               
+              // Determine organization type from branch request
+              const isSchool = organization.type === 'schools';
+              const orgTypeLabel = isSchool ? 'Établissement scolaire' : 'Organisation';
+              const orgTypeColor = isSchool ? '#10b981' : '#3b82f6';
+              
               return (
                 <div 
                   key={organization.id} 
@@ -2436,7 +2456,15 @@ const Network: React.FC = () => {
                     <div className="organization-info">
                       <h3 className="organization-name">{organization.name}</h3>
                       <div className="organization-meta">
-                        <span className="organization-type">Demande de rattachement</span>
+                        <span 
+                          className="organization-type"
+                          style={{
+                            background: `${orgTypeColor}15`,
+                            color: orgTypeColor
+                          }}
+                        >
+                          {orgTypeLabel}
+                        </span>
                         <span className="whitespace-nowrap organization-status" style={{ 
                           color: branchRequest.status === 'pending' ? '#f59e0b' : 
                                  branchRequest.status === 'confirmed' ? '#10b981' : '#ef4444'
@@ -2582,6 +2610,13 @@ const Network: React.FC = () => {
                 return false;
               })();
               
+              // Determine organization type from partnership partner
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              const partner = (partnership.partners || []).find(p => p.id !== organizationId);
+              const isSchool = partner?.type === 'School';
+              const orgTypeLabel = isSchool ? 'Établissement scolaire' : 'Organisation';
+              const orgTypeColor = isSchool ? '#10b981' : '#3b82f6';
+              
               return (
                 <div 
                   key={organization.id} 
@@ -2601,7 +2636,15 @@ const Network: React.FC = () => {
                     <div className="organization-info">
                       <h3 className="organization-name">{organization.name}</h3>
                       <div className="organization-meta">
-                        <span className="organization-type">Partenariat</span>
+                        <span 
+                          className="organization-type"
+                          style={{
+                            background: `${orgTypeColor}15`,
+                            color: orgTypeColor
+                          }}
+                        >
+                          {orgTypeLabel}
+                        </span>
                         <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
                           En attente
                         </span>
