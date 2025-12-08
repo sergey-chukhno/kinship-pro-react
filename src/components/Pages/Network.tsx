@@ -928,12 +928,12 @@ const Network: React.FC = () => {
       });
     });
 
-    // Combine both sets to get unique count
-    const allPartnerIds = new Set<number>();
-    confirmedPartnerIds.forEach(id => allPartnerIds.add(id));
-    pendingPartnerIds.forEach(id => allPartnerIds.add(id));
-    return allPartnerIds.size;
-  }, [state.user, state.showingPageType, partners, partnershipRequests, partnersTotalCount]);
+    // If the backend reports more pending requests than we have loaded,
+    // use that count to avoid undercounting pending partners.
+    const pendingCount = Math.max(pendingPartnerIds.size, requestsTotalCount || 0);
+
+    return confirmedPartnerIds.size + pendingCount;
+  }, [state.user, state.showingPageType, partners, partnershipRequests, partnersTotalCount, requestsTotalCount]);
 
   // Function to count branches (0 if it's a branch itself)
   // Includes confirmed branches + pending branch requests
