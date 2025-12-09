@@ -1,7 +1,8 @@
 import axiosClient from "../config";
 
 export function getSchoolMembersAccepted(SchoolId: number) {
-    return axiosClient.get(`/api/v1/schools/${SchoolId}/staff?status=confirmed`);
+    // Use members endpoint to include staff + students; filtering is done on the frontend
+    return axiosClient.get(`/api/v1/schools/${SchoolId}/members?status=confirmed`);
 }
 
 export function getSchoolMembersPending(SchoolId: number) {
