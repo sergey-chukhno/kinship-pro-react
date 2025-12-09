@@ -10,11 +10,12 @@
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   position: relative;
-  overflow: visible;
+  overflow: visible !important;
 }
 
 .organization-card.has-hover-actions {
   cursor: default;
+  overflow: visible !important;
 }
 
 .organization-card.has-hover-actions:hover {
@@ -22,6 +23,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-color: var(--primary, #5570F1);
   z-index: 10;
+  overflow: visible !important;
 }
 
 .organization-card:not(.has-hover-actions):hover {
@@ -220,7 +222,7 @@
 /* Hover Actions - Se rattacher et Demander un partenariat */
 .organization-hover-actions {
   position: relative;
-  display: flex;
+  display: flex !important;
   gap: 8px;
   margin-top: 12px;
   padding: 12px 0 0 0;
@@ -228,17 +230,48 @@
   background: transparent;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(8px);
-  transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top: none;
+  overflow: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease, max-height 0.3s ease, margin-top 0.2s ease, padding-top 0.2s ease, padding-bottom 0.2s ease, border-top 0.2s ease;
   pointer-events: none;
+  z-index: 1;
 }
 
 /* Show hover actions when card is hovered */
 .organization-card.has-hover-actions:hover .organization-hover-actions {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-  pointer-events: auto;
+  opacity: 1 !important;
+  visibility: visible !important;
+  max-height: 100px !important;
+  margin-top: 12px !important;
+  padding-top: 12px !important;
+  padding-bottom: 0 !important;
+  border-top: 1px solid var(--border, #e5e7eb) !important;
+  pointer-events: auto !important;
+  z-index: 1 !important;
+  display: flex !important;
+  overflow: visible !important;
+}
+
+/* Ensure hover actions are always visible on hover, regardless of card type */
+.organization-card.has-hover-actions:hover {
+  z-index: 50 !important;
+  position: relative !important;
+}
+
+/* Force visibility for hover actions on all organization cards */
+.organizations-list .organization-card.has-hover-actions:hover .organization-hover-actions,
+.grid .organization-card.has-hover-actions:hover .organization-hover-actions,
+.organization-card.has-hover-actions[class*="companies"]:hover .organization-hover-actions,
+.organization-card.has-hover-actions[class*="schools"]:hover .organization-hover-actions {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  max-height: 100px !important;
+  overflow: visible !important;
 }
 
 .btn-hover-action {

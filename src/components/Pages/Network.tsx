@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
 import PartnershipModal from '../Modals/PartnershipModal';
 import OrganizationDetailsModal from '../Modals/OrganizationDetailsModal';
@@ -136,6 +136,9 @@ const Network: React.FC = () => {
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [isAvailabilityDropdownOpen, setIsAvailabilityDropdownOpen] = useState(false);
+  // Filters - stage / atelier
+  const [filterStage, setFilterStage] = useState(false); // Propose un stage (take_trainee)
+  const [filterWorkshop, setFilterWorkshop] = useState(false); // Propose un atelier (propose_workshop)
 
   // Partnership requests state
   const [partnershipRequests, setPartnershipRequests] = useState<Partnership[]>([]);
@@ -176,6 +179,19 @@ const Network: React.FC = () => {
   const [networkMembers, setNetworkMembers] = useState<Member[]>([]);
   const [networkMembersLoading, setNetworkMembersLoading] = useState(false);
   const [networkMembersError, setNetworkMembersError] = useState<string | null>(null);
+  // Helpers: filter members by stage / workshop proposal
+  const memberMatchesStageWorkshop = useCallback(
+    (member: Member) => {
+      if (filterStage && !member.take_trainee) return false;
+      if (filterWorkshop && !member.propose_workshop) return false;
+      return true;
+    },
+    [filterStage, filterWorkshop]
+  );
+  const filteredNetworkMembers = useMemo(
+    () => networkMembers.filter(memberMatchesStageWorkshop),
+    [networkMembers, memberMatchesStageWorkshop]
+  );
 
   // Auto-switch to search tab when user starts typing in search
   useEffect(() => {
@@ -1081,8 +1097,8 @@ const Network: React.FC = () => {
 
   // Count network members
   const countNetworkMembers = useCallback((): number => {
-    return networkMembers.length;
-  }, [networkMembers]);
+    return networkMembers.filter(memberMatchesStageWorkshop).length;
+  }, [networkMembers, memberMatchesStageWorkshop]);
 
   // Fetch network members for org dashboards (counter + card)
   useEffect(() => {
@@ -1582,7 +1598,8 @@ const Network: React.FC = () => {
         const matchesOrganization = !organizationFilter || 
           member.organization?.toLowerCase().includes(organizationFilter.toLowerCase());
         // Note: availability is not in the NetworkUser interface, so we skip that filter for now
-        return matchesCompetence && matchesOrganization;
+        const matchesStageWorkshop = memberMatchesStageWorkshop(member);
+        return matchesCompetence && matchesOrganization && matchesStageWorkshop;
       })
     : [];
 
@@ -1967,6 +1984,26 @@ const Network: React.FC = () => {
             </button>
           )}
         </div>
+
+        {/* Stage / Atelier filters (apply to members lists & cards) */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: 12 }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
+            <input
+              type="checkbox"
+              checked={filterStage}
+              onChange={(e) => setFilterStage(e.target.checked)}
+            />
+            Propose un stage
+          </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
+            <input
+              type="checkbox"
+              checked={filterWorkshop}
+              onChange={(e) => setFilterWorkshop(e.target.checked)}
+            />
+            Propose un atelier
+          </label>
+        </div>
                 {/* Filters for personal user network */}
                 {isPersonalUser && selectedType === 'partner' && (
           <div className="network-user-filters" style={{ 
@@ -2242,12 +2279,12 @@ const Network: React.FC = () => {
             {networkMembersError && (
               <div className="error-message">{networkMembersError}</div>
             )}
-            {!networkMembersLoading && !networkMembersError && networkMembers.length === 0 && (
+            {!networkMembersLoading && !networkMembersError && filteredNetworkMembers.length === 0 && (
               <div className="empty-message">Aucun membre du réseau trouvé</div>
             )}
-            {!networkMembersLoading && !networkMembersError && networkMembers.length > 0 && (
+            {!networkMembersLoading && !networkMembersError && filteredNetworkMembers.length > 0 && (
               <div className="members-grid">
-                {networkMembers.map((member) => (
+                {filteredNetworkMembers.map((member) => (
                   <MemberCard
                     key={member.id}
                     member={member}
@@ -2630,17 +2667,21 @@ const Network: React.FC = () => {
             }
             
             // Don't show hover actions for partners (they're already connected)
-            // For search results, also check if the organization is already a partner
+            // For search results, DO NOT block on existing partners to allow proposing partnerships
             const targetOrgId = parseInt(organization.id);
             const isPartnerFromList = partnersAsOrganizations.some(partner => parseInt(partner.id) === targetOrgId);
-            // Do not block hover actions during search even if the active card is "partners"
-            const isPartner = selectedType === 'partner' || ((isOrgDashboard && activeCard === 'partners') && selectedType !== 'search') || isPartnerFromList;
+            const isPartner =
+              selectedType === 'partner' ||
+              ((isOrgDashboard && activeCard === 'partners') && selectedType !== 'search') ||
+              (selectedType !== 'search' && isPartnerFromList);
             
             // Don't show hover actions for sub-organizations (they're part of the current organization)
-            // For search results, also check if the organization is already a sub-organization
+            // For search results, DO NOT block on existing sub-organizations to allow hover actions
             const isSubOrganizationFromList = subOrgsAsOrganizations.some(subOrg => parseInt(subOrg.id) === targetOrgId);
-            // Do not block hover actions during search even if the active card is "branches"
-            const isSubOrganization = selectedType === 'sub-organizations' || ((isOrgDashboard && activeCard === 'branches') && selectedType !== 'search') || isSubOrganizationFromList;
+            const isSubOrganization =
+              selectedType === 'sub-organizations' ||
+              ((isOrgDashboard && activeCard === 'branches') && selectedType !== 'search') ||
+              (selectedType !== 'search' && isSubOrganizationFromList);
             
             // Don't show hover actions for branch requests
             const isBranchRequestType = selectedType === 'branch-requests';

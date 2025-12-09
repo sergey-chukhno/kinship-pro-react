@@ -220,6 +220,18 @@
   overflow: visible !important;
 }
 
+/* Ensure organizations-list allows overflow for hover buttons */
+.organizations-list {
+  overflow: visible !important;
+}
+
+/* Ensure all parent containers allow overflow for hover buttons */
+.organizations-list .grid,
+.organizations-list .organization-card,
+.organizations-list .organization-card.has-hover-actions {
+  overflow: visible !important;
+}
+
 /* Pagination Styles */
 .pagination-container {
   display: flex;

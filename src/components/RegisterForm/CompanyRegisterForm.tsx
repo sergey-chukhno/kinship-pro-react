@@ -105,6 +105,43 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const [companyRoles, setCompanyRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
+  // Friendly error mapper for registration
+  const translateErrorMessage = (text: string): string => {
+    const msg = (text || "").toLowerCase()
+    if (msg.includes("teachers and school administrators must use an academic email address")) {
+      return "Les enseignants et administrateurs scolaires doivent utiliser une adresse email académique."
+    }
+    if (msg.includes("siret")) {
+      return "SIRET invalide : 14 chiffres sans espace. Exemple : 12345678901234."
+    }
+    if (msg.includes("uai")) {
+      return "Code UAI invalide : 7 chiffres suivis d'une lettre. Exemple : 0591234A."
+    }
+    if (msg.includes("email") || msg.includes("academic")) {
+      return "Email invalide ou non académique. Utilisez une adresse professionnelle ou académique valide."
+    }
+    if (msg.includes("age") || msg.includes("birthday") || msg.includes("birth")) {
+      return "Date de naissance invalide ou âge minimum non respecté. Format attendu : AAAA-MM-JJ."
+    }
+    if (msg.includes("url") || msg.includes("website")) {
+      return "URL du site invalide. Utilisez un format complet : https://www.exemple.fr"
+    }
+    if (msg.includes("zip") || msg.includes("code postal")) {
+      return "Code postal invalide. Exemple : 75001."
+    }
+    return text
+  }
+
+  const formatRegistrationError = (error: any): string => {
+    const errorsArray = error?.response?.data?.errors
+    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
+      return errorsArray.map(translateErrorMessage).join("\n")
+    }
+    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
+    const translated = translateErrorMessage(backendMsg)
+    return translated || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
+  }
+
   React.useEffect(() => {
     const fetchSkills = async () => {
       try {
@@ -367,7 +404,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       })
       .catch((error) => {
         console.error("Erreur lors de l'inscription :", error)
-        showError("Erreur lors de l'inscription. Veuillez réessayer.")
+        showError(formatRegistrationError(error))
       })
   }
 
@@ -456,7 +493,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               required
               className="form-input"
             />
-            <p>Vous devez avoir plus de 13 ans pour vous inscrire</p>
+            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format JJ/MM/AAAA — âge minimum requis 13 ans</small>
           </div>
 
           <div className="form-field full-width">
@@ -470,6 +507,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               required
               className="form-input"
             />
+            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Utilisez une adresse professionnelle ou personnelle</small>
           </div>
 
           <div className="form-field">
@@ -638,7 +676,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 required
                 className="form-input"
               />
-              <p>14 chiffres</p>
+              <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>14 chiffres sans espace, ex : 12345678901234</small>
             </div>
 
             <div className="form-field">
@@ -652,6 +690,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 required
                 className="form-input"
               />
+              <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format email valide, ex : contact@entreprise.fr</small>
             </div>
 
             <div className="form-field">
@@ -664,6 +703,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 onChange={handleCompanyChange}
                 className="form-input"
               />
+              <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format attendu : https://www.monsite.fr</small>
             </div>
           </div>
         </div>
