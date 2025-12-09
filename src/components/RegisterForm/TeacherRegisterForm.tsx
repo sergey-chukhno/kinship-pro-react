@@ -64,15 +64,12 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { showSuccess, showError } = useToast()
 
   // Friendly error mapper for registration
-  const formatRegistrationError = (error: any): string => {
-    const errorsArray = error?.response?.data?.errors
-    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
-      return errorsArray.join("\n")
+  const translateErrorMessage = (text: string): string => {
+    const msg = (text || "").toLowerCase()
+    if (msg.includes("teachers and school administrators must use an academic email address")) {
+      return "Les enseignants et administrateurs scolaires doivent utiliser une adresse email académique."
     }
-    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
-    const msg = (backendMsg || "").toLowerCase()
-
-    if (msg.includes("email")) {
+    if (msg.includes("email") || msg.includes("academic")) {
       return "Email invalide ou non académique. Utilisez une adresse académique (ex : prenom.nom@ac-academie.fr)."
     }
     if (msg.includes("age") || msg.includes("birthday") || msg.includes("birth")) {
@@ -81,7 +78,17 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (msg.includes("url") || msg.includes("website")) {
       return "URL invalide. Utilisez un format complet : https://www.exemple.fr"
     }
-    return backendMsg || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
+    return text
+  }
+
+  const formatRegistrationError = (error: any): string => {
+    const errorsArray = error?.response?.data?.errors
+    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
+      return errorsArray.map(translateErrorMessage).join("\n")
+    }
+    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
+    const translated = translateErrorMessage(backendMsg)
+    return translated || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
   }
 
   const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
@@ -427,7 +434,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               onChange={handleUserChange}
               required
             />
-            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format AAAA-MM-JJ — âge minimum requis 13</small>
+            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format JJ/MM/AAAA — âge minimum requis 13 ans</small>
           </div>
 
           <div className="form-field full-width">
