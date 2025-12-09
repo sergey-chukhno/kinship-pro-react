@@ -61,7 +61,28 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   const longPolicyText = privatePolicy
   const navigate = useNavigate()
-  const { showSuccess } = useToast()
+  const { showSuccess, showError } = useToast()
+
+  // Friendly error mapper for registration
+  const formatRegistrationError = (error: any): string => {
+    const errorsArray = error?.response?.data?.errors
+    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
+      return errorsArray.join("\n")
+    }
+    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
+    const msg = (backendMsg || "").toLowerCase()
+
+    if (msg.includes("email")) {
+      return "Email invalide ou non académique. Utilisez une adresse académique (ex : prenom.nom@ac-academie.fr)."
+    }
+    if (msg.includes("age") || msg.includes("birthday") || msg.includes("birth")) {
+      return "Date de naissance invalide ou âge minimum non respecté. Format attendu : AAAA-MM-JJ."
+    }
+    if (msg.includes("url") || msg.includes("website")) {
+      return "URL invalide. Utilisez un format complet : https://www.exemple.fr"
+    }
+    return backendMsg || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
+  }
 
   const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
     minLength: false,
@@ -317,6 +338,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       })
       .catch((error) => {
         console.error("Erreur lors de l'inscription :", error)
+        showError(formatRegistrationError(error))
       })
   }
 
@@ -405,6 +427,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               onChange={handleUserChange}
               required
             />
+            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format AAAA-MM-JJ — âge minimum requis 13</small>
           </div>
 
           <div className="form-field full-width">
@@ -418,6 +441,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               onChange={handleUserChange}
               required
             />
+            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Utilisez une adresse académique (ex : prenom.nom@ac-academie.fr)</small>
           </div>
 
           <div className="form-field">

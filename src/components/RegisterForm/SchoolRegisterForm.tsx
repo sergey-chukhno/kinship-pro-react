@@ -56,6 +56,36 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const navigate = useNavigate()
   const { showSuccess, showError } = useToast()
 
+  // Friendly error mapper for registration
+  const formatRegistrationError = (error: any): string => {
+    const errorsArray = error?.response?.data?.errors
+    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
+      return errorsArray.join("\n")
+    }
+    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
+    const msg = (backendMsg || "").toLowerCase()
+
+    if (msg.includes("uai")) {
+      return "Code UAI invalide : 7 chiffres suivis d'une lettre. Exemple : 0591234A."
+    }
+    if (msg.includes("siret")) {
+      return "SIRET invalide : 14 chiffres sans espace. Exemple : 12345678901234."
+    }
+    if (msg.includes("email")) {
+      return "Email invalide ou non académique. Utilisez une adresse académique/établissement."
+    }
+    if (msg.includes("age") || msg.includes("birthday") || msg.includes("birth")) {
+      return "Date de naissance invalide ou âge minimum non respecté. Format attendu : AAAA-MM-JJ."
+    }
+    if (msg.includes("url") || msg.includes("website")) {
+      return "URL du site invalide. Utilisez un format complet : https://www.exemple.fr"
+    }
+    if (msg.includes("zip") || msg.includes("code postal")) {
+      return "Code postal invalide. Exemple : 59000."
+    }
+    return backendMsg || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
+  }
+
   const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
     minLength: false,
     lowercase: false,
@@ -282,7 +312,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       })
       .catch((error) => {
         console.error("Erreur lors de l'inscription :", error)
-        showError("Erreur lors de l'inscription. Veuillez réessayer.")
+        showError(formatRegistrationError(error))
       })
   }
 
@@ -620,7 +650,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     onChange={handleSchoolChange}
                     required
                   />
-                  <p>7 chiffres et 1 lettre</p>
+                  <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format : 7 chiffres + 1 lettre, ex : 0591234A</small>
                 </div>
 
                 <div className="form-field full-width">
