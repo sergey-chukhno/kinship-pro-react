@@ -87,6 +87,27 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   const navigate = useNavigate()
   const { showSuccess, showError } = useToast()
 
+  // Friendly error mapper for registration
+  const formatRegistrationError = (error: any): string => {
+    const errorsArray = error?.response?.data?.errors
+    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
+      return errorsArray.join("\n")
+    }
+    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
+    const msg = (backendMsg || "").toLowerCase()
+
+    if (msg.includes("email")) {
+      return "Email invalide. Utilisez une adresse valide (académique ou personnelle)."
+    }
+    if (msg.includes("age") || msg.includes("birthday") || msg.includes("birth")) {
+      return "Date de naissance invalide ou âge minimum non respecté. Format attendu : AAAA-MM-JJ."
+    }
+    if (msg.includes("url") || msg.includes("website")) {
+      return "URL invalide. Utilisez un format complet : https://www.exemple.fr"
+    }
+    return backendMsg || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
+  }
+
   const [user, setUser] = useState({
     email: "",
     password: "",
@@ -411,7 +432,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       })
       .catch((error) => {
         console.error("Erreur lors de l'inscription :", error)
-        showError("Erreur lors de l'inscription. Veuillez réessayer.")
+        showError(formatRegistrationError(error))
       })
   }
 
@@ -505,7 +526,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               onChange={handleUserChange}
               required
             />
-            <p>Vous devez avoir plus de 13 ans pour vous inscrire</p>
+            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format AAAA-MM-JJ — âge minimum requis (13+)</small>
           </div>
 
 
@@ -521,6 +542,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               onChange={handleUserChange}
               required
             />
+            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Exemple : prenom.nom@gmail.com</small>
           </div>
 
           <div className="form-field">
