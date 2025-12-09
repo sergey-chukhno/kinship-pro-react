@@ -1503,15 +1503,6 @@ const Members: React.FC = () => {
               <button className="btn btn-primary" onClick={handleAssignStudentToClass}>
                 Assigner
               </button>
-              <button
-                className="btn btn-outline"
-                onClick={() => {
-                  setIsAssignModalOpen(false);
-                  setIsAddClassModalOpen(true);
-                }}
-              >
-                Créer une nouvelle classe
-              </button>
             </div>
           </div>
         </div>
