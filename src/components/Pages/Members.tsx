@@ -1150,9 +1150,13 @@ const Members: React.FC = () => {
                 const systemRole = ((member as any).systemRole || '').toLowerCase();
                 const membershipRole = ((member as any).membershipRole || '').toLowerCase();
                 const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
+                const isSuperadmin = (member as any).isSuperadmin || false;
                 
                 // Exclude students first
                 if (studentRoles.includes(primaryRoleRaw) || studentRoles.includes(systemRole)) return false;
+                
+                // Always include superadmins in Staff tab
+                if (isSuperadmin) return true;
                 
                 // Check if system role is a staff role (teacher or school admin)
                 if (systemRole && staffRoles.includes(systemRole)) return true;
