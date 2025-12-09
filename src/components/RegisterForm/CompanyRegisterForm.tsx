@@ -106,22 +106,19 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [companyRoles, setCompanyRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([])
 
   // Friendly error mapper for registration
-  const formatRegistrationError = (error: any): string => {
-    const errorsArray = error?.response?.data?.errors
-    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
-      return errorsArray.join("\n")
+  const translateErrorMessage = (text: string): string => {
+    const msg = (text || "").toLowerCase()
+    if (msg.includes("teachers and school administrators must use an academic email address")) {
+      return "Les enseignants et administrateurs scolaires doivent utiliser une adresse email académique."
     }
-    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
-    const msg = (backendMsg || "").toLowerCase()
-
     if (msg.includes("siret")) {
       return "SIRET invalide : 14 chiffres sans espace. Exemple : 12345678901234."
     }
     if (msg.includes("uai")) {
       return "Code UAI invalide : 7 chiffres suivis d'une lettre. Exemple : 0591234A."
     }
-    if (msg.includes("email")) {
-      return "Email invalide ou non académique. Utilisez une adresse professionnelle/ académique valide."
+    if (msg.includes("email") || msg.includes("academic")) {
+      return "Email invalide ou non académique. Utilisez une adresse professionnelle ou académique valide."
     }
     if (msg.includes("age") || msg.includes("birthday") || msg.includes("birth")) {
       return "Date de naissance invalide ou âge minimum non respecté. Format attendu : AAAA-MM-JJ."
@@ -132,7 +129,17 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (msg.includes("zip") || msg.includes("code postal")) {
       return "Code postal invalide. Exemple : 75001."
     }
-    return backendMsg || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
+    return text
+  }
+
+  const formatRegistrationError = (error: any): string => {
+    const errorsArray = error?.response?.data?.errors
+    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
+      return errorsArray.map(translateErrorMessage).join("\n")
+    }
+    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
+    const translated = translateErrorMessage(backendMsg)
+    return translated || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
   }
 
   React.useEffect(() => {

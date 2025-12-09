@@ -88,16 +88,13 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
   const { showSuccess, showError } = useToast()
 
   // Friendly error mapper for registration
-  const formatRegistrationError = (error: any): string => {
-    const errorsArray = error?.response?.data?.errors
-    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
-      return errorsArray.join("\n")
+  const translateErrorMessage = (text: string): string => {
+    const msg = (text || "").toLowerCase()
+    if (msg.includes("teachers and school administrators must use an academic email address")) {
+      return "Les enseignants et administrateurs scolaires doivent utiliser une adresse email académique."
     }
-    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
-    const msg = (backendMsg || "").toLowerCase()
-
-    if (msg.includes("email")) {
-      return "Email invalide. Utilisez une adresse valide (académique ou personnelle)."
+    if (msg.includes("email") || msg.includes("academic")) {
+      return "Email invalide ou non académique. Utilisez une adresse valide (académique ou personnelle)."
     }
     if (msg.includes("age") || msg.includes("birthday") || msg.includes("birth")) {
       return "Date de naissance invalide ou âge minimum non respecté. Format attendu : AAAA-MM-JJ."
@@ -105,7 +102,17 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
     if (msg.includes("url") || msg.includes("website")) {
       return "URL invalide. Utilisez un format complet : https://www.exemple.fr"
     }
-    return backendMsg || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
+    return text
+  }
+
+  const formatRegistrationError = (error: any): string => {
+    const errorsArray = error?.response?.data?.errors
+    if (Array.isArray(errorsArray) && errorsArray.length > 0) {
+      return errorsArray.map(translateErrorMessage).join("\n")
+    }
+    const backendMsg = error?.response?.data?.message || error?.response?.data?.error || error?.message || ""
+    const translated = translateErrorMessage(backendMsg)
+    return translated || "Erreur lors de l'inscription. Vérifiez les champs puis réessayez."
   }
 
   const [user, setUser] = useState({
