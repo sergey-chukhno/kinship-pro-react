@@ -2630,17 +2630,21 @@ const Network: React.FC = () => {
             }
             
             // Don't show hover actions for partners (they're already connected)
-            // For search results, also check if the organization is already a partner
+            // For search results, DO NOT block on existing partners to allow proposing partnerships
             const targetOrgId = parseInt(organization.id);
             const isPartnerFromList = partnersAsOrganizations.some(partner => parseInt(partner.id) === targetOrgId);
-            // Do not block hover actions during search even if the active card is "partners"
-            const isPartner = selectedType === 'partner' || ((isOrgDashboard && activeCard === 'partners') && selectedType !== 'search') || isPartnerFromList;
+            const isPartner =
+              selectedType === 'partner' ||
+              ((isOrgDashboard && activeCard === 'partners') && selectedType !== 'search') ||
+              (selectedType !== 'search' && isPartnerFromList);
             
             // Don't show hover actions for sub-organizations (they're part of the current organization)
-            // For search results, also check if the organization is already a sub-organization
+            // For search results, DO NOT block on existing sub-organizations to allow hover actions
             const isSubOrganizationFromList = subOrgsAsOrganizations.some(subOrg => parseInt(subOrg.id) === targetOrgId);
-            // Do not block hover actions during search even if the active card is "branches"
-            const isSubOrganization = selectedType === 'sub-organizations' || ((isOrgDashboard && activeCard === 'branches') && selectedType !== 'search') || isSubOrganizationFromList;
+            const isSubOrganization =
+              selectedType === 'sub-organizations' ||
+              ((isOrgDashboard && activeCard === 'branches') && selectedType !== 'search') ||
+              (selectedType !== 'search' && isSubOrganizationFromList);
             
             // Don't show hover actions for branch requests
             const isBranchRequestType = selectedType === 'branch-requests';
