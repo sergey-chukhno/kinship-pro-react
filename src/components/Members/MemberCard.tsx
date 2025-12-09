@@ -14,6 +14,7 @@ interface MemberCardProps {
   disableRoleDropdown?: boolean; // New prop to disable role dropdown
   isSuperadmin?: boolean; // New prop to indicate if member is superadmin
   onViewProfile?: () => void; // Optional prop for viewing profile
+  extraActions?: Array<{ label: string; onClick: () => void }>;
 }
 
 const MemberCard: React.FC<MemberCardProps> = ({
@@ -25,7 +26,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
   disableRoleDropdown = false,
   isSuperadmin = false,
   onViewProfile,
-  categoryTag
+  categoryTag,
+  extraActions = []
 }) => {
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -188,6 +190,18 @@ const MemberCard: React.FC<MemberCardProps> = ({
             <i className="fas fa-eye"></i>
             Voir profil
           </button>
+          {extraActions.map((action, idx) => (
+            <button
+              key={idx}
+              className="btn btn-outline btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                action.onClick();
+              }}
+            >
+              {action.label}
+            </button>
+          ))}
         </div>
       </div>
       
