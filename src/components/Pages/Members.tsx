@@ -528,9 +528,32 @@ const Members: React.FC = () => {
       return;
     }
     try {
-      const role = (selectedStudent.roles?.[0] || 'etudiant').toLowerCase();
+      // Use systemRole (role_in_system) for backend, not the translated/organization role
+      const systemRole = (selectedStudent as any).systemRole || (selectedStudent as any).rawRole || '';
+      // Map common student roles to backend expected values
+      const roleMap: Record<string, string> = {
+        'collegien': 'collegien',
+        'collégien': 'collegien',
+        'lyceen': 'lyceen',
+        'lycéen': 'lyceen',
+        'eleve_primaire': 'eleve_primaire',
+        'élève_primaire': 'eleve_primaire',
+        'etudiant': 'etudiant',
+        'étudiant': 'etudiant',
+        'student': 'etudiant',
+        'eleve': 'collegien', // Default fallback
+        'élève': 'collegien'
+      };
+      const normalizedRole = roleMap[systemRole.toLowerCase()] || systemRole.toLowerCase() || 'etudiant';
+      
+      // Backend requires first_name and last_name even for existing students
       await addExistingStudentToLevel(currentSchoolId, selectedLevelId, {
-        student: { email: selectedStudent.email, role }
+        student: { 
+          email: selectedStudent.email, 
+          role: normalizedRole,
+          first_name: selectedStudent.firstName || '',
+          last_name: selectedStudent.lastName || ''
+        }
       });
       showSuccess("Élève assigné à la classe.");
       setIsAssignModalOpen(false);
@@ -540,8 +563,15 @@ const Members: React.FC = () => {
       await fetchLevels();
     } catch (err: any) {
       console.error("Assignation élève -> classe:", err);
-      const msg = err?.response?.data?.message || err?.response?.data?.error || "Erreur lors de l'assignation.";
-      showError(msg);
+      let errorMsg = "Erreur lors de l'assignation.";
+      if (err?.response?.data?.details && Array.isArray(err.response.data.details)) {
+        errorMsg = err.response.data.details.join(', ');
+      } else if (err?.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err?.response?.data?.error) {
+        errorMsg = err.response.data.error;
+      }
+      showError(errorMsg);
     }
   };
 
