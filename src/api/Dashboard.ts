@@ -52,8 +52,10 @@ export const updateTeacherClass = (classId: number, classData: { class: { name: 
   return axiosClient.patch(`/api/v1/teachers/classes/${classId}`, classData);
 };
 
-export const getTeacherClassStudents = (classId: number) => {
-  return axiosClient.get(`/api/v1/teachers/classes/${classId}/students`);
+export const getTeacherClassStudents = (classId: number, perPage: number = 100) => {
+  return axiosClient.get(`/api/v1/teachers/classes/${classId}/students`, {
+    params: { per_page: perPage }
+  });
 };
 
 export const createTeacherLevelStudent = (levelId: number, studentData: {

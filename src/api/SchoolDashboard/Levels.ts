@@ -49,8 +49,10 @@ export function addExistingStudentToLevel(schoolId: number, levelId: number, stu
     return axiosClient.post(`/api/v1/schools/${schoolId}/levels/${levelId}/students`, studentData);
 }
 
-export function getLevelStudents(schoolId: number, levelId: number) {
-    return axiosClient.get(`/api/v1/schools/${schoolId}/levels/${levelId}/students`);
+export function getLevelStudents(schoolId: number, levelId: number, perPage: number = 100) {
+    return axiosClient.get(`/api/v1/schools/${schoolId}/levels/${levelId}/students`, {
+        params: { per_page: perPage }
+    });
 }
 
 export function getSchoolLevel(schoolId: number, levelId: number) {
