@@ -493,7 +493,7 @@ const CompanyRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               required
               className="form-input"
             />
-            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format AAAA-MM-JJ — âge minimum requis (13+)</small>
+            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format JJ/MM/AAAA — âge minimum requis 13 ans</small>
           </div>
 
           <div className="form-field full-width">

@@ -533,7 +533,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
               onChange={handleUserChange}
               required
             />
-            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format AAAA-MM-JJ — âge minimum requis (13+)</small>
+            <small style={{ color: "#6b7280", fontSize: "0.85rem" }}>Format JJ/MM/AAAA — âge minimum requis 13 ans</small>
           </div>
 
 
