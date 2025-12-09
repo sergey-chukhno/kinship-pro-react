@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
 import PartnershipModal from '../Modals/PartnershipModal';
 import OrganizationDetailsModal from '../Modals/OrganizationDetailsModal';
@@ -136,6 +136,9 @@ const Network: React.FC = () => {
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [isAvailabilityDropdownOpen, setIsAvailabilityDropdownOpen] = useState(false);
+  // Filters - stage / atelier
+  const [filterStage, setFilterStage] = useState(false); // Propose un stage (take_trainee)
+  const [filterWorkshop, setFilterWorkshop] = useState(false); // Propose un atelier (propose_workshop)
 
   // Partnership requests state
   const [partnershipRequests, setPartnershipRequests] = useState<Partnership[]>([]);
@@ -176,6 +179,19 @@ const Network: React.FC = () => {
   const [networkMembers, setNetworkMembers] = useState<Member[]>([]);
   const [networkMembersLoading, setNetworkMembersLoading] = useState(false);
   const [networkMembersError, setNetworkMembersError] = useState<string | null>(null);
+  // Helpers: filter members by stage / workshop proposal
+  const memberMatchesStageWorkshop = useCallback(
+    (member: Member) => {
+      if (filterStage && !member.take_trainee) return false;
+      if (filterWorkshop && !member.propose_workshop) return false;
+      return true;
+    },
+    [filterStage, filterWorkshop]
+  );
+  const filteredNetworkMembers = useMemo(
+    () => networkMembers.filter(memberMatchesStageWorkshop),
+    [networkMembers, memberMatchesStageWorkshop]
+  );
 
   // Auto-switch to search tab when user starts typing in search
   useEffect(() => {
@@ -1081,8 +1097,8 @@ const Network: React.FC = () => {
 
   // Count network members
   const countNetworkMembers = useCallback((): number => {
-    return networkMembers.length;
-  }, [networkMembers]);
+    return networkMembers.filter(memberMatchesStageWorkshop).length;
+  }, [networkMembers, memberMatchesStageWorkshop]);
 
   // Fetch network members for org dashboards (counter + card)
   useEffect(() => {
@@ -1582,7 +1598,8 @@ const Network: React.FC = () => {
         const matchesOrganization = !organizationFilter || 
           member.organization?.toLowerCase().includes(organizationFilter.toLowerCase());
         // Note: availability is not in the NetworkUser interface, so we skip that filter for now
-        return matchesCompetence && matchesOrganization;
+        const matchesStageWorkshop = memberMatchesStageWorkshop(member);
+        return matchesCompetence && matchesOrganization && matchesStageWorkshop;
       })
     : [];
 
@@ -1967,6 +1984,26 @@ const Network: React.FC = () => {
             </button>
           )}
         </div>
+
+        {/* Stage / Atelier filters (apply to members lists & cards) */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: 12 }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
+            <input
+              type="checkbox"
+              checked={filterStage}
+              onChange={(e) => setFilterStage(e.target.checked)}
+            />
+            Propose un stage
+          </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
+            <input
+              type="checkbox"
+              checked={filterWorkshop}
+              onChange={(e) => setFilterWorkshop(e.target.checked)}
+            />
+            Propose un atelier
+          </label>
+        </div>
                 {/* Filters for personal user network */}
                 {isPersonalUser && selectedType === 'partner' && (
           <div className="network-user-filters" style={{ 
@@ -2242,12 +2279,12 @@ const Network: React.FC = () => {
             {networkMembersError && (
               <div className="error-message">{networkMembersError}</div>
             )}
-            {!networkMembersLoading && !networkMembersError && networkMembers.length === 0 && (
+            {!networkMembersLoading && !networkMembersError && filteredNetworkMembers.length === 0 && (
               <div className="empty-message">Aucun membre du réseau trouvé</div>
             )}
-            {!networkMembersLoading && !networkMembersError && networkMembers.length > 0 && (
+            {!networkMembersLoading && !networkMembersError && filteredNetworkMembers.length > 0 && (
               <div className="members-grid">
-                {networkMembers.map((member) => (
+                {filteredNetworkMembers.map((member) => (
                   <MemberCard
                     key={member.id}
                     member={member}
