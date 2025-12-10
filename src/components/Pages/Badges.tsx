@@ -247,7 +247,7 @@ const Badges: React.FC = () => {
           <div className="section-title-row">
             <div className="section-title-left">
               <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
-              <h2>Cartographie des badges attribués</h2>
+              <h2>{state.showingPageType === 'user' ? 'Cartographie de mes badges' : 'Cartographie des badges attribués'}</h2>
             </div>
             <div className="badges-actions">
               <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
