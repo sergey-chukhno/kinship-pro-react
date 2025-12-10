@@ -318,6 +318,7 @@ export interface BadgeAPI {
   series: string;
   domains: BadgeSkillAPI[];
   expertises: BadgeSkillAPI[];
+  image_url?: string; // Optional image URL from backend (if provided)
 }
 
 export interface BadgeSkillAPI {

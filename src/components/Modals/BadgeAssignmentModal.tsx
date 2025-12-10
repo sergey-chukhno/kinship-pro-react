@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BadgeAttribution, BadgeAPI } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
+import { getLocalBadgeImage } from '../../utils/badgeImages';
 import './Modal.css';
 import './BadgeAssignmentModal.css';
 import { useToast } from '../../hooks/useToast';
@@ -62,6 +63,15 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
   const [badges, setBadges] = useState<BadgeAPI[]>([]);
   const [loadingBadges, setLoadingBadges] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<BadgeAPI | null>(null);
+  
+  // Determine preview image (backend URL > local mapping > fallback)
+  const previewImage = useMemo(() => {
+    if (selectedBadge?.image_url) {
+      return selectedBadge.image_url;
+    }
+    const local = getLocalBadgeImage(selectedBadge?.name);
+    return local || '/TouKouLeur-Jaune.png';
+  }, [selectedBadge]);
 
   // Update selected participants when preselectedParticipant changes
   useEffect(() => {
@@ -302,7 +312,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
           <div className="badge-display-section">
             <div className="badge-icon-large">
               <img 
-                src={selectedBadge ? '/TouKouLeur-Jaune.png' : '/TouKouLeur-Jaune.png'} 
+                src={previewImage} 
                 alt={selectedBadge?.name || 'Badge'} 
                 className="badge-image-large" 
               />
