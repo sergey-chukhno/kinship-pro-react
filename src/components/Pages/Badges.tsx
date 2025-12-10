@@ -175,23 +175,48 @@ const Badges: React.FC = () => {
     setIsAssignmentModalOpen(false);
   };
 
+  // Count attributions per badge (name + level combination)
+  const badgeAttributionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredBadges.forEach((badge) => {
+      // Create a unique key from badge name and level
+      const key = `${badge.name}|${badge.level}`;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [filteredBadges]);
+
   // Group badges by level/domain for cartography view
-  const badgesByLevel = filteredBadges.reduce((acc, badge) => {
-    let groupKey: string;
-    if (selectedSeries === 'CPS') {
-      // For CPS, group by domain
-      groupKey = badge.domains[0] || 'other';
-    } else {
-      // For TouKouLeur, group by level (extract just "Niveau 1", "Niveau 2", etc.)
-      // badge.level is "Niveau 1", we need to match it with section keys
-      groupKey = badge.level; // This will be "Niveau 1", "Niveau 2", etc.
-    }
-    if (!acc[groupKey]) {
-      acc[groupKey] = [];
-    }
-    acc[groupKey].push(badge);
-    return acc;
-  }, {} as Record<string, Badge[]>);
+  // Also deduplicate badges (show unique badge name + level combinations)
+  const badgesByLevel = useMemo(() => {
+    const grouped: Record<string, Badge[]> = {};
+    const seen = new Set<string>();
+    
+    filteredBadges.forEach((badge) => {
+      const key = `${badge.name}|${badge.level}`;
+      
+      // Only add unique badge (name + level) to the group
+      if (!seen.has(key)) {
+        seen.add(key);
+        
+        let groupKey: string;
+        if (selectedSeries === 'CPS') {
+          // For CPS, group by domain
+          groupKey = badge.domains[0] || 'other';
+        } else {
+          // For TouKouLeur, group by level
+          groupKey = badge.level; // This will be "Niveau 1", "Niveau 2", etc.
+        }
+        
+        if (!grouped[groupKey]) {
+          grouped[groupKey] = [];
+        }
+        grouped[groupKey].push(badge);
+      }
+    });
+    
+    return grouped;
+  }, [filteredBadges, selectedSeries]);
 
   // Define levels/domains based on selected series
   const getSections = () => {
@@ -347,15 +372,22 @@ const Badges: React.FC = () => {
                           </div>
                           
                           <div className="badges-grid">
-                            {sectionBadges.map((badge) => (
-                              <BadgeCard
-                                key={badge.id}
-                                badge={badge}
-                                onClick={() => handleBadgeClick(badge)}
-                                onEdit={() => handleEditBadge(badge)}
-                                onDelete={() => handleDeleteBadge(badge.id)}
-                              />
-                            ))}
+                            {sectionBadges.map((badge) => {
+                              // Get attribution count for this badge (name + level)
+                              const badgeKey = `${badge.name}|${badge.level}`;
+                              const attributionCount = badgeAttributionCounts[badgeKey] || 0;
+                              
+                              return (
+                                <BadgeCard
+                                  key={badge.id}
+                                  badge={badge}
+                                  onClick={() => handleBadgeClick(badge)}
+                                  onEdit={() => handleEditBadge(badge)}
+                                  onDelete={() => handleDeleteBadge(badge.id)}
+                                  attributionCount={attributionCount}
+                                />
+                              );
+                            })}
                           </div>
                         </div>
                       );

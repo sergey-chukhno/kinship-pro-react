@@ -7,9 +7,10 @@ interface BadgeCardProps {
   onClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  attributionCount?: number; // Number of times this badge has been attributed
 }
 
-const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete }) => {
+const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete, attributionCount = 0 }) => {
 
   const getLevelColor = (level: string) => {
     if (level.includes('Niveau 1')) return '#10b981';
@@ -52,7 +53,7 @@ const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete 
       <div className="badge-counters">
         <div className="badge-counter">
           <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="counter-icon" />
-          <span>0</span>
+          <span>{attributionCount}</span>
         </div>
       </div>
     </div>

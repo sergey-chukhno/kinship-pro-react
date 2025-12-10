@@ -37,13 +37,6 @@ export const mapBackendUserBadgeToBadge = (userBadge: any): Badge => {
   const badgeName = badge.name || 'Badge';
   const badgeSeriesRaw = badge.series || '';
   const badgeSeries = normalizeSeries(badgeSeriesRaw); // Normaliser en minuscules
-  
-  console.log('Mapping badge:', {
-    name: badgeName,
-    seriesRaw: badgeSeriesRaw,
-    seriesNormalized: badgeSeries
-  });
-  
   const badgeLevel = badge.level ? badge.level.replace('level_', '') : '1';
   
   // Déterminer l'image : backend image_url > mapping local > placeholder
