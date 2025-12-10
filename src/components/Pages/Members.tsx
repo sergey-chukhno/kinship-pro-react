@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole, removeCompanyMember } from '../../api/CompanyDashboard/Members';
-import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel } from '../../api/SchoolDashboard/Levels';
+import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel, addExistingStudentToLevel } from '../../api/SchoolDashboard/Levels';
 import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole, removeSchoolMember } from '../../api/SchoolDashboard/Members';
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getSkills } from '../../api/Skills';
@@ -61,6 +61,8 @@ const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
   const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
   const isTeacherContext = state.showingPageType === 'teacher';
+  const currentSchoolRole = state.user?.available_contexts?.schools?.[0]?.role || '';
+  const isSchoolAdmin = currentSchoolRole === 'admin' || currentSchoolRole === 'superadmin';
   const { showSuccess, showError } = useToast();
   const showStaffTab = !isTeacherContext;
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -72,7 +74,7 @@ const Members: React.FC = () => {
   const [competenceFilter, setCompetenceFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community'>(
+  const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community' | 'students'>(
     isTeacherContext ? 'class' : 'members'
   );
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
@@ -97,6 +99,10 @@ const Members: React.FC = () => {
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+  const [currentSchoolId, setCurrentSchoolId] = useState<number | null>(null);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Member | null>(null);
+  const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
 
   const fetchMembers = async () => {
     // Ne pas récupérer les membres pour les teachers
@@ -116,6 +122,7 @@ const Members: React.FC = () => {
         : currentUser.data?.available_contexts?.companies?.[0]?.id;
 
       if (!contextId) return;
+      if (isEdu) setCurrentSchoolId(contextId);
 
       // 2. Bascule de l'appel API (Liste de base)
       const membersRes = isEdu
@@ -139,22 +146,15 @@ const Members: React.FC = () => {
 
             // --- TRAITEMENT DE LA DISPONIBILITÉ (copie de votre code existant) ---
             const availabilityList = availabilityToLabels(profile.availability);
-            const rawRole =
-              profile.role_in_company ||
-              m.role_in_company ||
-              profile.role_in_school ||
-              m.role_in_school ||
-              profile.role_in_system ||
-              m.role_in_system ||
-              profile.role ||
-              m.role ||
-              'member';
+            // Prioritize role_in_system for staff classification, then role_in_school/role_in_company for membership role
+            const systemRole = profile.role || profile.role_in_system || m.role_in_system || m.role || '';
+            const membershipRole = profile.role_in_school || m.role_in_school || profile.role_in_company || m.role_in_company || 'member';
+            // rawRole prioritizes system role for student/staff classification
+            const rawRole = systemRole || membershipRole || 'member';
 
-            const roleValues =
-              (Array.isArray(profile.roles) && profile.roles.length > 0
-                ? profile.roles
-                : [rawRole]
-              ).filter(Boolean);
+            // roleValues should use membershipRole for the role selector dropdown (organization roles: admin, superadmin, referent, intervenant, member)
+            // This is separate from systemRole which is used for filtering and profession display
+            const roleValues = [membershipRole].filter(Boolean);
 
             const displayProfession = translateRole(profile.role_in_system || '');
 
@@ -173,6 +173,9 @@ const Members: React.FC = () => {
               email: profile.email,
               profession: displayProfession,
               roles: roleValues as string[],
+              rawRole: rawRole,
+              systemRole: systemRole, // Store system role for staff filtering
+              membershipRole: membershipRole, // Store membership role (role_in_school/role_in_company)
               skills: profile.skills?.map((s: any) => s.name || s) || [],
               availability: availabilityList,
               avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
@@ -184,12 +187,14 @@ const Members: React.FC = () => {
               claim_token: profile.claim_token || m.claim_token,
               hasTemporaryEmail: profile.has_temporary_email || m.has_temporary_email || false,
               isSuperadmin: isSuperadmin, // Store superadmin status
-            } as Member & { isSuperadmin?: boolean };
+            } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
 
           } catch (err) {
             console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
             // FALLBACK
-            const fallbackRole = m.role_in_company || m.role_in_school || m.role_in_system || m.role || 'member';
+            const fallbackSystemRole = m.role || m.role_in_system || '';
+            const fallbackMembershipRole = m.role_in_school || m.role_in_company || 'member';
+            const fallbackRole = fallbackSystemRole || fallbackMembershipRole || 'member';
 
             // Check if member is superadmin in fallback case
             const isSuperadmin = 
@@ -203,8 +208,11 @@ const Members: React.FC = () => {
               lastName: m.last_name || '',
               fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
               email: m.email || '',
-              profession: translateRole(m.job || fallbackRole),
-              roles: [fallbackRole],
+              profession: translateRole(m.job || fallbackSystemRole),
+              roles: [fallbackMembershipRole], // Use membershipRole for role selector
+              rawRole: fallbackRole,
+              systemRole: fallbackSystemRole, // Store system role for staff filtering
+              membershipRole: fallbackMembershipRole, // Store membership role
               skills: [],
               availability: availabilityToLabels(m.availability),
               avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
@@ -216,7 +224,7 @@ const Members: React.FC = () => {
               claim_token: m.claim_token,
               hasTemporaryEmail: m.has_temporary_email || false,
               isSuperadmin: isSuperadmin, // Store superadmin status
-            } as Member & { isSuperadmin?: boolean };
+            } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
           }
         })
       );
@@ -308,8 +316,10 @@ const Members: React.FC = () => {
       const volunteers = volunteersRes.data?.data ?? volunteersRes.data ?? [];
 
       const mappedVolunteers: Member[] = volunteers.map((vol: any) => {
-        const volunteerRole = vol.role_in_school || vol.role_in_system || vol.role || 'volunteer';
-        const volunteerProfession = translateRole(vol.role_in_system || vol.user?.job || volunteerRole);
+        const volunteerSystemRole = vol.role_in_system || vol.user?.role || '';
+        const volunteerMembershipRole = vol.role_in_school || vol.role_in_company || 'volunteer';
+        const volunteerRole = volunteerMembershipRole; // Use membershipRole for role selector
+        const volunteerProfession = translateRole(volunteerSystemRole || vol.user?.job || '');
 
         // Check if volunteer is superadmin
         const isSuperadmin = 
@@ -323,7 +333,7 @@ const Members: React.FC = () => {
           fullName: vol.full_name || `${vol.first_name || ''} ${vol.last_name || ''}`.trim(),
           email: vol.email || vol.user?.email || '',
           profession: volunteerProfession,
-          roles: [volunteerRole],
+          roles: [volunteerRole], // Use membershipRole for role selector
           skills: vol.skills?.map((s: any) => s.name || s) || [],
           availability: availabilityToLabels(vol.availability),
           avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
@@ -339,7 +349,9 @@ const Members: React.FC = () => {
           levelId: undefined,
           roleAdditionalInfo: vol.role_additional_information || '',
           isSuperadmin: isSuperadmin, // Store superadmin status
-        } as Member & { isSuperadmin?: boolean };
+          systemRole: volunteerSystemRole, // Store system role
+          membershipRole: volunteerMembershipRole, // Store membership role
+        } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
       });
 
       setCommunityLists(mappedVolunteers);
@@ -466,6 +478,18 @@ const Members: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isImportExportOpen]);
 
+  const studentRoles = ['eleve_primaire', 'collegien', 'collégien', 'lyceen', 'lycéen', 'etudiant', 'étudiant', 'student', 'eleve', 'élève'];
+  // Staff roles based on system roles (role_in_system): teachers and school admins
+  const staffRoles = [
+    // Teacher roles
+    'secondary_school_teacher', 'primary_school_teacher', 'administrative_staff', 
+    'cpe_student_life', 'education_rectorate_personnel', 'other_teacher',
+    // School admin roles
+    'directeur_ecole', 'principal', 'directeur_academique', 'responsable_academique', 'proviseur', 'other_school_admin',
+    // Membership roles (role_in_school/role_in_company) for admins/superadmins
+    'admin', 'superadmin', 'referent', 'référent'
+  ];
+
   const filteredMembers = members.filter(member => {
     const term = searchTerm.toLowerCase();
     const displayRoles = translateRoles(member.roles);
@@ -477,6 +501,11 @@ const Members: React.FC = () => {
     const matchesCompetence = !competenceFilter || member.skills.includes(competenceFilter);
     const matchesAvailability = !availabilityFilter || member.availability.includes(availabilityFilter);
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
+  });
+
+  const filteredStudents = filteredMembers.filter(member => {
+    const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
+    return studentRoles.includes(primaryRoleRaw);
   });
 
   const filteredCommunityMembers = communityLists.filter(member => {
@@ -492,6 +521,59 @@ const Members: React.FC = () => {
       !availabilityFilter || (member.availability || []).includes(availabilityFilter);
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
   });
+
+  const handleAssignStudentToClass = async () => {
+    if (!selectedStudent || !selectedLevelId || !currentSchoolId) {
+      showError("Sélectionnez un élève et une classe.");
+      return;
+    }
+    try {
+      // Use systemRole (role_in_system) for backend, not the translated/organization role
+      const systemRole = (selectedStudent as any).systemRole || (selectedStudent as any).rawRole || '';
+      // Map common student roles to backend expected values
+      const roleMap: Record<string, string> = {
+        'collegien': 'collegien',
+        'collégien': 'collegien',
+        'lyceen': 'lyceen',
+        'lycéen': 'lyceen',
+        'eleve_primaire': 'eleve_primaire',
+        'élève_primaire': 'eleve_primaire',
+        'etudiant': 'etudiant',
+        'étudiant': 'etudiant',
+        'student': 'etudiant',
+        'eleve': 'collegien', // Default fallback
+        'élève': 'collegien'
+      };
+      const normalizedRole = roleMap[systemRole.toLowerCase()] || systemRole.toLowerCase() || 'etudiant';
+      
+      // Backend requires first_name and last_name even for existing students
+      await addExistingStudentToLevel(currentSchoolId, selectedLevelId, {
+        student: { 
+          email: selectedStudent.email, 
+          role: normalizedRole,
+          first_name: selectedStudent.firstName || '',
+          last_name: selectedStudent.lastName || ''
+        }
+      });
+      showSuccess("Élève assigné à la classe.");
+      setIsAssignModalOpen(false);
+      setSelectedStudent(null);
+      setSelectedLevelId(null);
+      await fetchMembers();
+      await fetchLevels();
+    } catch (err: any) {
+      console.error("Assignation élève -> classe:", err);
+      let errorMsg = "Erreur lors de l'assignation.";
+      if (err?.response?.data?.details && Array.isArray(err.response.data.details)) {
+        errorMsg = err.response.data.details.join(', ');
+      } else if (err?.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err?.response?.data?.error) {
+        errorMsg = err.response.data.error;
+      }
+      showError(errorMsg);
+    }
+  };
 
   const renderFilterBar = () => (
     <div className="members-filters">
@@ -852,7 +934,7 @@ const Members: React.FC = () => {
   const handleDeleteMember = (member: Member) => {
     // Check if member is superadmin
     const isSuperadmin = (member as any).isSuperadmin || 
-      member.roles.some(role => role.toLowerCase() === 'superadmin');
+      ((member as any).membershipRole || '').toLowerCase() === 'superadmin';
     
     if (isSuperadmin) {
       showError("Impossible de supprimer un superadmin. Transférez d'abord le rôle de superadmin.");
@@ -1046,6 +1128,12 @@ const Members: React.FC = () => {
           >
             Communauté
           </button>
+          <button
+            className={`tab-btn ${activeTab === 'students' ? 'active' : ''}`}
+            onClick={() => setActiveTab('students')}
+          >
+            Élèves
+          </button>
         </div>
       )}
 
@@ -1055,18 +1143,42 @@ const Members: React.FC = () => {
           {renderFilterBar()}
           <div className='min-h-[65vh]'>
     
-
-            <div className="members-grid">
-              {filteredMembers.length > 0 ? filteredMembers.map((member) => {
+            {/* Staff = tous les membres confirmés hors élèves (élèves visibles dans l'onglet Élèves) */}
+            {(() => {
+              const staffMembers = filteredMembers.filter((member) => {
+                // Use systemRole (role_in_system) for staff classification, fallback to membershipRole (role_in_school/role_in_company)
+                const systemRole = ((member as any).systemRole || '').toLowerCase();
+                const membershipRole = ((member as any).membershipRole || '').toLowerCase();
+                const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
+                const isSuperadmin = (member as any).isSuperadmin || false;
+                
+                // Exclude students first
+                if (studentRoles.includes(primaryRoleRaw) || studentRoles.includes(systemRole)) return false;
+                
+                // Always include superadmins in Staff tab
+                if (isSuperadmin) return true;
+                
+                // Check if system role is a staff role (teacher or school admin)
+                if (systemRole && staffRoles.includes(systemRole)) return true;
+                
+                // Check if membership role is admin/superadmin/referent
+                if (membershipRole && (membershipRole === 'admin' || membershipRole === 'superadmin' || membershipRole === 'referent' || membershipRole === 'référent')) return true;
+                
+                // fallback : si non student et non reconnu staff, on exclut pour éviter les faux positifs
+                return false;
+              });
+              return (
+                <div className="members-grid">
+              {staffMembers.length > 0 ? staffMembers.map((member) => {
                 const totalBadgeCount = member.badges?.length || 0;
                 const memberForDisplay = {
                   ...member,
                   roles: translateRoles(member.roles),
                   profession: translateRole(member.profession || '')
                 };
-                // Check if member is superadmin (from stored data or check roles)
+                // Check if member is superadmin (from stored data or check membershipRole directly)
                 const isSuperadmin = (member as any).isSuperadmin || 
-                  member.roles.some(role => role.toLowerCase() === 'superadmin');
+                  ((member as any).membershipRole || '').toLowerCase() === 'superadmin';
                 return (
                   <MemberCard
                     key={member.id}
@@ -1092,8 +1204,60 @@ const Members: React.FC = () => {
               })
             : <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>}
             </div>
+              );
+            })()}
           </div>
         </>
+      )}
+
+      {/* Contenu du tab “Élèves” */}
+      {isSchoolContext && activeTab === 'students' && (
+        <div className="min-h-[65vh]">
+          <div className="members-grid">
+            {filteredStudents.length > 0 ? filteredStudents.map((member) => {
+              const totalBadgeCount = member.badges?.length || 0;
+              const memberForDisplay = {
+                ...member,
+                roles: translateRoles(member.roles),
+                profession: translateRole(member.profession || '')
+              };
+              const isSuperadmin = (member as any).isSuperadmin || 
+                ((member as any).membershipRole || '').toLowerCase() === 'superadmin';
+              const canAssignClass = !isSuperadmin && !isTeacherContext && currentSchoolId !== null && isSchoolAdmin;
+              return (
+                <MemberCard
+                  key={member.id}
+                  member={memberForDisplay}
+                  badgeCount={totalBadgeCount}
+                  onClick={() => setSelectedMember(member)}
+                  onContactClick={() => {
+                    setContactEmail(member.email);
+                    setIsContactModalOpen(true);
+                  }}
+                  onRoleChange={(newRole) => {
+                    if (isSuperadmin) {
+                      showError("Le rôle superadmin ne peut pas être modifié");
+                      return;
+                    }
+                    handleRoleChange(member, newRole, 'members');
+                  }}
+                  isSuperadmin={isSuperadmin}
+                  disableRoleDropdown={isSuperadmin}
+                  extraActions={canAssignClass ? [
+                    {
+                      label: 'Assigner à une classe',
+                      onClick: () => {
+                        setSelectedStudent(member);
+                        setIsAssignModalOpen(true);
+                      }
+                    }
+                  ] : []}
+                />
+              );
+            })
+            : <div className="w-full text-center text-gray-500">Aucun élève trouvé</div>}
+          </div>
+        </div>
       )}
 
       {/* Contenu du tab "Classe" */}
@@ -1241,9 +1405,9 @@ const Members: React.FC = () => {
                       roles: translateRoles(communityItem.roles),
                       profession: translateRole(communityItem.profession || '')
                     };
-                    // Check if member is superadmin (from stored data or check roles)
+                    // Check if member is superadmin (from stored data or check membershipRole directly)
                     const isSuperadmin = (communityItem as any).isSuperadmin || 
-                      communityItem.roles.some(role => role.toLowerCase() === 'superadmin');
+                      ((communityItem as any).membershipRole || '').toLowerCase() === 'superadmin';
                     return (
                       <MemberCard
                         key={communityItem.id}
@@ -1286,7 +1450,7 @@ const Members: React.FC = () => {
           onDelete={() => handleDeleteMember(selectedMember)}
           onContactClick={() => setIsContactModalOpen(true)}
           isSuperadmin={(selectedMember as any).isSuperadmin || 
-            selectedMember.roles.some(role => role.toLowerCase() === 'superadmin')}
+            ((selectedMember as any).membershipRole || '').toLowerCase() === 'superadmin'}
         />
       )}
 
@@ -1339,6 +1503,43 @@ const Members: React.FC = () => {
           levelName={selectedClass.name}
           onStudentDetails={handleStudentDetails}
         />
+      )}
+
+      {isAssignModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsAssignModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Assigner à une classe</h3>
+              <button className="modal-close" onClick={() => setIsAssignModalOpen(false)}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="mb-3 text-gray-600">Sélectionnez une classe pour {selectedStudent?.fullName || 'cet élève'}.</p>
+              <div className="form-field">
+                <label className="form-label">Classe</label>
+                <select
+                  className="form-input"
+                  value={selectedLevelId ?? ''}
+                  onChange={(e) => setSelectedLevelId(Number(e.target.value))}
+                >
+                  <option value="">Choisir une classe</option>
+                  {classLists.map((cl) => (
+                    <option key={cl.id} value={cl.id}>{cl.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => { setIsAssignModalOpen(false); setSelectedLevelId(null); }}>
+                Annuler
+              </button>
+              <button className="btn btn-primary" onClick={handleAssignStudentToClass}>
+                Assigner
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

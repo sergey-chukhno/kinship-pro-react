@@ -37,8 +37,22 @@ export function createLevelStudent(schoolId: number, levelId: number, studentDat
     return axiosClient.post(`/api/v1/schools/${schoolId}/levels/${levelId}/students`, studentData);
 }
 
-export function getLevelStudents(schoolId: number, levelId: number) {
-    return axiosClient.get(`/api/v1/schools/${schoolId}/levels/${levelId}/students`);
+// Add an existing student to a class (level) using their email/role
+export function addExistingStudentToLevel(schoolId: number, levelId: number, studentData: {
+    student: {
+        email: string;
+        role: string;
+        first_name?: string;
+        last_name?: string;
+    }
+}) {
+    return axiosClient.post(`/api/v1/schools/${schoolId}/levels/${levelId}/students`, studentData);
+}
+
+export function getLevelStudents(schoolId: number, levelId: number, perPage: number = 100) {
+    return axiosClient.get(`/api/v1/schools/${schoolId}/levels/${levelId}/students`, {
+        params: { per_page: perPage }
+    });
 }
 
 export function getSchoolLevel(schoolId: number, levelId: number) {

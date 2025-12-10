@@ -148,11 +148,18 @@
 .member-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .member-actions .btn {
-  flex: 1;
+  flex: 0 1 calc(50% - 4px);
   justify-content: center;
+  min-width: 0;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
+  padding: 0.5rem 0.75rem;
+  max-width: calc(50% - 4px);
 }
 
 /* Badge counter */

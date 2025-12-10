@@ -79,11 +79,23 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
             getTeacherClass(levelId)
           ]);
           
-          const studentsData = studentsResponse.data?.data ?? studentsResponse.data ?? [];
+          // Handle different response structures
+          let studentsData = [];
+          if (studentsResponse.data?.data) {
+            studentsData = studentsResponse.data.data;
+          } else if (Array.isArray(studentsResponse.data)) {
+            studentsData = studentsResponse.data;
+          } else if (studentsResponse.data) {
+            studentsData = [];
+          }
+          
           const classData = classResponse.data?.data ?? classResponse.data ?? {};
           
           if (isMounted) {
+            console.log('Students response (teacher):', studentsResponse.data);
             console.log('Students data (teacher):', studentsData);
+            console.log('Students count:', studentsData.length);
+            console.log('Meta:', studentsResponse.data?.meta);
             setStudents(Array.isArray(studentsData) ? studentsData : []);
             setTeachers(classData.teachers || []);
           }
@@ -105,11 +117,23 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
             getSchoolLevel(Number(schoolId), levelId)
           ]);
           
-          const studentsData = studentsResponse.data?.data ?? studentsResponse.data ?? [];
+          // Handle different response structures
+          let studentsData = [];
+          if (studentsResponse.data?.data) {
+            studentsData = studentsResponse.data.data;
+          } else if (Array.isArray(studentsResponse.data)) {
+            studentsData = studentsResponse.data;
+          } else if (studentsResponse.data) {
+            studentsData = [];
+          }
+          
           const levelData = levelResponse.data?.data ?? levelResponse.data ?? {};
           
           if (isMounted) {
+            console.log('Students response (school):', studentsResponse.data);
             console.log('Students data (school):', studentsData);
+            console.log('Students count:', studentsData.length);
+            console.log('Meta:', studentsResponse.data?.meta);
             setStudents(Array.isArray(studentsData) ? studentsData : []);
             setTeachers(levelData.teachers || []);
           }
@@ -181,8 +205,15 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                   <div className="table-cell">Actions</div>
                 </div>
 
-                {students.map((student) => (
-                  <div key={student.id} className="table-row">
+                {students
+                  .filter((student, index, self) => 
+                    // Remove duplicates based on id, or use index if id is missing
+                    student.id ? 
+                      index === self.findIndex(s => s.id === student.id) :
+                      index === self.findIndex(s => !s.id && s === student)
+                  )
+                  .map((student, index) => (
+                  <div key={student.id || `student-${index}`} className="table-row">
                     <div className="table-cell">
                       <div className="user-info">
                         <AvatarImage src={student.avatar_url} alt={student.full_name} className="user-avatar" />

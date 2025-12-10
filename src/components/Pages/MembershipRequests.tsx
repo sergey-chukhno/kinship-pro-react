@@ -168,7 +168,13 @@ const MembershipRequests: React.FC = () => {
       const isEdu = state.showingPageType === 'edu';
       
       // Get the selected role for this request, or use the default assigned role
-      const selectedRoleDisplay = selectedRole[requestId] || requests.find(r => r.id === requestId)?.assignedRole || 'Membre';
+    const req = requests.find(r => r.id === requestId);
+    const selectedRoleDisplay =
+      selectedRole[requestId] ||
+      req?.assignedRole ||
+      (req as any)?.role ||
+      (req as any)?.role_in_school ||
+      'Membre';
       const backendRole = convertRoleToBackend(selectedRoleDisplay);
 
       if (isEdu) {
