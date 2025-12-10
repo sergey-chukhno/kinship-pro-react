@@ -51,6 +51,47 @@ export const getProjectBadges = async (projectId: number): Promise<any[]> => {
 };
 
 /**
+ * Récupère les badges reçus par l'utilisateur personnel
+ * @param page - Numéro de page (défaut: 1)
+ * @param perPage - Nombre d'éléments par page (défaut: 12)
+ * @param filters - Filtres optionnels (series, level, organization_type, organization_id)
+ * @returns Promise<{ data: any[], meta: any }>
+ */
+export const getUserBadges = async (
+  page: number = 1,
+  perPage: number = 12,
+  filters?: {
+    series?: string;
+    level?: string;
+    organization_type?: string;
+    organization_id?: number;
+  }
+): Promise<{ data: any[]; meta: any }> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('per_page', perPage.toString());
+  
+  if (filters?.series) {
+    params.append('series', filters.series);
+  }
+  if (filters?.level) {
+    params.append('level', filters.level);
+  }
+  if (filters?.organization_type) {
+    params.append('organization_type', filters.organization_type);
+  }
+  if (filters?.organization_id) {
+    params.append('organization_id', filters.organization_id.toString());
+  }
+  
+  const response = await apiClient.get(`/api/v1/users/me/badges?${params.toString()}`);
+  return {
+    data: response.data?.data || [],
+    meta: response.data?.meta || {}
+  };
+};
+
+/**
  * Attribue un badge à un ou plusieurs membres du projet
  * @param projectId - ID du projet
  * @param badgeData - Données d'attribution
