@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
-// import { useAppContext } from '../../context/AppContext';
-import { mockBadges, mockMembers } from '../../data/mockData';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAppContext } from '../../context/AppContext';
+import { mockMembers } from '../../data/mockData';
 import { Badge } from '../../types';
 import BadgeCard from '../Badges/BadgeCard';
 import BadgeModal from '../Modals/BadgeModal';
 import BadgeAnalyticsModal from '../Modals/BadgeAnalyticsModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
 import BadgeExplorer from './BadgeExplorer';
+import { getUserBadges } from '../../api/Badges';
+import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
+import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
+import { getOrganizationId } from '../../utils/projectMapper';
 import './Badges.css';
 
 const Badges: React.FC = () => {
-  // const { state, addBadge, updateBadge, deleteBadge } = useAppContext();
+  const { state } = useAppContext();
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
@@ -20,8 +24,99 @@ const Badges: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState('');
   const [activeTab, setActiveTab] = useState<'cartography' | 'explorer'>('cartography');
 
-  // Use mock data for now
-  const badges = mockBadges;
+  // API data states
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [isLoadingBadges, setIsLoadingBadges] = useState(false);
+  const [badgesError, setBadgesError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalBadges, setTotalBadges] = useState(0);
+  const perPage = 50; // Load more badges per page for cartography
+
+  // Get organization ID and context
+  const organizationId = useMemo(() => {
+    if (!state.user) return undefined;
+    return getOrganizationId(state.user, state.showingPageType);
+  }, [state.showingPageType, state.user]);
+
+  // Fetch badges based on context
+  const fetchBadges = useCallback(async (page: number = 1) => {
+    setIsLoadingBadges(true);
+    setBadgesError(null);
+
+    try {
+      let response;
+      
+      if (state.showingPageType === 'user') {
+        // Personal user: fetch received badges
+        const filters: any = {};
+        if (selectedSeries === 'TouKouLeur') {
+          filters.series = 'toukouleur';
+        } else if (selectedSeries === 'CPS') {
+          filters.series = 'psychosociale';
+        } else if (selectedSeries === 'Audiovisuelle') {
+          filters.series = 'audiovisuelle';
+        }
+        
+        if (selectedLevel) {
+          filters.level = selectedLevel.replace('Niveau ', 'level_');
+        }
+        
+        response = await getUserBadges(page, perPage, filters);
+        const mapped = (response.data || []).map(mapBackendUserBadgeToBadge);
+        setBadges(mapped);
+        setTotalPages(response.meta?.total_pages || 1);
+        setTotalBadges(response.meta?.total_count || 0);
+      } else if (state.showingPageType === 'edu' && organizationId) {
+        // School: fetch assigned badges
+        // Note: getSchoolAssignedBadges doesn't support filters in current API, filter client-side
+        response = await getSchoolAssignedBadges(Number(organizationId), perPage);
+        const payload = response.data?.data ?? response.data ?? [];
+        const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
+        setBadges(mapped);
+        // Use pagination meta from backend if available
+        const meta = response.data?.meta;
+        setTotalPages(meta?.total_pages || 1);
+        setTotalBadges(meta?.total_count || mapped.length);
+      } else if (state.showingPageType === 'pro' && organizationId) {
+        // Company: fetch assigned badges
+        response = await getCompanyAssignedBadges(Number(organizationId), perPage);
+        const payload = response.data?.data ?? response.data ?? [];
+        const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
+        setBadges(mapped);
+        // Use pagination meta from backend if available
+        const meta = response.data?.meta;
+        setTotalPages(meta?.total_pages || 1);
+        setTotalBadges(meta?.total_count || mapped.length);
+      } else if (state.showingPageType === 'teacher') {
+        // Teacher: fetch assigned badges
+        response = await getTeacherAssignedBadges(perPage);
+        const payload = response.data?.data ?? response.data ?? [];
+        const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
+        setBadges(mapped);
+        // Use pagination meta from backend if available
+        const meta = response.data?.meta;
+        setTotalPages(meta?.total_pages || 1);
+        setTotalBadges(meta?.total_count || mapped.length);
+      } else {
+        setBadges([]);
+        setTotalPages(1);
+        setTotalBadges(0);
+      }
+    } catch (error: any) {
+      console.error('Error fetching badges:', error);
+      setBadgesError('Erreur lors du chargement des badges');
+      setBadges([]);
+    } finally {
+      setIsLoadingBadges(false);
+    }
+  }, [state.showingPageType, organizationId, selectedSeries, selectedLevel, perPage]);
+
+  // Load badges when component mounts or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchBadges(1);
+  }, [fetchBadges]);
 
   const filteredBadges = badges.filter(badge => {
     const matchesSearch = badge.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -80,22 +175,48 @@ const Badges: React.FC = () => {
     setIsAssignmentModalOpen(false);
   };
 
+  // Count attributions per badge (name + level combination)
+  const badgeAttributionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredBadges.forEach((badge) => {
+      // Create a unique key from badge name and level
+      const key = `${badge.name}|${badge.level}`;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [filteredBadges]);
+
   // Group badges by level/domain for cartography view
-  const badgesByLevel = filteredBadges.reduce((acc, badge) => {
-    let groupKey: string;
-    if (selectedSeries === 'CPS') {
-      // For CPS, group by domain
-      groupKey = badge.domains[0] || 'other';
-    } else {
-      // For TouKouLeur, group by level
-      groupKey = badge.level;
-    }
-    if (!acc[groupKey]) {
-      acc[groupKey] = [];
-    }
-    acc[groupKey].push(badge);
-    return acc;
-  }, {} as Record<string, Badge[]>);
+  // Also deduplicate badges (show unique badge name + level combinations)
+  const badgesByLevel = useMemo(() => {
+    const grouped: Record<string, Badge[]> = {};
+    const seen = new Set<string>();
+    
+    filteredBadges.forEach((badge) => {
+      const key = `${badge.name}|${badge.level}`;
+      
+      // Only add unique badge (name + level) to the group
+      if (!seen.has(key)) {
+        seen.add(key);
+        
+        let groupKey: string;
+        if (selectedSeries === 'CPS') {
+          // For CPS, group by domain
+          groupKey = badge.domains[0] || 'other';
+        } else {
+          // For TouKouLeur, group by level
+          groupKey = badge.level; // This will be "Niveau 1", "Niveau 2", etc.
+        }
+        
+        if (!grouped[groupKey]) {
+          grouped[groupKey] = [];
+        }
+        grouped[groupKey].push(badge);
+      }
+    });
+    
+    return grouped;
+  }, [filteredBadges, selectedSeries]);
 
   // Define levels/domains based on selected series
   const getSections = () => {
@@ -106,11 +227,12 @@ const Badges: React.FC = () => {
         { key: 'sociales', label: 'Sociales', color: '#9333ea', icon: '/badges_psychosociales/Sociales_final.png' }
       ];
     } else {
+      // Use keys that match badge.level format ("Niveau 1", "Niveau 2", etc.)
       return [
-        { key: 'Niveau 1 - Découverte', label: 'Niveau 1 - Découverte', color: '#10b981', icon: undefined },
-        { key: 'Niveau 2 - Application', label: 'Niveau 2 - Application', color: '#3b82f6', icon: undefined },
-        { key: 'Niveau 3 - Maîtrise', label: 'Niveau 3 - Maîtrise', color: '#f59e0b', icon: undefined },
-        { key: 'Niveau 4 - Expertise', label: 'Niveau 4 - Expertise', color: '#ef4444', icon: undefined }
+        { key: 'Niveau 1', label: 'Niveau 1 - Découverte', color: '#10b981', icon: undefined },
+        { key: 'Niveau 2', label: 'Niveau 2 - Application', color: '#3b82f6', icon: undefined },
+        { key: 'Niveau 3', label: 'Niveau 3 - Maîtrise', color: '#f59e0b', icon: undefined },
+        { key: 'Niveau 4', label: 'Niveau 4 - Expertise', color: '#ef4444', icon: undefined }
       ];
     }
   };
@@ -123,12 +245,9 @@ const Badges: React.FC = () => {
         {/* Section Title + Actions */}
         {activeTab === 'cartography' && (
           <div className="section-title-row">
-            <div className="flex flex-col gap-2 items-start">
-              <div className="section-title-left">
-                <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
-                <h2>Cartographie des badges attribués</h2>
-              </div>
-              <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
+            <div className="section-title-left">
+              <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
+              <h2>Cartographie des badges attribués</h2>
             </div>
             <div className="badges-actions">
               <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
@@ -143,58 +262,75 @@ const Badges: React.FC = () => {
 
         {activeTab === 'cartography' && (
           <>
-            {/* Search and Filters */}
-            <div className="badges-filters">
-          <div className="search-bar">
-            <i className="fas fa-search"></i>
-            <input
-              type="text"
-              placeholder="Rechercher un badge par nom, catégorie, niveau..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="filter-group">
-            <select
-              value={selectedSeries}
-              onChange={(e) => setSelectedSeries(e.target.value)}
-              className="filter-select big-select"
-            >
-              <option value="TouKouLeur">Série Soft Skills 4LAB</option>
-              <option value="CPS" disabled>Série CPS</option>
-              <option value="Audiovisuelle" disabled>Série Audiovisuelle</option>
-            </select>
-          </div>
-          {selectedSeries === 'TouKouLeur' && (
-            <div className="filter-group">
-              <select
-                value={selectedLevel}
-                onChange={(e) => setSelectedLevel(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">Tous les niveaux</option>
-                <option value="Niveau 1">Niveau 1</option>
-                <option value="Niveau 2">Niveau 2</option>
-                <option value="Niveau 3">Niveau 3</option>
-                <option value="Niveau 4">Niveau 4</option>
-              </select>
-            </div>
-          )}
-          {selectedSeries === 'CPS' && (
-            <div className="filter-group">
-              <select
-                value={selectedLevel}
-                onChange={(e) => setSelectedLevel(e.target.value)}
-                className="filter-select"
-              >
-                <option value="">Tous les domaines</option>
-                <option value="emotionnelles">Emotionnelles</option>
-                <option value="cognitives">Cognitives</option>
-                <option value="sociales">Sociales</option>
-              </select>
-            </div>
-          )}
-        </div>
+            {/* Loading/Error States */}
+            {isLoadingBadges && (
+              <div className="badges-loading">
+                <i className="fas fa-spinner fa-spin"></i>
+                <p>Chargement des badges...</p>
+              </div>
+            )}
+            
+            {badgesError && (
+              <div className="badges-error">
+                <i className="fas fa-exclamation-circle"></i>
+                <p>{badgesError}</p>
+              </div>
+            )}
+
+            {!isLoadingBadges && !badgesError && (
+              <>
+                {/* Search and Filters */}
+                <div className="badges-filters">
+                  <div className="search-bar">
+                    <i className="fas fa-search"></i>
+                    <input
+                      type="text"
+                      placeholder="Rechercher un badge par nom, catégorie, niveau..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="filter-group">
+                    <select
+                      value={selectedSeries}
+                      onChange={(e) => setSelectedSeries(e.target.value)}
+                      className="filter-select big-select"
+                    >
+                      <option value="TouKouLeur">Série Soft Skills 4LAB</option>
+                      <option value="CPS" disabled>Série CPS</option>
+                      <option value="Audiovisuelle" disabled>Série Audiovisuelle</option>
+                    </select>
+                  </div>
+                  {selectedSeries === 'TouKouLeur' && (
+                    <div className="filter-group">
+                      <select
+                        value={selectedLevel}
+                        onChange={(e) => setSelectedLevel(e.target.value)}
+                        className="filter-select"
+                      >
+                        <option value="">Tous les niveaux</option>
+                        <option value="Niveau 1">Niveau 1</option>
+                        <option value="Niveau 2">Niveau 2</option>
+                        <option value="Niveau 3">Niveau 3</option>
+                        <option value="Niveau 4">Niveau 4</option>
+                      </select>
+                    </div>
+                  )}
+                  {selectedSeries === 'CPS' && (
+                    <div className="filter-group">
+                      <select
+                        value={selectedLevel}
+                        onChange={(e) => setSelectedLevel(e.target.value)}
+                        className="filter-select"
+                      >
+                        <option value="">Tous les domaines</option>
+                        <option value="emotionnelles">Emotionnelles</option>
+                        <option value="cognitives">Cognitives</option>
+                        <option value="sociales">Sociales</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
 
         {/* Badge Cartography Header */}
          {/*<div className="cartography-header">
@@ -206,38 +342,91 @@ const Badges: React.FC = () => {
           </h2>
         </div> */}
 
-        {/* Badges Content - Organized by Levels/Domains */}
-        <div className="badges-content">
-          {sections.map((section) => (
-            <div key={section.key} className="level-divider">
-              <div className="level-header">
-                <div className="level-title" style={{ color: section.color }}>
-                  {section.icon ? (
-                    <img src={section.icon} alt={section.label} className="domain-icon" />
+                {/* Badges Content - Organized by Levels/Domains */}
+                <div className="badges-content">
+                  {badges.length === 0 ? (
+                    <div className="badges-empty">
+                      <i className="fas fa-award"></i>
+                      <h4>Aucun badge trouvé</h4>
+                      <p>Les badges attribués apparaîtront ici.</p>
+                    </div>
                   ) : (
-                    <div className="level-color-square" style={{ backgroundColor: section.color }}></div>
+                    sections.map((section) => {
+                      const sectionBadges = badgesByLevel[section.key] || [];
+                      if (sectionBadges.length === 0) return null;
+                      
+                      return (
+                        <div key={section.key} className="level-divider">
+                          <div className="level-header">
+                            <div className="level-title" style={{ color: section.color }}>
+                              {section.icon ? (
+                                <img src={section.icon} alt={section.label} className="domain-icon" />
+                              ) : (
+                                <div className="level-color-square" style={{ backgroundColor: section.color }}></div>
+                              )}
+                              <span>{section.label}</span>
+                            </div>
+                            <div className="bg-red-500 level-count">
+                              {sectionBadges.length} badge{sectionBadges.length > 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          
+                          <div className="badges-grid">
+                            {sectionBadges.map((badge) => {
+                              // Get attribution count for this badge (name + level)
+                              const badgeKey = `${badge.name}|${badge.level}`;
+                              const attributionCount = badgeAttributionCounts[badgeKey] || 0;
+                              
+                              return (
+                                <BadgeCard
+                                  key={badge.id}
+                                  badge={badge}
+                                  onClick={() => handleBadgeClick(badge)}
+                                  onEdit={() => handleEditBadge(badge)}
+                                  onDelete={() => handleDeleteBadge(badge.id)}
+                                  attributionCount={attributionCount}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
-                  <span>{section.label}</span>
                 </div>
-                <div className="bg-red-500 level-count">
-                  {badgesByLevel[section.key]?.length || 0} badges
-                </div>
-              </div>
-              
-              <div className="badges-grid">
-                {badgesByLevel[section.key]?.map((badge) => (
-                  <BadgeCard
-                    key={badge.id}
-                    badge={badge}
-                    onClick={() => handleBadgeClick(badge)}
-                    onEdit={() => handleEditBadge(badge)}
-                    onDelete={() => handleDeleteBadge(badge.id)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="badges-pagination">
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => {
+                        const newPage = currentPage - 1;
+                        setCurrentPage(newPage);
+                        fetchBadges(newPage);
+                      }}
+                      disabled={currentPage === 1 || isLoadingBadges}
+                    >
+                      <i className="fas fa-chevron-left"></i> Précédent
+                    </button>
+                    <span className="pagination-info">
+                      Page {currentPage} sur {totalPages} ({totalBadges} badge{totalBadges > 1 ? 's' : ''})
+                    </span>
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => {
+                        const newPage = currentPage + 1;
+                        setCurrentPage(newPage);
+                        fetchBadges(newPage);
+                      }}
+                      disabled={currentPage >= totalPages || isLoadingBadges}
+                    >
+                      Suivant <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
 
