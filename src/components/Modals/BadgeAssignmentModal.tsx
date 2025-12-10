@@ -161,7 +161,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
   // Get badges for selected series
   const badgesForSeries = useMemo(() => {
     if (!series) return [];
-    return badgesBySeries[series] || [];
+    return (badgesBySeries[series] || []).filter((b) => b.name !== 'Test Badge');
   }, [series, badgesBySeries]);
 
   // Update selected badge when title changes
