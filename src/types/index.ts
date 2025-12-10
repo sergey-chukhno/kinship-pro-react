@@ -309,6 +309,46 @@ export interface ClassTeacher {
   assigned_at: string;
 }
 
+// Badge API Types (for backend API responses)
+export interface BadgeAPI {
+  id: number;
+  name: string;
+  description: string;
+  level: 'level_1' | 'level_2' | 'level_3' | 'level_4';
+  series: string;
+  domains: BadgeSkillAPI[];
+  expertises: BadgeSkillAPI[];
+}
+
+export interface BadgeSkillAPI {
+  id: number;
+  name: string;
+  category: 'domain' | 'expertise';
+}
+
+export interface BadgeAssignmentResponse {
+  message: string;
+  assigned_count: number;
+  project: {
+    id: number;
+    title: string;
+  };
+  organization: {
+    id: number;
+    name: string;
+    type: string;
+  };
+  assignments: Array<{
+    user_id: number;
+    user_name: string;
+    badge_id: number;
+    badge_name: string;
+    status: string;
+    user_badge_id: number;
+  }>;
+  errors?: string[];
+}
+
 export interface ClassList {
   id: string;
   name: string;

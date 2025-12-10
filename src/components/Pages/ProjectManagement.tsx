@@ -8,9 +8,11 @@ import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { getProjectById } from '../../api/Project';
 import { updateProject, getProjectStats, ProjectStats, joinProject, getProjectPendingMembers, updateProjectMember, removeProjectMember, getProjectMembers, addProjectMember, getOrganizationMembers, getProjectTeams, createProjectTeam, updateProjectTeam, deleteProjectTeam } from '../../api/Projects';
+import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile, getUserProjectRole } from '../../utils/projectMapper';
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
+import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { Project } from '../../types';
 import { useToast } from '../../hooks/useToast';
 
@@ -115,6 +117,10 @@ const ProjectManagement: React.FC = () => {
   // State for user project role and join functionality
   const [userProjectRole, setUserProjectRole] = useState<string | null>(null);
   const [isJoiningProject, setIsJoiningProject] = useState(false);
+  
+  // State for badge assignment permissions
+  const [canAssignBadges, setCanAssignBadges] = useState(false);
+  const [userProjectMember, setUserProjectMember] = useState<any>(null);
   
   // Fetch project data from API when component mounts or project ID changes
   useEffect(() => {
@@ -256,6 +262,54 @@ const ProjectManagement: React.FC = () => {
     loadParticipants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiProjectData?.id, project?.id]); // Utiliser apiProjectData?.id au lieu de apiProjectData pour éviter les re-renders
+
+  // Calculate badge assignment permissions
+  useEffect(() => {
+    if (!project || !state.user?.id || !userProjectRole) {
+      setCanAssignBadges(false);
+      return;
+    }
+
+    // Find current user's project member record
+    const findUserProjectMember = async () => {
+      if (!project?.id) return;
+      
+      try {
+        const projectId = parseInt(project.id);
+        if (isNaN(projectId)) return;
+        
+        const members = await getProjectMembers(projectId);
+        const currentUserMember = members.find((m: any) => {
+          const userId = m.user?.id?.toString() || m.user_id?.toString();
+          return userId === state.user?.id?.toString();
+        });
+        
+        if (currentUserMember) {
+          setUserProjectMember({
+            can_assign_badges_in_project: currentUserMember.can_assign_badges_in_project || false,
+            user: {
+              available_contexts: state.user.available_contexts
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user project member:', error);
+      }
+    };
+    
+    findUserProjectMember();
+    
+    // Calculate permissions
+    const hasPermission = canUserAssignBadges(
+      project,
+      state.user.id,
+      userProjectRole,
+      userProjectMember
+    );
+    
+    setCanAssignBadges(hasPermission);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, state.user?.id, userProjectRole, userProjectMember]);
 
   // Reset active tab if tabs become hidden (e.g., user role changes from admin to participant)
   useEffect(() => {
@@ -995,8 +1049,25 @@ const ProjectManagement: React.FC = () => {
     setIsBadgeModalOpen(true);
   };
 
-  const handleBadgeAssignment = (badgeData: any) => {
+  const handleBadgeAssignment = async (badgeData: any) => {
     console.log('Badge assigned:', badgeData);
+    
+    // Refresh project stats to update badge count
+    if (project?.id) {
+      try {
+        const projectId = parseInt(project.id);
+        if (!isNaN(projectId)) {
+          const stats = await getProjectStats(projectId);
+          setProjectStats(stats);
+        }
+      } catch (error) {
+        console.error('Error refreshing project stats:', error);
+      }
+    }
+    
+    // Refresh badge attributions list if needed
+    // The badge list will be refreshed when the component re-renders
+    
     // Badge assignment is handled by the modal's success message
     // Close modal after success message is shown
     setTimeout(() => {
@@ -1652,9 +1723,11 @@ const ProjectManagement: React.FC = () => {
           <button type="button" className="btn btn-outline" onClick={handleCopyLink}>
             <i className="fas fa-link"></i> Copier le lien
           </button>
-          <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
-            <i className="fas fa-award"></i> Attribuer un badge
-          </button>
+          {canAssignBadges && (
+            <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
+              <i className="fas fa-award"></i> Attribuer un badge
+            </button>
+          )}
         </div>
       </div>
 
@@ -2111,17 +2184,19 @@ const ProjectManagement: React.FC = () => {
                       ))}
                     </div>
                     <div className="member-actions">
-                      <button 
-                        type="button" 
-                        className="btn-icon badge-btn" 
-                        title="Attribuer un badge"
-                        onClick={() => {
-                          setSelectedParticipantForBadge(participant.memberId);
-                          setIsBadgeModalOpen(true);
-                        }}
-                      >
-                        <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
-                      </button>
+                      {canAssignBadges && (
+                        <button 
+                          type="button" 
+                          className="btn-icon badge-btn" 
+                          title="Attribuer un badge"
+                          onClick={() => {
+                            setSelectedParticipantForBadge(participant.memberId);
+                            setIsBadgeModalOpen(true);
+                          }}
+                        >
+                          <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
+                        </button>
+                      )}
                       {/* Show remove button if user can see it and participant can be removed */}
                       {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
                         <button 
@@ -2312,14 +2387,16 @@ const ProjectManagement: React.FC = () => {
                           Retirer
                         </button>
                         )}
-                        <button 
-                          className="btn-accept"
-                          onClick={() => handleAwardBadge(participant.memberId)}
-                          title="Attribuer un badge"
-                        >
-                          <i className="fas fa-award"></i>
-                          Badge
-                        </button>
+                        {canAssignBadges && (
+                          <button 
+                            className="btn-accept"
+                            onClick={() => handleAwardBadge(participant.memberId)}
+                            title="Attribuer un badge"
+                          >
+                            <i className="fas fa-award"></i>
+                            Badge
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2890,6 +2967,29 @@ const ProjectManagement: React.FC = () => {
           preselectedParticipant={selectedParticipantForBadge}
           projectId={project?.id}
           projectTitle={project?.title}
+          availableOrganizations={userProjectMember?.user?.available_contexts ? (() => {
+            const orgs: Array<{ id: number; name: string; type: 'School' | 'Company' }> = [];
+            const contexts = userProjectMember.user.available_contexts;
+            const badgeRoles = ['superadmin', 'admin', 'referent', 'référent', 'intervenant'];
+            
+            if (contexts.schools) {
+              contexts.schools.forEach((school: any) => {
+                if (badgeRoles.includes(school.role?.toLowerCase() || '')) {
+                  orgs.push({ id: school.id, name: school.name || 'École', type: 'School' });
+                }
+              });
+            }
+            
+            if (contexts.companies) {
+              contexts.companies.forEach((company: any) => {
+                if (badgeRoles.includes(company.role?.toLowerCase() || '')) {
+                  orgs.push({ id: company.id, name: company.name || 'Organisation', type: 'Company' });
+                }
+              });
+            }
+            
+            return orgs.length > 0 ? orgs : undefined;
+          })() : undefined}
         />
       )}
 
