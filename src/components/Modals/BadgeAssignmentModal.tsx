@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BadgeAttribution, BadgeAPI } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
@@ -64,13 +64,15 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
   const [loadingBadges, setLoadingBadges] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<BadgeAPI | null>(null);
   
+  const displaySeries = useCallback((seriesName: string) => {
+    return seriesName.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
+  }, []);
+  
   // Determine preview image (backend URL > local mapping > fallback)
   const previewImage = useMemo(() => {
-    if (selectedBadge?.image_url) {
-      return selectedBadge.image_url;
-    }
+    if (selectedBadge?.image_url) return selectedBadge.image_url;
     const local = getLocalBadgeImage(selectedBadge?.name);
-    return local || '/TouKouLeur-Jaune.png';
+    return local || undefined; // no image until a badge is selected
   }, [selectedBadge]);
 
   // Update selected participants when preselectedParticipant changes
@@ -311,16 +313,20 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
           {/* Badge Preview Section */}
           <div className="badge-display-section">
             <div className="badge-icon-large">
-              <img 
-                src={previewImage} 
-                alt={selectedBadge?.name || 'Badge'} 
-                className="badge-image-large" 
-              />
+                {previewImage ? (
+                  <img 
+                    src={previewImage} 
+                    alt={selectedBadge?.name || 'Badge'} 
+                    className="badge-image-large" 
+                  />
+                ) : (
+                  <div className="badge-image-placeholder" />
+                )}
             </div>
             <div className="badge-preview-info">
-              <h3>{selectedBadge?.name || 'Sélectionnez un badge'}</h3>
+                <h3>{selectedBadge?.name || 'Sélectionnez un badge'}</h3>
               <p className="badge-series-level">
-                {selectedBadge ? `${selectedBadge.series} - Niveau 1` : 'Sélectionnez une série et un badge'}
+                  {selectedBadge ? `${displaySeries(selectedBadge.series)} - Niveau 1` : 'Sélectionnez une série et un badge'}
               </p>
               {selectedBadge?.description && (
                 <div className="badge-info-detail">
@@ -373,7 +379,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                     <option value="">Sélectionner une série</option>
                     {availableSeries.map((s) => (
                       <option key={s} value={s}>
-                        {s}
+                        {displaySeries(s)}
                       </option>
                     ))}
                   </select>
