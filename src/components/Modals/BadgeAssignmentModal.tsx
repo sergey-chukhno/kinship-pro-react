@@ -287,11 +287,16 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
       }, 1500);
     } catch (error: any) {
       console.error('Error assigning badge:', error);
-      const errorMessage =
-        error.response?.data?.error ||
-        error.message ||
-        'Erreur lors de l\'attribution du badge';
-      showErrorToast(errorMessage);
+      const apiMessage = error.response?.data?.message || error.response?.data?.error;
+      let friendlyMessage = apiMessage || error.message || "Erreur lors de l'attribution du badge";
+
+      if (apiMessage?.toLowerCase().includes('active contract')) {
+        friendlyMessage = 'Vous devez avoir un contrat actif pour attribuer des badges';
+      } else if (apiMessage?.toLowerCase().includes('unable to determine organization')) {
+        friendlyMessage = 'Organisation inconnue ou non autorisee pour attribuer des badges';
+      }
+
+      showErrorToast(friendlyMessage);
     }
   };
 
