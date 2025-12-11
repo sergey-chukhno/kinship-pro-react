@@ -6,6 +6,7 @@ import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers,
 import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getSkills } from '../../api/Skills';
 import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent } from '../../api/Dashboard';
+import { getTeacherClassStudents } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { ClassList, Member } from '../../types';
@@ -105,9 +106,60 @@ const Members: React.FC = () => {
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
 
   const fetchMembers = async () => {
-    // Ne pas récupérer les membres pour les teachers
+    // Pour les teachers, récupérer les élèves de leurs classes
     if (isTeacherContext) {
-      setMembers([]);
+      try {
+        setLoading(true);
+        const classesRes = await getTeacherClasses(page, per_page);
+        const classes = classesRes.data?.data || classesRes.data || [];
+
+        const studentsArrays = await Promise.all(
+          classes.map(async (cls: any) => {
+            try {
+              const res = await getTeacherClassStudents(cls.id, 200);
+              const data = res.data?.data ?? res.data ?? [];
+              return Array.isArray(data) ? data.map((stu: any) => ({ ...stu, class_id: cls.id, class_name: cls.name })) : [];
+            } catch (err) {
+              console.error('Erreur récupération élèves pour la classe', cls.id, err);
+              return [];
+            }
+          })
+        );
+
+        const allStudents = studentsArrays.flat().map((s: any) => {
+          const role = s.role || 'etudiant';
+          return {
+            id: (s.id || s.user_id || s.student_id || `${Date.now()}-${Math.random()}`).toString(),
+            firstName: s.first_name,
+            lastName: s.last_name,
+            fullName: s.full_name || [s.first_name, s.last_name].filter(Boolean).join(' '),
+            email: s.email || '',
+            profession: '',
+            roles: [role],
+            rawRole: role,
+            systemRole: role,
+            membershipRole: 'student',
+            skills: [],
+            availability: [],
+            badges: s.badges || [],
+            experience: [],
+            education: [],
+            location: s.city || '',
+            phone: s.phone || '',
+            classId: s.class_id,
+            className: s.class_name,
+            avatar: s.avatar || DEFAULT_AVATAR_SRC,
+            isTrusted: Boolean(s.isTrusted)
+          } as Member;
+        });
+
+        setMembers(allStudents);
+      } catch (err) {
+        console.error('Erreur critique récupération élèves (teacher):', err);
+        showError('Impossible de récupérer la liste des élèves');
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
