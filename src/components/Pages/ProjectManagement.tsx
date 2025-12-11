@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects, mockMembers } from '../../data/mockData';
 import AddParticipantModal from '../Modals/AddParticipantModal';
@@ -8,9 +8,12 @@ import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { getProjectById } from '../../api/Project';
 import { updateProject, getProjectStats, ProjectStats, joinProject, getProjectPendingMembers, updateProjectMember, removeProjectMember, getProjectMembers, addProjectMember, getOrganizationMembers, getProjectTeams, createProjectTeam, updateProjectTeam, deleteProjectTeam } from '../../api/Projects';
+import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile, getUserProjectRole } from '../../utils/projectMapper';
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
+import { canUserAssignBadges } from '../../utils/badgePermissions';
+import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { Project } from '../../types';
 import { useToast } from '../../hooks/useToast';
 
@@ -42,6 +45,9 @@ const ProjectManagement: React.FC = () => {
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
   const [badgeDomainFilter, setBadgeDomainFilter] = useState('');
+  const [projectBadges, setProjectBadges] = useState<any[]>([]);
+  const [isLoadingProjectBadges, setIsLoadingProjectBadges] = useState(false);
+  const [projectBadgesError, setProjectBadgesError] = useState<string | null>(null);
 
   // Team management state
   const [teams, setTeams] = useState<any[]>([]);
@@ -115,6 +121,10 @@ const ProjectManagement: React.FC = () => {
   // State for user project role and join functionality
   const [userProjectRole, setUserProjectRole] = useState<string | null>(null);
   const [isJoiningProject, setIsJoiningProject] = useState(false);
+  
+  // State for badge assignment permissions
+  const [canAssignBadges, setCanAssignBadges] = useState(false);
+  const [userProjectMember, setUserProjectMember] = useState<any>(null);
   
   // Fetch project data from API when component mounts or project ID changes
   useEffect(() => {
@@ -256,6 +266,77 @@ const ProjectManagement: React.FC = () => {
     loadParticipants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiProjectData?.id, project?.id]); // Utiliser apiProjectData?.id au lieu de apiProjectData pour éviter les re-renders
+
+  // Fetch project badges when project changes
+  useEffect(() => {
+    const fetchBadges = async () => {
+      if (!project?.id) return;
+      setIsLoadingProjectBadges(true);
+      setProjectBadgesError(null);
+      try {
+        const projectId = parseInt(project.id);
+        const data = await getProjectBadges(projectId);
+        const mapped = (data || []).map(mapBackendBadgeToAttribution);
+        setProjectBadges(mapped);
+      } catch (error: any) {
+        console.error('Error fetching project badges:', error);
+        setProjectBadgesError('Erreur lors du chargement des badges attribués');
+      } finally {
+        setIsLoadingProjectBadges(false);
+      }
+    };
+    
+    fetchBadges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
+
+  // Calculate badge assignment permissions
+  useEffect(() => {
+    if (!project || !state.user?.id || !userProjectRole) {
+      setCanAssignBadges(false);
+      return;
+    }
+
+    // Find current user's project member record
+    const findUserProjectMember = async () => {
+      if (!project?.id) return;
+      
+      try {
+        const projectId = parseInt(project.id);
+        if (isNaN(projectId)) return;
+        
+        const members = await getProjectMembers(projectId);
+        const currentUserMember = members.find((m: any) => {
+          const userId = m.user?.id?.toString() || m.user_id?.toString();
+          return userId === state.user?.id?.toString();
+        });
+        
+        if (currentUserMember) {
+          setUserProjectMember({
+            can_assign_badges_in_project: currentUserMember.can_assign_badges_in_project || false,
+            user: {
+              available_contexts: state.user.available_contexts
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user project member:', error);
+      }
+    };
+    
+    findUserProjectMember();
+    
+    // Calculate permissions
+    const hasPermission = canUserAssignBadges(
+      project,
+      state.user.id,
+      userProjectRole,
+      userProjectMember
+    );
+    
+    setCanAssignBadges(hasPermission);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, state.user?.id, userProjectRole, userProjectMember]);
 
   // Reset active tab if tabs become hidden (e.g., user role changes from admin to participant)
   useEffect(() => {
@@ -995,8 +1076,88 @@ const ProjectManagement: React.FC = () => {
     setIsBadgeModalOpen(true);
   };
 
-  const handleBadgeAssignment = (badgeData: any) => {
+  const displaySeries = (seriesName: string) => {
+    return seriesName?.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
+  };
+
+  const mapBackendBadgeToAttribution = (item: any): any => {
+    const badge = item?.badge || {};
+    const receiver = item?.receiver || {};
+    const sender = item?.sender || {};
+    const organization = item?.organization || {};
+
+    const badgeName = badge.name || 'Badge';
+    const badgeSeries = displaySeries(badge.series || 'Série Soft Skills 4LAB');
+    const badgeLevel = badge.level ? badge.level.replace('level_', '') : '1';
+
+    const imageUrl = badge.image_url || getLocalBadgeImage(badgeName) || '/TouKouLeur-Jaune.png';
+
+    return {
+      id: item.id?.toString() || `badge-${Date.now()}-${Math.random()}`,
+      badgeId: badge.id?.toString() || '',
+      badgeTitle: badgeName,
+      badgeSeries,
+      badgeLevel,
+      badgeImage: imageUrl,
+      participantId: receiver.id?.toString() || '',
+      participantName: receiver.full_name || receiver.name || 'Inconnu',
+      participantAvatar: receiver.avatar_url || '/avatar-placeholder.png',
+      participantOrganization: receiver.organization || organization.name || 'Non spécifiée',
+      attributedBy: sender.id?.toString() || '',
+      attributedByName: sender.full_name || sender.name || 'Inconnu',
+      attributedByAvatar: sender.avatar_url || '/avatar-placeholder.png',
+      attributedByOrganization: sender.organization || organization.name || 'Non spécifiée',
+      projectId: project?.id || '',
+      projectTitle: project?.title || '',
+      domaineEngagement: item.comment || '', // fallback
+      commentaire: item.comment || '',
+      preuve: item.documents?.length
+        ? {
+            name: item.documents[0].filename || 'Document',
+            type: item.documents[0].content_type || 'file',
+            size: item.documents[0].byte_size ? `${(item.documents[0].byte_size / 1024).toFixed(1)} KB` : '',
+          }
+        : undefined,
+      dateAttribution: item.created_at || new Date().toISOString(),
+    };
+  };
+
+  const fetchProjectBadgesData = useCallback(async () => {
+    if (!project?.id) return;
+    setIsLoadingProjectBadges(true);
+    setProjectBadgesError(null);
+    try {
+      const projectId = parseInt(project.id);
+      const data = await getProjectBadges(projectId);
+      const mapped = (data || []).map(mapBackendBadgeToAttribution);
+      setProjectBadges(mapped);
+    } catch (error: any) {
+      console.error('Error fetching project badges:', error);
+      setProjectBadgesError('Erreur lors du chargement des badges attribués');
+    } finally {
+      setIsLoadingProjectBadges(false);
+    }
+  }, [project?.id]);
+
+  const handleBadgeAssignment = async (badgeData: any) => {
     console.log('Badge assigned:', badgeData);
+    
+    // Refresh project stats to update badge count
+    if (project?.id) {
+      try {
+        const projectId = parseInt(project.id);
+        if (!isNaN(projectId)) {
+          const stats = await getProjectStats(projectId);
+          setProjectStats(stats);
+        }
+      } catch (error) {
+        console.error('Error refreshing project stats:', error);
+      }
+    }
+    
+    // Refresh badge attributions list from backend
+    fetchProjectBadgesData();
+    
     // Badge assignment is handled by the modal's success message
     // Close modal after success message is shown
     setTimeout(() => {
@@ -1610,8 +1771,7 @@ const ProjectManagement: React.FC = () => {
 
   // Filter badges based on selected filters
   const getFilteredBadges = () => {
-    return state.badgeAttributions
-      .filter(attribution => attribution.projectId === project?.id)
+    return projectBadges
       .filter(attribution => {
         // Series filter
         if (badgeSeriesFilter && attribution.badgeSeries !== badgeSeriesFilter) {
@@ -1652,9 +1812,11 @@ const ProjectManagement: React.FC = () => {
           <button type="button" className="btn btn-outline" onClick={handleCopyLink}>
             <i className="fas fa-link"></i> Copier le lien
           </button>
-          <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
-            <i className="fas fa-award"></i> Attribuer un badge
-          </button>
+          {canAssignBadges && (
+            <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
+              <i className="fas fa-award"></i> Attribuer un badge
+            </button>
+          )}
         </div>
       </div>
 
@@ -2111,17 +2273,19 @@ const ProjectManagement: React.FC = () => {
                       ))}
                     </div>
                     <div className="member-actions">
-                      <button 
-                        type="button" 
-                        className="btn-icon badge-btn" 
-                        title="Attribuer un badge"
-                        onClick={() => {
-                          setSelectedParticipantForBadge(participant.memberId);
-                          setIsBadgeModalOpen(true);
-                        }}
-                      >
-                        <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
-                      </button>
+                      {canAssignBadges && (
+                        <button 
+                          type="button" 
+                          className="btn-icon badge-btn" 
+                          title="Attribuer un badge"
+                          onClick={() => {
+                            setSelectedParticipantForBadge(participant.memberId);
+                            setIsBadgeModalOpen(true);
+                          }}
+                        >
+                          <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
+                        </button>
+                      )}
                       {/* Show remove button if user can see it and participant can be removed */}
                       {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
                         <button 
@@ -2312,14 +2476,16 @@ const ProjectManagement: React.FC = () => {
                           Retirer
                         </button>
                         )}
-                        <button 
-                          className="btn-accept"
-                          onClick={() => handleAwardBadge(participant.memberId)}
-                          title="Attribuer un badge"
-                        >
-                          <i className="fas fa-award"></i>
-                          Badge
-                        </button>
+                        {canAssignBadges && (
+                          <button 
+                            className="btn-accept"
+                            onClick={() => handleAwardBadge(participant.memberId)}
+                            title="Attribuer un badge"
+                          >
+                            <i className="fas fa-award"></i>
+                            Badge
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2464,9 +2630,6 @@ const ProjectManagement: React.FC = () => {
             <div className="badges-section">
               <div className="badges-section-header">
                 <h3>Badges attribués</h3>
-                <div className="flex flex-col gap-2 items-center">
-                  <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
-                </div>
               </div>
               
               <div className="badges-filters">
@@ -2481,13 +2644,13 @@ const ProjectManagement: React.FC = () => {
                     }}
                   >
                     <option value="">Toutes les séries</option>
-                    <option value="Série TouKouLeur">Soft Skills 4LAB</option>
+                    <option value="Série Soft Skills 4LAB">Soft Skills 4LAB</option>
                     <option value="Série CPS" disabled>CPS</option>
                     <option value="Série Audiovisuelle" disabled>Audiovisuelle</option>
                   </select>
                 </div>
                 
-                {badgeSeriesFilter === 'Série TouKouLeur' && (
+                {badgeSeriesFilter === 'Série Soft Skills 4LAB' && (
                   <div className="filter-group">
                     <label>Par niveau</label>
                     <select 
@@ -2640,15 +2803,33 @@ const ProjectManagement: React.FC = () => {
                     </div>
                   ))}
                 
-                {state.badgeAttributions.filter(attribution => 
-                  attribution.projectId === project?.id
-                ).length === 0 && (
+                {!isLoadingProjectBadges && projectBadges.length === 0 && (
                   <div className="empty-state">
                     <div className="empty-icon">
                       <i className="fas fa-award"></i>
                     </div>
                     <h4>Aucun badge attribué</h4>
                     <p>Les badges attribués dans ce projet apparaîtront ici.</p>
+                  </div>
+                )}
+                
+                {isLoadingProjectBadges && (
+                  <div className="empty-state">
+                    <div className="empty-icon">
+                      <i className="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <h4>Chargement des badges...</h4>
+                    <p>Merci de patienter.</p>
+                  </div>
+                )}
+                
+                {projectBadgesError && (
+                  <div className="empty-state">
+                    <div className="empty-icon">
+                      <i className="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h4>Erreur</h4>
+                    <p>{projectBadgesError}</p>
                   </div>
                 )}
               </div>
@@ -2890,6 +3071,29 @@ const ProjectManagement: React.FC = () => {
           preselectedParticipant={selectedParticipantForBadge}
           projectId={project?.id}
           projectTitle={project?.title}
+          availableOrganizations={userProjectMember?.user?.available_contexts ? (() => {
+            const orgs: Array<{ id: number; name: string; type: 'School' | 'Company' }> = [];
+            const contexts = userProjectMember.user.available_contexts;
+            const badgeRoles = ['superadmin', 'admin', 'referent', 'référent', 'intervenant'];
+            
+            if (contexts.schools) {
+              contexts.schools.forEach((school: any) => {
+                if (badgeRoles.includes(school.role?.toLowerCase() || '')) {
+                  orgs.push({ id: school.id, name: school.name || 'École', type: 'School' });
+                }
+              });
+            }
+            
+            if (contexts.companies) {
+              contexts.companies.forEach((company: any) => {
+                if (badgeRoles.includes(company.role?.toLowerCase() || '')) {
+                  orgs.push({ id: company.id, name: company.name || 'Organisation', type: 'Company' });
+                }
+              });
+            }
+            
+            return orgs.length > 0 ? orgs : undefined;
+          })() : undefined}
         />
       )}
 
