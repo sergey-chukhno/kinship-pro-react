@@ -53,6 +53,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
   // State pour les données API
   const [apiRoles, setApiRoles] = useState<{ value: string; requires_additional_info: boolean }[]>([]);
+  const studentRoles = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant'];
   const [levels, setLevels] = useState<{ id: number; name: string; level: string; school_id?: number | null }[]>([]);
   const [loadingLevels, setLoadingLevels] = useState(false);
 
@@ -101,10 +102,11 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         const rolesRes = await getPersonalUserRoles();
         const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
         if (Array.isArray(rolesData)) {
-          setApiRoles(rolesData);
-          // Sélectionner le premier rôle par défaut si disponible
-          if (rolesData.length > 0) {
-            setFormData(prev => ({ ...prev, role: rolesData[0].value }));
+          const filtered = rolesData.filter((role: any) => studentRoles.includes(role.value));
+          setApiRoles(filtered);
+          // Sélectionner le premier rôle étudiant par défaut si disponible
+          if (filtered.length > 0) {
+            setFormData(prev => ({ ...prev, role: filtered[0].value }));
           }
         }
       } catch (error) {
