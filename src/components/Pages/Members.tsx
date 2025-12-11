@@ -110,7 +110,7 @@ const Members: React.FC = () => {
     if (isTeacherContext) {
       try {
         setLoading(true);
-        const classesRes = await getTeacherClasses(page, per_page);
+        const classesRes = await getTeacherClasses(1, 200); // charger suffisamment pour inclure tout le staff/élèves
         const classes = classesRes.data?.data || classesRes.data || [];
 
         const studentsArrays = await Promise.all(
@@ -178,8 +178,8 @@ const Members: React.FC = () => {
 
       // 2. Bascule de l'appel API (Liste de base)
       const membersRes = isEdu
-        ? await getSchoolMembersAccepted(contextId)
-        : await getCompanyMembersAccepted(contextId);
+        ? await getSchoolMembersAccepted(contextId, 200)
+        : await getCompanyMembersAccepted(contextId, 200);
 
       const basicMembers = membersRes.data.data || membersRes.data || [];
 
@@ -539,7 +539,7 @@ const Members: React.FC = () => {
     // School admin roles
     'directeur_ecole', 'principal', 'directeur_academique', 'responsable_academique', 'proviseur', 'other_school_admin',
     // Membership roles (role_in_school/role_in_company) for admins/superadmins
-    'admin', 'superadmin', 'referent', 'référent'
+    'admin', 'superadmin', 'referent', 'référent', 'other_school_admin'
   ];
 
   const filteredMembers = members.filter(member => {
@@ -1214,7 +1214,7 @@ const Members: React.FC = () => {
                 if (systemRole && staffRoles.includes(systemRole)) return true;
                 
                 // Check if membership role is admin/superadmin/referent
-                if (membershipRole && (membershipRole === 'admin' || membershipRole === 'superadmin' || membershipRole === 'referent' || membershipRole === 'référent')) return true;
+                if (membershipRole && (membershipRole === 'admin' || membershipRole === 'superadmin' || membershipRole === 'referent' || membershipRole === 'référent' || membershipRole === 'other_school_admin')) return true;
                 
                 // fallback : si non student et non reconnu staff, on exclut pour éviter les faux positifs
                 return false;
