@@ -147,7 +147,9 @@ const Members: React.FC = () => {
             location: s.city || '',
             phone: s.phone || '',
             classId: s.class_id,
-            className: s.class_name
+            className: s.class_name,
+            avatar: s.avatar || DEFAULT_AVATAR_SRC,
+            isTrusted: Boolean(s.isTrusted)
           } as Member;
         });
 
