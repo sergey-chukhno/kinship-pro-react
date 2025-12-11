@@ -1,7 +1,7 @@
 import axiosClient from "../config";
 
-export function getCompanyMembersAccepted(companyId: number) {
-    return axiosClient.get(`/api/v1/companies/${companyId}/members?status=confirmed`);
+export function getCompanyMembersAccepted(companyId: number, perPage: number = 12) {
+    return axiosClient.get(`/api/v1/companies/${companyId}/members?status=confirmed&per_page=${perPage}`);
 }
 
 export function getCompanyMembersPending(companyId: number) {
