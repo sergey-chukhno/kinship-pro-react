@@ -101,7 +101,10 @@ const Network: React.FC = () => {
   const [selectedNetworkMember, setSelectedNetworkMember] = useState<Member | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const isOrgDashboardInitial = state.showingPageType === 'edu' || state.showingPageType === 'pro';
-  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | null>(isOrgDashboardInitial ? null : 'schools');
+  const isPersonalUserForType = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | null>(
+    isOrgDashboardInitial || isPersonalUserForType ? null : 'schools'
+  );
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
@@ -172,8 +175,11 @@ const Network: React.FC = () => {
   const [searchTotalPages, setSearchTotalPages] = useState(1);
   const [searchTotalCount, setSearchTotalCount] = useState(0);
 
-  // Active card state (for school/company dashboards)
-  const [activeCard, setActiveCard] = useState<'partners' | 'branches' | 'members' | null>('partners');
+  // Active card state (for school/company dashboards and personal user dashboards)
+  const isPersonalUserInitial = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+  const [activeCard, setActiveCard] = useState<'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members' | null>(
+    isPersonalUserInitial ? 'schools' : 'partners'
+  );
   
   // Network members state (for "Membres de mon réseau" card)
   const [networkMembers, setNetworkMembers] = useState<Member[]>([]);
@@ -809,10 +815,11 @@ const Network: React.FC = () => {
     fetchPartnersCount();
   }, [fetchPartnersCount]);
 
-  // Fetch partners data when partner tab is selected OR when activeCard is 'partners'
+  // Fetch partners data when partner tab is selected OR when activeCard is 'partners' or 'network-members'
   useEffect(() => {
     const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
-    if (selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners')) {
+    const isPersonalUserDashboard = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    if (selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners') || (isPersonalUserDashboard && activeCard === 'network-members')) {
       fetchPartners();
     }
   }, [selectedType, activeCard, state.showingPageType, fetchPartners]);
@@ -1793,6 +1800,7 @@ const Network: React.FC = () => {
   // Combine schools, companies and partners based on selected type or activeCard
   // For school/company dashboards, use activeCard; for personal users, use selectedType
   const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
+  const isPersonalUserDashboard = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   
   const displayItems = selectedType === 'search'
     ? searchResultsAsOrganizations
@@ -1816,6 +1824,38 @@ const Network: React.FC = () => {
         : activeCard === 'branches'
         ? filteredSubOrgs
         : []) // members are displayed separately
+    : isPersonalUserDashboard && activeCard
+    ? (activeCard === 'schools'
+        ? myRequests.schools.filter((school: any) => school.my_status === 'confirmed').map((school: any): Organization => ({
+            id: String(school.id),
+            name: school.name || 'École',
+            type: 'schools' as const,
+            description: school.school_type || '',
+            members_count: school.students_count || 0,
+            location: school.city || '',
+            logo: school.logo_url || '',
+            status: (school.my_status === 'confirmed' ? 'active' : 'pending') as 'active' | 'pending' | 'inactive',
+            joinedDate: school.joined_at || '',
+            contactPerson: '',
+            email: school.email || '',
+            website: ''
+          }))
+        : activeCard === 'companies'
+        ? myRequests.companies.filter((company: any) => company.my_status === 'confirmed').map((company: any): Organization => ({
+            id: String(company.id),
+            name: company.name || 'Entreprise',
+            type: 'companies' as const,
+            description: '',
+            members_count: company.members_count || 0,
+            location: company.city || '',
+            logo: company.logo_url || '',
+            status: (company.my_status === 'confirmed' ? 'active' : 'pending') as 'active' | 'pending' | 'inactive',
+            joinedDate: company.joined_at || '',
+            contactPerson: '',
+            email: company.email || '',
+            website: ''
+          }))
+        : []) // network-members are displayed separately
     : [];
 
   return (
@@ -1846,7 +1886,8 @@ const Network: React.FC = () => {
           <input
             type="text"
             className="search-input !w-full"
-            placeholder="Rechercher par nom, code postal ou ville"
+            placeholder="Rechercher une organisation ou un
+établissement par nom, par ville ou code postal"
             value={searchTerm}
             onChange={(e) => {
               // Ne jamais changer l'onglet automatiquement lors de la saisie
@@ -1920,7 +1961,14 @@ const Network: React.FC = () => {
         </div>
       ) : (
         <div className="network-summary">
-          <div className="summary-card">
+          <div 
+            className={`summary-card ${activeCard === 'schools' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveCard('schools');
+              setSelectedType(null);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="summary-icon">
               <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Mes établissements scolaires" className="summary-icon-img" />
             </div>
@@ -1929,7 +1977,14 @@ const Network: React.FC = () => {
               <p>Mes établissements scolaires</p>
             </div>
           </div>
-          <div className="summary-card">
+          <div 
+            className={`summary-card ${activeCard === 'companies' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveCard('companies');
+              setSelectedType(null);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="summary-icon">
               <img src="/icons_logo/Icon=Reseau.svg" alt="Mes organisations" className="summary-icon-img" />
             </div>
@@ -1938,7 +1993,14 @@ const Network: React.FC = () => {
               <p>Mes organisations</p>
             </div>
           </div>
-          <div className="summary-card">
+          <div 
+            className={`summary-card ${activeCard === 'network-members' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveCard('network-members');
+              setSelectedType(null);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="summary-icon">
               <img src="/icons_logo/Icon=Membres.svg" alt="Total" className="summary-icon-img" />
             </div>
@@ -1963,23 +2025,7 @@ const Network: React.FC = () => {
               Recherche ({searchTotalCount > 0 ? searchTotalCount : searchResultsAsOrganizations.length})
             </button>
           )}
-          {/* Hide schools and companies tabs for school/company dashboards */}
-          {(state.showingPageType !== 'edu' && state.showingPageType !== 'pro') && (
-            <>
-              <button 
-                className={`filter-tab ${selectedType === 'schools' ? 'active' : ''}`}
-                onClick={() => { setActiveCard(null); setSelectedType('schools'); }}
-              >
-                Établissements scolaires ({schoolsTotalCount > 0 ? schoolsTotalCount : filteredSchools.length})
-              </button>
-              <button 
-                className={`filter-tab ${selectedType === 'companies' ? 'active' : ''}`}
-                onClick={() => { setActiveCard(null); setSelectedType('companies'); }}
-              >
-                Organisations ({companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length})
-              </button>
-            </>
-          )}
+          {/* Hide schools and companies tabs for personal users and organization dashboards */}
           {/* Show partnership requests and branch requests tabs only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
             <>
@@ -2006,38 +2052,31 @@ const Network: React.FC = () => {
               Mes demandes ({filteredMyRequests.length})
             </button>
           )}
-          {/* Show partners tab only for personal users (for school/company, partners are shown via activeCard) */}
-          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
-            <button 
-              className={`filter-tab ${selectedType === 'partner' ? 'active' : ''}`}
-              onClick={() => { setActiveCard(null); setSelectedType('partner'); }}
-            >
-              Mon réseau ({partnersTotalCount > 0 ? partnersTotalCount : filteredPartners.length})
-            </button>
-          )}
         </div>
 
-        {/* Stage / Atelier filters (apply to members lists & cards) */}
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: 12 }}>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
-            <input
-              type="checkbox"
-              checked={filterStage}
-              onChange={(e) => setFilterStage(e.target.checked)}
-            />
-            Propose un stage
-          </label>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
-            <input
-              type="checkbox"
-              checked={filterWorkshop}
-              onChange={(e) => setFilterWorkshop(e.target.checked)}
-            />
-            Propose un atelier
-          </label>
-        </div>
+        {/* Stage / Atelier filters (apply to members lists & cards) - Only show for network members */}
+        {((isPersonalUser && selectedType === 'partner') || (isPersonalUserDashboard && activeCard === 'network-members')) && (
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: 12 }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
+              <input
+                type="checkbox"
+                checked={filterStage}
+                onChange={(e) => setFilterStage(e.target.checked)}
+              />
+              Propose un stage
+            </label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
+              <input
+                type="checkbox"
+                checked={filterWorkshop}
+                onChange={(e) => setFilterWorkshop(e.target.checked)}
+              />
+              Propose un atelier
+            </label>
+          </div>
+        )}
                 {/* Filters for personal user network */}
-                {isPersonalUser && selectedType === 'partner' && (
+                {((isPersonalUser && selectedType === 'partner') || (isPersonalUserDashboard && activeCard === 'network-members')) && (
           <div className="network-user-filters" style={{ 
             marginBottom: '20px', 
             padding: '16px', 
@@ -2298,7 +2337,7 @@ const Network: React.FC = () => {
         {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && !(isPersonalUserDashboard && activeCard === 'network-members') && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
         
@@ -2317,6 +2356,46 @@ const Network: React.FC = () => {
             {!networkMembersLoading && !networkMembersError && filteredNetworkMembers.length > 0 && (
               <div className="members-grid">
                 {filteredNetworkMembers.map((member) => (
+                  <MemberCard
+                    key={member.id}
+                    member={member}
+                    badgeCount={member.badges?.length || 0}
+                    categoryTag={{ label: 'Membre individuel', color: '#ec4899' }}
+                    onClick={() => {
+                      setSelectedNetworkMember(member);
+                    }}
+                    onContactClick={() => {
+                      console.log('Contact member:', member.email);
+                    }}
+                    onViewProfile={() => {
+                      setSelectedNetworkMember(member);
+                    }}
+                    onRoleChange={(newRole) => {
+                      console.log('Role change not applicable for network members');
+                    }}
+                    disableRoleDropdown={true}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Display network members for personal users when activeCard is 'network-members' */}
+        {isPersonalUserDashboard && activeCard === 'network-members' && (
+          <>
+            {networkMembersLoading && (
+              <div className="loading-message">Chargement des membres du réseau...</div>
+            )}
+            {networkMembersError && (
+              <div className="error-message">{networkMembersError}</div>
+            )}
+            {!networkMembersLoading && !networkMembersError && filteredNetworkUsers.length === 0 && (
+              <div className="empty-message">Aucun membre du réseau trouvé</div>
+            )}
+            {!networkMembersLoading && !networkMembersError && filteredNetworkUsers.length > 0 && (
+              <div className="members-grid">
+                {filteredNetworkUsers.map((member) => (
                   <MemberCard
                     key={member.id}
                     member={member}
@@ -2378,11 +2457,13 @@ const Network: React.FC = () => {
         {/* Display organizations for other tabs */}
         {!(isPersonalUser && selectedType === 'partner') && 
          !(isOrgDashboard && activeCard === 'members') && 
+         !(isPersonalUserDashboard && activeCard === 'network-members') &&
          (selectedType === 'search' || 
           selectedType === 'partnership-requests' || 
           selectedType === 'branch-requests' || 
           (isOrgDashboard && (activeCard === 'partners' || activeCard === 'branches')) || 
-          !(isOrgDashboard && activeCard)) && (
+          (isPersonalUserDashboard && (activeCard === 'schools' || activeCard === 'companies')) ||
+          (!(isOrgDashboard && activeCard) && !(isPersonalUserDashboard && activeCard))) && (
           <div className="grid !grid-cols-3">
             {displayItems.length > 0 ? (
               displayItems.map((organization) => {
