@@ -94,6 +94,16 @@
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
 }
 
+.badge-default-logo {
+  padding: 8px;
+  opacity: 0.9;
+  transition: opacity 0.2s ease;
+}
+
+.badge-default-logo:hover {
+  opacity: 1;
+}
+
 .badge-preview-info {
   flex: 1;
 }

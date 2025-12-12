@@ -456,7 +456,11 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                     className="badge-image-large" 
                   />
                 ) : (
-                  <div className="badge-image-placeholder" />
+                  <img 
+                    src="/4lab-logo.png" 
+                    alt="4Lab" 
+                    className="badge-image-large badge-default-logo" 
+                  />
                 )}
             </div>
             <div className="badge-preview-info">
