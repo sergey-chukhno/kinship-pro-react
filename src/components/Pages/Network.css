@@ -112,6 +112,8 @@
   gap: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
+  max-height: 120px;
+  min-height: 120px;
 }
 
 .summary-card:hover {
@@ -123,7 +125,6 @@
 .summary-card.active {
   background: var(--primary, #5570F1);
   border-color: var(--primary, #5570F1);
-  color: white;
 }
 
 .summary-card.active .summary-content h3 {
@@ -131,16 +132,22 @@
 }
 
 .summary-card.active .summary-content p {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .summary-card.active .summary-icon {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.summary-card.active .summary-icon img {
+  filter: brightness(0) invert(1);
+}
+
 .summary-card.active:hover {
-  background: var(--primary-dark, #4c63d2);
-  border-color: var(--primary-dark, #4c63d2);
+  background: var(--primary, #5570F1);
+  /* border-color: var(--primary, #5570F1); */
+  transform: translateY(-2px);
+  /* box-shadow: 0 4px 12px rgba(85, 112, 241, 0.4); */
 }
 
 .summary-icon {

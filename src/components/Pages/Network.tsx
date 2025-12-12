@@ -11,7 +11,7 @@ import MemberCard from '../Members/MemberCard';
 import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationMembers } from '../../api/Projects';
+import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationMembers } from '../../api/Projects';
 import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
@@ -31,6 +31,8 @@ interface Organization {
   joinedDate: string;
   contactPerson: string;
   email: string;
+  take_trainee?: boolean;
+  propose_workshop?: boolean;
 }
 
 
@@ -101,7 +103,10 @@ const Network: React.FC = () => {
   const [selectedNetworkMember, setSelectedNetworkMember] = useState<Member | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const isOrgDashboardInitial = state.showingPageType === 'edu' || state.showingPageType === 'pro';
-  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | null>(isOrgDashboardInitial ? null : 'schools');
+  const isPersonalUserForType = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | null>(
+    isOrgDashboardInitial || isPersonalUserForType ? null : 'schools'
+  );
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
@@ -136,6 +141,7 @@ const Network: React.FC = () => {
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [isAvailabilityDropdownOpen, setIsAvailabilityDropdownOpen] = useState(false);
+  const [isPropositionsDropdownOpen, setIsPropositionsDropdownOpen] = useState(false);
   // Filters - stage / atelier
   const [filterStage, setFilterStage] = useState(false); // Propose un stage (take_trainee)
   const [filterWorkshop, setFilterWorkshop] = useState(false); // Propose un atelier (propose_workshop)
@@ -159,10 +165,14 @@ const Network: React.FC = () => {
   const [branchRequestsLoading, setBranchRequestsLoading] = useState(false);
   const [branchRequestsError, setBranchRequestsError] = useState<string | null>(null);
 
-  // Personal user requests state
+  // Personal user requests state (for "Mes demandes" tab - pending/accepted/rejected)
   const [myRequests, setMyRequests] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
   const [myRequestsLoading, setMyRequestsLoading] = useState(false);
   const [myRequestsError, setMyRequestsError] = useState<string | null>(null);
+  
+  // Personal user confirmed organizations (for activeCard display)
+  const [myOrganizations, setMyOrganizations] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
+  const [myOrganizationsLoading, setMyOrganizationsLoading] = useState(false);
 
   // Search results state
   const [searchResults, setSearchResults] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
@@ -172,8 +182,14 @@ const Network: React.FC = () => {
   const [searchTotalPages, setSearchTotalPages] = useState(1);
   const [searchTotalCount, setSearchTotalCount] = useState(0);
 
-  // Active card state (for school/company dashboards)
-  const [activeCard, setActiveCard] = useState<'partners' | 'branches' | 'members' | null>('partners');
+  // Active card state (for school/company dashboards and personal user dashboards)
+  const isPersonalUserInitial = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+  const [activeCard, setActiveCard] = useState<'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members' | null>(
+    isPersonalUserInitial ? 'schools' : 'partners'
+  );
+  
+  // Local search term for filtering within activeCard tabs
+  const [localSearchTerm, setLocalSearchTerm] = useState('');
   
   // Network members state (for "Membres de mon réseau" card)
   const [networkMembers, setNetworkMembers] = useState<Member[]>([]);
@@ -358,17 +374,33 @@ const Network: React.FC = () => {
   useEffect(() => {
     const fetchGlobalSchoolsCount = async () => {
       try {
-        const params: any = {
-          page: 1,
-          per_page: 1, // Just to get the meta.total_count
-          status: 'confirmed'
-        };
+        const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+        
+        if (isPersonalUser) {
+          // For personal users, count only confirmed organizations from their own list
+          const response = await getPersonalUserOrganizations();
+          const data = response.data;
+          
+          if (data) {
+            const confirmedSchools = (data.schools || []).filter((school: any) => school.my_status === 'confirmed');
+            setGlobalSchoolsTotalCount(confirmedSchools.length);
+          } else {
+            setGlobalSchoolsTotalCount(0);
+          }
+        } else {
+          // For organization users, count all confirmed schools in the system
+          const params: any = {
+            page: 1,
+            per_page: 50, // Just to get the meta.total_count
+            status: 'confirmed'
+          };
 
-        const response = await getSchools(params);
-        const meta = response?.data?.meta;
+          const response = await getSchools(params);
+          const meta = response?.data?.meta;
 
-        if (meta) {
-          setGlobalSchoolsTotalCount(meta.total_count || 0);
+          if (meta) {
+            setGlobalSchoolsTotalCount(meta.total_count || 0);
+          }
         }
       } catch (err) {
         console.error('Error fetching global schools count:', err);
@@ -377,23 +409,39 @@ const Network: React.FC = () => {
     };
 
     fetchGlobalSchoolsCount();
-  }, []);
+  }, [state.showingPageType]);
 
   // Fetch global companies count on mount (for summary cards - never changes)
   useEffect(() => {
     const fetchGlobalCompaniesCount = async () => {
       try {
-        const params: any = {
-          page: 1,
-          per_page: 1, // Just to get the meta.total_count
-          status: 'confirmed'
-        };
+        const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+        
+        if (isPersonalUser) {
+          // For personal users, count only confirmed organizations from their own list
+          const response = await getPersonalUserOrganizations();
+          const data = response.data;
+          
+          if (data) {
+            const confirmedCompanies = (data.companies || []).filter((company: any) => company.my_status === 'confirmed');
+            setGlobalCompaniesTotalCount(confirmedCompanies.length);
+          } else {
+            setGlobalCompaniesTotalCount(0);
+          }
+        } else {
+          // For organization users, count all confirmed companies in the system
+          const params: any = {
+            page: 1,
+            per_page: 50, // Just to get the meta.total_count
+            status: 'confirmed'
+          };
 
-        const response = await getCompanies(params);
-        const meta = response?.data?.meta;
+          const response = await getCompanies(params);
+          const meta = response?.data?.meta;
 
-        if (meta) {
-          setGlobalCompaniesTotalCount(meta.total_count || 0);
+          if (meta) {
+            setGlobalCompaniesTotalCount(meta.total_count || 0);
+          }
         }
       } catch (err) {
         console.error('Error fetching global companies count:', err);
@@ -402,7 +450,7 @@ const Network: React.FC = () => {
     };
 
     fetchGlobalCompaniesCount();
-  }, []);
+  }, [state.showingPageType]);
 
 
   // Fetch schools from API
@@ -495,7 +543,7 @@ const Network: React.FC = () => {
       try {
         const params: any = {
           page: 1,
-          per_page: 1, // Just to get the meta.total_count
+          per_page: 50, // Just to get the meta.total_count
           status: 'confirmed'
         };
 
@@ -707,30 +755,55 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType]);
 
+  // Load skills on mount for personal users (needed for filters)
   useEffect(() => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-    if (isPersonalUser && selectedType === 'partner') {
+    if (isPersonalUser) {
       fetchSkills();
     }
-  }, [state.showingPageType, selectedType, fetchSkills]);
+  }, [state.showingPageType, fetchSkills]);
 
-  // Close availability dropdown when clicking outside
+  // Reset filters when changing tabs (activeCard or selectedType)
+  useEffect(() => {
+    setCompetenceFilter('');
+    setAvailabilityFilter([]);
+    setOrganizationFilter('');
+    setFilterStage(false);
+    setFilterWorkshop(false);
+    setLocalSearchTerm('');
+    setIsAvailabilityDropdownOpen(false);
+    setIsPropositionsDropdownOpen(false);
+  }, [activeCard, selectedType]);
+
+  // Redirect from 'my-requests' tab if there are no requests
+  useEffect(() => {
+    if (selectedType === 'my-requests' && 
+        myRequests.schools.length === 0 && 
+        myRequests.companies.length === 0) {
+      // Redirect to schools tab for personal users
+      setSelectedType(null);
+      setActiveCard('schools');
+    }
+  }, [selectedType, myRequests.schools.length, myRequests.companies.length]);
+
+  // Close availability and propositions dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (isAvailabilityDropdownOpen && !target.closest('.filter-group')) {
+      if ((isAvailabilityDropdownOpen || isPropositionsDropdownOpen) && !target.closest('.filter-group')) {
         setIsAvailabilityDropdownOpen(false);
+        setIsPropositionsDropdownOpen(false);
       }
     };
 
-    if (isAvailabilityDropdownOpen) {
+    if (isAvailabilityDropdownOpen || isPropositionsDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isAvailabilityDropdownOpen]);
+  }, [isAvailabilityDropdownOpen, isPropositionsDropdownOpen]);
 
   // Handle join organization request (opens modal)
   const handleJoinOrganizationRequest = (organization: Organization) => {
@@ -777,10 +850,11 @@ const Network: React.FC = () => {
     fetchPartnersCount();
   }, [fetchPartnersCount]);
 
-  // Fetch partners data when partner tab is selected OR when activeCard is 'partners'
+  // Fetch partners data when partner tab is selected OR when activeCard is 'partners' or 'network-members'
   useEffect(() => {
     const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
-    if (selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners')) {
+    const isPersonalUserDashboard = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    if (selectedType === 'partner' || (isOrgDashboard && activeCard === 'partners') || (isPersonalUserDashboard && activeCard === 'network-members')) {
       fetchPartners();
     }
   }, [selectedType, activeCard, state.showingPageType, fetchPartners]);
@@ -870,7 +944,7 @@ const Network: React.FC = () => {
     }
   }, [selectedType, activeCard, state.showingPageType, fetchRequests]);
 
-  // Function to fetch personal user organization requests
+  // Function to fetch personal user membership requests (pending, accepted, rejected)
   const fetchMyRequests = useCallback(async () => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     
@@ -883,8 +957,10 @@ const Network: React.FC = () => {
     setMyRequestsError(null);
 
     try {
-      const response = await getPersonalUserOrganizations();
+      const response = await getUserMembershipRequests();
       const data = response.data;
+
+      console.log('Membership requests response:', data);
 
       if (data) {
         setMyRequests({
@@ -895,7 +971,7 @@ const Network: React.FC = () => {
         setMyRequests({ schools: [], companies: [] });
       }
     } catch (err) {
-      console.error('Error fetching personal user organizations:', err);
+      console.error('Error fetching membership requests:', err);
       setMyRequestsError('Erreur lors du chargement de vos demandes');
       setMyRequests({ schools: [], companies: [] });
     } finally {
@@ -903,13 +979,47 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType]);
 
-  // Fetch my requests on component mount if user is personal user (before tab selection)
+  // Function to fetch personal user confirmed organizations (for activeCard display)
+  const fetchMyOrganizations = useCallback(async () => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    
+    if (!isPersonalUser) {
+      setMyOrganizations({ schools: [], companies: [] });
+      return;
+    }
+
+    setMyOrganizationsLoading(true);
+
+    try {
+      const response = await getPersonalUserOrganizations();
+      const data = response.data;
+
+      console.log('My confirmed organizations response:', data);
+
+      if (data) {
+        setMyOrganizations({
+          schools: data.schools || [],
+          companies: data.companies || []
+        });
+      } else {
+        setMyOrganizations({ schools: [], companies: [] });
+      }
+    } catch (err) {
+      console.error('Error fetching confirmed organizations:', err);
+      setMyOrganizations({ schools: [], companies: [] });
+    } finally {
+      setMyOrganizationsLoading(false);
+    }
+  }, [state.showingPageType]);
+
+  // Fetch my requests and organizations on component mount if user is personal user
   useEffect(() => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     if (isPersonalUser) {
       fetchMyRequests();
+      fetchMyOrganizations();
     }
-  }, [state.showingPageType, fetchMyRequests]);
+  }, [state.showingPageType, fetchMyRequests, fetchMyOrganizations]);
 
   // Function to count all unique partners (confirmed + pending)
   const countAllPartners = useCallback((): number => {
@@ -1405,7 +1515,7 @@ const Network: React.FC = () => {
   // Convert search results to organization-like format for display
   // Display all schools and companies for all dashboards (partnerships can be cross-type)
   // Branch requests will be validated separately to ensure same-type only
-  const searchResultsAsOrganizations: Organization[] = [
+  const searchResultsAsOrganizations: Organization[] = useMemo(() => [
     // Convert schools (show all for all dashboards)
     ...searchResults.schools.map((school: any) => ({
       id: String(school.id),
@@ -1418,7 +1528,9 @@ const Network: React.FC = () => {
       status: school.status === 'confirmed' ? 'active' as const : 'pending' as const,
       joinedDate: '',
       contactPerson: '',
-      email: school.email || ''
+      email: school.email || '',
+      take_trainee: school.take_trainee,
+      propose_workshop: school.propose_workshop
     })),
     // Convert companies (show all for all dashboards)
     ...searchResults.companies.map((company: any) => ({
@@ -1432,9 +1544,45 @@ const Network: React.FC = () => {
       status: company.status === 'confirmed' ? 'active' as const : 'pending' as const,
       joinedDate: '',
       contactPerson: '',
-      email: company.email || ''
+      email: company.email || '',
+      take_trainee: company.take_trainee,
+      propose_workshop: company.propose_workshop
     }))
-  ];
+  ], [searchResults.schools, searchResults.companies]);
+  
+  // Filter search results by propositions if filters are active
+  const filteredSearchResults = useMemo(() => {
+    console.log('Filtering search results - filterStage:', filterStage, 'filterWorkshop:', filterWorkshop);
+    console.log('Total search results:', searchResultsAsOrganizations.length);
+    
+    const filtered = searchResultsAsOrganizations.filter((org: any) => {
+      // If any proposition filter is active, show only companies (not schools)
+      if (filterStage || filterWorkshop) {
+        // Exclude schools when proposition filters are active
+        if (org.type === 'schools') {
+          console.log('Excluding school:', org.name);
+          return false;
+        }
+        
+        // Filter companies by stage proposition (take_trainee)
+        if (filterStage && !org.take_trainee) {
+          console.log('Excluding company (no stage):', org.name, 'take_trainee:', org.take_trainee);
+          return false;
+        }
+        // Filter companies by workshop proposition (propose_workshop)
+        if (filterWorkshop && !org.propose_workshop) {
+          console.log('Excluding company (no workshop):', org.name, 'propose_workshop:', org.propose_workshop);
+          return false;
+        }
+        
+        console.log('Including company:', org.name, 'take_trainee:', org.take_trainee, 'propose_workshop:', org.propose_workshop);
+      }
+      return true;
+    });
+    
+    console.log('Filtered results count:', filtered.length);
+    return filtered;
+  }, [searchResultsAsOrganizations, filterStage, filterWorkshop]);
 
   // Convert schools to organization-like format for display
   const schoolsAsOrganizations: Organization[] = filteredSchools.map(school => ({
@@ -1599,7 +1747,14 @@ const Network: React.FC = () => {
           member.organization?.toLowerCase().includes(organizationFilter.toLowerCase());
         // Note: availability is not in the NetworkUser interface, so we skip that filter for now
         const matchesStageWorkshop = memberMatchesStageWorkshop(member);
-        return matchesCompetence && matchesOrganization && matchesStageWorkshop;
+        
+        // Local search filter for network-members activeCard (no skills or profession search)
+        const matchesLocalSearch = !localSearchTerm || !localSearchTerm.trim() || 
+          (member.fullName && member.fullName.toLowerCase().includes(localSearchTerm.toLowerCase())) ||
+          member.email.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
+          member.organization?.toLowerCase().includes(localSearchTerm.toLowerCase());
+        
+        return matchesCompetence && matchesOrganization && matchesStageWorkshop && matchesLocalSearch;
       })
     : [];
 
@@ -1761,9 +1916,23 @@ const Network: React.FC = () => {
   // Combine schools, companies and partners based on selected type or activeCard
   // For school/company dashboards, use activeCard; for personal users, use selectedType
   const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
+  const isPersonalUserDashboard = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+  
+  // Function to filter items by local search term
+  const filterByLocalSearch = (items: Organization[]) => {
+    if (!localSearchTerm || !localSearchTerm.trim()) return items;
+    
+    const searchLower = localSearchTerm.toLowerCase().trim();
+    return items.filter(item => 
+      item.name.toLowerCase().includes(searchLower) ||
+      item.location.toLowerCase().includes(searchLower) ||
+      item.description.toLowerCase().includes(searchLower) ||
+      item.email.toLowerCase().includes(searchLower)
+    );
+  };
   
   const displayItems = selectedType === 'search'
-    ? searchResultsAsOrganizations
+    ? filteredSearchResults
     : selectedType === 'branch-requests'
     ? filteredBranchRequests
     : selectedType === 'partnership-requests'
@@ -1780,10 +1949,42 @@ const Network: React.FC = () => {
     ? filteredMyRequests
     : isOrgDashboard && activeCard
     ? (activeCard === 'partners'
-        ? filteredPartners
+        ? filterByLocalSearch(filteredPartners)
         : activeCard === 'branches'
-        ? filteredSubOrgs
+        ? filterByLocalSearch(filteredSubOrgs)
         : []) // members are displayed separately
+    : isPersonalUserDashboard && activeCard
+    ? (activeCard === 'schools'
+        ? filterByLocalSearch(myOrganizations.schools.filter((school: any) => school.my_status === 'confirmed').map((school: any): Organization => ({
+            id: String(school.id),
+            name: school.name || 'École',
+            type: 'schools' as const,
+            description: school.school_type || '',
+            members_count: school.students_count || 0,
+            location: school.city || '',
+            logo: school.logo_url || '',
+            status: 'active' as const,
+            joinedDate: school.joined_at || '',
+            contactPerson: '',
+            email: school.email || '',
+            website: ''
+          })))
+        : activeCard === 'companies'
+        ? filterByLocalSearch(myOrganizations.companies.filter((company: any) => company.my_status === 'confirmed').map((company: any): Organization => ({
+            id: String(company.id),
+            name: company.name || 'Entreprise',
+            type: 'companies' as const,
+            description: company.company_type?.name || '',
+            members_count: company.members_count || 0,
+            location: company.city || '',
+            logo: company.logo_url || '',
+            status: 'active' as const,
+            joinedDate: company.joined_at || '',
+            contactPerson: '',
+            email: company.email || '',
+            website: ''
+          })))
+        : []) // network-members are displayed separately
     : [];
 
   return (
@@ -1814,7 +2015,8 @@ const Network: React.FC = () => {
           <input
             type="text"
             className="search-input !w-full"
-            placeholder="Rechercher par nom, code postal ou ville"
+            placeholder="Rechercher une organisation ou un
+établissement par nom, par ville ou code postal"
             value={searchTerm}
             onChange={(e) => {
               // Ne jamais changer l'onglet automatiquement lors de la saisie
@@ -1888,32 +2090,94 @@ const Network: React.FC = () => {
         </div>
       ) : (
         <div className="network-summary">
-          <div className="summary-card">
+          <div 
+            className={`summary-card ${activeCard === 'schools' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveCard('schools');
+              setSelectedType(null);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="summary-icon">
-              <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Établissements scolaires" className="summary-icon-img" />
+              <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Mes établissements scolaires" className="summary-icon-img" />
             </div>
             <div className="summary-content">
               <h3>{globalSchoolsTotalCount}</h3>
-              <p>Établissements scolaires</p>
+              <p>Mes établissements scolaires</p>
             </div>
           </div>
-          <div className="summary-card">
+          <div 
+            className={`summary-card ${activeCard === 'companies' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveCard('companies');
+              setSelectedType(null);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="summary-icon">
-              <img src="/icons_logo/Icon=Reseau.svg" alt="Entreprises" className="summary-icon-img" />
+              <img src="/icons_logo/Icon=Reseau.svg" alt="Mes organisations" className="summary-icon-img" />
             </div>
             <div className="summary-content">
               <h3>{globalCompaniesTotalCount}</h3>
-              <p>Organisations</p>
+              <p>Mes organisations</p>
             </div>
           </div>
-          <div className="summary-card">
+          <div 
+            className={`summary-card ${activeCard === 'network-members' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveCard('network-members');
+              setSelectedType(null);
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="summary-icon">
               <img src="/icons_logo/Icon=Membres.svg" alt="Total" className="summary-icon-img" />
             </div>
             <div className="summary-content">
-              <h3>{globalSchoolsTotalCount + globalCompaniesTotalCount}</h3>
-              <p>Total</p>
+              <h3>{partnersTotalCount}</h3>
+              <p>Membres de mon réseau</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Local Search Bar for activeCard tabs */}
+      {activeCard && (activeCard === 'schools' || activeCard === 'companies' || activeCard === 'network-members') && (
+        <div className="network-search-container" style={{ marginTop: '16px' }}>
+          <div className="search-bar !w-full">
+            <i className="fas fa-search search-icon"></i>
+            <input
+              type="text"
+              className="search-input !w-full"
+              placeholder={
+                activeCard === 'schools' 
+                  ? "Rechercher un établissement par nom, ville..."
+                  : activeCard === 'companies'
+                  ? "Rechercher une organisation par nom, ville..."
+                  : "Rechercher un membre par nom, email, organisation..."
+              }
+              value={localSearchTerm}
+              onChange={(e) => setLocalSearchTerm(e.target.value)}
+            />
+            {localSearchTerm && (
+              <button
+                onClick={() => setLocalSearchTerm('')}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  fontSize: '1rem',
+                  padding: '4px'
+                }}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1928,26 +2192,10 @@ const Network: React.FC = () => {
               className={`filter-tab ${selectedType === 'search' ? 'active' : ''}`}
               onClick={() => { setActiveCard(null); setSelectedType('search'); }}
             >
-              Recherche ({searchTotalCount > 0 ? searchTotalCount : searchResultsAsOrganizations.length})
+              Recherche ({searchTotalCount > 0 ? searchTotalCount : filteredSearchResults.length})
             </button>
           )}
-          {/* Hide schools and companies tabs for school/company dashboards */}
-          {(state.showingPageType !== 'edu' && state.showingPageType !== 'pro') && (
-            <>
-              <button 
-                className={`filter-tab ${selectedType === 'schools' ? 'active' : ''}`}
-                onClick={() => { setActiveCard(null); setSelectedType('schools'); }}
-              >
-                Établissements scolaires ({schoolsTotalCount > 0 ? schoolsTotalCount : filteredSchools.length})
-              </button>
-              <button 
-                className={`filter-tab ${selectedType === 'companies' ? 'active' : ''}`}
-                onClick={() => { setActiveCard(null); setSelectedType('companies'); }}
-              >
-                Organisations ({companiesTotalCount > 0 ? companiesTotalCount : filteredCompanies.length})
-              </button>
-            </>
-          )}
+          {/* Hide schools and companies tabs for personal users and organization dashboards */}
           {/* Show partnership requests and branch requests tabs only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
             <>
@@ -1965,8 +2213,9 @@ const Network: React.FC = () => {
               </button>
             </>
           )}
-          {/* Show my requests tab only for personal users (teacher/user) */}
-          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
+          {/* Show my requests tab only for personal users (teacher/user) and if there are requests */}
+          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && 
+           (myRequests.schools.length > 0 || myRequests.companies.length > 0) && (
             <button 
               className={`filter-tab ${selectedType === 'my-requests' ? 'active' : ''}`}
               onClick={() => { setActiveCard(null); setSelectedType('my-requests'); }}
@@ -1974,38 +2223,10 @@ const Network: React.FC = () => {
               Mes demandes ({filteredMyRequests.length})
             </button>
           )}
-          {/* Show partners tab only for personal users (for school/company, partners are shown via activeCard) */}
-          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
-            <button 
-              className={`filter-tab ${selectedType === 'partner' ? 'active' : ''}`}
-              onClick={() => { setActiveCard(null); setSelectedType('partner'); }}
-            >
-              Mon réseau ({partnersTotalCount > 0 ? partnersTotalCount : filteredPartners.length})
-            </button>
-          )}
         </div>
 
-        {/* Stage / Atelier filters (apply to members lists & cards) */}
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: 12 }}>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
-            <input
-              type="checkbox"
-              checked={filterStage}
-              onChange={(e) => setFilterStage(e.target.checked)}
-            />
-            Propose un stage
-          </label>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.9rem', color: '#374151' }}>
-            <input
-              type="checkbox"
-              checked={filterWorkshop}
-              onChange={(e) => setFilterWorkshop(e.target.checked)}
-            />
-            Propose un atelier
-          </label>
-        </div>
-                {/* Filters for personal user network */}
-                {isPersonalUser && selectedType === 'partner' && (
+        {/* Filters for personal user network - Show on all tabs except schools */}
+        {((isPersonalUser && (selectedType === 'my-requests' || selectedType === 'search')) || (isPersonalUserDashboard && activeCard && activeCard !== 'schools')) && (
           <div className="network-user-filters" style={{ 
             marginBottom: '20px', 
             padding: '16px', 
@@ -2017,7 +2238,20 @@ const Network: React.FC = () => {
               <i className="fas fa-filter" style={{ marginRight: '8px' }}></i>
               Filtres
             </div>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px', 
+              flexWrap: 'wrap', 
+              alignItems: 'flex-end', 
+              justifyContent: (() => {
+                // Calculate number of visible filters
+                let visibleFiltersCount = 2; // Compétence and Propositions are always visible
+                if (selectedType !== 'search' && activeCard !== 'companies') {
+                  visibleFiltersCount += 2; // Disponibilité and Établissement/Organisation
+                }
+                return visibleFiltersCount > 3 ? 'space-between' : 'flex-start';
+              })()
+            }}>
               <div className="filter-group" style={{ flex: '1', minWidth: '200px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
                   <i className="fas fa-tools" style={{ marginRight: '6px' }}></i>
@@ -2047,15 +2281,154 @@ const Network: React.FC = () => {
                   ))}
                 </select>
               </div>
+              
+              {/* Disponibilité filter - Hidden in search and companies */}
+              {selectedType !== 'search' && activeCard !== 'companies' && (
+                <div className="filter-group" style={{ flex: '1', minWidth: '200px', position: 'relative' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
+                    <i className="fas fa-calendar-alt" style={{ marginRight: '6px' }}></i>
+                    Disponibilité
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsAvailabilityDropdownOpen(!isAvailabilityDropdownOpen)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
+                        background: 'white',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <span style={{ color: availabilityFilter.length > 0 ? '#1f2937' : '#9ca3af' }}>
+                        {availabilityFilter.length > 0 
+                          ? `${availabilityFilter.length} jour${availabilityFilter.length > 1 ? 's' : ''} sélectionné${availabilityFilter.length > 1 ? 's' : ''}`
+                          : 'Toutes les disponibilités'}
+                      </span>
+                      <i className={`fas fa-chevron-${isAvailabilityDropdownOpen ? 'up' : 'down'}`} style={{ fontSize: '0.75rem', color: '#9ca3af' }}></i>
+                    </button>
+                    {isAvailabilityDropdownOpen && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          marginTop: '4px',
+                          padding: '8px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '8px',
+                          background: 'white',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                          zIndex: 1000,
+                          maxHeight: '200px',
+                          overflowY: 'auto'
+                        }}
+                      >
+                        {[
+                          { value: 'monday', label: 'Lundi' },
+                          { value: 'tuesday', label: 'Mardi' },
+                          { value: 'wednesday', label: 'Mercredi' },
+                          { value: 'thursday', label: 'Jeudi' },
+                          { value: 'friday', label: 'Vendredi' },
+                          { value: 'saturday', label: 'Samedi' },
+                          { value: 'sunday', label: 'Dimanche' },
+                          { value: 'other', label: 'Autre' }
+                        ].map((option) => (
+                          <label
+                            key={option.value}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '8px',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                              transition: 'background-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#f3f4f6';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={availabilityFilter.includes(option.value)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setAvailabilityFilter([...availabilityFilter, option.value]);
+                                } else {
+                                  setAvailabilityFilter(availabilityFilter.filter(a => a !== option.value));
+                                }
+                                setPartnersPage(1); // Reset to first page when filter changes
+                              }}
+                              style={{
+                                marginRight: '10px',
+                                cursor: 'pointer',
+                                width: '16px',
+                                height: '16px'
+                              }}
+                            />
+                            <span style={{ fontSize: '0.875rem', color: '#374151' }}>{option.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Établissement / Organisation filter - Hidden in search and companies */}
+              {selectedType !== 'search' && activeCard !== 'companies' && (
+                <div className="filter-group" style={{ flex: '1', minWidth: '200px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' , whiteSpace: 'nowrap'}}>
+                    <i className="fas fa-building" style={{ marginRight: '6px' }}></i>
+                    Établissement / Organisation
+                  </label>
+                  <select
+                    value={organizationFilter}
+                    onChange={(e) => {
+                      setOrganizationFilter(e.target.value);
+                      setPartnersPage(1); // Reset to first page when filter changes
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      background: 'white',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="">Tous </option>
+                    {organizationOptions.map((org) => (
+                      <option key={org} value={org}>
+                        {org}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              
+              {/* Stage and Workshop filters */}
               <div className="filter-group" style={{ flex: '1', minWidth: '200px', position: 'relative' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
-                  <i className="fas fa-calendar-alt" style={{ marginRight: '6px' }}></i>
-                  Disponibilité
+                  <i className="fas fa-briefcase" style={{ marginRight: '6px' }}></i>
+                  Propositions
                 </label>
                 <div style={{ position: 'relative' }}>
                   <button
                     type="button"
-                    onClick={() => setIsAvailabilityDropdownOpen(!isAvailabilityDropdownOpen)}
+                    onClick={() => setIsPropositionsDropdownOpen(!isPropositionsDropdownOpen)}
                     style={{
                       width: '100%',
                       padding: '10px 12px',
@@ -2070,14 +2443,18 @@ const Network: React.FC = () => {
                       alignItems: 'center'
                     }}
                   >
-                    <span style={{ color: availabilityFilter.length > 0 ? '#1f2937' : '#9ca3af' }}>
-                      {availabilityFilter.length > 0 
-                        ? `${availabilityFilter.length} jour${availabilityFilter.length > 1 ? 's' : ''} sélectionné${availabilityFilter.length > 1 ? 's' : ''}`
-                        : 'Toutes les disponibilités'}
+                    <span style={{ color: (filterStage || filterWorkshop) ? '#1f2937' : '#9ca3af' }}>
+                      {filterStage && filterWorkshop
+                        ? 'Stage et Atelier'
+                        : filterStage
+                        ? 'Propose un stage'
+                        : filterWorkshop
+                        ? 'Propose un atelier'
+                        : 'Toutes les propositions'}
                     </span>
-                    <i className={`fas fa-chevron-${isAvailabilityDropdownOpen ? 'up' : 'down'}`} style={{ fontSize: '0.75rem', color: '#9ca3af' }}></i>
+                    <i className={`fas fa-chevron-${isPropositionsDropdownOpen ? 'up' : 'down'}`} style={{ fontSize: '0.75rem', color: '#9ca3af' }}></i>
                   </button>
-                  {isAvailabilityDropdownOpen && (
+                  {isPropositionsDropdownOpen && (
                     <div
                       style={{
                         position: 'absolute',
@@ -2090,100 +2467,77 @@ const Network: React.FC = () => {
                         borderRadius: '8px',
                         background: 'white',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                        zIndex: 1000,
-                        maxHeight: '200px',
-                        overflowY: 'auto'
+                        zIndex: 1000
                       }}
                     >
-                      {[
-                        { value: 'monday', label: 'Lundi' },
-                        { value: 'tuesday', label: 'Mardi' },
-                        { value: 'wednesday', label: 'Mercredi' },
-                        { value: 'thursday', label: 'Jeudi' },
-                        { value: 'friday', label: 'Vendredi' },
-                        { value: 'saturday', label: 'Samedi' },
-                        { value: 'sunday', label: 'Dimanche' },
-                        { value: 'other', label: 'Autre' }
-                      ].map((option) => (
-                        <label
-                          key={option.value}
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={filterStage}
+                          onChange={(e) => setFilterStage(e.target.checked)}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '8px',
-                            cursor: 'pointer',
-                            borderRadius: '4px',
-                            transition: 'background-color 0.2s'
+                            marginRight: '8px',
+                            cursor: 'pointer'
                           }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                        />
+                        <span style={{ fontSize: '0.875rem', color: '#374151' }}>Propose un stage</span>
+                      </label>
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={filterWorkshop}
+                          onChange={(e) => setFilterWorkshop(e.target.checked)}
+                          style={{
+                            marginRight: '8px',
+                            cursor: 'pointer'
                           }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={availabilityFilter.includes(option.value)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setAvailabilityFilter([...availabilityFilter, option.value]);
-                              } else {
-                                setAvailabilityFilter(availabilityFilter.filter(a => a !== option.value));
-                              }
-                              setPartnersPage(1); // Reset to first page when filter changes
-                            }}
-                            style={{
-                              marginRight: '10px',
-                              cursor: 'pointer',
-                              width: '16px',
-                              height: '16px'
-                            }}
-                          />
-                          <span style={{ fontSize: '0.875rem', color: '#374151' }}>{option.label}</span>
-                        </label>
-                      ))}
+                        />
+                        <span style={{ fontSize: '0.875rem', color: '#374151' }}>Propose un atelier</span>
+                      </label>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="filter-group" style={{ flex: '1', minWidth: '200px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
-                  <i className="fas fa-building" style={{ marginRight: '6px' }}></i>
-                  Établissement / Organisation
-                </label>
-                <select
-                  value={organizationFilter}
-                  onChange={(e) => {
-                    setOrganizationFilter(e.target.value);
-                    setPartnersPage(1); // Reset to first page when filter changes
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '0.875rem',
-                    background: 'white',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="">Tous les établissements</option>
-                  {organizationOptions.map((org) => (
-                    <option key={org} value={org}>
-                      {org}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
-            {(competenceFilter || availabilityFilter.length > 0 || organizationFilter) && (
+            {(competenceFilter || availabilityFilter.length > 0 || organizationFilter || filterStage || filterWorkshop) && (
               <div style={{ marginTop: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <button
                   onClick={() => {
                     setCompetenceFilter('');
                     setAvailabilityFilter([]);
                     setOrganizationFilter('');
+                    setFilterStage(false);
+                    setFilterWorkshop(false);
                   }}
                   style={{
                     padding: '6px 12px',
@@ -2266,7 +2620,7 @@ const Network: React.FC = () => {
         {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && !(isPersonalUserDashboard && activeCard === 'network-members') && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
         
@@ -2285,6 +2639,46 @@ const Network: React.FC = () => {
             {!networkMembersLoading && !networkMembersError && filteredNetworkMembers.length > 0 && (
               <div className="members-grid">
                 {filteredNetworkMembers.map((member) => (
+                  <MemberCard
+                    key={member.id}
+                    member={member}
+                    badgeCount={member.badges?.length || 0}
+                    categoryTag={{ label: 'Membre individuel', color: '#ec4899' }}
+                    onClick={() => {
+                      setSelectedNetworkMember(member);
+                    }}
+                    onContactClick={() => {
+                      console.log('Contact member:', member.email);
+                    }}
+                    onViewProfile={() => {
+                      setSelectedNetworkMember(member);
+                    }}
+                    onRoleChange={(newRole) => {
+                      console.log('Role change not applicable for network members');
+                    }}
+                    disableRoleDropdown={true}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Display network members for personal users when activeCard is 'network-members' */}
+        {isPersonalUserDashboard && activeCard === 'network-members' && (
+          <>
+            {networkMembersLoading && (
+              <div className="loading-message">Chargement des membres du réseau...</div>
+            )}
+            {networkMembersError && (
+              <div className="error-message">{networkMembersError}</div>
+            )}
+            {!networkMembersLoading && !networkMembersError && filteredNetworkUsers.length === 0 && (
+              <div className="empty-message">Aucun membre du réseau trouvé</div>
+            )}
+            {!networkMembersLoading && !networkMembersError && filteredNetworkUsers.length > 0 && (
+              <div className="members-grid">
+                {filteredNetworkUsers.map((member) => (
                   <MemberCard
                     key={member.id}
                     member={member}
@@ -2346,11 +2740,13 @@ const Network: React.FC = () => {
         {/* Display organizations for other tabs */}
         {!(isPersonalUser && selectedType === 'partner') && 
          !(isOrgDashboard && activeCard === 'members') && 
+         !(isPersonalUserDashboard && activeCard === 'network-members') &&
          (selectedType === 'search' || 
           selectedType === 'partnership-requests' || 
           selectedType === 'branch-requests' || 
           (isOrgDashboard && (activeCard === 'partners' || activeCard === 'branches')) || 
-          !(isOrgDashboard && activeCard)) && (
+          (isPersonalUserDashboard && (activeCard === 'schools' || activeCard === 'companies')) ||
+          (!(isOrgDashboard && activeCard) && !(isPersonalUserDashboard && activeCard))) && (
           <div className="grid !grid-cols-3">
             {displayItems.length > 0 ? (
               displayItems.map((organization) => {
@@ -3020,7 +3416,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Search */}
-      {selectedType === 'search' && searchTotalPages > 1 && (searchTotalCount > 0 || searchResultsAsOrganizations.length > 0) && (
+      {selectedType === 'search' && searchTotalPages > 1 && (searchTotalCount > 0 || filteredSearchResults.length > 0) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {searchPage} sur {searchTotalPages} ({searchTotalCount} résultats)
