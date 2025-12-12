@@ -148,6 +148,21 @@
   color: var(--text-primary, #1f2937);
 }
 
+/* Competencies label container with hint text */
+.competencies-label-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.competencies-hint-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6b7280);
+  font-style: italic;
+  font-weight: 400;
+  margin-top: -2px;
+}
+
 .field-comment {
   font-size: 0.75rem;
   color: var(--text-tertiary, #9ca3af);
@@ -245,6 +260,23 @@
 .competency-item:hover .competency-item-icon {
   opacity: 1;
   transform: scale(1.1);
+}
+
+/* Mandatory competency indicators */
+.competency-item-mandatory {
+  border-left: 3px solid var(--warning, #f59e0b);
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.competency-item-mandatory:hover {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-left-color: var(--warning, #f59e0b);
+}
+
+.competency-mandatory-indicator {
+  color: var(--warning, #f59e0b);
+  font-weight: 600;
+  font-style: italic;
 }
 
 .competencies-list-empty {
@@ -354,6 +386,25 @@
 
 .competency-chip-remove i {
   line-height: 1;
+}
+
+/* Mandatory competency chip styling */
+.competency-chip-mandatory {
+  background-color: var(--warning, #f59e0b);
+  border: 1px solid var(--warning-dark, #d97706);
+}
+
+.competency-chip-mandatory:hover {
+  background-color: var(--warning-dark, #d97706);
+  box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);
+}
+
+.competency-chip-mandatory-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-style: italic;
+  opacity: 0.95;
+  margin-left: 4px;
 }
 
 .form-textarea {
