@@ -11,7 +11,7 @@ import MemberCard from '../Members/MemberCard';
 import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationMembers } from '../../api/Projects';
+import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationMembers } from '../../api/Projects';
 import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
@@ -165,10 +165,14 @@ const Network: React.FC = () => {
   const [branchRequestsLoading, setBranchRequestsLoading] = useState(false);
   const [branchRequestsError, setBranchRequestsError] = useState<string | null>(null);
 
-  // Personal user requests state
+  // Personal user requests state (for "Mes demandes" tab - pending/accepted/rejected)
   const [myRequests, setMyRequests] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
   const [myRequestsLoading, setMyRequestsLoading] = useState(false);
   const [myRequestsError, setMyRequestsError] = useState<string | null>(null);
+  
+  // Personal user confirmed organizations (for activeCard display)
+  const [myOrganizations, setMyOrganizations] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
+  const [myOrganizationsLoading, setMyOrganizationsLoading] = useState(false);
 
   // Search results state
   const [searchResults, setSearchResults] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
@@ -183,6 +187,9 @@ const Network: React.FC = () => {
   const [activeCard, setActiveCard] = useState<'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members' | null>(
     isPersonalUserInitial ? 'schools' : 'partners'
   );
+  
+  // Local search term for filtering within activeCard tabs
+  const [localSearchTerm, setLocalSearchTerm] = useState('');
   
   // Network members state (for "Membres de mon réseau" card)
   const [networkMembers, setNetworkMembers] = useState<Member[]>([]);
@@ -748,12 +755,36 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType]);
 
+  // Load skills on mount for personal users (needed for filters)
   useEffect(() => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-    if (isPersonalUser && selectedType === 'partner') {
+    if (isPersonalUser) {
       fetchSkills();
     }
-  }, [state.showingPageType, selectedType, fetchSkills]);
+  }, [state.showingPageType, fetchSkills]);
+
+  // Reset filters when changing tabs (activeCard or selectedType)
+  useEffect(() => {
+    setCompetenceFilter('');
+    setAvailabilityFilter([]);
+    setOrganizationFilter('');
+    setFilterStage(false);
+    setFilterWorkshop(false);
+    setLocalSearchTerm('');
+    setIsAvailabilityDropdownOpen(false);
+    setIsPropositionsDropdownOpen(false);
+  }, [activeCard, selectedType]);
+
+  // Redirect from 'my-requests' tab if there are no requests
+  useEffect(() => {
+    if (selectedType === 'my-requests' && 
+        myRequests.schools.length === 0 && 
+        myRequests.companies.length === 0) {
+      // Redirect to schools tab for personal users
+      setSelectedType(null);
+      setActiveCard('schools');
+    }
+  }, [selectedType, myRequests.schools.length, myRequests.companies.length]);
 
   // Close availability and propositions dropdowns when clicking outside
   useEffect(() => {
@@ -913,7 +944,7 @@ const Network: React.FC = () => {
     }
   }, [selectedType, activeCard, state.showingPageType, fetchRequests]);
 
-  // Function to fetch personal user organization requests
+  // Function to fetch personal user membership requests (pending, accepted, rejected)
   const fetchMyRequests = useCallback(async () => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     
@@ -926,8 +957,10 @@ const Network: React.FC = () => {
     setMyRequestsError(null);
 
     try {
-      const response = await getPersonalUserOrganizations();
+      const response = await getUserMembershipRequests();
       const data = response.data;
+
+      console.log('Membership requests response:', data);
 
       if (data) {
         setMyRequests({
@@ -938,7 +971,7 @@ const Network: React.FC = () => {
         setMyRequests({ schools: [], companies: [] });
       }
     } catch (err) {
-      console.error('Error fetching personal user organizations:', err);
+      console.error('Error fetching membership requests:', err);
       setMyRequestsError('Erreur lors du chargement de vos demandes');
       setMyRequests({ schools: [], companies: [] });
     } finally {
@@ -946,13 +979,47 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType]);
 
-  // Fetch my requests on component mount if user is personal user (before tab selection)
+  // Function to fetch personal user confirmed organizations (for activeCard display)
+  const fetchMyOrganizations = useCallback(async () => {
+    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+    
+    if (!isPersonalUser) {
+      setMyOrganizations({ schools: [], companies: [] });
+      return;
+    }
+
+    setMyOrganizationsLoading(true);
+
+    try {
+      const response = await getPersonalUserOrganizations();
+      const data = response.data;
+
+      console.log('My confirmed organizations response:', data);
+
+      if (data) {
+        setMyOrganizations({
+          schools: data.schools || [],
+          companies: data.companies || []
+        });
+      } else {
+        setMyOrganizations({ schools: [], companies: [] });
+      }
+    } catch (err) {
+      console.error('Error fetching confirmed organizations:', err);
+      setMyOrganizations({ schools: [], companies: [] });
+    } finally {
+      setMyOrganizationsLoading(false);
+    }
+  }, [state.showingPageType]);
+
+  // Fetch my requests and organizations on component mount if user is personal user
   useEffect(() => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     if (isPersonalUser) {
       fetchMyRequests();
+      fetchMyOrganizations();
     }
-  }, [state.showingPageType, fetchMyRequests]);
+  }, [state.showingPageType, fetchMyRequests, fetchMyOrganizations]);
 
   // Function to count all unique partners (confirmed + pending)
   const countAllPartners = useCallback((): number => {
@@ -1680,7 +1747,14 @@ const Network: React.FC = () => {
           member.organization?.toLowerCase().includes(organizationFilter.toLowerCase());
         // Note: availability is not in the NetworkUser interface, so we skip that filter for now
         const matchesStageWorkshop = memberMatchesStageWorkshop(member);
-        return matchesCompetence && matchesOrganization && matchesStageWorkshop;
+        
+        // Local search filter for network-members activeCard (no skills or profession search)
+        const matchesLocalSearch = !localSearchTerm || !localSearchTerm.trim() || 
+          (member.fullName && member.fullName.toLowerCase().includes(localSearchTerm.toLowerCase())) ||
+          member.email.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
+          member.organization?.toLowerCase().includes(localSearchTerm.toLowerCase());
+        
+        return matchesCompetence && matchesOrganization && matchesStageWorkshop && matchesLocalSearch;
       })
     : [];
 
@@ -1844,6 +1918,19 @@ const Network: React.FC = () => {
   const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
   const isPersonalUserDashboard = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   
+  // Function to filter items by local search term
+  const filterByLocalSearch = (items: Organization[]) => {
+    if (!localSearchTerm || !localSearchTerm.trim()) return items;
+    
+    const searchLower = localSearchTerm.toLowerCase().trim();
+    return items.filter(item => 
+      item.name.toLowerCase().includes(searchLower) ||
+      item.location.toLowerCase().includes(searchLower) ||
+      item.description.toLowerCase().includes(searchLower) ||
+      item.email.toLowerCase().includes(searchLower)
+    );
+  };
+  
   const displayItems = selectedType === 'search'
     ? filteredSearchResults
     : selectedType === 'branch-requests'
@@ -1862,13 +1949,13 @@ const Network: React.FC = () => {
     ? filteredMyRequests
     : isOrgDashboard && activeCard
     ? (activeCard === 'partners'
-        ? filteredPartners
+        ? filterByLocalSearch(filteredPartners)
         : activeCard === 'branches'
-        ? filteredSubOrgs
+        ? filterByLocalSearch(filteredSubOrgs)
         : []) // members are displayed separately
     : isPersonalUserDashboard && activeCard
     ? (activeCard === 'schools'
-        ? myRequests.schools.filter((school: any) => school.my_status === 'confirmed').map((school: any): Organization => ({
+        ? filterByLocalSearch(myOrganizations.schools.filter((school: any) => school.my_status === 'confirmed').map((school: any): Organization => ({
             id: String(school.id),
             name: school.name || 'École',
             type: 'schools' as const,
@@ -1876,27 +1963,27 @@ const Network: React.FC = () => {
             members_count: school.students_count || 0,
             location: school.city || '',
             logo: school.logo_url || '',
-            status: (school.my_status === 'confirmed' ? 'active' : 'pending') as 'active' | 'pending' | 'inactive',
+            status: 'active' as const,
             joinedDate: school.joined_at || '',
             contactPerson: '',
             email: school.email || '',
             website: ''
-          }))
+          })))
         : activeCard === 'companies'
-        ? myRequests.companies.filter((company: any) => company.my_status === 'confirmed').map((company: any): Organization => ({
+        ? filterByLocalSearch(myOrganizations.companies.filter((company: any) => company.my_status === 'confirmed').map((company: any): Organization => ({
             id: String(company.id),
             name: company.name || 'Entreprise',
             type: 'companies' as const,
-            description: '',
+            description: company.company_type?.name || '',
             members_count: company.members_count || 0,
             location: company.city || '',
             logo: company.logo_url || '',
-            status: (company.my_status === 'confirmed' ? 'active' : 'pending') as 'active' | 'pending' | 'inactive',
+            status: 'active' as const,
             joinedDate: company.joined_at || '',
             contactPerson: '',
             email: company.email || '',
             website: ''
-          }))
+          })))
         : []) // network-members are displayed separately
     : [];
 
@@ -2054,6 +2141,47 @@ const Network: React.FC = () => {
         </div>
       )}
 
+      {/* Local Search Bar for activeCard tabs */}
+      {activeCard && (activeCard === 'schools' || activeCard === 'companies' || activeCard === 'network-members') && (
+        <div className="network-search-container" style={{ marginTop: '16px' }}>
+          <div className="search-bar !w-full">
+            <i className="fas fa-search search-icon"></i>
+            <input
+              type="text"
+              className="search-input !w-full"
+              placeholder={
+                activeCard === 'schools' 
+                  ? "Rechercher un établissement par nom, ville..."
+                  : activeCard === 'companies'
+                  ? "Rechercher une organisation par nom, ville..."
+                  : "Rechercher un membre par nom, email, organisation..."
+              }
+              value={localSearchTerm}
+              onChange={(e) => setLocalSearchTerm(e.target.value)}
+            />
+            {localSearchTerm && (
+              <button
+                onClick={() => setLocalSearchTerm('')}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  fontSize: '1rem',
+                  padding: '4px'
+                }}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Type Filter */}
       <div className="network-filters">
 
@@ -2085,8 +2213,9 @@ const Network: React.FC = () => {
               </button>
             </>
           )}
-          {/* Show my requests tab only for personal users (teacher/user) */}
-          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
+          {/* Show my requests tab only for personal users (teacher/user) and if there are requests */}
+          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && 
+           (myRequests.schools.length > 0 || myRequests.companies.length > 0) && (
             <button 
               className={`filter-tab ${selectedType === 'my-requests' ? 'active' : ''}`}
               onClick={() => { setActiveCard(null); setSelectedType('my-requests'); }}
@@ -2280,7 +2409,7 @@ const Network: React.FC = () => {
                       cursor: 'pointer'
                     }}
                   >
-                    <option value="">Tous les établissements</option>
+                    <option value="">Tous </option>
                     {organizationOptions.map((org) => (
                       <option key={org} value={org}>
                         {org}

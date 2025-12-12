@@ -464,6 +464,17 @@ export const getPersonalUserRequests = async (
  * Uses /api/v1/users/me/organizations endpoint
  * Returns structure: { data: { schools: [...], companies: [...] }, meta: {...} }
  */
+// Get membership requests (pending, accepted, rejected)
+export const getUserMembershipRequests = async (): Promise<{ data: { schools: any[]; companies: any[] }; meta?: any }> => {
+    const response = await apiClient.get('/api/v1/users/me/membership_requests');
+    
+    // Handle response structure: { data: { schools: [...], companies: [...] }, meta: {...} }
+    return {
+        data: response.data?.data || { schools: [], companies: [] },
+        meta: response.data?.meta
+    };
+};
+
 export const getPersonalUserOrganizations = async (): Promise<{ data: { schools: any[]; companies: any[] }; meta?: any }> => {
     const response = await apiClient.get('/api/v1/users/me/organizations');
     
