@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects, mockMembers } from '../../data/mockData';
 import AddParticipantModal from '../Modals/AddParticipantModal';
@@ -250,22 +250,97 @@ const ProjectManagement: React.FC = () => {
   }, [project?.id, activeTab]);
 
   // Load real project members when apiProjectData changes
+  // Completely ref-based approach to prevent infinite loops
   useEffect(() => {
+    // Early return guards
+    if (!apiProjectData || !project?.id) {
+      return;
+    }
+    
+    // Get current ID values (convert to string for stable comparison)
+    const currentProjectId = String(project.id);
+    const currentApiProjectId = String(apiProjectData?.id || 'null');
+    
+    // Create stable key for this project/apiProject combination
+    const combinedKey = `${currentProjectId}-${currentApiProjectId}`;
+    
+    // CRITICAL: Check if we already loaded for this exact combination
+    // This is the primary guard against infinite loops
+    if (lastLoadedProjectIdRef.current === combinedKey) {
+      console.log('[loadParticipants] SKIP: Already loaded for', combinedKey);
+      return;
+    }
+    
+    // Guard: Don't start if already loading (use ref to avoid re-render)
+    if (isLoadingRef.current) {
+      console.log('[loadParticipants] SKIP: Already loading');
+      return;
+    }
+    
+    console.log('[loadParticipants] STARTING load for', combinedKey, {
+      previousKey: lastLoadedProjectIdRef.current,
+      isLoading: isLoadingRef.current
+    });
+    
+    // Mark as loading and set the key IMMEDIATELY to prevent concurrent calls
+    // This must happen synchronously before any async operations
+    lastLoadedProjectIdRef.current = combinedKey;
+    previousIdsRef.current = {
+      projectId: currentProjectId,
+      apiProjectId: currentApiProjectId
+    };
+    isLoadingRef.current = true;
+    setIsLoadingParticipants(true);
+    
+    let isCancelled = false;
+    
     const loadParticipants = async () => {
-      if (!apiProjectData || !project?.id) return;
-      
       try {
+        console.log('[loadParticipants] Fetching members for', combinedKey);
         const members = await fetchAllProjectMembers();
-        setParticipants(members);
+        console.log('[loadParticipants] Fetched', members.length, 'members for', combinedKey);
+        // Only update state if not cancelled and still loading for this key
+        if (!isCancelled && lastLoadedProjectIdRef.current === combinedKey) {
+          setParticipants(members);
+          console.log('[loadParticipants] Updated participants state');
+        } else {
+          console.log('[loadParticipants] SKIP state update: cancelled or key changed', {
+            isCancelled,
+            currentKey: lastLoadedProjectIdRef.current,
+            expectedKey: combinedKey
+          });
+        }
       } catch (error) {
-        console.error('Error loading participants:', error);
-        showError('Erreur lors du chargement des participants');
+        if (!isCancelled) {
+          console.error('[loadParticipants] Error loading participants:', error);
+          showError('Erreur lors du chargement des participants');
+          // Reset refs on error to allow retry
+          if (lastLoadedProjectIdRef.current === combinedKey) {
+            lastLoadedProjectIdRef.current = null;
+            previousIdsRef.current = { projectId: null, apiProjectId: null };
+          }
+        }
+      } finally {
+        // Only reset loading if not cancelled and still on the same key
+        if (!isCancelled && lastLoadedProjectIdRef.current === combinedKey) {
+          isLoadingRef.current = false;
+          setIsLoadingParticipants(false);
+          console.log('[loadParticipants] COMPLETED for', combinedKey);
+        } else {
+          console.log('[loadParticipants] SKIP reset: cancelled or key changed');
+        }
       }
     };
     
     loadParticipants();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiProjectData?.id, project?.id]); // Utiliser apiProjectData?.id au lieu de apiProjectData pour éviter les re-renders
+    
+    // Cleanup function to cancel if effect runs again before completion
+    return () => {
+      console.log('[loadParticipants] CLEANUP: Cancelling load for', combinedKey);
+      isCancelled = true;
+      // Don't reset refs here - let the new effect run handle it
+    };
+  }, [apiProjectData?.id, project?.id]); // Depend directly on ID values
 
   // Fetch project badges when project changes
   useEffect(() => {
@@ -312,12 +387,22 @@ const ProjectManagement: React.FC = () => {
         });
         
         if (currentUserMember) {
-          setUserProjectMember({
+          // Only update if the value actually changed to prevent loops
+          const newUserProjectMember = {
             can_assign_badges_in_project: currentUserMember.can_assign_badges_in_project || false,
             user: {
               available_contexts: state.user.available_contexts
             }
-          });
+          };
+          
+          // Check if we need to update (prevent unnecessary state updates)
+          const needsUpdate = !userProjectMember || 
+            userProjectMember.can_assign_badges_in_project !== newUserProjectMember.can_assign_badges_in_project ||
+            JSON.stringify(userProjectMember.user?.available_contexts) !== JSON.stringify(newUserProjectMember.user?.available_contexts);
+          
+          if (needsUpdate) {
+            setUserProjectMember(newUserProjectMember);
+          }
         }
       } catch (error) {
         console.error('Error fetching user project member:', error);
@@ -326,7 +411,7 @@ const ProjectManagement: React.FC = () => {
     
     findUserProjectMember();
     
-    // Calculate permissions
+    // Calculate permissions (use current userProjectMember state, but don't depend on it)
     const hasPermission = canUserAssignBadges(
       project,
       state.user.id,
@@ -336,7 +421,7 @@ const ProjectManagement: React.FC = () => {
     
     setCanAssignBadges(hasPermission);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, state.user?.id, userProjectRole, userProjectMember]);
+  }, [project?.id, state.user?.id, userProjectRole]); // Removed userProjectMember from dependencies to prevent loop
 
   // Reset active tab if tabs become hidden (e.g., user role changes from admin to participant)
   useEffect(() => {
@@ -364,6 +449,10 @@ const ProjectManagement: React.FC = () => {
 
   // State for participants with extended type
   const [participants, setParticipants] = useState<any[]>([]);
+  const [isLoadingParticipants, setIsLoadingParticipants] = useState(false);
+  const lastLoadedProjectIdRef = useRef<string | null>(null);
+  const previousIdsRef = useRef<{ projectId: string | null; apiProjectId: string | null }>({ projectId: null, apiProjectId: null });
+  const isLoadingRef = useRef<boolean>(false); // Use ref to prevent re-render triggers
 
   const getStatusText = (status: string) => {
     switch (status) {
@@ -1037,6 +1126,9 @@ const ProjectManagement: React.FC = () => {
       showSuccess(`${participant.name} a été retiré du projet`);
       
       // Reload participants
+      // Reset refs to allow reload
+      lastLoadedProjectIdRef.current = null;
+      previousIdsRef.current = { projectId: null, apiProjectId: null };
       const members = await fetchAllProjectMembers();
       setParticipants(members);
       
@@ -1533,6 +1625,9 @@ const ProjectManagement: React.FC = () => {
       showSuccess(`${participantData.name} a été ajouté au projet`);
       
       // Reload participants
+      // Reset refs to allow reload
+      lastLoadedProjectIdRef.current = null;
+      previousIdsRef.current = { projectId: null, apiProjectId: null };
       const members = await fetchAllProjectMembers();
       setParticipants(members);
       
