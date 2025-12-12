@@ -327,6 +327,34 @@ export const getOrganizationMembers = async (
 };
 
 /**
+ * Fetch network members for an organization (company or school)
+ * Returns all members from the organization's network including partners and branches
+ */
+export const getOrganizationNetwork = async (
+    organizationId: number,
+    organizationType: 'school' | 'company',
+    excludeMe: boolean = true
+): Promise<any[]> => {
+    const endpoint = organizationType === 'school'
+        ? `/api/v1/schools/${organizationId}/network`
+        : `/api/v1/companies/${organizationId}/network`;
+
+    const params: any = { 
+        per_page: 1000  // Load all network members
+    };
+    
+    if (excludeMe) {
+        params.exclude_me = true;
+    }
+
+    const response = await apiClient.get(endpoint, { params });
+    
+    // Extract data array from paginated response
+    // Backend returns: { data: [...], meta: {...} }
+    return response.data?.data || response.data || [];
+};
+
+/**
  * Fetch parent organization for a school
  */
 export const getSchoolParent = async (

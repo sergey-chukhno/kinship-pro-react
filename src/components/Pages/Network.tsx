@@ -11,7 +11,7 @@ import MemberCard from '../Members/MemberCard';
 import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationMembers } from '../../api/Projects';
+import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork } from '../../api/Projects';
 import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
@@ -84,7 +84,10 @@ interface NetworkUser {
     other: boolean;
     available: boolean;
   } | null;
-  common_organizations: Array<{ id: number; name: string; type: string }>;
+  common_organizations: {
+    schools: Array<{ id: number; name: string; type: string }>;
+    companies: Array<{ id: number; name: string; type: string }>;
+  };
 }
 
 const Network: React.FC = () => {
@@ -195,18 +198,75 @@ const Network: React.FC = () => {
   const [networkMembers, setNetworkMembers] = useState<Member[]>([]);
   const [networkMembersLoading, setNetworkMembersLoading] = useState(false);
   const [networkMembersError, setNetworkMembersError] = useState<string | null>(null);
-  // Helpers: filter members by stage / workshop proposal
-  const memberMatchesStageWorkshop = useCallback(
+  // Helpers: filter members by stage / workshop proposal and other filters
+  const memberMatchesFilters = useCallback(
     (member: Member) => {
       if (filterStage && !member.take_trainee) return false;
       if (filterWorkshop && !member.propose_workshop) return false;
+      
+      // Apply competence filter (if set)
+      if (competenceFilter && member.skills) {
+        const memberSkills = Array.isArray(member.skills) 
+          ? member.skills.map((s: any) => typeof s === 'string' ? s : s?.name || '').filter(Boolean)
+          : [];
+        if (!memberSkills.some(skill => skill.toLowerCase().includes(competenceFilter.toLowerCase()))) {
+          return false;
+        }
+      }
+      
+      // Apply availability filter (if set)
+      if (availabilityFilter.length > 0 && member.availability) {
+        const memberAvailability = Array.isArray(member.availability) ? member.availability : [];
+        if (!availabilityFilter.some(day => memberAvailability.includes(day))) {
+          return false;
+        }
+      }
+      
+      // Apply organization filter from common_organizations (if set)
+      if (organizationFilter) {
+        if (member.commonOrganizations) {
+          const matchesOrg = 
+            member.commonOrganizations.schools.some(s => s.name.toLowerCase().includes(organizationFilter.toLowerCase())) ||
+            member.commonOrganizations.companies.some(c => c.name.toLowerCase().includes(organizationFilter.toLowerCase()));
+          if (!matchesOrg) {
+            return false;
+          }
+        } else {
+          // Fallback to member.organization if commonOrganizations is not available
+          if (member.organization && !member.organization.toLowerCase().includes(organizationFilter.toLowerCase())) {
+            return false;
+          } else if (!member.organization) {
+            return false;
+          }
+        }
+      }
+      
       return true;
     },
-    [filterStage, filterWorkshop]
+    [filterStage, filterWorkshop, competenceFilter, availabilityFilter, organizationFilter]
   );
   const filteredNetworkMembers = useMemo(
-    () => networkMembers.filter(memberMatchesStageWorkshop),
-    [networkMembers, memberMatchesStageWorkshop]
+    () => networkMembers.filter(member => {
+      // Apply all filters (stage, workshop, competence, availability, organization)
+      if (!memberMatchesFilters(member)) return false;
+      
+      // Apply local search term for activeCard === 'members'
+      if (localSearchTerm && localSearchTerm.trim()) {
+        const searchLower = localSearchTerm.toLowerCase().trim();
+        const matchesSearch = 
+          (member.fullName && member.fullName.toLowerCase().includes(searchLower)) ||
+          member.email.toLowerCase().includes(searchLower) ||
+          (member.commonOrganizations && (
+            member.commonOrganizations.schools.some(s => s.name.toLowerCase().includes(searchLower)) ||
+            member.commonOrganizations.companies.some(c => c.name.toLowerCase().includes(searchLower))
+          )) ||
+          (member.organization && member.organization.toLowerCase().includes(searchLower));
+        return matchesSearch;
+      }
+      
+      return true;
+    }),
+    [networkMembers, memberMatchesFilters, localSearchTerm]
   );
 
   // Auto-switch to search tab when user starts typing in search
@@ -725,11 +785,8 @@ const Network: React.FC = () => {
     }
   }, [state.user, state.showingPageType, partnersPage, competenceFilter, availabilityFilter, skillsOptions]);
 
-  // Fetch skills for personal users
+  // Fetch skills for personal users and organizations
   const fetchSkills = useCallback(async () => {
-    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-    if (!isPersonalUser) return;
-
     try {
       setSkillsLoading(true);
       const response = await getSkills();
@@ -753,15 +810,12 @@ const Network: React.FC = () => {
     } finally {
       setSkillsLoading(false);
     }
-  }, [state.showingPageType]);
+  }, []);
 
-  // Load skills on mount for personal users (needed for filters)
+  // Load skills on mount for all user types (needed for filters)
   useEffect(() => {
-    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-    if (isPersonalUser) {
-      fetchSkills();
-    }
-  }, [state.showingPageType, fetchSkills]);
+    fetchSkills();
+  }, [fetchSkills]);
 
   // Reset filters when changing tabs (activeCard or selectedType)
   useEffect(() => {
@@ -1080,10 +1134,6 @@ const Network: React.FC = () => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     const organizationId = getOrganizationId(state.user, state.showingPageType);
     const organizationType = getOrganizationType(state.showingPageType);
-    const organizationName =
-      organizationType === 'school'
-        ? state.user.available_contexts?.schools?.find((s: any) => s.id === organizationId)?.name
-        : state.user.available_contexts?.companies?.find((c: any) => c.id === organizationId)?.name;
 
     if (isPersonalUser || !organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
       setNetworkMembers([]);
@@ -1094,108 +1144,46 @@ const Network: React.FC = () => {
     setNetworkMembersError(null);
 
     try {
-      const allMembers: Member[] = [];
+      // Use the new network endpoint that returns all network members
+      const networkData = await getOrganizationNetwork(organizationId, organizationType, true);
+      
+      // Convert to Member format
+      const convertedMembers: Member[] = networkData.map((m: any) => {
+        // Extract common organizations
+        const commonOrganizations = m.common_organizations ? {
+          schools: (m.common_organizations.schools || []).map((school: any) => ({
+            id: school.id,
+            name: school.name,
+            type: school.type || 'School'
+          })),
+          companies: (m.common_organizations.companies || []).map((company: any) => ({
+            id: company.id,
+            name: company.name,
+            type: company.type || 'Company'
+          }))
+        } : { schools: [], companies: [] };
 
-      // 0. Get members from current organization (always included)
-      try {
-        const selfMembers = await getOrganizationMembers(organizationId, organizationType, true);
-        const convertedSelfMembers: Member[] = selfMembers.map((m: any) => ({
+        return {
           id: String(m.id),
           firstName: m.first_name,
           lastName: m.last_name,
           fullName: m.full_name || `${m.first_name} ${m.last_name}`,
           email: m.email || '',
-          profession: (m.profession || ''),
+          profession: m.profession || m.job || '',
           roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
-          skills: [],
-          availability: [],
+          skills: m.skills ? (Array.isArray(m.skills) ? m.skills.map((s: any) => typeof s === 'string' ? s : s?.name || '') : []) : [],
+          availability: m.availability ? (Array.isArray(m.availability) ? m.availability : []) : [],
           avatar: m.avatar_url || '',
           isTrusted: false,
-          badges: [],
-          organization: organizationName || (organizationType === 'school' ? 'Mon établissement' : 'Mon organisation')
-        }));
-        allMembers.push(...convertedSelfMembers);
-      } catch (err) {
-        console.error('Error fetching members from current organization:', err);
-      }
+          badges: m.badges || [],
+          organization: m.organization_name || m.company_name || m.school_name || '',
+          take_trainee: m.take_trainee || false,
+          propose_workshop: m.propose_workshop || false,
+          commonOrganizations
+        };
+      });
 
-      // 1. Get members from partners with share_members = true
-      const allPartnerships = [
-        ...(partners as Partnership[]).filter(p => p.status === 'confirmed'),
-        ...partnershipRequests
-      ];
-
-      for (const partnership of allPartnerships) {
-        if (partnership.share_members) {
-          const partnerOrgs = (partnership.partners || []).filter(p => p.id !== organizationId);
-          
-          for (const partner of partnerOrgs) {
-            try {
-              const partnerType = partner.type === 'School' ? 'school' : 'company';
-              const members = await getOrganizationMembers(partner.id, partnerType, true); // Include pending members
-              
-              // Convert OrganizationMember[] to Member[]
-              const convertedMembers: Member[] = members.map((m: any) => ({
-                id: String(m.id),
-                firstName: m.first_name,
-                lastName: m.last_name,
-                fullName: m.full_name || `${m.first_name} ${m.last_name}`,
-                email: m.email || '',
-                profession: (m.profession || ''),
-                roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
-                skills: [],
-                availability: [],
-                avatar: m.avatar_url || '',
-                isTrusted: false,
-                badges: [],
-                organization: partner.name
-              }));
-              
-              allMembers.push(...convertedMembers);
-            } catch (err) {
-              console.error(`Error fetching members from partner ${partner.id}:`, err);
-              // Continue with other partners
-            }
-          }
-        }
-      }
-
-      // 2. Get all members from branches
-      for (const branch of subOrganizations) {
-        try {
-          const branchType = organizationType; // Same type as parent
-          const members = await getOrganizationMembers(branch.id, branchType, true); // Include pending members
-          
-          // Convert OrganizationMember[] to Member[]
-          const convertedMembers: Member[] = members.map((m: any) => ({
-            id: String(m.id),
-            firstName: m.first_name,
-            lastName: m.last_name,
-            fullName: m.full_name || `${m.first_name} ${m.last_name}`,
-            email: m.email || '',
-            profession: (m.profession || ''),
-            roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
-            skills: [],
-            availability: [],
-            avatar: m.avatar_url || '',
-            isTrusted: false,
-            badges: [],
-            organization: branch.name || branch.company_name || branch.school_name || 'Branche'
-          }));
-          
-          allMembers.push(...convertedMembers);
-        } catch (err) {
-          console.error(`Error fetching members from branch ${branch.id}:`, err);
-          // Continue with other branches
-        }
-      }
-
-      // Remove duplicates based on user ID
-      const uniqueMembers = Array.from(
-        new Map(allMembers.map(m => [m.id, m])).values()
-      );
-
-      setNetworkMembers(uniqueMembers);
+      setNetworkMembers(convertedMembers);
     } catch (err) {
       console.error('Error fetching network members:', err);
       setNetworkMembersError('Erreur lors du chargement des membres du réseau');
@@ -1203,12 +1191,12 @@ const Network: React.FC = () => {
     } finally {
       setNetworkMembersLoading(false);
     }
-  }, [state.user, state.showingPageType, partners, partnershipRequests, subOrganizations]);
+  }, [state.user, state.showingPageType]);
 
   // Count network members
   const countNetworkMembers = useCallback((): number => {
-    return networkMembers.filter(memberMatchesStageWorkshop).length;
-  }, [networkMembers, memberMatchesStageWorkshop]);
+    return networkMembers.filter(memberMatchesFilters).length;
+  }, [networkMembers, memberMatchesFilters]);
 
   // Fetch network members for org dashboards (counter + card)
   useEffect(() => {
@@ -1616,6 +1604,8 @@ const Network: React.FC = () => {
 
   // Convert partners to organization-like format for display
   const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+  const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
+  const isPersonalUserDashboard = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   
   // For personal users, partners are NetworkUser[] - no conversion needed
   // For organizational users, convert partnerships to organizations (confirmed + pending)
@@ -1623,7 +1613,7 @@ const Network: React.FC = () => {
     ? [] // Personal users don't use Organization format
     : // For organizational users, combine confirmed and pending partnerships
       [
-        // Confirmed partnerships
+        // Confirmed partnerships - No description for active partners
         ...(partners as Partnership[])
           .filter(partnership => partnership.status === 'confirmed')
           .flatMap(partnership => {
@@ -1634,7 +1624,7 @@ const Network: React.FC = () => {
                 id: String(partner.id),
                 name: partner.name,
                 type: 'partner' as const,
-                description: partnership.description || '',
+                description: '', // No description for confirmed partners
                 members_count: 0,
                 location: '',
                 logo: undefined,
@@ -1679,6 +1669,20 @@ const Network: React.FC = () => {
         const translatedRole = translateRole(user.role);
         const translatedRoles = translateRoles([user.role || 'member']);
         
+        // Extract common organizations
+        const commonOrganizations = user.common_organizations ? {
+          schools: (user.common_organizations.schools || []).map((school: any) => ({
+            id: school.id,
+            name: school.name,
+            type: school.type || 'School'
+          })),
+          companies: (user.common_organizations.companies || []).map((company: any) => ({
+            id: company.id,
+            name: company.name,
+            type: company.type || 'Company'
+          }))
+        } : { schools: [], companies: [] };
+
         return {
           id: String(user.id),
           firstName,
@@ -1722,19 +1726,36 @@ const Network: React.FC = () => {
           avatar: user.avatar_url || '',
           isTrusted: false,
           badges: [],
-          organization: user.common_organizations?.map(org => org.name).join(', ') || '',
+          organization: user.common_organizations ? 
+            [...(user.common_organizations.schools || []), ...(user.common_organizations.companies || [])]
+              .map((org: any) => org.name).join(', ') : '',
           take_trainee: user.take_trainee || false,
-          propose_workshop: user.propose_workshop || false
+          propose_workshop: user.propose_workshop || false,
+          commonOrganizations
         } as Member;
       })
     : [];
 
-  // Get unique organizations for filter dropdown
+  // Get unique organizations for filter dropdown from common_organizations
   const organizationOptions = isPersonalUser
     ? Array.from(new Set(
-        networkUsersAsMembers
-          .map(member => member.organization)
-          .filter((org): org is string => !!org)
+        networkUsersAsMembers.flatMap(member => {
+          if (!member.commonOrganizations) return [];
+          return [
+            ...member.commonOrganizations.schools.map(s => s.name),
+            ...member.commonOrganizations.companies.map(c => c.name)
+          ];
+        }).filter((org): org is string => !!org)
+      )).sort()
+    : isOrgDashboard
+    ? Array.from(new Set(
+        networkMembers.flatMap(member => {
+          if (!member.commonOrganizations) return [];
+          return [
+            ...member.commonOrganizations.schools.map(s => s.name),
+            ...member.commonOrganizations.companies.map(c => c.name)
+          ];
+        }).filter((org): org is string => !!org)
       )).sort()
     : [];
 
@@ -1743,16 +1764,25 @@ const Network: React.FC = () => {
     ? networkUsersAsMembers.filter((member: Member) => {
         const matchesCompetence = !competenceFilter || 
           member.skills.some(skill => skill.toLowerCase().includes(competenceFilter.toLowerCase()));
-        const matchesOrganization = !organizationFilter || 
-          member.organization?.toLowerCase().includes(organizationFilter.toLowerCase());
-        // Note: availability is not in the NetworkUser interface, so we skip that filter for now
-        const matchesStageWorkshop = memberMatchesStageWorkshop(member);
         
-        // Local search filter for network-members activeCard (no skills or profession search)
+        // Filter by common organizations
+        const matchesOrganization = !organizationFilter || 
+          (member.commonOrganizations && (
+            member.commonOrganizations.schools.some(s => s.name.toLowerCase().includes(organizationFilter.toLowerCase())) ||
+            member.commonOrganizations.companies.some(c => c.name.toLowerCase().includes(organizationFilter.toLowerCase()))
+          ));
+        
+        // Note: availability is not in the NetworkUser interface, so we skip that filter for now
+        const matchesStageWorkshop = memberMatchesFilters(member);
+        
+        // Local search filter for network-members activeCard (include common organizations)
         const matchesLocalSearch = !localSearchTerm || !localSearchTerm.trim() || 
           (member.fullName && member.fullName.toLowerCase().includes(localSearchTerm.toLowerCase())) ||
           member.email.toLowerCase().includes(localSearchTerm.toLowerCase()) ||
-          member.organization?.toLowerCase().includes(localSearchTerm.toLowerCase());
+          (member.commonOrganizations && (
+            member.commonOrganizations.schools.some(s => s.name.toLowerCase().includes(localSearchTerm.toLowerCase())) ||
+            member.commonOrganizations.companies.some(c => c.name.toLowerCase().includes(localSearchTerm.toLowerCase()))
+          ));
         
         return matchesCompetence && matchesOrganization && matchesStageWorkshop && matchesLocalSearch;
       })
@@ -1915,8 +1945,6 @@ const Network: React.FC = () => {
 
   // Combine schools, companies and partners based on selected type or activeCard
   // For school/company dashboards, use activeCard; for personal users, use selectedType
-  const isOrgDashboard = state.showingPageType === 'edu' || state.showingPageType === 'pro';
-  const isPersonalUserDashboard = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   
   // Function to filter items by local search term
   const filterByLocalSearch = (items: Organization[]) => {
@@ -2142,7 +2170,14 @@ const Network: React.FC = () => {
       )}
 
       {/* Local Search Bar for activeCard tabs */}
-      {activeCard && (activeCard === 'schools' || activeCard === 'companies' || activeCard === 'network-members') && (
+      {activeCard && (
+        activeCard === 'schools' || 
+        activeCard === 'companies' || 
+        activeCard === 'network-members' ||
+        activeCard === 'partners' ||
+        activeCard === 'branches' ||
+        activeCard === 'members'
+      ) && (
         <div className="network-search-container" style={{ marginTop: '16px' }}>
           <div className="search-bar !w-full">
             <i className="fas fa-search search-icon"></i>
@@ -2154,7 +2189,13 @@ const Network: React.FC = () => {
                   ? "Rechercher un établissement par nom, ville..."
                   : activeCard === 'companies'
                   ? "Rechercher une organisation par nom, ville..."
-                  : "Rechercher un membre par nom, email, organisation..."
+                  : activeCard === 'partners'
+                  ? "Rechercher un partenaire par nom, ville..."
+                  : activeCard === 'branches'
+                  ? "Rechercher une sous-organisation par nom, ville..."
+                  : activeCard === 'members' || activeCard === 'network-members'
+                  ? "Rechercher un membre par nom, email, organisation..."
+                  : "Rechercher..."
               }
               value={localSearchTerm}
               onChange={(e) => setLocalSearchTerm(e.target.value)}
@@ -2199,18 +2240,24 @@ const Network: React.FC = () => {
           {/* Show partnership requests and branch requests tabs only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
             <>
-              <button 
-                className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
-                onClick={() => { setActiveCard(null); setSelectedType('partnership-requests'); }}
-              >
-                Demandes de partenariats ({requestsTotalCount})
-              </button>
-              <button 
-                className={`filter-tab ${selectedType === 'branch-requests' ? 'active' : ''}`}
-                onClick={() => { setActiveCard(null); setSelectedType('branch-requests'); }}
-              >
-                Demandes de rattachement ({filteredBranchRequests.length})
-              </button>
+              {/* Show partnership requests tab only if there are requests */}
+              {requestsTotalCount > 0 && (
+                <button 
+                  className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
+                  onClick={() => { setActiveCard(null); setSelectedType('partnership-requests'); }}
+                >
+                  Demandes de partenariats ({requestsTotalCount})
+                </button>
+              )}
+              {/* Show branch requests tab only if there are requests */}
+              {filteredBranchRequests.length > 0 && (
+                <button 
+                  className={`filter-tab ${selectedType === 'branch-requests' ? 'active' : ''}`}
+                  onClick={() => { setActiveCard(null); setSelectedType('branch-requests'); }}
+                >
+                  Demandes de rattachement ({filteredBranchRequests.length})
+                </button>
+              )}
             </>
           )}
           {/* Show my requests tab only for personal users (teacher/user) and if there are requests */}
@@ -2225,8 +2272,12 @@ const Network: React.FC = () => {
           )}
         </div>
 
-        {/* Filters for personal user network - Show on all tabs except schools */}
-        {((isPersonalUser && (selectedType === 'my-requests' || selectedType === 'search')) || (isPersonalUserDashboard && activeCard && activeCard !== 'schools')) && (
+        {/* Filters for personal user network and organization dashboards - Show on all tabs except schools */}
+        {(
+          (isPersonalUser && (selectedType === 'my-requests' || selectedType === 'search')) || 
+          (isPersonalUserDashboard && activeCard && activeCard !== 'schools') ||
+          (isOrgDashboard && (selectedType === 'search' || activeCard === 'members'))
+        ) && (
           <div className="network-user-filters" style={{ 
             marginBottom: '20px', 
             padding: '16px', 
