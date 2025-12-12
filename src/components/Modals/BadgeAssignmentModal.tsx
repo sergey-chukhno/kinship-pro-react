@@ -481,32 +481,71 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
               </select>
             </div>
 
-            {/* Expertises (sélection multiple) */}
+            {/* Compétences (sélection multiple) */}
             {selectedBadge && selectedBadge.expertises && selectedBadge.expertises.length > 0 && (
               <div className="form-group">
-                <label htmlFor="expertises">Expertises (sélection multiple)</label>
-                <select
-                  id="expertises"
-                  className="form-select"
-                  multiple
-                  size={Math.min(selectedBadge.expertises.length, 5)}
-                  value={selectedExpertises.map((id) => id.toString())}
-                  onChange={(e) => {
-                    const selected = Array.from(e.target.selectedOptions, (option) =>
-                      parseInt(option.value)
-                    );
-                    setSelectedExpertises(selected);
-                  }}
-                >
-                  {selectedBadge.expertises.map((expertise) => (
-                    <option key={expertise.id} value={expertise.id}>
-                      {expertise.name}
-                    </option>
-                  ))}
-                </select>
+                <label htmlFor="expertises">Compétences (sélection multiple)</label>
+                
+                {/* Selected competencies as chips */}
                 {selectedExpertises.length > 0 && (
+                  <div className="selected-competencies-chips">
+                    {selectedExpertises.map((expertiseId) => {
+                      const expertise = selectedBadge.expertises.find((e: any) => e.id === expertiseId);
+                      if (!expertise) return null;
+                      return (
+                        <div key={expertiseId} className="competency-chip">
+                          <span className="competency-chip-text">{expertise.name}</span>
+                          <button
+                            type="button"
+                            className="competency-chip-remove"
+                            onClick={() => {
+                              setSelectedExpertises(selectedExpertises.filter(id => id !== expertiseId));
+                            }}
+                            aria-label={`Retirer ${expertise.name}`}
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Available competencies list */}
+                <div className="competencies-list-container">
+                  {(() => {
+                    const availableExpertises = selectedBadge.expertises.filter(
+                      (expertise: any) => !selectedExpertises.includes(expertise.id)
+                    );
+                    
+                    if (availableExpertises.length === 0) {
+                      return (
+                        <div className="competencies-list-empty">
+                          <i className="fas fa-check-circle"></i>
+                          <span>Toutes les compétences ont été sélectionnées</span>
+                        </div>
+                      );
+                    }
+                    
+                    return availableExpertises.map((expertise: any) => (
+                      <button
+                        key={expertise.id}
+                        type="button"
+                        className="competency-item"
+                        onClick={() => {
+                          setSelectedExpertises([...selectedExpertises, expertise.id]);
+                        }}
+                      >
+                        <span className="competency-item-text">{expertise.name}</span>
+                        <i className="fas fa-plus competency-item-icon"></i>
+                      </button>
+                    ));
+                  })()}
+                </div>
+                
+                {selectedExpertises.length === 0 && selectedBadge.expertises.length > 0 && (
                   <small className="field-comment">
-                    {selectedExpertises.length} expertise(s) sélectionnée(s)
+                    Cliquez sur une compétence pour l'ajouter à votre sélection
                   </small>
                 )}
               </div>
