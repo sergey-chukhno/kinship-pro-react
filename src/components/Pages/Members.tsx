@@ -542,7 +542,8 @@ const Members: React.FC = () => {
     'admin', 'superadmin', 'referent', 'référent', 'other_school_admin'
   ];
 
-  const filteredMembers = members.filter(member => {
+  // Filtrage générique (recherche / compétence / disponibilité)
+  const baseFilteredMembers = members.filter(member => {
     const term = searchTerm.toLowerCase();
     const displayRoles = translateRoles(member.roles);
     const matchesSearch =
@@ -555,7 +556,7 @@ const Members: React.FC = () => {
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
   });
 
-  const filteredStudents = filteredMembers.filter(member => {
+  const filteredStudents = baseFilteredMembers.filter(member => {
     const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
     return studentRoles.includes(primaryRoleRaw);
   });
@@ -1193,75 +1194,72 @@ const Members: React.FC = () => {
       {showStaffTab && activeTab === 'members' && (
         <>
           {renderFilterBar()}
-          <div className='min-h-[65vh]'>
-    
+          <div className="min-h-[65vh]">
             {/* Staff = tous les membres confirmés hors élèves (élèves visibles dans l'onglet Élèves) */}
             {(() => {
-              const staffMembers = filteredMembers.filter((member) => {
-                // Use systemRole (role_in_system) for staff classification, fallback to membershipRole (role_in_school/role_in_company)
-                const systemRole = ((member as any).systemRole || '').toLowerCase();
-                const membershipRole = ((member as any).membershipRole || '').toLowerCase();
-                const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
-                const isSuperadmin = (member as any).isSuperadmin || false;
-                
-                // Exclude students first
-                if (studentRoles.includes(primaryRoleRaw) || studentRoles.includes(systemRole)) return false;
-                
-                // Always include superadmins in Staff tab
-                if (isSuperadmin) return true;
-                
-                // Check if system role is a staff role (teacher or school admin)
-                if (systemRole && staffRoles.includes(systemRole)) return true;
-                
-                // Check if membership role is admin/superadmin/referent
-                if (membershipRole && (membershipRole === 'admin' || membershipRole === 'superadmin' || membershipRole === 'referent' || membershipRole === 'référent' || membershipRole === 'other_school_admin')) return true;
-                
-                // fallback : si non student et non reconnu staff, on exclut pour éviter les faux positifs
-                return false;
-              });
+              const staffMembers: Member[] =
+                state.showingPageType === 'pro'
+                  ? baseFilteredMembers
+                  : baseFilteredMembers.filter((member: Member) => {
+                      const systemRole = ((member as any).systemRole || '').toLowerCase();
+                      const membershipRole = ((member as any).membershipRole || '').toLowerCase();
+                      const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
+                      const isSuperadmin = (member as any).isSuperadmin || false;
+
+                      // Exclure les élèves (uniquement école/teacher)
+                      if (studentRoles.includes(primaryRoleRaw) || studentRoles.includes(systemRole)) return false;
+
+                      if (isSuperadmin) return true;
+                      if (systemRole && staffRoles.includes(systemRole)) return true;
+                      if (membershipRole && ['admin', 'superadmin', 'referent', 'référent', 'other_school_admin'].includes(membershipRole)) return true;
+                      return false;
+                    });
+
               return (
                 <div className="members-grid">
-              {staffMembers.length > 0 ? staffMembers.map((member) => {
-                const totalBadgeCount = member.badges?.length || 0;
-                const memberForDisplay = {
-                  ...member,
-                  roles: translateRoles(member.roles),
-                  profession: translateRole(member.profession || '')
-                };
-                // Check if member is superadmin (from stored data or check membershipRole directly)
-                const isSuperadmin = (member as any).isSuperadmin || 
-                  ((member as any).membershipRole || '').toLowerCase() === 'superadmin';
-                return (
-                  <MemberCard
-                    key={member.id}
-                    member={memberForDisplay}
-                    badgeCount={totalBadgeCount}
-                    onClick={() => setSelectedMember(member)}
-                    onContactClick={() => {
-                      setContactEmail(member.email);
-                      setIsContactModalOpen(true);
-                    }}
-                    onRoleChange={(newRole) => {
-                      // Prevent role change for superadmins
-                      if (isSuperadmin) {
-                        showError("Le rôle superadmin ne peut pas être modifié");
-                        return;
-                      }
-                      handleRoleChange(member, newRole, 'members');
-                    }}
-                    isSuperadmin={isSuperadmin}
-                    disableRoleDropdown={isSuperadmin}
-                  />
-                );
-              })
-            : <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>}
-            </div>
+                  {staffMembers.length > 0 ? (
+                    staffMembers.map((member: Member) => {
+                      const totalBadgeCount = member.badges?.length || 0;
+                      const memberForDisplay = {
+                        ...member,
+                        roles: translateRoles(member.roles),
+                        profession: translateRole(member.profession || ''),
+                      };
+                      const isSuperadmin =
+                        (member as any).isSuperadmin ||
+                        ((member as any).membershipRole || '').toLowerCase() === 'superadmin';
+
+                      return (
+                        <MemberCard
+                          key={member.id}
+                          member={memberForDisplay}
+                          badgeCount={totalBadgeCount}
+                          onClick={() => setSelectedMember(member)}
+                          onContactClick={() => {
+                            setContactEmail(member.email);
+                            setIsContactModalOpen(true);
+                          }}
+                          onRoleChange={(newRole) => {
+                            if (isSuperadmin) {
+                              showError('Le rôle superadmin ne peut pas être modifié');
+                              return;
+                            }
+                            handleRoleChange(member, newRole, 'members');
+                          }}
+                          isSuperadmin={isSuperadmin}
+                          disableRoleDropdown={isSuperadmin}
+                        />
+                      );
+                    })
+                  ) : (
+                    <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>
+                  )}
+                </div>
               );
             })()}
           </div>
         </>
       )}
-
       {/* Contenu du tab “Élèves” */}
       {isSchoolContext && activeTab === 'students' && (
         <div className="min-h-[65vh]">

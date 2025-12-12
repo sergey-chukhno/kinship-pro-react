@@ -32,6 +32,123 @@ interface Badge {
   image: string;
 }
 
+// Validation rules for level 1 badges
+interface BadgeValidationRule {
+  mandatoryCompetencies: string[]; // Exact names of mandatory competencies
+  minRequired: number; // Minimum number of competencies to select
+  hintText: string; // Text to display next to label
+}
+
+const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
+  'Adaptabilité': {
+    mandatoryCompetencies: ['Identifie un problème (ses caractéristiques, ses conséquences) dans un projet ou une situation.'],
+    minRequired: 1,
+    hintText: 'Validation minimum de la compétence obligatoire ci-dessous:'
+  },
+  'Communication': {
+    mandatoryCompetencies: [
+      'Parle et argumente à l\'oral de façon claire et organisé',
+      'Écoute et prend en compte ses interlocuteurs.'
+    ],
+    minRequired: 2,
+    hintText: 'Validation obligatoire des 2 compétences ci-dessous :'
+  },
+  'Engagement': {
+    mandatoryCompetencies: ['Aller au bout de son projet, de son engagement.'],
+    minRequired: 1,
+    hintText: 'Validation minimum de la compétence obligatoire ci-dessous :'
+  },
+  'Esprit critique': {
+    mandatoryCompetencies: ['Vérifie la validité d\'une information'],
+    minRequired: 2,
+    hintText: 'Validation minimum de 2 des 3 compétences ci-dessous dont la compétence obligatoire :'
+  },
+  'Gestion de projet': {
+    mandatoryCompetencies: ['Met en œuvre une action dans un projet'],
+    minRequired: 2,
+    hintText: 'Validation minimum de 2 des 3 compétences ci-dessous :'
+  },
+  'Formation': {
+    mandatoryCompetencies: ['Aide celui qui ne sait pas.'],
+    minRequired: 2,
+    hintText: 'Validation minimum de 2 des 3 compétences ci-dessous :'
+  },
+  'Coopération': {
+    mandatoryCompetencies: ['Travaille en équipe en variant sa place et son rôle dans le groupe en tant que participant.'],
+    minRequired: 2,
+    hintText: 'Validation minimum de 2 des 3 compétences ci-dessous :'
+  },
+  'Sociabilité': {
+    mandatoryCompetencies: [],
+    minRequired: 2,
+    hintText: 'Validation minimum de 2 des 3 compétences ci-dessous :'
+  },
+  'Organisation Opérationnelle': {
+    mandatoryCompetencies: ['Se projette dans le temps.'],
+    minRequired: 2,
+    hintText: 'Validation minimum de 2 des 3 compétences ci-dessous :'
+  },
+  'Informatique & Numérique': {
+    mandatoryCompetencies: [],
+    minRequired: 2,
+    hintText: 'Validation minimum de 2 des 3 compétences ci-dessous :'
+  },
+  'Créativité': {
+    mandatoryCompetencies: ['Mobilise son imagination et sa créativité pour proposer une idée.'],
+    minRequired: 1,
+    hintText: 'Validation minimum de la compétence obligatoire ci-dessous :'
+  }
+};
+
+// Helper function to get validation rules for a badge
+const getBadgeValidationRules = (badgeName: string): BadgeValidationRule | null => {
+  return BADGE_VALIDATION_RULES[badgeName] || null;
+};
+
+// Validation function
+const validateCompetencies = (
+  selectedExpertiseIds: number[],
+  badge: BadgeAPI | null,
+  allExpertises: Array<{ id: number; name: string }>
+): { isValid: boolean; errorMessage: string | null } => {
+  if (!badge || badge.level !== 'level_1') {
+    return { isValid: true, errorMessage: null }; // No validation for non-level-1 badges
+  }
+
+  const rules = getBadgeValidationRules(badge.name);
+  if (!rules) {
+    return { isValid: true, errorMessage: null }; // No rules = no validation
+  }
+
+  // Get selected competency names
+  const selectedCompetencyNames = selectedExpertiseIds
+    .map(id => allExpertises.find(e => e.id === id)?.name)
+    .filter((name): name is string => name !== undefined);
+
+  // Check mandatory competencies
+  const missingMandatory = rules.mandatoryCompetencies.filter(
+    mandatory => !selectedCompetencyNames.includes(mandatory)
+  );
+
+  if (missingMandatory.length > 0) {
+    const mandatoryList = missingMandatory.map(c => `"${c}"`).join(', ');
+    return {
+      isValid: false,
+      errorMessage: `Compétence(s) obligatoire(s) manquante(s) : ${mandatoryList}`
+    };
+  }
+
+  // Check minimum required
+  if (selectedCompetencyNames.length < rules.minRequired) {
+    return {
+      isValid: false,
+      errorMessage: `Vous devez sélectionner au moins ${rules.minRequired} compétence(s). Vous en avez sélectionné ${selectedCompetencyNames.length}.`
+    };
+  }
+
+  return { isValid: true, errorMessage: null };
+};
+
 const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({ 
   onClose, 
   onAssign, 
@@ -203,6 +320,20 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
     if (organizationsForSelection.length > 1 && !selectedOrganizationId) {
       showWarningToast('Veuillez sélectionner une organisation');
       return;
+    }
+
+    // Validate competencies for level 1 badges
+    if (selectedBadge.level === 'level_1' && selectedBadge.expertises && selectedBadge.expertises.length > 0) {
+      const validation = validateCompetencies(
+        selectedExpertises,
+        selectedBadge,
+        selectedBadge.expertises
+      );
+      
+      if (!validation.isValid && validation.errorMessage) {
+        showWarningToast(validation.errorMessage);
+        return;
+      }
     }
 
     // Level 1 only - file is optional
@@ -481,32 +612,93 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
               </select>
             </div>
 
-            {/* Expertises (sélection multiple) */}
+            {/* Compétences (sélection multiple) */}
             {selectedBadge && selectedBadge.expertises && selectedBadge.expertises.length > 0 && (
               <div className="form-group">
-                <label htmlFor="expertises">Expertises (sélection multiple)</label>
-                <select
-                  id="expertises"
-                  className="form-select"
-                  multiple
-                  size={Math.min(selectedBadge.expertises.length, 5)}
-                  value={selectedExpertises.map((id) => id.toString())}
-                  onChange={(e) => {
-                    const selected = Array.from(e.target.selectedOptions, (option) =>
-                      parseInt(option.value)
-                    );
-                    setSelectedExpertises(selected);
-                  }}
-                >
-                  {selectedBadge.expertises.map((expertise) => (
-                    <option key={expertise.id} value={expertise.id}>
-                      {expertise.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="competencies-label-container">
+                  <label htmlFor="expertises">Compétences (sélection multiple)</label>
+                  {selectedBadge.level === 'level_1' && (() => {
+                    const rules = getBadgeValidationRules(selectedBadge.name);
+                    if (rules) {
+                      return (
+                        <span className="competencies-hint-text">{rules.hintText}</span>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+                
+                {/* Selected competencies as chips */}
                 {selectedExpertises.length > 0 && (
+                  <div className="selected-competencies-chips">
+                    {selectedExpertises.map((expertiseId) => {
+                      const expertise = selectedBadge.expertises.find((e: any) => e.id === expertiseId);
+                      if (!expertise) return null;
+                      const rules = selectedBadge.level === 'level_1' ? getBadgeValidationRules(selectedBadge.name) : null;
+                      const isMandatory = rules?.mandatoryCompetencies.includes(expertise.name) || false;
+                      return (
+                        <div key={expertiseId} className={`competency-chip ${isMandatory ? 'competency-chip-mandatory' : ''}`}>
+                          <span className="competency-chip-text">{expertise.name}</span>
+                          {isMandatory && <span className="competency-chip-mandatory-badge">(Obligatoire)</span>}
+                          <button
+                            type="button"
+                            className="competency-chip-remove"
+                            onClick={() => {
+                              setSelectedExpertises(selectedExpertises.filter(id => id !== expertiseId));
+                            }}
+                            aria-label={`Retirer ${expertise.name}`}
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Available competencies list */}
+                <div className="competencies-list-container">
+                  {(() => {
+                    const availableExpertises = selectedBadge.expertises.filter(
+                      (expertise: any) => !selectedExpertises.includes(expertise.id)
+                    );
+                    
+                    if (availableExpertises.length === 0) {
+                      return (
+                        <div className="competencies-list-empty">
+                          <i className="fas fa-check-circle"></i>
+                          <span>Toutes les compétences ont été sélectionnées</span>
+                        </div>
+                      );
+                    }
+                    
+                    const rules = selectedBadge.level === 'level_1' ? getBadgeValidationRules(selectedBadge.name) : null;
+                    
+                    return availableExpertises.map((expertise: any) => {
+                      const isMandatory = rules?.mandatoryCompetencies.includes(expertise.name) || false;
+                      return (
+                        <button
+                          key={expertise.id}
+                          type="button"
+                          className={`competency-item ${isMandatory ? 'competency-item-mandatory' : ''}`}
+                          onClick={() => {
+                            setSelectedExpertises([...selectedExpertises, expertise.id]);
+                          }}
+                        >
+                          <span className="competency-item-text">
+                            {expertise.name}
+                            {isMandatory && <span className="competency-mandatory-indicator"> (Obligatoire)</span>}
+                          </span>
+                          <i className="fas fa-plus competency-item-icon"></i>
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+                
+                {selectedExpertises.length === 0 && selectedBadge.expertises.length > 0 && (
                   <small className="field-comment">
-                    {selectedExpertises.length} expertise(s) sélectionnée(s)
+                    Cliquez sur une compétence pour l'ajouter à votre sélection
                   </small>
                 )}
               </div>
