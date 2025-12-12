@@ -358,17 +358,33 @@ const Network: React.FC = () => {
   useEffect(() => {
     const fetchGlobalSchoolsCount = async () => {
       try {
-        const params: any = {
-          page: 1,
-          per_page: 1, // Just to get the meta.total_count
-          status: 'confirmed'
-        };
+        const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+        
+        if (isPersonalUser) {
+          // For personal users, count only confirmed organizations from their own list
+          const response = await getPersonalUserOrganizations();
+          const data = response.data;
+          
+          if (data) {
+            const confirmedSchools = (data.schools || []).filter((school: any) => school.my_status === 'confirmed');
+            setGlobalSchoolsTotalCount(confirmedSchools.length);
+          } else {
+            setGlobalSchoolsTotalCount(0);
+          }
+        } else {
+          // For organization users, count all confirmed schools in the system
+          const params: any = {
+            page: 1,
+            per_page: 50, // Just to get the meta.total_count
+            status: 'confirmed'
+          };
 
-        const response = await getSchools(params);
-        const meta = response?.data?.meta;
+          const response = await getSchools(params);
+          const meta = response?.data?.meta;
 
-        if (meta) {
-          setGlobalSchoolsTotalCount(meta.total_count || 0);
+          if (meta) {
+            setGlobalSchoolsTotalCount(meta.total_count || 0);
+          }
         }
       } catch (err) {
         console.error('Error fetching global schools count:', err);
@@ -377,23 +393,39 @@ const Network: React.FC = () => {
     };
 
     fetchGlobalSchoolsCount();
-  }, []);
+  }, [state.showingPageType]);
 
   // Fetch global companies count on mount (for summary cards - never changes)
   useEffect(() => {
     const fetchGlobalCompaniesCount = async () => {
       try {
-        const params: any = {
-          page: 1,
-          per_page: 1, // Just to get the meta.total_count
-          status: 'confirmed'
-        };
+        const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
+        
+        if (isPersonalUser) {
+          // For personal users, count only confirmed organizations from their own list
+          const response = await getPersonalUserOrganizations();
+          const data = response.data;
+          
+          if (data) {
+            const confirmedCompanies = (data.companies || []).filter((company: any) => company.my_status === 'confirmed');
+            setGlobalCompaniesTotalCount(confirmedCompanies.length);
+          } else {
+            setGlobalCompaniesTotalCount(0);
+          }
+        } else {
+          // For organization users, count all confirmed companies in the system
+          const params: any = {
+            page: 1,
+            per_page: 50, // Just to get the meta.total_count
+            status: 'confirmed'
+          };
 
-        const response = await getCompanies(params);
-        const meta = response?.data?.meta;
+          const response = await getCompanies(params);
+          const meta = response?.data?.meta;
 
-        if (meta) {
-          setGlobalCompaniesTotalCount(meta.total_count || 0);
+          if (meta) {
+            setGlobalCompaniesTotalCount(meta.total_count || 0);
+          }
         }
       } catch (err) {
         console.error('Error fetching global companies count:', err);
@@ -402,7 +434,7 @@ const Network: React.FC = () => {
     };
 
     fetchGlobalCompaniesCount();
-  }, []);
+  }, [state.showingPageType]);
 
 
   // Fetch schools from API
@@ -495,7 +527,7 @@ const Network: React.FC = () => {
       try {
         const params: any = {
           page: 1,
-          per_page: 1, // Just to get the meta.total_count
+          per_page: 50, // Just to get the meta.total_count
           status: 'confirmed'
         };
 
@@ -1890,20 +1922,20 @@ const Network: React.FC = () => {
         <div className="network-summary">
           <div className="summary-card">
             <div className="summary-icon">
-              <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Établissements scolaires" className="summary-icon-img" />
+              <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Mes établissements scolaires" className="summary-icon-img" />
             </div>
             <div className="summary-content">
               <h3>{globalSchoolsTotalCount}</h3>
-              <p>Établissements scolaires</p>
+              <p>Mes établissements scolaires</p>
             </div>
           </div>
           <div className="summary-card">
             <div className="summary-icon">
-              <img src="/icons_logo/Icon=Reseau.svg" alt="Entreprises" className="summary-icon-img" />
+              <img src="/icons_logo/Icon=Reseau.svg" alt="Mes organisations" className="summary-icon-img" />
             </div>
             <div className="summary-content">
               <h3>{globalCompaniesTotalCount}</h3>
-              <p>Organisations</p>
+              <p>Mes organisations</p>
             </div>
           </div>
           <div className="summary-card">
@@ -1911,8 +1943,8 @@ const Network: React.FC = () => {
               <img src="/icons_logo/Icon=Membres.svg" alt="Total" className="summary-icon-img" />
             </div>
             <div className="summary-content">
-              <h3>{globalSchoolsTotalCount + globalCompaniesTotalCount}</h3>
-              <p>Total</p>
+              <h3>{partnersTotalCount}</h3>
+              <p>Membres de mon réseau</p>
             </div>
           </div>
         </div>
@@ -2017,7 +2049,7 @@ const Network: React.FC = () => {
               <i className="fas fa-filter" style={{ marginRight: '8px' }}></i>
               Filtres
             </div>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div className="filter-group" style={{ flex: '1', minWidth: '200px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
                   <i className="fas fa-tools" style={{ marginRight: '6px' }}></i>
@@ -2148,7 +2180,7 @@ const Network: React.FC = () => {
                 </div>
               </div>
               <div className="filter-group" style={{ flex: '1', minWidth: '200px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' , whiteSpace: 'nowrap'}}>
                   <i className="fas fa-building" style={{ marginRight: '6px' }}></i>
                   Établissement / Organisation
                 </label>

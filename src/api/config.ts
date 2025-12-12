@@ -10,6 +10,14 @@ const axiosClient = axios.create({
   },
 });
 
+const axiosClientWithoutToken = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+
 // Intercepteur pour ajouter le token JWT à chaque requête
 axiosClient.interceptors.request.use(
   (config) => {
@@ -23,3 +31,4 @@ axiosClient.interceptors.request.use(
 );
 
 export default axiosClient;
+export { axiosClientWithoutToken };
