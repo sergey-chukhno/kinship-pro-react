@@ -24,6 +24,10 @@ export interface Member {
   role?: string; // Rôle unique (pour les étudiants)
   levelId?: string; // ID de la classe/level
   roleAdditionalInfo?: string; // Information complémentaire sur le rôle
+  commonOrganizations?: {
+    schools: Array<{ id: number; name: string; type: string }>;
+    companies: Array<{ id: number; name: string; type: string }>;
+  }; // Organisations communes avec l'utilisateur actuel
 }
 
 export interface Badge {

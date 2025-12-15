@@ -1,4 +1,4 @@
-import axiosClient from './config';
+import axiosClient, { axiosClientWithoutToken } from './config';
 
 export function getPersonalUserRoles() {
     return axiosClient.get('/api/v1/registration_roles?type=personal_user');
@@ -40,11 +40,11 @@ export interface CompanySearchParams {
 }
 
 export function getCompanies(params?: CompanySearchParams) {
-    return axiosClient.get('/api/v1/companies/list_for_joining', { params });
+    return axiosClientWithoutToken.get('/api/v1/companies/list_for_joining', { params });
 }
 
 export function getSchools(params?: SchoolSearchParams) {
-    return axiosClient.get('/api/v1/schools/list_for_joining', { params });
+    return axiosClientWithoutToken.get('/api/v1/schools/list_for_joining', { params });
 }
 
 export function getCompanyTypes() {
@@ -58,5 +58,5 @@ export interface OrganizationSearchParams {
 }
 
 export function searchOrganizations(params?: OrganizationSearchParams) {
-    return axiosClient.get('/api/v1/organizations/search', { params });
+    return axiosClientWithoutToken.get('/api/v1/organizations/search', { params });
 }
