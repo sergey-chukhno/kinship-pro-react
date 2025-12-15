@@ -156,7 +156,9 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
       </div>
 
       <div className="organization-content">
-        <p className="organization-description">{organization.description}</p>
+        {organization.description && (
+          <p className="organization-description">{organization.description}</p>
+        )}
         
         <div className="organization-details">
           <div className="detail-item">
