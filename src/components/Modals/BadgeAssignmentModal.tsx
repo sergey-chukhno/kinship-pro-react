@@ -47,7 +47,6 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
   },
   'Communication': {
     mandatoryCompetencies: [
-      'Parle et argumente à l\'oral de façon claire et organisé',
       'Écoute et prend en compte ses interlocuteurs.'
     ],
     minRequired: 2,
@@ -105,6 +104,12 @@ const getBadgeValidationRules = (badgeName: string): BadgeValidationRule | null 
   return BADGE_VALIDATION_RULES[badgeName] || null;
 };
 
+// Helper function to normalize competency names for comparison
+// Removes leading/trailing whitespace and normalizes the string
+const normalizeCompetencyName = (name: string): string => {
+  return name.trim();
+};
+
 // Validation function
 const validateCompetencies = (
   selectedExpertiseIds: number[],
@@ -120,18 +125,38 @@ const validateCompetencies = (
     return { isValid: true, errorMessage: null }; // No rules = no validation
   }
 
-  // Get selected competency names
+  // Get selected competency names and normalize them
   const selectedCompetencyNames = selectedExpertiseIds
     .map(id => allExpertises.find(e => e.id === id)?.name)
-    .filter((name): name is string => name !== undefined);
+    .filter((name): name is string => name !== undefined)
+    .map(normalizeCompetencyName);
 
-  // Check mandatory competencies
-  const missingMandatory = rules.mandatoryCompetencies.filter(
+  // Normalize mandatory competency names for comparison
+  const normalizedMandatoryCompetencies = rules.mandatoryCompetencies.map(normalizeCompetencyName);
+
+  // Debug logging to help identify mismatches
+  if (rules.mandatoryCompetencies.length > 0) {
+    console.log('=== Competency Validation Debug ===');
+    console.log('Badge:', badge.name);
+    console.log('All available expertises:', allExpertises.map(e => ({ id: e.id, name: e.name })));
+    console.log('Selected expertise IDs:', selectedExpertiseIds);
+    console.log('Selected competency names (normalized):', selectedCompetencyNames);
+    console.log('Mandatory competencies (from rules):', rules.mandatoryCompetencies);
+    console.log('Mandatory competencies (normalized):', normalizedMandatoryCompetencies);
+  }
+
+  // Check mandatory competencies using normalized comparison
+  const missingMandatory = normalizedMandatoryCompetencies.filter(
     mandatory => !selectedCompetencyNames.includes(mandatory)
   );
 
   if (missingMandatory.length > 0) {
-    const mandatoryList = missingMandatory.map(c => `"${c}"`).join(', ');
+    // Find the original (non-normalized) names for the error message
+    const missingOriginalNames = missingMandatory.map(normalizedName => {
+      const originalIndex = normalizedMandatoryCompetencies.indexOf(normalizedName);
+      return rules.mandatoryCompetencies[originalIndex];
+    });
+    const mandatoryList = missingOriginalNames.map(c => `"${c}"`).join(', ');
     return {
       isValid: false,
       errorMessage: `Compétence(s) obligatoire(s) manquante(s) : ${mandatoryList}`
