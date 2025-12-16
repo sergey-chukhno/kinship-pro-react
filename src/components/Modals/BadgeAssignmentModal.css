@@ -354,7 +354,7 @@
 }
 
 .competency-chip:hover {
-  background-color: var(--primary-dark, #4c63d2);
+  background-color: var(--hover-primary, var(--primary-dark, #4c63d2));
   transform: translateY(-1px);
   box-shadow: 0 4px 6px rgba(85, 112, 241, 0.3);
 }
