@@ -99,8 +99,31 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
   }
 };
 
+// Helper function to get display name for badge
+// Maps incorrect names to correct display names
+const getBadgeDisplayName = (name: string): string => {
+  const displayNameMap: Record<string, string> = {
+    'Information Numérique': 'Informatique & Numérique',
+    'Information & Numérique': 'Informatique & Numérique',
+  };
+  
+  return displayNameMap[name] || name;
+};
+
+// Helper function to normalize badge names for matching
+// Handles variations like "Informatique & Numérique" vs "Information Numérique"
+const normalizeBadgeNameForMatching = (name: string): string => {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s*&\s*/g, ' ') // Replace "&" with space
+    .replace(/\s+/g, ' ') // Normalize multiple spaces to single space
+    .replace(/informatique/g, 'information') // Handle "Informatique" vs "Information"
+    .trim();
+};
+
 // Helper function to get validation rules for a badge
-// Uses case-insensitive matching to handle variations in badge names
+// Uses flexible matching to handle variations in badge names
 const getBadgeValidationRules = (badgeName: string): BadgeValidationRule | null => {
   // Try exact match first
   if (BADGE_VALIDATION_RULES[badgeName]) {
@@ -108,9 +131,19 @@ const getBadgeValidationRules = (badgeName: string): BadgeValidationRule | null 
   }
   
   // Try case-insensitive match
-  const normalizedBadgeName = badgeName.trim();
-  const matchingKey = Object.keys(BADGE_VALIDATION_RULES).find(
-    key => key.toLowerCase() === normalizedBadgeName.toLowerCase()
+  const normalizedBadgeName = badgeName.trim().toLowerCase();
+  let matchingKey = Object.keys(BADGE_VALIDATION_RULES).find(
+    key => key.toLowerCase() === normalizedBadgeName
+  );
+  
+  if (matchingKey) {
+    return BADGE_VALIDATION_RULES[matchingKey];
+  }
+  
+  // Try flexible matching (handles "Informatique & Numérique" vs "Information Numérique")
+  const flexibleNormalized = normalizeBadgeNameForMatching(badgeName);
+  matchingKey = Object.keys(BADGE_VALIDATION_RULES).find(
+    key => normalizeBadgeNameForMatching(key) === flexibleNormalized
   );
   
   return matchingKey ? BADGE_VALIDATION_RULES[matchingKey] : null;
@@ -505,7 +538,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                 )}
             </div>
             <div className="badge-preview-info">
-                <h3>{selectedBadge?.name || 'Sélectionnez un badge'}</h3>
+                <h3>{selectedBadge ? getBadgeDisplayName(selectedBadge.name) : 'Sélectionnez un badge'}</h3>
               <p className="badge-series-level">
                   {selectedBadge ? `${displaySeries(selectedBadge.series)} - Niveau 1` : 'Sélectionnez une série et un badge'}
               </p>
@@ -605,7 +638,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                     <option value="">Sélectionner un badge</option>
                     {badgesForSeries.map((badge) => (
                       <option key={badge.id} value={badge.name}>
-                        {badge.name}
+                        {getBadgeDisplayName(badge.name)}
                       </option>
                     ))}
                   </select>
