@@ -58,7 +58,7 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
     hintText: 'Validation minimum de la compétence obligatoire ci-dessous :'
   },
   'Esprit critique': {
-    mandatoryCompetencies: ['Vérifie la validité d\'une information'],
+    mandatoryCompetencies: ['Vérifie la validité d\'une information.'],
     minRequired: 2,
     hintText: 'Validation minimum de 2 des 3 compétences ci-dessous dont la compétence obligatoire :'
   },
@@ -100,8 +100,20 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
 };
 
 // Helper function to get validation rules for a badge
+// Uses case-insensitive matching to handle variations in badge names
 const getBadgeValidationRules = (badgeName: string): BadgeValidationRule | null => {
-  return BADGE_VALIDATION_RULES[badgeName] || null;
+  // Try exact match first
+  if (BADGE_VALIDATION_RULES[badgeName]) {
+    return BADGE_VALIDATION_RULES[badgeName];
+  }
+  
+  // Try case-insensitive match
+  const normalizedBadgeName = badgeName.trim();
+  const matchingKey = Object.keys(BADGE_VALIDATION_RULES).find(
+    key => key.toLowerCase() === normalizedBadgeName.toLowerCase()
+  );
+  
+  return matchingKey ? BADGE_VALIDATION_RULES[matchingKey] : null;
 };
 
 // Helper function to normalize competency names for comparison
@@ -121,7 +133,11 @@ const validateCompetencies = (
   }
 
   const rules = getBadgeValidationRules(badge.name);
+  console.log('=== Validation Check ===');
+  console.log('Badge name:', badge.name);
+  console.log('Found rules:', rules ? 'YES' : 'NO');
   if (!rules) {
+    console.warn(`No validation rules found for badge: "${badge.name}"`);
     return { isValid: true, errorMessage: null }; // No rules = no validation
   }
 
@@ -664,7 +680,10 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                       const expertise = selectedBadge.expertises.find((e: any) => e.id === expertiseId);
                       if (!expertise) return null;
                       const rules = selectedBadge.level === 'level_1' ? getBadgeValidationRules(selectedBadge.name) : null;
-                      const isMandatory = rules?.mandatoryCompetencies.includes(expertise.name) || false;
+                      // Use normalized comparison to check if competency is mandatory
+                      const normalizedExpertiseName = normalizeCompetencyName(expertise.name);
+                      const normalizedMandatory = rules?.mandatoryCompetencies.map(normalizeCompetencyName) || [];
+                      const isMandatory = normalizedMandatory.includes(normalizedExpertiseName);
                       return (
                         <div key={expertiseId} className={`competency-chip ${isMandatory ? 'competency-chip-mandatory' : ''}`}>
                           <span className="competency-chip-text">{expertise.name}</span>
@@ -704,7 +723,10 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                     const rules = selectedBadge.level === 'level_1' ? getBadgeValidationRules(selectedBadge.name) : null;
                     
                     return availableExpertises.map((expertise: any) => {
-                      const isMandatory = rules?.mandatoryCompetencies.includes(expertise.name) || false;
+                      // Use normalized comparison to check if competency is mandatory
+                      const normalizedExpertiseName = normalizeCompetencyName(expertise.name);
+                      const normalizedMandatory = rules?.mandatoryCompetencies.map(normalizeCompetencyName) || [];
+                      const isMandatory = normalizedMandatory.includes(normalizedExpertiseName);
                       return (
                         <button
                           key={expertise.id}
