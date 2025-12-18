@@ -5,7 +5,15 @@ import { getBadges } from '../../api/Badges';
 import { getOrganizationMembers } from '../../api/Projects';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { base64ToFile } from '../../utils/projectMapper';
-import { createSchoolEvent, createCompanyEvent, createTeacherEvent, CreateEventPayload } from '../../api/Events';
+import { 
+  createSchoolEvent, 
+  createCompanyEvent, 
+  createTeacherEvent,
+  updateSchoolEvent,
+  updateCompanyEvent,
+  updateTeacherEvent,
+  CreateEventPayload 
+} from '../../api/Events';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -117,6 +125,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
 
   useEffect(() => {
     if (event) {
+      // Extract participant IDs if they are objects
+      const participantIds = event.participants.map(p => 
+        typeof p === 'object' ? p.id.toString() : p.toString()
+      );
+
       setFormData({
         title: event.title,
         description: event.description,
@@ -125,7 +138,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
         duration: event.duration?.toString() || '60',
         type: event.type,
         location: event.location || '',
-        participants: event.participants || [],
+        participants: participantIds,
         badges: event.badges || [],
         image: event.image || ''
       });
@@ -202,6 +215,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
     try {
       const organizationId = getOrganizationId(state.user, state.showingPageType);
 
+      // Debug: Log participants before preparing payload
+      console.log('formData.participants:', formData.participants);
+      console.log('newParticipants:', newParticipants);
+
       // Prepare event data
       const eventData: CreateEventPayload['event'] = {
         title: formData.title,
@@ -213,10 +230,13 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
         location: formData.location || undefined,
         status: 'upcoming',
         badges: formData.badges.length > 0 ? formData.badges : undefined,
-        participants: formData.participants.length > 0 && newParticipants.length === 0 
-          ? formData.participants 
+        participants: formData.participants.length > 0
+          ? formData.participants
           : undefined
       };
+
+      // Debug: Log eventData
+      console.log('eventData.participants:', eventData.participants);
 
       // Convert base64 image to File if present
       let imageFile: File | null = null;
@@ -237,20 +257,42 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
         csv_file: csvFile || undefined
       };
 
-      let createdEvent;
+      // Debug: Log final payload
+      console.log('Final payload:', {
+        event: payload.event,
+        hasImage: !!payload.image,
+        hasCsv: !!payload.csv_file
+      });
 
-      // Call appropriate API based on context
-      if (state.showingPageType === 'edu' && organizationId) {
-        createdEvent = await createSchoolEvent(organizationId, payload);
-      } else if (state.showingPageType === 'pro' && organizationId) {
-        createdEvent = await createCompanyEvent(organizationId, payload);
-      } else if (state.showingPageType === 'teacher') {
-        createdEvent = await createTeacherEvent(payload);
+      let createdEvent;
+      const eventId = event ? parseInt(event.id) : null;
+
+      // Call appropriate API based on context (create or update)
+      if (event && eventId && !isNaN(eventId)) {
+        // Update existing event
+        if (state.showingPageType === 'edu' && organizationId) {
+          createdEvent = await updateSchoolEvent(organizationId, eventId, payload);
+        } else if (state.showingPageType === 'pro' && organizationId) {
+          createdEvent = await updateCompanyEvent(organizationId, eventId, payload);
+        } else if (state.showingPageType === 'teacher') {
+          createdEvent = await updateTeacherEvent(eventId, payload);
+        } else {
+          throw new Error('Contexte invalide pour modifier un événement');
+        }
       } else {
-        throw new Error('Contexte invalide pour créer un événement');
+        // Create new event
+        if (state.showingPageType === 'edu' && organizationId) {
+          createdEvent = await createSchoolEvent(organizationId, payload);
+        } else if (state.showingPageType === 'pro' && organizationId) {
+          createdEvent = await createCompanyEvent(organizationId, payload);
+        } else if (state.showingPageType === 'teacher') {
+          createdEvent = await createTeacherEvent(payload);
+        } else {
+          throw new Error('Contexte invalide pour créer un événement');
+        }
       }
 
-      // Event created successfully
+      // Event created/updated successfully
 
       // Transform backend response to frontend format
       const frontendEvent: Omit<Event, 'id'> = {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Event, Member } from '../../types';
+import { Event, Member, EventParticipant } from '../../types';
 import './EventCard.css';
 
 interface EventCardProps {
@@ -81,11 +81,36 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
         <div className="event-participants">
           <div className="participants-label">Participants:</div>
           <div className="participants-list">
-            {(showAllParticipants ? event.participants : event.participants.slice(0, 3)).map((participantId, index) => {
+            {(showAllParticipants ? event.participants : event.participants.slice(0, 3)).map((participant, index) => {
+              // Check if participant is an object or just an ID string
+              const participantObj = typeof participant === 'object' ? participant : null;
+              const participantId = typeof participant === 'object' ? participant.id.toString() : participant;
+              
+              // Try to find member in members array
               const member = members.find(m => m.id === participantId);
+              
+              // If we have participant object, use it
+              if (participantObj) {
+                return (
+                  <span key={participantId || index} className="participant-tag">
+                    {participantObj.first_name} {participantObj.last_name}
+                  </span>
+                );
+              }
+              
+              // If member found, use it
+              if (member) {
+                return (
+                  <span key={participantId || index} className="participant-tag">
+                    {member.firstName} {member.lastName}
+                  </span>
+                );
+              }
+              
+              // Fallback
               return (
-                <span key={index} className="participant-tag">
-                  {member ? `${member.firstName} ${member.lastName}` : participantId}
+                <span key={participantId || index} className="participant-tag">
+                  {participantId}
                 </span>
               );
             })}

@@ -20,6 +20,14 @@ export interface CreateEventPayload {
   csv_file?: File;
 }
 
+export interface EventParticipantResponse {
+  id: number | string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  claim_token?: string | null;
+}
+
 export interface EventResponse {
   id: number;
   title: string;
@@ -31,7 +39,7 @@ export interface EventResponse {
   location?: string;
   status: string;
   badges?: number[];
-  participants?: number[];
+  participants?: EventParticipantResponse[];
   image_url?: string;
   created_at: string;
   updated_at: string;
@@ -54,10 +62,67 @@ export const createSchoolEvent = async (
   schoolId: number,
   payload: CreateEventPayload
 ): Promise<EventResponse> => {
+  const { event } = payload;
+  const hasFiles = (payload.image && payload.image instanceof File) || 
+                   (payload.csv_file && payload.csv_file instanceof File);
+
+  // Debug: Log payload
+  console.log('createSchoolEvent - payload:', {
+    event: event,
+    hasImage: !!payload.image,
+    hasCsv: !!payload.csv_file,
+    hasFiles: hasFiles
+  });
+
+  // If no files, use JSON format
+  if (!hasFiles) {
+    // Prepare JSON payload
+    const jsonPayload: any = {
+      event: {
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        duration: event.duration,
+        type: event.type,
+        status: event.status || 'upcoming'
+      }
+    };
+
+    if (event.description) {
+      jsonPayload.event.description = event.description;
+    }
+    if (event.location) {
+      jsonPayload.event.location = event.location;
+    }
+    if (event.badges && event.badges.length > 0) {
+      jsonPayload.event.badges = event.badges;
+    }
+    if (event.participants && event.participants.length > 0) {
+      // Convert participant IDs to strings
+      jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
+        return typeof participantId === 'string' ? participantId : String(participantId);
+      });
+    }
+
+    console.log('createSchoolEvent - JSON payload:', jsonPayload);
+
+    const response = await apiClient.post(
+      `/api/v1/schools/${schoolId}/events`,
+      jsonPayload
+    );
+
+    return response.data.data || response.data;
+  }
+
+  // If files present, use FormData
   const formData = new FormData();
 
-  // Add event data
-  const { event } = payload;
+  // Debug: Log event data
+  console.log('createSchoolEvent - FormData mode');
+  console.log('event.participants:', event.participants);
+  console.log('event.participants type:', typeof event.participants);
+  console.log('event.participants length:', event.participants?.length);
+
   formData.append('event[title]', event.title);
   if (event.description) {
     formData.append('event[description]', event.description);
@@ -80,11 +145,23 @@ export const createSchoolEvent = async (
     });
   }
 
-  // Add participants if provided (and no CSV file)
-  if (event.participants && event.participants.length > 0 && !payload.csv_file) {
-    event.participants.forEach((participantId, index) => {
-      formData.append(`event[participants][${index}]`, participantId);
+  // Add participants if provided
+  // Send as array with empty brackets: event[participants][]=80, event[participants][]=81
+  console.log('Checking participants for FormData:', {
+    hasParticipants: !!event.participants,
+    participantsLength: event.participants?.length,
+    participants: event.participants
+  });
+  
+  if (event.participants && event.participants.length > 0) {
+    console.log('Adding participants to FormData:', event.participants);
+    event.participants.forEach((participantId) => {
+      const participantIdStr = typeof participantId === 'string' ? participantId : String(participantId);
+      console.log('Appending participant:', participantIdStr);
+      formData.append('event[participants][]', participantIdStr);
     });
+  } else {
+    console.log('No participants to add - event.participants is:', event.participants);
   }
 
   // Add image if provided (must be a File object)
@@ -117,10 +194,51 @@ export const createCompanyEvent = async (
   companyId: number,
   payload: CreateEventPayload
 ): Promise<EventResponse> => {
+  const { event } = payload;
+  const hasFiles = (payload.image && payload.image instanceof File) || 
+                   (payload.csv_file && payload.csv_file instanceof File);
+
+  // If no files, use JSON format
+  if (!hasFiles) {
+    // Prepare JSON payload
+    const jsonPayload: any = {
+      event: {
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        duration: event.duration,
+        type: event.type,
+        status: event.status || 'upcoming'
+      }
+    };
+
+    if (event.description) {
+      jsonPayload.event.description = event.description;
+    }
+    if (event.location) {
+      jsonPayload.event.location = event.location;
+    }
+    if (event.badges && event.badges.length > 0) {
+      jsonPayload.event.badges = event.badges;
+    }
+    if (event.participants && event.participants.length > 0) {
+      // Convert participant IDs to strings
+      jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
+        return typeof participantId === 'string' ? participantId : String(participantId);
+      });
+    }
+
+    const response = await apiClient.post(
+      `/api/v1/companies/${companyId}/events`,
+      jsonPayload
+    );
+
+    return response.data.data || response.data;
+  }
+
+  // If files present, use FormData
   const formData = new FormData();
 
-  // Add event data
-  const { event } = payload;
   formData.append('event[title]', event.title);
   if (event.description) {
     formData.append('event[description]', event.description);
@@ -143,10 +261,12 @@ export const createCompanyEvent = async (
     });
   }
 
-  // Add participants if provided (and no CSV file)
-  if (event.participants && event.participants.length > 0 && !payload.csv_file) {
-    event.participants.forEach((participantId, index) => {
-      formData.append(`event[participants][${index}]`, participantId);
+  // Add participants if provided
+  // Send as array with empty brackets: event[participants][]=80, event[participants][]=81
+  if (event.participants && event.participants.length > 0) {
+    event.participants.forEach((participantId) => {
+      const participantIdStr = typeof participantId === 'string' ? participantId : String(participantId);
+      formData.append('event[participants][]', participantIdStr);
     });
   }
 
@@ -179,10 +299,51 @@ export const createCompanyEvent = async (
 export const createTeacherEvent = async (
   payload: CreateEventPayload
 ): Promise<EventResponse> => {
+  const { event } = payload;
+  const hasFiles = (payload.image && payload.image instanceof File) || 
+                   (payload.csv_file && payload.csv_file instanceof File);
+
+  // If no files, use JSON format
+  if (!hasFiles) {
+    // Prepare JSON payload
+    const jsonPayload: any = {
+      event: {
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        duration: event.duration,
+        type: event.type,
+        status: event.status || 'upcoming'
+      }
+    };
+
+    if (event.description) {
+      jsonPayload.event.description = event.description;
+    }
+    if (event.location) {
+      jsonPayload.event.location = event.location;
+    }
+    if (event.badges && event.badges.length > 0) {
+      jsonPayload.event.badges = event.badges;
+    }
+    if (event.participants && event.participants.length > 0) {
+      // Convert participant IDs to strings
+      jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
+        return typeof participantId === 'string' ? participantId : String(participantId);
+      });
+    }
+
+    const response = await apiClient.post(
+      '/api/v1/teachers/events',
+      jsonPayload
+    );
+
+    return response.data.data || response.data;
+  }
+
+  // If files present, use FormData
   const formData = new FormData();
 
-  // Add event data
-  const { event } = payload;
   formData.append('event[title]', event.title);
   if (event.description) {
     formData.append('event[description]', event.description);
@@ -205,10 +366,12 @@ export const createTeacherEvent = async (
     });
   }
 
-  // Add participants if provided (and no CSV file)
-  if (event.participants && event.participants.length > 0 && !payload.csv_file) {
-    event.participants.forEach((participantId, index) => {
-      formData.append(`event[participants][${index}]`, participantId);
+  // Add participants if provided
+  // Send as array with empty brackets: event[participants][]=80, event[participants][]=81
+  if (event.participants && event.participants.length > 0) {
+    event.participants.forEach((participantId) => {
+      const participantIdStr = typeof participantId === 'string' ? participantId : String(participantId);
+      formData.append('event[participants][]', participantIdStr);
     });
   }
 
@@ -364,4 +527,353 @@ export const getTeacherEvents = async (
   return {
     data: []
   };
+};
+
+/**
+ * Delete an event for a school
+ */
+export const deleteSchoolEvent = async (
+  schoolId: number,
+  eventId: number
+): Promise<void> => {
+  await apiClient.delete(`/api/v1/schools/${schoolId}/events/${eventId}`);
+};
+
+/**
+ * Delete an event for a company
+ */
+export const deleteCompanyEvent = async (
+  companyId: number,
+  eventId: number
+): Promise<void> => {
+  await apiClient.delete(`/api/v1/companies/${companyId}/events/${eventId}`);
+};
+
+/**
+ * Delete an event for a teacher
+ */
+export const deleteTeacherEvent = async (
+  eventId: number
+): Promise<void> => {
+  await apiClient.delete(`/api/v1/teachers/events/${eventId}`);
+};
+
+/**
+ * Update an event for a school
+ */
+export const updateSchoolEvent = async (
+  schoolId: number,
+  eventId: number,
+  payload: CreateEventPayload
+): Promise<EventResponse> => {
+  const { event } = payload;
+  const hasFiles = (payload.image && payload.image instanceof File) || 
+                   (payload.csv_file && payload.csv_file instanceof File);
+
+  // If no files, use JSON format
+  if (!hasFiles) {
+    // Prepare JSON payload
+    const jsonPayload: any = {
+      event: {
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        duration: event.duration,
+        type: event.type,
+        status: event.status || 'upcoming'
+      }
+    };
+
+    if (event.description) {
+      jsonPayload.event.description = event.description;
+    }
+    if (event.location) {
+      jsonPayload.event.location = event.location;
+    }
+    if (event.badges && event.badges.length > 0) {
+      jsonPayload.event.badges = event.badges;
+    }
+    if (event.participants && event.participants.length > 0) {
+      // Convert participant IDs to strings
+      jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
+        return typeof participantId === 'string' ? participantId : String(participantId);
+      });
+    }
+
+    const response = await apiClient.put(
+      `/api/v1/schools/${schoolId}/events/${eventId}`,
+      jsonPayload
+    );
+
+    return response.data.data || response.data;
+  }
+
+  // If files present, use FormData
+  const formData = new FormData();
+
+  formData.append('event[title]', event.title);
+  if (event.description) {
+    formData.append('event[description]', event.description);
+  }
+  formData.append('event[date]', event.date);
+  formData.append('event[time]', event.time);
+  formData.append('event[duration]', event.duration.toString());
+  formData.append('event[type]', event.type);
+  if (event.location) {
+    formData.append('event[location]', event.location);
+  }
+  if (event.status) {
+    formData.append('event[status]', event.status);
+  }
+
+  // Add badges if provided
+  if (event.badges && event.badges.length > 0) {
+    event.badges.forEach((badgeId, index) => {
+      formData.append(`event[badges][${index}]`, badgeId);
+    });
+  }
+
+  // Add participants if provided
+  // Send as array with empty brackets: event[participants][]=80, event[participants][]=81
+  if (event.participants && event.participants.length > 0) {
+    event.participants.forEach((participantId) => {
+      const participantIdStr = typeof participantId === 'string' ? participantId : String(participantId);
+      formData.append('event[participants][]', participantIdStr);
+    });
+  }
+
+  // Add image if provided (must be a File object)
+  if (payload.image && payload.image instanceof File) {
+    formData.append('image', payload.image);
+  }
+
+  // Add CSV file if provided (must be a File object)
+  if (payload.csv_file && payload.csv_file instanceof File) {
+    formData.append('csv_file', payload.csv_file);
+  }
+
+  const response = await apiClient.put(
+    `/api/v1/schools/${schoolId}/events/${eventId}`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+
+  return response.data.data || response.data;
+};
+
+/**
+ * Update an event for a company
+ */
+export const updateCompanyEvent = async (
+  companyId: number,
+  eventId: number,
+  payload: CreateEventPayload
+): Promise<EventResponse> => {
+  const { event } = payload;
+  const hasFiles = (payload.image && payload.image instanceof File) || 
+                   (payload.csv_file && payload.csv_file instanceof File);
+
+  // If no files, use JSON format
+  if (!hasFiles) {
+    // Prepare JSON payload
+    const jsonPayload: any = {
+      event: {
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        duration: event.duration,
+        type: event.type,
+        status: event.status || 'upcoming'
+      }
+    };
+
+    if (event.description) {
+      jsonPayload.event.description = event.description;
+    }
+    if (event.location) {
+      jsonPayload.event.location = event.location;
+    }
+    if (event.badges && event.badges.length > 0) {
+      jsonPayload.event.badges = event.badges;
+    }
+    if (event.participants && event.participants.length > 0) {
+      // Convert participant IDs to strings
+      jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
+        return typeof participantId === 'string' ? participantId : String(participantId);
+      });
+    }
+
+    const response = await apiClient.put(
+      `/api/v1/companies/${companyId}/events/${eventId}`,
+      jsonPayload
+    );
+
+    return response.data.data || response.data;
+  }
+
+  // If files present, use FormData
+  const formData = new FormData();
+
+  formData.append('event[title]', event.title);
+  if (event.description) {
+    formData.append('event[description]', event.description);
+  }
+  formData.append('event[date]', event.date);
+  formData.append('event[time]', event.time);
+  formData.append('event[duration]', event.duration.toString());
+  formData.append('event[type]', event.type);
+  if (event.location) {
+    formData.append('event[location]', event.location);
+  }
+  if (event.status) {
+    formData.append('event[status]', event.status);
+  }
+
+  // Add badges if provided
+  if (event.badges && event.badges.length > 0) {
+    event.badges.forEach((badgeId, index) => {
+      formData.append(`event[badges][${index}]`, badgeId);
+    });
+  }
+
+  // Add participants if provided
+  // Send as array with empty brackets: event[participants][]=80, event[participants][]=81
+  if (event.participants && event.participants.length > 0) {
+    event.participants.forEach((participantId) => {
+      const participantIdStr = typeof participantId === 'string' ? participantId : String(participantId);
+      formData.append('event[participants][]', participantIdStr);
+    });
+  }
+
+  // Add image if provided (must be a File object)
+  if (payload.image && payload.image instanceof File) {
+    formData.append('image', payload.image);
+  }
+
+  // Add CSV file if provided (must be a File object)
+  if (payload.csv_file && payload.csv_file instanceof File) {
+    formData.append('csv_file', payload.csv_file);
+  }
+
+  const response = await apiClient.put(
+    `/api/v1/companies/${companyId}/events/${eventId}`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+
+  return response.data.data || response.data;
+};
+
+/**
+ * Update an event for a teacher
+ */
+export const updateTeacherEvent = async (
+  eventId: number,
+  payload: CreateEventPayload
+): Promise<EventResponse> => {
+  const { event } = payload;
+  const hasFiles = (payload.image && payload.image instanceof File) || 
+                   (payload.csv_file && payload.csv_file instanceof File);
+
+  // If no files, use JSON format
+  if (!hasFiles) {
+    // Prepare JSON payload
+    const jsonPayload: any = {
+      event: {
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        duration: event.duration,
+        type: event.type,
+        status: event.status || 'upcoming'
+      }
+    };
+
+    if (event.description) {
+      jsonPayload.event.description = event.description;
+    }
+    if (event.location) {
+      jsonPayload.event.location = event.location;
+    }
+    if (event.badges && event.badges.length > 0) {
+      jsonPayload.event.badges = event.badges;
+    }
+    if (event.participants && event.participants.length > 0) {
+      // Convert participant IDs to strings
+      jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
+        return typeof participantId === 'string' ? participantId : String(participantId);
+      });
+    }
+
+    const response = await apiClient.put(
+      `/api/v1/teachers/events/${eventId}`,
+      jsonPayload
+    );
+
+    return response.data.data || response.data;
+  }
+
+  // If files present, use FormData
+  const formData = new FormData();
+
+  formData.append('event[title]', event.title);
+  if (event.description) {
+    formData.append('event[description]', event.description);
+  }
+  formData.append('event[date]', event.date);
+  formData.append('event[time]', event.time);
+  formData.append('event[duration]', event.duration.toString());
+  formData.append('event[type]', event.type);
+  if (event.location) {
+    formData.append('event[location]', event.location);
+  }
+  if (event.status) {
+    formData.append('event[status]', event.status);
+  }
+
+  // Add badges if provided
+  if (event.badges && event.badges.length > 0) {
+    event.badges.forEach((badgeId, index) => {
+      formData.append(`event[badges][${index}]`, badgeId);
+    });
+  }
+
+  // Add participants if provided
+  // Send as array with empty brackets: event[participants][]=80, event[participants][]=81
+  if (event.participants && event.participants.length > 0) {
+    event.participants.forEach((participantId) => {
+      const participantIdStr = typeof participantId === 'string' ? participantId : String(participantId);
+      formData.append('event[participants][]', participantIdStr);
+    });
+  }
+
+  // Add image if provided (must be a File object)
+  if (payload.image && payload.image instanceof File) {
+    formData.append('image', payload.image);
+  }
+
+  // Add CSV file if provided (must be a File object)
+  if (payload.csv_file && payload.csv_file instanceof File) {
+    formData.append('csv_file', payload.csv_file);
+  }
+
+  const response = await apiClient.put(
+    `/api/v1/teachers/events/${eventId}`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+
+  return response.data.data || response.data;
 };

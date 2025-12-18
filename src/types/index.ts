@@ -139,6 +139,14 @@ export interface Project {
   } | null;
 }
 
+export interface EventParticipant {
+  id: string | number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  claim_token?: string | null;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -148,7 +156,7 @@ export interface Event {
   duration: number;
   type: 'meeting' | 'workshop' | 'training' | 'celebration' | 'session' | 'other';
   location: string;
-  participants: string[];
+  participants: EventParticipant[] | string[]; // Can be array of IDs (string) or full participant objects
   image?: string;
   badges?: string[]; // Array of badge IDs
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';

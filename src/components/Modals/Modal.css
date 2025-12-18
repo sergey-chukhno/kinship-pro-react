@@ -3193,3 +3193,124 @@ html[data-theme="dark"] .badge-explorer-card .badge-icon i {
   font-size: 0.7rem;
   font-weight: 500;
 }
+
+/* ===== EVENT DETAIL MODAL STYLES ===== */
+.event-detail-modal {
+  max-width: 700px;
+}
+
+.event-detail-body {
+  padding: 1.5rem;
+}
+
+.event-detail-image {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.event-detail-image img {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  object-fit: cover;
+}
+
+.event-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.event-detail-header h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+  flex: 1;
+}
+
+.event-detail-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+}
+
+.event-detail-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.event-detail-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.event-detail-label i {
+  color: var(--primary, #3b82f6);
+  width: 16px;
+}
+
+.event-detail-value {
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-left: 1.5rem;
+}
+
+.event-detail-participants {
+  margin-left: 1.5rem;
+}
+
+.event-detail-participants .participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.event-detail-participants .participant-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: var(--bg-secondary, #f9fafb);
+  border-radius: 8px;
+}
+
+.event-detail-participants .participant-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.event-detail-participants .participant-name {
+  font-size: 0.9rem;
+  color: var(--text-primary, #1f2937);
+}
+
+.event-detail-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: 1.5rem;
+  margin-top: 0.5rem;
+}
+
+.event-detail-badges .badge-tag {
+  background: var(--primary-light, rgba(59, 130, 246, 0.1));
+  color: var(--primary, #3b82f6);
+  padding: 0.4rem 0.8rem;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}

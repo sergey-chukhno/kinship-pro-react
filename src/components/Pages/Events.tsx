@@ -2,9 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Event } from '../../types';
 import EventModal from '../Modals/EventModal';
+import EventDetailModal from '../Modals/EventDetailModal';
 import EventCard from '../Events/EventCard';
 import CalendarView from '../Events/CalendarView';
-import { getSchoolEvents, getCompanyEvents, getTeacherEvents, EventResponse } from '../../api/Events';
+import { 
+  getSchoolEvents, 
+  getCompanyEvents, 
+  getTeacherEvents, 
+  deleteSchoolEvent,
+  deleteCompanyEvent,
+  deleteTeacherEvent,
+  EventResponse 
+} from '../../api/Events';
 import { getOrganizationId } from '../../utils/projectMapper';
 import './Events.css';
 
@@ -12,6 +21,7 @@ const Events: React.FC = () => {
   const { state, addEvent, updateEvent, deleteEvent } = useAppContext();
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isEventDetailModalOpen, setIsEventDetailModalOpen] = useState(false);
   const [isEventsOverlayOpen, setIsEventsOverlayOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +35,15 @@ const Events: React.FC = () => {
 
   // Transform API response to frontend Event format
   const transformEventResponse = (apiEvent: EventResponse): Event => {
+    // Transform participants from API format to frontend format
+    const transformedParticipants = apiEvent.participants?.map(p => ({
+      id: p.id.toString(),
+      email: p.email,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      claim_token: p.claim_token || undefined
+    })) || [];
+
     return {
       id: apiEvent.id.toString(),
       title: apiEvent.title,
@@ -34,7 +53,7 @@ const Events: React.FC = () => {
       duration: apiEvent.duration,
       type: apiEvent.type as Event['type'],
       location: apiEvent.location || '',
-      participants: apiEvent.participants?.map(p => p.toString()) || [],
+      participants: transformedParticipants,
       badges: apiEvent.badges?.map(b => b.toString()) || [],
       image: apiEvent.image_url || '',
       status: apiEvent.status as Event['status'],
@@ -92,9 +111,9 @@ const Events: React.FC = () => {
 
   const filteredEvents = events.filter(event => {
     // Search filter
-    const matchesSearch = event?.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event?.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (event?.title?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (event?.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (event?.location?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
     // Event type filter
     const matchesType = eventTypeFilter === 'all' || event.type === eventTypeFilter;
@@ -138,6 +157,7 @@ const Events: React.FC = () => {
 
   const handleEventClick = (event: Event) => {
     setSelectedEvent(event);
+    setIsEventDetailModalOpen(true);
   };
 
   const handleCreateEvent = () => {
@@ -147,6 +167,7 @@ const Events: React.FC = () => {
 
   const handleEditEvent = (event: Event) => {
     setSelectedEvent(event);
+    setIsEventDetailModalOpen(false);
     setIsEventModalOpen(true);
   };
 
@@ -200,10 +221,49 @@ const Events: React.FC = () => {
     }
   };
 
-  const handleDeleteEvent = (id: string) => {
-    deleteEvent(id);
-    setEvents(prev => prev.filter(e => e.id !== id));
-    setSelectedEvent(null);
+  const handleDeleteEvent = async (id: string) => {
+    // Confirmation dialog
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet événement ?')) {
+      return;
+    }
+
+    try {
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const eventId = parseInt(id);
+
+      if (isNaN(eventId)) {
+        console.error('Invalid event ID:', id);
+        return;
+      }
+
+      // Call appropriate API based on context
+      if (state.showingPageType === 'edu' && organizationId) {
+        await deleteSchoolEvent(organizationId, eventId);
+      } else if (state.showingPageType === 'pro' && organizationId) {
+        await deleteCompanyEvent(organizationId, eventId);
+      } else if (state.showingPageType === 'teacher') {
+        await deleteTeacherEvent(eventId);
+      } else {
+        // Fallback to context delete
+        deleteEvent(id);
+      }
+
+      // Update local state
+      setEvents(prev => prev.filter(e => e.id !== id));
+      setSelectedEvent(null);
+      setIsEventDetailModalOpen(false);
+      setIsEventModalOpen(false); // Also close edit modal if open
+      setSuccessMessage('Événement supprimé avec succès !');
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error deleting event:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Erreur lors de la suppression de l\'événement';
+      alert(errorMessage);
+    }
   };
 
   const handleExportEvents = () => {
@@ -406,7 +466,24 @@ const Events: React.FC = () => {
         </div>
       )}
 
-      {/* Event Modal */}
+      {/* Event Detail Modal */}
+      {isEventDetailModalOpen && selectedEvent && (
+        <EventDetailModal
+          event={selectedEvent}
+          onClose={() => {
+            setIsEventDetailModalOpen(false);
+            setSelectedEvent(null);
+          }}
+          onEdit={() => handleEditEvent(selectedEvent)}
+          onDelete={() => {
+            handleDeleteEvent(selectedEvent.id);
+            setIsEventDetailModalOpen(false);
+            setSelectedEvent(null);
+          }}
+        />
+      )}
+
+      {/* Event Modal (for create/edit) */}
       {isEventModalOpen && (
         <EventModal
           event={selectedEvent}
