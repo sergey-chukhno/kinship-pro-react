@@ -146,10 +146,11 @@ export interface Event {
   date: string;
   time: string;
   duration: number;
-  type: 'meeting' | 'workshop' | 'training' | 'celebration' | 'other';
+  type: 'meeting' | 'workshop' | 'training' | 'celebration' | 'session' | 'other';
   location: string;
   participants: string[];
   image?: string;
+  badges?: string[]; // Array of badge IDs
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   projectId: string;
   createdBy: string;
