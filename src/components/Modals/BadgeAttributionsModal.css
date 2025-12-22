@@ -38,6 +38,18 @@
   font-size: 0.9rem;
   color: var(--text-secondary, #6b7280);
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.badge-attributions-subtitle-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .badge-count-badge {

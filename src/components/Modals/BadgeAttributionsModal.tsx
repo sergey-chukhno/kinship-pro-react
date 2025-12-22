@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
 import { getOrganizationId } from '../../utils/projectMapper';
+import { getLocalBadgeImage } from '../../utils/badgeImages';
 import './Modal.css';
 import './BadgeAttributionsModal.css';
 
@@ -55,6 +56,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [badgeImageUrl, setBadgeImageUrl] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const observerTargetRef = useRef<HTMLDivElement>(null);
   const perPage = 20;
@@ -113,6 +115,16 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
       }
 
       const payload = response.data?.data ?? response.data ?? [];
+      
+      // Extract badge image from first item if available
+      if (payload.length > 0 && !badgeImageUrl) {
+        const firstItem = payload[0];
+        const badge = firstItem?.badge;
+        if (badge?.image_url) {
+          setBadgeImageUrl(badge.image_url);
+        }
+      }
+      
       const mapped = (Array.isArray(payload) ? payload : []).map((item: any): BadgeAttribution => ({
         id: item.id,
         receiver: item.receiver || { id: 0, full_name: 'Unknown', email: '' },
@@ -156,6 +168,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
       setCurrentPage(1);
       setHasMore(true);
       setError(null);
+      setBadgeImageUrl(null); // Reset badge image when modal opens
       fetchAttributions(1, false);
     }
   }, [isOpen, fetchAttributions]);
@@ -195,6 +208,14 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
     });
   };
 
+  // Get badge image from API response or use local mapping
+  const badgeImage = useMemo(() => {
+    if (badgeImageUrl) {
+      return badgeImageUrl;
+    }
+    return getLocalBadgeImage(badgeName) || '/TouKouLeur-Jaune.png';
+  }, [badgeName, badgeImageUrl]);
+
   if (!isOpen) return null;
 
   return (
@@ -204,6 +225,11 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           <div>
             <h2>Attributions du badge</h2>
             <p className="badge-attributions-subtitle">
+              <img 
+                src={badgeImage} 
+                alt={badgeName} 
+                className="badge-attributions-subtitle-icon"
+              />
               {badgeName} - {badgeLevel}
               {totalCount > 0 && <span className="badge-count-badge">({totalCount})</span>}
             </p>
