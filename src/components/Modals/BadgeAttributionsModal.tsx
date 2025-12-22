@@ -86,8 +86,10 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           filters.badge_id = badgeIdNum;
         }
         response = await getUserBadges(page, perPage, filters);
+        // Track if client-side filtering was applied
+        const needsClientSideFilter = !badgeId;
         // If no badge_id, filter client-side by name and level
-        if (!badgeId && response.data) {
+        if (needsClientSideFilter && response.data) {
           response.data = response.data.filter((item: any) => 
             item.badge?.name === badgeName && 
             (item.badge?.level === badgeLevel.replace('Niveau ', 'level_') ||
@@ -98,7 +100,8 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
         response = {
           data: {
             data: response.data || [],
-            meta: response.meta || {}
+            meta: response.meta || {},
+            needsClientSideFilter: needsClientSideFilter
           }
         };
       } else if (state.showingPageType === 'pro' && organizationId) {
@@ -188,7 +191,17 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
 
       const meta = response.data?.meta || response.data?.pagination;
       const totalPages = meta?.total_pages || 1;
-      const total = meta?.total_count || meta?.total_items || mapped.length;
+      
+      // Determine total count based on filtering method
+      let total: number;
+      if (state.showingPageType === 'user' && response.data?.needsClientSideFilter) {
+        // Client-side filtering: use filtered array length
+        // Note: This only reflects current page, but is more accurate than unfiltered total
+        total = mapped.length;
+      } else {
+        // Server-side filtering or organization context: use meta total
+        total = meta?.total_count || meta?.total_items || mapped.length;
+      }
 
       setTotalCount(total);
       setHasMore(page < totalPages);
