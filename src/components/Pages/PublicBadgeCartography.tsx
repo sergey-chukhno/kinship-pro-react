@@ -174,6 +174,7 @@ const PublicBadgeCartography: React.FC = () => {
                         onEdit={() => {}} // No edit in public view
                         onDelete={() => {}} // No delete in public view
                         attributionCount={attributionCount}
+                        showClickHint={false} // Hide click hint on public shared page
                       />
                     );
                   })}
