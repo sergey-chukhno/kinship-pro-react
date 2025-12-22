@@ -65,6 +65,7 @@ export const getUserBadges = async (
     level?: string;
     organization_type?: string;
     organization_id?: number;
+    badge_id?: number;
   }
 ): Promise<{ data: any[]; meta: any }> => {
   const params = new URLSearchParams();
@@ -82,6 +83,9 @@ export const getUserBadges = async (
   }
   if (filters?.organization_id) {
     params.append('organization_id', filters.organization_id.toString());
+  }
+  if (filters?.badge_id) {
+    params.append('badge_id', filters.badge_id.toString());
   }
   
   const response = await apiClient.get(`/api/v1/users/me/badges?${params.toString()}`);
