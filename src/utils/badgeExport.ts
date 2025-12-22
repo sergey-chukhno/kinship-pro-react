@@ -56,7 +56,17 @@ export const exportToPDF = async (
       }
 
       if (filters.series) {
-        pdf.text(`Série: ${filters.series}`, margin, yPosition);
+        // Map series name for display
+        const mapSeriesForDisplay = (series: string): string => {
+          if (!series) return '';
+          const lower = series.toLowerCase();
+          if (lower.includes('toukouleur') || lower.includes('universelle')) {
+            return 'Série Soft Skills 4LAB';
+          }
+          return series;
+        };
+        const seriesDisplayName = mapSeriesForDisplay(filters.series);
+        pdf.text(`Série: ${seriesDisplayName}`, margin, yPosition);
         yPosition += 5;
       }
 
@@ -174,14 +184,23 @@ export const exportToCSV = (badges: Badge[], filters: ExportFilters): void => {
     // CSV Headers
     const headers = ['Nom du badge', 'Niveau', 'Série', 'Nombre d\'attributions'];
     
+    // Helper function to map series name for display
+    const mapSeriesForDisplay = (series: string): string => {
+      if (series.toLowerCase().includes('toukouleur') || series.toLowerCase().includes('universelle')) {
+        return 'Série Soft Skills 4LAB';
+      }
+      return series;
+    };
+    
     // Group badges by name and level to show unique badges with counts
     const badgeGroups = badges.reduce((acc, badge) => {
       const key = `${badge.name}|${badge.level}`;
       if (!acc[key]) {
+        const seriesDisplay = mapSeriesForDisplay(badge.category || badge.series || '');
         acc[key] = {
           name: badge.name,
           level: badge.level,
-          category: badge.category || badge.series || '',
+          category: seriesDisplay,
           count: 0
         };
       }
