@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import ForgotPassword from './components/Pages/ForgotPassword';
 import ResetPassword from './components/Pages/ResetPassword';
 import CheckinStudent from './components/Pages/CheckinStudent';
+import PublicBadgeCartography from './components/Pages/PublicBadgeCartography';
 import './App.css';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/checkin-student" element={<CheckinStudent />} />
+            <Route path="/badge-cartography/:token" element={<PublicBadgeCartography />} />
             <Route path="/*" element={<MainLayout />} />
           </Routes>
           <ToastContainer

@@ -8,9 +8,10 @@ interface BadgeCardProps {
   onEdit: () => void;
   onDelete: () => void;
   attributionCount?: number; // Number of times this badge has been attributed
+  showClickHint?: boolean; // Whether to show the click hint text
 }
 
-const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete, attributionCount = 0 }) => {
+const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete, attributionCount = 0, showClickHint = true }) => {
 
   const getLevelColor = (level: string) => {
     if (level.includes('Niveau 1')) return '#10b981';
@@ -47,10 +48,12 @@ const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete,
 
       <div className="badge-content">
         <h3 className="badge-title">{badge.name}</h3>
-        <div className="badge-click-hint">
-          <span>Cliquer pour voir les attributions du badge</span>
-          <i className="fas fa-chevron-right"></i>
-        </div>
+        {showClickHint && (
+          <div className="badge-click-hint">
+            <span>Cliquer pour voir les attributions du badge</span>
+            <i className="fas fa-chevron-right"></i>
+          </div>
+        )}
       </div>
 
       {/* Green counters positioned like in projects section */}

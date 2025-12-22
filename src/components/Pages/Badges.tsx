@@ -7,6 +7,7 @@ import BadgeModal from '../Modals/BadgeModal';
 import BadgeAnalyticsModal from '../Modals/BadgeAnalyticsModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
+import BadgeExportModal from '../Modals/BadgeExportModal';
 import BadgeExplorer from './BadgeExplorer';
 import { getUserBadges } from '../../api/Badges';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
@@ -22,6 +23,7 @@ const Badges: React.FC = () => {
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [isAttributionsModalOpen, setIsAttributionsModalOpen] = useState(false);
   const [selectedBadgeForAttributions, setSelectedBadgeForAttributions] = useState<{ name: string; level: string; badgeId?: string } | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   
   // Store raw badge data to access badge IDs
   const [rawBadgeData, setRawBadgeData] = useState<any[]>([]);
@@ -191,8 +193,7 @@ const Badges: React.FC = () => {
   };
 
   const handleExportBadges = () => {
-    // TODO: Implement export functionality
-    console.log('Export badges');
+    setIsExportModalOpen(true);
   };
 
   const handleSaveAssignment = (assignmentData: any) => {
@@ -303,7 +304,7 @@ const Badges: React.FC = () => {
             )}
 
             {!isLoadingBadges && !badgesError && (
-              <>
+              <div className="badge-cartography-view">
                 {/* Search and Filters */}
                 <div className="badges-filters">
                   <div className="search-bar">
@@ -450,7 +451,7 @@ const Badges: React.FC = () => {
                     </button>
                   </div>
                 )}
-              </>
+              </div>
             )}
           </>
         )}
@@ -484,6 +485,26 @@ const Badges: React.FC = () => {
           badgeName={selectedBadgeForAttributions.name}
           badgeLevel={selectedBadgeForAttributions.level}
           badgeId={selectedBadgeForAttributions.badgeId}
+        />
+      )}
+
+      {/* Badge Export Modal */}
+      {isExportModalOpen && (
+        <BadgeExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          badges={filteredBadges}
+          filters={{
+            series: selectedSeries,
+            level: selectedLevel,
+            searchTerm: searchTerm
+          }}
+          context={{
+            showingPageType: state.showingPageType,
+            organizationId: organizationId ? Number(organizationId) : undefined,
+            organizationName: state.user?.available_contexts?.companies?.find((c: any) => c.id === organizationId)?.name ||
+                              state.user?.available_contexts?.schools?.find((s: any) => s.id === organizationId)?.name
+          }}
         />
       )}
 
