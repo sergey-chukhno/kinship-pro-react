@@ -1654,6 +1654,25 @@
   transition: max-height 0.3s ease;
 }
 
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--text-primary, #111827);
+}
+
+.file-link {
+  color: var(--primary, #5570F1);
+  text-decoration: underline;
+}
+
 /* Badge Filters */
 .badges-filters {
   display: flex;

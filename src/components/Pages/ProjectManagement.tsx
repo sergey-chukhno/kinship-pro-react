@@ -14,7 +14,7 @@ import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat,
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
-import { Project } from '../../types';
+import { Project, BadgeFile } from '../../types';
 import { useToast } from '../../hooks/useToast';
 
 const ProjectManagement: React.FC = () => {
@@ -1184,6 +1184,17 @@ const ProjectManagement: React.FC = () => {
 
     const imageUrl = badge.image_url || getLocalBadgeImage(badgeName) || '/TouKouLeur-Jaune.png';
 
+    const documents = Array.isArray(item.documents)
+      ? item.documents.map((doc: any) => ({
+          name: doc?.name || doc?.filename || 'Document',
+          type: doc?.type || doc?.content_type || 'file',
+          size: doc?.size || (doc?.byte_size ? `${(doc.byte_size / 1024).toFixed(1)} KB` : ''),
+          url: doc?.url,
+        }))
+      : [];
+
+    const preuve = documents.length > 0 ? documents[0] : undefined;
+
     return {
       id: item.id?.toString() || `badge-${Date.now()}-${Math.random()}`,
       badgeId: badge.id?.toString() || '',
@@ -1203,13 +1214,8 @@ const ProjectManagement: React.FC = () => {
       projectTitle: project?.title || '',
       domaineEngagement: item.comment || '', // fallback
       commentaire: item.comment || '',
-      preuve: item.documents?.length
-        ? {
-            name: item.documents[0].filename || 'Document',
-            type: item.documents[0].content_type || 'file',
-            size: item.documents[0].byte_size ? `${(item.documents[0].byte_size / 1024).toFixed(1)} KB` : '',
-          }
-        : undefined,
+      preuveFiles: documents,
+      preuve,
       dateAttribution: item.created_at || new Date().toISOString(),
     };
   };
@@ -2875,7 +2881,7 @@ const ProjectManagement: React.FC = () => {
                           </div>
                         )}
                         
-                        {attribution.preuve && (
+                        {(attribution.preuveFiles?.length || attribution.preuve) && (
                           <div className={`badge-preuve ${collapsedComments.has(`${attribution.id}-preuve`) ? 'collapsed' : ''}`}>
                             <h5 onClick={() => toggleComment(`${attribution.id}-preuve`)}>
                               Preuve:
@@ -2885,8 +2891,23 @@ const ProjectManagement: React.FC = () => {
                             </h5>
                             <div className="file-info">
                               <i className="fas fa-file"></i>
-                              <span>{attribution.preuve.name}</span>
-                              <small>({attribution.preuve.size})</small>
+                              <div className="file-list">
+                                {(attribution.preuveFiles && attribution.preuveFiles.length > 0
+                                  ? attribution.preuveFiles
+                                  : [attribution.preuve]
+                                ).filter(Boolean).map((file: BadgeFile | undefined, index: number) => (
+                                  <div key={index} className="file-item">
+                                    {file?.url ? (
+                                      <a href={file.url} target="_blank" rel="noopener noreferrer" className="file-link">
+                                        {file.name || 'Document'}
+                                      </a>
+                                    ) : (
+                                      <span>{file?.name || 'Document'}</span>
+                                    )}
+                                    {file?.size && <small> ({file.size})</small>}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )}
