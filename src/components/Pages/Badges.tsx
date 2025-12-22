@@ -6,6 +6,7 @@ import BadgeCard from '../Badges/BadgeCard';
 import BadgeModal from '../Modals/BadgeModal';
 import BadgeAnalyticsModal from '../Modals/BadgeAnalyticsModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
+import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import BadgeExplorer from './BadgeExplorer';
 import { getUserBadges } from '../../api/Badges';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
@@ -19,6 +20,11 @@ const Badges: React.FC = () => {
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [isAttributionsModalOpen, setIsAttributionsModalOpen] = useState(false);
+  const [selectedBadgeForAttributions, setSelectedBadgeForAttributions] = useState<{ name: string; level: string; badgeId?: string } | null>(null);
+  
+  // Store raw badge data to access badge IDs
+  const [rawBadgeData, setRawBadgeData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeries, setSelectedSeries] = useState('TouKouLeur');
   const [selectedLevel, setSelectedLevel] = useState('');
@@ -72,6 +78,7 @@ const Badges: React.FC = () => {
         // Note: getSchoolAssignedBadges doesn't support filters in current API, filter client-side
         response = await getSchoolAssignedBadges(Number(organizationId), perPage);
         const payload = response.data?.data ?? response.data ?? [];
+        setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
         setBadges(mapped);
         // Use pagination meta from backend if available
@@ -82,6 +89,7 @@ const Badges: React.FC = () => {
         // Company: fetch assigned badges
         response = await getCompanyAssignedBadges(Number(organizationId), perPage);
         const payload = response.data?.data ?? response.data ?? [];
+        setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
         setBadges(mapped);
         // Use pagination meta from backend if available
@@ -92,6 +100,7 @@ const Badges: React.FC = () => {
         // Teacher: fetch assigned badges
         response = await getTeacherAssignedBadges(perPage);
         const payload = response.data?.data ?? response.data ?? [];
+        setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
         setBadges(mapped);
         // Use pagination meta from backend if available
@@ -147,7 +156,23 @@ const Badges: React.FC = () => {
   });
 
   const handleBadgeClick = (badge: Badge) => {
-    setSelectedBadge(badge);
+    // Find the badge ID from raw data
+    const rawBadge = rawBadgeData.find((item: any) => {
+      const badgeName = item?.badge?.name;
+      const badgeLevel = item?.badge?.level;
+      const levelMatch = badgeLevel === badge.level.replace('Niveau ', 'level_') || 
+                        badgeLevel === badge.level;
+      return badgeName === badge.name && levelMatch;
+    });
+    
+    const badgeId = rawBadge?.badge?.id?.toString();
+    
+    setSelectedBadgeForAttributions({
+      name: badge.name,
+      level: badge.level,
+      badgeId: badgeId
+    });
+    setIsAttributionsModalOpen(true);
   };
 
   const handleEditBadge = (badge: Badge) => {
@@ -445,6 +470,20 @@ const Badges: React.FC = () => {
             setSelectedBadge(null);
           }}
           onSave={handleSaveBadge}
+        />
+      )}
+
+      {/* Badge Attributions Modal */}
+      {isAttributionsModalOpen && selectedBadgeForAttributions && (
+        <BadgeAttributionsModal
+          isOpen={isAttributionsModalOpen}
+          onClose={() => {
+            setIsAttributionsModalOpen(false);
+            setSelectedBadgeForAttributions(null);
+          }}
+          badgeName={selectedBadgeForAttributions.name}
+          badgeLevel={selectedBadgeForAttributions.level}
+          badgeId={selectedBadgeForAttributions.badgeId}
         />
       )}
 

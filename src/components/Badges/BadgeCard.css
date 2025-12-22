@@ -313,8 +313,41 @@
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-primary, #1f2937);
-  margin: 0;
+  margin: 0 0 12px 0;
   line-height: 1.3;
+}
+
+.badge-click-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  border-radius: 8px;
+  background: var(--primary-light, rgba(85, 112, 241, 0.08));
+  color: var(--primary, #5570F1);
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.badge-click-hint:hover {
+  background: var(--primary, #5570F1);
+  color: white;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(85, 112, 241, 0.3);
+}
+
+.badge-click-hint i {
+  font-size: 0.7rem;
+  transition: transform 0.2s ease;
+}
+
+.badge-click-hint:hover i {
+  transform: translateX(2px);
 }
 
 
