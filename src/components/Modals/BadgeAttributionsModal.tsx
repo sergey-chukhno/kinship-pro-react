@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
+import { getUserBadges } from '../../api/Badges';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import './Modal.css';
@@ -64,7 +65,8 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
   const organizationId = getOrganizationId(state.user, state.showingPageType);
 
   const fetchAttributions = useCallback(async (page: number, append: boolean = false) => {
-    if (!organizationId && state.showingPageType !== 'teacher') {
+    // Allow user context without organization ID
+    if (!organizationId && state.showingPageType !== 'teacher' && state.showingPageType !== 'user') {
       setError('Organization ID not found');
       return;
     }
@@ -76,7 +78,33 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
     try {
       let response;
 
-      if (state.showingPageType === 'pro' && organizationId) {
+      if (state.showingPageType === 'user') {
+        // Personal user: fetch received badges filtered by badge_id
+        const badgeIdNum = badgeId ? parseInt(badgeId) : undefined;
+        const filters: any = {};
+        if (badgeIdNum) {
+          filters.badge_id = badgeIdNum;
+        }
+        response = await getUserBadges(page, perPage, filters);
+        // Track if client-side filtering was applied
+        const needsClientSideFilter = !badgeId;
+        // If no badge_id, filter client-side by name and level
+        if (needsClientSideFilter && response.data) {
+          response.data = response.data.filter((item: any) => 
+            item.badge?.name === badgeName && 
+            (item.badge?.level === badgeLevel.replace('Niveau ', 'level_') ||
+             item.badge?.level === badgeLevel)
+          );
+        }
+        // Transform response to match expected format
+        response = {
+          data: {
+            data: response.data || [],
+            meta: response.meta || {},
+            needsClientSideFilter: needsClientSideFilter
+          }
+        };
+      } else if (state.showingPageType === 'pro' && organizationId) {
         const badgeIdNum = badgeId ? parseInt(badgeId) : undefined;
         response = await getCompanyAssignedBadges(Number(organizationId), perPage, badgeIdNum, page);
         // If no badge_id, filter client-side by name and level
@@ -125,15 +153,30 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
         }
       }
       
-      const mapped = (Array.isArray(payload) ? payload : []).map((item: any): BadgeAttribution => ({
-        id: item.id,
-        receiver: item.receiver || { id: 0, full_name: 'Unknown', email: '' },
-        sender: item.sender || { id: 0, full_name: 'Unknown', email: '' },
-        project: item.project || null,
-        assigned_at: item.assigned_at || item.created_at,
-        comment: item.comment || null,
-        documents: item.documents || []
-      }));
+      const mapped = (Array.isArray(payload) ? payload : []).map((item: any): BadgeAttribution => {
+        // Handle different response formats (user badges vs organization badges)
+        const receiver = item.receiver || { 
+          id: item.receiver_id || 0, 
+          full_name: item.receiver?.full_name || 'Unknown', 
+          email: item.receiver?.email || '' 
+        };
+        const sender = item.sender || { 
+          id: item.sender_id || 0, 
+          full_name: item.sender?.full_name || 'Unknown',
+          email: item.sender?.email || ''
+        };
+        const project = item.project || (item.project_id ? { id: item.project_id, title: item.project?.title || 'Unknown' } : null);
+        
+        return {
+          id: item.id,
+          receiver: receiver,
+          sender: sender,
+          project: project,
+          assigned_at: item.assigned_at || item.created_at,
+          comment: item.comment || null,
+          documents: item.documents || []
+        };
+      });
 
       if (append) {
         // Deduplicate by ID when appending to prevent duplicates
@@ -148,7 +191,17 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
 
       const meta = response.data?.meta || response.data?.pagination;
       const totalPages = meta?.total_pages || 1;
-      const total = meta?.total_count || meta?.total_items || mapped.length;
+      
+      // Determine total count based on filtering method
+      let total: number;
+      if (state.showingPageType === 'user' && response.data?.needsClientSideFilter) {
+        // Client-side filtering: use filtered array length
+        // Note: This only reflects current page, but is more accurate than unfiltered total
+        total = mapped.length;
+      } else {
+        // Server-side filtering or organization context: use meta total
+        total = meta?.total_count || meta?.total_items || mapped.length;
+      }
 
       setTotalCount(total);
       setHasMore(page < totalPages);
