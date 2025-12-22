@@ -1,0 +1,348 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAppContext } from '../../context/AppContext';
+import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
+import { getOrganizationId } from '../../utils/projectMapper';
+import './Modal.css';
+import './BadgeAttributionsModal.css';
+
+interface BadgeAttributionsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  badgeName: string;
+  badgeLevel: string;
+  badgeId?: string; // Badge ID for filtering
+}
+
+interface BadgeAttribution {
+  id: number;
+  receiver: {
+    id: number;
+    full_name: string;
+    email: string;
+    role?: string;
+  };
+  sender: {
+    id: number;
+    full_name: string;
+    email?: string;
+  };
+  project: {
+    id: number;
+    title: string;
+  } | null;
+  assigned_at: string;
+  comment: string | null;
+  documents: Array<{
+    name: string;
+    type: string;
+    size: string;
+    url?: string;
+  }>;
+}
+
+const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
+  isOpen,
+  onClose,
+  badgeName,
+  badgeLevel,
+  badgeId
+}) => {
+  const { state } = useAppContext();
+  const [attributions, setAttributions] = useState<BadgeAttribution[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const observerTargetRef = useRef<HTMLDivElement>(null);
+  const perPage = 20;
+
+  const organizationId = getOrganizationId(state.user, state.showingPageType);
+
+  const fetchAttributions = useCallback(async (page: number, append: boolean = false) => {
+    if (!organizationId && state.showingPageType !== 'teacher') {
+      setError('Organization ID not found');
+      return;
+    }
+
+    const loadingState = append ? setIsLoadingMore : setIsLoading;
+    loadingState(true);
+    setError(null);
+
+    try {
+      let response;
+
+      if (state.showingPageType === 'pro' && organizationId) {
+        const badgeIdNum = badgeId ? parseInt(badgeId) : undefined;
+        response = await getCompanyAssignedBadges(Number(organizationId), perPage, badgeIdNum, page);
+        // If no badge_id, filter client-side by name and level
+        if (!badgeId && response.data?.data) {
+          response.data.data = response.data.data.filter((item: any) => 
+            item.badge?.name === badgeName && 
+            (item.badge?.level === badgeLevel.replace('Niveau ', 'level_') ||
+             item.badge?.level === badgeLevel)
+          );
+        }
+      } else if (state.showingPageType === 'edu' && organizationId) {
+        const badgeIdNum = badgeId ? parseInt(badgeId) : undefined;
+        response = await getSchoolAssignedBadges(Number(organizationId), perPage, badgeIdNum, page);
+        // If no badge_id, filter client-side by name and level
+        if (!badgeId && response.data?.data) {
+          response.data.data = response.data.data.filter((item: any) => 
+            item.badge?.name === badgeName && 
+            (item.badge?.level === badgeLevel.replace('Niveau ', 'level_') ||
+             item.badge?.level === badgeLevel)
+          );
+        }
+      } else if (state.showingPageType === 'teacher') {
+        const badgeIdNum = badgeId ? parseInt(badgeId) : undefined;
+        response = await getTeacherAssignedBadges(perPage, badgeIdNum, page);
+        // If no badge_id, filter client-side by name and level
+        if (!badgeId && response.data?.data) {
+          response.data.data = response.data.data.filter((item: any) => 
+            item.badge?.name === badgeName && 
+            (item.badge?.level === badgeLevel.replace('Niveau ', 'level_') ||
+             item.badge?.level === badgeLevel)
+          );
+        }
+      } else {
+        setError('Invalid context for fetching badges');
+        return;
+      }
+
+      const payload = response.data?.data ?? response.data ?? [];
+      const mapped = (Array.isArray(payload) ? payload : []).map((item: any): BadgeAttribution => ({
+        id: item.id,
+        receiver: item.receiver || { id: 0, full_name: 'Unknown', email: '' },
+        sender: item.sender || { id: 0, full_name: 'Unknown', email: '' },
+        project: item.project || null,
+        assigned_at: item.assigned_at || item.created_at,
+        comment: item.comment || null,
+        documents: item.documents || []
+      }));
+
+      if (append) {
+        // Deduplicate by ID when appending to prevent duplicates
+        setAttributions(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const newItems = mapped.filter(item => !existingIds.has(item.id));
+          return [...prev, ...newItems];
+        });
+      } else {
+        setAttributions(mapped);
+      }
+
+      const meta = response.data?.meta || response.data?.pagination;
+      const totalPages = meta?.total_pages || 1;
+      const total = meta?.total_count || meta?.total_items || mapped.length;
+
+      setTotalCount(total);
+      setHasMore(page < totalPages);
+      setCurrentPage(page);
+    } catch (err: any) {
+      console.error('Error fetching badge attributions:', err);
+      setError('Erreur lors du chargement des attributions de badges');
+    } finally {
+      loadingState(false);
+    }
+  }, [organizationId, state.showingPageType, badgeId, badgeName, badgeLevel, perPage]);
+
+  // Initial load
+  useEffect(() => {
+    if (isOpen) {
+      setAttributions([]);
+      setCurrentPage(1);
+      setHasMore(true);
+      setError(null);
+      fetchAttributions(1, false);
+    }
+  }, [isOpen, fetchAttributions]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!isOpen || !hasMore || isLoading || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          fetchAttributions(currentPage + 1, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const target = observerTargetRef.current;
+    if (target) {
+      observer.observe(target);
+    }
+
+    return () => {
+      if (target) {
+        observer.unobserve(target);
+      }
+    };
+  }, [isOpen, hasMore, isLoading, isLoadingMore, currentPage, fetchAttributions]);
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay badge-attributions-modal-overlay" onClick={onClose}>
+      <div className="modal-content badge-attributions-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <h2>Attributions du badge</h2>
+            <p className="badge-attributions-subtitle">
+              {badgeName} - {badgeLevel}
+              {totalCount > 0 && <span className="badge-count-badge">({totalCount})</span>}
+            </p>
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            <i className="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div className="modal-body badge-attributions-body" ref={scrollContainerRef}>
+          {error && (
+            <div className="badge-attributions-error">
+              <i className="fas fa-exclamation-circle"></i>
+              {error}
+            </div>
+          )}
+
+          {!error && !isLoading && attributions.length === 0 && (
+            <div className="badge-attributions-empty">
+              <i className="fas fa-inbox"></i>
+              <p>Aucune attribution trouvée pour ce badge</p>
+            </div>
+          )}
+
+          {!error && attributions.length > 0 && (
+            <div className="badge-attributions-table-container">
+              <table className="badge-attributions-table">
+                <thead>
+                  <tr>
+                    <th>Projet</th>
+                    <th>Attribué à</th>
+                    <th>Attribué par</th>
+                    <th>Commentaire</th>
+                    <th>Preuve</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attributions.map((attribution) => (
+                    <tr key={attribution.id}>
+                      <td>
+                        {attribution.project ? (
+                          <span className="project-name">{attribution.project.title}</span>
+                        ) : (
+                          <span className="no-project">-</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="person-cell">
+                          <span className="person-name">{attribution.receiver.full_name}</span>
+                          {attribution.receiver.email && (
+                            <span className="person-email">{attribution.receiver.email}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="person-cell">
+                          <span className="person-name">{attribution.sender.full_name}</span>
+                          {attribution.sender.email && (
+                            <span className="person-email">{attribution.sender.email}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        {attribution.comment ? (
+                          <span className="comment-text">{attribution.comment}</span>
+                        ) : (
+                          <span className="no-comment">-</span>
+                        )}
+                      </td>
+                      <td>
+                        {attribution.documents && attribution.documents.length > 0 ? (
+                          <div className="proof-files">
+                            {attribution.documents.map((doc, index) => (
+                              doc.url ? (
+                                <a
+                                  key={index}
+                                  href={doc.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="proof-file-link"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <i className="fas fa-file"></i>
+                                  {doc.name}
+                                </a>
+                              ) : (
+                                <span key={index} className="proof-file-name">
+                                  <i className="fas fa-file"></i>
+                                  {doc.name} ({doc.size})
+                                </span>
+                              )
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="no-proof">-</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className="date-text">{formatDate(attribution.assigned_at)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Loading indicator for initial load */}
+          {isLoading && (
+            <div className="badge-attributions-loading">
+              <i className="fas fa-spinner fa-spin"></i>
+              <p>Chargement des attributions...</p>
+            </div>
+          )}
+
+          {/* Infinite scroll trigger */}
+          {!isLoading && hasMore && (
+            <div ref={observerTargetRef} className="badge-attributions-load-more-trigger">
+              {isLoadingMore && (
+                <div className="badge-attributions-loading-more">
+                  <i className="fas fa-spinner fa-spin"></i>
+                  <span>Chargement...</span>
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-primary" onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default BadgeAttributionsModal;
+
