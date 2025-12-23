@@ -9,9 +9,11 @@ import {
   createSchoolEvent, 
   createCompanyEvent, 
   createTeacherEvent,
+  createUserEvent,
   updateSchoolEvent,
   updateCompanyEvent,
   updateTeacherEvent,
+  updateUserEvent,
   CreateEventPayload 
 } from '../../api/Events';
 import './Modal.css';
@@ -276,6 +278,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
           createdEvent = await updateCompanyEvent(organizationId, eventId, payload);
         } else if (state.showingPageType === 'teacher') {
           createdEvent = await updateTeacherEvent(eventId, payload);
+        } else if (state.showingPageType === 'user') {
+          createdEvent = await updateUserEvent(eventId, payload);
         } else {
           throw new Error('Contexte invalide pour modifier un événement');
         }
@@ -287,6 +291,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
           createdEvent = await createCompanyEvent(organizationId, payload);
         } else if (state.showingPageType === 'teacher') {
           createdEvent = await createTeacherEvent(payload);
+        } else if (state.showingPageType === 'user') {
+          createdEvent = await createUserEvent(payload);
         } else {
           throw new Error('Contexte invalide pour créer un événement');
         }
@@ -305,7 +311,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
         location: createdEvent.location || '',
         participants: createdEvent.participants?.map(p => p.toString()) || [],
         badges: createdEvent.badges?.map(b => b.toString()) || [],
-        image: createdEvent.image_url || '',
+        image: createdEvent.image || '',
         status: createdEvent.status as Event['status'],
         projectId: '',
         createdBy: state.user.id || '',

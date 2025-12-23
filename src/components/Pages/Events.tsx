@@ -8,10 +8,12 @@ import CalendarView from '../Events/CalendarView';
 import { 
   getSchoolEvents, 
   getCompanyEvents, 
-  getTeacherEvents, 
+  getTeacherEvents,
+  getUserEvents,
   deleteSchoolEvent,
   deleteCompanyEvent,
   deleteTeacherEvent,
+  deleteUserEvent,
   EventResponse 
 } from '../../api/Events';
 import { getOrganizationId } from '../../utils/projectMapper';
@@ -36,13 +38,21 @@ const Events: React.FC = () => {
   // Transform API response to frontend Event format
   const transformEventResponse = (apiEvent: EventResponse): Event => {
     // Transform participants from API format to frontend format
+    // Ensure all participants are included, regardless of their role
     const transformedParticipants = apiEvent.participants?.map(p => ({
       id: p.id.toString(),
       email: p.email,
       first_name: p.first_name,
       last_name: p.last_name,
-      claim_token: p.claim_token || undefined
+      claim_token: p.claim_token || undefined,
+      has_event_badges: p.has_event_badges || false,
+      received_badge_ids: p.received_badge_ids || []
     })) || [];
+    
+    // Debug: Log participants to ensure all are included
+    if (transformedParticipants.length > 0) {
+      console.log('Event participants transformed:', transformedParticipants);
+    }
 
     return {
       id: apiEvent.id.toString(),
@@ -55,7 +65,7 @@ const Events: React.FC = () => {
       location: apiEvent.location || '',
       participants: transformedParticipants,
       badges: apiEvent.badges?.map(b => b.toString()) || [],
-      image: apiEvent.image_url || '',
+      image: apiEvent.image || '',
       status: apiEvent.status as Event['status'],
       projectId: '',
       createdBy: '',
@@ -66,12 +76,6 @@ const Events: React.FC = () => {
   // Fetch events from API
   useEffect(() => {
     const fetchEvents = async () => {
-      // Skip for user context (no events API for users)
-      if (state.showingPageType === 'user') {
-        setEvents(state.events);
-        return;
-      }
-
       setIsLoadingEvents(true);
       setEventsError(null);
 
@@ -85,12 +89,21 @@ const Events: React.FC = () => {
           eventsResponse = await getCompanyEvents(organizationId);
         } else if (state.showingPageType === 'teacher') {
           eventsResponse = await getTeacherEvents();
+        } else if (state.showingPageType === 'user') {
+          eventsResponse = await getUserEvents();
         } else {
           // Fallback to context events
           setEvents(state.events);
           setIsLoadingEvents(false);
           return;
         }
+
+        // Debug: Log raw API response to see all participants
+        console.log('Raw API events response:', eventsResponse.data);
+        eventsResponse.data.forEach((apiEvent: any, idx: number) => {
+          console.log(`Event ${idx} (${apiEvent.title}) - Participants:`, apiEvent.participants);
+          console.log(`Event ${idx} - Participants count:`, apiEvent.participants?.length || 0);
+        });
 
         // Transform API events to frontend format
         const transformedEvents = eventsResponse.data.map(transformEventResponse);
@@ -156,6 +169,7 @@ const Events: React.FC = () => {
   });
 
   const handleEventClick = (event: Event) => {
+    console.log("selected event", event)
     setSelectedEvent(event);
     setIsEventDetailModalOpen(true);
   };
@@ -207,6 +221,8 @@ const Events: React.FC = () => {
             eventsResponse = await getCompanyEvents(organizationId);
           } else if (state.showingPageType === 'teacher') {
             eventsResponse = await getTeacherEvents();
+          } else if (state.showingPageType === 'user') {
+            eventsResponse = await getUserEvents();
           } else {
             return;
           }
@@ -243,6 +259,8 @@ const Events: React.FC = () => {
         await deleteCompanyEvent(organizationId, eventId);
       } else if (state.showingPageType === 'teacher') {
         await deleteTeacherEvent(eventId);
+      } else if (state.showingPageType === 'user') {
+        await deleteUserEvent(eventId);
       } else {
         // Fallback to context delete
         deleteEvent(id);
@@ -285,14 +303,14 @@ const Events: React.FC = () => {
           <h2>Gestion des événements</h2>
         </div>
         <div className="events-actions">
-          <div className="dropdown" style={{ position: 'relative' }}>
+          {/* <div className="dropdown" style={{ position: 'relative' }}>
             <button className="btn btn-outline" onClick={handleExportEvents}>
               <i className="fas fa-download"></i> Exporter
             </button>
-          </div>
-          <button className="btn btn-primary" onClick={handleCreateEvent}>
+          </div> */}
+         { state.showingPageType !== 'user' && <button className="btn btn-primary" onClick={handleCreateEvent}>
             <i className="fas fa-plus"></i> Créer un événement
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -479,6 +497,64 @@ const Events: React.FC = () => {
             handleDeleteEvent(selectedEvent.id);
             setIsEventDetailModalOpen(false);
             setSelectedEvent(null);
+          }}
+          onComplete={async () => {
+            // Refresh events after completion to get updated event data
+            try {
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              let eventsResponse;
+
+              if (state.showingPageType === 'edu' && organizationId) {
+                eventsResponse = await getSchoolEvents(organizationId);
+              } else if (state.showingPageType === 'pro' && organizationId) {
+                eventsResponse = await getCompanyEvents(organizationId);
+              } else if (state.showingPageType === 'teacher') {
+                eventsResponse = await getTeacherEvents();
+              } else {
+                return;
+              }
+
+              // Transform API events to frontend format
+              const transformedEvents = eventsResponse.data.map(transformEventResponse);
+              setEvents(transformedEvents);
+              
+              // Update selected event if it still exists
+              const updatedEvent = transformedEvents.find(e => e.id === selectedEvent.id);
+              if (updatedEvent) {
+                setSelectedEvent(updatedEvent);
+              }
+            } catch (error) {
+              console.error('Error refreshing events:', error);
+            }
+          }}
+          onParticipantRemoved={async () => {
+            // Refresh events to get updated participant list
+            try {
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              let eventsResponse;
+
+              if (state.showingPageType === 'edu' && organizationId) {
+                eventsResponse = await getSchoolEvents(organizationId);
+              } else if (state.showingPageType === 'pro' && organizationId) {
+                eventsResponse = await getCompanyEvents(organizationId);
+              } else if (state.showingPageType === 'teacher') {
+                eventsResponse = await getTeacherEvents();
+              } else {
+                return;
+              }
+
+              // Transform API events to frontend format
+              const transformedEvents = eventsResponse.data.map(transformEventResponse);
+              setEvents(transformedEvents);
+              
+              // Update selected event if it still exists
+              const updatedEvent = transformedEvents.find(e => e.id === selectedEvent.id);
+              if (updatedEvent) {
+                setSelectedEvent(updatedEvent);
+              }
+            } catch (error) {
+              console.error('Error refreshing events:', error);
+            }
           }}
         />
       )}

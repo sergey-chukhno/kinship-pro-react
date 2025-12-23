@@ -19,6 +19,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
   const [viewDate, setViewDate] = useState(currentDate);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showEventsPopup, setShowEventsPopup] = useState(false);
 
   const monthNames = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -134,7 +136,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 </div>
               ))}
               {dayEvents.length > 2 && (
-                <div className="day-event-more">+{dayEvents.length - 2}</div>
+                <div 
+                  className="day-event-more"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedDate(date);
+                    setShowEventsPopup(true);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {dayEvents.length - 2} autres
+                </div>
               )}
             </div>
           )}
@@ -281,6 +293,89 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'day' && renderDayView()}
       </div>
+
+      {/* Events Popup */}
+      {showEventsPopup && selectedDate && (
+        <div 
+          className="calendar-events-popup-overlay"
+          onClick={() => setShowEventsPopup(false)}
+        >
+          <div 
+            className="calendar-events-popup"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="calendar-events-popup-header">
+              <div className="calendar-events-popup-date">
+                <div className="calendar-events-popup-day-name">
+                  {dayNames[selectedDate.getDay()]}
+                </div>
+                <div className="calendar-events-popup-day-number">
+                  {selectedDate.getDate()}
+                </div>
+              </div>
+              <button 
+                className="calendar-events-popup-close"
+                onClick={() => setShowEventsPopup(false)}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="calendar-events-popup-content">
+              {getEventsForDate(selectedDate).length === 0 ? (
+                <div className="calendar-events-popup-empty">
+                  Aucun événement ce jour
+                </div>
+              ) : (
+                <div className="calendar-events-popup-list">
+                  {getEventsForDate(selectedDate).map((event, index) => {
+                    // Determine event color and style based on type
+                    const getEventStyle = () => {
+                      switch (event.type) {
+                        case 'session':
+                          return { color: '#7c3aed', isSolid: true }; // Purple solid
+                        case 'workshop':
+                        case 'meeting':
+                          return { color: '#3b82f6', isSolid: false }; // Blue hollow
+                        default:
+                          return { color: '#5570F1', isSolid: true }; // Default primary solid
+                      }
+                    };
+
+                    const style = getEventStyle();
+                    
+                    return (
+                      <div
+                        key={event.id || index}
+                        className="calendar-events-popup-item"
+                        onClick={() => {
+                          setShowEventsPopup(false);
+                          onEventClick(event);
+                        }}
+                      >
+                        <div 
+                          className="calendar-events-popup-item-dot"
+                          style={{
+                            background: style.isSolid ? style.color : 'transparent',
+                            border: style.isSolid ? 'none' : `2px solid ${style.color}`,
+                            width: style.isSolid ? '12px' : '10px',
+                            height: style.isSolid ? '12px' : '10px'
+                          }}
+                        ></div>
+                        <div className="calendar-events-popup-item-time">
+                          {event.time}
+                        </div>
+                        <div className="calendar-events-popup-item-title">
+                          {event.title}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

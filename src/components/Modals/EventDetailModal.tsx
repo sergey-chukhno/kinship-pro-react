@@ -1,296 +1,470 @@
-import React from 'react';
-import { Event, Member, EventParticipant } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Event, BadgeAPI } from '../../types';
 import { useAppContext } from '../../context/AppContext';
+import {
+  completeSchoolEvent,
+  completeCompanyEvent,
+  completeTeacherEvent,
+  completeUserEvent,
+  removeSchoolEventParticipant,
+  removeCompanyEventParticipant,
+  removeTeacherEventParticipant,
+  removeUserEventParticipant
+} from '../../api/Events';
+import { getBadges } from '../../api/Badges';
+import { getOrganizationId } from '../../utils/projectMapper';
+import { useToast } from '../../hooks/useToast';
+import { getLocalBadgeImage } from '../../utils/badgeImages';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
+import EventCompleteModal from './EventCompleteModal';
 
 interface EventDetailModalProps {
   event: Event;
   onClose: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onExport?: () => void;
+  onComplete?: () => void;
+  onParticipantRemoved?: () => void;
 }
 
-const EventDetailModal: React.FC<EventDetailModalProps> = ({ 
-  event, 
-  onClose, 
-  onEdit, 
-  onDelete 
+const EventDetailModal: React.FC<EventDetailModalProps> = ({
+  event,
+  onClose,
+  onEdit,
+  onDelete,
+  onExport,
+  onComplete,
+  onParticipantRemoved
 }) => {
   const { state } = useAppContext();
+  const { showSuccess, showError } = useToast();
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [eventBadges, setEventBadges] = useState<BadgeAPI[]>([]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+    const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
   };
 
-  const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      'session': 'Session',
-      'meeting': 'Réunion',
-      'workshop': 'Atelier',
-      'training': 'Formation',
-      'celebration': 'Célébration',
-      'other': 'Autre'
-    };
-    return labels[type] || type;
+  const formatTimeRange = (time: string, duration: number) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endMinutes = startMinutes + duration;
+    const endHours = Math.floor(endMinutes / 60);
+    const endMins = endMinutes % 60;
+    return `${time} - ${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
   };
 
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      'upcoming': 'À venir',
-      'ongoing': 'En cours',
-      'completed': 'Terminé',
-      'cancelled': 'Annulé'
-    };
-    return labels[status] || status;
-  };
+  // Handle event completion
+  const handleComplete = async (assignments: Array<{ participant_id: number; badge_id: number; proof?: File }>) => {
+    try {
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const eventId = parseInt(event.id);
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      'upcoming': '#2196f3',
-      'ongoing': '#ff9800',
-      'completed': '#4caf50',
-      'cancelled': '#f44336'
-    };
-    return colors[status] || '#666';
-  };
+      if (state.showingPageType === 'edu' && organizationId) {
+        await completeSchoolEvent(organizationId, eventId, { assignments });
+      } else if (state.showingPageType === 'pro' && organizationId) {
+        await completeCompanyEvent(organizationId, eventId, { assignments });
+      } else if (state.showingPageType === 'teacher') {
+        await completeTeacherEvent(eventId, { assignments });
+      } else if (state.showingPageType === 'user') {
+        await completeUserEvent(eventId, { assignments });
+      } else {
+        showError('Impossible de clôturer l\'événement dans ce contexte');
+        return;
+      }
 
-  const formatDuration = (minutes: number) => {
-    if (minutes < 60) {
-      return `${minutes} minutes`;
-    } else if (minutes === 60) {
-      return '1 heure';
-    } else if (minutes < 120) {
-      return `${Math.floor(minutes / 60)}h${minutes % 60 > 0 ? minutes % 60 : ''}`;
-    } else {
-      const hours = Math.floor(minutes / 60);
-      const mins = minutes % 60;
-      return mins > 0 ? `${hours}h${mins}` : `${hours} heures`;
+      showSuccess('Événement clôturé avec succès');
+      setIsCompleteModalOpen(false);
+
+      // Refresh event data
+      if (onComplete) {
+        await onComplete();
+      }
+
+      // Keep modal open to show updated data (status, badges received, etc.)
+    } catch (error: any) {
+      console.error('Error completing event:', error);
+      showError(error.response?.data?.message || 'Erreur lors de la clôture de l\'événement');
     }
   };
 
+  const isSessionEvent = event.type === 'session';
+
+  // Handle participant removal
+  const handleRemoveParticipant = async (participantId: string | number) => {
+    try {
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const eventId = parseInt(event.id);
+      const participantIdNum = typeof participantId === 'number' ? participantId : parseInt(participantId);
+
+      if (state.showingPageType === 'edu' && organizationId) {
+        await removeSchoolEventParticipant(organizationId, eventId, participantIdNum);
+      } else if (state.showingPageType === 'pro' && organizationId) {
+        await removeCompanyEventParticipant(organizationId, eventId, participantIdNum);
+      } else if (state.showingPageType === 'teacher') {
+        await removeTeacherEventParticipant(eventId, participantIdNum);
+      } else if (state.showingPageType === 'user') {
+        await removeUserEventParticipant(eventId, participantIdNum);
+      } else {
+        showError('Impossible de supprimer le participant dans ce contexte');
+        return;
+      }
+
+      showSuccess('Participant supprimé avec succès');
+      if (onParticipantRemoved) {
+        onParticipantRemoved();
+      }
+    } catch (error: any) {
+      console.error('Error removing participant:', error);
+      showError(error.response?.data?.message || 'Erreur lors de la suppression du participant');
+    }
+  };
+
+  // Load event badges
+  useEffect(() => {
+    const fetchEventBadges = async () => {
+      const eventBadgeIds = event.badges || [];
+      if (eventBadgeIds.length === 0) {
+        setEventBadges([]);
+        return;
+      }
+
+      try {
+        const allBadges = await getBadges();
+        const badges = allBadges.filter(badge =>
+          eventBadgeIds.includes(badge.id.toString())
+        );
+        setEventBadges(badges);
+      } catch (error) {
+        console.error('Error fetching event badges:', error);
+      }
+    };
+
+    fetchEventBadges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.badges]);
+
+  // Debug: Log participants to see what we're receiving
+  useEffect(() => {
+    console.log('EventDetailModal - Event participants:', event.participants);
+    console.log('EventDetailModal - Participants count:', event.participants?.length || 0);
+    if (event.participants && event.participants.length > 0) {
+      event.participants.forEach((p, idx) => {
+        const participantObj = typeof p === 'object' ? p : null;
+        console.log(`Participant ${idx}:`, {
+          id: participantObj?.id || p,
+          name: participantObj ? `${participantObj.first_name} ${participantObj.last_name}` : 'Unknown',
+          email: participantObj?.email || 'N/A'
+        });
+      });
+    }
+  }, [event.participants]);
+
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content event-detail-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Détails de l'événement</h2>
-          <button className="modal-close" onClick={onClose}>
+    <div className="modal-overlay event-detail-overlay" onClick={onClose}>
+      <div className="modal-content event-detail-modal-redesigned" onClick={(e) => e.stopPropagation()}>
+        {/* Header with action buttons */}
+        <div className="event-detail-header-actions">
+          {/* && event.status !== 'completed'  */}
+          {isSessionEvent && state.showingPageType !== 'user' && (
+            <button
+              className="flex gap-2 items-center btn-primary btn-sm"
+              onClick={() => setIsCompleteModalOpen(true)}
+              title="Clôturer l'événement"
+              style={{
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: 'white',
+                border: 'none'
+              }}
+            >
+              <i className="fas fa-check-circle"></i>
+              <span>Clôturer</span>
+            </button>
+          )}
+          {onExport && (
+            <button className="btn-export" onClick={onExport} title="Exporter">
+              <i className="fas fa-download"></i>
+              <span>Exporter</span>
+            </button>
+          )}
+          {onEdit && state.showingPageType !== 'user' && (
+            <button className="flex gap-2 items-center btn-primary btn-sm btn-outline" onClick={onEdit} title="Modifier">
+              <i className="fas fa-edit"></i>
+              <span>Modifier</span>
+            </button>
+          )}
+          <button className="btn-close-circle" onClick={onClose} title="Fermer">
             <i className="fas fa-times"></i>
           </button>
         </div>
-        
-        <div className="modal-body event-detail-body">
-          {/* Event Image */}
-          {event.image && (
-            <div className="event-detail-image">
-              <img src={event.image} alt={event.title} />
-            </div>
-          )}
 
-          {/* Event Title and Status */}
-          <div className="event-detail-header">
-            <h3>{event.title}</h3>
-            <span 
-              className="event-status-badge"
-              style={{ 
-                backgroundColor: getStatusColor(event.status),
-                color: 'white',
-                padding: '4px 12px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                fontWeight: '500'
-              }}
-            >
-              {getStatusLabel(event.status)}
-            </span>
+        {/* Event Title */}
+        <h1 className="event-detail-title">{event.title}</h1>
+
+        {/* Event Meta Info (Date, Time, Location) */}
+        <div className="event-detail-meta">
+          <div className="meta-item">
+            <i className="fas fa-calendar-alt"></i>
+            <span>{formatDate(event.date)}</span>
           </div>
-
-          {/* Event Type */}
-          <div className="event-detail-section">
-            <div className="event-detail-label">
-              <i className="fas fa-tag"></i> Type
-            </div>
-            <div className="event-detail-value">{getTypeLabel(event.type)}</div>
+          <div className="meta-item">
+            <i className="fas fa-clock"></i>
+            <span>{formatTimeRange(event.time, event.duration)}</span>
           </div>
-
-          {/* Date and Time */}
-          <div className="event-detail-section">
-            <div className="event-detail-label">
-              <i className="fas fa-calendar-alt"></i> Date
-            </div>
-            <div className="event-detail-value">{formatDate(event.date)}</div>
-          </div>
-
-          <div className="event-detail-section">
-            <div className="event-detail-label">
-              <i className="fas fa-clock"></i> Heure
-            </div>
-            <div className="event-detail-value">
-              {event.time} - Durée: {formatDuration(event.duration)}
-            </div>
-          </div>
-
-          {/* Location */}
           {event.location && (
-            <div className="event-detail-section">
-              <div className="event-detail-label">
-                <i className="fas fa-map-marker-alt"></i> Lieu
-              </div>
-              <div className="event-detail-value">{event.location}</div>
+            <div className="meta-item">
+              <i className="fas fa-map-marker-alt"></i>
+              <span>{event.location}</span>
             </div>
           )}
+        </div>
 
-          {/* Description */}
-          {event.description && (
-            <div className="event-detail-section">
-              <div className="event-detail-label">
-                <i className="fas fa-align-left"></i> Description
+        {/* Main Content: Image Left, Description Right */}
+        <div className="event-detail-main-content">
+          {/* Left: Image */}
+          <div className="event-detail-image-container">
+
+            {event.image ? (
+              <img src={event.image} alt={event.title} className="event-detail-hero-image" />
+            ) : (
+              <div className="event-detail-image-placeholder">
+                <i className="fas fa-image"></i>
+                <span>Aucune image</span>
               </div>
-              <div className="event-detail-value">{event.description}</div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Participants */}
-          <div className="event-detail-section">
-            <div className="event-detail-label">
-              <i className="fas fa-users"></i> Participants ({event.participants.length})
+          {/* Right: Description */}
+          <div className="event-detail-description-container">
+            <h3 className="description-title">Description</h3>
+            <p className="description-text">
+              {event.description || "Aucune description disponible."}
+            </p>
+          </div>
+        </div>
+
+        {/* Badges Section */}
+        {eventBadges.length > 0 && (
+          <div className="event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
+            <h3 className="participants-title">Badges de l'événement</h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: '1rem',
+              paddingTop: '1rem'
+            }}>
+              {eventBadges.map((badge) => {
+                const badgeImage = badge.image_url || getLocalBadgeImage(badge.name) || '/TouKouLeur-Jaune.png';
+                return (
+                  <div
+                    key={badge.id}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      padding: '1rem',
+                      background: '#ffffff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '12px',
+                      transition: 'all 0.2s ease',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#5570F1';
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(85, 112, 241, 0.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e5e7eb';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div style={{
+                      width: '80px',
+                      height: '80px',
+                      marginBottom: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <img
+                        src={badgeImage}
+                        alt={badge.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain'
+                        }}
+                      />
+                    </div>
+                    <h4 style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      color: '#1f2937',
+                      margin: '0 0 0.5rem 0',
+                      textAlign: 'center'
+                    }}>
+                      {badge.name}
+                    </h4>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      color: '#6b7280',
+                      textTransform: 'capitalize'
+                    }}>
+                      {badge.series}
+                    </span>
+                    {badge.level && (
+                      <span style={{
+                        fontSize: '0.7rem',
+                        color: '#5570F1',
+                        marginTop: '0.25rem',
+                        fontWeight: 500,
+                        textTransform: 'uppercase'
+                      }}>
+                        {badge.level.replace('level_', 'Niveau ')}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <div className="event-detail-participants">
-              {event.participants.length > 0 ? (
-                <div className="participants-list">
+          </div>
+        )}
+
+        {/* Participants Section */}
+        
+          <div className="event-detail-participants-section">
+            <h3 className="participants-title">Participants ({event.participants.length})</h3>
+            <div className="participants-list-container">
+              {event.participants && event.participants.length > 0 ? (
+                <div className="participants-list-redesigned">
                   {event.participants.map((participant, index) => {
-                    // Check if participant is an object or just an ID string
-                    const participantObj = typeof participant === 'object' 
-                      ? participant 
-                      : null;
-                    const participantId = typeof participant === 'object' 
-                      ? participant.id.toString() 
+                    const participantObj = typeof participant === 'object' ? participant : null;
+                    const participantId = typeof participant === 'object'
+                      ? participant.id.toString()
                       : participant;
 
-                    // Try to find member in state.members first
-                    let member = state.members.find(m => m.id === participantId);
-                    
-                    // If not found and we have participant object, use it
-                    if (!member && participantObj) {
-                      return (
-                        <div key={participantId || index} className="participant-item">
-                          <div
-                            style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '50%',
-                              backgroundColor: '#3b82f6',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: 'white',
-                              fontWeight: 'bold',
-                              fontSize: '14px',
-                              marginRight: '8px'
-                            }}
-                          >
-                            {participantObj.first_name.charAt(0).toUpperCase()}
-                            {participantObj.last_name.charAt(0).toUpperCase()}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <span className="participant-name">
-                              {participantObj.first_name} {participantObj.last_name}
-                            </span>
-                            {participantObj.email && (
-                              <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
-                                {participantObj.email}
-                              </div>
-                            )}
-                            {participantObj.claim_token && (
-                              <div style={{ fontSize: '10px', color: '#ff9800', marginTop: '2px', fontStyle: 'italic' }}>
-                                <i className="fas fa-exclamation-circle"></i> En attente d'activation
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
+                    // Get participant info from event data only
+                    const displayName = participantObj
+                      ? `${participantObj.first_name} ${participantObj.last_name}`
+                      : `Participant ${participantId}`;
 
-                    // If member found in state.members
-                    if (member) {
-                      return (
-                        <div key={participantId || index} className="participant-item">
-                          <AvatarImage 
-                            src={member.avatar} 
-                            alt={`${member.firstName} ${member.lastName}`} 
-                            className="participant-avatar" 
-                          />
-                          <span className="participant-name">
-                            {member.firstName} {member.lastName}
-                          </span>
-                        </div>
-                      );
-                    }
+                    const role = participantObj?.email || '';
+                    const avatar = undefined; // No avatar in event participant data
+                    const initials = participantObj
+                      ? `${participantObj.first_name.charAt(0)}${participantObj.last_name.charAt(0)}`
+                      : '??';
 
-                    // Fallback
+                    // Get received badges for this participant
+                    const receivedBadgeIds = participantObj?.received_badge_ids || [];
+                    const receivedBadges = eventBadges.filter(badge =>
+                      receivedBadgeIds.includes(badge.id.toString())
+                    );
+
                     return (
-                      <div key={participantId || index} className="participant-item">
-                        <span className="participant-name">Participant ID: {participantId}</span>
+                      <div key={participantId || index} className="participant-row">
+                        <div className="participant-avatar-container">
+                          {avatar ? (
+                            <AvatarImage
+                              src={avatar}
+                              alt={displayName}
+                              className="participant-avatar-large"
+                            />
+                          ) : (
+                            <div className="participant-avatar-initials">
+                              {initials}
+                            </div>
+                          )}
+                        </div>
+                        <div className="participant-info">
+                          <div className="participant-name-bold">{displayName}</div>
+                          {role && <div className="participant-role">{role}</div>}
+                          <div className="participant-badges">
+                            {/* Event badges received */}
+                            {receivedBadges.length > 0 && (
+                              <>
+                                {receivedBadges.map((badge) => {
+                                  const badgeImage = badge.image_url || getLocalBadgeImage(badge.name);
+                                  return (
+                                    <span
+                                      key={badge.id}
+                                      className="badge-pill badge-event-received"
+                                      title={badge.name}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem',
+                                        background: '#10b981',
+                                        color: 'white',
+                                        padding: '0.25rem 0.75rem',
+                                        borderRadius: '16px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600
+                                      }}
+                                    >
+                                      {badgeImage && (
+                                        <img
+                                          src={badgeImage}
+                                          alt={badge.name}
+                                          style={{ width: '16px', height: '16px', objectFit: 'contain' }}
+                                        />
+                                      )}
+                                      <i className="fas fa-check-circle" style={{ fontSize: '0.7rem' }}></i>
+                                      {badge.name}
+                                    </span>
+                                  );
+                                })}
+                              </>
+                            )}
+                            {participantObj?.claim_token && (
+                              <span className="badge-pill badge-pending">
+                                Compte non validé - En attente
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {state.showingPageType !== 'user' && (
+                        <button
+                          className="participant-delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Êtes-vous sûr de vouloir supprimer ${displayName} de cet événement ?`)) {
+                              handleRemoveParticipant(participantId);
+                            }
+                          }}
+                          title="Supprimer le participant"
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="event-detail-value" style={{ color: '#999', fontStyle: 'italic' }}>
-                  Aucun participant
-                </div>
+                <div className="no-participants">Aucun participant</div>
               )}
             </div>
           </div>
-
-          {/* Badges */}
-          {event.badges && event.badges.length > 0 && (
-            <div className="event-detail-section">
-              <div className="event-detail-label">
-                <i className="fas fa-award"></i> Badges ({event.badges.length})
-              </div>
-              <div className="event-detail-badges">
-                {event.badges.map((badgeId, index) => (
-                  <span key={index} className="badge-tag">
-                    Badge #{badgeId}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="modal-footer">
-          {onDelete && (
-            <button 
-              type="button" 
-              className="btn btn-danger" 
-              onClick={onDelete}
-            >
-              <i className="fas fa-trash"></i> Supprimer
-            </button>
-          )}
-          <div style={{ flex: 1 }}></div>
-          {onEdit && (
-            <button 
-              type="button" 
-              className="btn btn-primary" 
-              onClick={onEdit}
-            >
-              <i className="fas fa-edit"></i> Modifier
-            </button>
-          )}
-          <button type="button" className="btn btn-outline" onClick={onClose}>
-            Fermer
-          </button>
-        </div>
+      
       </div>
+
+      {/* Event Complete Modal */}
+      {isCompleteModalOpen && (
+        <EventCompleteModal
+          event={event}
+          onClose={() => setIsCompleteModalOpen(false)}
+          onComplete={handleComplete}
+        />
+      )}
     </div>
   );
 };

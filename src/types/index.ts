@@ -145,6 +145,8 @@ export interface EventParticipant {
   first_name: string;
   last_name: string;
   claim_token?: string | null;
+  has_event_badges?: boolean;
+  received_badge_ids?: string[];
 }
 
 export interface Event {

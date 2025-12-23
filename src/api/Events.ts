@@ -26,6 +26,8 @@ export interface EventParticipantResponse {
   first_name: string;
   last_name: string;
   claim_token?: string | null;
+  has_event_badges?: boolean;
+  received_badge_ids?: string[];
 }
 
 export interface EventResponse {
@@ -40,7 +42,7 @@ export interface EventResponse {
   status: string;
   badges?: number[];
   participants?: EventParticipantResponse[];
-  image_url?: string;
+  image?: string;
   created_at: string;
   updated_at: string;
 }
@@ -530,6 +532,57 @@ export const getTeacherEvents = async (
 };
 
 /**
+ * Get events for a personal user
+ * Uses /api/v1/users/me/events endpoint
+ * Supports filtering by status, type, start_date, organization_type, organization_id
+ */
+export const getUserEvents = async (
+  params?: {
+    page?: number;
+    per_page?: number;
+    status?: string;
+    type?: string;
+    start_date?: string;
+    organization_type?: string;
+    organization_id?: number;
+  }
+): Promise<EventsListResponse> => {
+  const response = await apiClient.get(
+    '/api/v1/users/me/events',
+    {
+      params: {
+        page: params?.page || 1,
+        per_page: params?.per_page || 1000,
+        ...(params?.status && { status: params.status }),
+        ...(params?.type && { type: params.type }),
+        ...(params?.start_date && { start_date: params.start_date }),
+        ...(params?.organization_type && { organization_type: params.organization_type }),
+        ...(params?.organization_id && { organization_id: params.organization_id })
+      }
+    }
+  );
+
+  // Handle both paginated and non-paginated responses
+  if (response.data.data && Array.isArray(response.data.data)) {
+    return {
+      data: response.data.data,
+      meta: response.data.meta
+    };
+  }
+  
+  // If response is directly an array
+  if (Array.isArray(response.data)) {
+    return {
+      data: response.data
+    };
+  }
+
+  return {
+    data: []
+  };
+};
+
+/**
  * Delete an event for a school
  */
 export const deleteSchoolEvent = async (
@@ -556,6 +609,15 @@ export const deleteTeacherEvent = async (
   eventId: number
 ): Promise<void> => {
   await apiClient.delete(`/api/v1/teachers/events/${eventId}`);
+};
+
+/**
+ * Delete an event for a personal user
+ */
+export const deleteUserEvent = async (
+  eventId: number
+): Promise<void> => {
+  await apiClient.delete(`/api/v1/users/events/${eventId}`);
 };
 
 /**
@@ -875,5 +937,449 @@ export const updateTeacherEvent = async (
     }
   );
 
+  return response.data.data || response.data;
+};
+
+/**
+ * Create an event for a personal user
+ */
+export const createUserEvent = async (
+  payload: CreateEventPayload
+): Promise<EventResponse> => {
+  const { event } = payload;
+  const hasFiles = (payload.image && payload.image instanceof File) || 
+                   (payload.csv_file && payload.csv_file instanceof File);
+
+  // If no files, use JSON format
+  if (!hasFiles) {
+    // Prepare JSON payload
+    const jsonPayload: any = {
+      event: {
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        duration: event.duration,
+        type: event.type,
+        status: event.status || 'upcoming'
+      }
+    };
+
+    if (event.description) {
+      jsonPayload.event.description = event.description;
+    }
+    if (event.location) {
+      jsonPayload.event.location = event.location;
+    }
+    if (event.badges && event.badges.length > 0) {
+      jsonPayload.event.badges = event.badges;
+    }
+    if (event.participants && event.participants.length > 0) {
+      // Convert participant IDs to strings
+      jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
+        return typeof participantId === 'string' ? participantId : String(participantId);
+      });
+    }
+
+    const response = await apiClient.post(
+      '/api/v1/users/events',
+      jsonPayload
+    );
+
+    return response.data.data || response.data;
+  }
+
+  // If files present, use FormData
+  const formData = new FormData();
+
+  formData.append('event[title]', event.title);
+  if (event.description) {
+    formData.append('event[description]', event.description);
+  }
+  formData.append('event[date]', event.date);
+  formData.append('event[time]', event.time);
+  formData.append('event[duration]', event.duration.toString());
+  formData.append('event[type]', event.type);
+  if (event.location) {
+    formData.append('event[location]', event.location);
+  }
+  if (event.status) {
+    formData.append('event[status]', event.status);
+  }
+
+  // Add badges if provided
+  if (event.badges && event.badges.length > 0) {
+    event.badges.forEach((badgeId, index) => {
+      formData.append(`event[badges][${index}]`, badgeId);
+    });
+  }
+
+  // Add participants if provided
+  if (event.participants && event.participants.length > 0) {
+    event.participants.forEach((participantId) => {
+      const participantIdStr = typeof participantId === 'string' ? participantId : String(participantId);
+      formData.append('event[participants][]', participantIdStr);
+    });
+  }
+
+  // Add image if provided (must be a File object)
+  if (payload.image && payload.image instanceof File) {
+    formData.append('image', payload.image);
+  }
+
+  // Add CSV file if provided (must be a File object)
+  if (payload.csv_file && payload.csv_file instanceof File) {
+    formData.append('csv_file', payload.csv_file);
+  }
+
+  const response = await apiClient.post(
+    '/api/v1/users/events',
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+
+  return response.data.data || response.data;
+};
+
+/**
+ * Update an event for a personal user
+ */
+export const updateUserEvent = async (
+  eventId: number,
+  payload: CreateEventPayload
+): Promise<EventResponse> => {
+  const { event } = payload;
+  const hasFiles = (payload.image && payload.image instanceof File) || 
+                   (payload.csv_file && payload.csv_file instanceof File);
+
+  // If no files, use JSON format
+  if (!hasFiles) {
+    // Prepare JSON payload
+    const jsonPayload: any = {
+      event: {
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        duration: event.duration,
+        type: event.type,
+        status: event.status || 'upcoming'
+      }
+    };
+
+    if (event.description) {
+      jsonPayload.event.description = event.description;
+    }
+    if (event.location) {
+      jsonPayload.event.location = event.location;
+    }
+    if (event.badges && event.badges.length > 0) {
+      jsonPayload.event.badges = event.badges;
+    }
+    if (event.participants && event.participants.length > 0) {
+      // Convert participant IDs to strings
+      jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
+        return typeof participantId === 'string' ? participantId : String(participantId);
+      });
+    }
+
+    const response = await apiClient.put(
+      `/api/v1/users/events/${eventId}`,
+      jsonPayload
+    );
+
+    return response.data.data || response.data;
+  }
+
+  // If files present, use FormData
+  const formData = new FormData();
+
+  formData.append('event[title]', event.title);
+  if (event.description) {
+    formData.append('event[description]', event.description);
+  }
+  formData.append('event[date]', event.date);
+  formData.append('event[time]', event.time);
+  formData.append('event[duration]', event.duration.toString());
+  formData.append('event[type]', event.type);
+  if (event.location) {
+    formData.append('event[location]', event.location);
+  }
+  if (event.status) {
+    formData.append('event[status]', event.status);
+  }
+
+  // Add badges if provided
+  if (event.badges && event.badges.length > 0) {
+    event.badges.forEach((badgeId, index) => {
+      formData.append(`event[badges][${index}]`, badgeId);
+    });
+  }
+
+  // Add participants if provided
+  if (event.participants && event.participants.length > 0) {
+    event.participants.forEach((participantId) => {
+      const participantIdStr = typeof participantId === 'string' ? participantId : String(participantId);
+      formData.append('event[participants][]', participantIdStr);
+    });
+  }
+
+  // Add image if provided (must be a File object)
+  if (payload.image && payload.image instanceof File) {
+    formData.append('image', payload.image);
+  }
+
+  // Add CSV file if provided (must be a File object)
+  if (payload.csv_file && payload.csv_file instanceof File) {
+    formData.append('csv_file', payload.csv_file);
+  }
+
+  const response = await apiClient.put(
+    `/api/v1/users/events/${eventId}`,
+    formData,
+    {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }
+  );
+
+  return response.data.data || response.data;
+};
+
+/**
+ * Complete an event and assign badges to participants
+ */
+export interface CompleteEventPayload {
+  assignments: Array<{
+    participant_id: number;
+    badge_id: number;
+    proof?: File; // Optional proof file for level 2, 3, 4 badges
+  }>;
+}
+
+/**
+ * Complete a school event
+ */
+export const completeSchoolEvent = async (
+  schoolId: number,
+  eventId: number,
+  payload: CompleteEventPayload
+): Promise<any> => {
+  // Check if any assignment has a proof file
+  const hasFiles = payload.assignments.some(assignment => assignment.proof instanceof File);
+  
+  if (hasFiles) {
+    // Use FormData for file upload
+    const formData = new FormData();
+    
+    payload.assignments.forEach((assignment, index) => {
+      formData.append(`assignments[${index}][participant_id]`, assignment.participant_id.toString());
+      formData.append(`assignments[${index}][badge_id]`, assignment.badge_id.toString());
+      if (assignment.proof instanceof File) {
+        formData.append(`assignments[${index}][proof]`, assignment.proof);
+      }
+    });
+    
+    const response = await apiClient.post(
+      `/api/v1/schools/${schoolId}/events/${eventId}/complete`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data || response.data;
+  } else {
+    // Use JSON for regular requests
+    const response = await apiClient.post(
+      `/api/v1/schools/${schoolId}/events/${eventId}/complete`,
+      payload
+    );
+    return response.data.data || response.data;
+  }
+};
+
+/**
+ * Complete a company event
+ */
+export const completeCompanyEvent = async (
+  companyId: number,
+  eventId: number,
+  payload: CompleteEventPayload
+): Promise<any> => {
+  // Check if any assignment has a proof file
+  const hasFiles = payload.assignments.some(assignment => assignment.proof instanceof File);
+  
+  if (hasFiles) {
+    // Use FormData for file upload
+    const formData = new FormData();
+    
+    payload.assignments.forEach((assignment, index) => {
+      formData.append(`assignments[${index}][participant_id]`, assignment.participant_id.toString());
+      formData.append(`assignments[${index}][badge_id]`, assignment.badge_id.toString());
+      if (assignment.proof instanceof File) {
+        formData.append(`assignments[${index}][proof]`, assignment.proof);
+      }
+    });
+    
+    const response = await apiClient.post(
+      `/api/v1/companies/${companyId}/events/${eventId}/complete`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data || response.data;
+  } else {
+    // Use JSON for regular requests
+    const response = await apiClient.post(
+      `/api/v1/companies/${companyId}/events/${eventId}/complete`,
+      payload
+    );
+    return response.data.data || response.data;
+  }
+};
+
+/**
+ * Complete a teacher event
+ */
+export const completeTeacherEvent = async (
+  eventId: number,
+  payload: CompleteEventPayload
+): Promise<any> => {
+  // Check if any assignment has a proof file
+  const hasFiles = payload.assignments.some(assignment => assignment.proof instanceof File);
+  
+  if (hasFiles) {
+    // Use FormData for file upload
+    const formData = new FormData();
+    
+    payload.assignments.forEach((assignment, index) => {
+      formData.append(`assignments[${index}][participant_id]`, assignment.participant_id.toString());
+      formData.append(`assignments[${index}][badge_id]`, assignment.badge_id.toString());
+      if (assignment.proof instanceof File) {
+        formData.append(`assignments[${index}][proof]`, assignment.proof);
+      }
+    });
+    
+    const response = await apiClient.post(
+      `/api/v1/teachers/events/${eventId}/complete`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data || response.data;
+  } else {
+    // Use JSON for regular requests
+    const response = await apiClient.post(
+      `/api/v1/teachers/events/${eventId}/complete`,
+      payload
+    );
+    return response.data.data || response.data;
+  }
+};
+
+/**
+ * Complete a personal user event
+ */
+export const completeUserEvent = async (
+  eventId: number,
+  payload: CompleteEventPayload
+): Promise<any> => {
+  // Check if any assignment has a proof file
+  const hasFiles = payload.assignments.some(assignment => assignment.proof instanceof File);
+  
+  if (hasFiles) {
+    // Use FormData for file upload
+    const formData = new FormData();
+    
+    payload.assignments.forEach((assignment, index) => {
+      formData.append(`assignments[${index}][participant_id]`, assignment.participant_id.toString());
+      formData.append(`assignments[${index}][badge_id]`, assignment.badge_id.toString());
+      if (assignment.proof instanceof File) {
+        formData.append(`assignments[${index}][proof]`, assignment.proof);
+      }
+    });
+    
+    const response = await apiClient.post(
+      `/api/v1/users/events/${eventId}/complete`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data || response.data;
+  } else {
+    // Use JSON for regular requests
+    const response = await apiClient.post(
+      `/api/v1/users/events/${eventId}/complete`,
+      payload
+    );
+    return response.data.data || response.data;
+  }
+};
+
+/**
+ * Remove a participant from a school event
+ */
+export const removeSchoolEventParticipant = async (
+  schoolId: number,
+  eventId: number,
+  participantId: number
+): Promise<any> => {
+  const response = await apiClient.delete(
+    `/api/v1/schools/${schoolId}/events/${eventId}/participants/${participantId}`
+  );
+  return response.data.data || response.data;
+};
+
+/**
+ * Remove a participant from a company event
+ */
+export const removeCompanyEventParticipant = async (
+  companyId: number,
+  eventId: number,
+  participantId: number
+): Promise<any> => {
+  const response = await apiClient.delete(
+    `/api/v1/companies/${companyId}/events/${eventId}/participants/${participantId}`
+  );
+  return response.data.data || response.data;
+};
+
+/**
+ * Remove a participant from a teacher event
+ */
+export const removeTeacherEventParticipant = async (
+  eventId: number,
+  participantId: number
+): Promise<any> => {
+  const response = await apiClient.delete(
+    `/api/v1/teachers/events/${eventId}/participants/${participantId}`
+  );
+  return response.data.data || response.data;
+};
+
+/**
+ * Remove a participant from a personal user event
+ */
+export const removeUserEventParticipant = async (
+  eventId: number,
+  participantId: number
+): Promise<any> => {
+  const response = await apiClient.delete(
+    `/api/v1/users/events/${eventId}/participants/${participantId}`
+  );
   return response.data.data || response.data;
 };

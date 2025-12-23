@@ -1322,7 +1322,7 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  /* padding: 20px; */
 }
 
 .edit-project-modal {
