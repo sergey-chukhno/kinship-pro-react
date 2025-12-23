@@ -14,7 +14,7 @@ import {
   deleteCompanyEvent,
   deleteTeacherEvent,
   deleteUserEvent,
-  EventResponse 
+  EventResponse
 } from '../../api/Events';
 import { getOrganizationId } from '../../utils/projectMapper';
 import './Events.css';
@@ -34,6 +34,7 @@ const Events: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [isDuplicateMode, setIsDuplicateMode] = useState(false);
 
   // Transform API response to frontend Event format
   const transformEventResponse = (apiEvent: EventResponse): Event => {
@@ -49,11 +50,6 @@ const Events: React.FC = () => {
       received_badge_ids: p.received_badge_ids || []
     })) || [];
     
-    // Debug: Log participants to ensure all are included
-    if (transformedParticipants.length > 0) {
-      console.log('Event participants transformed:', transformedParticipants);
-    }
-
     return {
       id: apiEvent.id.toString(),
       title: apiEvent.title,
@@ -176,34 +172,40 @@ const Events: React.FC = () => {
 
   const handleCreateEvent = () => {
     setSelectedEvent(null);
+    setIsDuplicateMode(false);
     setIsEventModalOpen(true);
   };
 
   const handleEditEvent = (event: Event) => {
     setSelectedEvent(event);
+    setIsDuplicateMode(false);
     setIsEventDetailModalOpen(false);
     setIsEventModalOpen(true);
   };
 
   const handleSaveEvent = async (eventData: Omit<Event, 'id'>) => {
     try {
-      if (selectedEvent) {
-        updateEvent(selectedEvent.id, eventData);
-        setSuccessMessage('Événement modifié avec succès !');
-        // Update local events
-        setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, ...eventData } : e));
-      } else {
+      if (isDuplicateMode || !selectedEvent) {
+        // Create new event (duplicate or fresh)
         const newEvent: Event = {
           ...eventData,
           id: Date.now().toString()
         };
         addEvent(newEvent);
-        setSuccessMessage('Événement créé avec succès !');
+        setSuccessMessage(isDuplicateMode ? 'Événement dupliqué avec succès !' : 'Événement créé avec succès !');
         // Add to local events
         setEvents(prev => [...prev, newEvent]);
+        setIsDuplicateMode(false);
+      }
+      else {
+        updateEvent(selectedEvent.id, eventData);
+        setSuccessMessage('Événement modifié avec succès !');
+        // Update local events
+        setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, ...eventData } : e));
       }
       setIsEventModalOpen(false);
       setSelectedEvent(null);
+      setIsDuplicateMode(false);
       
       // Hide success message after 3 seconds
       setTimeout(() => {
@@ -235,6 +237,29 @@ const Events: React.FC = () => {
     } catch (error) {
       console.error('Error saving event:', error);
     }
+  };
+
+  const handleDuplicateEvent = (eventToDuplicate: Event) => {
+    // Open EventModal prefilled, but treat as creation
+    const participantIds = (eventToDuplicate.participants || []).map((p) =>
+      typeof p === 'object' ? p.id.toString() : p.toString()
+    );
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    const clonedEvent: Event = {
+      ...eventToDuplicate,
+      id: eventToDuplicate.id,
+      title: `${eventToDuplicate.title} (copie)`,
+      participants: participantIds,
+      date: todayStr // reset date to today for the duplicate
+    };
+
+    setSelectedEvent(clonedEvent);
+    setIsDuplicateMode(true);
+    setIsEventDetailModalOpen(false);
+    setIsEventModalOpen(true);
   };
 
   const handleDeleteEvent = async (id: string) => {
@@ -282,11 +307,6 @@ const Events: React.FC = () => {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Erreur lors de la suppression de l\'événement';
       alert(errorMessage);
     }
-  };
-
-  const handleExportEvents = () => {
-    // TODO: Implement export functionality
-    console.log('Export events');
   };
 
   // const handleCopyLink = () => {
@@ -409,6 +429,7 @@ const Events: React.FC = () => {
               onDateChange={setCurrentDate}
               onEventClick={handleEventClick}
               onCreateEvent={handleCreateEvent}
+              onDuplicateEvent={(event) => handleDuplicateEvent(event)}
             />
           ) : (
             <div className="events-list">
@@ -426,6 +447,7 @@ const Events: React.FC = () => {
                     onClick={() => handleEventClick(event)}
                     onEdit={() => handleEditEvent(event)}
                     onDelete={() => handleDeleteEvent(event.id)}
+                    onDuplicate={() => handleDuplicateEvent(event)}
                   />
                 ))
               )}

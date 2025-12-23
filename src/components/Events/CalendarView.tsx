@@ -8,6 +8,7 @@ interface CalendarViewProps {
   onDateChange: (date: Date) => void;
   onEventClick: (event: Event) => void;
   onCreateEvent: () => void;
+  onDuplicateEvent: (event: Event) => void;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({
@@ -15,7 +16,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   currentDate,
   onDateChange,
   onEventClick,
-  onCreateEvent
+  onCreateEvent,
+  onDuplicateEvent
 }) => {
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
   const [viewDate, setViewDate] = useState(currentDate);
@@ -126,13 +128,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               {dayEvents.slice(0, 2).map((event, index) => (
                 <div
                   key={index}
-                  className="day-event"
+                  className="flex gap-2 day-event"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEventClick(event);
                   }}
                 >
-                  {event.title}
+                  <span style={{ flex: 1 }}>{event.title}</span>
+                  <button
+                    className="calendar-event-dup-btn"
+                    title="Dupliquer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDuplicateEvent(event);
+                    }}
+                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#6b7280' }}
+                  >
+                    <i className="fas fa-copy"></i>
+                  </button>
                 </div>
               ))}
               {dayEvents.length > 2 && (
@@ -184,11 +197,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             {dayEvents.map((event, index) => (
               <div
                 key={index}
-                className="week-event"
+                className="flex gap-2 bg-red-500 week-event"
                 onClick={() => onEventClick(event)}
               >
                 <div className="week-event-time">{event.time}</div>
-                <div className="week-event-title">{event.title}</div>
+                <div className="week-event-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ flex: 1 }}>{event.title}</span>
+                  <button
+                    className="calendar-event-dup-btn"
+                    title="Dupliquer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDuplicateEvent(event);
+                    }}
+                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#6b7280' }}
+                  >
+                    <i className="fas fa-copy"></i>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -222,7 +248,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       className="time-event"
                       onClick={() => onEventClick(event)}
                     >
-                      {event.title}
+                      <span style={{ flex: 1 }}>{event.title}</span>
+                      <button
+                        className="calendar-event-dup-btn"
+                        title="Dupliquer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDuplicateEvent(event);
+                        }}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#6b7280' }}
+                      >
+                        <i className="fas fa-copy"></i>
+                      </button>
                     </div>
                   ))}
                   {timeSlotEvents.length === 0 && (
@@ -364,8 +401,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         <div className="calendar-events-popup-item-time">
                           {event.time}
                         </div>
-                        <div className="calendar-events-popup-item-title">
+                        <div className="calendar-events-popup-item-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {event.title}
+                          <button
+                            className="calendar-event-dup-btn"
+                            title="Dupliquer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDuplicateEvent(event);
+                            }}
+                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#6b7280' }}
+                          >
+                            <i className="fas fa-copy"></i>
+                          </button>
                         </div>
                       </div>
                     );

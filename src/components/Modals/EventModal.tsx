@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Event, BadgeAPI, Member } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges } from '../../api/Badges';
@@ -52,11 +52,47 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
   const [imagePreview, setImagePreview] = useState<string>('');
   const [selectedParticipant, setSelectedParticipant] = useState<string>('');
   const [availableBadges, setAvailableBadges] = useState<BadgeAPI[]>([]);
+  const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
+  const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
+  const [badgeToAdd, setBadgeToAdd] = useState('');
   const [csvUploadError, setCsvUploadError] = useState<string>('');
   const [csvUploadSuccess, setCsvUploadSuccess] = useState<string>('');
   const [organizationMembers, setOrganizationMembers] = useState<Member[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [newParticipants, setNewParticipants] = useState<NewParticipant[]>([]);
+  const displaySeries = useCallback((seriesName: string) => {
+    return seriesName.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
+  }, []);
+
+  const badgesBySeries = useMemo(() => {
+    return availableBadges.reduce<Record<string, BadgeAPI[]>>((acc, badge) => {
+      if (!acc[badge.series]) acc[badge.series] = [];
+      acc[badge.series].push(badge);
+      return acc;
+    }, {});
+  }, [availableBadges]);
+
+  const availableSeries = useMemo(() => Object.keys(badgesBySeries), [badgesBySeries]);
+
+  const levelsForSeries = useMemo(() => {
+    if (!badgeSeriesFilter) return [];
+    return Array.from(
+      new Set((badgesBySeries[badgeSeriesFilter] || []).map((b) => b.level))
+    );
+  }, [badgeSeriesFilter, badgesBySeries]);
+
+  const filteredBadges = useMemo(() => {
+    return availableBadges.filter((badge) => {
+      if (badgeSeriesFilter && badge.series !== badgeSeriesFilter) return false;
+      if (badgeLevelFilter && badge.level !== badgeLevelFilter) return false;
+      return true;
+    });
+  }, [availableBadges, badgeSeriesFilter, badgeLevelFilter]);
+
+  const previewBadge = useMemo(() => {
+    if (!badgeToAdd) return null;
+    return availableBadges.find((b) => b.id.toString() === badgeToAdd) || null;
+  }, [badgeToAdd, availableBadges]);
 
   // Fetch available badges on component mount
   useEffect(() => {
@@ -586,6 +622,20 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
     });
   };
 
+  const handleAddBadge = () => {
+    if (!badgeToAdd) return;
+    const badgeIdStr = badgeToAdd.toString();
+    setFormData((prev) => {
+      if (prev.badges.includes(badgeIdStr)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        badges: [...prev.badges, badgeIdStr]
+      };
+    });
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -947,48 +997,183 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
                 Aucun badge disponible
               </p>
             ) : (
-              <div className="badges-selection" style={{ marginTop: '10px', maxHeight: '200px', overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '10px' }}>
-                {availableBadges.map((badge) => {
-                  const badgeIdStr = badge.id.toString();
-                  const isSelected = formData.badges.includes(badgeIdStr);
-                  return (
-                    <label
-                      key={badge.id}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr',
+                  gap: '16px',
+                  alignItems: 'start'
+                }}
+              >
+                <div
+                  style={{
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    background: '#fafafa',
+                    // minHeight: '160px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div
                       style={{
+                        width: '70px',
+                        height: '70px',
+                        borderRadius: '50%',
+                        backgroundColor: '#f1f3f5',
                         display: 'flex',
                         alignItems: 'center',
-                        padding: '10px',
-                        marginBottom: '8px',
-                        cursor: 'pointer',
-                        borderRadius: '6px',
-                        backgroundColor: isSelected ? '#e3f2fd' : 'transparent',
-                        border: `1px solid ${isSelected ? '#2196f3' : '#e0e0e0'}`,
-                        transition: 'all 0.2s'
+                        justifyContent: 'center',
+                        overflow: 'hidden'
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => handleBadgeToggle(badgeIdStr)}
-                        style={{ marginRight: '10px', cursor: 'pointer' }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '500', marginBottom: '4px' }}>{badge.name}</div>
-                        {badge.description && (
-                          <div style={{ fontSize: '12px', color: '#666' }}>{badge.description}</div>
-                        )}
-                        <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
-                          Série: {badge.series} | Niveau: {badge.level}
-                        </div>
+                      {previewBadge?.image_url ? (
+                        <img
+                          src={previewBadge.image_url}
+                          alt={previewBadge.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <i className="fas fa-award" style={{ color: '#9e9e9e', fontSize: '28px' }}></i>
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '16px' }}>
+                        {previewBadge ? previewBadge.name : 'Sélectionnez une série'}
                       </div>
-                    </label>
-                  );
-                })}
+                      <div style={{ fontSize: '13px', color: '#666' }}>
+                        {previewBadge
+                          ? `${displaySeries(previewBadge.series)} · Niveau ${previewBadge.level.replace('level_', '')}`
+                          : 'Choisissez une série puis un badge'}
+                      </div>
+                    </div>
+                  </div>
+                  {previewBadge?.description && (
+                    <p style={{ marginTop: '10px', fontSize: '13px', color: '#555' }}>
+                      {previewBadge.description}
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontWeight: 500 }}>Série de badge</label>
+                    <select
+                      className="form-select"
+                      value={badgeSeriesFilter}
+                      onChange={(e) => {
+                        setBadgeSeriesFilter(e.target.value);
+                        setBadgeLevelFilter('');
+                        setBadgeToAdd('');
+                      }}
+                    >
+                      <option value="">Sélectionner une série</option>
+                      {availableSeries.map((series) => (
+                        <option key={series} value={series}>
+                          {displaySeries(series)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {badgeSeriesFilter && (
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label style={{ fontWeight: 500 }}>Niveau</label>
+                      <select
+                        className="form-select"
+                        value={badgeLevelFilter}
+                        onChange={(e) => {
+                          setBadgeLevelFilter(e.target.value);
+                          setBadgeToAdd('');
+                        }}
+                      >
+                        <option value="">Tous les niveaux</option>
+                        {levelsForSeries.map((level) => (
+                          <option key={level} value={level}>
+                            Niveau {level.replace('level_', '')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ fontWeight: 500 }}>Badge</label>
+                    <select
+                      className="form-select"
+                      value={badgeToAdd}
+                      onChange={(e) => setBadgeToAdd(e.target.value)}
+                      disabled={!badgeSeriesFilter}
+                    >
+                      <option value="">{badgeSeriesFilter ? 'Sélectionner un badge' : 'Choisissez une série d’abord'}</option>
+                      {filteredBadges.map((badge) => (
+                        <option key={badge.id} value={badge.id.toString()}>
+                          {badge.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleAddBadge}
+                      disabled={!badgeToAdd}
+                    >
+                      <i className="fas fa-plus"></i> Ajouter le badge
+                    </button>
+                    {badgeToAdd && formData.badges.includes(badgeToAdd) && (
+                      <span style={{ color: '#666', fontSize: '12px', alignSelf: 'center' }}>
+                        Ce badge est déjà sélectionné
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
+
             {formData.badges.length > 0 && (
-              <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
-                <i className="fas fa-check"></i> {formData.badges.length} badge(s) sélectionné(s)
+              <div style={{ marginTop: '14px' }}>
+                <div style={{ fontWeight: 600, marginBottom: '8px', color: '#333' }}>
+                  {formData.badges.length} badge(s) sélectionné(s)
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {formData.badges.map((badgeId) => {
+                    const badge = availableBadges.find((b) => b.id.toString() === badgeId);
+                    return (
+                      <span
+                        key={badgeId}
+                        className="participant-tag"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 10px',
+                          background: '#f1f5f9',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '20px'
+                        }}
+                      >
+                        <span style={{ fontWeight: 500 }}>{badge ? badge.name : `Badge ${badgeId}`}</span>
+                        {badge && (
+                          <span style={{ fontSize: '11px', color: '#666' }}>
+                            {displaySeries(badge.series)} · Niv {badge.level.replace('level_', '')}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleBadgeToggle(badgeId)}
+                          className="participant-remove"
+                          style={{ border: 'none', background: 'transparent', color: '#666' }}
+                          title="Retirer le badge"
+                        >
+                          <i className="fas fa-times"></i>
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

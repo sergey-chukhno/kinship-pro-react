@@ -202,6 +202,21 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <span>Modifier</span>
             </button>
           )}
+          {onDelete && state.showingPageType !== 'user' && (
+            <button
+              className="flex gap-2 items-center btn-sm"
+              onClick={onDelete}
+              title="Supprimer l'événement"
+              style={{
+                background: 'transparent',
+                border: '1px solid #ef4444',
+                color: '#ef4444'
+              }}
+            >
+              <i className="fas fa-trash"></i>
+              <span>Supprimer</span>
+            </button>
+          )}
           <button className="btn-close-circle" onClick={onClose} title="Fermer">
             <i className="fas fa-times"></i>
           </button>

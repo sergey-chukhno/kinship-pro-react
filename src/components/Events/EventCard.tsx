@@ -8,10 +8,12 @@ interface EventCardProps {
   onClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }
 
-const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, onDelete }) => {
+const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, onDelete, onDuplicate }) => {
   const [showAllParticipants, setShowAllParticipants] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   
   // const formatDate = (dateString: string) => {
   //   const date = new Date(dateString);
@@ -39,26 +41,101 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
           <p className="event-description">{event.description}</p>
         </div>
         <div className="event-actions">
-          <button 
-            className="btn-icon" 
-            title="Modifier"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit();
-            }}
-          >
-            <i className="fas fa-edit"></i>
-          </button>
-          <button 
-            className="btn-icon" 
-            title="Supprimer"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-          >
-            <i className="fas fa-trash"></i>
-          </button>
+          <div className="event-menu-wrapper" style={{ position: 'relative' }}>
+            <button
+              className="btn-icon"
+              title="Actions"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu((prev) => !prev);
+              }}
+            >
+              <i className="fas fa-ellipsis-v"></i>
+            </button>
+            {showMenu && (
+              <div
+                className="event-menu"
+                style={{
+                  position: 'absolute',
+                  top: '32px',
+                  right: 0,
+                  background: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  zIndex: 5,
+                  minWidth: '160px',
+                  overflow: 'hidden'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  className="event-menu-item"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'white',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onClick={() => {
+                    setShowMenu(false);
+                    onEdit();
+                  }}
+                >
+                  <i className="fas fa-edit"></i>
+                  Modifier
+                </button>
+                <button
+                  className="event-menu-item"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'white',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                  onClick={() => {
+                    setShowMenu(false);
+                    onDuplicate();
+                  }}
+                >
+                  <i className="fas fa-copy"></i>
+                  Dupliquer
+                </button>
+                <button
+                  className="event-menu-item"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'white',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    color: '#ef4444'
+                  }}
+                  onClick={() => {
+                    setShowMenu(false);
+                    onDelete();
+                  }}
+                >
+                  <i className="fas fa-trash"></i>
+                  Supprimer
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       
