@@ -142,6 +142,16 @@ export interface Project {
   } | null;
 }
 
+export interface EventParticipant {
+  id: string | number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  claim_token?: string | null;
+  has_event_badges?: boolean;
+  received_badge_ids?: string[];
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -149,14 +159,16 @@ export interface Event {
   date: string;
   time: string;
   duration: number;
-  type: 'meeting' | 'workshop' | 'training' | 'celebration' | 'other';
+  type: 'meeting' | 'workshop' | 'training' | 'session' | 'other';
   location: string;
-  participants: string[];
+  participants: EventParticipant[] | string[]; // Can be array of IDs (string) or full participant objects
   image?: string;
+  badges?: string[]; // Array of badge IDs
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   projectId: string;
   createdBy: string;
   createdAt: string;
+  documents?: any[];
 }
 
 export interface Notification {

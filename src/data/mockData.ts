@@ -211,53 +211,7 @@ export const mockProjects: Project[] = [
   }
 ];
 
-export const mockEvents: Event[] = [
-  {
-    id: '1',
-    title: 'Réunion équipe',
-    description: 'Point hebdomadaire sur les projets en cours',
-    date: '2024-01-22',
-    time: '09:00',
-    duration: 60,
-    type: 'meeting',
-    location: 'Salle de réunion A',
-    participants: ['François Dupont', 'Sophie Martin', 'Lucas Bernard'],
-    status: 'upcoming',
-    projectId: '1',
-    createdBy: 'François Dupont',
-    createdAt: '2024-01-15T10:00:00Z'
-  },
-  {
-    id: '2',
-    title: 'Atelier durable',
-    description: 'Formation sur les pratiques éco-responsables',
-    date: '2024-01-25',
-    time: '13:00',
-    duration: 120,
-    type: 'workshop',
-    location: 'Espace formation',
-    participants: ['Marie Dubois', 'Lucas Bernard'],
-    status: 'upcoming',
-    projectId: '1',
-    createdBy: 'Marie Dubois',
-    createdAt: '2024-01-20T14:00:00Z'
-  },
-  {
-    id: '3',
-    title: 'Formation numérique',
-    description: 'Initiation aux outils numériques',
-    date: '2024-01-26',
-    time: '18:00',
-    duration: 90,
-    type: 'training',
-    location: 'Salle informatique',
-    participants: ['François Dupont', 'Sophie Martin'],
-    status: 'upcoming',
-    projectId: '2',
-    createdBy: 'Sophie Martin',
-    createdAt: '2024-01-18T16:00:00Z'
-  }
-];
+
 
 export const mockBadges: Badge[] = [
   // TouKouLeur Series - Level 1
