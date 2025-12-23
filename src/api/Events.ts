@@ -12,6 +12,8 @@ export interface EventFormData {
   status?: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   badges?: string[];
   participants?: string[];         // Peut être combiné avec csv_file
+  organization_id?: number;        // Optionnel (notamment pour teacher)
+  school_id?: number;              // Optionnel (teacher)
 }
 
 export interface CreateEventPayload {
@@ -72,14 +74,6 @@ export const createSchoolEvent = async (
     (payload.csv_file && payload.csv_file instanceof File) ||
     (payload.documents && payload.documents.length > 0);
 
-  // Debug: Log payload
-  console.log('createSchoolEvent - payload:', {
-    event: event,
-    hasImage: !!payload.image,
-    hasCsv: !!payload.csv_file,
-    hasFiles: hasFiles
-  });
-
   // If no files, use JSON format
   if (!hasFiles) {
     // Prepare JSON payload
@@ -100,6 +94,12 @@ export const createSchoolEvent = async (
     if (event.location) {
       jsonPayload.event.location = event.location;
     }
+    if (event.organization_id) {
+      jsonPayload.event.organization_id = event.organization_id;
+    }
+    if (event.school_id) {
+      jsonPayload.event.school_id = event.school_id;
+    }
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
@@ -109,8 +109,6 @@ export const createSchoolEvent = async (
         return typeof participantId === 'string' ? participantId : String(participantId);
       });
     }
-
-    console.log('createSchoolEvent - JSON payload:', jsonPayload);
 
     const response = await apiClient.post(
       `/api/v1/schools/${schoolId}/events`,
@@ -123,12 +121,6 @@ export const createSchoolEvent = async (
   // If files present, use FormData
   const formData = new FormData();
 
-  // Debug: Log event data
-  console.log('createSchoolEvent - FormData mode');
-  console.log('event.participants:', event.participants);
-  console.log('event.participants type:', typeof event.participants);
-  console.log('event.participants length:', event.participants?.length);
-
   formData.append('event[title]', event.title);
   if (event.description) {
     formData.append('event[description]', event.description);
@@ -140,6 +132,12 @@ export const createSchoolEvent = async (
   if (event.location) {
     formData.append('event[location]', event.location);
   }
+  if (event.organization_id) {
+    formData.append('event[organization_id]', event.organization_id.toString());
+  }
+  if (event.school_id) {
+    formData.append('event[school_id]', event.school_id.toString());
+  }
   if (event.status) {
     formData.append('event[status]', event.status);
   }
@@ -148,26 +146,16 @@ export const createSchoolEvent = async (
   if (event.badges && event.badges.length > 0) {
     event.badges.forEach((badgeId) => {
       formData.append('event[badges][]', badgeId);
+      formData.append('badges[]', badgeId);
     });
   }
 
   // Add participants if provided
-  // Send as array with empty brackets: event[participants][]=80, event[participants][]=81
-  console.log('Checking participants for FormData:', {
-    hasParticipants: !!event.participants,
-    participantsLength: event.participants?.length,
-    participants: event.participants
-  });
-  
   if (event.participants && event.participants.length > 0) {
-    console.log('Adding participants to FormData:', event.participants);
     event.participants.forEach((participantId) => {
       const participantIdStr = typeof participantId === 'string' ? participantId : String(participantId);
-      console.log('Appending participant:', participantIdStr);
       formData.append('event[participants][]', participantIdStr);
     });
-  } else {
-    console.log('No participants to add - event.participants is:', event.participants);
   }
 
   // Add image if provided (must be a File object)
@@ -235,6 +223,12 @@ export const createCompanyEvent = async (
     if (event.location) {
       jsonPayload.event.location = event.location;
     }
+    if (event.organization_id) {
+      jsonPayload.event.organization_id = event.organization_id;
+    }
+    if (event.school_id) {
+      jsonPayload.event.school_id = event.school_id;
+    }
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
@@ -267,6 +261,12 @@ export const createCompanyEvent = async (
   if (event.location) {
     formData.append('event[location]', event.location);
   }
+  if (event.organization_id) {
+    formData.append('event[organization_id]', event.organization_id.toString());
+  }
+  if (event.school_id) {
+    formData.append('event[school_id]', event.school_id.toString());
+  }
   if (event.status) {
     formData.append('event[status]', event.status);
   }
@@ -275,6 +275,7 @@ export const createCompanyEvent = async (
   if (event.badges && event.badges.length > 0) {
     event.badges.forEach((badgeId) => {
       formData.append('event[badges][]', badgeId);
+      formData.append('badges[]', badgeId);
     });
   }
 
@@ -351,6 +352,12 @@ export const createTeacherEvent = async (
     if (event.location) {
       jsonPayload.event.location = event.location;
     }
+    if (event.organization_id) {
+      jsonPayload.event.organization_id = event.organization_id;
+    }
+    if (event.school_id) {
+      jsonPayload.event.school_id = event.school_id;
+    }
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
@@ -383,6 +390,12 @@ export const createTeacherEvent = async (
   if (event.location) {
     formData.append('event[location]', event.location);
   }
+  if (event.organization_id) {
+    formData.append('event[organization_id]', event.organization_id.toString());
+  }
+  if (event.school_id) {
+    formData.append('event[school_id]', event.school_id.toString());
+  }
   if (event.status) {
     formData.append('event[status]', event.status);
   }
@@ -391,6 +404,7 @@ export const createTeacherEvent = async (
   if (event.badges && event.badges.length > 0) {
     event.badges.forEach((badgeId) => {
       formData.append('event[badges][]', badgeId);
+      formData.append('badges[]', badgeId);
     });
   }
 
@@ -689,6 +703,9 @@ export const updateSchoolEvent = async (
     if (event.location) {
       jsonPayload.event.location = event.location;
     }
+    if (event.organization_id) {
+      jsonPayload.event.organization_id = event.organization_id;
+    }
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
@@ -721,6 +738,12 @@ export const updateSchoolEvent = async (
   if (event.location) {
     formData.append('event[location]', event.location);
   }
+  if (event.organization_id) {
+    formData.append('event[organization_id]', event.organization_id.toString());
+  }
+  if (event.school_id) {
+    formData.append('event[school_id]', event.school_id.toString());
+  }
   if (event.status) {
     formData.append('event[status]', event.status);
   }
@@ -729,6 +752,7 @@ export const updateSchoolEvent = async (
   if (event.badges && event.badges.length > 0) {
     event.badges.forEach((badgeId) => {
       formData.append('event[badges][]', badgeId);
+      formData.append('badges[]', badgeId);
     });
   }
 
@@ -845,6 +869,7 @@ export const updateCompanyEvent = async (
   if (event.badges && event.badges.length > 0) {
     event.badges.forEach((badgeId) => {
       formData.append('event[badges][]', badgeId);
+      formData.append('badges[]', badgeId);
     });
   }
 

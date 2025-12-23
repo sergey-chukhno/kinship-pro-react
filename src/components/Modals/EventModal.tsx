@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Event, BadgeAPI, Member } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges } from '../../api/Badges';
-import { getOrganizationMembers } from '../../api/Projects';
+import { getOrganizationMembers, getTeacherStudents } from '../../api/Projects';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { base64ToFile } from '../../utils/projectMapper';
 import { 
@@ -21,8 +21,10 @@ import AvatarImage from '../UI/AvatarImage';
 
 interface EventModalProps {
   event?: Event | null;
+  initialData?: Partial<Event> | null;
   onClose: () => void;
   onSave: (eventData: Omit<Event, 'id'>) => void;
+  forceCreate?: boolean;
 }
 
 interface NewParticipant {
@@ -34,7 +36,7 @@ interface NewParticipant {
   fullName: string;
 }
 
-const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
+const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, onSave, forceCreate }) => {
   const { state } = useAppContext();
   const [formData, setFormData] = useState({
     title: '',
@@ -61,6 +63,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
   const [organizationMembers, setOrganizationMembers] = useState<Member[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [newParticipants, setNewParticipants] = useState<NewParticipant[]>([]);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<number | undefined>(undefined);
   const displaySeries = useCallback((seriesName: string) => {
     return seriesName.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
   }, []);
@@ -108,9 +111,62 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
     fetchBadges();
   }, []);
 
-  // Fetch organization members based on context (edu or pro)
+  const organizationsForTeacher = useMemo(() => {
+    const contexts = state.user?.available_contexts;
+    const orgs: Array<{ id: number; name: string }> = [];
+    if (contexts?.schools) {
+      contexts.schools.forEach((school: any) => {
+        orgs.push({ id: school.id, name: school.name || 'Établissement' });
+      });
+    }
+    return orgs;
+  }, [state.user?.available_contexts]);
+
+  useEffect(() => {
+    if (state.showingPageType === 'teacher' && organizationsForTeacher.length === 1) {
+      setSelectedOrganizationId(organizationsForTeacher[0].id);
+    }
+  }, [state.showingPageType, organizationsForTeacher]);
+
+  // Fetch organization members based on context (edu, pro, teacher)
   useEffect(() => {
     const fetchOrganizationMembers = async () => {
+      // Teacher context: fetch classes + students
+      if (state.showingPageType === 'teacher') {
+        setIsLoadingMembers(true);
+        try {
+          const classesData = await getTeacherStudents();
+          const students: Member[] = (classesData || []).flatMap((cls: any) => {
+            const schoolName = cls.school?.name;
+            const className = cls.name;
+            return (cls.students || []).map((student: any) => ({
+              id: student.id?.toString() || '',
+              firstName: student.first_name || '',
+              lastName: student.last_name || '',
+              fullName: student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+              email: student.email || '',
+              birthday: student.birthday || student.birth_date || student.birthdate || student.date_of_birth || undefined,
+              hasTemporaryEmail: student.has_temporary_email || student.hasTemporaryEmail || false,
+              profession: student.role || 'Élève',
+              roles: student.role ? [student.role] : [],
+              skills: student.skills?.map((s: any) => s.name || s) || [],
+              availability: student.availability || [],
+              avatar: student.avatar_url || '/default-avatar.png',
+              isTrusted: student.is_trusted || false,
+              badges: student.badges || [],
+              organization: schoolName || className || ''
+            }));
+          });
+          setOrganizationMembers(students);
+        } catch (error) {
+          console.error('Error fetching teacher students:', error);
+          setOrganizationMembers(state.members);
+        } finally {
+          setIsLoadingMembers(false);
+        }
+        return;
+      }
+
       // Only fetch for edu or pro contexts
       if (state.showingPageType !== 'edu' && state.showingPageType !== 'pro') {
         // Fallback to state.members for other contexts
@@ -165,39 +221,36 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
   }, [state.showingPageType, state.user.id]);
 
   useEffect(() => {
-    if (event) {
-      // Extract participant IDs if they are objects
-      const participantIds = event.participants.map(p => 
+    const seed = event || initialData;
+    if (seed) {
+      const participantIds = (seed.participants || []).map(p => 
         typeof p === 'object' ? p.id.toString() : p.toString()
       );
 
       setFormData({
-        title: event.title,
-        description: event.description,
-        date: event.date,
-        time: event.time,
-        duration: event.duration?.toString() || '60',
-        type: event.type,
-        location: event.location || '',
+        title: seed.title || '',
+        description: seed.description || '',
+        date: seed.date || '',
+        time: seed.time || '',
+        duration: seed.duration?.toString() || '60',
+        type: seed.type || 'session',
+        location: seed.location || '',
         participants: participantIds,
-        badges: event.badges || [],
-        image: event.image || ''
+        badges: seed.badges || [],
+        image: seed.image || ''
       });
-      setImagePreview(event.image || '');
-      // Clear new participants when editing existing event
+      setImagePreview(seed.image || '');
       setNewParticipants([]);
     } else {
-      // Set default date and time
       const today = new Date();
       setFormData(prev => ({
         ...prev,
         date: today.toISOString().split('T')[0],
         time: today.toTimeString().slice(0, 5)
       }));
-      // Clear new participants when creating new event
       setNewParticipants([]);
     }
-  }, [event]);
+  }, [event, initialData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -268,10 +321,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
     try {
       const organizationId = getOrganizationId(state.user, state.showingPageType);
 
-      // Debug: Log participants before preparing payload
-      console.log('formData.participants:', formData.participants);
-      console.log('newParticipants:', newParticipants);
-
       // Prepare event data
       const eventData: CreateEventPayload['event'] = {
         title: formData.title,
@@ -283,13 +332,12 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
         location: formData.location || undefined,
         status: 'upcoming',
         badges: formData.badges.length > 0 ? formData.badges : undefined,
+        organization_id: state.showingPageType === 'teacher' ? selectedOrganizationId : undefined,
+        school_id: state.showingPageType === 'teacher' ? selectedOrganizationId : undefined,
         participants: formData.participants.length > 0
           ? formData.participants
           : undefined
       };
-
-      // Debug: Log eventData
-      console.log('eventData.participants:', eventData.participants);
 
       // Convert base64 image to File if present
       let imageFile: File | null = null;
@@ -311,27 +359,21 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
         documents: documents.length ? documents : undefined
       };
 
-      // Debug: Log final payload
-      console.log('Final payload:', {
-        event: payload.event,
-        hasImage: !!payload.image,
-        hasCsv: !!payload.csv_file
-      });
-
       let createdEvent;
       const eventId = event ? parseInt(event.id) : null;
+      const shouldUpdate = !forceCreate && event && eventId && !isNaN(eventId);
 
       // Call appropriate API based on context (create or update)
-      if (event && eventId && !isNaN(eventId)) {
+      if (shouldUpdate) {
         // Update existing event
         if (state.showingPageType === 'edu' && organizationId) {
-          createdEvent = await updateSchoolEvent(organizationId, eventId, payload);
+          createdEvent = await updateSchoolEvent(organizationId, eventId as number, payload);
         } else if (state.showingPageType === 'pro' && organizationId) {
-          createdEvent = await updateCompanyEvent(organizationId, eventId, payload);
+          createdEvent = await updateCompanyEvent(organizationId, eventId as number, payload);
         } else if (state.showingPageType === 'teacher') {
-          createdEvent = await updateTeacherEvent(eventId, payload);
+          createdEvent = await updateTeacherEvent(eventId as number, payload);
         } else if (state.showingPageType === 'user') {
-          createdEvent = await updateUserEvent(eventId, payload);
+          createdEvent = await updateUserEvent(eventId as number, payload);
         } else {
           throw new Error('Contexte invalide pour modifier un événement');
         }
@@ -656,14 +698,14 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{event ? 'Modifier l\'événement' : 'Créer un nouvel événement'}</h2>
+          <h2>{event && !forceCreate ? 'Modifier l\'événement' : 'Créer un nouvel événement'}</h2>
           <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
         </div>
         
         <form id="eventForm" onSubmit={handleSubmit} className="modal-body">
-          {/* Event Image Selection */}
+        {/* Event Image Selection */}
           <div className="form-section">
             <h3>Image de l'événement</h3>
             <div className="avatar-selection">
@@ -699,6 +741,23 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
               </div>
             </div>
           </div>
+          {/* Teacher: select establishment */}
+          {state.showingPageType === 'teacher' && organizationsForTeacher.length > 0 && (
+            <div className="form-group">
+              <label htmlFor="teacherOrganization">Établissement</label>
+              <select
+                id="teacherOrganization"
+                className="form-select"
+                value={selectedOrganizationId || ''}
+                onChange={(e) => setSelectedOrganizationId(e.target.value ? parseInt(e.target.value) : undefined)}
+              >
+                <option value="">Sélectionner un établissement</option>
+                {organizationsForTeacher.map((org) => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           
           <div className="form-grid">
             <div className="form-group">
@@ -1204,7 +1263,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
                 multiple
                 onChange={handleDocumentsChange}
               />
-              <label htmlFor="eventDocuments" className="file-upload-label">
+              <label htmlFor="eventDocuments flex gap-2 " className="file-upload-label">
                 <i className="fas fa-upload"></i>
                 <span>Ajouter des documents</span>
               </label>
@@ -1244,7 +1303,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
           <button type="button" className="btn btn-outline" onClick={onClose}>Annuler</button>
           <button type="submit" form="eventForm" className="btn btn-primary">
             <i className="fas fa-plus"></i>
-            {event ? 'Modifier l\'événement' : 'Créer l\'événement'}
+            {forceCreate || !event ? 'Créer l\'événement' : 'Modifier l\'événement'}
           </button>
         </div>
       </div>

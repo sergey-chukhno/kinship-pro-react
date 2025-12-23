@@ -327,6 +327,16 @@ export const getOrganizationMembers = async (
 };
 
 /**
+ * Fetch students for teacher
+ */
+export const getTeacherStudents = async (): Promise<OrganizationMember[]> => {
+    const response = await apiClient.get('/api/v1/teachers/students', {
+        params: { per_page: 1000 }
+    });
+    return response.data?.data || response.data || [];
+};
+
+/**
  * Fetch network members for an organization (company or school)
  * Returns all members from the organization's network including partners and branches
  */

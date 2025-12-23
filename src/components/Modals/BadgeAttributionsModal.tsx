@@ -360,7 +360,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                       </td>
                       <td>
                         {attribution.comment ? (
-                          <span className="comment-text">{attribution.comment}</span>
+                          <span className="" title={attribution.comment}>{attribution.comment}</span>
                         ) : (
                           <span className="no-comment">-</span>
                         )}

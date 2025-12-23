@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Event, Member, EventParticipant } from '../../types';
+import { Event, Member } from '../../types';
 import './EventCard.css';
 import { useAppContext } from '../../context/AppContext';
 
@@ -41,103 +41,105 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
           <h3 className="event-title">{event.title}</h3>
           <p className="event-description">{event.description}</p>
         </div>
-        <div className="event-actions">
-          <div className="event-menu-wrapper" style={{ position: 'relative' }}>
-            <button
-              className="btn-icon"
-              title="Actions"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu((prev) => !prev);
-              }}
-            >
-              <i className="fas fa-ellipsis-v"></i>
-            </button>
-            {showMenu && state.showingPageType !== 'user' && (
-              <div
-                className="event-menu"
-                style={{
-                  position: 'absolute',
-                  top: '32px',
-                  right: 0,
-                  background: 'white',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                  zIndex: 5,
-                  minWidth: '160px',
-                  overflow: 'hidden'
+        {state.showingPageType !== 'user' && (
+          <div className="event-actions">
+            <div className="event-menu-wrapper" style={{ position: 'relative' }}>
+              <button
+                className="btn-icon"
+                title="Actions"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu((prev) => !prev);
                 }}
-                onClick={(e) => e.stopPropagation()}
               >
-                <button
-                  className="event-menu-item"
+                <i className="fas fa-ellipsis-v"></i>
+              </button>
+              {showMenu && (
+                <div
+                  className="event-menu"
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    width: '100%',
-                    padding: '10px 12px',
+                    position: 'absolute',
+                    top: '32px',
+                    right: 0,
                     background: 'white',
-                    border: 'none',
-                    cursor: 'pointer',
-                    textAlign: 'left'
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                    zIndex: 5,
+                    minWidth: '160px',
+                    overflow: 'hidden'
                   }}
-                  onClick={() => {
-                    setShowMenu(false);
-                    onEdit();
-                  }}
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <i className="fas fa-edit"></i>
-                  Modifier
-                </button>
-                <button
-                  className="event-menu-item"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    width: '100%',
-                    padding: '10px 12px',
-                    background: 'white',
-                    border: 'none',
-                    cursor: 'pointer',
-                    textAlign: 'left'
-                  }}
-                  onClick={() => {
-                    setShowMenu(false);
-                    onDuplicate();
-                  }}
-                >
-                  <i className="fas fa-copy"></i>
-                  Dupliquer
-                </button>
-                <button
-                  className="event-menu-item"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    width: '100%',
-                    padding: '10px 12px',
-                    background: 'white',
-                    border: 'none',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    color: '#ef4444'
-                  }}
-                  onClick={() => {
-                    setShowMenu(false);
-                    onDelete();
-                  }}
-                >
-                  <i className="fas fa-trash"></i>
-                  Supprimer
-                </button>
-              </div>
-            )}
+                  <button
+                    className="event-menu-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'white',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                    onClick={() => {
+                      setShowMenu(false);
+                      onEdit();
+                    }}
+                  >
+                    <i className="fas fa-edit"></i>
+                    Modifier
+                  </button>
+                  <button
+                    className="event-menu-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'white',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                    onClick={() => {
+                      setShowMenu(false);
+                      onDuplicate();
+                    }}
+                  >
+                    <i className="fas fa-copy"></i>
+                    Dupliquer
+                  </button>
+                  <button
+                    className="event-menu-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'white',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      color: '#ef4444'
+                    }}
+                    onClick={() => {
+                      setShowMenu(false);
+                      onDelete();
+                    }}
+                  >
+                    <i className="fas fa-trash"></i>
+                    Supprimer
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
       
       <div className="event-details">

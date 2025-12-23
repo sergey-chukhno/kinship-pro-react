@@ -95,13 +95,6 @@ const Events: React.FC = () => {
           return;
         }
 
-        // Debug: Log raw API response to see all participants
-        console.log('Raw API events response:', eventsResponse.data);
-        eventsResponse.data.forEach((apiEvent: any, idx: number) => {
-          console.log(`Event ${idx} (${apiEvent.title}) - Participants:`, apiEvent.participants);
-          console.log(`Event ${idx} - Participants count:`, apiEvent.participants?.length || 0);
-        });
-
         // Transform API events to frontend format
         const transformedEvents = eventsResponse.data.map(transformEventResponse);
         setEvents(transformedEvents);
@@ -166,7 +159,6 @@ const Events: React.FC = () => {
   });
 
   const handleEventClick = (event: Event) => {
-    console.log("selected event", event)
     setSelectedEvent(event);
     setIsEventDetailModalOpen(true);
   };
@@ -324,14 +316,11 @@ const Events: React.FC = () => {
           <h2>Gestion des événements</h2>
         </div>
         <div className="events-actions">
-          {/* <div className="dropdown" style={{ position: 'relative' }}>
-            <button className="btn btn-outline" onClick={handleExportEvents}>
-              <i className="fas fa-download"></i> Exporter
+          { state.showingPageType !== 'user' && (
+            <button className="btn btn-primary" onClick={handleCreateEvent}>
+              <i className="fas fa-plus"></i> Créer un événement
             </button>
-          </div> */}
-         { state.showingPageType !== 'user' && <button className="btn btn-primary" onClick={handleCreateEvent}>
-            <i className="fas fa-plus"></i> Créer un événement
-          </button>}
+          )}
         </div>
       </div>
 
@@ -585,9 +574,11 @@ const Events: React.FC = () => {
       {isEventModalOpen && (
         <EventModal
           event={selectedEvent}
+          forceCreate={isDuplicateMode}
           onClose={() => {
             setIsEventModalOpen(false);
             setSelectedEvent(null);
+            setIsDuplicateMode(false);
           }}
           onSave={handleSaveEvent}
         />

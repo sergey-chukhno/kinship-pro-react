@@ -168,22 +168,6 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.badges]);
 
-  // Debug: Log participants to see what we're receiving
-  useEffect(() => {
-    console.log('EventDetailModal - Event participants:', event.participants);
-    console.log('EventDetailModal - Participants count:', event.participants?.length || 0);
-    if (event.participants && event.participants.length > 0) {
-      event.participants.forEach((p, idx) => {
-        const participantObj = typeof p === 'object' ? p : null;
-        console.log(`Participant ${idx}:`, {
-          id: participantObj?.id || p,
-          name: participantObj ? `${participantObj.first_name} ${participantObj.last_name}` : 'Unknown',
-          email: participantObj?.email || 'N/A'
-        });
-      });
-    }
-  }, [event.participants]);
-
 
   return (
     <div className="modal-overlay event-detail-overlay" onClick={onClose}>
