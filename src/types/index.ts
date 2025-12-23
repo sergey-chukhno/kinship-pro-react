@@ -60,6 +60,7 @@ export interface BadgeFile {
   name: string;
   type: string;
   size: string;
+  url?: string;
 }
 
 export interface BadgeAttribution {
@@ -81,10 +82,12 @@ export interface BadgeAttribution {
   projectTitle: string;
   domaineEngagement: string;
   commentaire?: string;
+  preuveFiles?: BadgeFile[];
   preuve?: {
     name: string;
     type: string;
     size: string;
+    url?: string;
   };
   dateAttribution: string;
 }

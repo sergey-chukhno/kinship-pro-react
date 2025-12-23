@@ -11,7 +11,58 @@ import { getCurrentUser } from '../../api/Authentication';
 import { deleteProject, getAllProjects, getAllUserProjects} from '../../api/Project';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
 import { getTeacherProjects } from '../../api/Projects';
+import { getProjectBadges } from '../../api/Badges';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
+
+/**
+ * Fetches badge counts for all projects and updates them with the correct counts
+ * @param projects - Array of projects to update with badge counts
+ * @returns Updated projects with badge counts
+ */
+const fetchAndUpdateBadgeCounts = async (projects: Project[]): Promise<Project[]> => {
+  if (projects.length === 0) {
+    return projects;
+  }
+
+  try {
+    // Fetch badge counts for all projects in parallel
+    const badgeCountPromises = projects.map(async (project) => {
+      try {
+        const projectId = parseInt(project.id);
+        if (isNaN(projectId)) {
+          console.warn(`[Badge Counter] Invalid project ID: ${project.id}`);
+          return { projectId: project.id, count: 0 };
+        }
+        const badges = await getProjectBadges(projectId);
+        return { projectId: project.id, count: badges.length };
+      } catch (error) {
+        console.error(`[Badge Counter] Error fetching badges for project ${project.id}:`, error);
+        return { projectId: project.id, count: 0 };
+      }
+    });
+
+    const badgeCounts = await Promise.all(badgeCountPromises);
+    
+    // Create a map of projectId -> badgeCount
+    const badgeCountMap = new Map<string, number>();
+    badgeCounts.forEach(({ projectId, count }) => {
+      badgeCountMap.set(projectId, count);
+    });
+
+    // Update projects with badge counts
+    return projects.map(project => ({
+      ...project,
+      badges: badgeCountMap.get(project.id) || 0
+    }));
+  } catch (error) {
+    console.error('[Badge Counter] Error fetching badge counts:', error);
+    // Return projects with 0 badges if fetching fails
+    return projects.map(project => ({
+      ...project,
+      badges: 0
+    }));
+  }
+};
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
@@ -102,7 +153,9 @@ const Projects: React.FC = () => {
       const formattedProjects: Project[] = publicProjects.map((p: any) => {
         return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
       });
-      setProjects(formattedProjects);
+      // Fetch and update badge counts
+      const projectsWithBadges = await fetchAndUpdateBadgeCounts(formattedProjects);
+      setProjects(projectsWithBadges);
     } catch (err) {
       console.error('Erreur lors de la récupération des projets publics:', err);
       setProjects([]);
@@ -122,7 +175,9 @@ const Projects: React.FC = () => {
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
-        setMyProjects(formattedProjects);
+        // Fetch and update badge counts
+        const projectsWithBadges = await fetchAndUpdateBadgeCounts(formattedProjects);
+        setMyProjects(projectsWithBadges);
       } else if (state.showingPageType === 'user') {
         // Pour les utilisateurs : utiliser getAllUserProjects
         const response = await getAllUserProjects();
@@ -130,7 +185,9 @@ const Projects: React.FC = () => {
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
-        setMyProjects(formattedProjects);
+        // Fetch and update badge counts
+        const projectsWithBadges = await fetchAndUpdateBadgeCounts(formattedProjects);
+        setMyProjects(projectsWithBadges);
       }
     } catch (err) {
       console.error('Erreur lors de la récupération de mes projets:', err);
@@ -193,7 +250,9 @@ const Projects: React.FC = () => {
             return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
 
-        setProjects(formattedProjects);
+        // Fetch and update badge counts
+        const projectsWithBadges = await fetchAndUpdateBadgeCounts(formattedProjects);
+        setProjects(projectsWithBadges);
       }
     } catch (err) {
       console.error('Erreur lors de la récupération des projets:', err);
