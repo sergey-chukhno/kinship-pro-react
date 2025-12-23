@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Event, Member, EventParticipant } from '../../types';
 import './EventCard.css';
+import { useAppContext } from '../../context/AppContext';
 
 interface EventCardProps {
   event: Event;
@@ -14,7 +15,7 @@ interface EventCardProps {
 const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, onDelete, onDuplicate }) => {
   const [showAllParticipants, setShowAllParticipants] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  
+  const { state } = useAppContext();
   // const formatDate = (dateString: string) => {
   //   const date = new Date(dateString);
   //   return date.toLocaleDateString('fr-FR', {
@@ -52,7 +53,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
             >
               <i className="fas fa-ellipsis-v"></i>
             </button>
-            {showMenu && (
+            {showMenu && state.showingPageType !== 'user' && (
               <div
                 className="event-menu"
                 style={{

@@ -32,6 +32,10 @@ interface BadgeAttribution {
     id: number;
     title: string;
   } | null;
+  event?: {
+    id: number;
+    title: string;
+  } | null;
   assigned_at: string;
   comment: string | null;
   documents: Array<{
@@ -166,12 +170,14 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           email: item.sender?.email || ''
         };
         const project = item.project || (item.project_id ? { id: item.project_id, title: item.project?.title || 'Unknown' } : null);
+        const event = item.event || (item.event_id ? { id: item.event_id, title: item.event?.title || 'Événement' } : null);
         
         return {
           id: item.id,
           receiver: receiver,
           sender: sender,
           project: project,
+          event: event,
           assigned_at: item.assigned_at || item.created_at,
           comment: item.comment || null,
           documents: item.documents || []
@@ -212,7 +218,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
     } finally {
       loadingState(false);
     }
-  }, [organizationId, state.showingPageType, badgeId, badgeName, badgeLevel, perPage]);
+  }, [organizationId, state.showingPageType, badgeId, badgeName, badgeLevel, perPage, badgeImageUrl]);
 
   // Initial load
   useEffect(() => {
@@ -312,7 +318,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
               <table className="badge-attributions-table">
                 <thead>
                   <tr>
-                    <th>Projet</th>
+                    <th>Contexte</th>
                     <th>Attribué à</th>
                     <th>Attribué par</th>
                     <th>Commentaire</th>
@@ -324,10 +330,16 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                   {attributions.map((attribution) => (
                     <tr key={attribution.id}>
                       <td>
-                        {attribution.project ? (
-                          <span className="project-name">{attribution.project.title}</span>
+                        {attribution.event ? (
+                          <span className="badge-pill" style={{ background: '#eef2ff', color: '#312e81', borderRadius: '999px', padding: '6px 10px' }}>
+                            Événement · {attribution.event.title}
+                          </span>
+                        ) : attribution.project ? (
+                          <span className="badge-pill" style={{ background: '#eef2ff', color: 'var(--primary)', borderRadius: '999px', padding: '6px 10px' }}>
+                            Projet · {attribution.project.title}
+                          </span>
                         ) : (
-                          <span className="no-project">-</span>
+                          <span className="badge-pill badge-muted">Non lié</span>
                         )}
                       </td>
                       <td>

@@ -42,6 +42,8 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
   const { showSuccess, showError } = useToast();
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [eventBadges, setEventBadges] = useState<BadgeAPI[]>([]);
+  const eventDocuments = (event as any).documents || [];
+  const isSessionTrainingWorkshopEvent = event.type === 'session' || event.type === 'training' || event.type === 'workshop';
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -62,6 +64,22 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
     return `${time} - ${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
   };
 
+  const translateEventTypeName = (type: string) => {
+    switch (type) {
+      case 'meeting':
+        return 'Réunion';
+      case 'workshop':
+        return 'Atelier';
+      case 'training':
+        return 'Formation';
+      case 'session':
+        return 'Session';
+      case 'other':
+        return 'Autre';
+      default:
+        return type;
+    }
+  };
   // Handle event completion
   const handleComplete = async (assignments: Array<{ participant_id: number; badge_id: number; proof?: File }>) => {
     try {
@@ -95,8 +113,6 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
       showError(error.response?.data?.message || 'Erreur lors de la clôture de l\'événement');
     }
   };
-
-  const isSessionEvent = event.type === 'session';
 
   // Handle participant removal
   const handleRemoveParticipant = async (participantId: string | number) => {
@@ -175,7 +191,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
         {/* Header with action buttons */}
         <div className="event-detail-header-actions">
           {/* && event.status !== 'completed'  */}
-          {isSessionEvent && state.showingPageType !== 'user' && (
+          {event.status !== 'completed'  && isSessionTrainingWorkshopEvent && state.showingPageType !== 'user' && (
             <button
               className="flex gap-2 items-center btn-primary btn-sm"
               onClick={() => setIsCompleteModalOpen(true)}
@@ -227,10 +243,14 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
 
         {/* Event Meta Info (Date, Time, Location) */}
         <div className="event-detail-meta">
-          <div className="meta-item">
-            <i className="fas fa-calendar-alt"></i>
-            <span>{formatDate(event.date)}</span>
-          </div>
+            <div className="meta-item">
+              <i className="fas fa-calendar-alt"></i>
+              <span>{formatDate(event.date)}</span>
+            </div>
+            <div className="meta-item">
+              <i className="fas fa-calendar-check"></i>
+              <span>Type d'événement : {translateEventTypeName(event.type)}</span>
+            </div>
           <div className="meta-item">
             <i className="fas fa-clock"></i>
             <span>{formatTimeRange(event.time, event.duration)}</span>
@@ -346,6 +366,47 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
                       }}>
                         {badge.level.replace('level_', 'Niveau ')}
                       </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Documents Section */}
+        {eventDocuments && eventDocuments.length > 0 && (
+          <div className="event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
+            <h3 className="participants-title">Documents</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {eventDocuments.map((doc: any, idx: number) => {
+                const name = doc.name || doc.filename || doc.file_name || `Document ${idx + 1}`;
+                const url = doc.url || doc.link || doc.path;
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '10px 12px',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      background: '#f8fafc'
+                    }}
+                  >
+                    <i className="fas fa-file-alt" style={{ color: '#5570F1' }}></i>
+                    {url ? (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#1f2937', textDecoration: 'underline', fontWeight: 500 }}
+                      >
+                        {name}
+                      </a>
+                    ) : (
+                      <span style={{ color: '#1f2937', fontWeight: 500 }}>{name}</span>
                     )}
                   </div>
                 );

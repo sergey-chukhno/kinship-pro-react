@@ -9,7 +9,7 @@ import AvatarImage from '../UI/AvatarImage';
 interface EventCompleteModalProps {
   event: Event;
   onClose: () => void;
-  onComplete: (assignments: Array<{ participant_id: number; badge_id: number; proof?: File }>) => void;
+  onComplete: (assignments: Array<{ participant_id: number; badge_id: number; proof?: File; comment?: string }>) => void;
 }
 
 const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
@@ -23,6 +23,7 @@ const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
   const [loadingBadges, setLoadingBadges] = useState(true);
   const [selectedAssignments, setSelectedAssignments] = useState<Map<string, number>>(new Map());
   const [proofFiles, setProofFiles] = useState<Map<string, File>>(new Map()); // Key: "participantId-badgeId"
+  const [comments, setComments] = useState<Map<string, string>>(new Map()); // Key: "participantId-badgeId"
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load badges from API
@@ -191,8 +192,27 @@ const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
     return proofFiles.get(key);
   };
 
+  const handleCommentChange = (participantId: string, badgeId: number, value: string) => {
+    const key = `${participantId}-${badgeId}`;
+    const newComments = new Map(comments);
+    if (value.trim()) {
+      newComments.set(key, value);
+    } else {
+      newComments.delete(key);
+    }
+    setComments(newComments);
+  };
+
+  const getComment = (participantId: string, badgeId: number): string => {
+    const key = `${participantId}-${badgeId}`;
+    return comments.get(key) || '';
+  };
+
   // Handle form submission
   const handleSubmit = () => {
+    const confirmClose = window.confirm('Êtes-vous sûr de vouloir clôturer cet événement ?');
+    if (!confirmClose) return;
+
     if (selectedAssignments.size === 0) {
       showError('Veuillez sélectionner au moins une attribution de badge');
       return;
@@ -215,16 +235,18 @@ const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
     }
 
     // Convert selected assignments to API format
-    const assignments: Array<{ participant_id: number; badge_id: number; proof?: File }> = [];
+    const assignments: Array<{ participant_id: number; badge_id: number; proof?: File; comment?: string }> = [];
     
     selectedAssignments.forEach((badgeId, key) => {
       const [participantId] = key.split('-');
       const proofFile = getProofFile(participantId, badgeId);
+      const comment = comments.get(key);
       
       assignments.push({
         participant_id: parseInt(participantId),
         badge_id: badgeId,
-        ...(proofFile && { proof: proofFile })
+        ...(proofFile && { proof: proofFile }),
+        ...(comment ? { comment } : {})
       });
     });
 
@@ -455,7 +477,7 @@ const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
                               </div>
                             </label>
                             
-                            {/* Proof file upload for level 2, 3, 4 badges */}
+                            {/* Proof file upload for level 2, 3, 4 badges + optional comment */}
                             {isSelected && needsProof && (
                               <div style={{ 
                                 marginTop: '0.75rem', 
@@ -495,6 +517,25 @@ const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
                                       {proofFile.name}
                                     </div>
                                   )}
+                                </div>
+                                <div style={{ marginTop: '0.75rem' }}>
+                                  <label style={{ 
+                                    fontSize: '0.85rem',
+                                    fontWeight: 500,
+                                    color: '#374151',
+                                    marginBottom: '0.35rem',
+                                    display: 'block'
+                                  }}>
+                                    Commentaire (optionnel)
+                                  </label>
+                                  <textarea
+                                    rows={2}
+                                    className="form-textarea"
+                                    value={getComment(participantIdStr, badge.id)}
+                                    onChange={(e) => handleCommentChange(participantIdStr, badge.id, e.target.value)}
+                                    placeholder="Ajoutez un commentaire (optionnel)"
+                                    style={{ minHeight: '60px' }}
+                                  />
                                 </div>
                               </div>
                             )}

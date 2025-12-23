@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Event } from '../../types';
 import './CalendarView.css';
+import { useAppContext } from '../../context/AppContext';
 
 interface CalendarViewProps {
   events: Event[];
@@ -23,7 +24,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [viewDate, setViewDate] = useState(currentDate);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showEventsPopup, setShowEventsPopup] = useState(false);
-
+  const { state } = useAppContext();
   const monthNames = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
@@ -135,6 +136,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   }}
                 >
                   <span style={{ flex: 1 }}>{event.title}</span>
+                  {state.showingPageType !== 'user' && (
                   <button
                     className="calendar-event-dup-btn"
                     title="Dupliquer"
@@ -146,6 +148,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   >
                     <i className="fas fa-copy"></i>
                   </button>
+                  )}
                 </div>
               ))}
               {dayEvents.length > 2 && (

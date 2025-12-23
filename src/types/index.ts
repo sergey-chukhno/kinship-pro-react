@@ -159,7 +159,7 @@ export interface Event {
   date: string;
   time: string;
   duration: number;
-  type: 'meeting' | 'workshop' | 'training' | 'celebration' | 'session' | 'other';
+  type: 'meeting' | 'workshop' | 'training' | 'session' | 'other';
   location: string;
   participants: EventParticipant[] | string[]; // Can be array of IDs (string) or full participant objects
   image?: string;
@@ -168,6 +168,7 @@ export interface Event {
   projectId: string;
   createdBy: string;
   createdAt: string;
+  documents?: any[];
 }
 
 export interface Notification {

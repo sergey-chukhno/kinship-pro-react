@@ -42,7 +42,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
     date: '',
     time: '',
     duration: '60',
-    type: 'session' as 'session' | 'workshop' | 'training' | 'celebration' | 'meeting' | 'other',
+    type: 'session' as 'session' | 'workshop' | 'training' | 'meeting' | 'other',
     location: '',
     participants: [] as string[],
     badges: [] as string[],
@@ -55,6 +55,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
   const [badgeToAdd, setBadgeToAdd] = useState('');
+  const [documents, setDocuments] = useState<File[]>([]);
   const [csvUploadError, setCsvUploadError] = useState<string>('');
   const [csvUploadSuccess, setCsvUploadSuccess] = useState<string>('');
   const [organizationMembers, setOrganizationMembers] = useState<Member[]>([]);
@@ -222,6 +223,18 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
     }
   };
 
+  const handleDocumentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles = Array.from(files);
+    setDocuments((prev) => [...prev, ...newFiles]);
+    e.target.value = '';
+  };
+
+  const handleRemoveDocument = (name: string) => {
+    setDocuments((prev) => prev.filter((f) => f.name !== name));
+  };
+
   // Helper function to create CSV file from new participants
   const createCsvFileFromParticipants = (participants: NewParticipant[]): File | null => {
     if (participants.length === 0) return null;
@@ -294,7 +307,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
       const payload: CreateEventPayload = {
         event: eventData,
         image: imageFile || undefined,
-        csv_file: csvFile || undefined
+        csv_file: csvFile || undefined,
+        documents: documents.length ? documents : undefined
       };
 
       // Debug: Log final payload
@@ -773,7 +787,6 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
                 <option value="meeting">Réunion</option>
                 <option value="workshop">Atelier</option>
                 <option value="training">Formation</option>
-                <option value="celebration">Célébration</option>
                 <option value="other">Autre</option>
               </select>
             </div>
@@ -1176,6 +1189,52 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
                     );
                   })}
                 </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Documents (optionnel) */}
+          <div className="form-group">
+            <label htmlFor="eventDocuments">Documents (optionnel)</label>
+            <div className="file-upload-container">
+              <input
+                type="file"
+                id="eventDocuments"
+                className="file-input"
+                multiple
+                onChange={handleDocumentsChange}
+              />
+              <label htmlFor="eventDocuments" className="file-upload-label">
+                <i className="fas fa-upload"></i>
+                <span>Ajouter des documents</span>
+              </label>
+            </div>
+            {documents.length > 0 && (
+              <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {documents.map((doc) => (
+                  <div
+                    key={doc.name}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px'
+                    }}
+                  >
+                    <i className="fas fa-file-alt" style={{ color: '#64748b' }}></i>
+                    <span style={{ flex: 1, fontSize: '14px', color: '#334155' }}>{doc.name}</span>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => handleRemoveDocument(doc.name)}
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

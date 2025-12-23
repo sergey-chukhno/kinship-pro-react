@@ -65,7 +65,8 @@ const Events: React.FC = () => {
       status: apiEvent.status as Event['status'],
       projectId: '',
       createdBy: '',
-      createdAt: apiEvent.created_at
+      createdAt: apiEvent.created_at,
+      documents: apiEvent.documents || [],
     };
   };
 
@@ -346,7 +347,7 @@ const Events: React.FC = () => {
 
       {/* Search Bar */}
       <div className="events-search-container">
-        <div className="search-bar">
+        <div className="w-full search-bar">
           <i className="fas fa-search search-icon"></i>
           <input
             type="text"
@@ -368,7 +369,6 @@ const Events: React.FC = () => {
               <option value="meeting">Réunion</option>
               <option value="workshop">Atelier</option>
               <option value="training">Formation</option>
-              <option value="celebration">Célébration</option>
               <option value="other">Autre</option>
             </select>
           </div>
@@ -421,7 +421,7 @@ const Events: React.FC = () => {
 
       {/* Events Content */}
       {!isLoadingEvents && (
-        <div className="events-layout">
+        <div className="min-h-screen events-layout">
           {viewMode === 'calendar' ? (
             <CalendarView 
               events={filteredEvents}

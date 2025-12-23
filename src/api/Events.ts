@@ -7,7 +7,7 @@ export interface EventFormData {
   date: string;                    // YYYY-MM-DD
   time: string;                    // HH:MM
   duration: number;                // minutes
-  type: 'meeting' | 'workshop' | 'training' | 'celebration' | 'session' | 'other';
+  type: 'meeting' | 'workshop' | 'training' | 'session' | 'other';
   location?: string;
   status?: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   badges?: string[];
@@ -18,6 +18,7 @@ export interface CreateEventPayload {
   event: EventFormData;
   image?: File;
   csv_file?: File;
+  documents?: File[];
 }
 
 export interface EventParticipantResponse {
@@ -45,6 +46,7 @@ export interface EventResponse {
   image?: string;
   created_at: string;
   updated_at: string;
+  documents?: any[];
 }
 
 export interface EventsListResponse {
@@ -65,8 +67,10 @@ export const createSchoolEvent = async (
   payload: CreateEventPayload
 ): Promise<EventResponse> => {
   const { event } = payload;
-  const hasFiles = (payload.image && payload.image instanceof File) || 
-                   (payload.csv_file && payload.csv_file instanceof File);
+  const hasFiles =
+    (payload.image && payload.image instanceof File) ||
+    (payload.csv_file && payload.csv_file instanceof File) ||
+    (payload.documents && payload.documents.length > 0);
 
   // Debug: Log payload
   console.log('createSchoolEvent - payload:', {
@@ -171,6 +175,15 @@ export const createSchoolEvent = async (
     formData.append('image', payload.image);
   }
 
+  // Add documents if provided
+  if (payload.documents && payload.documents.length > 0) {
+    payload.documents.forEach((file) => {
+      if (file instanceof File) {
+        formData.append('documents[]', file);
+      }
+    });
+  }
+
   // Add CSV file if provided (must be a File object)
   if (payload.csv_file && payload.csv_file instanceof File) {
     formData.append('csv_file', payload.csv_file);
@@ -197,8 +210,10 @@ export const createCompanyEvent = async (
   payload: CreateEventPayload
 ): Promise<EventResponse> => {
   const { event } = payload;
-  const hasFiles = (payload.image && payload.image instanceof File) || 
-                   (payload.csv_file && payload.csv_file instanceof File);
+  const hasFiles =
+    (payload.image && payload.image instanceof File) ||
+    (payload.csv_file && payload.csv_file instanceof File) ||
+    (payload.documents && payload.documents.length > 0);
 
   // If no files, use JSON format
   if (!hasFiles) {
@@ -277,6 +292,15 @@ export const createCompanyEvent = async (
     formData.append('image', payload.image);
   }
 
+  // Add documents if provided
+  if (payload.documents && payload.documents.length > 0) {
+    payload.documents.forEach((file) => {
+      if (file instanceof File) {
+        formData.append('documents[]', file);
+      }
+    });
+  }
+
   // Add CSV file if provided (must be a File object)
   if (payload.csv_file && payload.csv_file instanceof File) {
     formData.append('csv_file', payload.csv_file);
@@ -302,8 +326,10 @@ export const createTeacherEvent = async (
   payload: CreateEventPayload
 ): Promise<EventResponse> => {
   const { event } = payload;
-  const hasFiles = (payload.image && payload.image instanceof File) || 
-                   (payload.csv_file && payload.csv_file instanceof File);
+  const hasFiles =
+    (payload.image && payload.image instanceof File) ||
+    (payload.csv_file && payload.csv_file instanceof File) ||
+    (payload.documents && payload.documents.length > 0);
 
   // If no files, use JSON format
   if (!hasFiles) {
@@ -380,6 +406,15 @@ export const createTeacherEvent = async (
   // Add image if provided (must be a File object)
   if (payload.image && payload.image instanceof File) {
     formData.append('image', payload.image);
+  }
+
+  // Add documents if provided
+  if (payload.documents && payload.documents.length > 0) {
+    payload.documents.forEach((file) => {
+      if (file instanceof File) {
+        formData.append('documents[]', file);
+      }
+    });
   }
 
   // Add CSV file if provided (must be a File object)
@@ -629,8 +664,10 @@ export const updateSchoolEvent = async (
   payload: CreateEventPayload
 ): Promise<EventResponse> => {
   const { event } = payload;
-  const hasFiles = (payload.image && payload.image instanceof File) || 
-                   (payload.csv_file && payload.csv_file instanceof File);
+  const hasFiles =
+    (payload.image && payload.image instanceof File) ||
+    (payload.csv_file && payload.csv_file instanceof File) ||
+    (payload.documents && payload.documents.length > 0);
 
   // If no files, use JSON format
   if (!hasFiles) {
@@ -707,6 +744,15 @@ export const updateSchoolEvent = async (
   // Add image if provided (must be a File object)
   if (payload.image && payload.image instanceof File) {
     formData.append('image', payload.image);
+  }
+
+  // Add documents if provided
+  if (payload.documents && payload.documents.length > 0) {
+    payload.documents.forEach((file) => {
+      if (file instanceof File) {
+        formData.append('documents[]', file);
+      }
+    });
   }
 
   // Add CSV file if provided (must be a File object)
@@ -1157,6 +1203,7 @@ export interface CompleteEventPayload {
     participant_id: number;
     badge_id: number;
     proof?: File; // Optional proof file for level 2, 3, 4 badges
+    comment?: string; // Optional comment
   }>;
 }
 
@@ -1180,6 +1227,9 @@ export const completeSchoolEvent = async (
       formData.append(`assignments[${index}][badge_id]`, assignment.badge_id.toString());
       if (assignment.proof instanceof File) {
         formData.append(`assignments[${index}][proof]`, assignment.proof);
+      }
+      if (assignment.comment) {
+        formData.append(`assignments[${index}][comment]`, assignment.comment);
       }
     });
     
@@ -1224,6 +1274,9 @@ export const completeCompanyEvent = async (
       if (assignment.proof instanceof File) {
         formData.append(`assignments[${index}][proof]`, assignment.proof);
       }
+      if (assignment.comment) {
+        formData.append(`assignments[${index}][comment]`, assignment.comment);
+      }
     });
     
     const response = await apiClient.post(
@@ -1266,6 +1319,9 @@ export const completeTeacherEvent = async (
       if (assignment.proof instanceof File) {
         formData.append(`assignments[${index}][proof]`, assignment.proof);
       }
+      if (assignment.comment) {
+        formData.append(`assignments[${index}][comment]`, assignment.comment);
+      }
     });
     
     const response = await apiClient.post(
@@ -1307,6 +1363,9 @@ export const completeUserEvent = async (
       formData.append(`assignments[${index}][badge_id]`, assignment.badge_id.toString());
       if (assignment.proof instanceof File) {
         formData.append(`assignments[${index}][proof]`, assignment.proof);
+      }
+      if (assignment.comment) {
+        formData.append(`assignments[${index}][comment]`, assignment.comment);
       }
     });
     
