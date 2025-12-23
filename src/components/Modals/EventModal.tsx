@@ -137,6 +137,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, onClose, onSave }) => {
           lastName: member.last_name || '',
           fullName: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim(),
           email: member.email || '',
+          birthday: member.birthday || member.birth_date || member.birthdate || member.date_of_birth || undefined,
+          hasTemporaryEmail: member.has_temporary_email || member.hasTemporaryEmail || false,
           profession: member.job || member.role || 'Membre',
           roles: member.role ? [member.role] : [],
           skills: member.skills?.map((s: any) => s.name || s) || [],

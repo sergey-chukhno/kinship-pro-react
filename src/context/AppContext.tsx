@@ -1,5 +1,5 @@
 import React, { createContext, ReactNode, useContext, useReducer } from 'react';
-import { mockBadges, mockEvents, mockMembers, mockMembershipRequests, mockNotifications, mockProjects } from '../data/mockData';
+import { mockBadges, mockMembers, mockMembershipRequests, mockNotifications, mockProjects } from '../data/mockData';
 import { AppState, Badge, BadgeAttribution, Event, FilterOptions, Member, PageType, Project, ShowingPageType } from '../types';
 
 interface AppContextType {
@@ -74,7 +74,7 @@ const initialState: AppState = {
   },
   members: mockMembers,
   projects: mockProjects,
-  events: mockEvents,
+  events: [],
   badges: mockBadges,
   notifications: mockNotifications,
   membershipRequests: mockMembershipRequests,

@@ -142,8 +142,8 @@ export const createSchoolEvent = async (
 
   // Add badges if provided
   if (event.badges && event.badges.length > 0) {
-    event.badges.forEach((badgeId, index) => {
-      formData.append(`event[badges][${index}]`, badgeId);
+    event.badges.forEach((badgeId) => {
+      formData.append('event[badges][]', badgeId);
     });
   }
 
@@ -258,8 +258,8 @@ export const createCompanyEvent = async (
 
   // Add badges if provided
   if (event.badges && event.badges.length > 0) {
-    event.badges.forEach((badgeId, index) => {
-      formData.append(`event[badges][${index}]`, badgeId);
+    event.badges.forEach((badgeId) => {
+      formData.append('event[badges][]', badgeId);
     });
   }
 
@@ -363,8 +363,8 @@ export const createTeacherEvent = async (
 
   // Add badges if provided
   if (event.badges && event.badges.length > 0) {
-    event.badges.forEach((badgeId, index) => {
-      formData.append(`event[badges][${index}]`, badgeId);
+    event.badges.forEach((badgeId) => {
+      formData.append('event[badges][]', badgeId);
     });
   }
 
@@ -690,8 +690,8 @@ export const updateSchoolEvent = async (
 
   // Add badges if provided
   if (event.badges && event.badges.length > 0) {
-    event.badges.forEach((badgeId, index) => {
-      formData.append(`event[badges][${index}]`, badgeId);
+    event.badges.forEach((badgeId) => {
+      formData.append('event[badges][]', badgeId);
     });
   }
 
@@ -797,8 +797,8 @@ export const updateCompanyEvent = async (
 
   // Add badges if provided
   if (event.badges && event.badges.length > 0) {
-    event.badges.forEach((badgeId, index) => {
-      formData.append(`event[badges][${index}]`, badgeId);
+    event.badges.forEach((badgeId) => {
+      formData.append('event[badges][]', badgeId);
     });
   }
 
@@ -903,8 +903,8 @@ export const updateTeacherEvent = async (
 
   // Add badges if provided
   if (event.badges && event.badges.length > 0) {
-    event.badges.forEach((badgeId, index) => {
-      formData.append(`event[badges][${index}]`, badgeId);
+    event.badges.forEach((badgeId) => {
+      formData.append('event[badges][]', badgeId);
     });
   }
 
@@ -1008,8 +1008,8 @@ export const createUserEvent = async (
 
   // Add badges if provided
   if (event.badges && event.badges.length > 0) {
-    event.badges.forEach((badgeId, index) => {
-      formData.append(`event[badges][${index}]`, badgeId);
+    event.badges.forEach((badgeId) => {
+      formData.append('event[badges][]', badgeId);
     });
   }
 
@@ -1113,8 +1113,8 @@ export const updateUserEvent = async (
 
   // Add badges if provided
   if (event.badges && event.badges.length > 0) {
-    event.badges.forEach((badgeId, index) => {
-      formData.append(`event[badges][${index}]`, badgeId);
+    event.badges.forEach((badgeId) => {
+      formData.append('event[badges][]', badgeId);
     });
   }
 
