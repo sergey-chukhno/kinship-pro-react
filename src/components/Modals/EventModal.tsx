@@ -1064,7 +1064,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           </div>
 
           {/* Badges Selection Section */}
-          <div className="form-group">
+{formData.type !== 'meeting' && formData.type !== 'other' &&          <div className="form-group">
             <label htmlFor="eventBadges">Badges assignés à l'événement</label>
             {availableBadges.length === 0 ? (
               <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic' }}>
@@ -1250,7 +1250,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                 </div>
               </div>
             )}
-          </div>
+          </div>}
           
           {/* Documents (optionnel) */}
           <div className="form-group">
