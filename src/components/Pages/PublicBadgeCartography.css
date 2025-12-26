@@ -1,0 +1,120 @@
+.public-cartography-container {
+  min-height: 100vh;
+  background: var(--bg-primary, #f5f5f5);
+  padding: 2rem;
+}
+
+.public-cartography-header {
+  max-width: 1200px;
+  margin: 0 auto 2rem;
+  text-align: center;
+}
+
+.public-cartography-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin: 0 0 1rem 0;
+}
+
+.public-cartography-meta {
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.9rem;
+}
+
+.public-cartography-meta i {
+  margin-right: 0.5rem;
+}
+
+.public-cartography-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.public-cartography-loading,
+.public-cartography-error,
+.public-cartography-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  padding: 2rem;
+}
+
+.public-cartography-loading i,
+.public-cartography-error i,
+.public-cartography-empty i {
+  font-size: 3rem;
+  color: var(--primary, #5570F1);
+  margin-bottom: 1rem;
+}
+
+.public-cartography-loading p,
+.public-cartography-error p,
+.public-cartography-empty p {
+  color: var(--text-secondary, #6b7280);
+  font-size: 1rem;
+}
+
+.public-cartography-error h2 {
+  color: var(--error, #ef4444);
+  margin: 1rem 0;
+}
+
+.level-divider {
+  margin-bottom: 2rem;
+}
+
+.level-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--card-bg, #ffffff);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.level-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.level-color-square {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+}
+
+.level-count {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .public-cartography-container {
+    padding: 1rem;
+  }
+
+  .public-cartography-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .badges-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

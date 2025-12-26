@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { getProjectBadges } from '../../api/Badges';
+import apiClient from '../../api/config';
+import { getProjectById } from '../../api/Project';
+import { addProjectMember, createProjectTeam, deleteProjectTeam, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
-import { mockProjects, mockMembers } from '../../data/mockData';
+import { mockProjects } from '../../data/mockData';
+import { useToast } from '../../hooks/useToast';
+import { BadgeFile, Project } from '../../types';
+import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { canUserAssignBadges } from '../../utils/badgePermissions';
+import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize } from '../../utils/projectMapper';
+import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
-import './ProjectManagement.css';
-import './MembershipRequests.css';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
-import { getProjectById } from '../../api/Project';
-import { updateProject, getProjectStats, ProjectStats, joinProject, getProjectPendingMembers, updateProjectMember, removeProjectMember, getProjectMembers, addProjectMember, getOrganizationMembers, getProjectTeams, createProjectTeam, updateProjectTeam, deleteProjectTeam } from '../../api/Projects';
-import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
-import apiClient from '../../api/config';
-import { mapApiProjectToFrontendProject, validateImageSize, validateImageFormat, mapEditFormToBackend, base64ToFile, getUserProjectRole } from '../../utils/projectMapper';
-import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
-import { canUserAssignBadges } from '../../utils/badgePermissions';
-import { getLocalBadgeImage } from '../../utils/badgeImages';
-import { Project, BadgeFile } from '../../types';
-import { useToast } from '../../hooks/useToast';
+import './MembershipRequests.css';
+import './ProjectManagement.css';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();

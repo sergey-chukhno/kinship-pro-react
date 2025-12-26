@@ -162,21 +162,42 @@ export const getTeacherActivityStats = () => {
   return axiosClient.get('/api/v1/teachers/activity_stats');
 };
 
-export const getSchoolAssignedBadges = (schoolId: number, perPage = 200) => {
+export const getSchoolAssignedBadges = (schoolId: number, perPage = 200, badgeId?: number, page?: number) => {
+  const params: any = { per_page: perPage };
+  if (badgeId) {
+    params.badge_id = badgeId;
+  }
+  if (page) {
+    params.page = page;
+  }
   return axiosClient.get(`/api/v1/schools/${schoolId}/badges/assigned`, {
-    params: { per_page: perPage },
+    params,
   });
 };
 
-export const getCompanyAssignedBadges = (companyId: number, perPage = 200) => {
+export const getCompanyAssignedBadges = (companyId: number, perPage = 200, badgeId?: number, page?: number) => {
+  const params: any = { per_page: perPage };
+  if (badgeId) {
+    params.badge_id = badgeId;
+  }
+  if (page) {
+    params.page = page;
+  }
   return axiosClient.get(`/api/v1/companies/${companyId}/badges/assigned`, {
-    params: { per_page: perPage },
+    params,
   });
 };
 
-export const getTeacherAssignedBadges = (perPage = 200) => {
+export const getTeacherAssignedBadges = (perPage = 200, badgeId?: number, page?: number) => {
+  const params: any = { per_page: perPage };
+  if (badgeId) {
+    params.badge_id = badgeId;
+  }
+  if (page) {
+    params.page = page;
+  }
   return axiosClient.get(`/api/v1/teachers/badges/assigned`, {
-    params: { per_page: perPage },
+    params,
   });
 };
 

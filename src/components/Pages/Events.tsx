@@ -1,15 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Event } from '../../types';
 import EventModal from '../Modals/EventModal';
+import EventDetailModal from '../Modals/EventDetailModal';
 import EventCard from '../Events/EventCard';
 import CalendarView from '../Events/CalendarView';
+import { 
+  getSchoolEvents, 
+  getCompanyEvents, 
+  getTeacherEvents,
+  getUserEvents,
+  deleteSchoolEvent,
+  deleteCompanyEvent,
+  deleteTeacherEvent,
+  deleteUserEvent,
+  EventResponse
+} from '../../api/Events';
+import { getOrganizationId } from '../../utils/projectMapper';
 import './Events.css';
 
 const Events: React.FC = () => {
   const { state, addEvent, updateEvent, deleteEvent } = useAppContext();
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isEventDetailModalOpen, setIsEventDetailModalOpen] = useState(false);
   const [isEventsOverlayOpen, setIsEventsOverlayOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,15 +31,92 @@ const Events: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [eventTypeFilter, setEventTypeFilter] = useState<string>('all');
   const [periodFilter, setPeriodFilter] = useState<string>('all');
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [isDuplicateMode, setIsDuplicateMode] = useState(false);
 
-  // Use events from AppContext
-  const events = state.events;
+  // Transform API response to frontend Event format
+  const transformEventResponse = (apiEvent: EventResponse): Event => {
+    // Transform participants from API format to frontend format
+    // Ensure all participants are included, regardless of their role
+    const transformedParticipants = apiEvent.participants?.map(p => ({
+      id: p.id.toString(),
+      email: p.email,
+      first_name: p.first_name,
+      last_name: p.last_name,
+      claim_token: p.claim_token || undefined,
+      has_event_badges: p.has_event_badges || false,
+      received_badge_ids: p.received_badge_ids || []
+    })) || [];
+    
+    return {
+      id: apiEvent.id.toString(),
+      title: apiEvent.title,
+      description: apiEvent.description || '',
+      date: apiEvent.date,
+      time: apiEvent.time,
+      duration: apiEvent.duration,
+      type: apiEvent.type as Event['type'],
+      location: apiEvent.location || '',
+      participants: transformedParticipants,
+      badges: apiEvent.badges?.map(b => b.toString()) || [],
+      image: apiEvent.image || '',
+      status: apiEvent.status as Event['status'],
+      projectId: '',
+      createdBy: '',
+      createdAt: apiEvent.created_at,
+      documents: apiEvent.documents || [],
+    };
+  };
+
+  // Fetch events from API
+  useEffect(() => {
+    const fetchEvents = async () => {
+      setIsLoadingEvents(true);
+      setEventsError(null);
+
+      try {
+        const organizationId = getOrganizationId(state.user, state.showingPageType);
+        let eventsResponse;
+
+        if (state.showingPageType === 'edu' && organizationId) {
+          eventsResponse = await getSchoolEvents(organizationId);
+        } else if (state.showingPageType === 'pro' && organizationId) {
+          eventsResponse = await getCompanyEvents(organizationId);
+        } else if (state.showingPageType === 'teacher') {
+          eventsResponse = await getTeacherEvents();
+        } else if (state.showingPageType === 'user') {
+          eventsResponse = await getUserEvents();
+        } else {
+          // Fallback to context events
+          setEvents(state.events);
+          setIsLoadingEvents(false);
+          return;
+        }
+
+        // Transform API events to frontend format
+        const transformedEvents = eventsResponse.data.map(transformEventResponse);
+        setEvents(transformedEvents);
+      } catch (error: any) {
+        console.error('Error fetching events:', error);
+        setEventsError(error.response?.data?.message || error.message || 'Erreur lors du chargement des événements');
+        // Fallback to context events on error
+        setEvents(state.events);
+      } finally {
+        setIsLoadingEvents(false);
+      }
+    };
+
+    fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType, state.user.id]);
 
   const filteredEvents = events.filter(event => {
     // Search filter
-    const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.location.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (event?.title?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (event?.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (event?.location?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
     // Event type filter
     const matchesType = eventTypeFilter === 'all' || event.type === eventTypeFilter;
@@ -69,47 +160,146 @@ const Events: React.FC = () => {
 
   const handleEventClick = (event: Event) => {
     setSelectedEvent(event);
+    setIsEventDetailModalOpen(true);
   };
 
   const handleCreateEvent = () => {
     setSelectedEvent(null);
+    setIsDuplicateMode(false);
     setIsEventModalOpen(true);
   };
 
   const handleEditEvent = (event: Event) => {
     setSelectedEvent(event);
+    setIsDuplicateMode(false);
+    setIsEventDetailModalOpen(false);
     setIsEventModalOpen(true);
   };
 
-  const handleSaveEvent = (eventData: Omit<Event, 'id'>) => {
-    if (selectedEvent) {
-      updateEvent(selectedEvent.id, eventData);
-      setSuccessMessage('Événement modifié avec succès !');
-    } else {
-      const newEvent: Event = {
-        ...eventData,
-        id: Date.now().toString()
-      };
-      addEvent(newEvent);
-      setSuccessMessage('Événement créé avec succès !');
+  const handleSaveEvent = async (eventData: Omit<Event, 'id'>) => {
+    try {
+      if (isDuplicateMode || !selectedEvent) {
+        // Create new event (duplicate or fresh)
+        const newEvent: Event = {
+          ...eventData,
+          id: Date.now().toString()
+        };
+        addEvent(newEvent);
+        setSuccessMessage(isDuplicateMode ? 'Événement dupliqué avec succès !' : 'Événement créé avec succès !');
+        // Add to local events
+        setEvents(prev => [...prev, newEvent]);
+        setIsDuplicateMode(false);
+      }
+      else {
+        updateEvent(selectedEvent.id, eventData);
+        setSuccessMessage('Événement modifié avec succès !');
+        // Update local events
+        setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, ...eventData } : e));
+      }
+      setIsEventModalOpen(false);
+      setSelectedEvent(null);
+      setIsDuplicateMode(false);
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+
+      // Reload events from API after a short delay to get the latest data
+      setTimeout(async () => {
+        const organizationId = getOrganizationId(state.user, state.showingPageType);
+        try {
+          let eventsResponse;
+          if (state.showingPageType === 'edu' && organizationId) {
+            eventsResponse = await getSchoolEvents(organizationId);
+          } else if (state.showingPageType === 'pro' && organizationId) {
+            eventsResponse = await getCompanyEvents(organizationId);
+          } else if (state.showingPageType === 'teacher') {
+            eventsResponse = await getTeacherEvents();
+          } else if (state.showingPageType === 'user') {
+            eventsResponse = await getUserEvents();
+          } else {
+            return;
+          }
+          const transformedEvents = eventsResponse.data.map(transformEventResponse);
+          setEvents(transformedEvents);
+        } catch (error) {
+          console.error('Error reloading events:', error);
+        }
+      }, 1000);
+    } catch (error) {
+      console.error('Error saving event:', error);
     }
-    setIsEventModalOpen(false);
-    setSelectedEvent(null);
-    
-    // Hide success message after 3 seconds
-    setTimeout(() => {
-      setSuccessMessage('');
-    }, 3000);
   };
 
-  const handleDeleteEvent = (id: string) => {
-    deleteEvent(id);
-    setSelectedEvent(null);
+  const handleDuplicateEvent = (eventToDuplicate: Event) => {
+    // Open EventModal prefilled, but treat as creation
+    const participantIds = (eventToDuplicate.participants || []).map((p) =>
+      typeof p === 'object' ? p.id.toString() : p.toString()
+    );
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    const clonedEvent: Event = {
+      ...eventToDuplicate,
+      id: eventToDuplicate.id,
+      title: `${eventToDuplicate.title} (copie)`,
+      participants: participantIds,
+      date: todayStr // reset date to today for the duplicate
+    };
+
+    setSelectedEvent(clonedEvent);
+    setIsDuplicateMode(true);
+    setIsEventDetailModalOpen(false);
+    setIsEventModalOpen(true);
   };
 
-  const handleExportEvents = () => {
-    // TODO: Implement export functionality
-    console.log('Export events');
+  const handleDeleteEvent = async (id: string) => {
+    // Confirmation dialog
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet événement ?')) {
+      return;
+    }
+
+    try {
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const eventId = parseInt(id);
+
+      if (isNaN(eventId)) {
+        console.error('Invalid event ID:', id);
+        return;
+      }
+
+      // Call appropriate API based on context
+      if (state.showingPageType === 'edu' && organizationId) {
+        await deleteSchoolEvent(organizationId, eventId);
+      } else if (state.showingPageType === 'pro' && organizationId) {
+        await deleteCompanyEvent(organizationId, eventId);
+      } else if (state.showingPageType === 'teacher') {
+        await deleteTeacherEvent(eventId);
+      } else if (state.showingPageType === 'user') {
+        await deleteUserEvent(eventId);
+      } else {
+        // Fallback to context delete
+        deleteEvent(id);
+      }
+
+      // Update local state
+      setEvents(prev => prev.filter(e => e.id !== id));
+      setSelectedEvent(null);
+      setIsEventDetailModalOpen(false);
+      setIsEventModalOpen(false); // Also close edit modal if open
+      setSuccessMessage('Événement supprimé avec succès !');
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error deleting event:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Erreur lors de la suppression de l\'événement';
+      alert(errorMessage);
+    }
   };
 
   // const handleCopyLink = () => {
@@ -126,14 +316,11 @@ const Events: React.FC = () => {
           <h2>Gestion des événements</h2>
         </div>
         <div className="events-actions">
-          <div className="dropdown" style={{ position: 'relative' }}>
-            <button className="btn btn-outline" onClick={handleExportEvents}>
-              <i className="fas fa-download"></i> Exporter
+          { state.showingPageType !== 'user' && (
+            <button className="btn btn-primary" onClick={handleCreateEvent}>
+              <i className="fas fa-plus"></i> Créer un événement
             </button>
-          </div>
-          <button className="btn btn-primary" onClick={handleCreateEvent}>
-            <i className="fas fa-plus"></i> Créer un événement
-          </button>
+          )}
         </div>
       </div>
 
@@ -149,7 +336,7 @@ const Events: React.FC = () => {
 
       {/* Search Bar */}
       <div className="events-search-container">
-        <div className="search-bar">
+        <div className="w-full search-bar">
           <i className="fas fa-search search-icon"></i>
           <input
             type="text"
@@ -167,10 +354,10 @@ const Events: React.FC = () => {
               onChange={(e) => setEventTypeFilter(e.target.value)}
             >
               <option value="all">Tous les types</option>
+              <option value="session">Session</option>
               <option value="meeting">Réunion</option>
               <option value="workshop">Atelier</option>
               <option value="training">Formation</option>
-              <option value="celebration">Célébration</option>
               <option value="other">Autre</option>
             </select>
           </div>
@@ -207,31 +394,56 @@ const Events: React.FC = () => {
         </button>
       </div>
 
+      {/* Loading State */}
+      {isLoadingEvents && (
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <i className="fas fa-spinner fa-spin"></i> Chargement des événements...
+        </div>
+      )}
+
+      {/* Error State */}
+      {eventsError && !isLoadingEvents && (
+        <div style={{ padding: '20px', backgroundColor: '#f8d7da', color: '#721c24', borderRadius: '4px', margin: '10px 0' }}>
+          <i className="fas fa-exclamation-circle"></i> {eventsError}
+        </div>
+      )}
+
       {/* Events Content */}
-      <div className="events-layout">
-        {viewMode === 'calendar' ? (
-          <CalendarView 
-            events={filteredEvents}
-            currentDate={currentDate}
-            onDateChange={setCurrentDate}
-            onEventClick={handleEventClick}
-            onCreateEvent={handleCreateEvent}
-          />
-        ) : (
-          <div className="events-list">
-            {filteredEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                members={state.members}
-                onClick={() => handleEventClick(event)}
-                onEdit={() => handleEditEvent(event)}
-                onDelete={() => handleDeleteEvent(event.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      {!isLoadingEvents && (
+        <div className="min-h-screen events-layout">
+          {viewMode === 'calendar' ? (
+            <CalendarView 
+              events={filteredEvents}
+              currentDate={currentDate}
+              onDateChange={setCurrentDate}
+              onEventClick={handleEventClick}
+              onCreateEvent={handleCreateEvent}
+              onDuplicateEvent={(event) => handleDuplicateEvent(event)}
+            />
+          ) : (
+            <div className="events-list">
+              {filteredEvents.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                  <i className="fas fa-calendar-times" style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}></i>
+                  <p>Aucun événement trouvé</p>
+                </div>
+              ) : (
+                filteredEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    members={state.members}
+                    onClick={() => handleEventClick(event)}
+                    onEdit={() => handleEditEvent(event)}
+                    onDelete={() => handleDeleteEvent(event.id)}
+                    onDuplicate={() => handleDuplicateEvent(event)}
+                  />
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Events Overlay */}
       {isEventsOverlayOpen && (
@@ -283,13 +495,90 @@ const Events: React.FC = () => {
         </div>
       )}
 
-      {/* Event Modal */}
+      {/* Event Detail Modal */}
+      {isEventDetailModalOpen && selectedEvent && (
+        <EventDetailModal
+          event={selectedEvent}
+          onClose={() => {
+            setIsEventDetailModalOpen(false);
+            setSelectedEvent(null);
+          }}
+          onEdit={() => handleEditEvent(selectedEvent)}
+          onDelete={() => {
+            handleDeleteEvent(selectedEvent.id);
+            setIsEventDetailModalOpen(false);
+            setSelectedEvent(null);
+          }}
+          onComplete={async () => {
+            // Refresh events after completion to get updated event data
+            try {
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              let eventsResponse;
+
+              if (state.showingPageType === 'edu' && organizationId) {
+                eventsResponse = await getSchoolEvents(organizationId);
+              } else if (state.showingPageType === 'pro' && organizationId) {
+                eventsResponse = await getCompanyEvents(organizationId);
+              } else if (state.showingPageType === 'teacher') {
+                eventsResponse = await getTeacherEvents();
+              } else {
+                return;
+              }
+
+              // Transform API events to frontend format
+              const transformedEvents = eventsResponse.data.map(transformEventResponse);
+              setEvents(transformedEvents);
+              
+              // Update selected event if it still exists
+              const updatedEvent = transformedEvents.find(e => e.id === selectedEvent.id);
+              if (updatedEvent) {
+                setSelectedEvent(updatedEvent);
+              }
+            } catch (error) {
+              console.error('Error refreshing events:', error);
+            }
+          }}
+          onParticipantRemoved={async () => {
+            // Refresh events to get updated participant list
+            try {
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              let eventsResponse;
+
+              if (state.showingPageType === 'edu' && organizationId) {
+                eventsResponse = await getSchoolEvents(organizationId);
+              } else if (state.showingPageType === 'pro' && organizationId) {
+                eventsResponse = await getCompanyEvents(organizationId);
+              } else if (state.showingPageType === 'teacher') {
+                eventsResponse = await getTeacherEvents();
+              } else {
+                return;
+              }
+
+              // Transform API events to frontend format
+              const transformedEvents = eventsResponse.data.map(transformEventResponse);
+              setEvents(transformedEvents);
+              
+              // Update selected event if it still exists
+              const updatedEvent = transformedEvents.find(e => e.id === selectedEvent.id);
+              if (updatedEvent) {
+                setSelectedEvent(updatedEvent);
+              }
+            } catch (error) {
+              console.error('Error refreshing events:', error);
+            }
+          }}
+        />
+      )}
+
+      {/* Event Modal (for create/edit) */}
       {isEventModalOpen && (
         <EventModal
           event={selectedEvent}
+          forceCreate={isDuplicateMode}
           onClose={() => {
             setIsEventModalOpen(false);
             setSelectedEvent(null);
+            setIsDuplicateMode(false);
           }}
           onSave={handleSaveEvent}
         />
