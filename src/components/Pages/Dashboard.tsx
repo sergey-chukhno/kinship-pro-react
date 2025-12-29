@@ -1111,7 +1111,7 @@ const Dashboard: React.FC = () => {
     },
     {
       key: 'total_levels',
-      label: state.showingPageType === 'pro' ? 'Programmes actifs' : 'Niveaux',
+      label: state.showingPageType === 'pro' ? 'Programmes actifs' : 'Classes',
       icon: '/icons_logo/Icon=Badges.svg',
       value: overview?.total_levels,
       variant: 'stat-card2',
