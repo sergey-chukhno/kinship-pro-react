@@ -1229,7 +1229,9 @@ const Dashboard: React.FC = () => {
       return Number.isNaN(timestamp) ? 0 : timestamp;
     };
 
+    // Filter to only show projects with "in_progress" status
     return [...projects]
+      .filter((project) => project.status === 'in_progress')
       .sort((a, b) => getTimestamp(b) - getTimestamp(a))
       .slice(0, 3);
   }, [projects]);
