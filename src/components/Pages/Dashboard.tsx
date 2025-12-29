@@ -1185,6 +1185,14 @@ const Dashboard: React.FC = () => {
       value: state.showingPageType === 'pro' ? branches?.total_branches : overview?.total_students,
       variant: 'stat-card',
     },
+    // Classes card for edu dashboard (placed after Étudiants)
+    ...(state.showingPageType === 'edu' ? [{
+      key: 'total_levels',
+      label: 'Classes',
+      icon: '/icons_logo/Icon=Badges.svg',
+      value: overview?.total_levels,
+      variant: 'stat-card2',
+    }] : []),
     {
       key: 'total_projects',
       label: 'Projets',
@@ -1192,11 +1200,12 @@ const Dashboard: React.FC = () => {
       value: overview?.total_projects,
       variant: 'stat-card2',
     },
+    // Badges card - shown for both pro and edu dashboards
     {
-      key: state.showingPageType === 'pro' ? 'badges_assigned' : 'total_levels',
-      label: state.showingPageType === 'pro' ? 'Badges' : 'Classes',
+      key: 'badges_assigned',
+      label: 'Badges',
       icon: '/icons_logo/Icon=Badges.svg',
-      value: state.showingPageType === 'pro' ? badgesAssigned?.total : overview?.total_levels,
+      value: badgesAssigned?.total,
       variant: 'stat-card2',
     },
   ];
