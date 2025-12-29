@@ -5,6 +5,20 @@
   gap: 24px;
   padding: 24px;
   min-height: 100vh;
+  width: 100%;
+  max-width: none;
+}
+
+/* Override main.css to ensure dashboard-main-content uses flex row layout */
+.dashboard-main-layout.active .dashboard-main-content {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 24px;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0;
+  margin-top: 0 !important;
 }
 
 .dashboard-header {
@@ -203,19 +217,28 @@
 /* --- MODIFICATION DE LA STRUCTURE --- */
 
 .dashboard-main-content {
-  display: flex;
-  flex-direction: row; /* Côte à côte */
+  display: flex !important;
+  flex-direction: row !important; /* Côte à côte */
   align-items: flex-start;
   gap: 24px;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 /* Nouvelle classe pour la partie gauche */
 .dashboard-left-column {
-  flex: 1;
+  flex: 1 1 auto !important;
   display: flex;
   flex-direction: column;
   gap: 32px;
   min-width: 0; /* Important pour la réactivité des graphiques */
+  width: 100% !important;
+  max-width: none !important;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: auto;
 }
 
 /* --- FIN MODIFICATION STRUCTURE --- */
@@ -498,20 +521,23 @@
 }
 
 .chart-placeholder {
-  height: 250px;
+  min-height: 250px;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  width: 100%;
 }
 
 .chart-mock {
   width: 100%;
-  height: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  flex: 1;
 }
 
 .chart-bars {
@@ -520,6 +546,7 @@
   gap: 8px;
   height: 160px;
   width: 100%;
+  max-width: 100%;
   margin-bottom: 16px;
   justify-content: space-between; /* Distribute bars evenly */
   padding: 0 8px; /* Add padding to prevent truncation */
@@ -571,6 +598,7 @@
 .chart-labels {
   display: flex;
   width: 100%;
+  max-width: 100%;
   gap: 8px;
   justify-content: space-between;
   padding: 0 8px;
@@ -998,22 +1026,52 @@
 /* --- NOUVELLE SECTION : Fusion Membres Récents + Activité --- */
 
 .members-overview-section {
-  display: flex;
+  display: flex !important;
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden; /* Assure que les coins arrondis sont respectés */
+  width: 100% !important;
+  min-width: 0;
+  max-width: none !important;
+  flex: 1 1 auto;
+  align-self: stretch;
+}
+
+/* Full-width version that spans both grid columns */
+.members-overview-section-full-width {
+  grid-column: 1 / -1 !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin-top: 24px;
 }
 
 /* Conteneur des Membres (Partie Gauche) */
 .recent-members-container {
   /* On retire les styles de card pour ne pas avoir double bordure/ombre */
   padding: 24px;
-  flex: 0 0 50%; /* Donne environ 45% de la largeur du bloc total */
+  flex: 0 0 320px; /* Largeur fixe pour la liste des membres */
+  min-width: 280px;
+  max-width: 400px;
   border-right: 1px solid var(--border, #f3f4f6); /* Séparateur visuel */
   box-shadow: none;
   background: none;
+}
+
+/* Conteneur de l'Activité des membres (Partie Droite) */
+.member-activity-chart-container {
+  flex: 1 1 auto !important;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  min-width: 0;
+  width: 100% !important;
+  max-width: none !important;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
 }
 
 .recent-members-header {
@@ -1127,13 +1185,14 @@
 /* Conteneur du Graphique (Partie Droite) */
 .member-activity-chart {
   flex: 1;
-  padding: 24px;
+  padding: 0;
   box-shadow: none; /* Retirer l'ombre et la bordure de .chart-container */
   border: none;
   display: flex;
   flex-direction: column; /* Force les enfants à s'empiler verticalement */
   min-width: 0;
   overflow: visible;
+  width: 100%;
 }
 
 /* Ensure parent container allows tabs to expand */
@@ -1181,7 +1240,9 @@
 .chart-controls-and-graph {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
 }
 
 .member-activity-chart .activity-type-selector {
@@ -1214,7 +1275,8 @@
 /* Ajustement du Chart pour qu'il prenne l'espace restant */
 .member-activity-chart .chart-placeholder {
     flex: 1; /* Permet au placeholder de prendre l'espace restant */
-    min-height: 150px; /* S'assurer qu'il reste de la place pour le graphique */
+    min-height: 200px; /* S'assurer qu'il reste de la place pour le graphique */
+    width: 100%;
 }
 
 /* Média queries pour la responsivité */
