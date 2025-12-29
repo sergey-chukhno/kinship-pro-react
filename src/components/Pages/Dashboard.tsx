@@ -1162,6 +1162,7 @@ const Dashboard: React.FC = () => {
 
   const overview = statsData?.overview;
   const branches = statsData?.branches;
+  const badgesAssigned = statsData?.badges_assigned;
   const statCards = [
     {
       key: 'total_members',
@@ -1192,10 +1193,10 @@ const Dashboard: React.FC = () => {
       variant: 'stat-card2',
     },
     {
-      key: 'total_levels',
-      label: state.showingPageType === 'pro' ? 'Programmes actifs' : 'Classes',
+      key: state.showingPageType === 'pro' ? 'badges_assigned' : 'total_levels',
+      label: state.showingPageType === 'pro' ? 'Badges' : 'Classes',
       icon: '/icons_logo/Icon=Badges.svg',
-      value: overview?.total_levels,
+      value: state.showingPageType === 'pro' ? badgesAssigned?.total : overview?.total_levels,
       variant: 'stat-card2',
     },
   ];
