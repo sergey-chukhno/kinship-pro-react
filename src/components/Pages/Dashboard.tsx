@@ -88,10 +88,91 @@ const ACTIVITY_DEFAULT_COLORS: Record<ActivityType, string> = {
   badges: '#16A34A',
 };
 
+// Professional color palette for multi-colored chart bars
+const CHART_BAR_COLORS = [
+  '#5570F1', // Blue
+  '#10B981', // Green
+  '#F59E0B', // Amber
+  '#8B5CF6', // Purple
+  '#EF4444', // Red
+  '#06B6D4', // Cyan
+  '#84CC16', // Lime
+  '#EC4899', // Pink
+  '#F97316', // Orange
+  '#14B8A6', // Teal
+  '#6366F1', // Indigo
+  '#F43F5E', // Rose
+];
+
 const DEFAULT_ACTIVITY_LABELS: Record<ActivityPeriodKey, string[]> = {
   '1w': ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
   '1m': ['S1', 'S2', 'S3', 'S4'],
   '6m': ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+};
+
+// Normalize week labels to always start with Monday
+const normalizeWeekLabels = (labels: string[], bars: number[]): { labels: string[]; bars: number[] } => {
+  if (labels.length !== 7 || bars.length !== 7) {
+    return { labels, bars };
+  }
+
+  const weekOrder = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const weekOrderVariants = [
+    ['Lun', 'Lundi', 'Mon', 'Monday'],
+    ['Mar', 'Mardi', 'Tue', 'Tuesday'],
+    ['Mer', 'Mercredi', 'Wed', 'Wednesday'],
+    ['Jeu', 'Jeudi', 'Thu', 'Thursday'],
+    ['Ven', 'Vendredi', 'Fri', 'Friday'],
+    ['Sam', 'Samedi', 'Sat', 'Saturday'],
+    ['Dim', 'Dimanche', 'Sun', 'Sunday'],
+  ];
+
+  // Check if already starting with Monday (any variant)
+  const firstLabel = labels[0]?.trim() || '';
+  const isMonday = weekOrderVariants[0].some(variant => 
+    firstLabel.toLowerCase().startsWith(variant.toLowerCase())
+  );
+
+  if (isMonday) {
+    return { labels, bars };
+  }
+
+  // Find the index of Monday in the current labels (check all variants)
+  let mondayIndex = -1;
+  for (let i = 0; i < labels.length; i++) {
+    const label = labels[i]?.trim() || '';
+    if (weekOrderVariants[0].some(variant => 
+      label.toLowerCase().startsWith(variant.toLowerCase())
+    )) {
+      mondayIndex = i;
+      break;
+    }
+  }
+
+  // If Monday is not found, use fallback order
+  if (mondayIndex === -1) {
+    return { labels: DEFAULT_ACTIVITY_LABELS['1w'], bars };
+  }
+
+  // Reorder labels and bars to start with Monday
+  const reorderedLabels = [...labels.slice(mondayIndex), ...labels.slice(0, mondayIndex)];
+  const reorderedBars = [...bars.slice(mondayIndex), ...bars.slice(0, mondayIndex)];
+
+  // Normalize labels to use standard abbreviations
+  const normalizedLabels = reorderedLabels.map((label, index) => {
+    const trimmed = label?.trim() || '';
+    // Check if label matches any variant of the expected day
+    for (let variantIndex = 0; variantIndex < weekOrderVariants.length; variantIndex++) {
+      if (weekOrderVariants[variantIndex].some(variant => 
+        trimmed.toLowerCase().startsWith(variant.toLowerCase())
+      )) {
+        return weekOrder[variantIndex];
+      }
+    }
+    return weekOrder[index] || label;
+  });
+
+  return { labels: normalizedLabels, bars: reorderedBars };
 };
 
 type BadgeDistributionSegment = {
@@ -1104,14 +1185,14 @@ const Dashboard: React.FC = () => {
     },
     {
       key: 'total_projects',
-      label: 'Projets en cours',
+      label: 'Projets',
       icon: '/icons_logo/Icon=Projet grand.svg',
       value: overview?.total_projects,
       variant: 'stat-card2',
     },
     {
       key: 'total_levels',
-      label: state.showingPageType === 'pro' ? 'Programmes actifs' : 'Niveaux',
+      label: state.showingPageType === 'pro' ? 'Programmes actifs' : 'Classes',
       icon: '/icons_logo/Icon=Badges.svg',
       value: overview?.total_levels,
       variant: 'stat-card2',
@@ -1122,7 +1203,7 @@ const Dashboard: React.FC = () => {
     labels: string[];
     barHeights: number[];
     values: number[];
-    color: string;
+    colors: string[];
   }>(() => {
     const activityByType = activityStats?.[selectedActivity];
     const dataset: ActivityStatsDataset | undefined = activityByType?.[selectedPeriod];
@@ -1134,7 +1215,7 @@ const Dashboard: React.FC = () => {
         labels: [] as string[],
         barHeights: [] as number[],
         values: [] as number[],
-        color: defaultColor,
+        colors: [] as string[],
       };
     }
 
@@ -1152,12 +1233,19 @@ const Dashboard: React.FC = () => {
           : bars.map((_, index) => `P${index + 1}`);
     }
 
+    // Normalize week labels to start with Monday
+    if (selectedPeriod === '1w' && bars.length === 7 && labels.length === 7) {
+      const normalized = normalizeWeekLabels(labels, bars);
+      labels = normalized.labels;
+      bars = normalized.bars;
+    }
+
     if (!bars.length && !labels.length) {
       return {
         labels: [] as string[],
         barHeights: [] as number[],
         values: [] as number[],
-        color: dataset.color || defaultColor,
+        colors: [] as string[],
       };
     }
 
@@ -1167,11 +1255,14 @@ const Dashboard: React.FC = () => {
         ? bars.map(() => 0)
         : bars.map((value) => Math.round((value / maxValue) * 100));
 
+    // Generate multi-colored bars using professional color palette
+    const colors = bars.map((_, index) => CHART_BAR_COLORS[index % CHART_BAR_COLORS.length]);
+
     return {
       labels,
       barHeights,
       values: bars,
-      color: dataset.color || defaultColor,
+      colors,
     };
   }, [activityStats, selectedActivity, selectedPeriod]);
 
@@ -1229,7 +1320,9 @@ const Dashboard: React.FC = () => {
       return Number.isNaN(timestamp) ? 0 : timestamp;
     };
 
+    // Filter to only show projects with "in_progress" status
     return [...projects]
+      .filter((project) => project.status === 'in_progress')
       .sort((a, b) => getTimestamp(b) - getTimestamp(a))
       .slice(0, 3);
   }, [projects]);
@@ -1493,15 +1586,15 @@ const Dashboard: React.FC = () => {
               <div className="chart-header">
                 <h3 className="chart-title">Activité des membres</h3>
                 {/* Le sélecteur d'activité est placé dans le header pour la mise en page CSS */}
-                <div className="flex flex-row justify-around items-center w-full">
+                <div className="activity-tabs-container">
                   <button 
-                    className={` btn-sm ${selectedActivity === 'projects' ? 'btn-primary' : 'btn-outline'}`}
+                    className={`activity-tab ${selectedActivity === 'projects' ? 'activity-tab-active' : ''}`}
                     onClick={() => setSelectedActivity('projects')}
                   >
                     Création des projets
                   </button>
                   <button 
-                    className={` btn-sm ${selectedActivity === 'badges' ? 'btn-primary' : 'btn-outline'}`}
+                    className={`activity-tab ${selectedActivity === 'badges' ? 'activity-tab-active' : ''}`}
                     onClick={() => setSelectedActivity('badges')}
                   >
                     Attribution des badges
@@ -1558,7 +1651,7 @@ const Dashboard: React.FC = () => {
                                 className="chart-bar"
                                 style={{
                                   height: `${height}%`,
-                                  backgroundColor: chartDataset.color,
+                                  backgroundColor: chartDataset.colors[index] || chartDataset.colors[0],
                                 }}
                                 onMouseEnter={(e) => {
                                   setHoveredBar({
