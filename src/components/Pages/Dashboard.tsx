@@ -1104,7 +1104,7 @@ const Dashboard: React.FC = () => {
     },
     {
       key: 'total_projects',
-      label: 'Projets en cours',
+      label: 'Projets',
       icon: '/icons_logo/Icon=Projet grand.svg',
       value: overview?.total_projects,
       variant: 'stat-card2',
