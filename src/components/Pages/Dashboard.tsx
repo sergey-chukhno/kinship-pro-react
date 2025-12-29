@@ -1586,15 +1586,15 @@ const Dashboard: React.FC = () => {
               <div className="chart-header">
                 <h3 className="chart-title">Activité des membres</h3>
                 {/* Le sélecteur d'activité est placé dans le header pour la mise en page CSS */}
-                <div className="flex flex-row justify-around items-center w-full">
+                <div className="activity-tabs-container">
                   <button 
-                    className={` btn-sm ${selectedActivity === 'projects' ? 'btn-primary' : 'btn-outline'}`}
+                    className={`activity-tab ${selectedActivity === 'projects' ? 'activity-tab-active' : ''}`}
                     onClick={() => setSelectedActivity('projects')}
                   >
                     Création des projets
                   </button>
                   <button 
-                    className={` btn-sm ${selectedActivity === 'badges' ? 'btn-primary' : 'btn-outline'}`}
+                    className={`activity-tab ${selectedActivity === 'badges' ? 'activity-tab-active' : ''}`}
                     onClick={() => setSelectedActivity('badges')}
                   >
                     Attribution des badges
