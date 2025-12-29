@@ -8,7 +8,7 @@
   max-width: 1200px !important;
   width: calc(100vw - 320px) !important; /* Account for sidebar (260px) + padding (60px) */
   max-height: 90vh;
-  margin-left: 300px !important; /* Move modal 200px to the right */
+  margin-left: 0px !important; /* Move modal 300px to the left */
 }
 
 @media (max-width: 1400px) {
@@ -18,7 +18,7 @@
   .badge-attributions-modal {
     width: calc(100vw - 320px) !important;
     max-width: 1000px !important;
-    margin-left: 280px !important;
+    margin-left: 0px !important;
   }
 }
 
@@ -29,7 +29,7 @@
   .badge-attributions-modal {
     width: calc(100vw - 120px) !important;
     max-width: 900px !important;
-    margin-left: 100px !important;
+    margin-left: 0px !important;
   }
 }
 
