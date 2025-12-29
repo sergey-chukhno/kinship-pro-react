@@ -1,0 +1,75 @@
+.personal-settings-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.personal-settings-header {
+  margin-bottom: 32px;
+}
+
+.personal-settings-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary, #1f2937);
+}
+
+.personal-settings-header p {
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.95rem;
+}
+
+.personal-settings-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--border-color, #e5e7eb);
+  margin-bottom: 32px;
+  overflow-x: auto;
+}
+
+.tab-button {
+  padding: 12px 20px;
+  background: transparent !important;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text-secondary, #6b7280);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.tab-button:hover {
+  color: var(--primary, #5570F1);
+  background: transparent !important;
+}
+
+.tab-button.active {
+  color: var(--primary, #5570F1) !important;
+  background: transparent !important;
+  border-bottom-color: var(--primary, #5570F1);
+  font-weight: 600;
+}
+
+.personal-settings-tab-content {
+  min-height: 400px;
+}
+
+.settings-section {
+  background: var(--bg-card, #ffffff);
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.settings-section h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary, #1f2937);
+}
+

@@ -284,6 +284,18 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                 {({ active }: { active: boolean }) => (
                   <button
                     type="button"
+                    className={`menu-item ${active ? 'active' : ''}`}
+                    onClick={() => handlePageChange('personal-settings')}
+                  >
+                    <i className="fas fa-cog"></i> Paramètres personnels
+                  </button>
+                )}
+              </Menu.Item>
+
+              <Menu.Item>
+                {({ active }: { active: boolean }) => (
+                  <button
+                    type="button"
                     className={`menu-item logout-item ${active ? 'active' : ''}`}
                     onClick={handleLogout}
                   >

@@ -1,0 +1,122 @@
+.role-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.role-section h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin: 0;
+}
+
+.section-description {
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.role-info {
+  background: var(--bg-secondary, #f9fafb);
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.role-info p {
+  margin: 0;
+  color: var(--text-primary, #1f2937);
+  font-size: 0.95rem;
+}
+
+.role-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.875rem;
+}
+
+.role-rule i {
+  color: var(--primary, #5570F1);
+  margin-top: 2px;
+}
+
+.role-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-primary, #1f2937);
+}
+
+.form-select {
+  padding: 12px 16px;
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.2s;
+  background: white;
+  color: var(--text-primary, #1f2937);
+  cursor: pointer;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--primary, #5570F1);
+  box-shadow: 0 0 0 3px rgba(85, 112, 241, 0.1);
+}
+
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: flex-start;
+}
+
+.btn-primary {
+  background: var(--primary, #5570F1);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--hover-primary, #4c63d2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(85, 112, 241, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  color: var(--text-secondary, #6b7280);
+}
+
