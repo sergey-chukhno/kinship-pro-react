@@ -1170,10 +1170,10 @@ const Dashboard: React.FC = () => {
       variant: 'stat-card',
     },
     {
-      key: 'total_teachers',
-      label: state.showingPageType === 'pro'  ? 'Encadrants' : 'Enseignants',
-      icon: '/icons_logo/Icon=Event grand.svg',
-      value: overview?.total_teachers,
+      key: state.showingPageType === 'pro' ? 'active_partnerships' : 'total_teachers',
+      label: state.showingPageType === 'pro' ? 'Partenaires' : 'Enseignants',
+      icon: state.showingPageType === 'pro' ? '/icons_logo/Icon=Reseau.svg' : '/icons_logo/Icon=Event grand.svg',
+      value: state.showingPageType === 'pro' ? overview?.active_partnerships : overview?.total_teachers,
       variant: 'stat-card',
     },
     {

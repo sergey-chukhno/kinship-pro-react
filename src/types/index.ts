@@ -257,6 +257,7 @@ export interface OrganizationStatsOverview {
   total_students: number;
   total_levels: number;
   total_projects: number;
+  active_partnerships?: number;
   active_contract: boolean;
   is_branch: boolean;
   is_main_school: boolean;
