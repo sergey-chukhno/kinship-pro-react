@@ -1161,6 +1161,8 @@ const Dashboard: React.FC = () => {
   };
 
   const overview = statsData?.overview;
+  const branches = statsData?.branches;
+  const badgesAssigned = statsData?.badges_assigned;
   const statCards = [
     {
       key: 'total_members',
@@ -1170,17 +1172,17 @@ const Dashboard: React.FC = () => {
       variant: 'stat-card',
     },
     {
-      key: 'total_teachers',
-      label: state.showingPageType === 'pro'  ? 'Encadrants' : 'Enseignants',
-      icon: '/icons_logo/Icon=Event grand.svg',
-      value: overview?.total_teachers,
+      key: state.showingPageType === 'pro' ? 'active_partnerships' : 'total_teachers',
+      label: state.showingPageType === 'pro' ? 'Partenaires' : 'Enseignants',
+      icon: state.showingPageType === 'pro' ? '/icons_logo/Icon=Reseau.svg' : '/icons_logo/Icon=Event grand.svg',
+      value: state.showingPageType === 'pro' ? overview?.active_partnerships : overview?.total_teachers,
       variant: 'stat-card',
     },
     {
-      key: 'total_students',
-      label: state.showingPageType === 'pro' ? 'Participants suivis' : 'Étudiants',
+      key: state.showingPageType === 'pro' ? 'total_branches' : 'total_students',
+      label: state.showingPageType === 'pro' ? 'Sous-organisations' : 'Étudiants',
       icon: '/icons_logo/Icon=Reseau.svg',
-      value: overview?.total_students,
+      value: state.showingPageType === 'pro' ? branches?.total_branches : overview?.total_students,
       variant: 'stat-card',
     },
     {
@@ -1191,10 +1193,10 @@ const Dashboard: React.FC = () => {
       variant: 'stat-card2',
     },
     {
-      key: 'total_levels',
-      label: state.showingPageType === 'pro' ? 'Programmes actifs' : 'Classes',
+      key: state.showingPageType === 'pro' ? 'badges_assigned' : 'total_levels',
+      label: state.showingPageType === 'pro' ? 'Badges' : 'Classes',
       icon: '/icons_logo/Icon=Badges.svg',
-      value: overview?.total_levels,
+      value: state.showingPageType === 'pro' ? badgesAssigned?.total : overview?.total_levels,
       variant: 'stat-card2',
     },
   ];
