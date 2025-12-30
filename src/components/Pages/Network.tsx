@@ -3252,11 +3252,45 @@ const Network: React.FC = () => {
             // Determine which hover actions should be available
             // Hide "Se rattacher" if current org already has a branch request (pending or confirmed)
             const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest ? () => handleAttachRequest(organization) : undefined;
-            const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined;
+            
+            // For search results, check if partnership or branch request already exists
+            let hasExistingPartnershipRequest = false;
+            let hasExistingBranchRequest = false;
+            
+            if (selectedType === 'search') {
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              
+              // Check if a partnership request (pending) already exists for this organization
+              hasExistingPartnershipRequest = partnershipRequests.some(partnership => {
+                return (partnership.partners || []).some(partner => partner.id === targetOrgId && partner.id !== organizationId);
+              });
+              
+              // Also check if it's already a confirmed partner
+              if (!hasExistingPartnershipRequest) {
+                hasExistingPartnershipRequest = (partners as Partnership[]).some(partnership => {
+                  return partnership.status === 'confirmed' && 
+                         (partnership.partners || []).some(partner => partner.id === targetOrgId && partner.id !== organizationId);
+                });
+              }
+              
+              // Check if a branch request already exists for this organization (pending or confirmed)
+              hasExistingBranchRequest = branchRequests.some(req => {
+                const parentOrg = req.parent_school || req.parent_company;
+                const childOrg = req.child_school || req.child_company;
+                return (parentOrg?.id === targetOrgId || childOrg?.id === targetOrgId);
+              });
+            }
+            
+            // Hide "Partenariats" button if partnership request already exists or if it's already a partner
+            const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasExistingPartnershipRequest ? () => handlePartnershipProposal(organization) : undefined;
+            
+            // Hide "Se rattacher" button if branch request already exists (for search results)
+            const attachActionForSearch = selectedType === 'search' && hasExistingBranchRequest ? undefined : attachAction;
+            
             const joinAction = isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined;
             
             // Check if there are any hover actions
-            const hasHoverActions = !!attachAction || !!partnershipAction || !!joinAction;
+            const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction;
             
             return (
           <OrganizationCard
@@ -3264,7 +3298,7 @@ const Network: React.FC = () => {
             organization={organization}
             onEdit={() => console.log('Edit organization:', organization.id)}
             onDelete={() => console.log('Delete organization:', organization.id)}
-            onAttach={attachAction}
+            onAttach={attachActionForSearch}
             onPartnership={partnershipAction}
             onJoin={joinAction}
             isPersonalUser={isPersonalUser}
