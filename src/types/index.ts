@@ -300,7 +300,7 @@ export interface OrganizationStatsResponse {
   badges_assigned?: BadgesAssignedStats;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'membership-requests' | 'project-management' | 'Auth';
+export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'membership-requests' | 'project-management' | 'Auth';
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';
 
