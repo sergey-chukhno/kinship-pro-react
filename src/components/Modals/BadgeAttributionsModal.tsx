@@ -4,6 +4,7 @@ import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBa
 import { getUserBadges } from '../../api/Badges';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './Modal.css';
 import './BadgeAttributionsModal.css';
 
@@ -22,11 +23,13 @@ interface BadgeAttribution {
     full_name: string;
     email: string;
     role?: string;
+    is_deleted?: boolean;
   };
   sender: {
     id: number;
     full_name: string;
     email?: string;
+    is_deleted?: boolean;
   };
   project: {
     id: number;
@@ -344,17 +347,43 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                       </td>
                       <td>
                         <div className="person-cell">
-                          <span className="person-name">{attribution.receiver.full_name}</span>
-                          {attribution.receiver.email && (
-                            <span className="person-email">{attribution.receiver.email}</span>
+                          {attribution.receiver.is_deleted ? (
+                            <DeletedUserDisplay 
+                              user={{
+                                full_name: attribution.receiver.full_name,
+                                email: attribution.receiver.email,
+                                is_deleted: true
+                              }}
+                              showEmail={true}
+                            />
+                          ) : (
+                            <>
+                              <span className="person-name">{attribution.receiver.full_name}</span>
+                              {attribution.receiver.email && (
+                                <span className="person-email">{attribution.receiver.email}</span>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
                       <td>
                         <div className="person-cell">
-                          <span className="person-name">{attribution.sender.full_name}</span>
-                          {attribution.sender.email && (
-                            <span className="person-email">{attribution.sender.email}</span>
+                          {attribution.sender.is_deleted ? (
+                            <DeletedUserDisplay 
+                              user={{
+                                full_name: attribution.sender.full_name,
+                                email: attribution.sender.email,
+                                is_deleted: true
+                              }}
+                              showEmail={true}
+                            />
+                          ) : (
+                            <>
+                              <span className="person-name">{attribution.sender.full_name}</span>
+                              {attribution.sender.email && (
+                                <span className="person-email">{attribution.sender.email}</span>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>

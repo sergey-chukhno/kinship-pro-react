@@ -123,6 +123,7 @@ export interface Project {
     email: string;
     role?: string; // Role in organization (superadmin, admin, référant, intervenant, membre)
     city?: string; // City of the organization
+    is_deleted?: boolean; // Indicates if user is soft-deleted
   } | null;
   coResponsibles?: {
     id: string;
@@ -133,6 +134,7 @@ export interface Project {
     email: string;
     role?: string; // Role in organization (superadmin, admin, référant, intervenant, membre)
     city?: string; // City of the organization
+    is_deleted?: boolean; // Indicates if user is soft-deleted
   }[];
   partner?: {
     id: string;
