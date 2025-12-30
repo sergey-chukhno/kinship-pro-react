@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getPersonalUserOrganizations } from '../../api/Projects';
-import { transferSuperadminRole, deleteAccount } from '../../api/UserDashBoard/Profile';
+import { transferSuperadminRole, deleteAccount, getEligibleSchoolAdmins, getEligibleCompanyAdmins } from '../../api/UserDashBoard/Profile';
 import { useToast } from '../../hooks/useToast';
 import { useNavigate } from 'react-router-dom';
+import AvatarImage from '../UI/AvatarImage';
+import { translateRole } from '../../utils/roleTranslations';
 import './DeleteAccountSection.css';
 
 interface Organization {
@@ -11,6 +13,17 @@ interface Organization {
   name: string;
   type: 'School' | 'Company';
   role: string;
+}
+
+interface EligibleUser {
+  id: number;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role_in_school?: string;
+  role_in_company?: string;
+  avatar_url?: string | null;
 }
 
 const DeleteAccountSection: React.FC = () => {
@@ -22,8 +35,20 @@ const DeleteAccountSection: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
-  const [newSuperadminId, setNewSuperadminId] = useState<number | null>(null);
-  const [availableAdmins, setAvailableAdmins] = useState<Array<{ id: number; name: string }>>([]);
+  const [selectedUser, setSelectedUser] = useState<EligibleUser | null>(null);
+  
+  // Eligible users state
+  const [eligibleUsers, setEligibleUsers] = useState<EligibleUser[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const observerTargetRef = useRef<HTMLDivElement>(null);
+  const perPage = 20;
+  
   const [isTransferring, setIsTransferring] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -52,27 +77,130 @@ const DeleteAccountSection: React.FC = () => {
     }
   };
 
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (showTransferModal && selectedOrg) {
+      // Reset state when modal opens
+      setEligibleUsers([]);
+      setSearchQuery('');
+      setDebouncedSearchQuery('');
+      setCurrentPage(1);
+      setHasMore(true);
+      setSelectedUser(null);
+      setUsersError(null);
+    } else if (!showTransferModal) {
+      // Clean up when modal closes
+      setEligibleUsers([]);
+      setSearchQuery('');
+      setDebouncedSearchQuery('');
+      setCurrentPage(1);
+      setHasMore(true);
+      setSelectedUser(null);
+      setUsersError(null);
+    }
+  }, [showTransferModal, selectedOrg]);
+
+  // Fetch eligible users
+  const fetchEligibleUsers = useCallback(async (page: number, append: boolean = false) => {
+    if (!selectedOrg) return;
+
+    const loadingState = append ? setIsLoadingMore : setIsLoadingUsers;
+    loadingState(true);
+    setUsersError(null);
+
+    try {
+      const response = selectedOrg.type === 'School'
+        ? await getEligibleSchoolAdmins(selectedOrg.id, page, perPage, debouncedSearchQuery || undefined)
+        : await getEligibleCompanyAdmins(selectedOrg.id, page, perPage, debouncedSearchQuery || undefined);
+
+      const users = response.data?.data || [];
+      const meta = response.data?.meta || {};
+      const totalPages = meta.total_pages || 1;
+
+      if (append) {
+        // Append to existing users, avoiding duplicates
+        setEligibleUsers(prev => {
+          const existingIds = new Set(prev.map(u => u.id));
+          const newUsers = users.filter((u: EligibleUser) => !existingIds.has(u.id));
+          return [...prev, ...newUsers];
+        });
+      } else {
+        // Replace users
+        setEligibleUsers(users);
+      }
+
+      setHasMore(page < totalPages);
+      setCurrentPage(page);
+    } catch (error: any) {
+      console.error('Error fetching eligible users:', error);
+      setUsersError('Erreur lors du chargement des utilisateurs éligibles');
+      setHasMore(false);
+    } finally {
+      loadingState(false);
+    }
+  }, [selectedOrg, debouncedSearchQuery, perPage]);
+
+  // Initial load when modal opens or search changes
+  useEffect(() => {
+    if (showTransferModal && selectedOrg) {
+      setCurrentPage(1);
+      setHasMore(true);
+      fetchEligibleUsers(1, false);
+    }
+  }, [showTransferModal, selectedOrg, debouncedSearchQuery, fetchEligibleUsers]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!showTransferModal || !hasMore || isLoadingUsers || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          fetchEligibleUsers(currentPage + 1, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const target = observerTargetRef.current;
+    if (target) {
+      observer.observe(target);
+    }
+
+    return () => {
+      if (target) {
+        observer.unobserve(target);
+      }
+    };
+  }, [showTransferModal, hasMore, isLoadingUsers, isLoadingMore, currentPage, fetchEligibleUsers]);
+
   const handleTransferClick = (org: Organization) => {
     setSelectedOrg(org);
     setShowTransferModal(true);
-    // TODO: Load available admins for this organization
-    // For now, we'll use a simple input
-    setAvailableAdmins([]);
   };
 
   const handleTransfer = async () => {
-    if (!selectedOrg || !newSuperadminId) {
+    if (!selectedOrg || !selectedUser) {
       showError('Veuillez sélectionner un nouvel administrateur');
       return;
     }
 
     setIsTransferring(true);
     try {
-      await transferSuperadminRole(selectedOrg.type, selectedOrg.id, newSuperadminId);
+      await transferSuperadminRole(selectedOrg.type, selectedOrg.id, selectedUser.id);
       showSuccess('Rôle de superadmin transféré avec succès');
       setShowTransferModal(false);
       setSelectedOrg(null);
-      setNewSuperadminId(null);
+      setSelectedUser(null);
       await loadSuperadminOrganizations();
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Erreur lors du transfert';
@@ -183,25 +311,100 @@ const DeleteAccountSection: React.FC = () => {
       {/* Transfer Modal */}
       {showTransferModal && selectedOrg && (
         <div className="modal-overlay" onClick={() => setShowTransferModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content transfer-modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>Transférer le rôle de superadmin</h3>
             <p>
               Transférez votre rôle de superadmin pour <strong>{selectedOrg.name}</strong> à un autre administrateur.
             </p>
+
+            {/* Search Input */}
             <div className="form-group">
-              <label htmlFor="newSuperadminId">ID de l'utilisateur qui recevra le rôle</label>
+              <label htmlFor="userSearch">Rechercher un administrateur</label>
               <input
-                type="number"
-                id="newSuperadminId"
-                className="form-input"
-                placeholder="ID utilisateur"
-                value={newSuperadminId || ''}
-                onChange={(e) => setNewSuperadminId(Number(e.target.value) || null)}
+                type="text"
+                id="userSearch"
+                className="user-search-input"
+                placeholder="Rechercher par nom ou email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <small className="form-hint">
-                Entrez l'ID de l'utilisateur qui doit recevoir le rôle de superadmin. Cet utilisateur doit être un administrateur confirmé de l'organisation.
-              </small>
             </div>
+
+            {/* Users List */}
+            <div className="users-list-container">
+              {isLoadingUsers && eligibleUsers.length === 0 ? (
+                <div className="users-list-loading">
+                  <i className="fas fa-spinner fa-spin"></i>
+                  <p>Chargement des administrateurs...</p>
+                </div>
+              ) : usersError ? (
+                <div className="users-list-error">
+                  <i className="fas fa-exclamation-circle"></i>
+                  <p>{usersError}</p>
+                </div>
+              ) : eligibleUsers.length === 0 ? (
+                <div className="users-list-empty">
+                  <i className="fas fa-users"></i>
+                  <p>Aucun administrateur éligible trouvé</p>
+                </div>
+              ) : (
+                <>
+                  {eligibleUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className={`user-item ${selectedUser?.id === user.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      <AvatarImage
+                        src={user.avatar_url}
+                        alt={user.full_name}
+                        className="user-avatar"
+                      />
+                      <div className="user-info">
+                        <span className="user-name">{user.full_name}</span>
+                        <span className="user-email">{user.email}</span>
+                        <span className="user-role-badge">
+                          {translateRole(user.role_in_school || user.role_in_company || 'member')}
+                        </span>
+                      </div>
+                      {selectedUser?.id === user.id && (
+                        <i className="fas fa-check-circle user-selected-icon"></i>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {/* Infinite scroll trigger */}
+                  {hasMore && (
+                    <div ref={observerTargetRef} className="users-list-load-more-trigger">
+                      {isLoadingMore && (
+                        <div className="users-list-loading-more">
+                          <i className="fas fa-spinner fa-spin"></i>
+                          <span>Chargement...</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Selected User Display */}
+            {selectedUser && (
+              <div className="selected-user-display">
+                <div className="selected-user-info">
+                  <AvatarImage
+                    src={selectedUser.avatar_url}
+                    alt={selectedUser.full_name}
+                    className="selected-user-avatar"
+                  />
+                  <div>
+                    <strong>{selectedUser.full_name}</strong>
+                    <span className="selected-user-email">{selectedUser.email}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="modal-actions">
               <button
                 type="button"
@@ -209,7 +412,7 @@ const DeleteAccountSection: React.FC = () => {
                 onClick={() => {
                   setShowTransferModal(false);
                   setSelectedOrg(null);
-                  setNewSuperadminId(null);
+                  setSelectedUser(null);
                 }}
               >
                 Annuler
@@ -218,7 +421,7 @@ const DeleteAccountSection: React.FC = () => {
                 type="button"
                 className="btn btn-primary"
                 onClick={handleTransfer}
-                disabled={isTransferring || !newSuperadminId}
+                disabled={isTransferring || !selectedUser}
               >
                 {isTransferring ? 'Transfert...' : 'Transférer'}
               </button>

@@ -86,3 +86,117 @@ export function transferSuperadminRole(organizationType: 'School' | 'Company', o
 export function deleteAccount() {
     return axiosClient.delete('/api/v1/users/me');
 }
+
+// Get eligible admins/referents for school superadmin transfer
+// Makes separate calls for admin and referent roles, then merges results
+export async function getEligibleSchoolAdmins(
+  schoolId: number,
+  page: number = 1,
+  perPage: number = 20,
+  search?: string
+) {
+  const baseParams: any = {
+    status: 'confirmed',
+    exclude_me: true,
+    page,
+    per_page: perPage,
+  };
+
+  // Add search if provided
+  if (search && search.trim()) {
+    baseParams.search = search.trim();
+  }
+
+  // Make parallel calls for admin and referent roles
+  const [adminResponse, referentResponse] = await Promise.all([
+    axiosClient.get(`/api/v1/schools/${schoolId}/members`, {
+      params: { ...baseParams, role: 'admin' },
+    }),
+    axiosClient.get(`/api/v1/schools/${schoolId}/members`, {
+      params: { ...baseParams, role: 'referent' },
+    }),
+  ]);
+
+  // Merge results and remove duplicates by user ID
+  const adminData = adminResponse.data?.data || [];
+  const referentData = referentResponse.data?.data || [];
+  
+  const mergedData = [...adminData, ...referentData];
+  const uniqueUsers = Array.from(
+    new Map(mergedData.map((user: any) => [user.id, user])).values()
+  );
+
+  // Calculate combined pagination metadata
+  const adminMeta = adminResponse.data?.meta || {};
+  const referentMeta = referentResponse.data?.meta || {};
+  const totalCount = (adminMeta.total_count || 0) + (referentMeta.total_count || 0);
+  const totalPages = Math.max(adminMeta.total_pages || 1, referentMeta.total_pages || 1);
+
+  return {
+    data: {
+      data: uniqueUsers,
+      meta: {
+        ...adminMeta,
+        total_count: totalCount,
+        total_pages: totalPages,
+      },
+    },
+  };
+}
+
+// Get eligible admins/referents for company superadmin transfer
+// Makes separate calls for admin and referent roles, then merges results
+export async function getEligibleCompanyAdmins(
+  companyId: number,
+  page: number = 1,
+  perPage: number = 20,
+  search?: string
+) {
+  const baseParams: any = {
+    status: 'confirmed',
+    exclude_me: true,
+    page,
+    per_page: perPage,
+  };
+
+  // Add search if provided
+  if (search && search.trim()) {
+    baseParams.search = search.trim();
+  }
+
+  // Make parallel calls for admin and referent roles
+  const [adminResponse, referentResponse] = await Promise.all([
+    axiosClient.get(`/api/v1/companies/${companyId}/members`, {
+      params: { ...baseParams, role: 'admin' },
+    }),
+    axiosClient.get(`/api/v1/companies/${companyId}/members`, {
+      params: { ...baseParams, role: 'referent' },
+    }),
+  ]);
+
+  // Merge results and remove duplicates by user ID
+  const adminData = adminResponse.data?.data || [];
+  const referentData = referentResponse.data?.data || [];
+  
+  const mergedData = [...adminData, ...referentData];
+  const uniqueUsers = Array.from(
+    new Map(mergedData.map((user: any) => [user.id, user])).values()
+  );
+
+  // Calculate combined pagination metadata
+  const adminMeta = adminResponse.data?.meta || {};
+  const referentMeta = referentResponse.data?.meta || {};
+  const totalCount = (adminMeta.total_count || 0) + (referentMeta.total_count || 0);
+  const totalPages = Math.max(adminMeta.total_pages || 1, referentMeta.total_pages || 1);
+
+  return {
+    data: {
+      data: uniqueUsers,
+      meta: {
+        ...adminMeta,
+        total_count: totalCount,
+        total_pages: totalPages,
+      },
+    },
+  };
+}
