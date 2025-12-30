@@ -13,6 +13,10 @@ export interface PartnershipPartner {
     type: string;
     role_in_partnership: string;
     member_status: string;
+    email?: string;
+    members_count?: number;
+    city?: string;
+    zip_code?: string;
 }
 
 export interface Partnership {

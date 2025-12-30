@@ -1611,13 +1611,13 @@ const Network: React.FC = () => {
                 name: partner.name,
                 type: 'partner' as const,
                 description: '', // No description for confirmed partners
-                members_count: 0,
-                location: '',
+                members_count: partner.members_count || 0,
+                location: partner.city && partner.zip_code ? `${partner.city}, ${partner.zip_code}` : partner.city || partner.zip_code || '',
                 logo: undefined,
                 status: 'active' as const,
                 joinedDate: partnership.created_at || '',
                 contactPerson: '',
-                email: ''
+                email: partner.email || ''
               }));
           })
       ];
