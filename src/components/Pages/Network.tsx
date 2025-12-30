@@ -1075,7 +1075,7 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType, fetchMyRequests, fetchMyOrganizations]);
 
-  // Function to count all unique partners (confirmed + pending)
+  // Function to count all unique partners (confirmed only, excluding pending)
   const countAllPartners = useCallback((): number => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     
@@ -1084,11 +1084,11 @@ const Network: React.FC = () => {
       return partnersTotalCount;
     }
 
-    // For organizational users, count all unique partners from confirmed and pending partnerships
+    // For organizational users, count only confirmed partnerships (exclude pending)
     const organizationId = getOrganizationId(state.user, state.showingPageType);
     if (!organizationId) return 0;
 
-    // Get all unique partner IDs from confirmed partnerships
+    // Get all unique partner IDs from confirmed partnerships only
     const confirmedPartnerIds = new Set<number>();
     (partners as Partnership[])
       .filter(p => p.status === 'confirmed')
@@ -1100,22 +1100,8 @@ const Network: React.FC = () => {
         });
       });
 
-    // Get all unique partner IDs from pending partnerships
-    const pendingPartnerIds = new Set<number>();
-    partnershipRequests.forEach(partnership => {
-      (partnership.partners || []).forEach(partner => {
-        if (partner.id !== organizationId) {
-          pendingPartnerIds.add(partner.id);
-        }
-      });
-    });
-
-    // If the backend reports more pending requests than we have loaded,
-    // use that count to avoid undercounting pending partners.
-    const pendingCount = Math.max(pendingPartnerIds.size, requestsTotalCount || 0);
-
-    return confirmedPartnerIds.size + pendingCount;
-  }, [state.user, state.showingPageType, partners, partnershipRequests, partnersTotalCount, requestsTotalCount]);
+    return confirmedPartnerIds.size;
+  }, [state.user, state.showingPageType, partners, partnersTotalCount]);
 
   // Function to count branches (0 if it's a branch itself)
   // Only confirmed branches (exclude pending requests)
@@ -1608,12 +1594,12 @@ const Network: React.FC = () => {
   const isPersonalUserDashboard = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   
   // For personal users, partners are NetworkUser[] - no conversion needed
-  // For organizational users, convert partnerships to organizations (confirmed + pending)
+  // For organizational users, convert partnerships to organizations (confirmed only, excluding pending)
   const partnersAsOrganizations: Organization[] = isPersonalUser
     ? [] // Personal users don't use Organization format
-    : // For organizational users, combine confirmed and pending partnerships
+    : // For organizational users, only include confirmed partnerships (exclude pending)
       [
-        // Confirmed partnerships - No description for active partners
+        // Confirmed partnerships only - No description for active partners
         ...(partners as Partnership[])
           .filter(partnership => partnership.status === 'confirmed')
           .flatMap(partnership => {
@@ -1633,28 +1619,7 @@ const Network: React.FC = () => {
                 contactPerson: '',
                 email: ''
               }));
-          }),
-        // Pending partnerships (from partnershipRequests)
-        ...partnershipRequests.flatMap(partnership => {
-          const organizationId = getOrganizationId(state.user, state.showingPageType);
-          return (partnership.partners || [])
-            .filter(partner => partner.id !== organizationId)
-            .map(partner => ({
-              id: String(partnership.id), // Use partnership ID for pending requests
-              name: partner.name,
-              type: 'partner' as const,
-              description: partnership.description || '',
-              members_count: 0,
-              location: '',
-              logo: undefined,
-              status: 'pending' as const,
-              joinedDate: partnership.created_at || '',
-              contactPerson: '',
-              email: '',
-              partnershipId: partnership.id,
-              partnership: partnership
-            } as Organization & { partnershipId: number; partnership: Partnership }));
-        })
+          })
       ];
 
   // Convert NetworkUser to Member format for MemberCard
