@@ -410,9 +410,14 @@ const Network: React.FC = () => {
       } else {
         setBranchRequests([]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching branch requests:', err);
-      setBranchRequestsError('Erreur lors du chargement des demandes de rattachement');
+      // Check if it's a 403 Forbidden error with superadmin requirement
+      if (err?.response?.status === 403 && err?.response?.data?.message?.includes('Superadmin')) {
+        setBranchRequestsError('Vous devez être superadmin pour voir et gérer les demandes de rattachement');
+      } else {
+        setBranchRequestsError('Erreur lors du chargement des demandes de rattachement');
+      }
       setBranchRequests([]);
     } finally {
       setBranchRequestsLoading(false);
@@ -776,9 +781,14 @@ const Network: React.FC = () => {
       } else {
         setPartners([]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching partners:', err);
-      setPartnersError('Erreur lors du chargement des partenaires');
+      // Check if it's a 403 Forbidden error with superadmin requirement
+      if (err?.response?.status === 403 && err?.response?.data?.message?.includes('Superadmin')) {
+        setPartnersError('Vous devez être superadmin pour voir et gérer les partenariats de l\'organisation');
+      } else {
+        setPartnersError('Erreur lors du chargement des partenaires');
+      }
       setPartners([]);
     } finally {
       setPartnersLoading(false);
@@ -976,9 +986,14 @@ const Network: React.FC = () => {
       } else {
         setPartnershipRequests([]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching partnership requests:', err);
-      setRequestsError('Erreur lors du chargement des demandes de partenariats');
+      // Check if it's a 403 Forbidden error with superadmin requirement
+      if (err?.response?.status === 403 && err?.response?.data?.message?.includes('Superadmin')) {
+        setRequestsError('Vous devez être superadmin pour voir et gérer les demandes de partenariats');
+      } else {
+        setRequestsError('Erreur lors du chargement des demandes de partenariats');
+      }
       setPartnershipRequests([]);
     } finally {
       setRequestsLoading(false);
