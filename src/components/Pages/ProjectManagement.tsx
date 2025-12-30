@@ -14,6 +14,7 @@ import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/
 import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
+import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
 
@@ -642,8 +643,8 @@ const ProjectManagement: React.FC = () => {
     // Track user IDs that have already been added to avoid duplicates
     const addedUserIds = new Set<string>();
     
-    // Add owner
-    if (apiProjectData.owner) {
+    // Add owner (skip if soft-deleted - they shouldn't appear in badge assignment list)
+    if (apiProjectData.owner && !apiProjectData.owner.is_deleted) {
       const ownerId = apiProjectData.owner.id.toString();
       addedUserIds.add(ownerId);
       
@@ -658,7 +659,8 @@ const ProjectManagement: React.FC = () => {
         availability: apiProjectData.owner.availability || [],
         organization: apiProjectData.owner_organization_name || '',
         role: 'owner',
-        projectRole: 'owner'
+        projectRole: 'owner',
+        is_deleted: apiProjectData.owner.is_deleted || false
       };
       allMembers.push({
         ...ownerParticipant,
@@ -666,9 +668,12 @@ const ProjectManagement: React.FC = () => {
       });
     }
     
-    // Add co-owners
+    // Add co-owners (skip if soft-deleted - they shouldn't appear in badge assignment list)
     if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
       apiProjectData.co_owners.forEach((coOwner: any) => {
+        // Skip soft-deleted co-owners
+        if (coOwner.is_deleted) return;
+        
         const coOwnerId = coOwner.id.toString();
         addedUserIds.add(coOwnerId);
         
@@ -683,7 +688,8 @@ const ProjectManagement: React.FC = () => {
           availability: coOwner.availability || [],
           organization: coOwner.organization_name || coOwner.city || '',
           role: 'co-owner',
-          projectRole: 'co_owner'
+          projectRole: 'co_owner',
+          is_deleted: coOwner.is_deleted || false
         };
         allMembers.push({
           ...coOwnerParticipant,
@@ -712,6 +718,9 @@ const ProjectManagement: React.FC = () => {
       });
       
       confirmedMembers.forEach((member: any) => {
+        // Skip soft-deleted users - they shouldn't appear in badge assignment list
+        if (member.user?.is_deleted) return;
+        
         const memberParticipant = {
           id: `member-${member.id}`,
           memberId: member.user?.id?.toString() || member.user_id?.toString(),
@@ -1206,10 +1215,12 @@ const ProjectManagement: React.FC = () => {
       participantName: receiver.full_name || receiver.name || 'Inconnu',
       participantAvatar: receiver.avatar_url || '/avatar-placeholder.png',
       participantOrganization: receiver.organization || organization.name || 'Non spécifiée',
+      participantIsDeleted: receiver.is_deleted || false,
       attributedBy: sender.id?.toString() || '',
       attributedByName: sender.full_name || sender.name || 'Inconnu',
       attributedByAvatar: sender.avatar_url || '/avatar-placeholder.png',
       attributedByOrganization: sender.organization || organization.name || 'Non spécifiée',
+      attributedByIsDeleted: sender.is_deleted || false,
       projectId: project?.id || '',
       projectTitle: project?.title || '',
       domaineEngagement: item.comment || '', // fallback
@@ -2343,7 +2354,18 @@ const ProjectManagement: React.FC = () => {
                       <AvatarImage src={participant.avatar} alt={participant.name} />
                     </div>
                     <div className="member-info">
-                      <div className="member-name">{participant.name}</div>
+                      {participant.is_deleted ? (
+                        <DeletedUserDisplay 
+                          user={{
+                            full_name: participant.name,
+                            email: participant.email,
+                            is_deleted: true
+                          }}
+                          showEmail={false}
+                        />
+                      ) : (
+                        <div className="member-name">{participant.name}</div>
+                      )}
                       {participant.organization && (
                         <div className="member-organization" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                           {participant.organization}
@@ -2852,7 +2874,18 @@ const ProjectManagement: React.FC = () => {
                             <div className="person-info">
                               <div className="person-info-header">
                                 <img src={attribution.participantAvatar} alt={attribution.participantName} />
-                                <span className="person-name">{attribution.participantName}</span>
+                                {attribution.participantIsDeleted ? (
+                                  <DeletedUserDisplay 
+                                    user={{
+                                      full_name: attribution.participantName,
+                                      is_deleted: true
+                                    }}
+                                    showEmail={false}
+                                    className="person-name"
+                                  />
+                                ) : (
+                                  <span className="person-name">{attribution.participantName}</span>
+                                )}
                               </div>
                               <span className="person-organization">{attribution.participantOrganization}</span>
                             </div>
@@ -2862,7 +2895,18 @@ const ProjectManagement: React.FC = () => {
                             <div className="person-info">
                               <div className="person-info-header">
                                 <img src={attribution.attributedByAvatar} alt={attribution.attributedByName} />
-                                <span className="person-name">{attribution.attributedByName}</span>
+                                {attribution.attributedByIsDeleted ? (
+                                  <DeletedUserDisplay 
+                                    user={{
+                                      full_name: attribution.attributedByName,
+                                      is_deleted: true
+                                    }}
+                                    showEmail={false}
+                                    className="person-name"
+                                  />
+                                ) : (
+                                  <span className="person-name">{attribution.attributedByName}</span>
+                                )}
                               </div>
                               <span className="person-organization">{attribution.attributedByOrganization}</span>
                             </div>
@@ -3294,7 +3338,18 @@ const ProjectManagement: React.FC = () => {
                       >
                         <AvatarImage src={participant.avatar} alt={participant.name} className="item-avatar" />
                         <div className="item-info">
-                          <div className="item-name">{participant.name}</div>
+                          {participant.is_deleted ? (
+                            <DeletedUserDisplay 
+                              user={{
+                                full_name: participant.name,
+                                email: participant.email,
+                                is_deleted: true
+                              }}
+                              showEmail={false}
+                            />
+                          ) : (
+                            <div className="item-name">{participant.name}</div>
+                          )}
                           <div className="item-role">{participant.profession}</div>
                         </div>
                       </div>
