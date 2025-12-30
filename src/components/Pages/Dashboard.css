@@ -521,13 +521,14 @@
 }
 
 .chart-placeholder {
-  min-height: 250px;
+  min-height: 350px;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   width: 100%;
+  padding: 20px 0;
 }
 
 .chart-mock {
@@ -538,37 +539,69 @@
   justify-content: center;
   align-items: center;
   flex: 1;
+  padding: 0 16px;
 }
 
 .chart-bars {
   display: flex;
   align-items: end;
-  gap: 8px;
-  height: 160px;
+  gap: 12px;
+  height: 280px;
   width: 100%;
   max-width: 100%;
-  margin-bottom: 16px;
-  justify-content: space-between; /* Distribute bars evenly */
-  padding: 0 8px; /* Add padding to prevent truncation */
+  margin-bottom: 24px;
+  justify-content: space-between;
+  padding: 0 12px;
   box-sizing: border-box;
-  min-width: 0; /* Allow flex shrinking */
+  min-width: 0;
 }
 
 .chart-bar {
   flex: 1;
   min-width: 0;
-  max-width: 45px;
-  border-radius: 6px 6px 0 0;
-  transition: all 0.3s ease;
+  max-width: 60px;
+  min-width: 32px;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.08);
   cursor: pointer;
+  overflow: hidden;
+}
+
+.chart-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 8px 8px 0 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chart-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.1);
+  pointer-events: none;
 }
 
 .chart-bar:hover {
-  opacity: 0.85;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  opacity: 0.95;
+  transform: translateY(-6px) scale(1.03);
+  box-shadow: 
+    0 12px 24px rgba(0, 0, 0, 0.18),
+    0 6px 12px rgba(0, 0, 0, 0.12);
+  z-index: 10;
 }
 
 /* Tooltip */
@@ -576,12 +609,13 @@
   position: fixed;
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  padding: 8px 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
   pointer-events: none;
   z-index: 1000;
   font-size: 0.875rem;
+  backdrop-filter: blur(8px);
 }
 
 .tooltip-label {
@@ -599,20 +633,21 @@
   display: flex;
   width: 100%;
   max-width: 100%;
-  gap: 8px;
+  gap: 12px;
   justify-content: space-between;
-  padding: 0 8px;
+  padding: 0 12px;
   box-sizing: border-box;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: var(--text-secondary, #6b7280);
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .chart-labels span {
   flex: 1;
   text-align: center;
   min-width: 0;
-  max-width: 45px;
+  max-width: 60px;
   white-space: nowrap;
   overflow: visible;
   padding: 0;
@@ -1064,8 +1099,8 @@
   flex: 1 1 auto !important;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px;
+  gap: 20px;
+  padding: 28px;
   min-width: 0;
   width: 100% !important;
   max-width: none !important;
@@ -1208,17 +1243,18 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  margin-bottom: 15px;
-  gap: 12px;
+  margin-bottom: 20px;
+  gap: 16px;
   width: 100%;
 }
 
 .member-activity-chart .chart-header h3 {
   /* Le texte "Activité des membres" est conservé */
-  font-size: 1.1rem; /* On revient à la taille standard pour le titre */
-  font-weight: 600;
+  font-size: 1.25rem; /* Slightly larger for better prominence */
+  font-weight: 700;
   color: var(--text-primary, #374151);
-  margin: 0; /* Suppression des marges inutiles */
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 /* Le sélecteur d'activité est maintenant un enfant direct de .chart-header et est aligné à droite */
@@ -1243,6 +1279,7 @@
   flex: 1;
   width: 100%;
   min-width: 0;
+  gap: 20px;
 }
 
 .member-activity-chart .activity-type-selector {
@@ -1275,7 +1312,7 @@
 /* Ajustement du Chart pour qu'il prenne l'espace restant */
 .member-activity-chart .chart-placeholder {
     flex: 1; /* Permet au placeholder de prendre l'espace restant */
-    min-height: 200px; /* S'assurer qu'il reste de la place pour le graphique */
+    min-height: 350px; /* Increased height for better visual presence */
     width: 100%;
 }
 
