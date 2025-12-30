@@ -1968,7 +1968,7 @@ const Network: React.FC = () => {
             name: school.name || 'École',
             type: 'schools' as const,
             description: school.school_type || '',
-            members_count: school.students_count || 0,
+            members_count: school.members_count || 0,
             location: school.city || '',
             logo: school.logo_url || '',
             status: 'active' as const,
@@ -3302,7 +3302,21 @@ const Network: React.FC = () => {
             // Hide "Se rattacher" button if branch request already exists (for search results)
             const attachActionForSearch = selectedType === 'search' && hasExistingBranchRequest ? undefined : attachAction;
             
-            const joinAction = isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined;
+            // Check if user is already a confirmed member of this organization
+            const isAlreadyConfirmedMember = isPersonalUser && (
+              (organization.type === 'schools' && myOrganizations.schools.some((school: any) => String(school.id) === organization.id && school.my_status === 'confirmed')) ||
+              (organization.type === 'companies' && myOrganizations.companies.some((company: any) => String(company.id) === organization.id && company.my_status === 'confirmed'))
+            );
+            
+            // Hide "Rejoindre" button if:
+            // 1. User is viewing their own organizations (activeCard === 'schools' or 'companies')
+            // 2. User is already a confirmed member of this organization
+            const joinAction = isPersonalUser && 
+                              (organization.type === 'schools' || organization.type === 'companies') && 
+                              selectedType !== 'my-requests' && 
+                              activeCard !== 'schools' && 
+                              activeCard !== 'companies' &&
+                              !isAlreadyConfirmedMember ? () => handleJoinOrganizationRequest(organization) : undefined;
             
             // Check if there are any hover actions
             const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction;
