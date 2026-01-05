@@ -25,11 +25,23 @@ const badgeImagesByName: Record<string, string> = {
   "Développer des relations constructives": "/badges_psychosociales/Sociales_final.png",
   "Résoudre des difficultés": "/badges_psychosociales/Sociales_final.png",
 
-  // Série Audiovisuelle
-  "Jeu d'Acteur": "/NIV 1/Creativite@2x.png",
-  "Prise d'Image": "/NIV 1/Communication@2x.png",
-  "Prise de Son": "/NIV 1/Formation@2x.png",
-  "Organisation Logistique": "/NIV 1/OrganisationOpe@2x.png",
+  // Série Audiovisuelle - Level 1
+  "ORGANISATION-LOGISTIQUE": "/badges_audiovisuels/Badge_Organisation_Logistique_Level1.png",
+  "IMAGE": "/badges_audiovisuels/Badge_Image_Level1.png",
+  "SON": "/badges_audiovisuels/Badge_Son_Level1.png",
+  "ORGANISATION-ARTISTIQUE": "/badges_audiovisuels/Badge_Organisation_Artistique_Level1.png",
+  
+  // Série Audiovisuelle - Level 2 (ACTING also exists at level 2, so using level 2 image)
+  "ACTING": "/badges_audiovisuels/Badge_Acting_Level2.png",
+  "PRODUCTION": "/badges_audiovisuels/Badge_Production_Level2.png",
+  "REGIE": "/badges_audiovisuels/Badge_Regie_Level2.png",
+  "MISE EN SCENE": "/badges_audiovisuels/Badge_Mise_en_Scene_Level2.png",
+  "PRISE IMAGE & LUMIERE": "/badges_audiovisuels/Badge_Prise_Image_Level2.png",
+  "POSTPRODUCTION IMAGE ET VFX": "/badges_audiovisuels/Badge_Postproduction_Image_VFX_Level2.png",
+  "PRISE DE SON": "/badges_audiovisuels/Badge_Prise_Son_Level2.png",
+  "POST PRODUCTION SON": "/badges_audiovisuels/Badge_PostProduction_Son_Level2.png",
+  "DECO & SFX": "/badges_audiovisuels/Badge_Deco_SFX_Level2.png",
+  "STYLISME& HMC": "/badges_audiovisuels/Badge_Stylisme_HMC_Level2.png",
 
   // Série Parcours des possibles
   "Étape 1 : IMPLICATION INITIALE": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level1.png",
