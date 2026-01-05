@@ -449,7 +449,8 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         organization: organizationName,
         email: owner.email || '',
         role: apiProject.owner_organization_role || undefined, // Role in organization
-        city: apiProject.owner_city || undefined // City of organization
+        city: apiProject.owner_city || undefined, // City of organization
+        is_deleted: owner.is_deleted || false // Preserve deleted status
     } : null;
     
     // Map co-owners
@@ -461,7 +462,8 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         organization: organizationName,
         email: coOwner.email || '',
         role: coOwner.organization_role || undefined, // Role in organization
-        city: coOwner.city || undefined // City of organization
+        city: coOwner.city || undefined, // City of organization
+        is_deleted: coOwner.is_deleted || false // Preserve deleted status
     }));
     
     return {

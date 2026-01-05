@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Project } from '../../types';
+import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './ProjectCard.css';
 
 interface ProjectCardProps {
@@ -112,7 +113,18 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
         <div className="project-meta">
           <div className="project-owner">
             <i className="fas fa-user"></i>
-            <span>{project.responsible?.name || project.owner}</span>
+            {project.responsible?.is_deleted ? (
+              <DeletedUserDisplay 
+                user={{
+                  full_name: project.responsible.name,
+                  email: project.responsible.email,
+                  is_deleted: true
+                }}
+                showEmail={false}
+              />
+            ) : (
+              <span>{project.responsible?.name || project.owner}</span>
+            )}
           </div>
           <div className="project-dates">
             <i className="fas fa-calendar"></i>

@@ -410,9 +410,14 @@ const Network: React.FC = () => {
       } else {
         setBranchRequests([]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching branch requests:', err);
-      setBranchRequestsError('Erreur lors du chargement des demandes de rattachement');
+      // Check if it's a 403 Forbidden error with superadmin requirement
+      if (err?.response?.status === 403 && err?.response?.data?.message?.includes('Superadmin')) {
+        setBranchRequestsError('Vous devez être superadmin pour voir et gérer les demandes de rattachement');
+      } else {
+        setBranchRequestsError('Erreur lors du chargement des demandes de rattachement');
+      }
       setBranchRequests([]);
     } finally {
       setBranchRequestsLoading(false);
@@ -776,9 +781,14 @@ const Network: React.FC = () => {
       } else {
         setPartners([]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching partners:', err);
-      setPartnersError('Erreur lors du chargement des partenaires');
+      // Check if it's a 403 Forbidden error with superadmin requirement
+      if (err?.response?.status === 403 && err?.response?.data?.message?.includes('Superadmin')) {
+        setPartnersError('Vous devez être superadmin pour voir et gérer les partenariats de l\'organisation');
+      } else {
+        setPartnersError('Erreur lors du chargement des partenaires');
+      }
       setPartners([]);
     } finally {
       setPartnersLoading(false);
@@ -976,9 +986,14 @@ const Network: React.FC = () => {
       } else {
         setPartnershipRequests([]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching partnership requests:', err);
-      setRequestsError('Erreur lors du chargement des demandes de partenariats');
+      // Check if it's a 403 Forbidden error with superadmin requirement
+      if (err?.response?.status === 403 && err?.response?.data?.message?.includes('Superadmin')) {
+        setRequestsError('Vous devez être superadmin pour voir et gérer les demandes de partenariats');
+      } else {
+        setRequestsError('Erreur lors du chargement des demandes de partenariats');
+      }
       setPartnershipRequests([]);
     } finally {
       setRequestsLoading(false);
@@ -1075,7 +1090,7 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType, fetchMyRequests, fetchMyOrganizations]);
 
-  // Function to count all unique partners (confirmed + pending)
+  // Function to count all unique partners (confirmed only, excluding pending)
   const countAllPartners = useCallback((): number => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     
@@ -1084,11 +1099,11 @@ const Network: React.FC = () => {
       return partnersTotalCount;
     }
 
-    // For organizational users, count all unique partners from confirmed and pending partnerships
+    // For organizational users, count only confirmed partnerships (exclude pending)
     const organizationId = getOrganizationId(state.user, state.showingPageType);
     if (!organizationId) return 0;
 
-    // Get all unique partner IDs from confirmed partnerships
+    // Get all unique partner IDs from confirmed partnerships only
     const confirmedPartnerIds = new Set<number>();
     (partners as Partnership[])
       .filter(p => p.status === 'confirmed')
@@ -1100,22 +1115,8 @@ const Network: React.FC = () => {
         });
       });
 
-    // Get all unique partner IDs from pending partnerships
-    const pendingPartnerIds = new Set<number>();
-    partnershipRequests.forEach(partnership => {
-      (partnership.partners || []).forEach(partner => {
-        if (partner.id !== organizationId) {
-          pendingPartnerIds.add(partner.id);
-        }
-      });
-    });
-
-    // If the backend reports more pending requests than we have loaded,
-    // use that count to avoid undercounting pending partners.
-    const pendingCount = Math.max(pendingPartnerIds.size, requestsTotalCount || 0);
-
-    return confirmedPartnerIds.size + pendingCount;
-  }, [state.user, state.showingPageType, partners, partnershipRequests, partnersTotalCount, requestsTotalCount]);
+    return confirmedPartnerIds.size;
+  }, [state.user, state.showingPageType, partners, partnersTotalCount]);
 
   // Function to count branches (0 if it's a branch itself)
   // Only confirmed branches (exclude pending requests)
@@ -1608,12 +1609,12 @@ const Network: React.FC = () => {
   const isPersonalUserDashboard = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   
   // For personal users, partners are NetworkUser[] - no conversion needed
-  // For organizational users, convert partnerships to organizations (confirmed + pending)
+  // For organizational users, convert partnerships to organizations (confirmed only, excluding pending)
   const partnersAsOrganizations: Organization[] = isPersonalUser
     ? [] // Personal users don't use Organization format
-    : // For organizational users, combine confirmed and pending partnerships
+    : // For organizational users, only include confirmed partnerships (exclude pending)
       [
-        // Confirmed partnerships - No description for active partners
+        // Confirmed partnerships only - No description for active partners
         ...(partners as Partnership[])
           .filter(partnership => partnership.status === 'confirmed')
           .flatMap(partnership => {
@@ -1625,36 +1626,15 @@ const Network: React.FC = () => {
                 name: partner.name,
                 type: 'partner' as const,
                 description: '', // No description for confirmed partners
-                members_count: 0,
-                location: '',
+                members_count: partner.members_count || 0,
+                location: partner.city && partner.zip_code ? `${partner.city}, ${partner.zip_code}` : partner.city || partner.zip_code || '',
                 logo: undefined,
                 status: 'active' as const,
                 joinedDate: partnership.created_at || '',
                 contactPerson: '',
-                email: ''
+                email: partner.email || ''
               }));
-          }),
-        // Pending partnerships (from partnershipRequests)
-        ...partnershipRequests.flatMap(partnership => {
-          const organizationId = getOrganizationId(state.user, state.showingPageType);
-          return (partnership.partners || [])
-            .filter(partner => partner.id !== organizationId)
-            .map(partner => ({
-              id: String(partnership.id), // Use partnership ID for pending requests
-              name: partner.name,
-              type: 'partner' as const,
-              description: partnership.description || '',
-              members_count: 0,
-              location: '',
-              logo: undefined,
-              status: 'pending' as const,
-              joinedDate: partnership.created_at || '',
-              contactPerson: '',
-              email: '',
-              partnershipId: partnership.id,
-              partnership: partnership
-            } as Organization & { partnershipId: number; partnership: Partnership }));
-        })
+          })
       ];
 
   // Convert NetworkUser to Member format for MemberCard
@@ -1988,7 +1968,7 @@ const Network: React.FC = () => {
             name: school.name || 'École',
             type: 'schools' as const,
             description: school.school_type || '',
-            members_count: school.students_count || 0,
+            members_count: school.members_count || 0,
             location: school.city || '',
             logo: school.logo_url || '',
             status: 'active' as const,
@@ -3287,11 +3267,59 @@ const Network: React.FC = () => {
             // Determine which hover actions should be available
             // Hide "Se rattacher" if current org already has a branch request (pending or confirmed)
             const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest ? () => handleAttachRequest(organization) : undefined;
-            const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser ? () => handlePartnershipProposal(organization) : undefined;
-            const joinAction = isPersonalUser && (organization.type === 'schools' || organization.type === 'companies') && selectedType !== 'my-requests' ? () => handleJoinOrganizationRequest(organization) : undefined;
+            
+            // For search results, check if partnership or branch request already exists
+            let hasExistingPartnershipRequest = false;
+            let hasExistingBranchRequest = false;
+            
+            if (selectedType === 'search') {
+              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              
+              // Check if a partnership request (pending) already exists for this organization
+              hasExistingPartnershipRequest = partnershipRequests.some(partnership => {
+                return (partnership.partners || []).some(partner => partner.id === targetOrgId && partner.id !== organizationId);
+              });
+              
+              // Also check if it's already a confirmed partner
+              if (!hasExistingPartnershipRequest) {
+                hasExistingPartnershipRequest = (partners as Partnership[]).some(partnership => {
+                  return partnership.status === 'confirmed' && 
+                         (partnership.partners || []).some(partner => partner.id === targetOrgId && partner.id !== organizationId);
+                });
+              }
+              
+              // Check if a branch request already exists for this organization (pending or confirmed)
+              hasExistingBranchRequest = branchRequests.some(req => {
+                const parentOrg = req.parent_school || req.parent_company;
+                const childOrg = req.child_school || req.child_company;
+                return (parentOrg?.id === targetOrgId || childOrg?.id === targetOrgId);
+              });
+            }
+            
+            // Hide "Partenariats" button if partnership request already exists or if it's already a partner
+            const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasExistingPartnershipRequest ? () => handlePartnershipProposal(organization) : undefined;
+            
+            // Hide "Se rattacher" button if branch request already exists (for search results)
+            const attachActionForSearch = selectedType === 'search' && hasExistingBranchRequest ? undefined : attachAction;
+            
+            // Check if user is already a confirmed member of this organization
+            const isAlreadyConfirmedMember = isPersonalUser && (
+              (organization.type === 'schools' && myOrganizations.schools.some((school: any) => String(school.id) === organization.id && school.my_status === 'confirmed')) ||
+              (organization.type === 'companies' && myOrganizations.companies.some((company: any) => String(company.id) === organization.id && company.my_status === 'confirmed'))
+            );
+            
+            // Hide "Rejoindre" button if:
+            // 1. User is viewing their own organizations (activeCard === 'schools' or 'companies')
+            // 2. User is already a confirmed member of this organization
+            const joinAction = isPersonalUser && 
+                              (organization.type === 'schools' || organization.type === 'companies') && 
+                              selectedType !== 'my-requests' && 
+                              activeCard !== 'schools' && 
+                              activeCard !== 'companies' &&
+                              !isAlreadyConfirmedMember ? () => handleJoinOrganizationRequest(organization) : undefined;
             
             // Check if there are any hover actions
-            const hasHoverActions = !!attachAction || !!partnershipAction || !!joinAction;
+            const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction;
             
             return (
           <OrganizationCard
@@ -3299,7 +3327,7 @@ const Network: React.FC = () => {
             organization={organization}
             onEdit={() => console.log('Edit organization:', organization.id)}
             onDelete={() => console.log('Delete organization:', organization.id)}
-            onAttach={attachAction}
+            onAttach={attachActionForSearch}
             onPartnership={partnershipAction}
             onJoin={joinAction}
             isPersonalUser={isPersonalUser}

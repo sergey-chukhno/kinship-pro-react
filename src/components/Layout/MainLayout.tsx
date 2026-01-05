@@ -13,6 +13,7 @@ import Notifications from '../Pages/Notifications';
 import ProjectManagement from '../Pages/ProjectManagement';
 import Projects from '../Pages/Projects';
 import Settings from '../Pages/Settings';
+import PersonalSettings from '../Pages/PersonalSettings';
 import './MainLayout.css';
 import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
@@ -114,6 +115,8 @@ const MainLayout: React.FC = () => {
         return <Notifications />;
       case 'settings':
         return <Settings />;
+      case 'personal-settings':
+        return <PersonalSettings />;
       case 'membership-requests':
         return <MembershipRequests />;
       case 'project-management':

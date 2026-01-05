@@ -287,6 +287,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                     {({ active }: { active: boolean }) => (
                       <button
                         type="button"
+                        className={`menu-item ${active ? 'active' : ''}`}
+                        onClick={() => {
+                          onPageChange('personal-settings');
+                        }}
+                      >
+                        <i className="fas fa-cog"></i>
+                        <span>Paramètres personnels</span>
+                      </button>
+                    )}
+                  </Menu.Item>
+                  <Menu.Item>
+                    {({ active }: { active: boolean }) => (
+                      <button
+                        type="button"
                         className={`menu-item logout-item ${active ? 'active' : ''}`}
                         onClick={() => {
                           localStorage.removeItem('jwt_token');

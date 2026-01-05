@@ -88,10 +88,91 @@ const ACTIVITY_DEFAULT_COLORS: Record<ActivityType, string> = {
   badges: '#16A34A',
 };
 
+// Professional color palette for multi-colored chart bars
+const CHART_BAR_COLORS = [
+  '#5570F1', // Blue
+  '#10B981', // Green
+  '#F59E0B', // Amber
+  '#8B5CF6', // Purple
+  '#EF4444', // Red
+  '#06B6D4', // Cyan
+  '#84CC16', // Lime
+  '#EC4899', // Pink
+  '#F97316', // Orange
+  '#14B8A6', // Teal
+  '#6366F1', // Indigo
+  '#F43F5E', // Rose
+];
+
 const DEFAULT_ACTIVITY_LABELS: Record<ActivityPeriodKey, string[]> = {
   '1w': ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
   '1m': ['S1', 'S2', 'S3', 'S4'],
   '6m': ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+};
+
+// Normalize week labels to always start with Monday
+const normalizeWeekLabels = (labels: string[], bars: number[]): { labels: string[]; bars: number[] } => {
+  if (labels.length !== 7 || bars.length !== 7) {
+    return { labels, bars };
+  }
+
+  const weekOrder = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const weekOrderVariants = [
+    ['Lun', 'Lundi', 'Mon', 'Monday'],
+    ['Mar', 'Mardi', 'Tue', 'Tuesday'],
+    ['Mer', 'Mercredi', 'Wed', 'Wednesday'],
+    ['Jeu', 'Jeudi', 'Thu', 'Thursday'],
+    ['Ven', 'Vendredi', 'Fri', 'Friday'],
+    ['Sam', 'Samedi', 'Sat', 'Saturday'],
+    ['Dim', 'Dimanche', 'Sun', 'Sunday'],
+  ];
+
+  // Check if already starting with Monday (any variant)
+  const firstLabel = labels[0]?.trim() || '';
+  const isMonday = weekOrderVariants[0].some(variant => 
+    firstLabel.toLowerCase().startsWith(variant.toLowerCase())
+  );
+
+  if (isMonday) {
+    return { labels, bars };
+  }
+
+  // Find the index of Monday in the current labels (check all variants)
+  let mondayIndex = -1;
+  for (let i = 0; i < labels.length; i++) {
+    const label = labels[i]?.trim() || '';
+    if (weekOrderVariants[0].some(variant => 
+      label.toLowerCase().startsWith(variant.toLowerCase())
+    )) {
+      mondayIndex = i;
+      break;
+    }
+  }
+
+  // If Monday is not found, use fallback order
+  if (mondayIndex === -1) {
+    return { labels: DEFAULT_ACTIVITY_LABELS['1w'], bars };
+  }
+
+  // Reorder labels and bars to start with Monday
+  const reorderedLabels = [...labels.slice(mondayIndex), ...labels.slice(0, mondayIndex)];
+  const reorderedBars = [...bars.slice(mondayIndex), ...bars.slice(0, mondayIndex)];
+
+  // Normalize labels to use standard abbreviations
+  const normalizedLabels = reorderedLabels.map((label, index) => {
+    const trimmed = label?.trim() || '';
+    // Check if label matches any variant of the expected day
+    for (let variantIndex = 0; variantIndex < weekOrderVariants.length; variantIndex++) {
+      if (weekOrderVariants[variantIndex].some(variant => 
+        trimmed.toLowerCase().startsWith(variant.toLowerCase())
+      )) {
+        return weekOrder[variantIndex];
+      }
+    }
+    return weekOrder[index] || label;
+  });
+
+  return { labels: normalizedLabels, bars: reorderedBars };
 };
 
 type BadgeDistributionSegment = {
@@ -1080,6 +1161,8 @@ const Dashboard: React.FC = () => {
   };
 
   const overview = statsData?.overview;
+  const branches = statsData?.branches;
+  const badgesAssigned = statsData?.badges_assigned;
   const statCards = [
     {
       key: 'total_members',
@@ -1089,31 +1172,40 @@ const Dashboard: React.FC = () => {
       variant: 'stat-card',
     },
     {
-      key: 'total_teachers',
-      label: state.showingPageType === 'pro'  ? 'Encadrants' : 'Enseignants',
-      icon: '/icons_logo/Icon=Event grand.svg',
-      value: overview?.total_teachers,
+      key: state.showingPageType === 'pro' ? 'active_partnerships' : 'total_teachers',
+      label: state.showingPageType === 'pro' ? 'Partenaires' : 'Enseignants',
+      icon: state.showingPageType === 'pro' ? '/icons_logo/Icon=Reseau.svg' : '/icons_logo/Icon=Event grand.svg',
+      value: state.showingPageType === 'pro' ? overview?.active_partnerships : overview?.total_teachers,
       variant: 'stat-card',
     },
     {
-      key: 'total_students',
-      label: state.showingPageType === 'pro' ? 'Participants suivis' : 'Étudiants',
+      key: state.showingPageType === 'pro' ? 'total_branches' : 'total_students',
+      label: state.showingPageType === 'pro' ? 'Sous-organisations' : 'Étudiants',
       icon: '/icons_logo/Icon=Reseau.svg',
-      value: overview?.total_students,
+      value: state.showingPageType === 'pro' ? branches?.total_branches : overview?.total_students,
       variant: 'stat-card',
     },
+    // Classes card for edu dashboard (placed after Étudiants)
+    ...(state.showingPageType === 'edu' ? [{
+      key: 'total_levels',
+      label: 'Classes',
+      icon: '/icons_logo/Icon=Badges.svg',
+      value: overview?.total_levels,
+      variant: 'stat-card2',
+    }] : []),
     {
       key: 'total_projects',
-      label: 'Projets en cours',
+      label: 'Projets',
       icon: '/icons_logo/Icon=Projet grand.svg',
       value: overview?.total_projects,
       variant: 'stat-card2',
     },
+    // Badges card - shown for both pro and edu dashboards
     {
-      key: 'total_levels',
-      label: state.showingPageType === 'pro' ? 'Programmes actifs' : 'Niveaux',
+      key: 'badges_assigned',
+      label: 'Badges',
       icon: '/icons_logo/Icon=Badges.svg',
-      value: overview?.total_levels,
+      value: badgesAssigned?.total,
       variant: 'stat-card2',
     },
   ];
@@ -1122,7 +1214,7 @@ const Dashboard: React.FC = () => {
     labels: string[];
     barHeights: number[];
     values: number[];
-    color: string;
+    colors: string[];
   }>(() => {
     const activityByType = activityStats?.[selectedActivity];
     const dataset: ActivityStatsDataset | undefined = activityByType?.[selectedPeriod];
@@ -1134,7 +1226,7 @@ const Dashboard: React.FC = () => {
         labels: [] as string[],
         barHeights: [] as number[],
         values: [] as number[],
-        color: defaultColor,
+        colors: [] as string[],
       };
     }
 
@@ -1152,12 +1244,19 @@ const Dashboard: React.FC = () => {
           : bars.map((_, index) => `P${index + 1}`);
     }
 
+    // Normalize week labels to start with Monday
+    if (selectedPeriod === '1w' && bars.length === 7 && labels.length === 7) {
+      const normalized = normalizeWeekLabels(labels, bars);
+      labels = normalized.labels;
+      bars = normalized.bars;
+    }
+
     if (!bars.length && !labels.length) {
       return {
         labels: [] as string[],
         barHeights: [] as number[],
         values: [] as number[],
-        color: dataset.color || defaultColor,
+        colors: [] as string[],
       };
     }
 
@@ -1167,11 +1266,14 @@ const Dashboard: React.FC = () => {
         ? bars.map(() => 0)
         : bars.map((value) => Math.round((value / maxValue) * 100));
 
+    // Generate multi-colored bars using professional color palette
+    const colors = bars.map((_, index) => CHART_BAR_COLORS[index % CHART_BAR_COLORS.length]);
+
     return {
       labels,
       barHeights,
       values: bars,
-      color: dataset.color || defaultColor,
+      colors,
     };
   }, [activityStats, selectedActivity, selectedPeriod]);
 
@@ -1229,7 +1331,9 @@ const Dashboard: React.FC = () => {
       return Number.isNaN(timestamp) ? 0 : timestamp;
     };
 
+    // Filter to only show projects with "in_progress" status
     return [...projects]
+      .filter((project) => project.status === 'in_progress')
       .sort((a, b) => getTimestamp(b) - getTimestamp(a))
       .slice(0, 3);
   }, [projects]);
@@ -1432,9 +1536,105 @@ const Dashboard: React.FC = () => {
               <a href="/projects" className="btn btn-text">Voir tous les projets →</a>
             </div>
           </div>
+        </div>
+        {/* --- FIN DE LA COLONNE DE GAUCHE --- */}
 
-          {/* NOUVELLE SECTION : Fusion Membres Récents + Activité */}
-          <div className="members-overview-section">
+        {/* --- COLONNE DE DROITE (Recent Activity) --- */}
+        <div className="dashboard-right-column">
+          <div className="recent-activity">
+            <div className="activity-header">
+              <h3>Activités récentes</h3>
+            </div>
+            <div className="activity-list">
+              {activitiesLoading && (
+                <p className="activity-feedback-text">Chargement des activités...</p>
+              )}
+
+              {!activitiesLoading && activitiesError && (
+                <p className="activity-feedback-text error">{activitiesError}</p>
+              )}
+
+              {!activitiesLoading && !activitiesError && activities.length === 0 && (
+                <p className="activity-feedback-text">Aucune activité récente à afficher.</p>
+              )}
+
+              {!activitiesLoading &&
+                !activitiesError &&
+                activities.map((activity) => (
+                  <div className="activity-item" key={activity.id}>
+                    <div className="activity-avatar">
+                      <img
+                        src={activity.actor_avatar || DEFAULT_AVATAR_SRC}
+                        alt={activity.actor_name || 'Utilisateur'}
+                      />
+                    </div>
+                    <div className="activity-content">
+                      <div className="activity-text">
+                        {activity.actor_name ? (
+                          <>
+                            <strong>{activity.actor_name}</strong>{' '}
+                            {activity.description}
+                          </>
+                        ) : (
+                          activity.description || 'Nouvelle activité'
+                        )}
+                      </div>
+                      <div className="activity-time">
+                        {formatRelativeTime(activity.created_at)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Charts and Analytics */}
+          <div className="dashboard-charts">
+            <div className="chart-container">
+              <div className="chart-header">
+                <h3>Répartition des badges</h3>
+              </div>
+              <div className="chart-placeholder">
+                {badgeDistributionLoading && (
+                  <p className="chart-feedback-text">Chargement de la répartition...</p>
+                )}
+                {!badgeDistributionLoading && badgeDistributionError && (
+                  <p className="chart-feedback-text error">{badgeDistributionError}</p>
+                )}
+                {!badgeDistributionLoading && !badgeDistributionError && (
+                  <div className={`flex  ${hasAssignedBadges ? 'flex-row gap-4' : 'flex-col'}`}>
+                    <div
+                      className={`pie-chart-mock${hasAssignedBadges ? '':' pie-chart-empty'}`}
+                      style={{ background: badgePieBackground }}
+                    ></div>
+                    {hasAssignedBadges ? (
+                      <div className="pie-legend">
+                        {badgeDistribution.map((segment) => (
+                          <div className="legend-item" key={segment.level}>
+                            <span
+                              className="legend-color"
+                              style={{ backgroundColor: segment.color }}
+                            ></span>
+                            <span>
+                              {segment.label} ({segment.percentage}%)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="chart-feedback-text">Aucun badge attribué pour le moment.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* --- FIN DE dashboard-main-content --- */}
+
+      {/* NOUVELLE SECTION : Fusion Membres Récents + Activité - SPANS BOTH COLUMNS */}
+      <div className="members-overview-section members-overview-section-full-width">
             
             {/* PARTIE GAUCHE : Membres récents */}
             <div className="recent-members-container">
@@ -1488,20 +1688,20 @@ const Dashboard: React.FC = () => {
             </div>
             
             {/* PARTIE DROITE : Activité des membres (Le graphique) */}
-            <div className="flex flex-col gap-4 justify-center items-center p-4">
+            <div className="member-activity-chart-container">
               {/* NOUVEL EN-TÊTE : Titre et Sélecteur d'activité sur la même ligne logique */}
               <div className="chart-header">
                 <h3 className="chart-title">Activité des membres</h3>
                 {/* Le sélecteur d'activité est placé dans le header pour la mise en page CSS */}
-                <div className="flex flex-row justify-around items-center w-full">
+                <div className="activity-tabs-container">
                   <button 
-                    className={` btn-sm ${selectedActivity === 'projects' ? 'btn-primary' : 'btn-outline'}`}
+                    className={`activity-tab ${selectedActivity === 'projects' ? 'activity-tab-active' : ''}`}
                     onClick={() => setSelectedActivity('projects')}
                   >
                     Création des projets
                   </button>
                   <button 
-                    className={` btn-sm ${selectedActivity === 'badges' ? 'btn-primary' : 'btn-outline'}`}
+                    className={`activity-tab ${selectedActivity === 'badges' ? 'activity-tab-active' : ''}`}
                     onClick={() => setSelectedActivity('badges')}
                   >
                     Attribution des badges
@@ -1558,7 +1758,7 @@ const Dashboard: React.FC = () => {
                                 className="chart-bar"
                                 style={{
                                   height: `${height}%`,
-                                  backgroundColor: chartDataset.color,
+                                  backgroundColor: chartDataset.colors[index] || chartDataset.colors[0],
                                 }}
                                 onMouseEnter={(e) => {
                                   setHoveredBar({
@@ -1608,102 +1808,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
-          {/* FIN NOUVELLE SECTION */}
-
-
-
-        </div>
-        {/* --- FIN DE LA COLONNE DE GAUCHE --- */}
-
-        {/* --- COLONNE DE DROITE (Recent Activity) --- */}
-        <div className="dashboard-right-column">
-          <div className="recent-activity">
-            <div className="activity-header">
-              <h3>Activités récentes</h3>
-            </div>
-            <div className="activity-list">
-              {activitiesLoading && (
-                <p className="activity-empty">Chargement des activités...</p>
-              )}
-              {!activitiesLoading && activitiesError && (
-                <p className="activity-empty error">{activitiesError}</p>
-              )}
-              {!activitiesLoading && !activitiesError && activities.length === 0 && (
-                <p className="activity-empty">Aucune activité récente pour le moment</p>
-              )}
-              {!activitiesLoading && !activitiesError && activities.map((activity) => (
-                <div className="activity-item" key={activity.id}>
-                  <div className="activity-avatar">
-                    <img
-                      src={activity.actor_avatar || DEFAULT_AVATAR_SRC}
-                      alt={activity.actor_name || 'Utilisateur'}
-                    />
-                  </div>
-                  <div className="activity-content">
-                    <div className="activity-text">
-                      {activity.actor_name ? (
-                        <>
-                          <strong>{activity.actor_name}</strong>{' '}
-                          {activity.description}
-                        </>
-                      ) : (
-                        activity.description || 'Nouvelle activité'
-                      )}
-                    </div>
-                    <div className="activity-time">
-                      {formatRelativeTime(activity.created_at)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Charts and Analytics (On retire le graphique d'activité, on garde juste la répartition des badges) */}
-          <div className="dashboard-charts">
-            {/* On retire le premier chart-container (Activité des membres) */}
-
-            <div className="chart-container">
-              <div className="chart-header">
-                <h3>Répartition des badges</h3>
-              </div>
-              <div className="chart-placeholder">
-                {badgeDistributionLoading && (
-                  <p className="chart-feedback-text">Chargement de la répartition...</p>
-                )}
-                {!badgeDistributionLoading && badgeDistributionError && (
-                  <p className="chart-feedback-text error">{badgeDistributionError}</p>
-                )}
-                {!badgeDistributionLoading && !badgeDistributionError && (
-                  <div className={`flex  ${hasAssignedBadges ? 'flex-row gap-4' : 'flex-col'}`}>
-                    <div
-                      className={`pie-chart-mock${hasAssignedBadges ? '':' pie-chart-empty'}`}
-                      style={{ background: badgePieBackground }}
-                    ></div>
-                    {hasAssignedBadges ? (
-                      <div className="pie-legend">
-                        {badgeDistribution.map((segment) => (
-                          <div className="legend-item" key={segment.level}>
-                            <span
-                              className="legend-color"
-                              style={{ backgroundColor: segment.color }}
-                            ></span>
-                            <span>
-                              {segment.label} ({segment.percentage}%)
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="chart-feedback-text">Aucun badge attribué pour le moment.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+          {/* FIN NOUVELLE SECTION - SPANS BOTH COLUMNS */}
     </section>
   );
 };

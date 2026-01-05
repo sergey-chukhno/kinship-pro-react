@@ -123,6 +123,7 @@ export interface Project {
     email: string;
     role?: string; // Role in organization (superadmin, admin, référant, intervenant, membre)
     city?: string; // City of the organization
+    is_deleted?: boolean; // Indicates if user is soft-deleted
   } | null;
   coResponsibles?: {
     id: string;
@@ -133,6 +134,7 @@ export interface Project {
     email: string;
     role?: string; // Role in organization (superadmin, admin, référant, intervenant, membre)
     city?: string; // City of the organization
+    is_deleted?: boolean; // Indicates if user is soft-deleted
   }[];
   partner?: {
     id: string;
@@ -257,6 +259,7 @@ export interface OrganizationStatsOverview {
   total_students: number;
   total_levels: number;
   total_projects: number;
+  active_partnerships?: number;
   active_contract: boolean;
   is_branch: boolean;
   is_main_school: boolean;
@@ -285,14 +288,21 @@ export interface BranchesStats {
   [key: string]: number | undefined;
 }
 
+export interface BadgesAssignedStats {
+  total?: number;
+  this_month?: number;
+  [key: string]: number | undefined;
+}
+
 export interface OrganizationStatsResponse {
   overview?: Partial<OrganizationStatsOverview>;
   members_by_role?: MembersByRoleStats;
   pending_approvals?: PendingApprovalsStats;
   branches?: BranchesStats;
+  badges_assigned?: BadgesAssignedStats;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'membership-requests' | 'project-management' | 'Auth';
+export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'membership-requests' | 'project-management' | 'Auth';
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';
 

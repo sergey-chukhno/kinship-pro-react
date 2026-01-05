@@ -5,6 +5,20 @@
   gap: 24px;
   padding: 24px;
   min-height: 100vh;
+  width: 100%;
+  max-width: none;
+}
+
+/* Override main.css to ensure dashboard-main-content uses flex row layout */
+.dashboard-main-layout.active .dashboard-main-content {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: 24px;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0;
+  margin-top: 0 !important;
 }
 
 .dashboard-header {
@@ -203,19 +217,28 @@
 /* --- MODIFICATION DE LA STRUCTURE --- */
 
 .dashboard-main-content {
-  display: flex;
-  flex-direction: row; /* Côte à côte */
+  display: flex !important;
+  flex-direction: row !important; /* Côte à côte */
   align-items: flex-start;
   gap: 24px;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 /* Nouvelle classe pour la partie gauche */
 .dashboard-left-column {
-  flex: 1;
+  flex: 1 1 auto !important;
   display: flex;
   flex-direction: column;
   gap: 32px;
   min-width: 0; /* Important pour la réactivité des graphiques */
+  width: 100% !important;
+  max-width: none !important;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: auto;
 }
 
 /* --- FIN MODIFICATION STRUCTURE --- */
@@ -349,11 +372,11 @@
 
 .chart-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
+  width: 100%;
 }
 
 .chart-header h3 {
@@ -375,48 +398,210 @@
   gap: 8px;
 }
 
+/* Professional Tab-Style Activity Selector */
+.activity-tabs-container {
+  display: flex;
+  gap: 0;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  padding: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
+  overflow: visible;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  align-self: stretch;
+  backdrop-filter: blur(10px);
+  margin: 0 -2px;
+}
+
+.activity-tabs-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.6));
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 10px;
+}
+
+.activity-tab {
+  flex: 1;
+  padding: 14px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  white-space: nowrap;
+  overflow: visible;
+  z-index: 1;
+  letter-spacing: 0.01em;
+  min-width: 0;
+  box-sizing: border-box;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.activity-tab:hover:not(.activity-tab-active) {
+  color: var(--text-primary, #374151);
+  background: rgba(255, 255, 255, 0.6);
+  transform: translateY(-0.5px);
+}
+
+.activity-tab-active {
+  color: var(--primary, #5570F1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.98));
+  font-weight: 600;
+  box-shadow: 
+    0 4px 12px rgba(85, 112, 241, 0.15),
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+  border: 0.5px solid rgba(85, 112, 241, 0.1);
+}
+
+.activity-tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 65%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary, #5570F1), var(--hover-primary, #4258c4));
+  border-radius: 3px 3px 0 0;
+  animation: slideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(85, 112, 241, 0.4);
+}
+
+@keyframes slideIn {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 65%;
+    opacity: 1;
+  }
+}
+
+.activity-tab:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+.activity-tab-active:active {
+  transform: translateY(-0.5px) scale(0.99);
+  transition: transform 0.1s ease;
+}
+
+.activity-tab-active:hover {
+  box-shadow: 
+    0 5px 16px rgba(85, 112, 241, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transform: translateY(-1.5px);
+}
+
 .period-selector {
   display: flex;
   gap: 8px;
 }
 
 .chart-placeholder {
-  height: 250px;
+  min-height: 350px;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  width: 100%;
+  padding: 20px 0;
 }
 
 .chart-mock {
   width: 100%;
-  height: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  flex: 1;
+  padding: 0 16px;
 }
 
 .chart-bars {
   display: flex;
   align-items: end;
   gap: 12px;
-  height: 160px;
+  height: 280px;
   width: 100%;
-  margin-bottom: 16px;
-  justify-content: center; /* Espacement uniforme */
+  max-width: 100%;
+  margin-bottom: 24px;
+  justify-content: space-between;
+  padding: 0 12px;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .chart-bar {
-  width: 100%;
-  max-width: 40px;
-  border-radius: 6px 6px 0 0;
-  transition: all 0.3s ease;
+  flex: 1;
+  min-width: 0;
+  max-width: 60px;
+  min-width: 32px;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.chart-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 8px 8px 0 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chart-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.1);
+  pointer-events: none;
 }
 
 .chart-bar:hover {
-  opacity: 0.8;
+  opacity: 0.95;
+  transform: translateY(-6px) scale(1.03);
+  box-shadow: 
+    0 12px 24px rgba(0, 0, 0, 0.18),
+    0 6px 12px rgba(0, 0, 0, 0.12);
+  z-index: 10;
 }
 
 /* Tooltip */
@@ -424,12 +609,13 @@
   position: fixed;
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  padding: 8px 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.1);
   pointer-events: none;
   z-index: 1000;
   font-size: 0.875rem;
+  backdrop-filter: blur(8px);
 }
 
 .tooltip-label {
@@ -446,10 +632,25 @@
 .chart-labels {
   display: flex;
   width: 100%;
-  gap:29px;
-  justify-content: center;
+  max-width: 100%;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 0 12px;
+  box-sizing: border-box;
   font-size: 0.8rem;
   color: var(--text-secondary, #6b7280);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.chart-labels span {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+  max-width: 60px;
+  white-space: nowrap;
+  overflow: visible;
+  padding: 0;
 }
 
 .pie-chart-mock {
@@ -860,22 +1061,52 @@
 /* --- NOUVELLE SECTION : Fusion Membres Récents + Activité --- */
 
 .members-overview-section {
-  display: flex;
+  display: flex !important;
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden; /* Assure que les coins arrondis sont respectés */
+  width: 100% !important;
+  min-width: 0;
+  max-width: none !important;
+  flex: 1 1 auto;
+  align-self: stretch;
+}
+
+/* Full-width version that spans both grid columns */
+.members-overview-section-full-width {
+  grid-column: 1 / -1 !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin-top: 24px;
 }
 
 /* Conteneur des Membres (Partie Gauche) */
 .recent-members-container {
   /* On retire les styles de card pour ne pas avoir double bordure/ombre */
   padding: 24px;
-  flex: 0 0 50%; /* Donne environ 45% de la largeur du bloc total */
+  flex: 0 0 320px; /* Largeur fixe pour la liste des membres */
+  min-width: 280px;
+  max-width: 400px;
   border-right: 1px solid var(--border, #f3f4f6); /* Séparateur visuel */
   box-shadow: none;
   background: none;
+}
+
+/* Conteneur de l'Activité des membres (Partie Droite) */
+.member-activity-chart-container {
+  flex: 1 1 auto !important;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px;
+  min-width: 0;
+  width: 100% !important;
+  max-width: none !important;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
 }
 
 .recent-members-header {
@@ -989,28 +1220,41 @@
 /* Conteneur du Graphique (Partie Droite) */
 .member-activity-chart {
   flex: 1;
-  padding: 24px;
+  padding: 0;
   box-shadow: none; /* Retirer l'ombre et la bordure de .chart-container */
   border: none;
   display: flex;
   flex-direction: column; /* Force les enfants à s'empiler verticalement */
+  min-width: 0;
+  overflow: visible;
+  width: 100%;
+}
+
+/* Ensure parent container allows tabs to expand */
+.member-activity-chart > div.flex {
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+  align-items: stretch !important;
 }
 
 .member-activity-chart .chart-header {
-  /* Styles pour afficher le titre ET les boutons d'activité côte à côte */
+  /* Styles pour afficher le titre ET les boutons d'activité en colonne */
   display: flex;
-  justify-content: space-between; /* Pousse les éléments aux extrémités */
-  align-items: center;
-  margin-bottom: 15px; /* Réduit l'espace entre l'en-tête et les boutons de période */
-  flex-wrap: wrap; /* Pour la réactivité */
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 20px;
+  gap: 16px;
+  width: 100%;
 }
 
 .member-activity-chart .chart-header h3 {
   /* Le texte "Activité des membres" est conservé */
-  font-size: 1.1rem; /* On revient à la taille standard pour le titre */
-  font-weight: 600;
+  font-size: 1.25rem; /* Slightly larger for better prominence */
+  font-weight: 700;
   color: var(--text-primary, #374151);
-  margin: 0; /* Suppression des marges inutiles */
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 /* Le sélecteur d'activité est maintenant un enfant direct de .chart-header et est aligné à droite */
@@ -1032,7 +1276,10 @@
 .chart-controls-and-graph {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  gap: 20px;
 }
 
 .member-activity-chart .activity-type-selector {
@@ -1065,7 +1312,8 @@
 /* Ajustement du Chart pour qu'il prenne l'espace restant */
 .member-activity-chart .chart-placeholder {
     flex: 1; /* Permet au placeholder de prendre l'espace restant */
-    min-height: 150px; /* S'assurer qu'il reste de la place pour le graphique */
+    min-height: 350px; /* Increased height for better visual presence */
+    width: 100%;
 }
 
 /* Média queries pour la responsivité */
