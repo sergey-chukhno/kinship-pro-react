@@ -804,7 +804,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                           {selectedExpertises.map((expertiseId) => {
                             const expertise = competencies.find((e: any) => e.id === expertiseId);
                             if (!expertise) return null;
-                            const rules = selectedBadge.level === 'level_1' ? getBadgeValidationRules(selectedBadge.name) : null;
+                            const rules = (selectedBadge.level === 'level_1' || 
+                              (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) 
+                              ? getBadgeValidationRules(selectedBadge.name) : null;
                             // Use normalized comparison to check if competency is mandatory
                             const normalizedExpertiseName = normalizeCompetencyName(expertise.name);
                             const normalizedMandatory = rules?.mandatoryCompetencies.map(normalizeCompetencyName) || [];
@@ -845,7 +847,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                             );
                           }
                           
-                          const rules = selectedBadge.level === 'level_1' ? getBadgeValidationRules(selectedBadge.name) : null;
+                          const rules = (selectedBadge.level === 'level_1' || 
+                            (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) 
+                            ? getBadgeValidationRules(selectedBadge.name) : null;
                           
                           return availableExpertises.map((expertise: any) => {
                             // Use normalized comparison to check if competency is mandatory
