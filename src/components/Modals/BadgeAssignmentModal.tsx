@@ -97,7 +97,7 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
     minRequired: 1,
     hintText: 'Validation minimum de la compétence obligatoire ci-dessous :'
   },
-  'Étape1': {
+  'Étape 1 : IMPLICATION INITIALE': {
     mandatoryCompetencies: [
       "Dispose d'une connaissance de soi, ses aptitudes et sa motivation",
       "Dispose d'une connaissance concrète d'un ensemble de métiers pouvant correspondre à ses capacités"
@@ -105,7 +105,7 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
     minRequired: 2,
     hintText: 'Validation des 2 compétences ci-dessous :'
   },
-  'Étape2': {
+  'Étape 2: ENGAGEMENT ENCADRÉ': {
     mandatoryCompetencies: [
       "S'approprie les résultats détaillés de la phase d'investigation",
       "Construit son projet professionnel et en vérifie la pertinence"
