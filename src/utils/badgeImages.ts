@@ -30,6 +30,12 @@ const badgeImagesByName: Record<string, string> = {
   "Prise d'Image": "/NIV 1/Communication@2x.png",
   "Prise de Son": "/NIV 1/Formation@2x.png",
   "Organisation Logistique": "/NIV 1/OrganisationOpe@2x.png",
+
+  // Série Parcours des possibles
+  "Étape 1 : IMPLICATION INITIALE": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level1.png",
+  "Étape 2: ENGAGEMENT ENCADRÉ": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level2.png",
+  "Étape3": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level3.png",
+  "Étape4": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level4.png",
 };
 
 export const getLocalBadgeImage = (badgeName?: string): string | undefined => {

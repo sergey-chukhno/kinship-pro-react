@@ -96,6 +96,22 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
     mandatoryCompetencies: ['Mobilise son imagination et sa créativité pour proposer une idée.'],
     minRequired: 1,
     hintText: 'Validation minimum de la compétence obligatoire ci-dessous :'
+  },
+  'Étape 1 : IMPLICATION INITIALE': {
+    mandatoryCompetencies: [
+      "Dispose d'une connaissance de soi, ses aptitudes et sa motivation",
+      "Dispose d'une connaissance concrète d'un ensemble de métiers pouvant correspondre à ses capacités"
+    ],
+    minRequired: 2,
+    hintText: 'Validation des 2 compétences ci-dessous :'
+  },
+  'Étape 2: ENGAGEMENT ENCADRÉ': {
+    mandatoryCompetencies: [
+      "S'approprie les résultats détaillés de la phase d'investigation",
+      "Construit son projet professionnel et en vérifie la pertinence"
+    ],
+    minRequired: 3,
+    hintText: 'Validation minimum de 3 des 5 compétences ci-dessous :'
   }
 };
 
@@ -189,8 +205,9 @@ const validateCompetencies = (
   badge: BadgeAPI | null,
   allExpertises: Array<{ id: number; name: string }>
 ): { isValid: boolean; errorMessage: string | null } => {
-  if (!badge || badge.level !== 'level_1') {
-    return { isValid: true, errorMessage: null }; // No validation for non-level-1 badges
+  // Validate level 1 and level 2 badges (for Série Parcours des possibles, level 2 also needs validation)
+  if (!badge || (badge.level !== 'level_1' && badge.level !== 'level_2')) {
+    return { isValid: true, errorMessage: null }; // No validation for non-level-1/level-2 badges
   }
 
   const rules = getBadgeValidationRules(badge.name);
@@ -301,13 +318,13 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
     }
   }, [preselectedParticipant]);
 
-  // Load badges from API (level 1 only)
+  // Load badges from API (all levels)
   useEffect(() => {
     const fetchBadges = async () => {
       setLoadingBadges(true);
       try {
-        // Filter only level 1 badges
-        const badgesData = await getBadges({ level: 'level_1' });
+        // Fetch all badges (no level filter) to support multiple levels
+        const badgesData = await getBadges();
         setBadges(badgesData);
       } catch (error) {
         console.error('Error fetching badges:', error);
@@ -377,11 +394,20 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
     return Object.keys(badgesBySeries);
   }, [badgesBySeries]);
 
-  // Get badges for selected series
+  // Get badges for selected series and level
   const badgesForSeries = useMemo(() => {
     if (!series) return [];
-    return (badgesBySeries[series] || []).filter((b) => b.name !== 'Test Badge');
-  }, [series, badgesBySeries]);
+    let filtered = (badgesBySeries[series] || []).filter((b) => b.name !== 'Test Badge');
+    // Filter by level if level is selected
+    if (level) {
+      const levelKey = `level_${level}`;
+      filtered = filtered.filter((b) => {
+        const matches = b.level === levelKey;
+        return matches;
+      });
+    }
+    return filtered;
+  }, [series, level, badgesBySeries]);
 
   // Update selected badge when title changes
   useEffect(() => {
@@ -424,8 +450,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
       return;
     }
 
-    // Validate competencies for level 1 badges
-    if (selectedBadge.level === 'level_1') {
+    // Validate competencies for level 1 and level 2 badges (for "Série Parcours des possibles")
+    if (selectedBadge.level === 'level_1' || 
+        (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) {
       const competencies = getBadgeCompetencies(selectedBadge);
       if (competencies.length > 0) {
         const validation = validateCompetencies(
@@ -621,6 +648,8 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                       setSeries(e.target.value);
                       setTitle('');
                       setSelectedBadge(null);
+                      // Reset level to 1 when series changes
+                      setLevel('1');
                     }}
                   >
                     <option value="">Sélectionner une série</option>
@@ -632,7 +661,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                   </select>
                 </div>
 
-                {/* Level selection - Level 1 only, others disabled */}
+                {/* Level selection - Dynamic based on series */}
                 {series && (
                   <div className="form-group">
                     <label htmlFor="badgeLevel">Niveau</label>
@@ -647,10 +676,23 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                       }}
                       disabled={!series}
                     >
-                      <option value="1">Niveau 1: Découverte</option>
-                      <option value="2" disabled>Niveau 2: Application (non disponible)</option>
-                      <option value="3" disabled>Niveau 3: Maîtrise (non disponible)</option>
-                      <option value="4" disabled>Niveau 4: Expertise (non disponible)</option>
+                      <option value="1">
+                        {series === 'Série Parcours des possibles' ? 'Niveau 1' : 'Niveau 1: Découverte'}
+                      </option>
+                      <option 
+                        value="2" 
+                        disabled={series !== 'Série Parcours des possibles'}
+                      >
+                        {series === 'Série Parcours des possibles' 
+                          ? 'Niveau 2' 
+                          : 'Niveau 2: Application (non disponible)'}
+                      </option>
+                      <option value="3" disabled>
+                        {series === 'Série Parcours des possibles' ? 'Niveau 3 (non disponible)' : 'Niveau 3: Maîtrise (non disponible)'}
+                      </option>
+                      <option value="4" disabled>
+                        {series === 'Série Parcours des possibles' ? 'Niveau 4 (non disponible)' : 'Niveau 4: Expertise (non disponible)'}
+                      </option>
                     </select>
                   </div>
                 )}
@@ -724,7 +766,8 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
             </div>
 
             {/* Compétences (sélection multiple) */}
-            {selectedBadge && selectedBadge.level === 'level_1' && (
+            {selectedBadge && (selectedBadge.level === 'level_1' || 
+              (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) && (
               <div className="form-group">
                 <div className="competencies-label-container">
                   <label htmlFor="expertises">Compétences (sélection multiple)</label>
@@ -761,7 +804,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                           {selectedExpertises.map((expertiseId) => {
                             const expertise = competencies.find((e: any) => e.id === expertiseId);
                             if (!expertise) return null;
-                            const rules = selectedBadge.level === 'level_1' ? getBadgeValidationRules(selectedBadge.name) : null;
+                            const rules = (selectedBadge.level === 'level_1' || 
+                              (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) 
+                              ? getBadgeValidationRules(selectedBadge.name) : null;
                             // Use normalized comparison to check if competency is mandatory
                             const normalizedExpertiseName = normalizeCompetencyName(expertise.name);
                             const normalizedMandatory = rules?.mandatoryCompetencies.map(normalizeCompetencyName) || [];
@@ -802,7 +847,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                             );
                           }
                           
-                          const rules = selectedBadge.level === 'level_1' ? getBadgeValidationRules(selectedBadge.name) : null;
+                          const rules = (selectedBadge.level === 'level_1' || 
+                            (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) 
+                            ? getBadgeValidationRules(selectedBadge.name) : null;
                           
                           return availableExpertises.map((expertise: any) => {
                             // Use normalized comparison to check if competency is mandatory
