@@ -114,7 +114,11 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
     hintText: 'Validation minimum de 3 des 5 compétences ci-dessous :'
   },
   'ACTING': {
-    mandatoryCompetencies: [],
+    // Level 1: 2 of 3, none mandatory
+    // Level 2: 2 of 3, 1 mandatory - handled in validateCompetencies function
+    mandatoryCompetencies: [
+      "Maîtriser les fondamentaux du jeu d'acteur (improvisation, analyse de texte, construction de personnage)"
+    ],
     minRequired: 2,
     hintText: 'Validation de 2 des 3 compétences ci-dessous :'
   },
@@ -140,6 +144,67 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
     mandatoryCompetencies: [],
     minRequired: 1,
     hintText: 'Validation d\'une des 2 compétences ci-dessous :'
+  },
+  // Série Audiovisuelle - Level 2
+  'PRODUCTION': {
+    mandatoryCompetencies: [
+      "Se familiariser avec les différents métiers du secteur audiovisuel et les rôles de chacun, coordonner une équipe de tournage"
+    ],
+    minRequired: 2,
+    hintText: 'Validation de 2 des 3 compétences ci-dessous dont la compétence obligatoire :'
+  },
+  'REGIE': {
+    mandatoryCompetencies: [
+      "Assurer la sécurité et l'organisation logistique d'un tournage"
+    ],
+    minRequired: 2,
+    hintText: 'Validation de 2 des 5 compétences ci-dessous dont la compétence obligatoire :'
+  },
+  'MISE EN SCENE': {
+    mandatoryCompetencies: [
+      "Sélectionner (casting) puis diriger des acteurs"
+    ],
+    minRequired: 2,
+    hintText: 'Validation de 2 des 4 compétences ci-dessous dont la compétence obligatoire :'
+  },
+  'PRISE IMAGE & LUMIERE': {
+    mandatoryCompetencies: [
+      "Faire un découpage technique et tourner des images (en plateau ou en extérieur) via des caméras professionnelles",
+      "Connaître les mouvements de caméra et les maîtriser via du matériel professionnel"
+    ],
+    minRequired: 2,
+    hintText: 'Validation des 2 compétences obligatoires ci-dessous :'
+  },
+  'POSTPRODUCTION IMAGE ET VFX': {
+    mandatoryCompetencies: [],
+    minRequired: 1,
+    hintText: 'Validation d\'une des 3 compétences ci-dessous :'
+  },
+  'PRISE DE SON': {
+    mandatoryCompetencies: [],
+    minRequired: 1,
+    hintText: 'Validation d\'une des 3 compétences ci-dessous :'
+  },
+  'POST PRODUCTION SON': {
+    mandatoryCompetencies: [
+      "Mixer et post-produire un type de projets audiovisuels et/ou cinématographiques (reportage, clip, short-comédie, publicité, court-métrage) via des logiciels professionnels adaptés"
+    ],
+    minRequired: 2,
+    hintText: 'Validation de 2 des 4 compétences ci-dessous dont la compétence obligatoire :'
+  },
+  'DECO & SFX': {
+    mandatoryCompetencies: [
+      "Accessoirier un décor, une scène"
+    ],
+    minRequired: 2,
+    hintText: 'Validation de 2 des 4 compétences ci-dessous dont la compétence obligatoire :'
+  },
+  'STYLISME& HMC': {
+    mandatoryCompetencies: [
+      "Connaître les différents corps de métiers : styliste, costumier, habilleur, maquilleur, coiffeur, posticheur…"
+    ],
+    minRequired: 1,
+    hintText: 'Validation d\'une des 2 compétences ci-dessous dont la compétence obligatoire :'
   }
 };
 
@@ -247,6 +312,12 @@ const validateCompetencies = (
     return { isValid: true, errorMessage: null }; // No rules = no validation
   }
 
+  // Special handling for ACTING: level 1 has no mandatory, level 2 has 1 mandatory
+  let effectiveMandatoryCompetencies = rules.mandatoryCompetencies;
+  if (badge.name === 'ACTING' && badge.level === 'level_1') {
+    effectiveMandatoryCompetencies = [];
+  }
+
   // Get selected competency names and normalize them
   const selectedCompetencyNames = selectedExpertiseIds
     .map(id => allExpertises.find(e => e.id === id)?.name)
@@ -254,7 +325,7 @@ const validateCompetencies = (
     .map(normalizeCompetencyName);
 
   // Normalize mandatory competency names for comparison
-  const normalizedMandatoryCompetencies = rules.mandatoryCompetencies.map(normalizeCompetencyName);
+  const normalizedMandatoryCompetencies = effectiveMandatoryCompetencies.map(normalizeCompetencyName);
 
   // Debug logging to help identify mismatches
   if (rules.mandatoryCompetencies.length > 0) {
@@ -276,7 +347,7 @@ const validateCompetencies = (
     // Find the original (non-normalized) names for the error message
     const missingOriginalNames = missingMandatory.map(normalizedName => {
       const originalIndex = normalizedMandatoryCompetencies.indexOf(normalizedName);
-      return rules.mandatoryCompetencies[originalIndex];
+      return effectiveMandatoryCompetencies[originalIndex];
     });
     const mandatoryList = missingOriginalNames.map(c => `"${c}"`).join(', ');
     return {
@@ -478,9 +549,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
       return;
     }
 
-    // Validate competencies for level 1 and level 2 badges (for "Série Parcours des possibles")
+    // Validate competencies for level 1 and level 2 badges (for "Série Parcours des possibles" and "Série Audiovisuelle")
     if (selectedBadge.level === 'level_1' || 
-        (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) {
+        (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle'))) {
       const competencies = getBadgeCompetencies(selectedBadge);
       if (competencies.length > 0) {
         const validation = validateCompetencies(
@@ -809,7 +880,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
 
             {/* Compétences (sélection multiple) */}
             {selectedBadge && (selectedBadge.level === 'level_1' || 
-              (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) && (
+              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle'))) && (
               <div className="form-group">
                 <div className="competencies-label-container">
                   <label htmlFor="expertises">Compétences (sélection multiple)</label>
@@ -847,7 +918,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                             const expertise = competencies.find((e: any) => e.id === expertiseId);
                             if (!expertise) return null;
                             const rules = (selectedBadge.level === 'level_1' || 
-                              (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) 
+                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle'))) 
                               ? getBadgeValidationRules(selectedBadge.name) : null;
                             // Use normalized comparison to check if competency is mandatory
                             const normalizedExpertiseName = normalizeCompetencyName(expertise.name);
@@ -889,9 +960,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                             );
                           }
                           
-                          const rules = (selectedBadge.level === 'level_1' || 
-                            (selectedBadge.level === 'level_2' && selectedBadge.series === 'Série Parcours des possibles')) 
-                            ? getBadgeValidationRules(selectedBadge.name) : null;
+                            const rules = (selectedBadge.level === 'level_1' || 
+                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle'))) 
+                              ? getBadgeValidationRules(selectedBadge.name) : null;
                           
                           return availableExpertises.map((expertise: any) => {
                             // Use normalized comparison to check if competency is mandatory
