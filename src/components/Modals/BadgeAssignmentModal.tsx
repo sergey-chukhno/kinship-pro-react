@@ -112,6 +112,34 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
     ],
     minRequired: 3,
     hintText: 'Validation minimum de 3 des 5 compétences ci-dessous :'
+  },
+  'ACTING': {
+    mandatoryCompetencies: [],
+    minRequired: 2,
+    hintText: 'Validation de 2 des 3 compétences ci-dessous :'
+  },
+  'ORGANISATION-LOGISTIQUE': {
+    mandatoryCompetencies: [],
+    minRequired: 2,
+    hintText: 'Validation de 2 des 3 compétences ci-dessous :'
+  },
+  'IMAGE': {
+    mandatoryCompetencies: [
+      "Scénariser ou conceptualiser un projet audiovisuel",
+      "Tourner des images, monter des images"
+    ],
+    minRequired: 2,
+    hintText: 'Validation de 2 des 4 compétences ci-dessous dont les 2 compétences obligatoires :'
+  },
+  'SON': {
+    mandatoryCompetencies: [],
+    minRequired: 2,
+    hintText: 'Validation de 2 des 3 compétences ci-dessous :'
+  },
+  'ORGANISATION-ARTISTIQUE': {
+    mandatoryCompetencies: [],
+    minRequired: 1,
+    hintText: 'Validation d\'une des 2 compétences ci-dessous :'
   }
 };
 
@@ -677,21 +705,35 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                       disabled={!series}
                     >
                       <option value="1">
-                        {series === 'Série Parcours des possibles' ? 'Niveau 1' : 'Niveau 1: Découverte'}
+                        {series === 'Série Parcours des possibles' 
+                          ? 'Niveau 1' 
+                          : series === 'Série Audiovisuelle'
+                          ? 'Niveau 1: Observable'
+                          : 'Niveau 1: Découverte'}
                       </option>
                       <option 
                         value="2" 
-                        disabled={series !== 'Série Parcours des possibles'}
+                        disabled={series !== 'Série Parcours des possibles' && series !== 'Série Audiovisuelle'}
                       >
                         {series === 'Série Parcours des possibles' 
                           ? 'Niveau 2' 
+                          : series === 'Série Audiovisuelle'
+                          ? 'Niveau 2: Preuve'
                           : 'Niveau 2: Application (non disponible)'}
                       </option>
                       <option value="3" disabled>
-                        {series === 'Série Parcours des possibles' ? 'Niveau 3 (non disponible)' : 'Niveau 3: Maîtrise (non disponible)'}
+                        {series === 'Série Parcours des possibles' 
+                          ? 'Niveau 3 (non disponible)' 
+                          : series === 'Série Audiovisuelle'
+                          ? 'Niveau 3 (non disponible)'
+                          : 'Niveau 3: Maîtrise (non disponible)'}
                       </option>
                       <option value="4" disabled>
-                        {series === 'Série Parcours des possibles' ? 'Niveau 4 (non disponible)' : 'Niveau 4: Expertise (non disponible)'}
+                        {series === 'Série Parcours des possibles' 
+                          ? 'Niveau 4 (non disponible)' 
+                          : series === 'Série Audiovisuelle'
+                          ? 'Niveau 4 (non disponible)'
+                          : 'Niveau 4: Expertise (non disponible)'}
                       </option>
                     </select>
                   </div>

@@ -26,10 +26,11 @@ const badgeImagesByName: Record<string, string> = {
   "Résoudre des difficultés": "/badges_psychosociales/Sociales_final.png",
 
   // Série Audiovisuelle
-  "Jeu d'Acteur": "/NIV 1/Creativite@2x.png",
-  "Prise d'Image": "/NIV 1/Communication@2x.png",
-  "Prise de Son": "/NIV 1/Formation@2x.png",
-  "Organisation Logistique": "/NIV 1/OrganisationOpe@2x.png",
+  "ACTING": "/badges_audiovisuels/Badge_Acting_Level1.png",
+  "ORGANISATION-LOGISTIQUE": "/badges_audiovisuels/Badge_Organisation_Logistique_Level1.png",
+  "IMAGE": "/badges_audiovisuels/Badge_Image_Level1.png",
+  "SON": "/badges_audiovisuels/Badge_Son_Level1.png",
+  "ORGANISATION-ARTISTIQUE": "/badges_audiovisuels/Badge_Organisation_Artistique_Level1.png",
 
   // Série Parcours des possibles
   "Étape 1 : IMPLICATION INITIALE": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level1.png",
