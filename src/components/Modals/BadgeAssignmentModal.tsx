@@ -47,7 +47,8 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
   },
   'Communication': {
     mandatoryCompetencies: [
-      'Écoute et prend en compte ses interlocuteurs.'
+      'Écoute et prend en compte ses interlocuteurs.',
+      "Parle et argumente à l'oral de façon claire et organisée"
     ],
     minRequired: 2,
     hintText: 'Validation obligatoire des 2 compétences ci-dessous :'
