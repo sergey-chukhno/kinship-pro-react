@@ -1892,7 +1892,7 @@ const ProjectManagement: React.FC = () => {
           return false;
         }
         
-        // Level filter (for TouKouLeur and Audiovisuelle)
+        // Level filter (for all series that support levels)
         if (badgeLevelFilter && attribution.badgeLevel !== badgeLevelFilter) {
           return false;
         }
@@ -2770,12 +2770,16 @@ const ProjectManagement: React.FC = () => {
                   >
                     <option value="">Toutes les séries</option>
                     <option value="Série Soft Skills 4LAB">Soft Skills 4LAB</option>
-                    <option value="Série CPS" disabled>CPS</option>
-                    <option value="Série Audiovisuelle" disabled>Audiovisuelle</option>
+                    <option value="Série Parcours des possibles">Série Parcours des possibles</option>
+                    <option value="Série Audiovisuelle">Série Audiovisuelle</option>
+                    <option value="Série Parcours professionnel">Série Parcours professionnel</option>
                   </select>
                 </div>
                 
-                {badgeSeriesFilter === 'Série Soft Skills 4LAB' && (
+                {(badgeSeriesFilter === 'Série Soft Skills 4LAB' || 
+                  badgeSeriesFilter === 'Série Parcours des possibles' ||
+                  badgeSeriesFilter === 'Série Audiovisuelle' ||
+                  badgeSeriesFilter === 'Série Parcours professionnel') && (
                   <div className="filter-group">
                     <label>Par niveau</label>
                     <select 
@@ -2789,52 +2793,6 @@ const ProjectManagement: React.FC = () => {
                       <option value="4">Niveau 4</option>
                     </select>
                   </div>
-                )}
-                
-                {badgeSeriesFilter === 'Série CPS' && (
-                  <div className="filter-group">
-                    <label>Par domaine</label>
-                    <select 
-                      value={badgeDomainFilter} 
-                      onChange={(e) => setBadgeDomainFilter(e.target.value)}
-                    >
-                      <option value="">Tous les domaines</option>
-                      <option value="cognitives">Cognitives</option>
-                      <option value="emotionnelles">Émotionnelles</option>
-                      <option value="sociales">Sociales</option>
-                    </select>
-                  </div>
-                )}
-                
-                {badgeSeriesFilter === 'Série Audiovisuelle' && (
-                  <>
-                    <div className="filter-group">
-                      <label>Par niveau</label>
-                      <select 
-                        value={badgeLevelFilter} 
-                        onChange={(e) => setBadgeLevelFilter(e.target.value)}
-                      >
-                        <option value="">Tous les niveaux</option>
-                        <option value="1">Niveau 1</option>
-                        <option value="2">Niveau 2</option>
-                        <option value="3">Niveau 3</option>
-                        <option value="4">Niveau 4</option>
-                      </select>
-                    </div>
-                    <div className="filter-group">
-                      <label>Par domaine</label>
-                      <select 
-                        value={badgeDomainFilter} 
-                        onChange={(e) => setBadgeDomainFilter(e.target.value)}
-                      >
-                        <option value="">Tous les domaines</option>
-                        <option value="Production">Production</option>
-                        <option value="Post-production">Post-production</option>
-                        <option value="Diffusion">Diffusion</option>
-                        <option value="Gestion">Gestion</option>
-                      </select>
-                    </div>
-                  </>
                 )}
               </div>
               
