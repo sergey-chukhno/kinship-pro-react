@@ -1212,12 +1212,12 @@ const ProjectManagement: React.FC = () => {
       badgeImage: imageUrl,
       participantId: receiver.id?.toString() || '',
       participantName: receiver.full_name || receiver.name || 'Inconnu',
-      participantAvatar: receiver.avatar_url || '/avatar-placeholder.png',
+      participantAvatar: receiver.avatar_url || DEFAULT_AVATAR_SRC,
       participantOrganization: receiver.organization || organization.name || 'Non spécifiée',
       participantIsDeleted: receiver.is_deleted || false,
       attributedBy: sender.id?.toString() || '',
       attributedByName: sender.full_name || sender.name || 'Inconnu',
-      attributedByAvatar: sender.avatar_url || '/avatar-placeholder.png',
+      attributedByAvatar: sender.avatar_url || DEFAULT_AVATAR_SRC,
       attributedByOrganization: sender.organization || organization.name || 'Non spécifiée',
       attributedByIsDeleted: sender.is_deleted || false,
       projectId: project?.id || '',
@@ -2822,7 +2822,7 @@ const ProjectManagement: React.FC = () => {
                             <h5>Attribué à:</h5>
                             <div className="person-info">
                               <div className="person-info-header">
-                                <img src={attribution.participantAvatar} alt={attribution.participantName} />
+                                <AvatarImage src={attribution.participantAvatar || DEFAULT_AVATAR_SRC} alt={attribution.participantName} />
                                 {attribution.participantIsDeleted ? (
                                   <DeletedUserDisplay 
                                     user={{
@@ -2843,7 +2843,7 @@ const ProjectManagement: React.FC = () => {
                             <h5>Attribué par:</h5>
                             <div className="person-info">
                               <div className="person-info-header">
-                                <img src={attribution.attributedByAvatar} alt={attribution.attributedByName} />
+                                <AvatarImage src={attribution.attributedByAvatar || DEFAULT_AVATAR_SRC} alt={attribution.attributedByName} />
                                 {attribution.attributedByIsDeleted ? (
                                   <DeletedUserDisplay 
                                     user={{
