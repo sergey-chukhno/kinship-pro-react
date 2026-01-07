@@ -43,11 +43,36 @@ export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => 
 /**
  * Récupère la liste des badges attribués dans un projet
  * @param projectId - ID du projet
- * @returns Promise<any[]>
+ * @param page - Numéro de page (défaut: 1)
+ * @param perPage - Nombre d'éléments par page (défaut: 12)
+ * @param filters - Filtres optionnels (series, level)
+ * @returns Promise<{ data: any[], meta: any }>
  */
-export const getProjectBadges = async (projectId: number): Promise<any[]> => {
-  const response = await apiClient.get(`/api/v1/projects/${projectId}/badges`);
-  return response.data?.data || [];
+export const getProjectBadges = async (
+  projectId: number,
+  page: number = 1,
+  perPage: number = 12,
+  filters?: {
+    series?: string;
+    level?: string;
+  }
+): Promise<{ data: any[]; meta: any }> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('per_page', perPage.toString());
+  
+  if (filters?.series) {
+    params.append('series', filters.series);
+  }
+  if (filters?.level) {
+    params.append('level', filters.level);
+  }
+  
+  const response = await apiClient.get(`/api/v1/projects/${projectId}/badges?${params.toString()}`);
+  return {
+    data: response.data?.data || [],
+    meta: response.data?.meta || {}
+  };
 };
 
 /**

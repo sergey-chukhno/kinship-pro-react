@@ -49,6 +49,9 @@ const ProjectManagement: React.FC = () => {
   const [projectBadges, setProjectBadges] = useState<any[]>([]);
   const [isLoadingProjectBadges, setIsLoadingProjectBadges] = useState(false);
   const [projectBadgesError, setProjectBadgesError] = useState<string | null>(null);
+  const [badgePage, setBadgePage] = useState(1);
+  const [badgeTotalPages, setBadgeTotalPages] = useState(1);
+  const [badgeTotalCount, setBadgeTotalCount] = useState(0);
 
   // Team management state
   const [teams, setTeams] = useState<any[]>([]);
@@ -344,27 +347,13 @@ const ProjectManagement: React.FC = () => {
   }, [apiProjectData?.id, project?.id]); // Depend directly on ID values
 
   // Fetch project badges when project changes
+  // Fetch badges when page or filters change
   useEffect(() => {
-    const fetchBadges = async () => {
-      if (!project?.id) return;
-      setIsLoadingProjectBadges(true);
-      setProjectBadgesError(null);
-      try {
-        const projectId = parseInt(project.id);
-        const data = await getProjectBadges(projectId);
-        const mapped = (data || []).map(mapBackendBadgeToAttribution);
-        setProjectBadges(mapped);
-      } catch (error: any) {
-        console.error('Error fetching project badges:', error);
-        setProjectBadgesError('Erreur lors du chargement des badges attribués');
-      } finally {
-        setIsLoadingProjectBadges(false);
-      }
-    };
-    
-    fetchBadges();
+    if (project?.id) {
+      fetchProjectBadgesData(badgePage);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id]);
+  }, [badgePage, badgeSeriesFilter, badgeLevelFilter]);
 
   // Calculate badge assignment permissions
   useEffect(() => {
@@ -1181,6 +1170,14 @@ const ProjectManagement: React.FC = () => {
     return seriesName?.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
   };
 
+  // Map frontend series name to backend series name for API calls
+  const mapSeriesToBackend = (frontendSeries: string): string => {
+    if (frontendSeries === 'Série Soft Skills 4LAB') {
+      return 'Série TouKouLeur'; // Exact database value with capital K and L
+    }
+    return frontendSeries;
+  };
+
   const mapBackendBadgeToAttribution = (item: any): any => {
     const badge = item?.badge || {};
     const receiver = item?.receiver || {};
@@ -1233,22 +1230,32 @@ const ProjectManagement: React.FC = () => {
     };
   };
 
-  const fetchProjectBadgesData = useCallback(async () => {
+  const fetchProjectBadgesData = useCallback(async (page: number = 1) => {
     if (!project?.id) return;
     setIsLoadingProjectBadges(true);
     setProjectBadgesError(null);
     try {
       const projectId = parseInt(project.id);
-      const data = await getProjectBadges(projectId);
-      const mapped = (data || []).map(mapBackendBadgeToAttribution);
+      const filters: { series?: string; level?: string } = {};
+      if (badgeSeriesFilter) filters.series = mapSeriesToBackend(badgeSeriesFilter);
+      if (badgeLevelFilter) filters.level = `level_${badgeLevelFilter}`;
+      
+      const response = await getProjectBadges(projectId, page, 12, filters);
+      const mapped = (response.data || []).map(mapBackendBadgeToAttribution);
       setProjectBadges(mapped);
+      
+      // Update pagination metadata
+      if (response.meta) {
+        setBadgeTotalPages(response.meta.total_pages || 1);
+        setBadgeTotalCount(response.meta.total_count || 0);
+      }
     } catch (error: any) {
       console.error('Error fetching project badges:', error);
       setProjectBadgesError('Erreur lors du chargement des badges attribués');
     } finally {
       setIsLoadingProjectBadges(false);
     }
-  }, [project?.id]);
+  }, [project?.id, badgeSeriesFilter, badgeLevelFilter]);
 
   const handleBadgeAssignment = async (badgeData: any) => {
     console.log('Badge assigned:', badgeData);
@@ -1266,8 +1273,8 @@ const ProjectManagement: React.FC = () => {
       }
     }
     
-    // Refresh badge attributions list from backend
-    fetchProjectBadgesData();
+    // Refresh badge attributions list from backend (stay on current page)
+    fetchProjectBadgesData(badgePage);
     
     // Badge assignment is handled by the modal's success message
     // Close modal after success message is shown
@@ -1883,28 +1890,6 @@ const ProjectManagement: React.FC = () => {
     });
   };
 
-  // Filter badges based on selected filters
-  const getFilteredBadges = () => {
-    return projectBadges
-      .filter(attribution => {
-        // Series filter
-        if (badgeSeriesFilter && attribution.badgeSeries !== badgeSeriesFilter) {
-          return false;
-        }
-        
-        // Level filter (for all series that support levels)
-        if (badgeLevelFilter && attribution.badgeLevel !== badgeLevelFilter) {
-          return false;
-        }
-        
-        // Domain filter (for CPS and Audiovisuelle)
-        if (badgeDomainFilter && attribution.domaineEngagement !== badgeDomainFilter) {
-          return false;
-        }
-        
-        return true;
-      });
-  };
 
 
   return (
@@ -2766,6 +2751,7 @@ const ProjectManagement: React.FC = () => {
                       setBadgeSeriesFilter(e.target.value);
                       setBadgeLevelFilter('');
                       setBadgeDomainFilter('');
+                      setBadgePage(1); // Reset to page 1 when filter changes
                     }}
                   >
                     <option value="">Toutes les séries</option>
@@ -2784,7 +2770,10 @@ const ProjectManagement: React.FC = () => {
                     <label>Par niveau</label>
                     <select 
                       value={badgeLevelFilter} 
-                      onChange={(e) => setBadgeLevelFilter(e.target.value)}
+                      onChange={(e) => {
+                        setBadgeLevelFilter(e.target.value);
+                        setBadgePage(1); // Reset to page 1 when filter changes
+                      }}
                     >
                       <option value="">Tous les niveaux</option>
                       <option value="1">Niveau 1</option>
@@ -2797,7 +2786,7 @@ const ProjectManagement: React.FC = () => {
               </div>
               
               <div className="badges-list">
-                {getFilteredBadges().map((attribution) => (
+                {projectBadges.map((attribution) => (
                     <div key={attribution.id} className="badge-attribution-card">
                       <div className="badge-attribution-header">
                         <div className="badge-image">
@@ -2953,6 +2942,66 @@ const ProjectManagement: React.FC = () => {
                   </div>
                 )}
               </div>
+              
+              {/* Pagination */}
+              {badgeTotalPages > 1 && !isLoadingProjectBadges && projectBadges.length > 0 && (
+                <div className="pagination-container">
+                  <div className="pagination-info">
+                    Page {badgePage} sur {badgeTotalPages} ({badgeTotalCount} badge{badgeTotalCount > 1 ? 's' : ''})
+                  </div>
+                  <div className="pagination-controls">
+                    <button
+                      className="pagination-btn"
+                      onClick={() => {
+                        const newPage = badgePage - 1;
+                        setBadgePage(newPage);
+                        fetchProjectBadgesData(newPage);
+                      }}
+                      disabled={badgePage === 1 || isLoadingProjectBadges}
+                    >
+                      <i className="fas fa-chevron-left"></i> Précédent
+                    </button>
+                    <div className="pagination-pages">
+                      {Array.from({ length: Math.min(5, badgeTotalPages) }, (_, i) => {
+                        let pageNum: number;
+                        if (badgeTotalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (badgePage <= 3) {
+                          pageNum = i + 1;
+                        } else if (badgePage >= badgeTotalPages - 2) {
+                          pageNum = badgeTotalPages - 4 + i;
+                        } else {
+                          pageNum = badgePage - 2 + i;
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            className={`pagination-page-btn ${badgePage === pageNum ? 'active' : ''}`}
+                            onClick={() => {
+                              setBadgePage(pageNum);
+                              fetchProjectBadgesData(pageNum);
+                            }}
+                            disabled={isLoadingProjectBadges}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      className="pagination-btn"
+                      onClick={() => {
+                        const newPage = badgePage + 1;
+                        setBadgePage(newPage);
+                        fetchProjectBadgesData(newPage);
+                      }}
+                      disabled={badgePage >= badgeTotalPages || isLoadingProjectBadges}
+                    >
+                      Suivant <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
