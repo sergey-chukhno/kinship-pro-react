@@ -18,6 +18,12 @@ interface BadgeAttributionsModalProps {
 
 interface BadgeAttribution {
   id: number;
+  badge?: {
+    id: number;
+    name: string;
+    level: string;
+    series?: string;
+  };
   receiver: {
     id: number;
     full_name: string;
@@ -275,8 +281,13 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
     if (badgeImageUrl) {
       return badgeImageUrl;
     }
-    return getLocalBadgeImage(badgeName) || '/TouKouLeur-Jaune.png';
-  }, [badgeName, badgeImageUrl]);
+    // Convert badgeLevel from "Niveau X" to "level_X" format
+    const levelKey = badgeLevel.replace('Niveau ', 'level_');
+    // Try to get series from first attribution if available, otherwise undefined
+    const firstBadge = attributions[0]?.badge;
+    const badgeSeries = firstBadge?.series;
+    return getLocalBadgeImage(badgeName, levelKey, badgeSeries) || '/TouKouLeur-Jaune.png';
+  }, [badgeName, badgeImageUrl, badgeLevel, attributions]);
 
   if (!isOpen) return null;
 
