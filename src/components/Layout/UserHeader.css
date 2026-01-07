@@ -37,6 +37,10 @@
   padding: 0;
 }
 
+.user-info.user-dashboard-menu {
+  transform: translateX(-80px);
+}
+
 .user-info:focus {
   outline: none;
 }
@@ -74,6 +78,10 @@
   width: 220px;
   z-index: 1000;
   outline: none;
+}
+
+.dropdown-menu.user-dashboard-dropdown {
+  transform: translateX(-80px);
 }
 
 .dropdown-menu button {
