@@ -70,9 +70,10 @@
   font-weight: 700;
   color: var(--text-primary, #374151);
   margin: 0 0 10px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+  hyphens: auto;
 }
 
 .member-profession {

@@ -12,6 +12,7 @@ import BadgeExplorer from './BadgeExplorer';
 import { getUserBadges } from '../../api/Badges';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
+import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
 import './Badges.css';
 
@@ -28,7 +29,7 @@ const Badges: React.FC = () => {
   // Store raw badge data to access badge IDs
   const [rawBadgeData, setRawBadgeData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSeries, setSelectedSeries] = useState('TouKouLeur');
+  const [selectedSeries, setSelectedSeries] = useState('Série TouKouLeur');
   const [selectedLevel, setSelectedLevel] = useState('');
   const [activeTab, setActiveTab] = useState<'cartography' | 'explorer'>('cartography');
 
@@ -58,12 +59,8 @@ const Badges: React.FC = () => {
       if (state.showingPageType === 'user') {
         // Personal user: fetch received badges
         const filters: any = {};
-        if (selectedSeries === 'TouKouLeur') {
-          filters.series = 'toukouleur';
-        } else if (selectedSeries === 'CPS') {
-          filters.series = 'psychosociale';
-        } else if (selectedSeries === 'Audiovisuelle') {
-          filters.series = 'audiovisuelle';
+        if (selectedSeries) {
+          filters.series = selectedSeries; // Use exact database series name
         }
         
         if (selectedLevel) {
@@ -77,8 +74,7 @@ const Badges: React.FC = () => {
         setTotalBadges(response.meta?.total_count || 0);
       } else if (state.showingPageType === 'edu' && organizationId) {
         // School: fetch assigned badges
-        // Note: getSchoolAssignedBadges doesn't support filters in current API, filter client-side
-        response = await getSchoolAssignedBadges(Number(organizationId), perPage);
+        response = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries || undefined);
         const payload = response.data?.data ?? response.data ?? [];
         setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
@@ -89,7 +85,7 @@ const Badges: React.FC = () => {
         setTotalBadges(meta?.total_count || mapped.length);
       } else if (state.showingPageType === 'pro' && organizationId) {
         // Company: fetch assigned badges
-        response = await getCompanyAssignedBadges(Number(organizationId), perPage);
+        response = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries || undefined);
         const payload = response.data?.data ?? response.data ?? [];
         setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
@@ -134,24 +130,16 @@ const Badges: React.FC = () => {
                          badge.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          badge.category.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Series filtering
+    // Series filtering - use exact database series name
     let matchesSeries = true;
-    if (selectedSeries === 'TouKouLeur') {
-      matchesSeries = badge.series === 'toukouleur' || badge.series === 'universelle';
-    } else if (selectedSeries === 'CPS') {
-      matchesSeries = badge.series === 'psychosociale';
-    } else if (selectedSeries === 'Audiovisuelle') {
-      matchesSeries = badge.series === 'audiovisuelle';
+    if (selectedSeries) {
+      matchesSeries = badge.series === selectedSeries;
     }
     
-    // Level/Domain filtering
+    // Level filtering - works for all series
     let matchesLevel = true;
     if (selectedLevel) {
-      if (selectedSeries === 'TouKouLeur') {
-        matchesLevel = badge.level.includes(selectedLevel);
-      } else if (selectedSeries === 'CPS') {
-        matchesLevel = badge.domains.includes(selectedLevel);
-      }
+      matchesLevel = badge.level.includes(selectedLevel);
     }
     
     return matchesSearch && matchesSeries && matchesLevel;
@@ -225,14 +213,8 @@ const Badges: React.FC = () => {
       if (!seen.has(key)) {
         seen.add(key);
         
-        let groupKey: string;
-        if (selectedSeries === 'CPS') {
-          // For CPS, group by domain
-          groupKey = badge.domains[0] || 'other';
-        } else {
-          // For TouKouLeur, group by level
-          groupKey = badge.level; // This will be "Niveau 1", "Niveau 2", etc.
-        }
+        // All series use level-based grouping
+        const groupKey = badge.level; // This will be "Niveau 1", "Niveau 2", etc.
         
         if (!grouped[groupKey]) {
           grouped[groupKey] = [];
@@ -244,26 +226,19 @@ const Badges: React.FC = () => {
     return grouped;
   }, [filteredBadges, selectedSeries]);
 
-  // Define levels/domains based on selected series
-  const getSections = () => {
-    if (selectedSeries === 'CPS') {
-      return [
-        { key: 'emotionnelles', label: 'Emotionnelles', color: '#ef4444', icon: '/badges_psychosociales/Emotionnelles_final.png' },
-        { key: 'cognitives', label: 'Cognitives', color: '#3b82f6', icon: '/badges_psychosociales/Cognitives.jpg' },
-        { key: 'sociales', label: 'Sociales', color: '#9333ea', icon: '/badges_psychosociales/Sociales_final.png' }
-      ];
-    } else {
-      // Use keys that match badge.level format ("Niveau 1", "Niveau 2", etc.)
-      return [
-        { key: 'Niveau 1', label: 'Niveau 1 - Découverte', color: '#10b981', icon: undefined },
-        { key: 'Niveau 2', label: 'Niveau 2 - Application', color: '#3b82f6', icon: undefined },
-        { key: 'Niveau 3', label: 'Niveau 3 - Maîtrise', color: '#f59e0b', icon: undefined },
-        { key: 'Niveau 4', label: 'Niveau 4 - Expertise', color: '#ef4444', icon: undefined }
-      ];
-    }
+  // Define levels based on selected series - all series use level-based sections
+  const getSections = (series: string) => {
+    // Use keys that match badge.level format ("Niveau 1", "Niveau 2", etc.)
+    // Labels are dynamically generated based on the series
+    return [
+      { key: 'Niveau 1', label: getLevelLabel(series, '1'), color: '#10b981', icon: undefined },
+      { key: 'Niveau 2', label: getLevelLabel(series, '2'), color: '#3b82f6', icon: undefined },
+      { key: 'Niveau 3', label: getLevelLabel(series, '3'), color: '#f59e0b', icon: undefined },
+      { key: 'Niveau 4', label: getLevelLabel(series, '4'), color: '#ef4444', icon: undefined }
+    ];
   };
 
-  const sections = getSections();
+  const sections = getSections(selectedSeries || 'Série TouKouLeur');
 
   return (
     <section className="badges-container with-sidebar">
@@ -322,40 +297,25 @@ const Badges: React.FC = () => {
                       onChange={(e) => setSelectedSeries(e.target.value)}
                       className="filter-select big-select"
                     >
-                      <option value="TouKouLeur">Série Soft Skills 4LAB</option>
-                      <option value="CPS" disabled>Série CPS</option>
-                      <option value="Audiovisuelle" disabled>Série Audiovisuelle</option>
+                      <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
+                      <option value="Série Parcours des possibles">Série Parcours des possibles</option>
+                      <option value="Série Audiovisuelle">Série Audiovisuelle</option>
+                      <option value="Série Parcours professionnel">Série Parcours professionnel</option>
                     </select>
                   </div>
-                  {selectedSeries === 'TouKouLeur' && (
-                    <div className="filter-group">
-                      <select
-                        value={selectedLevel}
-                        onChange={(e) => setSelectedLevel(e.target.value)}
-                        className="filter-select"
-                      >
-                        <option value="">Tous les niveaux</option>
-                        <option value="Niveau 1">Niveau 1</option>
-                        <option value="Niveau 2">Niveau 2</option>
-                        <option value="Niveau 3">Niveau 3</option>
-                        <option value="Niveau 4">Niveau 4</option>
-                      </select>
-                    </div>
-                  )}
-                  {selectedSeries === 'CPS' && (
-                    <div className="filter-group">
-                      <select
-                        value={selectedLevel}
-                        onChange={(e) => setSelectedLevel(e.target.value)}
-                        className="filter-select"
-                      >
-                        <option value="">Tous les domaines</option>
-                        <option value="emotionnelles">Emotionnelles</option>
-                        <option value="cognitives">Cognitives</option>
-                        <option value="sociales">Sociales</option>
-                      </select>
-                    </div>
-                  )}
+                  <div className="filter-group">
+                    <select
+                      value={selectedLevel}
+                      onChange={(e) => setSelectedLevel(e.target.value)}
+                      className="filter-select"
+                    >
+                      <option value="">Tous les niveaux</option>
+                      <option value="Niveau 1">Niveau 1</option>
+                      <option value="Niveau 2">Niveau 2</option>
+                      <option value="Niveau 3">Niveau 3</option>
+                      <option value="Niveau 4">Niveau 4</option>
+                    </select>
+                  </div>
                 </div>
 
         {/* Badge Cartography Header */}
