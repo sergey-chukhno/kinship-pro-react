@@ -12,6 +12,7 @@ import BadgeExplorer from './BadgeExplorer';
 import { getUserBadges } from '../../api/Badges';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
+import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
 import './Badges.css';
 
@@ -226,17 +227,18 @@ const Badges: React.FC = () => {
   }, [filteredBadges, selectedSeries]);
 
   // Define levels based on selected series - all series use level-based sections
-  const getSections = () => {
+  const getSections = (series: string) => {
     // Use keys that match badge.level format ("Niveau 1", "Niveau 2", etc.)
+    // Labels are dynamically generated based on the series
     return [
-      { key: 'Niveau 1', label: 'Niveau 1 - Découverte', color: '#10b981', icon: undefined },
-      { key: 'Niveau 2', label: 'Niveau 2 - Application', color: '#3b82f6', icon: undefined },
-      { key: 'Niveau 3', label: 'Niveau 3 - Maîtrise', color: '#f59e0b', icon: undefined },
-      { key: 'Niveau 4', label: 'Niveau 4 - Expertise', color: '#ef4444', icon: undefined }
+      { key: 'Niveau 1', label: getLevelLabel(series, '1'), color: '#10b981', icon: undefined },
+      { key: 'Niveau 2', label: getLevelLabel(series, '2'), color: '#3b82f6', icon: undefined },
+      { key: 'Niveau 3', label: getLevelLabel(series, '3'), color: '#f59e0b', icon: undefined },
+      { key: 'Niveau 4', label: getLevelLabel(series, '4'), color: '#ef4444', icon: undefined }
     ];
   };
 
-  const sections = getSections();
+  const sections = getSections(selectedSeries || 'Série TouKouLeur');
 
   return (
     <section className="badges-container with-sidebar">
