@@ -1566,7 +1566,8 @@
   z-index: 10;
 }
 
-.badge-series-pill.series-toukouleur {
+.badge-series-pill.series-toukouleur,
+.badge-series-pill.series-soft-skills-4lab {
   background: #ff9500;
   color: white;
 }
@@ -1578,6 +1579,16 @@
 
 .badge-series-pill.series-cps {
   background: #ec4899;
+  color: white;
+}
+
+.badge-series-pill.series-parcours-des-possibles {
+  background: #10b981;
+  color: white;
+}
+
+.badge-series-pill.series-parcours-professionnel {
+  background: #3b82f6;
   color: white;
 }
 
@@ -3017,4 +3028,95 @@
   height: 40px;
   border-radius: 8px;
   object-fit: cover;
+}
+
+/* Pagination Styles */
+.pagination-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 32px;
+  padding: 24px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+}
+
+.pagination-info {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  font-weight: 500;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  color: var(--text-primary, #374151);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--primary-light, rgba(85, 112, 241, 0.1));
+  border-color: var(--primary, #5570F1);
+  color: var(--primary, #5570F1);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-pages {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.pagination-page-btn {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  color: var(--text-primary, #374151);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-page-btn:hover:not(:disabled) {
+  background: var(--primary-light, rgba(85, 112, 241, 0.1));
+  border-color: var(--primary, #5570F1);
+  color: var(--primary, #5570F1);
+}
+
+.pagination-page-btn.active {
+  background: var(--primary, #5570F1);
+  border-color: var(--primary, #5570F1);
+  color: white;
+}
+
+.pagination-page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

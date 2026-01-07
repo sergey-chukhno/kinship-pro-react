@@ -34,7 +34,7 @@ const fetchAndUpdateBadgeCounts = async (projects: Project[]): Promise<Project[]
           return { projectId: project.id, count: 0 };
         }
         const badges = await getProjectBadges(projectId);
-        return { projectId: project.id, count: badges.length };
+        return { projectId: project.id, count: badges.meta?.total_count || badges.data.length };
       } catch (error) {
         console.error(`[Badge Counter] Error fetching badges for project ${project.id}:`, error);
         return { projectId: project.id, count: 0 };
