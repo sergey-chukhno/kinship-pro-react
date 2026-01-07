@@ -36,7 +36,8 @@ export const mapBackendUserBadgeToBadge = (userBadge: any): Badge => {
   const badge = userBadge?.badge || {};
   const badgeName = badge.name || 'Badge';
   const badgeSeriesRaw = badge.series || '';
-  const badgeSeries = normalizeSeries(badgeSeriesRaw); // Normaliser en minuscules
+  // Use exact database series name for filtering (not normalized)
+  const badgeSeries = badgeSeriesRaw; // Keep exact database series name
   const badgeLevel = badge.level ? badge.level.replace('level_', '') : '1';
   
   // Déterminer l'image : backend image_url > mapping local > placeholder
@@ -53,7 +54,7 @@ export const mapBackendUserBadgeToBadge = (userBadge: any): Badge => {
     icon: imageUrl,
     image: imageUrl,
     category: badgeSeriesRaw, // Garder l'original pour l'affichage
-    series: badgeSeries, // Utiliser la version normalisée pour le filtrage
+    series: badgeSeries, // Use exact database series name for filtering
     recipients: 0, // Non utilisé dans la cartographie
     created: userBadge.assigned_at || userBadge.created_at || new Date().toISOString(),
     domains: badge.domains || [],
