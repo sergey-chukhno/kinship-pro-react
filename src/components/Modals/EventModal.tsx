@@ -84,7 +84,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
       new Set((badgesBySeries[badgeSeriesFilter] || []).map((b) => b.level))
     );
     // For "Série Parcours des possibles", only show levels 1 and 2
-    // For "Série Audiovisuelle", show all levels (1, 2, 3, 4)
+    // For "Série Audiovisuelle" and "Série Parcours professionnel", show all levels (1, 2, 3, 4)
     if (badgeSeriesFilter === 'Série Parcours des possibles') {
       return allLevels.filter(level => level === 'level_1' || level === 'level_2');
     }
@@ -96,7 +96,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
       if (badgeSeriesFilter && badge.series !== badgeSeriesFilter) return false;
       if (badgeLevelFilter && badge.level !== badgeLevelFilter) return false;
       // For "Série Parcours des possibles", hide levels 3 and 4
-      // For "Série Audiovisuelle", show all levels (1, 2, 3, 4)
+      // For "Série Audiovisuelle" and "Série Parcours professionnel", show all levels (1, 2, 3, 4)
       if (badge.series === 'Série Parcours des possibles' && 
           (badge.level === 'level_3' || badge.level === 'level_4')) {
         return false;

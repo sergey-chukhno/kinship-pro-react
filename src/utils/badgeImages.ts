@@ -48,6 +48,12 @@ const badgeImagesByName: Record<string, string> = {
   "Étape 2: ENGAGEMENT ENCADRÉ": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level2.png",
   "Étape3": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level3.png",
   "Étape4": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level4.png",
+
+  // Série Parcours professionnel
+  "PARCOURS DE DÉCOUVERTE - COLLÈGE": "/badges_parcours_professionnel/Badge_Parcours_Professionnel_Level1.png",
+  "PARCOURS DE FORMATION - LYCÉE": "/badges_parcours_professionnel/Badge_Parcours_Professionnel_Level2.png",
+  "PARCOURS DE PROFESSIONNALISATION - POST-BAC": "/badges_parcours_professionnel/Badge_Parcours_Professionnel_Level3.png",
+  "EXPÉRIENCES PROFESSIONNELLES": "/badges_parcours_professionnel/Badge_Parcours_Professionnel_Level4.png",
 };
 
 // Level-specific mappings for badges that have the same name at different levels

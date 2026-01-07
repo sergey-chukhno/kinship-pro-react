@@ -205,6 +205,35 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
     ],
     minRequired: 1,
     hintText: 'Validation d\'une des 2 compétences ci-dessous dont la compétence obligatoire :'
+  },
+  // Série Parcours professionnel
+  'PARCOURS DE DÉCOUVERTE - COLLÈGE': {
+    mandatoryCompetencies: [
+      "A mené son stage jusqu'à son terme et a respecté la cadre fixé"
+    ],
+    minRequired: 1,
+    hintText: 'Validation de la compétence obligatoire ci-dessous :'
+  },
+  'PARCOURS DE FORMATION - LYCÉE': {
+    mandatoryCompetencies: [
+      "A mené son stage, sa PFMP ou sa période en entreprise jusqu'à son terme, en respectant le cadre professionnel."
+    ],
+    minRequired: 1,
+    hintText: 'Validation de la compétence obligatoire ci-dessous :'
+  },
+  'PARCOURS DE PROFESSIONNALISATION - POST-BAC': {
+    mandatoryCompetencies: [
+      "A mené son stage, son contrat d'alternance ou son expérience professionnalisante jusqu'à son terme, dans le respect du cadre professionnel."
+    ],
+    minRequired: 1,
+    hintText: 'Validation de la compétence obligatoire ci-dessous :'
+  },
+  'EXPÉRIENCES PROFESSIONNELLES': {
+    mandatoryCompetencies: [
+      "A exercé une activité professionnelle jusqu'à son terme, en respectant les obligations, les règles et les attentes du milieu professionnel."
+    ],
+    minRequired: 1,
+    hintText: 'Validation de la compétence obligatoire ci-dessous :'
   }
 };
 
@@ -299,8 +328,18 @@ const validateCompetencies = (
   allExpertises: Array<{ id: number; name: string }>
 ): { isValid: boolean; errorMessage: string | null } => {
   // Validate level 1 and level 2 badges (for Série Parcours des possibles, level 2 also needs validation)
-  if (!badge || (badge.level !== 'level_1' && badge.level !== 'level_2')) {
-    return { isValid: true, errorMessage: null }; // No validation for non-level-1/level-2 badges
+  // Also validate all levels for Série Parcours professionnel
+  if (!badge) {
+    return { isValid: true, errorMessage: null };
+  }
+  
+  const isParcoursProfessionnel = badge.series === 'Série Parcours professionnel';
+  const shouldValidate = badge.level === 'level_1' || 
+                         (badge.level === 'level_2' && (badge.series === 'Série Parcours des possibles' || badge.series === 'Série Audiovisuelle')) ||
+                         isParcoursProfessionnel;
+  
+  if (!shouldValidate) {
+    return { isValid: true, errorMessage: null }; // No validation for other badges
   }
 
   const rules = getBadgeValidationRules(badge.name);
@@ -550,8 +589,11 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
     }
 
     // Validate competencies for level 1 and level 2 badges (for "Série Parcours des possibles" and "Série Audiovisuelle")
+    // Also validate all levels for "Série Parcours professionnel"
+    const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
     if (selectedBadge.level === 'level_1' || 
-        (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle'))) {
+        (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle')) ||
+        isParcoursProfessionnel) {
       const competencies = getBadgeCompetencies(selectedBadge);
       if (competencies.length > 0) {
         const validation = validateCompetencies(
@@ -726,6 +768,12 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                       else if (levelNum === '3') levelLabel = 'Niveau 3: Universitaire ou Associatif';
                       else if (levelNum === '4') levelLabel = 'Niveau 4: Expérience professionnelle';
                       else levelLabel = `Niveau ${levelNum}`;
+                    } else if (selectedBadge.series === 'Série Parcours professionnel') {
+                      if (levelNum === '1') levelLabel = 'Niveau 1: Découverte';
+                      else if (levelNum === '2') levelLabel = 'Niveau 2: Formation';
+                      else if (levelNum === '3') levelLabel = 'Niveau 3: Professionnalisation';
+                      else if (levelNum === '4') levelLabel = 'Niveau 4: Expériences Professionnelles';
+                      else levelLabel = `Niveau ${levelNum}`;
                     } else {
                       if (levelNum === '1') levelLabel = 'Niveau 1: Découverte';
                       else if (levelNum === '2') levelLabel = 'Niveau 2: Application';
@@ -814,36 +862,44 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                           ? 'Niveau 1' 
                           : series === 'Série Audiovisuelle'
                           ? 'Niveau 1: Observable'
+                          : series === 'Série Parcours professionnel'
+                          ? 'Niveau 1: Découverte'
                           : 'Niveau 1: Découverte'}
                       </option>
                       <option 
                         value="2" 
-                        disabled={series !== 'Série Parcours des possibles' && series !== 'Série Audiovisuelle'}
+                        disabled={series !== 'Série Parcours des possibles' && series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel'}
                       >
                         {series === 'Série Parcours des possibles' 
                           ? 'Niveau 2' 
                           : series === 'Série Audiovisuelle'
                           ? 'Niveau 2: Preuve'
+                          : series === 'Série Parcours professionnel'
+                          ? 'Niveau 2: Formation'
                           : 'Niveau 2: Application (non disponible)'}
                       </option>
                       <option 
                         value="3" 
-                        disabled={series !== 'Série Audiovisuelle'}
+                        disabled={series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel'}
                       >
                         {series === 'Série Parcours des possibles' 
                           ? 'Niveau 3 (non disponible)' 
                           : series === 'Série Audiovisuelle'
                           ? 'Niveau 3: Universitaire ou Associatif'
+                          : series === 'Série Parcours professionnel'
+                          ? 'Niveau 3: Professionnalisation'
                           : 'Niveau 3: Maîtrise (non disponible)'}
                       </option>
                       <option 
                         value="4" 
-                        disabled={series !== 'Série Audiovisuelle'}
+                        disabled={series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel'}
                       >
                         {series === 'Série Parcours des possibles' 
                           ? 'Niveau 4 (non disponible)' 
                           : series === 'Série Audiovisuelle'
                           ? 'Niveau 4: Expérience professionnelle'
+                          : series === 'Série Parcours professionnel'
+                          ? 'Niveau 4: Expériences Professionnelles'
                           : 'Niveau 4: Expertise (non disponible)'}
                       </option>
                     </select>
@@ -920,7 +976,8 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
 
             {/* Compétences (sélection multiple) */}
             {selectedBadge && (selectedBadge.level === 'level_1' || 
-              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle'))) && (
+              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle')) ||
+              selectedBadge.series === 'Série Parcours professionnel') && (
               <div className="form-group">
                 <div className="competencies-label-container">
                   <label htmlFor="expertises">Compétences (sélection multiple)</label>
@@ -957,8 +1014,10 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                           {selectedExpertises.map((expertiseId) => {
                             const expertise = competencies.find((e: any) => e.id === expertiseId);
                             if (!expertise) return null;
+                            const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
                             const rules = (selectedBadge.level === 'level_1' || 
-                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle'))) 
+                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle')) ||
+                              isParcoursProfessionnel) 
                               ? getBadgeValidationRules(selectedBadge.name) : null;
                             // Use normalized comparison to check if competency is mandatory
                             const normalizedExpertiseName = normalizeCompetencyName(expertise.name);
@@ -1000,8 +1059,10 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                             );
                           }
                           
+                            const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
                             const rules = (selectedBadge.level === 'level_1' || 
-                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle'))) 
+                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle')) ||
+                              isParcoursProfessionnel) 
                               ? getBadgeValidationRules(selectedBadge.name) : null;
                           
                           return availableExpertises.map((expertise: any) => {
