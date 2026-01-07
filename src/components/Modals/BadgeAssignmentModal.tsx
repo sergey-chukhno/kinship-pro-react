@@ -406,7 +406,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
   // Determine preview image (backend URL > local mapping > fallback)
   const previewImage = useMemo(() => {
     if (selectedBadge?.image_url) return selectedBadge.image_url;
-    const local = getLocalBadgeImage(selectedBadge?.name);
+    const local = getLocalBadgeImage(selectedBadge?.name, selectedBadge?.level, selectedBadge?.series);
     return local || undefined; // no image until a badge is selected
   }, [selectedBadge]);
 
@@ -567,6 +567,18 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
       }
     }
 
+    // Validate documents and comment for level 3 and 4 badges in "Série Audiovisuelle"
+    if (selectedBadge.series === 'Série Audiovisuelle' && (selectedBadge.level === 'level_3' || selectedBadge.level === 'level_4')) {
+      if (!fichier) {
+        showWarningToast('Vous devez joindre au moins un document (preuve) pour les badges niveau 3 et 4 de la Série Audiovisuelle');
+        return;
+      }
+      if (!commentaire || commentaire.trim() === '') {
+        showWarningToast('Le commentaire est obligatoire pour les badges niveau 3 et 4 de la Série Audiovisuelle');
+        return;
+      }
+    }
+
     // Level 1 only - file is optional
     // Comment is optional for level 1
 
@@ -699,7 +711,25 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
             <div className="badge-preview-info">
                 <h3>{selectedBadge ? getBadgeDisplayName(selectedBadge.name) : 'Sélectionnez un badge'}</h3>
               <p className="badge-series-level">
-                  {selectedBadge ? `${displaySeries(selectedBadge.series)} - Niveau 1` : 'Sélectionnez une série et un badge'}
+                  {selectedBadge ? (() => {
+                    const levelNum = selectedBadge.level?.replace('level_', '') || '1';
+                    let levelLabel = `Niveau ${levelNum}`;
+                    if (selectedBadge.series === 'Série Parcours des possibles') {
+                      levelLabel = `Niveau ${levelNum}`;
+                    } else if (selectedBadge.series === 'Série Audiovisuelle') {
+                      if (levelNum === '1') levelLabel = 'Niveau 1: Observable';
+                      else if (levelNum === '2') levelLabel = 'Niveau 2: Preuve';
+                      else if (levelNum === '3') levelLabel = 'Niveau 3: Universitaire ou Associatif';
+                      else if (levelNum === '4') levelLabel = 'Niveau 4: Expérience professionnelle';
+                      else levelLabel = `Niveau ${levelNum}`;
+                    } else {
+                      if (levelNum === '1') levelLabel = 'Niveau 1: Découverte';
+                      else if (levelNum === '2') levelLabel = 'Niveau 2: Application';
+                      else if (levelNum === '3') levelLabel = 'Niveau 3: Maîtrise';
+                      else if (levelNum === '4') levelLabel = 'Niveau 4: Expertise';
+                    }
+                    return `${displaySeries(selectedBadge.series)} - ${levelLabel}`;
+                  })() : 'Sélectionnez une série et un badge'}
               </p>
               {selectedBadge?.description && (
                 <div className="badge-info-detail">
@@ -792,18 +822,24 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                           ? 'Niveau 2: Preuve'
                           : 'Niveau 2: Application (non disponible)'}
                       </option>
-                      <option value="3" disabled>
+                      <option 
+                        value="3" 
+                        disabled={series !== 'Série Audiovisuelle'}
+                      >
                         {series === 'Série Parcours des possibles' 
                           ? 'Niveau 3 (non disponible)' 
                           : series === 'Série Audiovisuelle'
-                          ? 'Niveau 3 (non disponible)'
+                          ? 'Niveau 3: Universitaire ou Associatif'
                           : 'Niveau 3: Maîtrise (non disponible)'}
                       </option>
-                      <option value="4" disabled>
+                      <option 
+                        value="4" 
+                        disabled={series !== 'Série Audiovisuelle'}
+                      >
                         {series === 'Série Parcours des possibles' 
                           ? 'Niveau 4 (non disponible)' 
                           : series === 'Série Audiovisuelle'
-                          ? 'Niveau 4 (non disponible)'
+                          ? 'Niveau 4: Expérience professionnelle'
                           : 'Niveau 4: Expertise (non disponible)'}
                       </option>
                     </select>
@@ -1000,9 +1036,14 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
               </div>
             )}
 
-            {/* Commentaire - optional for level 1 */}
+            {/* Commentaire - required for level 3 and 4 in Série Audiovisuelle */}
             <div className="form-group">
-              <label htmlFor="commentaire">Commentaire (optionnel)</label>
+              <label htmlFor="commentaire">
+                Commentaire
+                {selectedBadge?.series === 'Série Audiovisuelle' && (selectedBadge?.level === 'level_3' || selectedBadge?.level === 'level_4')
+                  ? ' (obligatoire pour niveau 3 et 4)'
+                  : ' (optionnel)'}
+              </label>
               <textarea
                 id="commentaire"
                 className="form-textarea"
@@ -1013,9 +1054,16 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
               />
             </div>
 
-            {/* Fichier - optional for level 1 */}
+            {/* Fichier - required for level 3 and 4 in Série Audiovisuelle */}
             <div className="form-group">
-              <label htmlFor="badgeFile">Fichier (preuve) - optionnel pour le niveau 1</label>
+              <label htmlFor="badgeFile">
+                Fichier (preuve)
+                {selectedBadge?.series === 'Série Audiovisuelle' && (selectedBadge?.level === 'level_3' || selectedBadge?.level === 'level_4')
+                  ? ' (obligatoire pour niveau 3 et 4)'
+                  : selectedBadge?.level === 'level_1'
+                  ? ' (optionnel pour le niveau 1)'
+                  : ' (obligatoire)'}
+              </label>
               <div className="file-upload-container">
                 <input
                   type="file"

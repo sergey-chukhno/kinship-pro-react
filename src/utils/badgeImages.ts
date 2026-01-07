@@ -1,4 +1,4 @@
-// Local mapping of badge names (level 1) to existing static assets.
+// Local mapping of badge names and levels to existing static assets.
 // This preserves previous visuals while backend does not yet provide image URLs.
 const badgeImagesByName: Record<string, string> = {
   // Série TouKouLeur (universelle)
@@ -50,8 +50,73 @@ const badgeImagesByName: Record<string, string> = {
   "Étape4": "/badges_parcours_possibles/Badge-Serie-des-possibles-Level4.png",
 };
 
-export const getLocalBadgeImage = (badgeName?: string): string | undefined => {
+// Level-specific mappings for badges that have the same name at different levels
+// Structure: series -> badge name -> level -> image path
+const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>> = {
+  "Série Audiovisuelle": {
+    "ACTING": {
+      "level_1": "/badges_audiovisuels/Badge_Acting_Level1.png",
+      "level_2": "/badges_audiovisuels/Badge_Acting_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_Acting_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_Acting_Level4.png",
+    },
+    "PRODUCTION": {
+      "level_2": "/badges_audiovisuels/Badge_Production_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_Production_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_Production_Level4.png",
+    },
+    "REGIE": {
+      "level_2": "/badges_audiovisuels/Badge_Regie_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_Regie_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_Regie_Level4.png",
+    },
+    "MISE EN SCENE": {
+      "level_2": "/badges_audiovisuels/Badge_Mise_en_Scene_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_Mise_en_Scene_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_Mise_en_Scene_Level4.png",
+    },
+    "PRISE IMAGE & LUMIERE": {
+      "level_2": "/badges_audiovisuels/Badge_Prise_Image_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_Prise_Image_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_Prise_Image_Level4.png",
+    },
+    "POSTPRODUCTION IMAGE ET VFX": {
+      "level_2": "/badges_audiovisuels/Badge_Postproduction_Image_VFX_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_Postproduction_Image_VFX_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_Postproduction_Image_VFX_Level4.png",
+    },
+    "PRISE DE SON": {
+      "level_2": "/badges_audiovisuels/Badge_Prise_Son_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_Prise_Son_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_Prise_Son_Level4.png",
+    },
+    "POST PRODUCTION SON": {
+      "level_2": "/badges_audiovisuels/Badge_PostProduction_Son_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_PostProduction_Son_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_PostProduction_Son_Level4.png",
+    },
+    "DECO & SFX": {
+      "level_2": "/badges_audiovisuels/Badge_Deco_SFX_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_Deco_SFX_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_Deco_SFX_Level4.png",
+    },
+    "STYLISME& HMC": {
+      "level_2": "/badges_audiovisuels/Badge_Stylisme_HMC_Level2.png",
+      "level_3": "/badges_audiovisuels/Badge_Stylisme_HMC_Level3.png",
+      "level_4": "/badges_audiovisuels/Badge_Stylisme_HMC_Level4.png",
+    },
+  }
+};
+
+export const getLocalBadgeImage = (badgeName?: string, badgeLevel?: string, badgeSeries?: string): string | undefined => {
   if (!badgeName) return undefined;
+  
+  // Check level-specific mapping first (for badges with same name at different levels)
+  if (badgeLevel && badgeSeries && badgeImagesByLevel[badgeSeries]?.[badgeName]?.[badgeLevel]) {
+    return badgeImagesByLevel[badgeSeries][badgeName][badgeLevel] as string;
+  }
+  
+  // Fallback to name-only mapping
   return badgeImagesByName[badgeName];
 };
 

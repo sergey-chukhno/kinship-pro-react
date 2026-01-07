@@ -40,7 +40,8 @@ export const mapBackendUserBadgeToBadge = (userBadge: any): Badge => {
   const badgeLevel = badge.level ? badge.level.replace('level_', '') : '1';
   
   // Déterminer l'image : backend image_url > mapping local > placeholder
-  const imageUrl = badge.image_url || getLocalBadgeImage(badgeName) || '/TouKouLeur-Jaune.png';
+  const badgeLevelKey = badge.level || 'level_1';
+  const imageUrl = badge.image_url || getLocalBadgeImage(badgeName, badgeLevelKey, badgeSeriesRaw) || '/TouKouLeur-Jaune.png';
   
   // Construire le format Badge attendu par Badges.tsx
   return {

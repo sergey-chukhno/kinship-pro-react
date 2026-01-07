@@ -1190,8 +1190,10 @@ const ProjectManagement: React.FC = () => {
     const badgeName = badge.name || 'Badge';
     const badgeSeries = displaySeries(badge.series || 'Série Soft Skills 4LAB');
     const badgeLevel = badge.level ? badge.level.replace('level_', '') : '1';
+    const badgeLevelKey = badge.level || 'level_1';
+    const badgeSeriesRaw = badge.series || '';
 
-    const imageUrl = badge.image_url || getLocalBadgeImage(badgeName) || '/TouKouLeur-Jaune.png';
+    const imageUrl = badge.image_url || getLocalBadgeImage(badgeName, badgeLevelKey, badgeSeriesRaw) || '/TouKouLeur-Jaune.png';
 
     const documents = Array.isArray(item.documents)
       ? item.documents.map((doc: any) => ({

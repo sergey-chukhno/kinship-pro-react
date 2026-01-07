@@ -282,7 +282,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
               paddingTop: '1rem'
             }}>
               {eventBadges.map((badge) => {
-                const badgeImage = badge.image_url || getLocalBadgeImage(badge.name) || '/TouKouLeur-Jaune.png';
+                const badgeImage = badge.image_url || getLocalBadgeImage(badge.name, badge.level, badge.series) || '/TouKouLeur-Jaune.png';
                 return (
                   <div
                     key={badge.id}
@@ -452,7 +452,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
                             {receivedBadges.length > 0 && (
                               <>
                                 {receivedBadges.map((badge) => {
-                                  const badgeImage = badge.image_url || getLocalBadgeImage(badge.name);
+                                  const badgeImage = badge.image_url || getLocalBadgeImage(badge.name, badge.level, badge.series);
                                   return (
                                     <span
                                       key={badge.id}
