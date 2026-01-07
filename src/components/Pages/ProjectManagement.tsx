@@ -2065,7 +2065,7 @@ const ProjectManagement: React.FC = () => {
                 </div>
                 <div className="meta-item">
                   <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="meta-icon" />
-                  <span className="meta-text">{project.badges} badges</span>
+                  <span className="meta-text">{isLoadingStats ? '...' : (projectStats?.badges?.total || 0)} badges</span>
                 </div>
               </div>
               <div className="project-tags-row">
