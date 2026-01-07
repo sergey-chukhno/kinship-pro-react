@@ -173,7 +173,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         <Menu as="div" className="relative">
           {({ open }: { open: boolean }) => (
             <>
-              <Menu.Button className="user-info">
+              <Menu.Button className={`user-info ${state.showingPageType === 'user' ? 'user-dashboard-menu' : ''}`}>
                 <AvatarImage
                   src={user.avatar}
                   alt={user.name}
@@ -195,7 +195,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
             leaveFrom="transform opacity-100 scale-100"
             leaveTo="transform opacity-0 scale-95"
           >
-            <Menu.Items className="dropdown-menu">
+            <Menu.Items className={`dropdown-menu ${state.showingPageType === 'user' ? 'user-dashboard-dropdown' : ''}`}>
               <div className="menu-header">
                 <div className='menu-header-content'>
                   <div className="menu-header-name">{user.name}</div>
