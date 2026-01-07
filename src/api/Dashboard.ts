@@ -162,26 +162,32 @@ export const getTeacherActivityStats = () => {
   return axiosClient.get('/api/v1/teachers/activity_stats');
 };
 
-export const getSchoolAssignedBadges = (schoolId: number, perPage = 200, badgeId?: number, page?: number) => {
+export const getSchoolAssignedBadges = (schoolId: number, perPage = 200, badgeId?: number, page?: number, badgeSeries?: string) => {
   const params: any = { per_page: perPage };
   if (badgeId) {
     params.badge_id = badgeId;
   }
   if (page) {
     params.page = page;
+  }
+  if (badgeSeries) {
+    params.badge_series = badgeSeries;
   }
   return axiosClient.get(`/api/v1/schools/${schoolId}/badges/assigned`, {
     params,
   });
 };
 
-export const getCompanyAssignedBadges = (companyId: number, perPage = 200, badgeId?: number, page?: number) => {
+export const getCompanyAssignedBadges = (companyId: number, perPage = 200, badgeId?: number, page?: number, badgeSeries?: string) => {
   const params: any = { per_page: perPage };
   if (badgeId) {
     params.badge_id = badgeId;
   }
   if (page) {
     params.page = page;
+  }
+  if (badgeSeries) {
+    params.badge_series = badgeSeries;
   }
   return axiosClient.get(`/api/v1/companies/${companyId}/badges/assigned`, {
     params,
