@@ -670,6 +670,10 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
         friendlyMessage = 'Vous devez avoir un contrat actif pour attribuer des badges';
       } else if (apiMessage?.toLowerCase().includes('unable to determine organization')) {
         friendlyMessage = 'Organisation inconnue ou non autorisee pour attribuer des badges';
+      } else if (apiMessage?.includes('niveau 2 de la Série Audiovisuelle') || 
+                 apiMessage?.includes('joindre une preuve')) {
+        // Use the specific message from backend for Level 2 Série Audiovisuelle document requirement
+        friendlyMessage = apiMessage;
       }
 
       showErrorToast(friendlyMessage);
