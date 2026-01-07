@@ -1566,7 +1566,8 @@
   z-index: 10;
 }
 
-.badge-series-pill.series-toukouleur {
+.badge-series-pill.series-toukouleur,
+.badge-series-pill.series-soft-skills-4lab {
   background: #ff9500;
   color: white;
 }
@@ -1578,6 +1579,16 @@
 
 .badge-series-pill.series-cps {
   background: #ec4899;
+  color: white;
+}
+
+.badge-series-pill.series-parcours-des-possibles {
+  background: #10b981;
+  color: white;
+}
+
+.badge-series-pill.series-parcours-professionnel {
+  background: #3b82f6;
   color: white;
 }
 

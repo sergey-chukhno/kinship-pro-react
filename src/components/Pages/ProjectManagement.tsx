@@ -2804,7 +2804,7 @@ const ProjectManagement: React.FC = () => {
                             </span>
                           )}
                           {/* Series pill - bottom right */}
-                          <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase() || 'toukouleur'}`}>
+                          <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
                             {attribution.badgeSeries || 'Série TouKouLeur'}
                           </span>
                         </div>
