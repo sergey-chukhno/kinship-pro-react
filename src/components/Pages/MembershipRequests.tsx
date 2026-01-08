@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import RolePill from '../UI/RolePill';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
@@ -8,6 +8,7 @@ import { getCurrentUser } from '../../api/Authentication';
 import { acceptMember, getCompanyMembersPending, removeCompanyMember } from '../../api/CompanyDashboard/Members';
 import { acceptSchoolMember, getSchoolMembersPending, removeSchoolMember } from '../../api/SchoolDashboard/Members';
 import { useToast } from '../../hooks/useToast';
+import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
 
 interface MembershipRequest {
   id: string;
@@ -30,10 +31,30 @@ const MembershipRequests: React.FC = () => {
   const [openDropdowns, setOpenDropdowns] = useState<{ [key: string]: boolean }>({});
   const [loading, setLoading] = useState(true);
   const { showError } = useToast();
+  const roleContainerRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   // 1. Ajout de l'état pour stocker l'ID de l'entreprise
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [contextId, setContextId] = useState<number | null>(null);
+
+  // Convert backend role value to French display name
+  const convertRoleToDisplay = useCallback((backendRole: string): string => {
+    const roleMap: { [key: string]: string } = {
+      'admin': 'Admin',
+      'referent': 'Référent',
+      'member': 'Membre',
+      'intervenant': 'Intervenant',
+      'Admin': 'Admin',
+      'Référent': 'Référent',
+      'Membre': 'Membre',
+      'Intervenant': 'Intervenant',
+      'MEMBER': 'Membre',
+      'ADMIN': 'Admin',
+      'REFERENT': 'Référent',
+      'INTERVENANT': 'Intervenant'
+    };
+    return roleMap[backendRole] || 'Membre';
+  }, []);
 
   // --- Fetch des membres en attente (Pending) ---
   useEffect(() => {
@@ -82,8 +103,8 @@ const MembershipRequests: React.FC = () => {
               if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
 
               // Traitement rôle (supporte les clés company et school)
-              let rawRole = profile.role_in_company || m.role_in_company || profile.role_in_school || m.role_in_school || 'Membre';
-              const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
+              let rawRole = profile.role_in_company || m.role_in_company || profile.role_in_school || m.role_in_school || 'member';
+              const displayRole = convertRoleToDisplay(rawRole);
 
               return {
                 id: (profile.id || m.id).toString(),
@@ -93,7 +114,20 @@ const MembershipRequests: React.FC = () => {
                 profession: profile.role_in_system || 'Non renseigné',
                 avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
                 requestedDate: profile.joined_at || new Date().toISOString(),
-                skills: profile.skills?.map((s: any) => s.name || s) || [],
+                skills: (() => {
+                  const allSkills: string[] = [];
+                  profile.skills?.forEach((s: any) => {
+                    // Add main skill name
+                    if (s.name) allSkills.push(s.name);
+                    // Add sub-skill names
+                    if (s.sub_skills && Array.isArray(s.sub_skills)) {
+                      s.sub_skills.forEach((sub: any) => {
+                        if (sub.name) allSkills.push(sub.name);
+                      });
+                    }
+                  });
+                  return allSkills;
+                })(),
                 availability: availabilityList,
                 assignedRole: displayRole,
                 status: 'pending'
@@ -130,6 +164,32 @@ const MembershipRequests: React.FC = () => {
     fetchPendingMembers();
   }, [state.showingPageType]); // Ajout dépendance
 
+  // Helper function to separate and organize skills
+  const organizeSkills = useCallback((skills: string[]) => {
+    const mainSkillsSet = new Set<string>();
+    const subSkills: string[] = [];
+
+    skills.forEach(skill => {
+      // Check if it's a main skill
+      if (SKILLS_FR[skill]) {
+        mainSkillsSet.add(skill);
+      } 
+      // Check if it's a sub-skill
+      else if (SUB_SKILLS_FR[skill]) {
+        subSkills.push(skill);
+      }
+      // If not in either, treat as main skill (fallback)
+      else {
+        mainSkillsSet.add(skill);
+      }
+    });
+
+    return {
+      mainSkills: Array.from(mainSkillsSet),
+      subSkills: subSkills
+    };
+  }, []);
+
   // Convert display role name to backend enum value
   const convertRoleToBackend = (displayRole: string): string => {
     const roleMap: { [key: string]: string } = {
@@ -156,6 +216,30 @@ const MembershipRequests: React.FC = () => {
     handleRoleChange(requestId, role);
     setOpenDropdowns(prev => ({ ...prev, [requestId]: false }));
   };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const openDropdownIds = Object.keys(openDropdowns).filter(id => openDropdowns[id]);
+      
+      openDropdownIds.forEach(requestId => {
+        const containerRef = roleContainerRefs.current[requestId];
+        if (containerRef && !containerRef.contains(event.target as Node)) {
+          setOpenDropdowns(prev => ({ ...prev, [requestId]: false }));
+        }
+      });
+    };
+
+    const hasOpenDropdowns = Object.values(openDropdowns).some(isOpen => isOpen);
+    
+    if (hasOpenDropdowns) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openDropdowns]);
 
   // 3. Bascule API Accept
   const handleAccept = async (requestId: string) => {
@@ -274,17 +358,36 @@ const MembershipRequests: React.FC = () => {
 
                 <div className="request-skills">
                   <h4>Compétences</h4>
-                  <div className="skills-list">
-                    {request.skills.length > 0 ? (
-                      request.skills.map((skill, index) => (
-                        <span key={index} className="skill-pill">
-                          {skill}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="no-data">Aucune compétence renseignée</span>
-                    )}
-                  </div>
+                  {(() => {
+                    const { mainSkills, subSkills } = organizeSkills(request.skills);
+                    return (
+                      <>
+                        <div className="skills-list">
+                          {mainSkills.length > 0 ? (
+                            mainSkills.map((skill, index) => (
+                              <span key={index} className="skill-pill">
+                                {translateSkill(skill)}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="no-data">Aucune compétence renseignée</span>
+                          )}
+                        </div>
+                        {subSkills.length > 0 && (
+                          <>
+                            <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>Sous-compétences</h4>
+                            <div className="skills-list">
+                              {subSkills.map((skill, index) => (
+                                <span key={index} className="sub-skill-pill">
+                                  {translateSubSkill(skill)}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="request-availability">
@@ -304,7 +407,12 @@ const MembershipRequests: React.FC = () => {
 
                 <div className="request-actions">
                   <div className="role-selection">
-                    <div className="role-container">
+                    <div 
+                      className="role-container"
+                      ref={(el) => {
+                        roleContainerRefs.current[request.id] = el;
+                      }}
+                    >
                       <RolePill
                         role={selectedRole[request.id] || request.assignedRole}
                         color={getRoleColor(selectedRole[request.id] || request.assignedRole)}

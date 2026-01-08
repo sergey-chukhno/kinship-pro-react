@@ -9,6 +9,7 @@ import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeache
 import { getTeacherClassStudents } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
+import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
 import { ClassList, Member } from '../../types';
 import ClassCard from '../Class/ClassCard';
 import MemberCard from '../Members/MemberCard';
@@ -94,6 +95,8 @@ const Members: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
+  const [skillsData, setSkillsData] = useState<Array<{ id: number; name: string; sub_skills: Array<{ id: number; name: string }> }>>([]);
+  const [subSkillFilter, setSubSkillFilter] = useState('');
   const [classSearchTerm, setClassSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<number | null>(null);
   const [availableSchoolsForFilter, setAvailableSchoolsForFilter] = useState<Array<{ id: number; name: string }>>([]);
@@ -208,7 +211,8 @@ const Members: React.FC = () => {
             // This is separate from systemRole which is used for filtering and profession display
             const roleValues = [membershipRole].filter(Boolean);
 
-            const displayProfession = translateRole(profile.role_in_system || '');
+            // Use actual job field if available, otherwise leave empty (not system role)
+            const displayProfession = profile.job || m.job || '';
 
             // Check if member is superadmin
             const isSuperadmin = 
@@ -228,14 +232,27 @@ const Members: React.FC = () => {
               rawRole: rawRole,
               systemRole: systemRole, // Store system role for staff filtering
               membershipRole: membershipRole, // Store membership role (role_in_school/role_in_company)
-              skills: profile.skills?.map((s: any) => s.name || s) || [],
+              skills: (() => {
+                const allSkills: string[] = [];
+                profile.skills?.forEach((s: any) => {
+                  // Add main skill name
+                  if (s.name) allSkills.push(s.name);
+                  // Add sub-skill names
+                  if (s.sub_skills && Array.isArray(s.sub_skills)) {
+                    s.sub_skills.forEach((sub: any) => {
+                      if (sub.name) allSkills.push(sub.name);
+                    });
+                  }
+                });
+                return allSkills;
+              })(),
               availability: availabilityList,
               avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
               isTrusted: profile.status === 'confirmed',
               badges: profile.badges?.data?.map((b: any) => b.id?.toString()) || [],
               organization: '',
-              canProposeStage: false,
-              canProposeAtelier: false,
+              canProposeStage: profile.take_trainee || false,
+              canProposeAtelier: profile.propose_workshop || false,
               claim_token: profile.claim_token || m.claim_token,
               hasTemporaryEmail: profile.has_temporary_email || m.has_temporary_email || false,
               isSuperadmin: isSuperadmin, // Store superadmin status
@@ -260,7 +277,7 @@ const Members: React.FC = () => {
               lastName: m.last_name || '',
               fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
               email: m.email || '',
-              profession: translateRole(m.job || fallbackSystemRole),
+              profession: m.job || '',
               roles: [fallbackMembershipRole], // Use membershipRole for role selector
               rawRole: fallbackRole,
               systemRole: fallbackSystemRole, // Store system role for staff filtering
@@ -271,8 +288,8 @@ const Members: React.FC = () => {
               isTrusted: false,
               badges: [],
               organization: '',
-              canProposeStage: false,
-              canProposeAtelier: false,
+              canProposeStage: m.take_trainee || false,
+              canProposeAtelier: m.propose_workshop || false,
               claim_token: m.claim_token,
               hasTemporaryEmail: m.has_temporary_email || false,
               isSuperadmin: isSuperadmin, // Store superadmin status
@@ -371,7 +388,7 @@ const Members: React.FC = () => {
         const volunteerSystemRole = vol.role_in_system || vol.user?.role || '';
         const volunteerMembershipRole = vol.role_in_school || vol.role_in_company || 'volunteer';
         const volunteerRole = volunteerMembershipRole; // Use membershipRole for role selector
-        const volunteerProfession = translateRole(volunteerSystemRole || vol.user?.job || '');
+        const volunteerProfession = vol.user?.job || '';
 
         // Check if volunteer is superadmin
         const isSuperadmin = 
@@ -386,14 +403,27 @@ const Members: React.FC = () => {
           email: vol.email || vol.user?.email || '',
           profession: volunteerProfession,
           roles: [volunteerRole], // Use membershipRole for role selector
-          skills: vol.skills?.map((s: any) => s.name || s) || [],
+          skills: (() => {
+            const allSkills: string[] = [];
+            vol.skills?.forEach((s: any) => {
+              // Add main skill name
+              if (s.name) allSkills.push(s.name);
+              // Add sub-skill names
+              if (s.sub_skills && Array.isArray(s.sub_skills)) {
+                s.sub_skills.forEach((sub: any) => {
+                  if (sub.name) allSkills.push(sub.name);
+                });
+              }
+            });
+            return allSkills;
+          })(),
           availability: availabilityToLabels(vol.availability),
           avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
           isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
           badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
           organization: vol.organization || '',
-          canProposeStage: false,
-          canProposeAtelier: false,
+          canProposeStage: vol.take_trainee || vol.user?.take_trainee || false,
+          canProposeAtelier: vol.propose_workshop || vol.user?.propose_workshop || false,
           claim_token: vol.claim_token,
           hasTemporaryEmail: vol.has_temporary_email || false,
           birthday: vol.birthday,
@@ -418,16 +448,26 @@ const Members: React.FC = () => {
       setSkillsLoading(true);
       const response = await getSkills();
       const rawSkills = response.data?.data || response.data || [];
-      const parsedSkills: string[] = rawSkills
-        .map((skill: any) => {
-          if (typeof skill === 'string') return skill;
-          if (skill?.attributes?.name) return skill.attributes.name;
-          return skill?.name || '';
-        })
-        .filter(
-          (skillName: string | undefined): skillName is string =>
-            typeof skillName === 'string' && skillName.trim().length > 0
-        );
+      
+      // Store full skills data with sub_skills
+      const skillsWithSubSkills = rawSkills
+        .map((skill: any) => ({
+          id: skill.id,
+          name: skill.name || '',
+          sub_skills: (skill.sub_skills || []).map((sub: any) => ({
+            id: sub.id,
+            name: sub.name || ''
+          }))
+        }))
+        .filter((skill: any) => skill.name && skill.name.trim().length > 0);
+      
+      setSkillsData(skillsWithSubSkills);
+      
+      // Extract main skill names for dropdown
+      const parsedSkills: string[] = skillsWithSubSkills
+        .map((skill: any) => skill.name)
+        .filter((skillName: string) => skillName.trim().length > 0);
+      
       const normalizedSkills = Array.from(new Set(parsedSkills)).sort((a, b) =>
         a.localeCompare(b, 'fr', { sensitivity: 'base' })
       );
@@ -444,6 +484,10 @@ const Members: React.FC = () => {
   const fallbackCompetences = Array.from(new Set(members.flatMap(m => m.skills)));
   const competenceOptions = skillsOptions.length > 0 ? skillsOptions : fallbackCompetences;
   const availabilityOptions = AVAILABILITY_OPTIONS;
+
+  // Get sub-skills for selected main skill
+  const selectedSkillData = skillsData.find(s => s.name === competenceFilter);
+  const availableSubSkills = selectedSkillData?.sub_skills || [];
 
   useEffect(() => {
     fetchSkills();
@@ -551,7 +595,28 @@ const Members: React.FC = () => {
       member.email.toLowerCase().includes(term) ||
       member.skills.some(skill => skill.toLowerCase().includes(term));
     const matchesRole = !roleFilter || displayRoles.includes(roleFilter);
-    const matchesCompetence = !competenceFilter || member.skills.includes(competenceFilter);
+    const matchesCompetence = (() => {
+      if (!competenceFilter) return true;
+      
+      // Check if member has the main skill
+      const hasMainSkill = member.skills.includes(competenceFilter);
+      
+      // If sub-skill filter is selected, check for that specific sub-skill
+      if (subSkillFilter) {
+        return member.skills.includes(subSkillFilter);
+      }
+      
+      // If only main skill is selected, check if member has the main skill or any of its sub-skills
+      if (hasMainSkill) return true;
+      
+      // Check if member has any sub-skill from the selected main skill category
+      const selectedSkillData = skillsData.find(s => s.name === competenceFilter);
+      if (selectedSkillData) {
+        return selectedSkillData.sub_skills.some(sub => member.skills.includes(sub.name));
+      }
+      
+      return false;
+    })();
     const matchesAvailability = !availabilityFilter || member.availability.includes(availabilityFilter);
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
   });
@@ -569,7 +634,28 @@ const Members: React.FC = () => {
       member.email.toLowerCase().includes(term) ||
       member.skills.some(skill => skill.toLowerCase().includes(term));
     const matchesRole = !roleFilter || displayRoles.includes(roleFilter);
-    const matchesCompetence = !competenceFilter || member.skills.includes(competenceFilter);
+    const matchesCompetence = (() => {
+      if (!competenceFilter) return true;
+      
+      // Check if member has the main skill
+      const hasMainSkill = member.skills.includes(competenceFilter);
+      
+      // If sub-skill filter is selected, check for that specific sub-skill
+      if (subSkillFilter) {
+        return member.skills.includes(subSkillFilter);
+      }
+      
+      // If only main skill is selected, check if member has the main skill or any of its sub-skills
+      if (hasMainSkill) return true;
+      
+      // Check if member has any sub-skill from the selected main skill category
+      const selectedSkillData = skillsData.find(s => s.name === competenceFilter);
+      if (selectedSkillData) {
+        return selectedSkillData.sub_skills.some(sub => member.skills.includes(sub.name));
+      }
+      
+      return false;
+    })();
     const matchesAvailability =
       !availabilityFilter || (member.availability || []).includes(availabilityFilter);
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
@@ -656,7 +742,10 @@ const Members: React.FC = () => {
       <div className="filter-group">
         <select
           value={competenceFilter}
-          onChange={(e) => setCompetenceFilter(e.target.value)}
+          onChange={(e) => {
+            setCompetenceFilter(e.target.value);
+            setSubSkillFilter(''); // Reset sub-skill filter when main skill changes
+          }}
           className="filter-select bigger-select"
         >
           <option value="">Toutes les compétences</option>
@@ -666,10 +755,24 @@ const Members: React.FC = () => {
             </option>
           )}
           {competenceOptions.map(c => (
-            <option key={c} value={c}>{c}</option>
+            <option key={c} value={c}>{translateSkill(c)}</option>
           ))}
         </select>
       </div>
+      {competenceFilter && availableSubSkills.length > 0 && (
+        <div className="filter-group">
+          <select
+            value={subSkillFilter}
+            onChange={(e) => setSubSkillFilter(e.target.value)}
+            className="filter-select bigger-select"
+          >
+            <option value="">Toutes les sous-compétences</option>
+            {availableSubSkills.map(subSkill => (
+              <option key={subSkill.id} value={subSkill.name}>{translateSubSkill(subSkill.name)}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="filter-group">
         <select
           value={availabilityFilter}
@@ -739,8 +842,8 @@ const Members: React.FC = () => {
       isTrusted: student.status === 'confirmed',
       badges: [],
       organization: '',
-      canProposeStage: false,
-      canProposeAtelier: false,
+      canProposeStage: student.take_trainee || false,
+      canProposeAtelier: student.propose_workshop || false,
       claim_token: student.claim_token,
       hasTemporaryEmail: student.has_temporary_email,
       birthday: student.birthday,
@@ -1223,7 +1326,7 @@ const Members: React.FC = () => {
                       const memberForDisplay = {
                         ...member,
                         roles: translateRoles(member.roles),
-                        profession: translateRole(member.profession || ''),
+                        profession: member.profession || '',
                       };
                       const isSuperadmin =
                         (member as any).isSuperadmin ||
@@ -1269,7 +1372,7 @@ const Members: React.FC = () => {
               const memberForDisplay = {
                 ...member,
                 roles: translateRoles(member.roles),
-                profession: translateRole(member.profession || '')
+                profession: member.profession || ''
               };
               const isSuperadmin = (member as any).isSuperadmin || 
                 ((member as any).membershipRole || '').toLowerCase() === 'superadmin';
@@ -1453,7 +1556,7 @@ const Members: React.FC = () => {
                     const communityForDisplay = {
                       ...communityItem,
                       roles: translateRoles(communityItem.roles),
-                      profession: translateRole(communityItem.profession || '')
+                      profession: communityItem.profession || ''
                     };
                     // Check if member is superadmin (from stored data or check membershipRole directly)
                     const isSuperadmin = (communityItem as any).isSuperadmin || 
