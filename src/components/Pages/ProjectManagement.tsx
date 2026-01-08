@@ -17,6 +17,7 @@ import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
+import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/projectPermissions';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
@@ -546,6 +547,27 @@ const ProjectManagement: React.FC = () => {
   };
 
   /**
+   * Check if user can join the project
+   * Returns true if user is not a participant and doesn't have admin access
+   */
+  const canUserJoinProject = (): boolean => {
+    if (!apiProjectData || !state.user?.id) return false;
+    
+    // Check if user is already a participant
+    if (isUserProjectParticipant(apiProjectData, state.user.id.toString())) {
+      return false;
+    }
+    
+    // Check if user has admin access (owner/co-owner/admin or org admin)
+    if (shouldShowTabs()) {
+      return false;
+    }
+    
+    // User can join if they're not a participant and don't have admin access
+    return true;
+  };
+
+  /**
    * Check if current user can edit the project
    * Returns true if user is owner, co-owner, or admin
    */
@@ -589,7 +611,9 @@ const ProjectManagement: React.FC = () => {
   /**
    * Determine if tabs should be shown based on user type and role
    * Personal users (teacher/user) can only see tabs if they are admin/co-owner/owner
-   * Organizational users (pro/edu) always see tabs
+   * Organizational users (pro/edu) can see tabs if they are:
+   * - Project owner/co-owner/admin, OR
+   * - Organization admin/referent/superadmin of project's organization
    */
   const shouldShowTabs = (): boolean => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
@@ -615,8 +639,23 @@ const ProjectManagement: React.FC = () => {
       return false;
     }
     
-    // For organizational users (pro/edu), always show tabs
-    return true;
+    // For organizational users (pro/edu), check permissions
+    if (!apiProjectData || !state.user) {
+      return false;
+    }
+    
+    // Check if user is project owner/co-owner/admin
+    if (userProjectRole === 'owner' || userProjectRole === 'co-owner' || userProjectRole === 'admin') {
+      return true;
+    }
+    
+    // Check if user is org admin of project's organization
+    if (isUserAdminOfProjectOrg(apiProjectData, state.user)) {
+      return true;
+    }
+    
+    // Default: no tabs
+    return false;
   };
 
   /**
@@ -1976,36 +2015,21 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
               <div className="project-actions-header">
-                {/* Join button or role pill for personal users */}
-                {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
+                {/* Join button or role pill - show for all users when appropriate */}
+                {canUserJoinProject() ? (
                   <div className="project-join-section" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    {userProjectRole ? (
-                      <span className="role-badge" style={{
-                        padding: '0.5rem 1rem',
-                        borderRadius: '20px',
-                        backgroundColor: '#f0f0f0',
-                        color: '#333',
-                        fontSize: '0.875rem',
-                        fontWeight: '500'
-                      }}>
-                        {getRoleDisplayText(userProjectRole)}
-                      </span>
-                    ) : (
-                      <button 
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={handleJoinProject}
-                        disabled={isJoiningProject}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                      >
-                        <i className="fas fa-plus"></i>
-                        {isJoiningProject ? 'Envoi...' : 'Rejoindre le projet'}
-                      </button>
-                    )}
+                    <button 
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleJoinProject}
+                      disabled={isJoiningProject}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <i className="fas fa-plus"></i>
+                      {isJoiningProject ? 'Envoi...' : 'Rejoindre'}
+                    </button>
                   </div>
-                )}
-                {/* Role pill for all users (not just personal) */}
-                {userProjectRole && (state.showingPageType !== 'teacher' && state.showingPageType !== 'user') && (
+                ) : userProjectRole ? (
                   <span className="role-badge" style={{
                     padding: '0.5rem 1rem',
                     borderRadius: '20px',
@@ -2017,7 +2041,7 @@ const ProjectManagement: React.FC = () => {
                   }}>
                     {getRoleDisplayText(userProjectRole)}
                   </span>
-                )}
+                ) : null}
                 {/* Edit button for owners/admins */}
                 {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && (
                 <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
