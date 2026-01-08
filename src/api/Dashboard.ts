@@ -82,10 +82,11 @@ export const removeTeacherStudent = (classId: number, studentId: number) => {
 export const getSchoolProjects = (
   schoolId: number,
   includeBranches = false,
-  perPage = 3
+  perPage = 3,
+  page = 1
 ) => {
   return axiosClient.get(`/api/v1/schools/${schoolId}/projects`, {
-    params: { include_branches: includeBranches, per_page: perPage, sort_by: 'created_at', sort_direction: 'desc' },
+    params: { include_branches: includeBranches, per_page: perPage, page: page, sort_by: 'created_at', sort_direction: 'desc' },
   });
 };
 
@@ -130,10 +131,11 @@ export const getTeacherRecentMembers = (
 export const getCompanyProjects = (
   companyId: number,
   includeBranches = false,
-  perPage = 12
+  perPage = 12,
+  page = 1
 ) => {
   return axiosClient.get(`/api/v1/companies/${companyId}/projects`, {
-    params: { include_branches: includeBranches, per_page: perPage },
+    params: { include_branches: includeBranches, per_page: perPage, page: page },
   });
 };
 

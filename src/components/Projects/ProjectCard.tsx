@@ -9,9 +9,11 @@ interface ProjectCardProps {
   onManage?: (project: Project) => void;
   onDelete?: (project: Project) => void;
   isPersonalUser?: boolean;
+  canManage?: boolean;
+  canDelete?: boolean;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, onDelete, isPersonalUser = false }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, onDelete, isPersonalUser = false, canManage = false, canDelete = false }) => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   // Format date from YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString: string) => {
@@ -133,21 +135,21 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
         </div>
 
         <div className="project-actions">
-          {onDelete && (
+          {canDelete && onDelete && (
             <button className="btn btn-outline btn-sm btn-danger" onClick={() => onDelete(project)}>
               <i className="fas fa-trash"></i>
               Supprimer
             </button>
           )}
-          {isPersonalUser ? (
-            <button className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
-              <i className="fas fa-eye"></i>
-              Voir plus
-            </button>
-          ) : (
+          {canManage ? (
             <button className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
               <i className="fas fa-cog"></i>
               Gérer
+            </button>
+          ) : (
+            <button className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
+              <i className="fas fa-eye"></i>
+              Voir plus
             </button>
           )}
         </div>
