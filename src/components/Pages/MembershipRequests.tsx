@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import RolePill from '../UI/RolePill';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
@@ -30,10 +30,30 @@ const MembershipRequests: React.FC = () => {
   const [openDropdowns, setOpenDropdowns] = useState<{ [key: string]: boolean }>({});
   const [loading, setLoading] = useState(true);
   const { showError } = useToast();
+  const roleContainerRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   // 1. Ajout de l'état pour stocker l'ID de l'entreprise
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [contextId, setContextId] = useState<number | null>(null);
+
+  // Convert backend role value to French display name
+  const convertRoleToDisplay = useCallback((backendRole: string): string => {
+    const roleMap: { [key: string]: string } = {
+      'admin': 'Admin',
+      'referent': 'Référent',
+      'member': 'Membre',
+      'intervenant': 'Intervenant',
+      'Admin': 'Admin',
+      'Référent': 'Référent',
+      'Membre': 'Membre',
+      'Intervenant': 'Intervenant',
+      'MEMBER': 'Membre',
+      'ADMIN': 'Admin',
+      'REFERENT': 'Référent',
+      'INTERVENANT': 'Intervenant'
+    };
+    return roleMap[backendRole] || 'Membre';
+  }, []);
 
   // --- Fetch des membres en attente (Pending) ---
   useEffect(() => {
@@ -82,8 +102,8 @@ const MembershipRequests: React.FC = () => {
               if (availData.available && availabilityList.length === 0) availabilityList.push('Disponible');
 
               // Traitement rôle (supporte les clés company et school)
-              let rawRole = profile.role_in_company || m.role_in_company || profile.role_in_school || m.role_in_school || 'Membre';
-              const displayRole = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
+              let rawRole = profile.role_in_company || m.role_in_company || profile.role_in_school || m.role_in_school || 'member';
+              const displayRole = convertRoleToDisplay(rawRole);
 
               return {
                 id: (profile.id || m.id).toString(),
@@ -156,6 +176,30 @@ const MembershipRequests: React.FC = () => {
     handleRoleChange(requestId, role);
     setOpenDropdowns(prev => ({ ...prev, [requestId]: false }));
   };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const openDropdownIds = Object.keys(openDropdowns).filter(id => openDropdowns[id]);
+      
+      openDropdownIds.forEach(requestId => {
+        const containerRef = roleContainerRefs.current[requestId];
+        if (containerRef && !containerRef.contains(event.target as Node)) {
+          setOpenDropdowns(prev => ({ ...prev, [requestId]: false }));
+        }
+      });
+    };
+
+    const hasOpenDropdowns = Object.values(openDropdowns).some(isOpen => isOpen);
+    
+    if (hasOpenDropdowns) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openDropdowns]);
 
   // 3. Bascule API Accept
   const handleAccept = async (requestId: string) => {
@@ -304,7 +348,12 @@ const MembershipRequests: React.FC = () => {
 
                 <div className="request-actions">
                   <div className="role-selection">
-                    <div className="role-container">
+                    <div 
+                      className="role-container"
+                      ref={(el) => {
+                        roleContainerRefs.current[request.id] = el;
+                      }}
+                    >
                       <RolePill
                         role={selectedRole[request.id] || request.assignedRole}
                         color={getRoleColor(selectedRole[request.id] || request.assignedRole)}
