@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectMember, createProjectTeam, deleteProjectTeam, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -53,6 +53,12 @@ const ProjectManagement: React.FC = () => {
   const [badgePage, setBadgePage] = useState(1);
   const [badgeTotalPages, setBadgeTotalPages] = useState(1);
   const [badgeTotalCount, setBadgeTotalCount] = useState(0);
+
+  // Project documents (admin only)
+  const [projectDocuments, setProjectDocuments] = useState<any[]>([]);
+  const [isLoadingProjectDocuments, setIsLoadingProjectDocuments] = useState(false);
+  const [projectDocumentsError, setProjectDocumentsError] = useState<string | null>(null);
+  const documentsInputRef = useRef<HTMLInputElement | null>(null);
 
   // Team management state
   const [teams, setTeams] = useState<any[]>([]);
@@ -355,6 +361,14 @@ const ProjectManagement: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [badgePage, badgeSeriesFilter, badgeLevelFilter]);
+
+  // Fetch project documents when Documents tab is opened (admin only)
+  useEffect(() => {
+    if (activeTab === 'documents' && project?.id && shouldShowTabs()) {
+      fetchProjectDocuments();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, project?.id]);
 
   // Calculate badge assignment permissions
   useEffect(() => {
@@ -1295,6 +1309,77 @@ const ProjectManagement: React.FC = () => {
       setIsLoadingProjectBadges(false);
     }
   }, [project?.id, badgeSeriesFilter, badgeLevelFilter]);
+
+  const fetchProjectDocuments = useCallback(async () => {
+    if (!project?.id) return;
+    setIsLoadingProjectDocuments(true);
+    setProjectDocumentsError(null);
+    try {
+      const projectId = parseInt(project.id);
+      const response = await getProjectDocuments(projectId);
+      setProjectDocuments(response.data || []);
+    } catch (error: any) {
+      console.error('Error fetching project documents:', error);
+      setProjectDocumentsError('Erreur lors du chargement des documents');
+    } finally {
+      setIsLoadingProjectDocuments(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
+
+  const handleUploadDocuments = async (files: File[]) => {
+    if (!project?.id) return;
+
+    // Client-side validation (max 5 total, 1MB each)
+    const currentCount = projectDocuments.length;
+    if (currentCount + files.length > 5) {
+      showError('Vous pouvez ajouter au maximum 5 documents');
+      return;
+    }
+    const tooLarge = files.find((f) => f.size > 1024 * 1024);
+    if (tooLarge) {
+      showError('Chaque document doit faire moins de 1Mo');
+      return;
+    }
+
+    setIsLoadingProjectDocuments(true);
+    setProjectDocumentsError(null);
+    try {
+      const projectId = parseInt(project.id);
+      const response = await addProjectDocuments(projectId, files);
+      setProjectDocuments(response.data || []);
+      showSuccess('Documents ajoutés');
+    } catch (error: any) {
+      console.error('Error uploading documents:', error);
+      const errorMessage =
+        error.response?.data?.details?.[0] ||
+        error.response?.data?.message ||
+        'Erreur lors de l’ajout des documents';
+      showError(errorMessage);
+    } finally {
+      setIsLoadingProjectDocuments(false);
+    }
+  };
+
+  const handleDeleteDocument = async (attachmentId: number) => {
+    if (!project?.id) return;
+    if (!window.confirm('Supprimer ce document ?')) return;
+
+    setIsLoadingProjectDocuments(true);
+    setProjectDocumentsError(null);
+    try {
+      const projectId = parseInt(project.id);
+      const response = await deleteProjectDocument(projectId, attachmentId);
+      setProjectDocuments(response.data || []);
+      showSuccess('Document supprimé');
+    } catch (error: any) {
+      console.error('Error deleting document:', error);
+      const errorMessage = error.response?.data?.message || 'Erreur lors de la suppression du document';
+      showError(errorMessage);
+    } finally {
+      setIsLoadingProjectDocuments(false);
+    }
+  };
 
   const handleBadgeAssignment = async (badgeData: any) => {
     console.log('Badge assigned:', badgeData);
@@ -2250,6 +2335,13 @@ const ProjectManagement: React.FC = () => {
           >
             Badges
           </button>
+          <button 
+            type="button" 
+            className={`tab-btn ${activeTab === 'documents' ? 'active' : ''}`}
+            onClick={() => setActiveTab('documents')}
+          >
+            Documents
+          </button>
         </div>
         )}
 
@@ -3024,6 +3116,107 @@ const ProjectManagement: React.FC = () => {
                       Suivant <i className="fas fa-chevron-right"></i>
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'documents' && (
+          <div className="tab-content active">
+            <div className="badges-section">
+              <div className="badges-section-header">
+                <h3>Documents</h3>
+              </div>
+
+              <div className="badge-filters">
+                <div className="filter-group" style={{ width: '100%' }}>
+                  <input
+                    ref={documentsInputRef}
+                    type="file"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length > 0) {
+                        handleUploadDocuments(files);
+                      }
+                      if (documentsInputRef.current) documentsInputRef.current.value = '';
+                    }}
+                    style={{ display: 'none' }}
+                    id="project-documents-upload"
+                  />
+                  <label
+                    htmlFor="project-documents-upload"
+                    className="btn btn-outline"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    <i className="fas fa-paperclip"></i>
+                    Ajouter des documents (1Mo max, 5 fichiers max)
+                  </label>
+                </div>
+              </div>
+
+              {projectDocumentsError && (
+                <div className="error-message">
+                  {projectDocumentsError}
+                </div>
+              )}
+
+              {isLoadingProjectDocuments ? (
+                <div className="loading-state">
+                  <div className="spinner"></div>
+                  <p>Chargement des documents...</p>
+                </div>
+              ) : (
+                <div style={{ marginTop: '1rem' }}>
+                  {projectDocuments.length === 0 ? (
+                    <div className="empty-state">
+                      <p>Aucun document</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {projectDocuments.map((doc: any) => (
+                        <div
+                          key={doc.id}
+                          className="badge-attribution-card"
+                          style={{ padding: '1rem' }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              <div style={{ fontWeight: 700 }}>
+                                {doc.filename || 'Document'}
+                              </div>
+                              <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
+                                {(doc.byte_size ? `${Math.ceil(doc.byte_size / 1024)} Ko` : '')}
+                                {doc.content_type ? ` • ${doc.content_type}` : ''}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              {doc.url && (
+                                <a
+                                  className="btn btn-outline btn-sm"
+                                  href={doc.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <i className="fas fa-download"></i>
+                                  Télécharger
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm btn-danger"
+                                onClick={() => handleDeleteDocument(doc.id)}
+                              >
+                                <i className="fas fa-trash"></i>
+                                Supprimer
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -607,10 +607,12 @@ export const createProjectMultipart = async (
 export const createProject = async (
     payload: CreateProjectPayload,
     mainImage?: File | null,
-    additionalImages?: File[]
+    additionalImages?: File[],
+    documents?: File[]
 ): Promise<CreateProjectResponse> => {
     // If no images, use JSON format
-    if (!mainImage && (!additionalImages || additionalImages.length === 0)) {
+    const hasDocuments = !!documents && documents.length > 0;
+    if (!mainImage && (!additionalImages || additionalImages.length === 0) && !hasDocuments) {
         return createProjectJSON(payload);
     }
 
@@ -687,7 +689,57 @@ export const createProject = async (
         });
     }
 
+    // Add documents (any file type)
+    if (documents && documents.length > 0) {
+        documents.forEach(file => {
+            formData.append('project[documents][]', file);
+        });
+    }
+
     return createProjectMultipart(formData);
+};
+
+// ========================================
+// Project documents
+// ========================================
+
+export interface ProjectDocument {
+    id: number;
+    filename: string;
+    content_type: string | null;
+    byte_size: number;
+    created_at: string;
+    url: string;
+}
+
+export const getProjectDocuments = async (projectId: number): Promise<{ data: ProjectDocument[] }> => {
+    const response = await apiClient.get(`/api/v1/projects/${projectId}/documents`);
+    return response.data;
+};
+
+export const addProjectDocuments = async (
+    projectId: number,
+    files: File[]
+): Promise<{ data: ProjectDocument[] }> => {
+    const formData = new FormData();
+    files.forEach(file => {
+        formData.append('project[documents][]', file);
+    });
+
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/documents`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+    return response.data;
+};
+
+export const deleteProjectDocument = async (
+    projectId: number,
+    attachmentId: number
+): Promise<{ data: ProjectDocument[] }> => {
+    const response = await apiClient.delete(`/api/v1/projects/${projectId}/documents/${attachmentId}`);
+    return response.data;
 };
 
 export interface UpdateProjectPayload {
