@@ -157,7 +157,7 @@ const Projects: React.FC = () => {
       
       // Pour les utilisateurs personnels, toujours récupérer tous les projets publics
       // (le filtre d'organisation n'est pas applicable)
-      const apiParams: { page?: number; per_page?: number } = {
+      const apiParams: { organization_type?: string; page?: number; per_page?: number } = {
         page: page,
         per_page: 12
       };
