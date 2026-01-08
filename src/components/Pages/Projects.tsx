@@ -224,7 +224,8 @@ const Projects: React.FC = () => {
         }
       } else if (state.showingPageType === 'user') {
         // Pour les utilisateurs : utiliser getAllUserProjects
-        const response = await getAllUserProjects({ page: page, per_page: 12 } as { page?: number; per_page?: number });
+        const params: { page?: number; per_page?: number } = { page: page, per_page: 12 };
+        const response = await getAllUserProjects(params);
         const rawProjects = response.data?.data || response.data || [];
         
         // Store raw API projects for permission checks
