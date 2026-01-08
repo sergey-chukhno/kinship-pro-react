@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { mockBadges } from '../../data/mockData';
 import { Badge, Member } from '../../types';
@@ -123,6 +123,15 @@ const MemberModal: React.FC<MemberModalProps> = ({
     canProposeStage: member.canProposeStage || false,
     canProposeAtelier: member.canProposeAtelier || false
   });
+
+  // Update proposals when member prop changes
+  useEffect(() => {
+    setProposals({
+      canProposeStage: member.canProposeStage || false,
+      canProposeAtelier: member.canProposeAtelier || false
+    });
+  }, [member.canProposeStage, member.canProposeAtelier]);
+
   // const BADGES_LIMIT = 6; // Show only 6 badges initially
 
   const getRoleColor = (role: string) => {
