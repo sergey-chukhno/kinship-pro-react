@@ -229,7 +229,20 @@ const Members: React.FC = () => {
               rawRole: rawRole,
               systemRole: systemRole, // Store system role for staff filtering
               membershipRole: membershipRole, // Store membership role (role_in_school/role_in_company)
-              skills: profile.skills?.map((s: any) => s.name || s) || [],
+              skills: (() => {
+                const allSkills: string[] = [];
+                profile.skills?.forEach((s: any) => {
+                  // Add main skill name
+                  if (s.name) allSkills.push(s.name);
+                  // Add sub-skill names
+                  if (s.sub_skills && Array.isArray(s.sub_skills)) {
+                    s.sub_skills.forEach((sub: any) => {
+                      if (sub.name) allSkills.push(sub.name);
+                    });
+                  }
+                });
+                return allSkills;
+              })(),
               availability: availabilityList,
               avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
               isTrusted: profile.status === 'confirmed',
@@ -387,7 +400,20 @@ const Members: React.FC = () => {
           email: vol.email || vol.user?.email || '',
           profession: volunteerProfession,
           roles: [volunteerRole], // Use membershipRole for role selector
-          skills: vol.skills?.map((s: any) => s.name || s) || [],
+          skills: (() => {
+            const allSkills: string[] = [];
+            vol.skills?.forEach((s: any) => {
+              // Add main skill name
+              if (s.name) allSkills.push(s.name);
+              // Add sub-skill names
+              if (s.sub_skills && Array.isArray(s.sub_skills)) {
+                s.sub_skills.forEach((sub: any) => {
+                  if (sub.name) allSkills.push(sub.name);
+                });
+              }
+            });
+            return allSkills;
+          })(),
           availability: availabilityToLabels(vol.availability),
           avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
           isTrusted: (vol.status || '').toLowerCase() === 'confirmed',

@@ -8,7 +8,7 @@ import { getCurrentUser } from '../../api/Authentication';
 import { acceptMember, getCompanyMembersPending, removeCompanyMember } from '../../api/CompanyDashboard/Members';
 import { acceptSchoolMember, getSchoolMembersPending, removeSchoolMember } from '../../api/SchoolDashboard/Members';
 import { useToast } from '../../hooks/useToast';
-import { translateSkill, translateSubSkill } from '../../translations/skills';
+import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
 
 interface MembershipRequest {
   id: string;
@@ -114,7 +114,20 @@ const MembershipRequests: React.FC = () => {
                 profession: profile.role_in_system || 'Non renseigné',
                 avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
                 requestedDate: profile.joined_at || new Date().toISOString(),
-                skills: profile.skills?.map((s: any) => s.name || s) || [],
+                skills: (() => {
+                  const allSkills: string[] = [];
+                  profile.skills?.forEach((s: any) => {
+                    // Add main skill name
+                    if (s.name) allSkills.push(s.name);
+                    // Add sub-skill names
+                    if (s.sub_skills && Array.isArray(s.sub_skills)) {
+                      s.sub_skills.forEach((sub: any) => {
+                        if (sub.name) allSkills.push(sub.name);
+                      });
+                    }
+                  });
+                  return allSkills;
+                })(),
                 availability: availabilityList,
                 assignedRole: displayRole,
                 status: 'pending'
@@ -151,15 +164,30 @@ const MembershipRequests: React.FC = () => {
     fetchPendingMembers();
   }, [state.showingPageType]); // Ajout dépendance
 
-  // Helper function to translate skill (tries main skill first, then sub-skill)
-  const translateSkillName = useCallback((skillName: string): string => {
-    const translated = translateSkill(skillName);
-    // If translation found (different from original), return it
-    if (translated !== skillName) {
-      return translated;
-    }
-    // Otherwise try sub-skill translation
-    return translateSubSkill(skillName);
+  // Helper function to separate and organize skills
+  const organizeSkills = useCallback((skills: string[]) => {
+    const mainSkillsSet = new Set<string>();
+    const subSkills: string[] = [];
+
+    skills.forEach(skill => {
+      // Check if it's a main skill
+      if (SKILLS_FR[skill]) {
+        mainSkillsSet.add(skill);
+      } 
+      // Check if it's a sub-skill
+      else if (SUB_SKILLS_FR[skill]) {
+        subSkills.push(skill);
+      }
+      // If not in either, treat as main skill (fallback)
+      else {
+        mainSkillsSet.add(skill);
+      }
+    });
+
+    return {
+      mainSkills: Array.from(mainSkillsSet),
+      subSkills: subSkills
+    };
   }, []);
 
   // Convert display role name to backend enum value
@@ -330,17 +358,36 @@ const MembershipRequests: React.FC = () => {
 
                 <div className="request-skills">
                   <h4>Compétences</h4>
-                  <div className="skills-list">
-                    {request.skills.length > 0 ? (
-                      request.skills.map((skill, index) => (
-                        <span key={index} className="skill-pill">
-                          {translateSkillName(skill)}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="no-data">Aucune compétence renseignée</span>
-                    )}
-                  </div>
+                  {(() => {
+                    const { mainSkills, subSkills } = organizeSkills(request.skills);
+                    return (
+                      <>
+                        <div className="skills-list">
+                          {mainSkills.length > 0 ? (
+                            mainSkills.map((skill, index) => (
+                              <span key={index} className="skill-pill">
+                                {translateSkill(skill)}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="no-data">Aucune compétence renseignée</span>
+                          )}
+                        </div>
+                        {subSkills.length > 0 && (
+                          <>
+                            <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>Sous-compétences</h4>
+                            <div className="skills-list">
+                              {subSkills.map((skill, index) => (
+                                <span key={index} className="sub-skill-pill">
+                                  {translateSubSkill(skill)}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="request-availability">
