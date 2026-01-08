@@ -44,6 +44,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
   const [imagePreview, setImagePreview] = useState<string>('');
   const [additionalImagePreviews, setAdditionalImagePreviews] = useState<string[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const [searchTerms, setSearchTerms] = useState({
     // responsible: '', // Removed
     coResponsibles: '',
@@ -527,8 +528,21 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         return;
       }
 
+      // Validate documents (max 5, 1MB each)
+      if (documentFiles.length > 5) {
+        setSubmitError('Vous pouvez ajouter au maximum 5 documents');
+        setIsSubmitting(false);
+        return;
+      }
+      const tooLargeDoc = documentFiles.find((f) => f.size > 1024 * 1024);
+      if (tooLargeDoc) {
+        setSubmitError('Chaque document doit faire moins de 1Mo');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Call backend API
-      const createdProject = await createProject(payload, mainImageFile, additionalImageFiles);
+      const createdProject = await createProject(payload, mainImageFile, additionalImageFiles, documentFiles);
 
       console.log('Project created successfully:', createdProject);
 
@@ -616,6 +630,33 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleDocumentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const combined = [...documentFiles, ...files];
+    if (combined.length > 5) {
+      setSubmitError('Vous pouvez ajouter au maximum 5 documents');
+      // Reset input so user can re-select
+      e.target.value = '';
+      return;
+    }
+
+    const tooLarge = combined.find((f) => f.size > 1024 * 1024);
+    if (tooLarge) {
+      setSubmitError('Chaque document doit faire moins de 1Mo');
+      e.target.value = '';
+      return;
+    }
+
+    setDocumentFiles(combined);
+    e.target.value = '';
+  };
+
+  const removeDocumentAtIndex = (index: number) => {
+    setDocumentFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSearchChange = (field: string, value: string) => {
@@ -1215,6 +1256,49 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     </label>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Documents */}
+            <div className="form-group">
+              <label>Documents (taille max 1Mo, 5 fichiers max)</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <input
+                  id="projectDocumentsInput"
+                  type="file"
+                  multiple
+                  onChange={handleDocumentsChange}
+                  style={{ display: 'none' }}
+                />
+                <label
+                  htmlFor="projectDocumentsInput"
+                  className="btn btn-outline"
+                  style={{ width: 'fit-content' }}
+                >
+                  Ajouter des documents
+                </label>
+
+                {documentFiles.length > 0 ? (
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+                    {documentFiles.map((file, idx) => (
+                      <li key={`${file.name}-${file.size}-${idx}`} style={{ marginBottom: '0.25rem' }}>
+                        <span>{file.name} ({Math.ceil(file.size / 1024)} Ko)</span>
+                        <button
+                          type="button"
+                          className="btn btn-link"
+                          onClick={() => removeDocumentAtIndex(idx)}
+                          style={{ marginLeft: '0.5rem', padding: 0 }}
+                        >
+                          Retirer
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p style={{ margin: 0, color: '#6b7280', fontSize: '0.95rem' }}>
+                    Aucun document ajouté
+                  </p>
+                )}
               </div>
             </div>
           </form>
