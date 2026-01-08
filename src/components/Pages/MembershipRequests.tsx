@@ -8,6 +8,7 @@ import { getCurrentUser } from '../../api/Authentication';
 import { acceptMember, getCompanyMembersPending, removeCompanyMember } from '../../api/CompanyDashboard/Members';
 import { acceptSchoolMember, getSchoolMembersPending, removeSchoolMember } from '../../api/SchoolDashboard/Members';
 import { useToast } from '../../hooks/useToast';
+import { translateSkill, translateSubSkill } from '../../translations/skills';
 
 interface MembershipRequest {
   id: string;
@@ -149,6 +150,17 @@ const MembershipRequests: React.FC = () => {
 
     fetchPendingMembers();
   }, [state.showingPageType]); // Ajout dépendance
+
+  // Helper function to translate skill (tries main skill first, then sub-skill)
+  const translateSkillName = useCallback((skillName: string): string => {
+    const translated = translateSkill(skillName);
+    // If translation found (different from original), return it
+    if (translated !== skillName) {
+      return translated;
+    }
+    // Otherwise try sub-skill translation
+    return translateSubSkill(skillName);
+  }, []);
 
   // Convert display role name to backend enum value
   const convertRoleToBackend = (displayRole: string): string => {
@@ -322,7 +334,7 @@ const MembershipRequests: React.FC = () => {
                     {request.skills.length > 0 ? (
                       request.skills.map((skill, index) => (
                         <span key={index} className="skill-pill">
-                          {skill}
+                          {translateSkillName(skill)}
                         </span>
                       ))
                     ) : (

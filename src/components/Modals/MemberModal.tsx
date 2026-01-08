@@ -453,6 +453,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   </div>
                 )}
 
+                {/* Badges reçus section - hidden as not used */}
+                {false && (
                 <div className="info-section">
                   <h3>Badges reçus</h3>
                   <div className="badges-grid">
@@ -620,6 +622,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     })()}
                   </div>
                 </div>
+                )}
 
               </div>
 
