@@ -359,11 +359,31 @@ const Projects: React.FC = () => {
           let totalPages = response.data.meta.total_pages || 1;
           let totalCount = response.data.meta.total_count || 0;
           
-          // For client-side filtering ('all-public' and 'other-orgs'), we keep the API's pagination metadata
-          // This ensures pagination works correctly, even though some pages might have fewer
-          // visible projects after filtering. The user can navigate through all pages.
-          // Note: The total_count from API includes all projects (public + private for 'all-public',
-          // or all orgs for 'other-orgs'), but pagination will still work correctly.
+          // For client-side filtering, handle pagination differently based on filter type
+          if (needsClientSideFiltering) {
+            const filteredCount = rawProjects.length;
+            
+            if (organizationFilter === 'all-public') {
+              // For 'all-public': Keep API pagination metadata
+              // The API returns public + private projects, but pagination is still valid
+              // Some pages might have fewer visible projects after filtering, but pagination works
+              // We keep the API's metadata so users can navigate through all pages
+              // (totalCount and totalPages remain from API)
+            } else if (organizationFilter === 'other-orgs') {
+              // For 'other-orgs': Recalculate pagination based on filtered results
+              // Since we're filtering out schools and user's org, the API metadata is not accurate
+              if (filteredCount < 12) {
+                // Likely all filtered results fit on one page
+                totalCount = filteredCount;
+                totalPages = 1;
+              } else {
+                // We have 12 filtered projects, might be more on other pages
+                // Note: This is an approximation - we can't know the true total without fetching all pages
+                totalCount = filteredCount; // At least this many
+                totalPages = Math.max(1, Math.ceil(filteredCount / 12));
+              }
+            }
+          }
           
           setProjectTotalPages(totalPages);
           setProjectTotalCount(totalCount);
