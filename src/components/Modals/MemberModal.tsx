@@ -30,7 +30,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
-  const professionLabel = translateRole(member.profession || '');
+  // Profession should be the actual job, not translated system role
+  const professionLabel = member.profession || '';
 
   // Helper function to translate skill (tries main skill first, then sub-skill)
   const translateSkillName = (skillName: string): string => {

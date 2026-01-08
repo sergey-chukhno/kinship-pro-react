@@ -208,7 +208,8 @@ const Members: React.FC = () => {
             // This is separate from systemRole which is used for filtering and profession display
             const roleValues = [membershipRole].filter(Boolean);
 
-            const displayProfession = translateRole(profile.role_in_system || '');
+            // Use actual job field if available, otherwise leave empty (not system role)
+            const displayProfession = profile.job || m.job || '';
 
             // Check if member is superadmin
             const isSuperadmin = 
@@ -260,7 +261,7 @@ const Members: React.FC = () => {
               lastName: m.last_name || '',
               fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
               email: m.email || '',
-              profession: translateRole(m.job || fallbackSystemRole),
+              profession: m.job || '',
               roles: [fallbackMembershipRole], // Use membershipRole for role selector
               rawRole: fallbackRole,
               systemRole: fallbackSystemRole, // Store system role for staff filtering
@@ -371,7 +372,7 @@ const Members: React.FC = () => {
         const volunteerSystemRole = vol.role_in_system || vol.user?.role || '';
         const volunteerMembershipRole = vol.role_in_school || vol.role_in_company || 'volunteer';
         const volunteerRole = volunteerMembershipRole; // Use membershipRole for role selector
-        const volunteerProfession = translateRole(volunteerSystemRole || vol.user?.job || '');
+        const volunteerProfession = vol.user?.job || '';
 
         // Check if volunteer is superadmin
         const isSuperadmin = 
@@ -1223,7 +1224,7 @@ const Members: React.FC = () => {
                       const memberForDisplay = {
                         ...member,
                         roles: translateRoles(member.roles),
-                        profession: translateRole(member.profession || ''),
+                        profession: member.profession || '',
                       };
                       const isSuperadmin =
                         (member as any).isSuperadmin ||
@@ -1269,7 +1270,7 @@ const Members: React.FC = () => {
               const memberForDisplay = {
                 ...member,
                 roles: translateRoles(member.roles),
-                profession: translateRole(member.profession || '')
+                profession: member.profession || ''
               };
               const isSuperadmin = (member as any).isSuperadmin || 
                 ((member as any).membershipRole || '').toLowerCase() === 'superadmin';
@@ -1453,7 +1454,7 @@ const Members: React.FC = () => {
                     const communityForDisplay = {
                       ...communityItem,
                       roles: translateRoles(communityItem.roles),
-                      profession: translateRole(communityItem.profession || '')
+                      profession: communityItem.profession || ''
                     };
                     // Check if member is superadmin (from stored data or check membershipRole directly)
                     const isSuperadmin = (communityItem as any).isSuperadmin || 
