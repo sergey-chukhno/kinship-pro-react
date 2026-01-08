@@ -186,6 +186,15 @@
   font-weight: 500;
 }
 
+.sub-skill-pill {
+  background: rgba(251, 191, 36, 0.15);
+  color: #f59e0b;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
 .availability-pill {
   background: var(--success-light, rgba(16, 185, 129, 0.1));
   color: var(--success, #10b981);

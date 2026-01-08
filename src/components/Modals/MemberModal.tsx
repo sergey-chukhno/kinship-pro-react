@@ -7,6 +7,7 @@ import QRCodePrintModal from './QRCodePrintModal';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRoles, translateRole, normalizeRoleKey } from '../../utils/roleTranslations';
+import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
 
 interface MemberModalProps {
   member: Member;
@@ -29,7 +30,45 @@ const MemberModal: React.FC<MemberModalProps> = ({
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
-  const professionLabel = translateRole(member.profession || '');
+  // Profession should be the actual job, not translated system role
+  const professionLabel = member.profession || '';
+
+  // Helper function to translate skill (tries main skill first, then sub-skill)
+  const translateSkillName = (skillName: string): string => {
+    const translated = translateSkill(skillName);
+    // If translation found (different from original), return it
+    if (translated !== skillName) {
+      return translated;
+    }
+    // Otherwise try sub-skill translation
+    return translateSubSkill(skillName);
+  };
+
+  // Helper function to separate and organize skills
+  const organizeSkills = (skills: string[]) => {
+    const mainSkillsSet = new Set<string>();
+    const subSkills: string[] = [];
+
+    skills.forEach(skill => {
+      // Check if it's a main skill
+      if (SKILLS_FR[skill]) {
+        mainSkillsSet.add(skill);
+      } 
+      // Check if it's a sub-skill
+      else if (SUB_SKILLS_FR[skill]) {
+        subSkills.push(skill);
+      }
+      // If not in either, treat as main skill (fallback)
+      else {
+        mainSkillsSet.add(skill);
+      }
+    });
+
+    return {
+      mainSkills: Array.from(mainSkillsSet),
+      subSkills: subSkills
+    };
+  };
 
   // Helper functions for badge data
   const getLevelName = (level: string): string => {
@@ -363,31 +402,61 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
                 <div className="info-section">
                   <h3>Compétences</h3>
-                  <div className="skills-grid">
-                    {member.skills.length === 0 ? (
-                      <p className="no-badges text-center w-full">Aucune compétence renseignée</p>
-                    ) : (
-                      (isEditing ? editedMember.skills : member.skills).map((skill, index) => (
-                        <span key={index} className="skill-tag">
-                          {skill}
+                  {(() => {
+                    const skillsToDisplay = isEditing ? editedMember.skills : member.skills;
+                    const { mainSkills, subSkills } = organizeSkills(skillsToDisplay);
+                    return (
+                      <>
+                        <div className="skills-grid">
+                          {mainSkills.length === 0 && subSkills.length === 0 ? (
+                            <p className="no-badges text-center w-full">Aucune compétence renseignée</p>
+                          ) : (
+                            mainSkills.map((skill, index) => (
+                              <span key={index} className="skill-tag">
+                                {translateSkill(skill)}
+                                {isEditing && (
+                                  <button
+                                    className="remove-tag-btn"
+                                    onClick={() => handleRemoveSkill(skill)}
+                                    title="Supprimer cette compétence"
+                                  >
+                                    <i className="fas fa-times"></i>
+                                  </button>
+                                )}
+                              </span>
+                            ))
+                          )}
                           {isEditing && (
-                            <button
-                              className="remove-tag-btn"
-                              onClick={() => handleRemoveSkill(skill)}
-                              title="Supprimer cette compétence"
-                            >
-                              <i className="fas fa-times"></i>
+                            <button className="add-tag-btn" onClick={handleAddSkill}>
+                              <i className="fas fa-plus"></i>
+                              Ajouter une compétence
                             </button>
                           )}
-                        </span>
-                      )))}
-                    {isEditing && (
-                      <button className="add-tag-btn" onClick={handleAddSkill}>
-                        <i className="fas fa-plus"></i>
-                        Ajouter une compétence
-                      </button>
-                    )}
-                  </div>
+                        </div>
+                        {subSkills.length > 0 && (
+                          <>
+                            <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600 }}>Sous-compétences</h4>
+                            <div className="skills-grid">
+                              {subSkills.map((skill, index) => (
+                                <span key={index} className="sub-skill-tag">
+                                  {translateSubSkill(skill)}
+                                  {isEditing && (
+                                    <button
+                                      className="remove-tag-btn"
+                                      onClick={() => handleRemoveSkill(skill)}
+                                      title="Supprimer cette sous-compétence"
+                                    >
+                                      <i className="fas fa-times"></i>
+                                    </button>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="info-section">
@@ -440,6 +509,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   </div>
                 )}
 
+                {/* Badges reçus section - hidden as not used */}
+                {false && (
                 <div className="info-section">
                   <h3>Badges reçus</h3>
                   <div className="badges-grid">
@@ -607,6 +678,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     })()}
                   </div>
                 </div>
+                )}
 
               </div>
 

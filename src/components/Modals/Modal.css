@@ -1744,6 +1744,15 @@ html[data-theme="dark"] .badge-explorer-card .badge-icon i {
   font-weight: 500;
 }
 
+.sub-skill-tag {
+  padding: 0.25rem 0.75rem;
+  background: rgba(251, 191, 36, 0.15);
+  color: #f59e0b;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
 .availability-tag {
   padding: 0.25rem 0.75rem;
   background: rgba(16, 185, 129, 0.15);

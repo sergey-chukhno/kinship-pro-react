@@ -3,6 +3,7 @@ import { Member } from '../../types';
 import RolePill from '../UI/RolePill';
 import './MemberCard.css';
 import AvatarImage from '../UI/AvatarImage';
+import { translateRole } from '../../utils/roleTranslations';
 
 interface MemberCardProps {
   categoryTag?: { label: string; color: string };// Optional pill tag
@@ -125,9 +126,14 @@ const MemberCard: React.FC<MemberCardProps> = ({
               </>
             )}
           </div>
-          {member.profession && (
-            <p className="break-words member-profession" style={{ marginTop: 4 }}>{member.profession}</p>
-          )}
+          {(() => {
+            // Display system role (translated) instead of profession on member card
+            const systemRole = (member as any).systemRole || '';
+            const translatedSystemRole = systemRole ? translateRole(systemRole) : '';
+            return translatedSystemRole ? (
+              <p className="break-words member-profession" style={{ marginTop: 4 }}>{translatedSystemRole}</p>
+            ) : null;
+          })()}
         </div>
       </div>
 
