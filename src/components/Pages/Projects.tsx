@@ -13,6 +13,7 @@ import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
 import { getTeacherProjects } from '../../api/Projects';
 import { getProjectBadges } from '../../api/Badges';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
+import { canUserManageProject, canUserDeleteProject } from '../../utils/projectPermissions';
 
 /**
  * Fetches badge counts for all projects and updates them with the correct counts
@@ -73,6 +74,10 @@ const Projects: React.FC = () => {
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
   const [myProjects, setMyProjects] = useState<Project[]>([]);
+  // Store raw API project data for permission checks (projectId -> raw API project)
+  const [rawProjectsMap, setRawProjectsMap] = useState<Map<string, any>>(new Map());
+  // Store all filtered projects for client-side pagination (for filters that need client-side filtering)
+  const [allFilteredProjects, setAllFilteredProjects] = useState<any[]>([]);
   
   // Pagination state for "Nouveautés" tab (public projects for user dashboard, org projects for pro/edu)
   const [projectPage, setProjectPage] = useState(1);
@@ -98,7 +103,7 @@ const Projects: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [organizationFilter, setOrganizationFilter] = useState<'my-org' | 'all-public' | 'school' | 'other-orgs'>('my-org');
+  const [organizationFilter, setOrganizationFilter] = useState<'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies'>('my-org');
   const [visibilityFilter, setVisibilityFilter] = useState('all');
 
   // Fonction pour obtenir l'organizationId sélectionné (comme dans Dashboard)
@@ -191,6 +196,20 @@ const Projects: React.FC = () => {
         // Pour les enseignants : utiliser getTeacherProjects
         const response = await getTeacherProjects({ page: page, per_page: 12 });
         const rawProjects = response.data || [];
+        
+        // Store raw API projects for permission checks
+        const newRawProjectsMap = new Map<string, any>();
+        rawProjects.forEach((p: any) => {
+          if (p.id) {
+            newRawProjectsMap.set(p.id.toString(), p);
+          }
+        });
+        setRawProjectsMap(prev => {
+          const merged = new Map(prev);
+          newRawProjectsMap.forEach((value, key) => merged.set(key, value));
+          return merged;
+        });
+        
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
@@ -207,6 +226,20 @@ const Projects: React.FC = () => {
         // Pour les utilisateurs : utiliser getAllUserProjects
         const response = await getAllUserProjects({ page: page, per_page: 12 });
         const rawProjects = response.data?.data || response.data || [];
+        
+        // Store raw API projects for permission checks
+        const newRawProjectsMap = new Map<string, any>();
+        rawProjects.forEach((p: any) => {
+          if (p.id) {
+            newRawProjectsMap.set(p.id.toString(), p);
+          }
+        });
+        setRawProjectsMap(prev => {
+          const merged = new Map(prev);
+          newRawProjectsMap.forEach((value, key) => merged.set(key, value));
+          return merged;
+        });
+        
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
@@ -276,12 +309,53 @@ const Projects: React.FC = () => {
           rawProjects = response.data?.data || response.data || [];
           needsClientSideFiltering = true;
         } else if (organizationFilter === 'school') {
-          // Établissement: utiliser getAllProjects avec organization_type: 'établissement'
+          // Établissement: utiliser getAllProjects avec organization_type: 'établissement' (Pro only)
+          if (state.showingPageType !== 'pro') {
+            console.warn('⚠️ [Projects] "school" filter should only be used on Pro dashboard');
+            setProjects([]);
+            setProjectTotalPages(1);
+            setProjectTotalCount(0);
+            return;
+          }
           response = await getAllProjects({ organization_type: 'établissement', page: page, per_page: 12 });
           rawProjects = response.data?.data || response.data || [];
         } else if (organizationFilter === 'other-orgs') {
-          // Autres organisations: utiliser getAllProjects sans filtre, puis filtrer côté client
-          response = await getAllProjects({ page: page, per_page: 12 });
+          // Autres organisations: utiliser getAllProjects sans filtre, puis filtrer côté client (Pro only)
+          if (state.showingPageType !== 'pro') {
+            console.warn('⚠️ [Projects] "other-orgs" filter should only be used on Pro dashboard');
+            setProjects([]);
+            setProjectTotalPages(1);
+            setProjectTotalCount(0);
+            return;
+          }
+          // For client-side filtering, fetch a large batch to get all projects, then filter and paginate client-side
+          response = await getAllProjects({ page: 1, per_page: 200 });
+          rawProjects = response.data?.data || response.data || [];
+          needsClientSideFiltering = true;
+        } else if (organizationFilter === 'other-schools') {
+          // Autres établissements: utiliser getAllProjects avec organization_type: 'établissement', puis filtrer côté client (Edu only)
+          if (state.showingPageType !== 'edu') {
+            console.warn('⚠️ [Projects] "other-schools" filter should only be used on Edu dashboard');
+            setProjects([]);
+            setProjectTotalPages(1);
+            setProjectTotalCount(0);
+            return;
+          }
+          // For client-side filtering, fetch a large batch to get all projects, then filter and paginate client-side
+          response = await getAllProjects({ organization_type: 'établissement', page: 1, per_page: 200 });
+          rawProjects = response.data?.data || response.data || [];
+          needsClientSideFiltering = true;
+        } else if (organizationFilter === 'companies') {
+          // Organisations: utiliser getAllProjects sans filtre, puis filtrer côté client (Edu only)
+          if (state.showingPageType !== 'edu') {
+            console.warn('⚠️ [Projects] "companies" filter should only be used on Edu dashboard');
+            setProjects([]);
+            setProjectTotalPages(1);
+            setProjectTotalCount(0);
+            return;
+          }
+          // For client-side filtering, fetch a large batch to get all projects, then filter and paginate client-side
+          response = await getAllProjects({ page: 1, per_page: 200 });
           rawProjects = response.data?.data || response.data || [];
           needsClientSideFiltering = true;
         } else {
@@ -293,55 +367,107 @@ const Projects: React.FC = () => {
           return;
         }
 
-        // Client-side filtering for 'all-public' and 'other-orgs'
+        // Client-side filtering for 'all-public', 'other-orgs', 'other-schools', and 'companies'
         if (needsClientSideFiltering) {
+          let filteredProjects: any[] = [];
+          
           if (organizationFilter === 'all-public') {
             // Filter to only public projects
-            rawProjects = rawProjects.filter((p: any) => !p.private);
+            filteredProjects = rawProjects.filter((p: any) => !p.private);
+            rawProjects = filteredProjects; // Use filtered results directly
           } else if (organizationFilter === 'other-orgs') {
-            // Filter to show only public projects from other companies/associations
-            // Exclude: school projects, user's own organization, private projects, projects without company_ids
-            rawProjects = rawProjects.filter((p: any) => {
-              // Only show public projects
-              if (p.private) {
-                return false;
-              }
-              
-              // Exclude school projects (projects with school_levels or school_level_ids)
-              if (p.school_levels && Array.isArray(p.school_levels) && p.school_levels.length > 0) {
-                return false;
-              }
-              if (p.school_level_ids && Array.isArray(p.school_level_ids) && p.school_level_ids.length > 0) {
-                return false;
-              }
-              
-              // Only include projects that have company_ids (are linked to companies/associations)
+            // Pro: Company projects excluding user's own
+            filteredProjects = rawProjects.filter((p: any) => {
+              if (p.private) return false;
+              // Must have company_ids (projects without company_ids are likely school projects)
               if (!p.company_ids || !Array.isArray(p.company_ids) || p.company_ids.length === 0) {
                 return false;
               }
+              // Exclude school projects (check if has school_levels or school_level_ids, even if empty arrays)
+              // Also exclude if owner's role suggests it's a school project
+              if ((p.school_levels && Array.isArray(p.school_levels) && p.school_levels.length > 0) ||
+                  (p.school_level_ids && Array.isArray(p.school_level_ids) && p.school_level_ids.length > 0)) {
+                return false;
+              }
+              // Additional check: exclude if owner role indicates school project
+              if (p.owner?.role) {
+                const schoolRoles = ['directeur_ecole', 'primary_school_teacher', 'other_school_admin', 
+                                     'collegien', 'lyceen', 'eleve_primaire', 'enseignant'];
+                if (schoolRoles.includes(p.owner.role)) {
+                  return false;
+                }
+              }
+              // Exclude user's own company
+              if (contextId && p.company_ids.includes(contextId)) {
+                return false;
+              }
+              return true;
+            });
+            // Store all filtered projects and paginate client-side
+            setAllFilteredProjects(filteredProjects);
+            const perPage = 12;
+            const startIndex = (page - 1) * perPage;
+            const endIndex = startIndex + perPage;
+            rawProjects = filteredProjects.slice(startIndex, endIndex);
+          } else if (organizationFilter === 'other-schools') {
+            // Edu: Other school projects excluding user's own
+            // Note: API call with organization_type: 'établissement' returns all school projects
+            // So we just need to filter out user's own school and private projects
+            filteredProjects = rawProjects.filter((p: any) => {
+              if (p.private) return false;
               
-              // Exclude if project is linked to user's own organization
-              if (contextId) {
-                if (isEdu) {
-                  // For edu: exclude if project has school_levels with this school_id
-                  // (This check is redundant with the school check above, but keeping for safety)
-                  if (p.school_levels && Array.isArray(p.school_levels)) {
-                    const hasUserSchool = p.school_levels.some((sl: any) => sl.school_id === contextId);
-                    if (hasUserSchool) {
-                      return false;
-                    }
-                  }
-                } else {
-                  // For pro: exclude if project has company_ids that include this company_id
-                  if (p.company_ids.includes(contextId)) {
-                    return false;
-                  }
+              // Get all user's school IDs
+              const userSchoolIds = state.user?.available_contexts?.schools?.map((s: any) => s.id) || [];
+              const currentUserId = state.user?.id?.toString();
+              
+              // Exclude projects owned by the current user
+              if (currentUserId && p.owner?.id?.toString() === currentUserId) {
+                return false;
+              }
+              
+              // Exclude projects linked to user's schools via school_levels
+              if (userSchoolIds.length > 0) {
+                if (p.school_levels && Array.isArray(p.school_levels) && p.school_levels.length > 0) {
+                  const hasUserSchool = p.school_levels.some((sl: any) => 
+                    sl.school_id && userSchoolIds.includes(sl.school_id)
+                  );
+                  if (hasUserSchool) return false;
+                }
+                if (p.school_level_ids && Array.isArray(p.school_level_ids) && p.school_level_ids.length > 0) {
+                  // Note: school_level_ids are level IDs, not school IDs, so we need to check differently
+                  // For now, if a project has school_level_ids, we'll check via school_levels array
                 }
               }
               
-              // Include only public projects from other companies/associations (not schools, not user's org, has company_ids)
               return true;
             });
+            // Store all filtered projects and paginate client-side
+            setAllFilteredProjects(filteredProjects);
+            const perPage = 12;
+            const startIndex = (page - 1) * perPage;
+            const endIndex = startIndex + perPage;
+            rawProjects = filteredProjects.slice(startIndex, endIndex);
+          } else if (organizationFilter === 'companies') {
+            // Edu: All company projects
+            filteredProjects = rawProjects.filter((p: any) => {
+              if (p.private) return false;
+              // Must have company_ids
+              if (!p.company_ids || !Array.isArray(p.company_ids) || p.company_ids.length === 0) {
+                return false;
+              }
+              // Exclude school projects (projects with school_levels)
+              if ((p.school_levels && Array.isArray(p.school_levels) && p.school_levels.length > 0) ||
+                  (p.school_level_ids && Array.isArray(p.school_level_ids) && p.school_level_ids.length > 0)) {
+                return false;
+              }
+              return true;
+            });
+            // Store all filtered projects and paginate client-side
+            setAllFilteredProjects(filteredProjects);
+            const perPage = 12;
+            const startIndex = (page - 1) * perPage;
+            const endIndex = startIndex + perPage;
+            rawProjects = filteredProjects.slice(startIndex, endIndex);
           }
         }
 
@@ -349,6 +475,15 @@ const Projects: React.FC = () => {
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
             return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
+
+        // Store raw API projects for permission checks
+        const newRawProjectsMap = new Map<string, any>();
+        rawProjects.forEach((p: any) => {
+          if (p.id) {
+            newRawProjectsMap.set(p.id.toString(), p);
+          }
+        });
+        setRawProjectsMap(newRawProjectsMap);
 
         // Fetch and update badge counts
         const projectsWithBadges = await fetchAndUpdateBadgeCounts(formattedProjects);
@@ -361,27 +496,18 @@ const Projects: React.FC = () => {
           
           // For client-side filtering, handle pagination differently based on filter type
           if (needsClientSideFiltering) {
-            const filteredCount = rawProjects.length;
-            
             if (organizationFilter === 'all-public') {
               // For 'all-public': Keep API pagination metadata
               // The API returns public + private projects, but pagination is still valid
               // Some pages might have fewer visible projects after filtering, but pagination works
               // We keep the API's metadata so users can navigate through all pages
               // (totalCount and totalPages remain from API)
-            } else if (organizationFilter === 'other-orgs') {
-              // For 'other-orgs': Recalculate pagination based on filtered results
-              // Since we're filtering out schools and user's org, the API metadata is not accurate
-              if (filteredCount < 12) {
-                // Likely all filtered results fit on one page
-                totalCount = filteredCount;
-                totalPages = 1;
-              } else {
-                // We have 12 filtered projects, might be more on other pages
-                // Note: This is an approximation - we can't know the true total without fetching all pages
-                totalCount = filteredCount; // At least this many
-                totalPages = Math.max(1, Math.ceil(filteredCount / 12));
-              }
+            } else if (organizationFilter === 'other-orgs' || organizationFilter === 'other-schools' || organizationFilter === 'companies') {
+              // For 'other-orgs', 'other-schools', and 'companies': Use client-side pagination
+              // We've already filtered all projects and stored them in allFilteredProjects
+              const filteredCount = allFilteredProjects.length;
+              totalCount = filteredCount;
+              totalPages = Math.max(1, Math.ceil(filteredCount / 12));
             }
           }
           
@@ -396,7 +522,7 @@ const Projects: React.FC = () => {
       setProjectTotalCount(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, isPersonalUser, isTeacher, organizationFilter, myProjectsPage]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
+  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
 
   // --- Fetch des projets au chargement ---
   useEffect(() => {
@@ -416,6 +542,42 @@ const Projects: React.FC = () => {
 
   // Fetch projects when projectPage changes (for pro/edu dashboards and user "Nouveautés" tab)
   useEffect(() => {
+    // For client-side paginated filters, use stored filtered projects
+    if ((organizationFilter === 'other-orgs' || organizationFilter === 'other-schools' || organizationFilter === 'companies') && allFilteredProjects.length > 0) {
+      const perPage = 12;
+      const startIndex = (projectPage - 1) * perPage;
+      const endIndex = startIndex + perPage;
+      const paginatedProjects = allFilteredProjects.slice(startIndex, endIndex);
+      
+      // Map to Project format
+      const formattedProjects: Project[] = paginatedProjects.map((p: any) => {
+        return mapApiProjectToFrontendProject(p, state.showingPageType, state.user);
+      });
+      
+      // Store raw API projects for permission checks
+      const newRawProjectsMap = new Map<string, any>();
+      paginatedProjects.forEach((p: any) => {
+        if (p.id) {
+          newRawProjectsMap.set(p.id.toString(), p);
+        }
+      });
+      setRawProjectsMap(newRawProjectsMap);
+      
+      // Fetch badge counts and update projects
+      fetchAndUpdateBadgeCounts(formattedProjects).then(projectsWithBadges => {
+        setProjects(projectsWithBadges);
+      });
+      
+      // Update pagination metadata
+      const totalCount = allFilteredProjects.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / 12));
+      setProjectTotalPages(totalPages);
+      setProjectTotalCount(totalCount);
+      
+      return; // Don't fetch from API
+    }
+    
+    // For other cases, fetch from API
     if (isTeacher) {
       // Teachers only see their own projects
       fetchMyProjects(myProjectsPage);
@@ -426,7 +588,7 @@ const Projects: React.FC = () => {
       fetchProjects(projectPage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectPage]);
+  }, [projectPage, organizationFilter, allFilteredProjects]);
 
   // Fetch my projects when myProjectsPage changes (for user/teacher "Mes projets" tab)
   useEffect(() => {
@@ -640,14 +802,23 @@ const Projects: React.FC = () => {
                 id="organization-filter"
                 className="filter-select"
                 value={organizationFilter}
-                onChange={(e) => setOrganizationFilter(e.target.value as 'my-org' | 'all-public' | 'school' | 'other-orgs')}
+                onChange={(e) => setOrganizationFilter(e.target.value as 'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies')}
               >
-                <option value="my-org">
-                  {state.showingPageType === 'edu' ? 'Mon établissement' : 'Mon organisation'}
-                </option>
-                <option value="all-public">Tous les projets</option>
-                <option value="school">Établissement</option>
-                <option value="other-orgs">Autres organisations</option>
+                {state.showingPageType === 'pro' ? (
+                  <>
+                    <option value="my-org">Mon organisation</option>
+                    <option value="all-public">Tous les projets</option>
+                    <option value="school">Établissement</option>
+                    <option value="other-orgs">Autres organisations</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="my-org">Mon établissement</option>
+                    <option value="all-public">Tous les projets</option>
+                    <option value="other-schools">Autres établissements</option>
+                    <option value="companies">Organisations</option>
+                  </>
+                )}
               </select>
             </div>
           )}
@@ -726,9 +897,13 @@ const Projects: React.FC = () => {
           <div className="projects-grid">
             {filteredProjects.map((project) => {
               const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-              // Pour les utilisateurs personnels, ne pas afficher le bouton "Supprimer"
-              // Pour les autres, le bouton sera affiché mais le backend vérifiera les permissions
-              const canDelete = !isPersonalUser;
+              
+              // Get raw API project data for permission checks
+              const rawApiProject = rawProjectsMap.get(project.id);
+              
+              // Calculate permissions
+              const canManage = rawApiProject ? canUserManageProject(rawApiProject, state.user) : false;
+              const canDelete = rawApiProject ? canUserDeleteProject(rawApiProject, state.user?.id?.toString()) : false;
               
               return (
                 <ProjectCard
@@ -738,6 +913,8 @@ const Projects: React.FC = () => {
                   onManage={() => handleManageProject(project)}
                   onDelete={canDelete ? () => handleDeleteProject(project.id) : undefined}
                   isPersonalUser={isPersonalUser}
+                  canManage={canManage}
+                  canDelete={canDelete}
                 />
               );
             })}
