@@ -7,6 +7,7 @@ import QRCodePrintModal from './QRCodePrintModal';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRoles, translateRole, normalizeRoleKey } from '../../utils/roleTranslations';
+import { translateSkill, translateSubSkill } from '../../translations/skills';
 
 interface MemberModalProps {
   member: Member;
@@ -30,6 +31,17 @@ const MemberModal: React.FC<MemberModalProps> = ({
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
   const professionLabel = translateRole(member.profession || '');
+
+  // Helper function to translate skill (tries main skill first, then sub-skill)
+  const translateSkillName = (skillName: string): string => {
+    const translated = translateSkill(skillName);
+    // If translation found (different from original), return it
+    if (translated !== skillName) {
+      return translated;
+    }
+    // Otherwise try sub-skill translation
+    return translateSubSkill(skillName);
+  };
 
   // Helper functions for badge data
   const getLevelName = (level: string): string => {
@@ -369,7 +381,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     ) : (
                       (isEditing ? editedMember.skills : member.skills).map((skill, index) => (
                         <span key={index} className="skill-tag">
-                          {skill}
+                          {translateSkillName(skill)}
                           {isEditing && (
                             <button
                               className="remove-tag-btn"
