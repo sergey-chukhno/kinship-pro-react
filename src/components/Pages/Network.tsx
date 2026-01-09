@@ -660,7 +660,7 @@ const Network: React.FC = () => {
       try {
         const params: any = {
           page: 1,
-          per_page: 1 // Just to get the meta.total_count
+          per_page: 1000 // Fetch all members at once (consistent with pro/edu dashboards)
         };
 
         const response = await getPersonalUserNetwork(params);
@@ -731,8 +731,8 @@ const Network: React.FC = () => {
         }
 
         const params: any = {
-          page: partnersPage,
-          per_page: 12
+          page: 1, // Always fetch from first page since we're getting all members
+          per_page: 1000 // Fetch all members at once (consistent with pro/edu dashboards)
         };
 
         // Add filters if set
@@ -3365,15 +3365,29 @@ const Network: React.FC = () => {
               (organization.type === 'companies' && myOrganizations.companies.some((company: any) => String(company.id) === organization.id && company.my_status === 'confirmed'))
             );
             
+            // Check if user has a pending join request for this organization
+            const hasPendingJoinRequest = isPersonalUser && (
+              (organization.type === 'schools' && myRequests.schools.some((request: any) => {
+                const school = request.school || {};
+                return String(school.id || request.id) === organization.id && request.status === 'pending';
+              })) ||
+              (organization.type === 'companies' && myRequests.companies.some((request: any) => {
+                const company = request.company || {};
+                return String(company.id || request.id) === organization.id && request.status === 'pending';
+              }))
+            );
+            
             // Hide "Rejoindre" button if:
             // 1. User is viewing their own organizations (activeCard === 'schools' or 'companies')
             // 2. User is already a confirmed member of this organization
+            // 3. User has already made a join request (pending) for this organization
             const joinAction = isPersonalUser && 
                               (organization.type === 'schools' || organization.type === 'companies') && 
                               selectedType !== 'my-requests' && 
                               activeCard !== 'schools' && 
                               activeCard !== 'companies' &&
-                              !isAlreadyConfirmedMember ? () => handleJoinOrganizationRequest(organization) : undefined;
+                              !isAlreadyConfirmedMember &&
+                              !hasPendingJoinRequest ? () => handleJoinOrganizationRequest(organization) : undefined;
             
             // Check if there are any hover actions
             const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction;
@@ -3744,6 +3758,30 @@ const Network: React.FC = () => {
                  req.status === 'confirmed';
         });
         
+        // Check if user is already a confirmed member of this organization
+        const isAlreadyConfirmedMember = isPersonalUser && (
+          (selectedOrganizationForDetails.type === 'schools' && 
+           myOrganizations.schools.some((school: any) => 
+             String(school.id) === selectedOrganizationForDetails.id && 
+             school.my_status === 'confirmed')) ||
+          (selectedOrganizationForDetails.type === 'companies' && 
+           myOrganizations.companies.some((company: any) => 
+             String(company.id) === selectedOrganizationForDetails.id && 
+             company.my_status === 'confirmed'))
+        );
+        
+        // Check if user has a pending join request for this organization
+        const hasPendingJoinRequest = isPersonalUser && (
+          (selectedOrganizationForDetails.type === 'schools' && myRequests.schools.some((request: any) => {
+            const school = request.school || {};
+            return String(school.id || request.id) === selectedOrganizationForDetails.id && request.status === 'pending';
+          })) ||
+          (selectedOrganizationForDetails.type === 'companies' && myRequests.companies.some((request: any) => {
+            const company = request.company || {};
+            return String(company.id || request.id) === selectedOrganizationForDetails.id && request.status === 'pending';
+          }))
+        );
+        
         return (
           <OrganizationDetailsModal
             organization={selectedOrganizationForDetails}
@@ -3757,7 +3795,7 @@ const Network: React.FC = () => {
                 : undefined
             }
             onPartnership={
-              !isPartner && !isSubOrganization && selectedType !== 'my-requests' && !isOwnOrganization
+              !isPartner && !isSubOrganization && selectedType !== 'my-requests' && !isOwnOrganization && !isAlreadyConfirmedMember && !hasPendingJoinRequest
                 ? () => handlePartnershipProposal(selectedOrganizationForDetails)
                 : undefined
             }
@@ -3765,7 +3803,9 @@ const Network: React.FC = () => {
               isPersonalUser && 
               selectedOrganizationForDetails && 
               (selectedOrganizationForDetails.type === 'schools' || selectedOrganizationForDetails.type === 'companies') &&
-              selectedType !== 'my-requests'
+              selectedType !== 'my-requests' &&
+              !isAlreadyConfirmedMember &&
+              !hasPendingJoinRequest
                 ? () => handleJoinOrganizationRequest(selectedOrganizationForDetails)
                 : undefined
             }
