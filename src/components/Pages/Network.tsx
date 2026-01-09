@@ -107,7 +107,7 @@ const Network: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const isOrgDashboardInitial = state.showingPageType === 'edu' || state.showingPageType === 'pro';
   const isPersonalUserForType = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | null>(
+  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | 'join-organization' | null>(
     isOrgDashboardInitial || isPersonalUserForType ? null : 'schools'
   );
   const [schools, setSchools] = useState<School[]>([]);
@@ -269,29 +269,28 @@ const Network: React.FC = () => {
     [networkMembers, memberMatchesFilters, localSearchTerm]
   );
 
-  // Auto-switch to search tab when user starts typing in search
+  // Auto-switch to join-organization tab when user starts typing in search (if in join-organization tab)
   useEffect(() => {
-    // Only auto-switch if there's a search term and we're not already on search tab
+    // Only auto-switch if there's a search term and we're in the join-organization tab
     // This allows user to manually switch to another tab after typing
-    if (searchTerm && searchTerm.trim() && selectedType !== 'search') {
-      setSelectedType('search');
+    if (searchTerm && searchTerm.trim() && selectedType === 'join-organization') {
+      // Already on the right tab, no need to switch
+      // The search will trigger automatically via the useEffect that fetches search results
     } else if (!searchTerm || !searchTerm.trim()) {
-      // When search is cleared, redirect to schools tab if currently on search tab
-      if (selectedType === 'search') {
-        setSelectedType('schools');
-      }
+      // When search is cleared, stay on join-organization tab (don't redirect)
+      // This allows user to continue searching
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]); // Intentionally excluding selectedType to allow manual tab switching after auto-switch
+  }, [searchTerm, selectedType]); // Include selectedType to check if we're on join-organization tab
 
-  // Reset search page to 1 when search term changes (only for search tab)
+  // Reset search page to 1 when search term changes (only for search/join-organization tabs)
   useEffect(() => {
-    if (selectedType === 'search') {
+    if (selectedType === 'search' || selectedType === 'join-organization') {
       setSearchPage(1);
     }
   }, [searchTerm, selectedType]);
 
-  // Fetch search results when search tab is selected
+  // Fetch search results when search or join-organization tab is selected
   useEffect(() => {
     const fetchSearchResults = async () => {
       if (!searchTerm || !searchTerm.trim()) {
@@ -337,7 +336,7 @@ const Network: React.FC = () => {
       }
     };
 
-    if (selectedType === 'search') {
+    if (selectedType === 'search' || selectedType === 'join-organization') {
       fetchSearchResults();
     }
   }, [selectedType, searchTerm, searchPage]);
@@ -1939,7 +1938,7 @@ const Network: React.FC = () => {
     );
   };
   
-  const displayItems = selectedType === 'search'
+  const displayItems = selectedType === 'search' || selectedType === 'join-organization'
     ? filteredSearchResults
     : selectedType === 'branch-requests'
     ? filteredBranchRequests
@@ -2013,33 +2012,6 @@ const Network: React.FC = () => {
             <i className="fas fa-link"></i> Demander un rattachement
           </button>
           )} */}
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="network-search-container">
-        <div className="search-bar !w-full">
-          <i className="fas fa-search search-icon"></i>
-          <input
-            type="text"
-            className="search-input !w-full"
-            placeholder="Rechercher une organisation ou un
-établissement par nom, par ville ou code postal"
-            value={searchTerm}
-            onChange={(e) => {
-              // Ne jamais changer l'onglet automatiquement lors de la saisie
-              const newValue = e.target.value;
-              setSearchTerm(newValue);
-              // S'assurer que l'onglet ne change pas automatiquement
-              // L'utilisateur doit cliquer explicitement sur l'onglet "Recherche"
-            }}
-            onKeyDown={(e) => {
-              // Empêcher toute action automatique sur Enter si on n'est pas sur l'onglet recherche
-              if (e.key === 'Enter' && selectedType !== 'search' && searchTerm.trim()) {
-                e.preventDefault();
-              }
-            }}
-          />
         </div>
       </div>
 
@@ -2216,6 +2188,13 @@ const Network: React.FC = () => {
               Recherche ({searchTotalCount > 0 ? searchTotalCount : filteredSearchResults.length})
             </button>
           )}
+          {/* Always visible tab for joining organizations */}
+          <button 
+            className={`filter-tab ${selectedType === 'join-organization' ? 'active' : ''}`}
+            onClick={() => { setActiveCard(null); setSelectedType('join-organization'); }}
+          >
+            + Rejoindre un établissement ou une organisation supplémentaire
+          </button>
           {/* Hide schools and companies tabs for personal users and organization dashboards */}
           {/* Show partnership requests and branch requests tabs only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
@@ -2254,9 +2233,9 @@ const Network: React.FC = () => {
 
         {/* Filters for personal user network and organization dashboards - Show on all tabs except schools */}
         {(
-          (isPersonalUser && (selectedType === 'my-requests' || selectedType === 'search')) || 
+          (isPersonalUser && (selectedType === 'my-requests' || selectedType === 'search' || selectedType === 'join-organization')) || 
           (isPersonalUserDashboard && activeCard && activeCard !== 'schools') ||
-          (isOrgDashboard && (selectedType === 'search' || activeCard === 'members'))
+          (isOrgDashboard && (selectedType === 'search' || selectedType === 'join-organization' || activeCard === 'members'))
         ) && (
           <div className="network-user-filters" style={{ 
             marginBottom: '20px', 
@@ -2277,7 +2256,7 @@ const Network: React.FC = () => {
               justifyContent: (() => {
                 // Calculate number of visible filters
                 let visibleFiltersCount = 2; // Compétence and Propositions are always visible
-                if (selectedType !== 'search' && activeCard !== 'companies') {
+                if (selectedType !== 'search' && selectedType !== 'join-organization' && activeCard !== 'companies') {
                   visibleFiltersCount += 2; // Disponibilité and Établissement/Organisation
                 }
                 return visibleFiltersCount > 3 ? 'space-between' : 'flex-start';
@@ -2313,8 +2292,8 @@ const Network: React.FC = () => {
                 </select>
               </div>
               
-              {/* Disponibilité filter - Hidden in search and companies */}
-              {selectedType !== 'search' && activeCard !== 'companies' && (
+              {/* Disponibilité filter - Hidden in search, join-organization and companies */}
+              {selectedType !== 'search' && selectedType !== 'join-organization' && activeCard !== 'companies' && (
                 <div className="filter-group" style={{ flex: '1', minWidth: '200px', position: 'relative' }}>
                   <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>
                     <i className="fas fa-calendar-alt" style={{ marginRight: '6px' }}></i>
@@ -2417,8 +2396,8 @@ const Network: React.FC = () => {
                 </div>
               )}
               
-              {/* Établissement / Organisation filter - Hidden in search and companies */}
-              {selectedType !== 'search' && activeCard !== 'companies' && (
+              {/* Établissement / Organisation filter - Hidden in search, join-organization and companies */}
+              {selectedType !== 'search' && selectedType !== 'join-organization' && activeCard !== 'companies' && (
                 <div className="filter-group" style={{ flex: '1', minWidth: '200px' }}>
                   <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.875rem', fontWeight: 600, color: '#374151' , whiteSpace: 'nowrap'}}>
                     <i className="fas fa-building" style={{ marginRight: '6px' }}></i>
@@ -2642,10 +2621,33 @@ const Network: React.FC = () => {
         {myRequestsError && selectedType === 'my-requests' && (
           <div className="error-message">{myRequestsError}</div>
         )}
-        {searchLoading && selectedType === 'search' && (
+        {/* Search Bar - Only show in join-organization tab */}
+        {selectedType === 'join-organization' && (
+          <div className="network-search-container" style={{ marginBottom: '20px' }}>
+            <div className="search-bar !w-full">
+              <i className="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                className="search-input !w-full"
+                placeholder="Rechercher une organisation ou un établissement par nom, par ville ou code postal"
+                value={searchTerm}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  setSearchTerm(newValue);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && selectedType !== 'join-organization' && searchTerm.trim()) {
+                    e.preventDefault();
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+        {searchLoading && (selectedType === 'search' || selectedType === 'join-organization') && (
           <div className="loading-message">Recherche en cours...</div>
         )}
-        {searchError && selectedType === 'search' && (
+        {searchError && (selectedType === 'search' || selectedType === 'join-organization') && (
           <div className="error-message">{searchError}</div>
         )}
         {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
@@ -2773,6 +2775,7 @@ const Network: React.FC = () => {
          !(isOrgDashboard && activeCard === 'members') && 
          !(isPersonalUserDashboard && activeCard === 'network-members') &&
          (selectedType === 'search' || 
+          selectedType === 'join-organization' ||
           selectedType === 'partnership-requests' || 
           selectedType === 'branch-requests' || 
           (isOrgDashboard && (activeCard === 'partners' || activeCard === 'branches')) || 
@@ -3094,21 +3097,21 @@ const Network: React.FC = () => {
             }
             
             // Don't show hover actions for partners (they're already connected)
-            // For search results, DO NOT block on existing partners to allow proposing partnerships
+            // For search/join-organization results, DO NOT block on existing partners to allow proposing partnerships
             const targetOrgId = parseInt(organization.id);
             const isPartnerFromList = partnersAsOrganizations.some(partner => parseInt(partner.id) === targetOrgId);
             const isPartner =
               selectedType === 'partner' ||
-              ((isOrgDashboard && activeCard === 'partners') && selectedType !== 'search') ||
-              (selectedType !== 'search' && isPartnerFromList);
+              ((isOrgDashboard && activeCard === 'partners') && selectedType !== 'search' && selectedType !== 'join-organization') ||
+              (selectedType !== 'search' && selectedType !== 'join-organization' && isPartnerFromList);
             
             // Don't show hover actions for sub-organizations (they're part of the current organization)
-            // For search results, DO NOT block on existing sub-organizations to allow hover actions
+            // For search/join-organization results, DO NOT block on existing sub-organizations to allow hover actions
             const isSubOrganizationFromList = subOrgsAsOrganizations.some(subOrg => parseInt(subOrg.id) === targetOrgId);
             const isSubOrganization =
               selectedType === 'sub-organizations' ||
-              ((isOrgDashboard && activeCard === 'branches') && selectedType !== 'search') ||
-              (selectedType !== 'search' && isSubOrganizationFromList);
+              ((isOrgDashboard && activeCard === 'branches') && selectedType !== 'search' && selectedType !== 'join-organization') ||
+              (selectedType !== 'search' && selectedType !== 'join-organization' && isSubOrganizationFromList);
             
             // Don't show hover actions for branch requests
             const isBranchRequestType = selectedType === 'branch-requests';
@@ -3272,7 +3275,7 @@ const Network: React.FC = () => {
             let hasExistingPartnershipRequest = false;
             let hasExistingBranchRequest = false;
             
-            if (selectedType === 'search') {
+            if (selectedType === 'search' || selectedType === 'join-organization') {
               const organizationId = getOrganizationId(state.user, state.showingPageType);
               
               // Check if a partnership request (pending) already exists for this organization
@@ -3299,8 +3302,8 @@ const Network: React.FC = () => {
             // Hide "Partenariats" button if partnership request already exists or if it's already a partner
             const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasExistingPartnershipRequest ? () => handlePartnershipProposal(organization) : undefined;
             
-            // Hide "Se rattacher" button if branch request already exists (for search results)
-            const attachActionForSearch = selectedType === 'search' && hasExistingBranchRequest ? undefined : attachAction;
+            // Hide "Se rattacher" button if branch request already exists (for search/join-organization results)
+            const attachActionForSearch = (selectedType === 'search' || selectedType === 'join-organization') && hasExistingBranchRequest ? undefined : attachAction;
             
             // Check if user is already a confirmed member of this organization
             const isAlreadyConfirmedMember = isPersonalUser && (
@@ -3338,8 +3341,8 @@ const Network: React.FC = () => {
             );
           })
             ) : (
-              // Empty state for search and other tabs
-              selectedType === 'search' && !searchLoading ? (
+              // Empty state for search/join-organization and other tabs
+              (selectedType === 'search' || selectedType === 'join-organization') && !searchLoading ? (
                 <div className="empty-message">Aucun résultat de recherche trouvé</div>
               ) : null
             )}
@@ -3495,7 +3498,7 @@ const Network: React.FC = () => {
       )}
 
       {/* Pagination for Search */}
-      {selectedType === 'search' && searchTotalPages > 1 && (searchTotalCount > 0 || filteredSearchResults.length > 0) && (
+      {(selectedType === 'search' || selectedType === 'join-organization') && searchTotalPages > 1 && (searchTotalCount > 0 || filteredSearchResults.length > 0) && (
         <div className="pagination-container">
           <div className="pagination-info">
             Page {searchPage} sur {searchTotalPages} ({searchTotalCount} résultats)
