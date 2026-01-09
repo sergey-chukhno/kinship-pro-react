@@ -3365,15 +3365,29 @@ const Network: React.FC = () => {
               (organization.type === 'companies' && myOrganizations.companies.some((company: any) => String(company.id) === organization.id && company.my_status === 'confirmed'))
             );
             
+            // Check if user has a pending join request for this organization
+            const hasPendingJoinRequest = isPersonalUser && (
+              (organization.type === 'schools' && myRequests.schools.some((request: any) => {
+                const school = request.school || {};
+                return String(school.id || request.id) === organization.id && request.status === 'pending';
+              })) ||
+              (organization.type === 'companies' && myRequests.companies.some((request: any) => {
+                const company = request.company || {};
+                return String(company.id || request.id) === organization.id && request.status === 'pending';
+              }))
+            );
+            
             // Hide "Rejoindre" button if:
             // 1. User is viewing their own organizations (activeCard === 'schools' or 'companies')
             // 2. User is already a confirmed member of this organization
+            // 3. User has already made a join request (pending) for this organization
             const joinAction = isPersonalUser && 
                               (organization.type === 'schools' || organization.type === 'companies') && 
                               selectedType !== 'my-requests' && 
                               activeCard !== 'schools' && 
                               activeCard !== 'companies' &&
-                              !isAlreadyConfirmedMember ? () => handleJoinOrganizationRequest(organization) : undefined;
+                              !isAlreadyConfirmedMember &&
+                              !hasPendingJoinRequest ? () => handleJoinOrganizationRequest(organization) : undefined;
             
             // Check if there are any hover actions
             const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction;
