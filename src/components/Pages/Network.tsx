@@ -16,6 +16,7 @@ import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { useToast } from '../../hooks/useToast';
+import { translateSkill } from '../../translations/skills';
 import './Network.css';
 
 interface Organization {
@@ -2477,7 +2478,7 @@ const Network: React.FC = () => {
                   <option value="">Toutes les compétences</option>
                   {skillsOptions.map((skill) => (
                     <option key={skill} value={skill}>
-                      {skill}
+                      {translateSkill(skill)}
                     </option>
                   ))}
                 </select>
