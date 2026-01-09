@@ -3270,15 +3270,19 @@ const Network: React.FC = () => {
             }
             
             // Determine which hover actions should be available
-            // Hide "Se rattacher" if current org already has a branch request (pending or confirmed)
-            const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest ? () => handleAttachRequest(organization) : undefined;
+            // Check if this is the user's own organization
+            const organizationId = getOrganizationId(state.user, state.showingPageType);
+            const isOwnOrganization = organizationId && parseInt(organization.id) === organizationId;
+            
+            // Hide "Se rattacher" if current org already has a branch request (pending or confirmed) OR if it's user's own organization
+            const attachAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest && !isOwnOrganization ? () => handleAttachRequest(organization) : undefined;
             
             // For search results, check if partnership or branch request already exists
             let hasExistingPartnershipRequest = false;
             let hasExistingBranchRequest = false;
             
             if (selectedType === 'search' || selectedType === 'join-organization') {
-              const organizationId = getOrganizationId(state.user, state.showingPageType);
+              // organizationId and isOwnOrganization are already defined above, reuse them
               
               // Check if a partnership request (pending) already exists for this organization
               hasExistingPartnershipRequest = partnershipRequests.some(partnership => {
@@ -3301,11 +3305,11 @@ const Network: React.FC = () => {
               });
             }
             
-            // Hide "Partenariats" button if partnership request already exists or if it's already a partner
-            const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasExistingPartnershipRequest ? () => handlePartnershipProposal(organization) : undefined;
+            // Hide "Partenariats" button if partnership request already exists, if it's already a partner, OR if it's user's own organization
+            const partnershipAction = !isPartner && !isSubOrganization && !isBranchRequestType && !isPersonalUser && !hasExistingPartnershipRequest && !isOwnOrganization ? () => handlePartnershipProposal(organization) : undefined;
             
-            // Hide "Se rattacher" button if branch request already exists (for search/join-organization results)
-            const attachActionForSearch = (selectedType === 'search' || selectedType === 'join-organization') && hasExistingBranchRequest ? undefined : attachAction;
+            // Hide "Se rattacher" button if branch request already exists OR if it's user's own organization (for search/join-organization results)
+            const attachActionForSearch = (selectedType === 'search' || selectedType === 'join-organization') && (hasExistingBranchRequest || isOwnOrganization) ? undefined : attachAction;
             
             // Check if user is already a confirmed member of this organization
             const isAlreadyConfirmedMember = isPersonalUser && (
@@ -3671,6 +3675,10 @@ const Network: React.FC = () => {
         const isSubOrganization = selectedType === 'sub-organizations';
         const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
         
+        // Check if this is the user's own organization
+        const organizationId = getOrganizationId(state.user, state.showingPageType);
+        const isOwnOrganization = organizationId && parseInt(selectedOrganizationForDetails.id) === organizationId;
+        
         // Check if there's already a confirmed branch request with this organization
         const targetOrgId = parseInt(selectedOrganizationForDetails.id);
         const hasConfirmedBranchRequest = confirmedBranchRequests.some(req => {
@@ -3690,12 +3698,12 @@ const Network: React.FC = () => {
               setSelectedOrganizationForDetails(null);
             }}
             onAttach={
-              !isPartner && !isSubOrganization && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest
+              !isPartner && !isSubOrganization && !isPersonalUser && !hasConfirmedBranchRequest && !hasAnyBranchRequest && !isOwnOrganization
                 ? () => handleAttachRequest(selectedOrganizationForDetails)
                 : undefined
             }
             onPartnership={
-              !isPartner && !isSubOrganization && selectedType !== 'my-requests'
+              !isPartner && !isSubOrganization && selectedType !== 'my-requests' && !isOwnOrganization
                 ? () => handlePartnershipProposal(selectedOrganizationForDetails)
                 : undefined
             }
