@@ -3770,6 +3770,18 @@ const Network: React.FC = () => {
              company.my_status === 'confirmed'))
         );
         
+        // Check if user has a pending join request for this organization
+        const hasPendingJoinRequest = isPersonalUser && (
+          (selectedOrganizationForDetails.type === 'schools' && myRequests.schools.some((request: any) => {
+            const school = request.school || {};
+            return String(school.id || request.id) === selectedOrganizationForDetails.id && request.status === 'pending';
+          })) ||
+          (selectedOrganizationForDetails.type === 'companies' && myRequests.companies.some((request: any) => {
+            const company = request.company || {};
+            return String(company.id || request.id) === selectedOrganizationForDetails.id && request.status === 'pending';
+          }))
+        );
+        
         return (
           <OrganizationDetailsModal
             organization={selectedOrganizationForDetails}
@@ -3783,7 +3795,7 @@ const Network: React.FC = () => {
                 : undefined
             }
             onPartnership={
-              !isPartner && !isSubOrganization && selectedType !== 'my-requests' && !isOwnOrganization && !isAlreadyConfirmedMember
+              !isPartner && !isSubOrganization && selectedType !== 'my-requests' && !isOwnOrganization && !isAlreadyConfirmedMember && !hasPendingJoinRequest
                 ? () => handlePartnershipProposal(selectedOrganizationForDetails)
                 : undefined
             }
@@ -3792,7 +3804,8 @@ const Network: React.FC = () => {
               selectedOrganizationForDetails && 
               (selectedOrganizationForDetails.type === 'schools' || selectedOrganizationForDetails.type === 'companies') &&
               selectedType !== 'my-requests' &&
-              !isAlreadyConfirmedMember
+              !isAlreadyConfirmedMember &&
+              !hasPendingJoinRequest
                 ? () => handleJoinOrganizationRequest(selectedOrganizationForDetails)
                 : undefined
             }
