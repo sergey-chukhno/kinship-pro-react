@@ -1,6 +1,6 @@
 import axiosClient from "./config";
 
-export function getAllProjects(params?: { organization_type?: string }) {
+export function getAllProjects(params?: { organization_type?: string; page?: number; per_page?: number }) {
     return axiosClient.get('/api/v1/projects', { params });
 }
 
@@ -20,8 +20,8 @@ export function deleteProject(projectId: number) {
     return axiosClient.delete(`/api/v1/projects/${projectId}`);
 }
 
-export function getAllUserProjects() {
-    return axiosClient.get(`/api/v1/users/me/projects`);
+export function getAllUserProjects(params?: { page?: number; per_page?: number }) {
+    return axiosClient.get(`/api/v1/users/me/projects`, { params });
 }
 
 export function getUserProjectsByCompany(CompanyID: number) {
