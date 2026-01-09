@@ -2321,6 +2321,7 @@ const ProjectManagement: React.FC = () => {
           >
             Équipes
           </button>
+          {false && (
           <button 
             type="button" 
             className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
@@ -2328,6 +2329,7 @@ const ProjectManagement: React.FC = () => {
           >
             Kanban
           </button>
+          )}
           <button 
             type="button" 
             className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
