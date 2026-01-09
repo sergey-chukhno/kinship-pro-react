@@ -1000,7 +1000,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             </div>
 
             <div className="form-group">
-              <label htmlFor="projectDescription">Description</label>
+              <label htmlFor="projectDescription">Description *</label>
               <textarea
                 id="projectDescription"
                 name="description"
