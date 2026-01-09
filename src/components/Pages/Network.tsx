@@ -90,6 +90,30 @@ interface NetworkUser {
   };
 }
 
+const availabilityToLabels = (availability: any = {}) => {
+  const mapping: Record<string, string> = {
+    monday: 'Lundi',
+    tuesday: 'Mardi',
+    wednesday: 'Mercredi',
+    thursday: 'Jeudi',
+    friday: 'Vendredi',
+    saturday: 'Samedi',
+    sunday: 'Dimanche',
+    other: 'Autre',
+  };
+
+  const labels = Object.entries(mapping).reduce<string[]>((acc, [key, label]) => {
+    if (availability?.[key]) acc.push(label);
+    return acc;
+  }, []);
+
+  if (availability?.available && labels.length === 0) {
+    labels.push('Disponible');
+  }
+
+  return labels;
+};
+
 const Network: React.FC = () => {
   const { state } = useAppContext();
   const { showSuccess, showError } = useToast();
@@ -1171,8 +1195,32 @@ const Network: React.FC = () => {
           email: m.email || '',
           profession: m.profession || m.job || '',
           roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
-          skills: m.skills ? (Array.isArray(m.skills) ? m.skills.map((s: any) => typeof s === 'string' ? s : s?.name || '') : []) : [],
-          availability: m.availability ? (Array.isArray(m.availability) ? m.availability : []) : [],
+          skills: (() => {
+            const allSkills: string[] = [];
+            if (m.skills && Array.isArray(m.skills)) {
+              m.skills.forEach((s: any) => {
+                // Handle string format (legacy)
+                if (typeof s === 'string') {
+                  allSkills.push(s);
+                }
+                // Handle object format with name and sub_skills
+                else if (typeof s === 'object' && s !== null) {
+                  // Add main skill name
+                  if (s.name) allSkills.push(s.name);
+                  // Add sub-skill names
+                  if (s.sub_skills && Array.isArray(s.sub_skills)) {
+                    s.sub_skills.forEach((sub: any) => {
+                      if (sub.name) allSkills.push(sub.name);
+                      // Also handle if sub_skill is a string
+                      else if (typeof sub === 'string') allSkills.push(sub);
+                    });
+                  }
+                }
+              });
+            }
+            return allSkills;
+          })(),
+          availability: availabilityToLabels(m.availability),
           avatar: m.avatar_url || '',
           isTrusted: false,
           badges: m.badges || [],
