@@ -3744,6 +3744,18 @@ const Network: React.FC = () => {
                  req.status === 'confirmed';
         });
         
+        // Check if user is already a confirmed member of this organization
+        const isAlreadyConfirmedMember = isPersonalUser && (
+          (selectedOrganizationForDetails.type === 'schools' && 
+           myOrganizations.schools.some((school: any) => 
+             String(school.id) === selectedOrganizationForDetails.id && 
+             school.my_status === 'confirmed')) ||
+          (selectedOrganizationForDetails.type === 'companies' && 
+           myOrganizations.companies.some((company: any) => 
+             String(company.id) === selectedOrganizationForDetails.id && 
+             company.my_status === 'confirmed'))
+        );
+        
         return (
           <OrganizationDetailsModal
             organization={selectedOrganizationForDetails}
@@ -3757,7 +3769,7 @@ const Network: React.FC = () => {
                 : undefined
             }
             onPartnership={
-              !isPartner && !isSubOrganization && selectedType !== 'my-requests' && !isOwnOrganization
+              !isPartner && !isSubOrganization && selectedType !== 'my-requests' && !isOwnOrganization && !isAlreadyConfirmedMember
                 ? () => handlePartnershipProposal(selectedOrganizationForDetails)
                 : undefined
             }
@@ -3765,7 +3777,8 @@ const Network: React.FC = () => {
               isPersonalUser && 
               selectedOrganizationForDetails && 
               (selectedOrganizationForDetails.type === 'schools' || selectedOrganizationForDetails.type === 'companies') &&
-              selectedType !== 'my-requests'
+              selectedType !== 'my-requests' &&
+              !isAlreadyConfirmedMember
                 ? () => handleJoinOrganizationRequest(selectedOrganizationForDetails)
                 : undefined
             }
