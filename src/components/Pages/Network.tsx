@@ -3671,8 +3671,15 @@ const Network: React.FC = () => {
 
       {isDetailsModalOpen && selectedOrganizationForDetails && (() => {
         // Use the same logic as OrganizationCard to determine if actions should be shown
-        const isPartner = selectedType === 'partner';
-        const isSubOrganization = selectedType === 'sub-organizations';
+        const targetOrgId = parseInt(selectedOrganizationForDetails.id);
+        const isPartnerFromList = partnersAsOrganizations.some(partner => parseInt(partner.id) === targetOrgId);
+        const isPartner = selectedType === 'partner' ||
+          ((isOrgDashboard && activeCard === 'partners') && selectedType !== 'search' && selectedType !== 'join-organization') ||
+          (selectedType !== 'search' && selectedType !== 'join-organization' && isPartnerFromList);
+        const isSubOrganizationFromList = subOrgsAsOrganizations.some(subOrg => parseInt(subOrg.id) === targetOrgId);
+        const isSubOrganization = selectedType === 'sub-organizations' ||
+          ((isOrgDashboard && activeCard === 'branches') && selectedType !== 'search' && selectedType !== 'join-organization') ||
+          (selectedType !== 'search' && selectedType !== 'join-organization' && isSubOrganizationFromList);
         const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
         
         // Check if this is the user's own organization
@@ -3680,7 +3687,6 @@ const Network: React.FC = () => {
         const isOwnOrganization = organizationId && parseInt(selectedOrganizationForDetails.id) === organizationId;
         
         // Check if there's already a confirmed branch request with this organization
-        const targetOrgId = parseInt(selectedOrganizationForDetails.id);
         const hasConfirmedBranchRequest = confirmedBranchRequests.some(req => {
           const parentOrg = req.parent_school || req.parent_company;
           const childOrg = req.child_school || req.child_company;
