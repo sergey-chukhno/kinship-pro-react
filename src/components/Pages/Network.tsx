@@ -2222,6 +2222,30 @@ const Network: React.FC = () => {
           )}
         </div>
 
+        {/* Search Bar - Only show in join-organization tab */}
+        {selectedType === 'join-organization' && (
+          <div className="network-search-container" style={{ marginTop: '20px', marginBottom: '20px' }}>
+            <div className="search-bar !w-full">
+              <i className="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                className="search-input !w-full"
+                placeholder="Rechercher une organisation ou un établissement par nom, par ville ou code postal"
+                value={searchTerm}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  setSearchTerm(newValue);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && selectedType !== 'join-organization' && searchTerm.trim()) {
+                    e.preventDefault();
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Filters for personal user network and organization dashboards - Show on all tabs except schools */}
         {(
           (isPersonalUser && (selectedType === 'my-requests' || selectedType === 'search' || selectedType === 'join-organization')) || 
@@ -2611,29 +2635,6 @@ const Network: React.FC = () => {
         )}
         {myRequestsError && selectedType === 'my-requests' && (
           <div className="error-message">{myRequestsError}</div>
-        )}
-        {/* Search Bar - Only show in join-organization tab */}
-        {selectedType === 'join-organization' && (
-          <div className="network-search-container" style={{ marginBottom: '20px' }}>
-            <div className="search-bar !w-full">
-              <i className="fas fa-search search-icon"></i>
-              <input
-                type="text"
-                className="search-input !w-full"
-                placeholder="Rechercher une organisation ou un établissement par nom, par ville ou code postal"
-                value={searchTerm}
-                onChange={(e) => {
-                  const newValue = e.target.value;
-                  setSearchTerm(newValue);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && selectedType !== 'join-organization' && searchTerm.trim()) {
-                    e.preventDefault();
-                  }
-                }}
-              />
-            </div>
-          </div>
         )}
         {/* Search Results Header - Only show in join-organization tab when there are results */}
         {selectedType === 'join-organization' && 
