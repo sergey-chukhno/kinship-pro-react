@@ -2179,15 +2179,6 @@ const Network: React.FC = () => {
       <div className="network-filters">
 
         <div className="filter-tabs">
-          {/* Show search tab only when there's a search term */}
-          {searchTerm && searchTerm.trim() && (
-            <button 
-              className={`filter-tab ${selectedType === 'search' ? 'active' : ''}`}
-              onClick={() => { setActiveCard(null); setSelectedType('search'); }}
-            >
-              Recherche ({searchTotalCount > 0 ? searchTotalCount : filteredSearchResults.length})
-            </button>
-          )}
           {/* Always visible tab for joining organizations */}
           <button 
             className={`filter-tab ${selectedType === 'join-organization' ? 'active' : ''}`}
@@ -2642,6 +2633,16 @@ const Network: React.FC = () => {
                 }}
               />
             </div>
+          </div>
+        )}
+        {/* Search Results Header - Only show in join-organization tab when there are results */}
+        {selectedType === 'join-organization' && 
+         filteredSearchResults.length > 0 && 
+         !searchLoading && (
+          <div className="search-results-header" style={{ marginBottom: '16px', marginTop: '8px' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary, #374151)' }}>
+              Résultats de recherche ({searchTotalCount > 0 ? searchTotalCount : filteredSearchResults.length})
+            </h3>
           </div>
         )}
         {searchLoading && (selectedType === 'search' || selectedType === 'join-organization') && (
