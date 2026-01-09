@@ -3747,6 +3747,7 @@ const Network: React.FC = () => {
             console.log('Contact network member:', selectedNetworkMember.email);
           }}
           hideDeleteButton={true}
+          hideEditButton={true}
         />
       )}
     </section>

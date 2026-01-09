@@ -16,6 +16,7 @@ interface MemberModalProps {
   onDelete: () => void;
   onContactClick: () => void;
   hideDeleteButton?: boolean; // Option to hide delete button and permissions (for network members)
+  hideEditButton?: boolean; // Option to hide edit button (for network members)
   isSuperadmin?: boolean; // Hide delete button for superadmins
 }
 
@@ -26,6 +27,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
   onDelete,
   onContactClick,
   hideDeleteButton = false,
+  hideEditButton = false,
   isSuperadmin = false
 }) => {
   const { state } = useAppContext();
@@ -794,10 +796,12 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   </button>
                 </>
               ) : (
-                <button className="btn btn-primary" onClick={handleEditToggle}>
-                  <i className="fas fa-edit"></i>
-                  Modifier
-                </button>
+                !hideEditButton && (
+                  <button className="btn btn-primary" onClick={handleEditToggle}>
+                    <i className="fas fa-edit"></i>
+                    Modifier
+                  </button>
+                )
               )}
             </div>
           </>
