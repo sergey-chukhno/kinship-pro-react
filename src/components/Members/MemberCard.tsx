@@ -94,7 +94,27 @@ const MemberCard: React.FC<MemberCardProps> = ({
               </span>
             )}
             {member.organization && (
-              <span className="organization-type" style={{ background: "#eef2ff", color: "#4338ca" }}>
+              <span 
+                className="organization-type" 
+                style={member.organizationType === 'school' 
+                  ? { background: "#dcfce71a", color: "#10b981" }
+                  : member.organizationType === 'company'
+                  ? { background: "#dbeafe1a", color: "#3b82f6" }
+                  : { background: "#eef2ff", color: "#4338ca" }
+                }
+                title={member.organizationType === 'school' 
+                  ? "Établissement scolaire"
+                  : member.organizationType === 'company'
+                  ? "Organisation"
+                  : undefined
+                }
+              >
+                {member.organizationType === 'school' && (
+                  <i className="fas fa-school" style={{ marginRight: '4px', fontSize: '0.75rem' }}></i>
+                )}
+                {member.organizationType === 'company' && (
+                  <i className="fas fa-building" style={{ marginRight: '4px', fontSize: '0.75rem' }}></i>
+                )}
                 {member.organization}
               </span>
             )}

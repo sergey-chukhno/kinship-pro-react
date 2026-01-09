@@ -16,6 +16,7 @@ import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { useToast } from '../../hooks/useToast';
+import { translateSkill } from '../../translations/skills';
 import './Network.css';
 
 interface Organization {
@@ -84,10 +85,11 @@ interface NetworkUser {
     other: boolean;
     available: boolean;
   } | null;
-  common_organizations: {
-    schools: Array<{ id: number; name: string; type: string }>;
-    companies: Array<{ id: number; name: string; type: string }>;
+  organizations?: {
+    schools?: Array<{ id: number; name: string; role: string }>;
+    companies?: Array<{ id: number; name: string; role: string }>;
   };
+  common_organizations: Array<{ id: number; name: string; type: string }>;
 }
 
 const availabilityToLabels = (availability: any = {}) => {
@@ -1225,6 +1227,7 @@ const Network: React.FC = () => {
           isTrusted: false,
           badges: m.badges || [],
           organization: m.organization_name || m.company_name || m.school_name || '',
+          organizationType: m.school_name ? 'school' as const : (m.company_name || m.organization_name) ? 'company' as const : undefined,
           take_trainee: m.take_trainee || false,
           propose_workshop: m.propose_workshop || false,
           commonOrganizations
@@ -1696,19 +1699,24 @@ const Network: React.FC = () => {
         const translatedRole = translateRole(user.role);
         const translatedRoles = translateRoles([user.role || 'member']);
         
-        // Extract common organizations
-        const commonOrganizations = user.common_organizations ? {
-          schools: (user.common_organizations.schools || []).map((school: any) => ({
-            id: school.id,
-            name: school.name,
-            type: school.type || 'School'
-          })),
-          companies: (user.common_organizations.companies || []).map((company: any) => ({
-            id: company.id,
-            name: company.name,
-            type: company.type || 'Company'
-          }))
+        // Extract common organizations - convert flat array to structured format
+        const commonOrganizations = user.common_organizations && Array.isArray(user.common_organizations) ? {
+          schools: user.common_organizations
+            .filter((org: any) => org.type === 'School' || org.type === 'school')
+            .map((org: any) => ({
+              id: org.id,
+              name: org.name,
+              type: org.type || 'School'
+            })),
+          companies: user.common_organizations
+            .filter((org: any) => org.type === 'Company' || org.type === 'company')
+            .map((org: any) => ({
+              id: org.id,
+              name: org.name,
+              type: org.type || 'Company'
+            }))
         } : { schools: [], companies: [] };
+        
 
         return {
           id: String(user.id),
@@ -1753,9 +1761,93 @@ const Network: React.FC = () => {
           avatar: user.avatar_url || '',
           isTrusted: false,
           badges: [],
-          organization: user.common_organizations ? 
-            [...(user.common_organizations.schools || []), ...(user.common_organizations.companies || [])]
-              .map((org: any) => org.name).join(', ') : '',
+          organization: (() => {
+            // Use user's own organizations (from organizations field) - priority
+            if (user.organizations) {
+              // Check schools first
+              if (user.organizations.schools && user.organizations.schools.length > 0) {
+                return user.organizations.schools[0].name;
+              }
+              // Then check companies
+              if (user.organizations.companies && user.organizations.companies.length > 0) {
+                return user.organizations.companies[0].name;
+              }
+            }
+            // Fallback to common organizations if no own organizations
+            if (user.common_organizations && Array.isArray(user.common_organizations) && user.common_organizations.length > 0) {
+              return user.common_organizations[0].name;
+            }
+            return '';
+          })(),
+          // Store all organizations the user belongs to for filtering
+          allOrganizations: (() => {
+            const orgs: string[] = [];
+            // Add all user's own organizations
+            if (user.organizations) {
+              if (user.organizations.schools && Array.isArray(user.organizations.schools)) {
+                const schoolNames = user.organizations.schools
+                  .map(s => s?.name?.trim() || '')
+                  .filter(name => name.length > 0);
+                orgs.push(...schoolNames);
+              }
+              if (user.organizations.companies && Array.isArray(user.organizations.companies)) {
+                const companyNames = user.organizations.companies
+                  .map(c => c?.name?.trim() || '')
+                  .filter(name => name.length > 0);
+                orgs.push(...companyNames);
+              }
+            }
+            // Add common organizations from flat array
+            if (user.common_organizations && Array.isArray(user.common_organizations)) {
+              const commonNames = user.common_organizations
+                .map(org => org?.name?.trim() || '')
+                .filter(name => name.length > 0);
+              orgs.push(...commonNames);
+            }
+            // Also add from the structured commonOrganizations object (in case there's a mismatch)
+            // This ensures we catch all organizations
+            const structuredCommonOrgs = commonOrganizations;
+            if (structuredCommonOrgs) {
+              if (structuredCommonOrgs.schools && Array.isArray(structuredCommonOrgs.schools)) {
+                const schoolNames = structuredCommonOrgs.schools
+                  .map(s => s?.name?.trim() || '')
+                  .filter(name => name.length > 0);
+                orgs.push(...schoolNames);
+              }
+              if (structuredCommonOrgs.companies && Array.isArray(structuredCommonOrgs.companies)) {
+                const companyNames = structuredCommonOrgs.companies
+                  .map(c => c?.name?.trim() || '')
+                  .filter(name => name.length > 0);
+                orgs.push(...companyNames);
+              }
+            }
+            // Remove duplicates and return
+            const finalOrgs = Array.from(new Set(orgs));
+            
+            return finalOrgs;
+          })(),
+          organizationType: (() => {
+            // Determine organization type based on source
+            if (user.organizations) {
+              if (user.organizations.schools && user.organizations.schools.length > 0) {
+                return 'school' as const;
+              }
+              if (user.organizations.companies && user.organizations.companies.length > 0) {
+                return 'company' as const;
+              }
+            }
+            // Fallback to common organizations
+            if (user.common_organizations && Array.isArray(user.common_organizations) && user.common_organizations.length > 0) {
+              const firstOrg = user.common_organizations[0];
+              if (firstOrg.type === 'School' || firstOrg.type === 'school') {
+                return 'school' as const;
+              }
+              if (firstOrg.type === 'Company' || firstOrg.type === 'company') {
+                return 'company' as const;
+              }
+            }
+            return undefined;
+          })(),
           take_trainee: user.take_trainee || false,
           propose_workshop: user.propose_workshop || false,
           commonOrganizations
@@ -1763,15 +1855,26 @@ const Network: React.FC = () => {
       })
     : [];
 
-  // Get unique organizations for filter dropdown from common_organizations
+  // Get unique organizations for filter dropdown from all organizations members belong to
   const organizationOptions = isPersonalUser
     ? Array.from(new Set(
         networkUsersAsMembers.flatMap(member => {
-          if (!member.commonOrganizations) return [];
-          return [
-            ...member.commonOrganizations.schools.map(s => s.name),
-            ...member.commonOrganizations.companies.map(c => c.name)
-          ];
+          // Use allOrganizations if available (contains all orgs from user.organizations + common_organizations)
+          if ((member as any).allOrganizations && (member as any).allOrganizations.length > 0) {
+            return (member as any).allOrganizations;
+          }
+          // Fallback to old method if allOrganizations not available
+          const orgs: string[] = [];
+          if (member.organization) {
+            orgs.push(member.organization);
+          }
+          if (member.commonOrganizations) {
+            orgs.push(
+              ...member.commonOrganizations.schools.map(s => s.name),
+              ...member.commonOrganizations.companies.map(c => c.name)
+            );
+          }
+          return orgs;
         }).filter((org): org is string => !!org)
       )).sort()
     : isOrgDashboard
@@ -1792,12 +1895,38 @@ const Network: React.FC = () => {
         const matchesCompetence = !competenceFilter || 
           member.skills.some(skill => skill.toLowerCase().includes(competenceFilter.toLowerCase()));
         
-        // Filter by common organizations
+        // Filter by organization (check all organizations the member belongs to)
+        // Use multiple fallbacks to ensure we catch all organizations
         const matchesOrganization = !organizationFilter || 
-          (member.commonOrganizations && (
-            member.commonOrganizations.schools.some(s => s.name.toLowerCase().includes(organizationFilter.toLowerCase())) ||
-            member.commonOrganizations.companies.some(c => c.name.toLowerCase().includes(organizationFilter.toLowerCase()))
-          ));
+          (() => {
+            const allOrgs = (member as any).allOrganizations;
+            const filterLower = organizationFilter.trim().toLowerCase();
+            
+            // Check allOrganizations first
+            if (allOrgs && Array.isArray(allOrgs) && allOrgs.length > 0) {
+              if (allOrgs.some((org: string) => org && org.trim().toLowerCase() === filterLower)) {
+                return true;
+              }
+            }
+            
+            // Fallback: check member.organization
+            if (member.organization && member.organization.trim().toLowerCase() === filterLower) {
+              return true;
+            }
+            
+            // Fallback: check commonOrganizations
+            if (member.commonOrganizations) {
+              const commonOrgs = [
+                ...(member.commonOrganizations.schools || []).map(s => s.name),
+                ...(member.commonOrganizations.companies || []).map(c => c.name)
+              ];
+              if (commonOrgs.some(org => org && org.trim().toLowerCase() === filterLower)) {
+                return true;
+              }
+            }
+            
+            return false;
+          })();
         
         // Note: availability is not in the NetworkUser interface, so we skip that filter for now
         const matchesStageWorkshop = memberMatchesFilters(member);
@@ -2349,7 +2478,7 @@ const Network: React.FC = () => {
                   <option value="">Toutes les compétences</option>
                   {skillsOptions.map((skill) => (
                     <option key={skill} value={skill}>
-                      {skill}
+                      {translateSkill(skill)}
                     </option>
                   ))}
                 </select>

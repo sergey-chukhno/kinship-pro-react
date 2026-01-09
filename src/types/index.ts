@@ -14,6 +14,7 @@ export interface Member {
   isTrusted: boolean;
   badges: string[]; // Array of badge IDs
   organization?: string;
+  organizationType?: 'school' | 'company'; // Type of organization for styling
   canProposeStage?: boolean;
   canProposeAtelier?: boolean;
   take_trainee?: boolean; // Indique si l'utilisateur accepte des stagiaires
