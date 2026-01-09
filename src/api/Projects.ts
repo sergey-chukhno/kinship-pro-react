@@ -175,7 +175,7 @@ export const getPartnerships = async (
 export const getPersonalUserNetwork = async (
     params?: { page?: number; per_page?: number; skill_ids?: number[]; availability?: string[]; skill_name?: string }
 ): Promise<{ data: any[]; meta?: any }> => {
-    const requestParams: any = { per_page: params?.per_page || 12 };
+    const requestParams: any = { per_page: params?.per_page || 1000 };
     if (params?.page) requestParams.page = params.page;
     if (params?.skill_ids && params.skill_ids.length > 0) requestParams.skill_ids = params.skill_ids;
     if (params?.skill_name) requestParams.skill_name = params.skill_name;

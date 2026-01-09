@@ -660,7 +660,7 @@ const Network: React.FC = () => {
       try {
         const params: any = {
           page: 1,
-          per_page: 1 // Just to get the meta.total_count
+          per_page: 1000 // Fetch all members at once (consistent with pro/edu dashboards)
         };
 
         const response = await getPersonalUserNetwork(params);
@@ -731,8 +731,8 @@ const Network: React.FC = () => {
         }
 
         const params: any = {
-          page: partnersPage,
-          per_page: 12
+          page: 1, // Always fetch from first page since we're getting all members
+          per_page: 1000 // Fetch all members at once (consistent with pro/edu dashboards)
         };
 
         // Add filters if set
