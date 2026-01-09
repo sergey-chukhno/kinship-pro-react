@@ -84,6 +84,10 @@ interface NetworkUser {
     other: boolean;
     available: boolean;
   } | null;
+  organizations?: {
+    schools?: Array<{ id: number; name: string; role: string }>;
+    companies?: Array<{ id: number; name: string; role: string }>;
+  };
   common_organizations: {
     schools: Array<{ id: number; name: string; type: string }>;
     companies: Array<{ id: number; name: string; type: string }>;
@@ -1225,6 +1229,7 @@ const Network: React.FC = () => {
           isTrusted: false,
           badges: m.badges || [],
           organization: m.organization_name || m.company_name || m.school_name || '',
+          organizationType: m.school_name ? 'school' as const : (m.company_name || m.organization_name) ? 'company' as const : undefined,
           take_trainee: m.take_trainee || false,
           propose_workshop: m.propose_workshop || false,
           commonOrganizations
@@ -1753,9 +1758,50 @@ const Network: React.FC = () => {
           avatar: user.avatar_url || '',
           isTrusted: false,
           badges: [],
-          organization: user.common_organizations ? 
-            [...(user.common_organizations.schools || []), ...(user.common_organizations.companies || [])]
-              .map((org: any) => org.name).join(', ') : '',
+          organization: (() => {
+            // Use user's own organizations (from organizations field) - priority
+            if (user.organizations) {
+              // Check schools first
+              if (user.organizations.schools && user.organizations.schools.length > 0) {
+                return user.organizations.schools[0].name;
+              }
+              // Then check companies
+              if (user.organizations.companies && user.organizations.companies.length > 0) {
+                return user.organizations.companies[0].name;
+              }
+            }
+            // Fallback to common organizations if no own organizations
+            if (user.common_organizations) {
+              if (user.common_organizations.schools && user.common_organizations.schools.length > 0) {
+                return user.common_organizations.schools[0].name;
+              }
+              if (user.common_organizations.companies && user.common_organizations.companies.length > 0) {
+                return user.common_organizations.companies[0].name;
+              }
+            }
+            return '';
+          })(),
+          organizationType: (() => {
+            // Determine organization type based on source
+            if (user.organizations) {
+              if (user.organizations.schools && user.organizations.schools.length > 0) {
+                return 'school' as const;
+              }
+              if (user.organizations.companies && user.organizations.companies.length > 0) {
+                return 'company' as const;
+              }
+            }
+            // Fallback to common organizations
+            if (user.common_organizations) {
+              if (user.common_organizations.schools && user.common_organizations.schools.length > 0) {
+                return 'school' as const;
+              }
+              if (user.common_organizations.companies && user.common_organizations.companies.length > 0) {
+                return 'company' as const;
+              }
+            }
+            return undefined;
+          })(),
           take_trainee: user.take_trainee || false,
           propose_workshop: user.propose_workshop || false,
           commonOrganizations
