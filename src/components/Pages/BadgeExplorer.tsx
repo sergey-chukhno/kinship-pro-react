@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
@@ -39,7 +39,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
   const [badges, setBadges] = useState<BadgeAPI[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedDescriptions, setExpandedDescriptions] = useState<{ [key: string]: boolean }>({});
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Record<number, boolean>>({});
 
   // Fetch badges from API
   useEffect(() => {
@@ -141,19 +141,17 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     const displayName = event.target.value;
     const dbName = SERIES_DISPLAY_NAMES[displayName] || displayName;
     setSelectedSeries(dbName);
-    // Reset expanded descriptions when changing series
     setExpandedDescriptions({});
   };
 
   // Render badge card
   const renderBadgeCard = (badge: BadgeAPI, index: number) => {
-    const badgeId = badge.id;
-    const isExpanded = expandedDescriptions[badgeId] || false;
     const imageUrl = getLocalBadgeImage(badge.name, badge.level, badge.series);
     const hasDescription = badge.description && badge.description.trim() !== '';
+    const isExpanded = Boolean(expandedDescriptions[badge.id]);
 
     return (
-      <div key={badge.id} className="badge-explorer-card">
+      <div key={badge.id} className={`badge-explorer-card ${isExpanded ? 'expanded' : ''}`}>
         {imageUrl && (
           <div className="badge-icon">
             <img src={imageUrl} alt={badge.name} className="badge-image" />
@@ -161,22 +159,36 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
         )}
         <div className="badge-info">
           <h4>{badge.name}</h4>
-          {hasDescription && (
-            <div className="badge-description">
-              <p className={`description-text ${isExpanded ? 'expanded' : ''}`}>
-                {badge.description}
-              </p>
-              <button 
-                className="toggle-description" 
-                onClick={() => toggleDescription(badgeId)}
-              >
-                {isExpanded ? 'Voir moins' : 'Voir plus'}
-              </button>
-            </div>
-          )}
           <div className={`badge-level level-${badge.level?.replace('level_', '') || '1'}`}>
             {badge.level ? getLevelLabel(badge.series, badge.level.replace('level_', '')) : 'Niveau 1'}
           </div>
+          {hasDescription && (
+            <>
+              {!isExpanded && (
+                <button
+                  className="view-description-btn"
+                  type="button"
+                  onClick={() => toggleDescription(badge.id)}
+                >
+                  <span>Voir description</span>
+                  <i className="fas fa-chevron-down"></i>
+                </button>
+              )}
+              {isExpanded && (
+                <div className="badge-description">
+                  <p>{badge.description}</p>
+                  <button
+                    className="view-description-btn"
+                    type="button"
+                    onClick={() => toggleDescription(badge.id)}
+                  >
+                    <span>Masquer description</span>
+                    <i className="fas fa-chevron-up"></i>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     );
@@ -214,28 +226,31 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     <div className="badge-explorer-page">
       <div className="badge-explorer-header">
         <div className="explorer-header-top">
+          <div className="explorer-header-left">
           <button 
             className="back-button"
             onClick={onBack}
             title="Revenir à la cartographie"
+              type="button"
           >
             <i className="fas fa-arrow-left"></i>
           </button>
           <h1>{seriesInfo.title}</h1>
         </div>
-        
-        {/* Series selector dropdown */}
-        <div className="series-selector-container">
-          <select
-            className="series-select"
-            value={SERIES_DB_TO_DISPLAY[selectedSeries] || selectedSeries}
-            onChange={handleSeriesChange}
-          >
-            <option value="Série Soft Skills 4LAB">Série Soft Skills 4LAB</option>
-            <option value="Série Parcours des possibles">Série Parcours des possibles</option>
-            <option value="Série Parcours professionnel">Série Parcours professionnel</option>
-            <option value="Série Audiovisuelle">Série Audiovisuelle</option>
-          </select>
+
+          {/* Series selector dropdown */}
+          <div className="series-selector-container">
+            <select
+              className="series-select"
+              value={SERIES_DB_TO_DISPLAY[selectedSeries] || selectedSeries}
+              onChange={handleSeriesChange}
+            >
+              <option value="Série Soft Skills 4LAB">Série Soft Skills 4LAB</option>
+              <option value="Série Parcours des possibles">Série Parcours des possibles</option>
+              <option value="Série Parcours professionnel">Série Parcours professionnel</option>
+              <option value="Série Audiovisuelle">Série Audiovisuelle</option>
+            </select>
+          </div>
         </div>
 
         {/* Series description - only show if not empty */}
@@ -247,10 +262,6 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
             <div className="stat-item">
               <i className="fas fa-medal"></i>
               <span>{seriesInfo.stats.badges} badges</span>
-            </div>
-            <div className="stat-item">
-              <i className="fas fa-layer-group"></i>
-              <span>{seriesInfo.stats.domains} domaines</span>
             </div>
             <div className="stat-item">
               <i className="fas fa-chart-line"></i>
