@@ -1,464 +1,422 @@
-/* Badge Explorer Page Styles */
+/* Badge Explorer – scoped to avoid leaking into other pages */
 .badge-explorer-page {
   padding: 2rem;
-  background: var(--bg);
-  min-height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden; /* prevent accidental horizontal scroll pushing content */
 }
 
-.badge-explorer-header {
-  text-align: center;
-  margin-bottom: 3rem;
-  padding: 2rem;
-  background: var(--card-bg);
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.explorer-header-top {
+/* Header */
+.badge-explorer-page .badge-explorer-header {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   gap: 1rem;
-  margin-bottom: 1rem;
-  position: relative;
+  margin-bottom: 2rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
 }
 
-.badge-explorer-page .back-button {
+.badge-explorer-page .explorer-header-top {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  background: var(--card-bg, #ffffff);
-  color: var(--text-secondary, #6b7280);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: absolute;
-  left: 0;
-}
-
-.badge-explorer-page .back-button:hover {
-  background: var(--primary-light, rgba(85, 112, 241, 0.1));
-  color: var(--primary, #5570F1);
-  border-color: var(--primary, #5570F1);
-}
-
-.badge-explorer-page .back-button i {
-  font-size: 1rem;
-}
-
-.badge-explorer-header h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 1rem;
-}
-
-.badge-explorer-page .series-description {
-  font-size: 1.1rem;
-  color: var(--text-light);
-  margin-bottom: 1rem !important;
-  margin-top: 0.25rem !important;
-  line-height: 1.6;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.series-stats {
-  display: flex;
-  justify-content: center;
-  gap: 2rem;
-  margin-bottom: 2rem;
+  justify-content: space-between;
+  gap: 1rem;
   flex-wrap: wrap;
 }
 
-.stat-item {
+.badge-explorer-page .explorer-header-left {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: var(--primary-light);
-  color: var(--primary);
-  border-radius: 24px;
-  font-weight: 600;
-  font-size: 0.9rem;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
-.stat-item i {
-  font-size: 1.1rem;
-}
-
-.series-filter {
-  display: flex;
+.badge-explorer-page .back-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: var(--text-main, #111827);
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-}
-
-.series-select {
-  padding: 0.75rem 1.5rem;
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  background: var(--card-bg);
-  color: var(--text-main);
-  font-size: 1rem;
-  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-}
-
-.series-select:hover {
-  border-color: var(--primary);
-}
-
-.series-select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(85, 112, 241, 0.1);
-}
-
-.badge-explorer-content {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.badge-series {
-  margin-bottom: 3rem;
-  padding: 0;
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-}
-
-.badge-explorer-page .series-header {
-  margin-bottom: 0.5rem !important;
-  text-align: center;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.5rem 0 !important;
-}
-
-.series-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-main);
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  width: 100%;
-}
-
-.level-color-indicator {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  display: inline-block;
-}
-
-.level-color-indicator.level-1 {
-  background-color: #10b981;
-}
-
-.level-color-indicator.level-2 {
-  background-color: #3b82f6;
-}
-
-.level-color-indicator.level-3 {
-  background-color: #f59e0b;
-}
-
-.level-color-indicator.level-4 {
-  background-color: #ef4444;
-}
-
-.series-description {
-  color: var(--text-light);
-  font-size: 1rem;
-  margin-bottom: 1.5rem;
-  text-align: center;
-  width: 100%;
-}
-
-.badge-series-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
-  max-width: 100%;
-  width: 100%;
-  justify-content: center;
-}
-
-.badge-explorer-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  height: auto;
-  min-height: 250px;
-  max-height: 400px;
-  position: relative;
-  width: 100%;
-}
-
-.badge-explorer-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-}
-
-.badge-explorer-card .badge-icon {
-  width: 80px;
-  height: 80px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
-  border: 3px solid var(--primary);
-  box-shadow: 0 6px 20px rgba(85, 112, 241, 0.15);
-  transition: all 0.3s ease;
-  position: relative;
   flex-shrink: 0;
 }
 
-.badge-explorer-card .badge-icon:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(85, 112, 241, 0.25);
-  border-color: var(--primary-dark);
+.badge-explorer-page .back-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
 
-.badge-explorer-card .badge-icon i {
+.badge-explorer-page .badge-explorer-header h1 {
   font-size: 2rem;
-  color: var(--primary);
-  text-shadow: 0 2px 4px rgba(85, 112, 241, 0.2);
-  transition: all 0.3s ease;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  font-weight: 800;
+  color: var(--text-main, #111827);
   margin: 0;
+  line-height: 1.15;
 }
 
-.badge-explorer-card:hover .badge-icon i {
-  color: var(--primary-dark);
-  transform: translate(-50%, -50%) scale(1.05);
+.badge-explorer-page .series-selector-container {
+  flex-shrink: 0;
 }
 
-.badge-explorer-card .badge-image {
+.badge-explorer-page .series-select {
+  width: min(420px, 100%);
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  background: white;
+  color: var(--text-main, #111827);
+  cursor: pointer;
+}
+
+.badge-explorer-page .series-select:focus {
+  outline: none;
+  border-color: var(--primary, #5570F1);
+  box-shadow: 0 0 0 3px rgba(85, 112, 241, 0.12);
+}
+
+.badge-explorer-page .series-description {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  background: #f9fafb;
+  border: 1px solid #eef2f7;
+  border-left: 4px solid var(--primary, #5570F1);
+  border-radius: 12px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.6;
+}
+
+.badge-explorer-page .series-stats {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.badge-explorer-page .series-stats .stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-main, #111827);
+  font-weight: 700;
+  padding: 0.65rem 0.9rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.badge-explorer-page .series-stats .stat-item i {
+  color: var(--primary, #5570F1);
+}
+
+/* Levels + grid */
+.badge-explorer-page .badge-series {
+  margin-bottom: 2.25rem;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+.badge-explorer-page .level-series {
+  /* Force the expected layout: header on top, grid below (global main.css can interfere) */
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  overflow: visible !important; /* overrides main.css .level-series { overflow:hidden } */
+}
+
+.badge-explorer-page .series-header {
+  margin-bottom: 1rem;
+  width: 100%;
+  display: flex !important;
+  justify-content: center !important; /* override main.css .series-header { justify-content: space-between } */
+}
+
+.badge-explorer-page .series-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-main, #111827);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  justify-content: center !important;
+  text-align: center;
+}
+
+.badge-explorer-page .level-color-indicator {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.badge-explorer-page .level-color-indicator.level-1 { background: #34C759; }
+.badge-explorer-page .level-color-indicator.level-2 { background: #007AFF; }
+.badge-explorer-page .level-color-indicator.level-3 { background: #FF9500; }
+.badge-explorer-page .level-color-indicator.level-4 { background: #FF3B30; }
+
+.badge-explorer-page .badge-series-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  overflow: visible;
+  width: 100% !important;
+  justify-items: stretch;
+  justify-content: stretch;
+  align-items: start; /* Allow cards to have different heights */
+  grid-auto-rows: min-content; /* Allow rows to grow based on content */
+}
+
+/* Card */
+.badge-explorer-page .badge-explorer-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1.5rem;
+  padding-bottom: 3rem; /* ensure room for the toggle + breathing space */
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, height 0.3s ease, min-height 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.9rem;
+  height: auto;           /* allow expansion */
+  min-height: 380px;      /* ensures button is always fully visible */
+  overflow: hidden; /* keep content inside the card by default */
+  cursor: default;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* When card is expanded, allow overflow to show description */
+.badge-explorer-page .badge-explorer-card.expanded {
+  overflow: visible !important;
+  height: auto !important; /* Allow card to grow */
+  min-height: auto !important; /* Remove min-height constraint when expanded */
+  max-height: none !important; /* Remove any max-height constraints */
+  padding-bottom: 2rem !important; /* Ensure enough space for expanded content and button */
+  align-items: stretch !important; /* Allow content to use full width */
+}
+
+.badge-explorer-page .badge-explorer-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(85, 112, 241, 0.6);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.10);
+}
+
+.badge-explorer-page .badge-explorer-card .badge-icon {
+  width: 92px;
+  height: 92px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+  border: 3px solid var(--primary, #5570F1);
+  box-shadow: 0 10px 24px rgba(85, 112, 241, 0.18);
+  flex-shrink: 0;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-.badge-explorer-card .badge-info {
-  flex: 1;
+.badge-explorer-page .badge-explorer-card .badge-info {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
+  gap: 0.65rem;
   min-width: 0;
-  width: 100%;
-  justify-content: space-between;
-  height: 100%;
-}
-
-.badge-explorer-card .badge-info h4 {
-  color: #1f2937;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-  font-size: 1.1rem;
-  line-height: 1.3;
-  overflow: visible;
-  white-space: normal;
-  text-overflow: unset;
-  max-width: 100%;
-  word-wrap: break-word;
-}
-
-.badge-description {
-  margin-bottom: 1rem;
-}
-
-.description-text {
-  font-size: 0.9rem;
-  line-height: 1.5;
-  color: var(--text-light);
-  margin: 0 0 1rem 0;
-  overflow: visible;
-  display: block;
-  white-space: normal;
-  text-overflow: unset;
-  max-height: none;
-  transition: all 0.3s ease;
-  word-wrap: break-word;
-  min-height: 3rem;
   flex: 1;
+  min-height: 0; /* Allow flex item to shrink below content size */
+  padding-bottom: 0.5rem; /* Add padding to ensure button has space */
 }
 
-.description-text.expanded {
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
-  max-height: none;
-  overflow: visible;
-  display: block;
+/* When card is expanded, ensure badge-info can grow fully */
+.badge-explorer-page .badge-explorer-card.expanded .badge-info {
+  flex: 1 1 auto !important; /* Allow growth when expanded */
+  height: auto !important; /* Remove any height constraints */
+  max-height: none !important; /* Remove max-height constraints */
+  overflow: visible !important; /* Ensure content is visible */
+  min-height: auto !important;
 }
 
-.toggle-description {
-  background: none;
+.badge-explorer-page .badge-explorer-card .badge-info h4 {
+  color: #111827;
+  font-weight: 800;
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.25;
+  word-break: break-word;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-description {
+  width: 100% !important;
+  margin-top: 0.75rem !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0 !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important; /* Prevent description from shrinking */
+  flex-grow: 0 !important; /* Don't grow, just show content */
+  min-height: auto !important;
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-description p {
+  margin: 0 0 1rem 0 !important; /* Ensure spacing before button */
+  color: #6b7280;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  display: block !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important; /* Allow paragraph to grow */
+  word-wrap: break-word !important; /* Ensure long words wrap */
+  text-overflow: unset !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+}
+
+.badge-explorer-page .badge-explorer-card .view-description-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  margin-bottom: 1rem !important; /* Add bottom margin to prevent truncation */
+  padding: 0.5rem 0 !important;
+  width: 100%;
   border: none;
-  color: var(--primary);
-  font-size: 0.75rem;
+  background: none;
+  color: var(--primary, #5570F1);
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 0.25rem 0;
-  text-decoration: underline;
-  transition: color 0.2s ease;
+  transition: all 0.2s ease;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 1;
 }
 
-.toggle-description:hover {
-  color: var(--primary-dark);
+.badge-explorer-page .badge-explorer-card .view-description-btn:hover {
+  color: var(--primary-dark, #4c63d2);
+  transform: translateY(-1px);
 }
 
-.badge-level {
-  display: inline-block;
-  padding: 0.2rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  margin-top: auto;
+.badge-explorer-page .badge-explorer-card .view-description-btn i {
+  font-size: 0.75rem;
 }
 
-.badge-level.level-1 {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+/* Level pill always visible (and pushed to bottom for consistent layout) */
+.badge-explorer-page .badge-explorer-card .badge-level {
+  position: static !important;
+  transform: none !important;
+  margin: 0.25rem 0 0.25rem 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #fff;
+  white-space: normal;
+  text-align: center;
+  word-wrap: break-word;
+  max-width: 100%;
 }
 
-.badge-level.level-2 {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+.badge-explorer-page .badge-explorer-card .badge-level.level-1 { background: #34C759; }
+.badge-explorer-page .badge-explorer-card .badge-level.level-2 { background: #007AFF; }
+.badge-explorer-page .badge-explorer-card .badge-level.level-3 { background: #FF9500; }
+.badge-explorer-page .badge-explorer-card .badge-level.level-4 { background: #FF3B30; }
+
+/* States */
+.badge-explorer-page .loading-container,
+.badge-explorer-page .error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  gap: 0.75rem;
 }
 
-.badge-level.level-3 {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+.badge-explorer-page .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top-color: var(--primary, #5570F1);
+  border-radius: 50%;
+  animation: badgeExplorerSpin 1s linear infinite;
 }
 
-.badge-level.level-4 {
-  background: rgba(239, 68, 68, 0.1);
+.badge-explorer-page .loading-text {
+  color: var(--text-secondary, #6b7280);
+}
+
+.badge-explorer-page .error-text {
   color: #ef4444;
+  font-weight: 700;
 }
 
-/* Domain headers for CPS badges */
-.badge-explorer-page .domain-header {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 1rem !important;
-  margin-bottom: 0.5rem !important;
-  width: 100% !important;
-  flex-direction: row !important;
-  text-align: center !important;
-  position: relative !important;
+.badge-explorer-page .empty-level-message {
+  padding: 1.5rem;
+  border: 1px dashed #e5e7eb;
+  border-radius: 12px;
+  color: var(--text-secondary, #6b7280);
+  text-align: center;
 }
 
-.badge-explorer-page .domain-header .domain-icon {
-  width: 60px !important;
-  height: 60px !important;
-  border-radius: 12px !important;
-  overflow: hidden !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: var(--card-bg) !important;
-  border: 3px solid var(--border) !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
-  flex-shrink: 0 !important;
-  margin: 0 !important;
-  order: 1 !important;
-  position: relative !important;
-  z-index: 1 !important;
-  object-fit: cover !important;
-}
-
-.badge-explorer-page .domain-header .domain-icon .domain-image {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-}
-
-.badge-explorer-page .domain-header .series-title {
-  font-size: 1.5rem !important;
-  font-weight: 700 !important;
-  color: var(--text-main) !important;
-  margin: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-align: center !important;
-  order: 2 !important;
-  position: relative !important;
-  z-index: 1 !important;
-}
-
-/* Responsive design */
-@media (max-width: 1200px) {
-  .badge-series-grid {
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 0.75rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .badge-series-grid {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-  
-  .badge-explorer-card {
-    min-height: 220px;
-    max-height: 300px;
-  }
-  
-  .badge-explorer-card .badge-info h4 {
-    font-size: 1rem;
-  }
-  
-  .description-text {
-    font-size: 0.85rem;
-    min-height: 2.5rem;
-  }
+@keyframes badgeExplorerSpin {
+  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {
   .badge-explorer-page {
-    padding: 1rem;
+    padding: 1.25rem;
   }
-  
-  .badge-explorer-header {
-    padding: 1.5rem;
+
+  .badge-explorer-page .badge-explorer-header h1 {
+    font-size: 1.6rem;
   }
-  
-  .badge-explorer-header h1 {
-    font-size: 2rem;
-  }
-  
-  .series-stats {
+
+  .badge-explorer-page .badge-series-grid {
+    grid-template-columns: 1fr;
     gap: 1rem;
+  }
+
+  .badge-explorer-page .badge-explorer-card {
+    min-height: 360px; /* Ensure button is fully visible on mobile */
   }
 }
