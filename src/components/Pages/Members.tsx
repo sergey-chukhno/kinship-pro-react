@@ -3,7 +3,6 @@ import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole, removeCompanyMember } from '../../api/CompanyDashboard/Members';
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel, addExistingStudentToLevel } from '../../api/SchoolDashboard/Levels';
 import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole, removeSchoolMember } from '../../api/SchoolDashboard/Members';
-import { getCompanyUserProfile, getSchoolUserProfile } from '../../api/User';
 import { getSkills } from '../../api/Skills';
 import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent } from '../../api/Dashboard';
 import { getTeacherClassStudents } from '../../api/Dashboard';
@@ -93,6 +92,8 @@ const Members: React.FC = () => {
   const [per_page, setPerPage] = useState(12);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isMembersLoading, setIsMembersLoading] = useState(true);
+  const [membersInitialLoad, setMembersInitialLoad] = useState(true);
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillsData, setSkillsData] = useState<Array<{ id: number; name: string; sub_skills: Array<{ id: number; name: string }> }>>([]);
@@ -108,11 +109,18 @@ const Members: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Member | null>(null);
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
 
+  const renderMembersLoading = () => (
+    <div className="members-loading-container">
+      <div className="members-loading-spinner" />
+      <div className="members-loading-text">Chargement des membres...</div>
+    </div>
+  );
+
   const fetchMembers = async () => {
     // Pour les teachers, récupérer les élèves de leurs classes
     if (isTeacherContext) {
       try {
-        setLoading(true);
+        setIsMembersLoading(true);
         const classesRes = await getTeacherClasses(1, 200); // charger suffisamment pour inclure tout le staff/élèves
         const classes = classesRes.data?.data || classesRes.data || [];
 
@@ -161,13 +169,14 @@ const Members: React.FC = () => {
         console.error('Erreur critique récupération élèves (teacher):', err);
         showError('Impossible de récupérer la liste des élèves');
       } finally {
-        setLoading(false);
+        setIsMembersLoading(false);
+        setMembersInitialLoad(false);
       }
       return;
     }
 
     try {
-      setLoading(true);
+      setIsMembersLoading(true);
       const currentUser = await getCurrentUser();
       const isEdu = isSchoolContext;
 
@@ -181,130 +190,65 @@ const Members: React.FC = () => {
 
       // 2. Bascule de l'appel API (Liste de base)
       const membersRes = isEdu
-        ? await getSchoolMembersAccepted(contextId, 200)
-        : await getCompanyMembersAccepted(contextId, 200);
+        ? await getSchoolMembersAccepted(contextId, 200, { includeDetails: true })
+        : await getCompanyMembersAccepted(contextId, 200, { includeDetails: true });
 
       const basicMembers = membersRes.data.data || membersRes.data || [];
 
-      const detailedMembers = await Promise.all(
-        basicMembers.map(async (m: any) => {
-          try {
-            // 3. Bascule de la récupération du profil détaillé
-            // Note: Si vous n'avez pas getSchoolUserProfile, vérifiez si getCompanyUserProfile fonctionne avec un ID école, sinon il faudra créer cette fonction.
-            const profileRes = isEdu
-              ? await getSchoolUserProfile(m.id, contextId) // Hypothèse : cette fonction existe
-              : await getCompanyUserProfile(m.id, contextId);
+      const mappedMembers = basicMembers.map((m: any) => {
+        const availabilityList = availabilityToLabels(m.availability);
+        const systemRole = m.role || m.role_in_system || '';
+        const membershipRole = m.role_in_school || m.role_in_company || 'member';
+        const rawRole = systemRole || membershipRole || 'member';
+        const roleValues = [membershipRole].filter(Boolean);
+        const displayProfession = m.job || '';
+        const isSuperadmin = 
+          m.role_in_school === 'superadmin' || 
+          m.role_in_company === 'superadmin';
 
-            const profile = profileRes.data.data || profileRes.data;
-
-            // ... (Logique de traitement availability, roles, mapping inchangée) ...
-
-            // --- TRAITEMENT DE LA DISPONIBILITÉ (copie de votre code existant) ---
-            const availabilityList = availabilityToLabels(profile.availability);
-            // Prioritize role_in_system for staff classification, then role_in_school/role_in_company for membership role
-            const systemRole = profile.role || profile.role_in_system || m.role_in_system || m.role || '';
-            const membershipRole = profile.role_in_school || m.role_in_school || profile.role_in_company || m.role_in_company || 'member';
-            // rawRole prioritizes system role for student/staff classification
-            const rawRole = systemRole || membershipRole || 'member';
-
-            // roleValues should use membershipRole for the role selector dropdown (organization roles: admin, superadmin, referent, intervenant, member)
-            // This is separate from systemRole which is used for filtering and profession display
-            const roleValues = [membershipRole].filter(Boolean);
-
-            // Use actual job field if available, otherwise leave empty (not system role)
-            const displayProfession = profile.job || m.job || '';
-
-            // Check if member is superadmin
-            const isSuperadmin = 
-              profile.role_in_school === 'superadmin' || 
-              m.role_in_school === 'superadmin' ||
-              profile.role_in_company === 'superadmin' || 
-              m.role_in_company === 'superadmin';
-
-            return {
-              id: (profile.id || m.id).toString(),
-              firstName: profile.first_name,
-              lastName: profile.last_name,
-              fullName: profile.full_name || `${profile.first_name} ${profile.last_name}`,
-              email: profile.email,
-              profession: displayProfession,
-              roles: roleValues as string[],
-              rawRole: rawRole,
-              systemRole: systemRole, // Store system role for staff filtering
-              membershipRole: membershipRole, // Store membership role (role_in_school/role_in_company)
-              skills: (() => {
-                const allSkills: string[] = [];
-                profile.skills?.forEach((s: any) => {
-                  // Add main skill name
-                  if (s.name) allSkills.push(s.name);
-                  // Add sub-skill names
-                  if (s.sub_skills && Array.isArray(s.sub_skills)) {
-                    s.sub_skills.forEach((sub: any) => {
-                      if (sub.name) allSkills.push(sub.name);
-                    });
-                  }
+        return {
+          id: (m.id).toString(),
+          firstName: m.first_name,
+          lastName: m.last_name,
+          fullName: m.full_name || `${m.first_name} ${m.last_name}`,
+          email: m.email,
+          profession: displayProfession,
+          roles: roleValues as string[],
+          rawRole: rawRole,
+          systemRole: systemRole,
+          membershipRole: membershipRole,
+          skills: (() => {
+            const allSkills: string[] = [];
+            m.skills?.forEach((s: any) => {
+              if (s.name) allSkills.push(s.name);
+              if (s.sub_skills && Array.isArray(s.sub_skills)) {
+                s.sub_skills.forEach((sub: any) => {
+                  if (sub.name) allSkills.push(sub.name);
                 });
-                return allSkills;
-              })(),
-              availability: availabilityList,
-              avatar: profile.avatar_url || m.avatar_url || DEFAULT_AVATAR_SRC,
-              isTrusted: profile.status === 'confirmed',
-              badges: profile.badges?.data?.map((b: any) => b.id?.toString()) || [],
-              organization: '',
-              canProposeStage: profile.take_trainee || false,
-              canProposeAtelier: profile.propose_workshop || false,
-              claim_token: profile.claim_token || m.claim_token,
-              hasTemporaryEmail: profile.has_temporary_email || m.has_temporary_email || false,
-              isSuperadmin: isSuperadmin, // Store superadmin status
-            } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
+              }
+            });
+            return allSkills;
+          })(),
+          availability: availabilityList,
+          avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
+          isTrusted: m.status === 'confirmed',
+          badges: m.badges?.data?.map((b: any) => b.id?.toString()) || [],
+          organization: '',
+          canProposeStage: m.take_trainee || false,
+          canProposeAtelier: m.propose_workshop || false,
+          claim_token: m.claim_token,
+          hasTemporaryEmail: m.has_temporary_email || false,
+          isSuperadmin: isSuperadmin,
+        } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
+      });
 
-          } catch (err) {
-            console.warn(`Profil détaillé non trouvé pour ${m.id}, utilisation fallback.`);
-            // FALLBACK
-            const fallbackSystemRole = m.role || m.role_in_system || '';
-            const fallbackMembershipRole = m.role_in_school || m.role_in_company || 'member';
-            const fallbackRole = fallbackSystemRole || fallbackMembershipRole || 'member';
-
-            // Check if member is superadmin in fallback case
-            const isSuperadmin = 
-              m.role_in_school === 'superadmin' || 
-              m.role_in_company === 'superadmin';
-
-            return {
-              // ... (votre code fallback inchangé)
-              id: m.id.toString(),
-              firstName: m.first_name || 'Utilisateur',
-              lastName: m.last_name || '',
-              fullName: m.first_name && m.last_name ? `${m.first_name} ${m.last_name}` : (m.email || 'Inconnu'),
-              email: m.email || '',
-              profession: m.job || '',
-              roles: [fallbackMembershipRole], // Use membershipRole for role selector
-              rawRole: fallbackRole,
-              systemRole: fallbackSystemRole, // Store system role for staff filtering
-              membershipRole: fallbackMembershipRole, // Store membership role
-              skills: [],
-              availability: availabilityToLabels(m.availability),
-              avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
-              isTrusted: false,
-              badges: [],
-              organization: '',
-              canProposeStage: m.take_trainee || false,
-              canProposeAtelier: m.propose_workshop || false,
-              claim_token: m.claim_token,
-              hasTemporaryEmail: m.has_temporary_email || false,
-              isSuperadmin: isSuperadmin, // Store superadmin status
-            } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
-          }
-        })
-      );
-
-      const validMembers = detailedMembers.filter((m): m is Member => m !== null);
-      setMembers(validMembers);
+      setMembers(mappedMembers);
     } catch (err) {
       console.error('Erreur critique récupération liste membres:', err);
       showError('Impossible de récupérer la liste des membres');
     } finally {
-      setLoading(false);
+      setIsMembersLoading(false);
+      setMembersInitialLoad(false);
     }
   };
 
@@ -1355,7 +1299,9 @@ const Members: React.FC = () => {
                       );
                     })
                   ) : (
-                    <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>
+                    isMembersLoading && membersInitialLoad
+                      ? renderMembersLoading()
+                      : <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>
                   )}
                 </div>
               );
@@ -1367,7 +1313,7 @@ const Members: React.FC = () => {
       {isSchoolContext && activeTab === 'students' && (
         <div className="min-h-[65vh]">
           <div className="members-grid">
-            {filteredStudents.length > 0 ? filteredStudents.map((member) => {
+                {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
               const totalBadgeCount = member.badges?.length || 0;
               const memberForDisplay = {
                 ...member,

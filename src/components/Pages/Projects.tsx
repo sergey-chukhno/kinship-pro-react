@@ -11,59 +11,8 @@ import { getCurrentUser } from '../../api/Authentication';
 import { deleteProject, getAllProjects, getAllUserProjects} from '../../api/Project';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
 import { getTeacherProjects } from '../../api/Projects';
-import { getProjectBadges } from '../../api/Badges';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
 import { canUserManageProject, canUserDeleteProject } from '../../utils/projectPermissions';
-
-/**
- * Fetches badge counts for all projects and updates them with the correct counts
- * @param projects - Array of projects to update with badge counts
- * @returns Updated projects with badge counts
- */
-const fetchAndUpdateBadgeCounts = async (projects: Project[]): Promise<Project[]> => {
-  if (projects.length === 0) {
-    return projects;
-  }
-
-  try {
-    // Fetch badge counts for all projects in parallel
-    const badgeCountPromises = projects.map(async (project) => {
-      try {
-        const projectId = parseInt(project.id);
-        if (isNaN(projectId)) {
-          console.warn(`[Badge Counter] Invalid project ID: ${project.id}`);
-          return { projectId: project.id, count: 0 };
-        }
-        const badges = await getProjectBadges(projectId);
-        return { projectId: project.id, count: badges.meta?.total_count || badges.data.length };
-      } catch (error) {
-        console.error(`[Badge Counter] Error fetching badges for project ${project.id}:`, error);
-        return { projectId: project.id, count: 0 };
-      }
-    });
-
-    const badgeCounts = await Promise.all(badgeCountPromises);
-    
-    // Create a map of projectId -> badgeCount
-    const badgeCountMap = new Map<string, number>();
-    badgeCounts.forEach(({ projectId, count }) => {
-      badgeCountMap.set(projectId, count);
-    });
-
-    // Update projects with badge counts
-    return projects.map(project => ({
-      ...project,
-      badges: badgeCountMap.get(project.id) || 0
-    }));
-  } catch (error) {
-    console.error('[Badge Counter] Error fetching badge counts:', error);
-    // Return projects with 0 badges if fetching fails
-    return projects.map(project => ({
-      ...project,
-      badges: 0
-    }));
-  }
-};
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
@@ -105,6 +54,11 @@ const Projects: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [organizationFilter, setOrganizationFilter] = useState<'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies'>('my-org');
   const [visibilityFilter, setVisibilityFilter] = useState('all');
+
+  // Loading states
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [isLoadingBadges, setIsLoadingBadges] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   // Fonction pour obtenir l'organizationId sélectionné (comme dans Dashboard)
   const getSelectedOrganizationId = (): number | undefined => {
@@ -152,6 +106,7 @@ const Projects: React.FC = () => {
 
   // Fonction pour récupérer les projets publics (Nouveautés)
   const fetchPublicProjects = React.useCallback(async (page: number = 1) => {
+    setIsLoadingProjects(true);
     try {
       const currentUser = await getCurrentUser();
       
@@ -169,26 +124,30 @@ const Projects: React.FC = () => {
       const formattedProjects: Project[] = publicProjects.map((p: any) => {
         return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
       });
-      // Fetch and update badge counts
-      const projectsWithBadges = await fetchAndUpdateBadgeCounts(formattedProjects);
-      setProjects(projectsWithBadges);
+      // Badge counts are now included in API response via badge_count
+      setProjects(formattedProjects);
       
       // Extract and store pagination metadata
       if (response.data?.meta) {
         setProjectTotalPages(response.data.meta.total_pages || 1);
         setProjectTotalCount(response.data.meta.total_count || 0);
       }
+      setInitialLoad(false);
     } catch (err) {
       console.error('Erreur lors de la récupération des projets publics:', err);
       setProjects([]);
       setProjectTotalPages(1);
       setProjectTotalCount(0);
+      setInitialLoad(false);
+    } finally {
+      setIsLoadingProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, organizationFilter]);
 
   // Fonction pour récupérer les projets de l'utilisateur (Mes projets)
   const fetchMyProjects = React.useCallback(async (page: number = 1) => {
+    setIsLoadingProjects(true);
     try {
       const currentUser = await getCurrentUser();
       
@@ -213,9 +172,8 @@ const Projects: React.FC = () => {
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
-        // Fetch and update badge counts
-        const projectsWithBadges = await fetchAndUpdateBadgeCounts(formattedProjects);
-        setMyProjects(projectsWithBadges);
+        // Badge counts are now included in API response via badge_count
+        setMyProjects(formattedProjects);
         
         // Extract and store pagination metadata
         if (response.meta) {
@@ -244,9 +202,8 @@ const Projects: React.FC = () => {
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
-        // Fetch and update badge counts
-        const projectsWithBadges = await fetchAndUpdateBadgeCounts(formattedProjects);
-        setMyProjects(projectsWithBadges);
+        // Badge counts are now included in API response via badge_count
+        setMyProjects(formattedProjects);
         
         // Extract and store pagination metadata
         if (response.data?.meta) {
@@ -254,17 +211,22 @@ const Projects: React.FC = () => {
           setMyProjectsTotalCount(response.data.meta.total_count || 0);
         }
       }
+      setInitialLoad(false);
     } catch (err) {
       console.error('Erreur lors de la récupération de mes projets:', err);
       setMyProjects([]);
       setMyProjectsTotalPages(1);
       setMyProjectsTotalCount(0);
+      setInitialLoad(false);
+    } finally {
+      setIsLoadingProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]);
 
   // Fonction pour récupérer les projets (réutilisable)
   const fetchProjects = React.useCallback(async (page: number = 1) => {
+    setIsLoadingProjects(true);
     try {
       const currentUser = await getCurrentUser();
 
@@ -486,9 +448,8 @@ const Projects: React.FC = () => {
         });
         setRawProjectsMap(newRawProjectsMap);
 
-        // Fetch and update badge counts
-        const projectsWithBadges = await fetchAndUpdateBadgeCounts(formattedProjects);
-        setProjects(projectsWithBadges);
+        // Badge counts are now included in API response via badge_count
+        setProjects(formattedProjects);
         
         // Extract and store pagination metadata
         if (response && response.data?.meta) {
@@ -516,20 +477,25 @@ const Projects: React.FC = () => {
           setProjectTotalCount(totalCount);
         }
       }
+      setInitialLoad(false);
     } catch (err) {
       console.error('Erreur lors de la récupération des projets:', err);
       setProjects([]);
       setProjectTotalPages(1);
       setProjectTotalCount(0);
+      setInitialLoad(false);
+    } finally {
+      setIsLoadingProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
 
   // --- Fetch des projets au chargement ---
   useEffect(() => {
-    // Reset pagination when dashboard type changes
+    // Reset pagination and loading state when dashboard type changes
     setProjectPage(1);
     setMyProjectsPage(1);
+    setInitialLoad(true);
     if (isTeacher) {
       fetchMyProjects(1);
     } else if (state.showingPageType === 'user') {
@@ -564,10 +530,8 @@ const Projects: React.FC = () => {
       });
       setRawProjectsMap(newRawProjectsMap);
       
-      // Fetch badge counts and update projects
-      fetchAndUpdateBadgeCounts(formattedProjects).then(projectsWithBadges => {
-        setProjects(projectsWithBadges);
-      });
+      // Badge counts are now included in API response via badge_count
+      setProjects(formattedProjects);
       
       // Update pagination metadata
       const totalCount = allFilteredProjects.length;
@@ -893,7 +857,12 @@ const Projects: React.FC = () => {
         </div>
       </div>
 
-      {filteredProjects.length > 0 ? (
+      {isLoadingProjects && initialLoad ? (
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">Chargement des projets...</p>
+        </div>
+      ) : filteredProjects.length > 0 ? (
         <>
           <div className="projects-grid">
             {filteredProjects.map((project) => {
