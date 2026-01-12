@@ -350,7 +350,10 @@
   font-weight: 900;
   letter-spacing: 0.02em;
   color: #fff;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
+  word-wrap: break-word;
+  max-width: 100%;
 }
 
 .badge-explorer-page .badge-explorer-card .badge-level.level-1 { background: #34C759; }
