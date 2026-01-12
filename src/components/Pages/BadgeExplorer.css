@@ -187,7 +187,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 16px;
   padding: 1.5rem;
-  padding-bottom: 2.25rem; /* ensure room for the toggle + breathing space */
+  padding-bottom: 3rem; /* ensure room for the toggle + breathing space */
   box-shadow: 0 2px 10px rgba(0,0,0,0.06);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, height 0.3s ease, min-height 0.3s ease;
   display: flex;
@@ -196,7 +196,7 @@
   text-align: center;
   gap: 0.9rem;
   height: auto;           /* allow expansion */
-  min-height: 340px;      /* keeps structure even with short descriptions */
+  min-height: 380px;      /* ensures button is always fully visible */
   overflow: hidden; /* keep content inside the card by default */
   cursor: default;
   width: 100%;
@@ -248,6 +248,7 @@
   min-width: 0;
   flex: 1;
   min-height: 0; /* Allow flex item to shrink below content size */
+  padding-bottom: 0.5rem; /* Add padding to ensure button has space */
 }
 
 /* When card is expanded, ensure badge-info can grow fully */
@@ -310,7 +311,7 @@
   justify-content: center;
   gap: 0.5rem;
   margin-top: 0.75rem;
-  margin-bottom: 0 !important;
+  margin-bottom: 1rem !important; /* Add bottom margin to prevent truncation */
   padding: 0.5rem 0 !important;
   width: 100%;
   border: none;
@@ -413,6 +414,6 @@
   }
 
   .badge-explorer-page .badge-explorer-card {
-    min-height: 320px;
+    min-height: 360px; /* Ensure button is fully visible on mobile */
   }
 }
