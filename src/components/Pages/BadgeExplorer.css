@@ -56,6 +56,13 @@
   margin-bottom: 1rem;
 }
 
+.series-selector-container {
+  margin: 1rem 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .badge-explorer-page .series-description {
   font-size: 1.1rem;
   color: var(--text-light);
@@ -106,6 +113,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-width: 300px;
 }
 
 .series-select:hover {
@@ -461,4 +469,61 @@
   .series-stats {
     gap: 1rem;
   }
+}
+
+/* Loading and error states */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  min-height: 400px;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  color: var(--text-light);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  min-height: 400px;
+}
+
+.error-text {
+  color: #ef4444;
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Empty level message */
+.empty-level-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-light);
+  font-style: italic;
 }
