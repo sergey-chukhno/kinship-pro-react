@@ -173,7 +173,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         <Menu as="div" className="relative">
           {({ open }: { open: boolean }) => (
             <>
-              <Menu.Button className={`user-info ${state.showingPageType === 'user' ? 'user-dashboard-menu' : ''}`}>
+              <Menu.Button className={`user-info ${state.showingPageType === 'user' ? 'user-dashboard-menu !flex-row' : ''}`}>
                 <AvatarImage
                   src={user.avatar}
                   alt={user.name}
