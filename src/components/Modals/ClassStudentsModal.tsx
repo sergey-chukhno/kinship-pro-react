@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getLevelStudents, getSchoolLevel } from '../../api/SchoolDashboard/Levels';
 import { getCurrentUser } from '../../api/Authentication';
 import { getTeacherClassStudents, getTeacherClass } from '../../api/Dashboard';
@@ -58,105 +58,132 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
   const { state } = useAppContext();
   const isTeacherContext = state.showingPageType === 'teacher';
   const { showError } = useToast();
+  const showErrorRef = useRef(showError);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [qrStudent, setQrStudent] = useState<Student | null>(null);
   const [teachers, setTeachers] = useState<Array<{ id: number; full_name: string; email: string; is_creator: boolean }>>([]);
+  const observerTargetRef = useRef<HTMLDivElement>(null);
+  const perPage = 20;
 
+  // Keep showError ref updated
   useEffect(() => {
-    let isMounted = true;
+    showErrorRef.current = showError;
+  }, [showError]);
+
+  const fetchStudents = useCallback(async (page: number, append: boolean = false) => {
+    if (!levelId) return;
     
-    const fetchData = async () => {
-      if (!levelId) return;
+    const loadingState = append ? setIsLoadingMore : setLoading;
+    loadingState(true);
+    
+    try {
+      let studentsResponse;
+      let classResponse;
+      let schoolId: number | null = null;
       
-      try {
-        setLoading(true);
-        
-        if (isTeacherContext) {
-          // Pour les teachers, utiliser l'API teachers/classes
-          const [studentsResponse, classResponse] = await Promise.all([
-            getTeacherClassStudents(levelId),
-            getTeacherClass(levelId)
-          ]);
-          
-          // Handle different response structures
-          let studentsData = [];
-          if (studentsResponse.data?.data) {
-            studentsData = studentsResponse.data.data;
-          } else if (Array.isArray(studentsResponse.data)) {
-            studentsData = studentsResponse.data;
-          } else if (studentsResponse.data) {
-            studentsData = [];
-          }
-          
-          const classData = classResponse.data?.data ?? classResponse.data ?? {};
-          
-          if (isMounted) {
-            console.log('Students response (teacher):', studentsResponse.data);
-            console.log('Students data (teacher):', studentsData);
-            console.log('Students count:', studentsData.length);
-            console.log('Meta:', studentsResponse.data?.meta);
-            setStudents(Array.isArray(studentsData) ? studentsData : []);
-            setTeachers(classData.teachers || []);
-          }
-        } else {
-          // Pour les admins d'école, utiliser l'API schools/levels
-          const currentUser = await getCurrentUser();
-          const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+      if (isTeacherContext) {
+        // Pour les teachers, utiliser l'API teachers/classes
+        [studentsResponse, classResponse] = await Promise.all([
+          getTeacherClassStudents(levelId, page, perPage),
+          getTeacherClass(levelId)
+        ]);
+      } else {
+        // Pour les admins d'école, utiliser l'API schools/levels
+        const currentUser = await getCurrentUser();
+        schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
 
-          if (!schoolId) {
-            if (isMounted) {
-              showError("Impossible de récupérer l'identifiant de l'école");
-            }
-            return;
-          }
+        if (!schoolId) {
+          showErrorRef.current("Impossible de récupérer l'identifiant de l'école");
+          return;
+        }
 
-          // Récupérer les étudiants et les détails de la classe (avec teachers) en parallèle
-          const [studentsResponse, levelResponse] = await Promise.all([
-            getLevelStudents(Number(schoolId), levelId),
-            getSchoolLevel(Number(schoolId), levelId)
-          ]);
-          
-          // Handle different response structures
-          let studentsData = [];
-          if (studentsResponse.data?.data) {
-            studentsData = studentsResponse.data.data;
-          } else if (Array.isArray(studentsResponse.data)) {
-            studentsData = studentsResponse.data;
-          } else if (studentsResponse.data) {
-            studentsData = [];
-          }
-          
-          const levelData = levelResponse.data?.data ?? levelResponse.data ?? {};
-          
-          if (isMounted) {
-            console.log('Students response (school):', studentsResponse.data);
-            console.log('Students data (school):', studentsData);
-            console.log('Students count:', studentsData.length);
-            console.log('Meta:', studentsResponse.data?.meta);
-            setStudents(Array.isArray(studentsData) ? studentsData : []);
-            setTeachers(levelData.teachers || []);
-          }
+        [studentsResponse, classResponse] = await Promise.all([
+          getLevelStudents(Number(schoolId), levelId, page, perPage),
+          getSchoolLevel(Number(schoolId), levelId)
+        ]);
+      }
+      
+      // Handle different response structures
+      let studentsData: Student[] = [];
+      if (studentsResponse.data?.data) {
+        studentsData = studentsResponse.data.data;
+      } else if (Array.isArray(studentsResponse.data)) {
+        studentsData = studentsResponse.data;
+      } else if (studentsResponse.data) {
+        studentsData = [];
+      }
+      
+      const meta = studentsResponse.data?.meta || {};
+      const totalPages = meta.total_pages || 1;
+      const total = meta.total_count || studentsData.length;
+      
+      if (append) {
+        // Append to existing students, avoiding duplicates
+        setStudents(prev => {
+          const existingIds = new Set(prev.map(s => s.id));
+          const newStudents = studentsData.filter((s: Student) => !existingIds.has(s.id));
+          return [...prev, ...newStudents];
+        });
+      } else {
+        setStudents(Array.isArray(studentsData) ? studentsData : []);
+      }
+      
+      // Set teachers only on first load
+      if (!append) {
+        const classData = classResponse.data?.data ?? classResponse.data ?? {};
+        setTeachers(classData.teachers || []);
+      }
+      
+      setTotalCount(total);
+      setHasMore(page < totalPages);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des données:', error);
+      showErrorRef.current('Impossible de récupérer les données de la classe');
+      setHasMore(false);
+    } finally {
+      loadingState(false);
+    }
+  }, [levelId, isTeacherContext, perPage]);
+
+  // Initial load
+  useEffect(() => {
+    setStudents([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    setTotalCount(0);
+    fetchStudents(1, false);
+  }, [levelId, fetchStudents]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!hasMore || loading || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          fetchStudents(currentPage + 1, true);
         }
-      } catch (error) {
-        if (isMounted) {
-          console.error('Erreur lors de la récupération des données:', error);
-          showError('Impossible de récupérer les données de la classe');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const target = observerTargetRef.current;
+    if (target) {
+      observer.observe(target);
+    }
+
+    return () => {
+      if (target) {
+        observer.unobserve(target);
       }
     };
-
-    fetchData();
-    
-    return () => {
-      isMounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [levelId, isTeacherContext]);
+  }, [hasMore, loading, isLoadingMore, currentPage, fetchStudents]);
 
   return (
     <>
@@ -199,10 +226,9 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                 <p className="text-lg text-gray-500">Aucun élève dans cette classe</p>
               </div>
             ) : (
-              <div className=" max-h-[300px] !overflow-y-auto">
-                <div className="!grid-cols-2 w-full table-header">
-                  <div className="table-cell !w-1/2">Nom</div>
-                  <div className="table-cell">Actions</div>
+              <div className="users-table class-students-table" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                <div className="table-header class-students-header">
+                  <div className="table-cell">Élèves</div>
                 </div>
 
                 {students
@@ -213,49 +239,57 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                       index === self.findIndex(s => !s.id && s === student)
                   )
                   .map((student, index) => (
-                  <div key={student.id || `student-${index}`} className="table-row !grid-cols-2">
-                    <div className="table-cell">
-                      <div className="user-info">
-                        <AvatarImage src={student.avatar_url} alt={student.full_name} className="user-avatar" />
-                        <div className="flex flex-col">
-                          <span className="font-medium text-gray-900 whitespace-nowrap">{student.full_name || `${student.first_name} ${student.last_name}`}</span>
-                          {student.birthday && (
-                            <span className="text-xs text-gray-500">
-                              <i className="mr-1 fas fa-birthday-cake"></i>
-                              {new Date(student.birthday).toLocaleDateString('fr-FR')}
-                            </span>
-                          )}
+                  <div key={student.id || `student-${index}`} className="table-row class-students-row">
+                    <div className="table-cell class-students-cell">
+                      <div className="user-info class-students-user-info">
+                        <AvatarImage src={student.avatar_url} alt={student.full_name} className="user-avatar class-students-avatar" />
+                        <span className="class-students-name">{student.full_name || `${student.first_name} ${student.last_name}`}</span>
+                        {student.birthday && (
+                          <span className="class-students-birthday">
+                            <i className="fas fa-birthday-cake"></i>
+                            {new Date(student.birthday).toLocaleDateString('fr-FR')}
+                          </span>
+                        )}
+                        <div className="class-students-actions-spacer"></div>
+                        <div className="action-buttons class-students-action-buttons">
+                          <button
+                            className="btn-icon"
+                            title="Afficher le QR Code"
+                            onClick={() => {
+                              if (!student.claim_token) {
+                                console.log('Student:', student);
+                                showError("Pas de QR code disponible pour cet élève");
+                                return;
+                              }
+                              setQrStudent(student);
+                            }}
+                          >
+                            <i className="fas fa-qrcode"></i>
+                          </button>
+                          <button
+                            className="btn-icon"
+                            title="Voir les détails"
+                            onClick={() => onStudentDetails?.(student)}
+                          >
+                            <i className="fas fa-eye"></i>
+                          </button>
                         </div>
-                      </div>
-                    </div>
-                
-                    <div className="table-cell">
-                      <div className="action-buttons">
-                        <button
-                          className="btn-icon"
-                          title="Afficher le QR Code"
-                          onClick={() => {
-                            if (!student.claim_token) {
-                              console.log('Student:', student);
-                              showError("Pas de QR code disponible pour cet élève");
-                              return;
-                            }
-                            setQrStudent(student);
-                          }}
-                        >
-                          <i className="fas fa-qrcode"></i>
-                        </button>
-                        <button
-                          className="btn-icon"
-                          title="Voir les détails"
-                          onClick={() => onStudentDetails?.(student)}
-                        >
-                          <i className="fas fa-eye"></i>
-                        </button>
                       </div>
                     </div>
                   </div>
                 ))}
+                
+                {/* Infinite scroll trigger */}
+                {hasMore && (
+                  <div ref={observerTargetRef} style={{ height: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }}>
+                    {isLoadingMore && (
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <i className="fas fa-spinner fa-spin"></i>
+                        <span className="text-sm">Chargement...</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -270,7 +304,7 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                 </span>
               ) : (
                 <span>
-                  {students.length} élève{students.length !== 1 ? 's' : ''}
+                  {totalCount > 0 ? `${students.length} / ${totalCount}` : students.length} élève{totalCount !== 1 && totalCount > 0 ? 's' : students.length !== 1 ? 's' : ''}
                 </span>
               )}
             </span>
