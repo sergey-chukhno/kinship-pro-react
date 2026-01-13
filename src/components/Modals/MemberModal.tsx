@@ -262,23 +262,23 @@ const MemberModal: React.FC<MemberModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content member-management-content" onClick={(e) => e.stopPropagation()}>
 
-        <div className="modal-header flex gap-4 items-start relative">
+        <div className="flex relative gap-4 items-start modal-header">
         <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
           {/* block avatar , trusted badge */}
-          <div className="flex justify-start items-center relative">
-            <div className="member-avatar-large border-2 border-primary">
-            <AvatarImage src={member.avatar} className="w-full h-full object-cover " alt={`${member.firstName} ${member.lastName}`} />
+          <div className="flex relative justify-start items-center">
+            <div className="border-2 member-avatar-large border-primary">
+            <AvatarImage src={member.avatar} className="object-cover w-full h-full" alt={`${member.firstName} ${member.lastName}`} />
             </div>
             {member.isTrusted && (
-              <div className="trusted-badge-large top-10 right-0">
+              <div className="right-0 top-10 trusted-badge-large">
                 <i className="fas fa-shield-alt"></i>
               </div>
             )}
           </div>
           {/* block name, profession, roles */}
-          <div className="member-details flex flex-col gap-2">
+          <div className="flex flex-col gap-2 member-details">
             <h2 className="member-name">{member.firstName} {member.lastName}</h2>
             <p className="">{professionLabel}</p>
             <div className="">
@@ -289,7 +289,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
           </div>
           {/* block actions */}
-          <div className="flex gap-2 items-center flex-wrap">
+          <div className="flex flex-wrap gap-2 items-center">
             {isStudent() && member.claim_token && (
               <button
                 className="btn btn-outline btn-sm"
@@ -328,10 +328,16 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 Copier l'email
               </button>
             ) : (
-              <button className="btn btn-outline btn-sm" onClick={onContactClick}>
-                <i className="fas fa-envelope"></i>
-                Contacter
-              </button>
+              <a
+              href={`mailto:${member.email}`}
+              className="btn btn-outline btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <i className="fas fa-envelope"></i>
+              Contacter
+            </a>
             )}
             {!hideDeleteButton && !isSuperadmin && (
               <button className="btn btn-outline btn-sm" onClick={onDelete}>
@@ -420,7 +426,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                       <>
                         <div className="skills-grid">
                           {mainSkills.length === 0 && subSkills.length === 0 ? (
-                            <p className="no-badges text-center w-full">Aucune compétence renseignée</p>
+                            <p className="w-full text-center no-badges">Aucune compétence renseignée</p>
                           ) : (
                             mainSkills.map((skill, index) => (
                               <span key={index} className="skill-tag">
@@ -474,7 +480,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   <h3>Disponibilités</h3>
                   <div className="availability-grid">
                     {member.availability.length === 0 ? (
-                      <p className="no-badges text-center w-full">Aucune disponibilité renseignée</p>
+                      <p className="w-full text-center no-badges">Aucune disponibilité renseignée</p>
                     ) : (
                       (isEditing ? editedMember.availability : member.availability).map((day, index) => (
                         <span key={index} className="availability-tag">

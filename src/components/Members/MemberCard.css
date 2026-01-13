@@ -80,6 +80,7 @@
   font-size: 1.1rem;
   color: var(--text-secondary, #6b7280);
   margin: 0 0 12px 0;
+  width: 80%;
   text-align: center;
   word-wrap: break-word;
   word-break: break-word;

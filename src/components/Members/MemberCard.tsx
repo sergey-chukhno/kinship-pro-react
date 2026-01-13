@@ -151,7 +151,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
             const systemRole = (member as any).systemRole || '';
             const translatedSystemRole = systemRole ? translateRole(systemRole) : '';
             return translatedSystemRole ? (
-              <p className="break-words member-profession" style={{ marginTop: 4 }}>{translatedSystemRole}</p>
+              <p className="member-profession" style={{ marginTop: 4 }}>{translatedSystemRole}</p>
             ) : null;
           })()}
         </div>
