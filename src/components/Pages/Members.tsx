@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getCurrentUser } from '../../api/Authentication';
-import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole, removeCompanyMember } from '../../api/CompanyDashboard/Members';
+import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole, removeCompanyMember, importCompanyMembersCsv } from '../../api/CompanyDashboard/Members';
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel, addExistingStudentToLevel } from '../../api/SchoolDashboard/Levels';
-import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole, removeSchoolMember } from '../../api/SchoolDashboard/Members';
+import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole, removeSchoolMember, importSchoolMembersCsv } from '../../api/SchoolDashboard/Members';
 import { getSkills } from '../../api/Skills';
 import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent } from '../../api/Dashboard';
 import { getTeacherClassStudents } from '../../api/Dashboard';
@@ -18,6 +18,7 @@ import AddStudentModal from '../Modals/AddStudentModal';
 import ClassStudentsModal from '../Modals/ClassStudentsModal';
 import ContactModal from '../Modals/ContactModal';
 import MemberModal from '../Modals/MemberModal';
+import MemberCsvImportModal from '../Modals/MemberCsvImportModal';
 import ConfirmModal from '../Modals/ConfirmModal';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './Members.css';
@@ -75,6 +76,7 @@ const Members: React.FC = () => {
   const [competenceFilter, setCompetenceFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
+  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community' | 'students'>(
     isTeacherContext ? 'class' : 'members'
   );
@@ -805,8 +807,40 @@ const Members: React.FC = () => {
   };
 
   const handleImportExport = (action: 'import' | 'export') => {
-    console.log(`${action} members`);
+    if (action === 'import') {
+      setIsCsvImportModalOpen(true);
+    } else {
+      console.log('Export members');
+    }
     setIsImportExportOpen(false);
+  };
+
+  const handleCsvImport = async (file: File) => {
+    try {
+      const currentUser = await getCurrentUser();
+      let response;
+      
+      if (isSchoolContext) {
+        const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+        if (!schoolId) {
+          throw new Error('School ID not found');
+        }
+        response = await importSchoolMembersCsv(schoolId, file);
+      } else {
+        const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+        if (!companyId) {
+          throw new Error('Company ID not found');
+        }
+        response = await importCompanyMembersCsv(companyId, file);
+      }
+      
+      // Refresh members list
+      await fetchMembers();
+      
+      return response.data;
+    } catch (error: any) {
+      throw error;
+    }
   };
 
   const handleMembershipRequests = () => setCurrentPage('membership-requests');
@@ -1178,25 +1212,12 @@ const Members: React.FC = () => {
           })()}
             <div className="dropdown-container" ref={dropdownRef}>
               <button
-              disabled={true}
-              title="Disponible très bientôt"
                 className="btn btn-outline"
-                onClick={() => setIsImportExportOpen(!isImportExportOpen)}
+                onClick={() => setIsCsvImportModalOpen(true)}
               >
-                <i className="fas fa-download"></i>
-                Importer/Exporter
-                <i className="fas fa-chevron-down"></i>
+                <i className="fas fa-upload"></i>
+                Importer de csv
               </button>
-              {isImportExportOpen && (
-                <div className="dropdown-menu">
-                  <button className="dropdown-item" onClick={() => handleImportExport('import')}>
-                    <i className="fas fa-upload"></i> Importer
-                  </button>
-                  <button className="dropdown-item" onClick={() => handleImportExport('export')}>
-                    <i className="fas fa-download"></i> Exporter
-                  </button>
-                </div>
-              )}
             </div>
           </div>
           <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
@@ -1591,6 +1612,13 @@ const Members: React.FC = () => {
       {isContactModalOpen && (
         <ContactModal email={contactEmail} onClose={() => setIsContactModalOpen(false)} />
       )}
+
+      <MemberCsvImportModal
+        isOpen={isCsvImportModalOpen}
+        onClose={() => setIsCsvImportModalOpen(false)}
+        onImport={handleCsvImport}
+        isSchool={isSchoolContext}
+      />
 
       {isClassStudentsModalOpen && selectedClass && (
         <ClassStudentsModal
