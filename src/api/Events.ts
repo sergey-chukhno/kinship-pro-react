@@ -19,6 +19,7 @@ export interface EventFormData {
 export interface CreateEventPayload {
   event: EventFormData;
   image?: File;
+  image_url?: string; // URL of image to download (for duplication)
   csv_file?: File;
   documents?: File[];
 }
@@ -71,6 +72,7 @@ export const createSchoolEvent = async (
   const { event } = payload;
   const hasFiles =
     (payload.image && payload.image instanceof File) ||
+    (payload.image_url) ||
     (payload.csv_file && payload.csv_file instanceof File) ||
     (payload.documents && payload.documents.length > 0);
 
@@ -163,6 +165,11 @@ export const createSchoolEvent = async (
     formData.append('image', payload.image);
   }
 
+  // Add image URL if provided (for duplication when CORS prevents download)
+  if (payload.image_url) {
+    formData.append('image_url', payload.image_url);
+  }
+
   // Add documents if provided
   if (payload.documents && payload.documents.length > 0) {
     payload.documents.forEach((file) => {
@@ -200,6 +207,7 @@ export const createCompanyEvent = async (
   const { event } = payload;
   const hasFiles =
     (payload.image && payload.image instanceof File) ||
+    (payload.image_url) ||
     (payload.csv_file && payload.csv_file instanceof File) ||
     (payload.documents && payload.documents.length > 0);
 
@@ -293,6 +301,11 @@ export const createCompanyEvent = async (
     formData.append('image', payload.image);
   }
 
+  // Add image URL if provided (for duplication when CORS prevents download)
+  if (payload.image_url) {
+    formData.append('image_url', payload.image_url);
+  }
+
   // Add documents if provided
   if (payload.documents && payload.documents.length > 0) {
     payload.documents.forEach((file) => {
@@ -329,6 +342,7 @@ export const createTeacherEvent = async (
   const { event } = payload;
   const hasFiles =
     (payload.image && payload.image instanceof File) ||
+    (payload.image_url) ||
     (payload.csv_file && payload.csv_file instanceof File) ||
     (payload.documents && payload.documents.length > 0);
 
@@ -420,6 +434,11 @@ export const createTeacherEvent = async (
   // Add image if provided (must be a File object)
   if (payload.image && payload.image instanceof File) {
     formData.append('image', payload.image);
+  }
+
+  // Add image URL if provided (for duplication when CORS prevents download)
+  if (payload.image_url) {
+    formData.append('image_url', payload.image_url);
   }
 
   // Add documents if provided
@@ -680,6 +699,7 @@ export const updateSchoolEvent = async (
   const { event } = payload;
   const hasFiles =
     (payload.image && payload.image instanceof File) ||
+    (payload.image_url) ||
     (payload.csv_file && payload.csv_file instanceof File) ||
     (payload.documents && payload.documents.length > 0);
 
@@ -768,6 +788,11 @@ export const updateSchoolEvent = async (
   // Add image if provided (must be a File object)
   if (payload.image && payload.image instanceof File) {
     formData.append('image', payload.image);
+  }
+
+  // Add image URL if provided (for duplication when CORS prevents download)
+  if (payload.image_url) {
+    formData.append('image_url', payload.image_url);
   }
 
   // Add documents if provided
@@ -887,6 +912,11 @@ export const updateCompanyEvent = async (
     formData.append('image', payload.image);
   }
 
+  // Add image URL if provided (for duplication when CORS prevents download)
+  if (payload.image_url) {
+    formData.append('image_url', payload.image_url);
+  }
+
   // Add CSV file if provided (must be a File object)
   if (payload.csv_file && payload.csv_file instanceof File) {
     formData.append('csv_file', payload.csv_file);
@@ -993,6 +1023,11 @@ export const updateTeacherEvent = async (
     formData.append('image', payload.image);
   }
 
+  // Add image URL if provided (for duplication when CORS prevents download)
+  if (payload.image_url) {
+    formData.append('image_url', payload.image_url);
+  }
+
   // Add CSV file if provided (must be a File object)
   if (payload.csv_file && payload.csv_file instanceof File) {
     formData.append('csv_file', payload.csv_file);
@@ -1095,6 +1130,11 @@ export const createUserEvent = async (
   // Add image if provided (must be a File object)
   if (payload.image && payload.image instanceof File) {
     formData.append('image', payload.image);
+  }
+
+  // Add image URL if provided (for duplication when CORS prevents download)
+  if (payload.image_url) {
+    formData.append('image_url', payload.image_url);
   }
 
   // Add CSV file if provided (must be a File object)
@@ -1200,6 +1240,11 @@ export const updateUserEvent = async (
   // Add image if provided (must be a File object)
   if (payload.image && payload.image instanceof File) {
     formData.append('image', payload.image);
+  }
+
+  // Add image URL if provided (for duplication when CORS prevents download)
+  if (payload.image_url) {
+    formData.append('image_url', payload.image_url);
   }
 
   // Add CSV file if provided (must be a File object)
