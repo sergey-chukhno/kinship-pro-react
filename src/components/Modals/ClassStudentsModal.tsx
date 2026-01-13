@@ -199,9 +199,9 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                 <p className="text-lg text-gray-500">Aucun élève dans cette classe</p>
               </div>
             ) : (
-              <div className="users-table max-h-[300px] overflow-y-auto">
-                <div className="table-header">
-                  <div className="table-cell">Nom</div>
+              <div className=" max-h-[300px] !overflow-y-auto">
+                <div className="!grid-cols-2 w-full table-header">
+                  <div className="table-cell !w-1/2">Nom</div>
                   <div className="table-cell">Actions</div>
                 </div>
 
@@ -213,12 +213,12 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                       index === self.findIndex(s => !s.id && s === student)
                   )
                   .map((student, index) => (
-                  <div key={student.id || `student-${index}`} className="table-row">
+                  <div key={student.id || `student-${index}`} className="table-row !grid-cols-2">
                     <div className="table-cell">
                       <div className="user-info">
                         <AvatarImage src={student.avatar_url} alt={student.full_name} className="user-avatar" />
                         <div className="flex flex-col">
-                          <span className="font-medium text-gray-900">{student.full_name || `${student.first_name} ${student.last_name}`}</span>
+                          <span className="font-medium text-gray-900 whitespace-nowrap">{student.full_name || `${student.first_name} ${student.last_name}`}</span>
                           {student.birthday && (
                             <span className="text-xs text-gray-500">
                               <i className="mr-1 fas fa-birthday-cake"></i>
