@@ -48,3 +48,13 @@ export function createSchoolStudent(schoolId: number, studentData: {
 export function getSchoolVolunteers(schoolId: number, status: string = 'confirmed') {
     return axiosClient.get(`/api/v1/schools/${schoolId}/volunteers?status=${status}`);
 }
+
+export function importSchoolMembersCsv(schoolId: number, csvFile: File) {
+    const formData = new FormData();
+    formData.append('csv_file', csvFile);
+    return axiosClient.post(`/api/v1/schools/${schoolId}/members/import_csv`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+}
