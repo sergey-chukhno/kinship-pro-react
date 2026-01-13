@@ -226,10 +226,9 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                 <p className="text-lg text-gray-500">Aucun élève dans cette classe</p>
               </div>
             ) : (
-              <div className="users-table" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                <div className="table-header">
-                  <div className="table-cell">Nom</div>
-                  <div className="table-cell">Actions</div>
+              <div className="users-table class-students-table" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                <div className="table-header class-students-header">
+                  <div className="table-cell">Élèves</div>
                 </div>
 
                 {students
@@ -240,45 +239,41 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                       index === self.findIndex(s => !s.id && s === student)
                   )
                   .map((student, index) => (
-                  <div key={student.id || `student-${index}`} className="table-row">
-                    <div className="table-cell">
-                      <div className="user-info">
-                        <AvatarImage src={student.avatar_url} alt={student.full_name} className="user-avatar" />
-                        <div className="flex flex-col">
-                          <span className="font-medium text-gray-900">{student.full_name || `${student.first_name} ${student.last_name}`}</span>
-                          {student.birthday && (
-                            <span className="text-xs text-gray-500">
-                              <i className="mr-1 fas fa-birthday-cake"></i>
-                              {new Date(student.birthday).toLocaleDateString('fr-FR')}
-                            </span>
-                          )}
+                  <div key={student.id || `student-${index}`} className="table-row class-students-row">
+                    <div className="table-cell class-students-cell">
+                      <div className="user-info class-students-user-info">
+                        <AvatarImage src={student.avatar_url} alt={student.full_name} className="user-avatar class-students-avatar" />
+                        <span className="class-students-name">{student.full_name || `${student.first_name} ${student.last_name}`}</span>
+                        {student.birthday && (
+                          <span className="class-students-birthday">
+                            <i className="fas fa-birthday-cake"></i>
+                            {new Date(student.birthday).toLocaleDateString('fr-FR')}
+                          </span>
+                        )}
+                        <div className="class-students-actions-spacer"></div>
+                        <div className="action-buttons class-students-action-buttons">
+                          <button
+                            className="btn-icon"
+                            title="Afficher le QR Code"
+                            onClick={() => {
+                              if (!student.claim_token) {
+                                console.log('Student:', student);
+                                showError("Pas de QR code disponible pour cet élève");
+                                return;
+                              }
+                              setQrStudent(student);
+                            }}
+                          >
+                            <i className="fas fa-qrcode"></i>
+                          </button>
+                          <button
+                            className="btn-icon"
+                            title="Voir les détails"
+                            onClick={() => onStudentDetails?.(student)}
+                          >
+                            <i className="fas fa-eye"></i>
+                          </button>
                         </div>
-                      </div>
-                    </div>
-                
-                    <div className="table-cell">
-                      <div className="action-buttons">
-                        <button
-                          className="btn-icon"
-                          title="Afficher le QR Code"
-                          onClick={() => {
-                            if (!student.claim_token) {
-                              console.log('Student:', student);
-                              showError("Pas de QR code disponible pour cet élève");
-                              return;
-                            }
-                            setQrStudent(student);
-                          }}
-                        >
-                          <i className="fas fa-qrcode"></i>
-                        </button>
-                        <button
-                          className="btn-icon"
-                          title="Voir les détails"
-                          onClick={() => onStudentDetails?.(student)}
-                        >
-                          <i className="fas fa-eye"></i>
-                        </button>
                       </div>
                     </div>
                   </div>
