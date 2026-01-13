@@ -250,7 +250,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
         {/* Main Content: Image Left, Description Right */}
         <div className="event-detail-main-content">
           {/* Left: Image */}
-          <div className="event-detail-image-container">
+          <div className="overflow-hidden event-detail-image-container">
 
             {event.image ? (
               <img src={event.image} alt={event.title} className="event-detail-hero-image" />
@@ -273,7 +273,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
 
         {/* Badges Section */}
         {eventBadges.length > 0 && (
-          <div className="event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
+          <div className="bg-white event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
             <h3 className="participants-title">Badges de l'événement</h3>
             <div style={{
               display: 'grid',
@@ -360,7 +360,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
 
         {/* Documents Section */}
         {eventDocuments && eventDocuments.length > 0 && (
-          <div className="event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
+          <div className="bg-white event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
             <h3 className="participants-title">Documents</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {eventDocuments.map((doc: any, idx: number) => {
@@ -401,7 +401,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
 
         {/* Participants Section */}
         
-          <div className="event-detail-participants-section">
+          <div className="bg-white event-detail-participants-section">
             <h3 className="participants-title">Participants ({event.participants.length})</h3>
             <div className="participants-list-container">
               {event.participants && event.participants.length > 0 ? (

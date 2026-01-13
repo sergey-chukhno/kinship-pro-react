@@ -351,10 +351,27 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           : undefined
       };
 
-      // Convert base64 image to File if present
+      // Convert image to File if present
       let imageFile: File | null = null;
-      if (formData.image && formData.image.startsWith('data:')) {
-        imageFile = base64ToFile(formData.image, 'event-image.jpg');
+      let imageUrl: string | null = null;
+      
+      if (formData.image) {
+        if (formData.image.startsWith('data:')) {
+          // Base64 image - convert to File
+          imageFile = base64ToFile(formData.image, 'event-image.jpg');
+        } else {
+          // Check if it's an Active Storage Rails URL (these cause CORS issues)
+          const isActiveStorageUrl = formData.image.includes('/rails/active_storage/');
+          
+          // For Active Storage URLs or any URL, send directly to backend to avoid CORS issues
+          // The backend can download it server-side without CORS restrictions
+          if (isActiveStorageUrl || formData.image.startsWith('http://') || formData.image.startsWith('https://') || formData.image.startsWith('/')) {
+            // Send URL directly to backend - it will handle the download server-side
+            imageUrl = formData.image.startsWith('/') 
+              ? `${globalThis.location.origin}${formData.image}` 
+              : formData.image;
+          }
+        }
       }
 
       // Create CSV file from new participants if any
@@ -367,6 +384,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
       const payload: CreateEventPayload = {
         event: eventData,
         image: imageFile || undefined,
+        image_url: imageUrl || undefined,
         csv_file: csvFile || undefined,
         documents: documents.length ? documents : undefined
       };
@@ -899,10 +917,16 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
             </div>
 
             {/* CSV Upload Section */}
-            <div className="csv-upload-section" style={{ marginTop: '15px', padding: '15px', border: '1px solid #e0e0e0', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
+            <div className="flex flex-col gap-2 csv-upload-section" style={{ marginTop: '15px', padding: '15px', border: '1px solid #e0e0e0', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
               <label htmlFor="csvParticipants" style={{ display: 'block', marginBottom: '10px', fontWeight: '500' }}>
                 <i className="fas fa-file-csv"></i> Importer une liste de participants (CSV)
               </label>
+              <a download="/template-liste-participant.csv" 
+               className="text-xs text-[-primary] flex items-center gap-1"
+               href="/template-liste-participant.csv"
+               >
+                <i className="fas fa-info-circle"/> 
+              Télécharger le template</a>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <input
                   id="csvParticipants"
