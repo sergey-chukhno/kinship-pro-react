@@ -3,6 +3,7 @@ import { useAppContext } from '../../context/AppContext';
 import ProfileSection from '../Settings/ProfileSection';
 import SecuritySection from '../Settings/SecuritySection';
 import SkillsAvailabilitySection from '../Settings/SkillsAvailabilitySection';
+import ProfessionSection from '../Settings/ProfessionSection';
 import OrganizationsSection from '../Settings/OrganizationsSection';
 import RoleSection from '../Settings/RoleSection';
 import DeleteAccountSection from '../Settings/DeleteAccountSection';
@@ -10,7 +11,7 @@ import './PersonalSettings.css';
 
 const PersonalSettings: React.FC = () => {
   const { state } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'skills' | 'organizations' | 'role' | 'delete'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'skills' | 'profession' | 'organizations' | 'role' | 'delete'>('profile');
 
   return (
     <section className="personal-settings-container with-sidebar">
@@ -38,6 +39,12 @@ const PersonalSettings: React.FC = () => {
             onClick={() => setActiveTab('skills')}
           >
             <i className="fas fa-tasks"></i> Compétences & Disponibilités
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'profession' ? 'active' : ''}`}
+            onClick={() => setActiveTab('profession')}
+          >
+            <i className="fas fa-briefcase"></i> Profession & Offres de stage
           </button>
           <button 
             className={`tab-button ${activeTab === 'organizations' ? 'active' : ''}`}
@@ -75,6 +82,11 @@ const PersonalSettings: React.FC = () => {
           {activeTab === 'skills' && (
             <div className="settings-section">
               <SkillsAvailabilitySection />
+            </div>
+          )}
+          {activeTab === 'profession' && (
+            <div className="settings-section">
+              <ProfessionSection />
             </div>
           )}
           {activeTab === 'organizations' && (

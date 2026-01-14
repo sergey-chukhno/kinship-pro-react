@@ -226,6 +226,10 @@ export interface User {
   role: string;
   avatar: string;
   organization?: string;
+  job?: string;
+  propose_workshop?: boolean;
+  take_trainee?: boolean;
+  show_my_skills?: boolean;
   available_contexts?: {
     companies?: OrganizationContext[];
     schools?: OrganizationContext[];

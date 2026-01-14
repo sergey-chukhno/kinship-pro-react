@@ -161,7 +161,7 @@ const OrganizationsSection: React.FC = () => {
       <div className="organization-type-section">
         <h3>Écoles</h3>
         <p className="section-description">
-          Gérez vos associations avec les écoles
+          Gérez vos demandes avec les écoles
         </p>
 
         {/* Add School */}
@@ -171,7 +171,7 @@ const OrganizationsSection: React.FC = () => {
             <input
               type="text"
               className="search-input"
-              placeholder="Rechercher une école..."
+              placeholder="Rechercher une école par nom, ville, code postal..."
               value={schoolSearchQuery}
               onChange={(e) => setSchoolSearchQuery(e.target.value)}
             />
@@ -250,9 +250,9 @@ const OrganizationsSection: React.FC = () => {
 
       {/* Companies Section */}
       <div className="organization-type-section">
-        <h3>Entreprises</h3>
+        <h3>Organisations</h3>
         <p className="section-description">
-          Gérez vos associations avec les entreprises
+          Gérer vos demandes de rattachement avec les organisations
         </p>
 
         {/* Add Company */}
@@ -262,7 +262,7 @@ const OrganizationsSection: React.FC = () => {
             <input
               type="text"
               className="search-input"
-              placeholder="Rechercher une entreprise..."
+              placeholder="Recherche une organisation (entreprises, associations, institutions,...) par nom, ville, code postal..."
               value={companySearchQuery}
               onChange={(e) => setCompanySearchQuery(e.target.value)}
             />
