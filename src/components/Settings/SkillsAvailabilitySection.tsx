@@ -199,7 +199,7 @@ const SkillsAvailabilitySection: React.FC = () => {
       <div className="skills-section">
         <h3>Compétences</h3>
         <p className="section-description">
-          Sélectionnez vos compétences et sous-compétences
+          Sélectionnez les compétences et sous-compétences que vous souhaitez partager avec votre réseau
         </p>
 
         <div className="skills-container">

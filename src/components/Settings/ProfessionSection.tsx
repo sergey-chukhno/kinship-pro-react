@@ -79,7 +79,7 @@ const ProfessionSection: React.FC = () => {
               checked={proposeWorkshop}
               onChange={(e) => setProposeWorkshop(e.target.checked)}
             />
-            <span>Proposer un atelier de formation professionnel</span>
+            <span>Propose un atelier de formation professionnel</span>
           </label>
         </div>
 
@@ -90,7 +90,7 @@ const ProfessionSection: React.FC = () => {
               checked={takeTrainee}
               onChange={(e) => setTakeTrainee(e.target.checked)}
             />
-            <span>Proposer un stage</span>
+            <span>Propose un stage</span>
           </label>
         </div>
 
