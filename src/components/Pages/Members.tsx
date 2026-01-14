@@ -1221,7 +1221,7 @@ const Members: React.FC = () => {
             </div>
           </div>
           <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-            <i className="fas fa-plus"></i> {isSchoolContext ? 'Ajouter un étudiant' : 'Ajouter un membre'}
+            <i className="fas fa-plus"></i> {isSchoolContext ? 'Ajouter un élève' : 'Ajouter un membre'}
           </button>
         </div>
       </div>
