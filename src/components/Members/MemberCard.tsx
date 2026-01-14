@@ -118,31 +118,41 @@ const MemberCard: React.FC<MemberCardProps> = ({
                 {member.organization}
               </span>
             )}
-            {/* Display common organizations */}
+            {/* Display common organizations (excluding the primary organization to avoid duplicates) */}
             {member.commonOrganizations && (
               <>
-                {member.commonOrganizations.schools.map((school) => (
-                  <span 
-                    key={`school-${school.id}`}
-                    className="organization-type" 
-                    style={{ background: "#dcfce71a", color: "#10b981" }}
-                    title="Établissement scolaire en commun"
-                  >
-                    <i className="fas fa-school" style={{ marginRight: '4px', fontSize: '0.75rem' }}></i>
-                    {school.name}
-                  </span>
-                ))}
-                {member.commonOrganizations.companies.map((company) => (
-                  <span 
-                    key={`company-${company.id}`}
-                    className="organization-type" 
-                    style={{ background: "#dbeafe1a", color: "#3b82f6" }}
-                    title="Organisation en commun"
-                  >
-                    <i className="fas fa-building" style={{ marginRight: '4px', fontSize: '0.75rem' }}></i>
-                    {company.name}
-                  </span>
-                ))}
+                {member.commonOrganizations.schools
+                  .filter(school => 
+                    !member.organization || 
+                    school.name.trim().toLowerCase() !== member.organization.trim().toLowerCase()
+                  )
+                  .map((school) => (
+                    <span 
+                      key={`school-${school.id}`}
+                      className="organization-type" 
+                      style={{ background: "#dcfce71a", color: "#10b981" }}
+                      title="Établissement scolaire en commun"
+                    >
+                      <i className="fas fa-school" style={{ marginRight: '4px', fontSize: '0.75rem' }}></i>
+                      {school.name}
+                    </span>
+                  ))}
+                {member.commonOrganizations.companies
+                  .filter(company => 
+                    !member.organization || 
+                    company.name.trim().toLowerCase() !== member.organization.trim().toLowerCase()
+                  )
+                  .map((company) => (
+                    <span 
+                      key={`company-${company.id}`}
+                      className="organization-type" 
+                      style={{ background: "#dbeafe1a", color: "#3b82f6" }}
+                      title="Organisation en commun"
+                    >
+                      <i className="fas fa-building" style={{ marginRight: '4px', fontSize: '0.75rem' }}></i>
+                      {company.name}
+                    </span>
+                  ))}
               </>
             )}
           </div>
@@ -151,7 +161,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
             const systemRole = (member as any).systemRole || '';
             const translatedSystemRole = systemRole ? translateRole(systemRole) : '';
             return translatedSystemRole ? (
-              <p className="break-words member-profession" style={{ marginTop: 4 }}>{translatedSystemRole}</p>
+              <p className="member-profession" style={{ marginTop: 4 }}>{translatedSystemRole}</p>
             ) : null;
           })()}
         </div>
