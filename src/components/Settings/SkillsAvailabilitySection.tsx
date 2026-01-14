@@ -60,17 +60,13 @@ const SkillsAvailabilitySection: React.FC = () => {
         if (userData?.skills && Array.isArray(userData.skills)) {
           const userSkillIds = userData.skills.map((s: any) => Number(s.id));
           setSelectedSkills(userSkillIds);
-          
-          // Extract sub-skills (flatten from all skills)
-          const userSubSkillIds: number[] = [];
-          userData.skills.forEach((skill: any) => {
-            if (skill.sub_skills && Array.isArray(skill.sub_skills)) {
-              skill.sub_skills.forEach((sub: any) => {
-                userSubSkillIds.push(Number(sub.id));
-              });
-            }
-          });
-          setSelectedSubSkills(userSubSkillIds);
+        }
+        
+        // Extract user's selected sub-skills
+        // The backend now includes user's sub_skills when include_skills is true
+        if (userData?.sub_skills && Array.isArray(userData.sub_skills)) {
+          const userSubSkillIds = userData.sub_skills.map((sub: any) => Number(sub.id || sub));
+          setSelectedSubSkills(userSubSkillIds.filter((id: number) => !isNaN(id) && id > 0));
         }
         
         // Extract current availability

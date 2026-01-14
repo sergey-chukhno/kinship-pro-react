@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
+import { getCurrentUser } from '../../api/Authentication';
 import { updateUserProfile } from '../../api/UserDashBoard/Profile';
 import { useToast } from '../../hooks/useToast';
 import './ProfileSection.css';
@@ -13,13 +14,30 @@ const ProfessionSection: React.FC = () => {
   const [takeTrainee, setTakeTrainee] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load initial values from user context
+  // Load initial values from API
   useEffect(() => {
-    if (state.user) {
-      setJob(state.user.job || '');
-      setProposeWorkshop(state.user.propose_workshop || false);
-      setTakeTrainee(state.user.take_trainee || false);
-    }
+    const loadUserData = async () => {
+      try {
+        const userResponse = await getCurrentUser();
+        const userData = userResponse.data?.data || userResponse.data;
+        
+        if (userData) {
+          setJob(userData.job || '');
+          setProposeWorkshop(userData.propose_workshop || false);
+          setTakeTrainee(userData.take_trainee || false);
+        }
+      } catch (error) {
+        console.error('Error loading user profession data:', error);
+        // Fallback to state.user if API fails
+        if (state.user) {
+          setJob(state.user.job || '');
+          setProposeWorkshop(state.user.propose_workshop || false);
+          setTakeTrainee(state.user.take_trainee || false);
+        }
+      }
+    };
+
+    loadUserData();
   }, [state.user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
