@@ -1487,6 +1487,7 @@ const Members: React.FC = () => {
                   studentCount={classItem?.students_count || 0}
                   level={classItem?.level || ''}
                   teachers={classItem?.teachers}
+                  pedagogical_team_members={classItem?.pedagogical_team_members}
                   onClick={() => handleClassClick(classItem)}
                   onEdit={() => handleEditClass(classItem)}
                   onDelete={() => handleDeleteClass(classItem)}

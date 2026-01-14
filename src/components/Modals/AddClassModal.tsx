@@ -385,7 +385,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           {isEduContext && (
             <>
               <div className="form-group">
-                <label htmlFor="staff">Assigner responsable(s) *</label>
+                <label htmlFor="staff">Nommer un (des) responsable(s): *</label>
                 {loadingStaff ? (
                   <div className="text-gray-500">Chargement des staff...</div>
                 ) : (
@@ -454,7 +454,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
               {/* Équipe pédagogique section */}
               {isEduContext && (
                 <div className="form-group">
-                  <label>Composer les membres de l'équipe pédagogique</label>
+                  <label>Composer les membres de l'équipe pédagogique:</label>
                   {loadingStaff ? (
                     <div className="text-gray-500">Chargement des staff...</div>
                   ) : (
