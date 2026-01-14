@@ -339,6 +339,13 @@ export interface ClassTeacher {
   assigned_at: string;
 }
 
+export interface PedagogicalTeamMember {
+  id: number;
+  full_name: string;
+  email: string;
+  assigned_at?: string;
+}
+
 // Badge API Types (for backend API responses)
 export interface BadgeAPI {
   id: number;
@@ -389,6 +396,8 @@ export interface ClassList {
   teachers_count?: number;
   teachers?: ClassTeacher[];
   teacher_ids?: number[];
+  pedagogical_team_members?: PedagogicalTeamMember[];
+  pedagogical_team_count?: number;
   school_id?: number | null;
 }
 

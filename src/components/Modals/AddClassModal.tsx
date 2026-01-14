@@ -3,12 +3,13 @@ import { ClassList, Member } from '../../types';
 import { useToast } from '../../hooks/useToast';
 import { useAppContext } from '../../context/AppContext';
 import { getCurrentUser } from '../../api/Authentication';
-import { getSchoolMembersAccepted } from '../../api/SchoolDashboard/Members';
+import { getSchoolStaff } from '../../api/SchoolDashboard/Members';
+import AvatarImage from '../UI/AvatarImage';
 
 type Props = {
   onClose: () => void;
-  onAdd: (levelData: { level: { name: string; level: string; teacher_ids?: number[]; school_id?: number | null } }) => void;
-  initialData?: { name: string; level: string; id?: number; teacher_ids?: number[] };
+  onAdd: (levelData: { level: { name: string; level: string; teacher_ids?: number[]; pedagogical_team_member_ids?: number[]; school_id?: number | null } }) => void;
+  initialData?: { name: string; level: string; id?: number; teacher_ids?: number[]; pedagogical_team_member_ids?: number[] };
   isEdit?: boolean;
 }
 
@@ -19,11 +20,14 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
   const [name, setName] = useState(initialData?.name || '');
   const [level, setLevel] = useState(initialData?.level || 'petite_section');
   const [selectedStaffIds, setSelectedStaffIds] = useState<number[]>(initialData?.teacher_ids || []);
+  const [selectedPedagogicalTeamIds, setSelectedPedagogicalTeamIds] = useState<number[]>([]);
   const [availableStaff, setAvailableStaff] = useState<Member[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
   const [availableSchools, setAvailableSchools] = useState<Array<{ id: number; name: string }>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStaff, setLoadingStaff] = useState(false);
+  const [searchTermResponsables, setSearchTermResponsables] = useState('');
+  const [searchTermPedagogicalTeam, setSearchTermPedagogicalTeam] = useState('');
   const { showError, showSuccess } = useToast();
 
   // Charger les écoles disponibles pour les teachers (seulement celles où l'utilisateur est admin, superadmin ou referent)
@@ -76,33 +80,26 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           return;
         }
 
-        const membersRes = await getSchoolMembersAccepted(schoolId);
-        const basicMembers = membersRes.data.data || membersRes.data || [];
+        const staffRes = await getSchoolStaff(schoolId, 100);
+        const staffData = staffRes.data.data || staffRes.data || [];
         
-        // Filtrer pour ne garder que les staff (pas les étudiants)
-        const staffMembers: Member[] = basicMembers
-          .filter((m: any) => {
-            // Exclure les étudiants (rôles typiques d'étudiants)
-            const role = (m.role_in_school || m.role_in_system || m.role || '').toLowerCase();
-            return !['eleve', 'student', 'étudiant'].includes(role);
-          })
-          .map((m: any) => ({
-            id: m.id.toString(),
-            firstName: m.first_name || '',
-            lastName: m.last_name || '',
-            fullName: m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim(),
-            email: m.email || '',
-            profession: m.role_in_system || m.role || '',
-            roles: [m.role_in_school || m.role || 'member'],
-            skills: [],
-            availability: [],
-            avatar: m.avatar_url || '/default-avatar.png',
-            isTrusted: m.status === 'confirmed',
-            badges: [],
-            organization: '',
-            canProposeStage: false,
-            canProposeAtelier: false,
-          }));
+        const staffMembers: Member[] = staffData.map((m: any) => ({
+          id: m.id.toString(),
+          firstName: m.first_name || '',
+          lastName: m.last_name || '',
+          fullName: m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+          email: m.email || '',
+          profession: m.role_in_system || m.role || '',
+          roles: [m.role_in_school || m.role || 'member'],
+          skills: [],
+          availability: [],
+          avatar: m.avatar_url || '/default-avatar.png',
+          isTrusted: m.status === 'confirmed',
+          badges: [],
+          organization: '',
+          canProposeStage: false,
+          canProposeAtelier: false,
+        }));
 
         if (isMounted) {
           setAvailableStaff(staffMembers);
@@ -133,11 +130,14 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
       setName(initialData.name || '');
       setLevel(initialData.level || 'petite_section');
       setSelectedStaffIds(initialData.teacher_ids || []);
+      // TODO: Load pedagogical_team_member_ids from initialData when available
+      setSelectedPedagogicalTeamIds(initialData.pedagogical_team_member_ids || []);
     } else {
       // Réinitialiser si on passe en mode création
       setName('');
       setLevel('petite_section');
       setSelectedStaffIds([]);
+      setSelectedPedagogicalTeamIds([]);
     }
   }, [initialData]);
 
@@ -168,7 +168,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
     };
   }, [isTeacherContext, isEdit]);
 
-  const handleStaffToggle = (staffId: number) => {
+  const handleStaffSelect = (staffId: number) => {
     setSelectedStaffIds(prev => {
       if (prev.includes(staffId)) {
         return prev.filter(id => id !== staffId);
@@ -176,6 +176,88 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
         return [...prev, staffId];
       }
     });
+  };
+
+  const getFilteredStaff = (searchTerm: string) => {
+    if (!availableStaff || !Array.isArray(availableStaff)) {
+      return [];
+    }
+    
+    // Filter out already selected staff
+    const available = availableStaff.filter((staff) => {
+      const staffId = Number(staff.id);
+      return !selectedStaffIds.includes(staffId);
+    });
+    
+    // Apply search filter if search term provided
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      return available.filter((staff) => {
+        const fullName = staff.fullName?.toLowerCase() || '';
+        const firstName = staff.firstName?.toLowerCase() || '';
+        const lastName = staff.lastName?.toLowerCase() || '';
+        const profession = staff.profession?.toLowerCase() || '';
+        const email = staff.email?.toLowerCase() || '';
+        
+        return fullName.includes(searchLower) ||
+               firstName.includes(searchLower) ||
+               lastName.includes(searchLower) ||
+               profession.includes(searchLower) ||
+               email.includes(searchLower);
+      });
+    }
+    
+    return available;
+  };
+
+  const getSelectedStaffMember = (staffId: number) => {
+    return availableStaff.find((s) => Number(s.id) === staffId);
+  };
+
+  const handlePedagogicalTeamSelect = (staffId: number) => {
+    setSelectedPedagogicalTeamIds(prev => {
+      if (prev.includes(staffId)) {
+        return prev.filter(id => id !== staffId);
+      } else {
+        return [...prev, staffId];
+      }
+    });
+  };
+
+  const getFilteredPedagogicalTeam = (searchTerm: string) => {
+    if (!availableStaff || !Array.isArray(availableStaff)) {
+      return [];
+    }
+    
+    // Filter out already selected responsables and pedagogical team members
+    const available = availableStaff.filter((staff) => {
+      const staffId = Number(staff.id);
+      return !selectedStaffIds.includes(staffId) && !selectedPedagogicalTeamIds.includes(staffId);
+    });
+    
+    // Apply search filter if search term provided
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      return available.filter((staff) => {
+        const fullName = staff.fullName?.toLowerCase() || '';
+        const firstName = staff.firstName?.toLowerCase() || '';
+        const lastName = staff.lastName?.toLowerCase() || '';
+        const profession = staff.profession?.toLowerCase() || '';
+        const email = staff.email?.toLowerCase() || '';
+        
+        return fullName.includes(searchLower) ||
+               firstName.includes(searchLower) ||
+               lastName.includes(searchLower) ||
+               profession.includes(searchLower) ||
+               email.includes(searchLower);
+      });
+    }
+    
+    return available;
+  };
+
+  const getSelectedPedagogicalTeamMember = (staffId: number) => {
+    return availableStaff.find((s) => Number(s.id) === staffId);
   };
 
   const handleSubmit = async () => {
@@ -198,6 +280,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           name: name.trim(),
           level: level.trim(),
           ...(selectedStaffIds.length > 0 && { teacher_ids: selectedStaffIds }),
+          ...(selectedPedagogicalTeamIds.length > 0 && { pedagogical_team_member_ids: selectedPedagogicalTeamIds }),
           // Pour les teachers avec des écoles disponibles, inclure school_id même si null (pour "Aucun")
           ...(isTeacherContext && availableSchools.length > 0 && { 
             school_id: selectedSchoolId !== null ? selectedSchoolId : null 
@@ -300,36 +383,144 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           
           {/* Sélecteur de staff pour le contexte edu */}
           {isEduContext && (
-            <div className="form-group">
-              <label htmlFor="staff">Assigner des membres du staff *</label>
-              {loadingStaff ? (
-                <div className="text-gray-500">Chargement des staff...</div>
-              ) : availableStaff.length === 0 ? (
-                <div className="text-gray-500">Aucun staff disponible</div>
-              ) : (
-                <div className="staff-selector" style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '4px', padding: '8px' }}>
-                  {availableStaff.map((staff) => (
-                    <label 
-                      key={staff.id} 
-                      style={{ display: 'flex', alignItems: 'center', padding: '8px', cursor: 'pointer' }}
-                    >
+            <>
+              <div className="form-group">
+                <label htmlFor="staff">Nommer un (des) responsable(s): *</label>
+                {loadingStaff ? (
+                  <div className="text-gray-500">Chargement des staff...</div>
+                ) : (
+                  <div className="compact-selection">
+                    <div className="search-input-container">
+                      <i className="fas fa-search search-icon"></i>
                       <input
-                        type="checkbox"
-                        checked={selectedStaffIds.includes(Number(staff.id))}
-                        onChange={() => handleStaffToggle(Number(staff.id))}
-                        style={{ marginRight: '8px' }}
+                        type="text"
+                        className="form-input"
+                        placeholder="Rechercher des responsables..."
+                        value={searchTermResponsables}
+                        onChange={(e) => setSearchTermResponsables(e.target.value)}
+                        disabled={loadingStaff}
                       />
-                      <span>{staff.fullName} {staff.profession ? `- ${staff.profession}` : ''}</span>
-                    </label>
-                  ))}
+                    </div>
+                    
+                    {selectedStaffIds.length > 0 && (
+                      <div className="selected-items">
+                        {selectedStaffIds.map((staffId) => {
+                          const staff = getSelectedStaffMember(staffId);
+                          return staff ? (
+                            <div key={staffId} className="selected-member">
+                              <AvatarImage src={staff.avatar || '/default-avatar.png'} alt={staff.fullName} className="selected-avatar" />
+                              <div className="selected-info">
+                                <div className="selected-name">{staff.fullName}</div>
+                                <div className="selected-role">{staff.profession}</div>
+                              </div>
+                              <button
+                                type="button"
+                                className="remove-selection"
+                                onClick={() => handleStaffSelect(staffId)}
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                    <div className="selection-list">
+                      {getFilteredStaff(searchTermResponsables).length === 0 ? (
+                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                          <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                          <p>Aucun membre disponible</p>
+                        </div>
+                      ) : (
+                        getFilteredStaff(searchTermResponsables).map((staff: Member) => (
+                          <div
+                            key={staff.id}
+                            className="selection-item"
+                            onClick={() => handleStaffSelect(Number(staff.id))}
+                          >
+                            <AvatarImage src={staff.avatar || '/default-avatar.png'} alt={staff.fullName} className="item-avatar" />
+                            <div className="item-info">
+                              <div className="item-name">{staff.fullName}</div>
+                              <div className="item-role">{staff.profession}</div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Équipe pédagogique section */}
+              {isEduContext && (
+                <div className="form-group">
+                  <label>Composer les membres de l'équipe pédagogique:</label>
+                  {loadingStaff ? (
+                    <div className="text-gray-500">Chargement des staff...</div>
+                  ) : (
+                    <div className="compact-selection">
+                      <div className="search-input-container">
+                        <i className="fas fa-search search-icon"></i>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Rechercher des membres de l'équipe pédagogique..."
+                          value={searchTermPedagogicalTeam}
+                          onChange={(e) => setSearchTermPedagogicalTeam(e.target.value)}
+                          disabled={loadingStaff}
+                        />
+                      </div>
+                      
+                      {selectedPedagogicalTeamIds.length > 0 && (
+                        <div className="selected-items">
+                          {selectedPedagogicalTeamIds.map((staffId) => {
+                            const staff = getSelectedPedagogicalTeamMember(staffId);
+                            return staff ? (
+                              <div key={staffId} className="selected-member">
+                                <AvatarImage src={staff.avatar || '/default-avatar.png'} alt={staff.fullName} className="selected-avatar" />
+                                <div className="selected-info">
+                                  <div className="selected-name">{staff.fullName}</div>
+                                  <div className="selected-role">{staff.profession}</div>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="remove-selection"
+                                  onClick={() => handlePedagogicalTeamSelect(staffId)}
+                                >
+                                  <i className="fas fa-times"></i>
+                                </button>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                      <div className="selection-list">
+                        {getFilteredPedagogicalTeam(searchTermPedagogicalTeam).length === 0 ? (
+                          <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                            <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                            <p>Aucun membre disponible</p>
+                          </div>
+                        ) : (
+                          getFilteredPedagogicalTeam(searchTermPedagogicalTeam).map((staff: Member) => (
+                            <div
+                              key={staff.id}
+                              className="selection-item"
+                              onClick={() => handlePedagogicalTeamSelect(Number(staff.id))}
+                            >
+                              <AvatarImage src={staff.avatar || '/default-avatar.png'} alt={staff.fullName} className="item-avatar" />
+                              <div className="item-info">
+                                <div className="item-name">{staff.fullName}</div>
+                                <div className="item-role">{staff.profession}</div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-              {selectedStaffIds.length > 0 && (
-                <div className="mt-2 text-sm text-gray-600">
-                  {selectedStaffIds.length} membre(s) sélectionné(s)
-                </div>
-              )}
-            </div>
+            </>
           )}
 
           {/* Indication pour le contexte teacher */}
