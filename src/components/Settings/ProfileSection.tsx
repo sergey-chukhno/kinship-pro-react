@@ -96,10 +96,10 @@ const ProfileSection: React.FC = () => {
         firstName,
         lastName,
         email: state.user.email, // Don't update email here, use separate form
-        take_trainee: 'false', // These fields may not be in the simplified User type
-        propose_workshop: 'false',
-        job: '',
-        show_my_skills: 'false',
+        take_trainee: state.user.take_trainee || false,
+        propose_workshop: state.user.propose_workshop || false,
+        job: state.user.job || '',
+        show_my_skills: state.user.show_my_skills || false,
       });
 
       if (response.data) {

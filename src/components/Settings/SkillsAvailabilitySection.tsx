@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getSkills, getSubSkills } from '../../api/RegistrationRessource';
+import { getCurrentUser } from '../../api/Authentication';
 import { updateUserSkills, updateUserAvailability } from '../../api/UserDashBoard/Skills';
 import { translateSkill, translateSubSkill } from '../../translations/skills';
 import { useToast } from '../../hooks/useToast';
@@ -51,9 +52,34 @@ const SkillsAvailabilitySection: React.FC = () => {
           setSkillList(normalized);
         }
 
-        // Note: User type in AppContext is simplified and doesn't include skills/availability
-        // These will be loaded from the API response when updating, or can be fetched separately
-        // For now, we'll start with empty selections and let users set them
+        // Load current user data to get existing skills and availability
+        const userResponse = await getCurrentUser();
+        const userData = userResponse.data?.data || userResponse.data;
+        
+        // Extract current skills
+        if (userData?.skills && Array.isArray(userData.skills)) {
+          const userSkillIds = userData.skills.map((s: any) => Number(s.id));
+          setSelectedSkills(userSkillIds);
+        }
+        
+        // Extract user's selected sub-skills
+        // The backend now includes user's sub_skills when include_skills is true
+        if (userData?.sub_skills && Array.isArray(userData.sub_skills)) {
+          const userSubSkillIds = userData.sub_skills.map((sub: any) => Number(sub.id || sub));
+          setSelectedSubSkills(userSubSkillIds.filter((id: number) => !isNaN(id) && id > 0));
+        }
+        
+        // Extract current availability
+        if (userData?.availability) {
+          setAvailability({
+            monday: userData.availability.monday || false,
+            tuesday: userData.availability.tuesday || false,
+            wednesday: userData.availability.wednesday || false,
+            thursday: userData.availability.thursday || false,
+            friday: userData.availability.friday || false,
+            other: userData.availability.other || false,
+          });
+        }
       } catch (error) {
         console.error('Error loading user data:', error);
       } finally {
@@ -169,7 +195,7 @@ const SkillsAvailabilitySection: React.FC = () => {
       <div className="skills-section">
         <h3>Compétences</h3>
         <p className="section-description">
-          Sélectionnez vos compétences et sous-compétences
+          Sélectionnez les compétences et sous-compétences que vous souhaitez partager avec votre réseau
         </p>
 
         <div className="skills-container">
