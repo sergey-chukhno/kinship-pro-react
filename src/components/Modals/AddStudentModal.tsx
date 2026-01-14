@@ -330,8 +330,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     console.log('Form data:', formData);
     console.log('LevelId:', formData.levelId);
     console.log('levels:', levels);
-    if (!formData.firstName || !formData.lastName || !formData.birthday || !formData.levelId) {
-      showError('Prénom, nom, date de naissance et classe sont obligatoires');
+    if (!formData.firstName || !formData.lastName || !formData.levelId) {
+      showError('Prénom, nom et classe sont obligatoires');
+      return;
+    }
+    
+    if (!formData.email && !formData.birthday) {
+      showError('Email ou date de naissance est obligatoire');
       return;
     }
 
@@ -499,7 +504,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Ajouter un nouvel étudiant</h2>
+          <h2>Ajouter un nouvel élève</h2>
           <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
@@ -572,6 +577,19 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 className="form-input"
               />
             </div>
+
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className="form-input"
+                placeholder="Optionnel - laisser vide pour créer un email temporaire"
+              />
+            </div>
             
             {/* Sélecteur d'école pour les teachers (toujours affiché si au moins une école disponible) */}
             {isTeacherContext && availableSchools.length > 0 && (
@@ -601,7 +619,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             )}
 
             <div className="form-group">
-              <label htmlFor="birthday">Date de naissance *</label>
+              <label htmlFor="birthday">
+                Date de naissance {!formData.email && '*'}
+              </label>
               <input
                 type="date"
                 id="birthday"
@@ -609,9 +629,12 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 max={new Date().toISOString().split('T')[0]}
                 value={formData.birthday}
                 onChange={handleInputChange}
-                required
+                required={!formData.email}
                 className="form-input"
               />
+              {!formData.email && (
+                <p className="form-hint">Requis si aucun email n'est fourni</p>
+              )}
             </div>
 
 
