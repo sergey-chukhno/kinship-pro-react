@@ -30,7 +30,7 @@ const tradFR = {
   education_rectorate_personnel: "Personnel du rectorat",
   administrative_staff: "Personnel administratif",
   cpe_student_life: "Conseiller Principal d'Education (CPE)",
-  other_teacher: "Autre",
+  other_teacher: "Autres (Personnel de mission, MLDS,...)",
 }
 
 const ROLE_ORDER = [
