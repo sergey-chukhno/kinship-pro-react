@@ -164,6 +164,12 @@ const ProjectManagement: React.FC = () => {
         // Store raw API data for permission checks
         setApiProjectData(apiProject);
         
+        // Debug: Log organization info from API
+        console.log('🔍 [ProjectManagement] API Project primary_organization_name:', apiProject.primary_organization_name);
+        console.log('🔍 [ProjectManagement] Current user organization:', 
+          state.showingPageType === 'edu' ? state.user?.available_contexts?.schools?.[0]?.name : 
+          state.showingPageType === 'pro' ? state.user?.available_contexts?.companies?.[0]?.name : 'N/A');
+        
         // Determine user's role in the project
         const role = getUserProjectRole(apiProject, state.user?.id?.toString());
         setUserProjectRole(role);
@@ -174,6 +180,10 @@ const ProjectManagement: React.FC = () => {
         
         // Map API data to frontend format
         const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
+        
+        // Debug: Log mapped project organization info
+        console.log('🔍 [ProjectManagement] Mapped project.organization:', mappedProject.organization);
+        console.log('🔍 [ProjectManagement] Mapped project.responsible?.organization:', mappedProject.responsible?.organization);
         
         // Debug: Log mapped co-responsibles
         console.log('Mapped project coResponsibles:', mappedProject.coResponsibles);
@@ -704,7 +714,7 @@ const ProjectManagement: React.FC = () => {
         avatar: apiProjectData.owner.avatar_url || DEFAULT_AVATAR_SRC,
         skills: apiProjectData.owner.skills?.map((s: any) => s.name || s) || [],
         availability: apiProjectData.owner.availability || [],
-        organization: apiProjectData.owner_organization_name || '',
+        organization: apiProjectData.primary_organization_name || project.organization || '',
         role: 'owner',
         projectRole: 'owner',
         is_deleted: apiProjectData.owner.is_deleted || false
@@ -2227,7 +2237,7 @@ const ProjectManagement: React.FC = () => {
                   <div className="manager-right">
                     <div className="manager-organization">
                       <img src="/icons_logo/Icon=projet.svg" alt="Organization" className="manager-icon" />
-                      <span className="manager-text">{project.responsible?.organization || project.organization}</span>
+                      <span className="manager-text">{project.responsible?.organization || ''}</span>
                     </div>
                     <div className="manager-email">
                       <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
