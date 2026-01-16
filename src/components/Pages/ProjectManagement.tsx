@@ -2293,7 +2293,11 @@ const ProjectManagement: React.FC = () => {
                   <div className="project-partner-info">
                     <div className="manager-left">
                       <div className="manager-avatar">
-                        <img src={project.partner.logo} alt={project.partner.name} />
+                        <AvatarImage 
+                          src={project.partner.logo || '/default-avatar.png'} 
+                          alt={project.partner.name} 
+                          className="manager-avatar-img"
+                        />
                       </div>
                       <div className="manager-details">
                         <div className="manager-name">{project.partner.name}</div>

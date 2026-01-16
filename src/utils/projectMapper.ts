@@ -496,11 +496,13 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         badges_list: [], // Not provided by current API
         responsible: responsible,
         coResponsibles: coResponsibles.length > 0 ? coResponsibles : [],
-        partner: apiProject.partnership_id ? {
-            id: apiProject.partnership_id.toString(),
-            name: '', // Would need to fetch partnership details
-            logo: '',
-            organization: ''
+        partner: apiProject.partnership_id && apiProject.partnership_details ? {
+            id: apiProject.partnership_details.partnership_id.toString(),
+            name: apiProject.partnership_details.partner_organizations?.[0]?.name 
+                  ? `Partenariat ${apiProject.partnership_details.partner_organizations[0].name}` 
+                  : '',
+            logo: apiProject.partnership_details.partner_organizations?.[0]?.logo_url || '',
+            organization: apiProject.partnership_details.partner_organizations?.[0]?.name || ''
         } : undefined
     };
 };
