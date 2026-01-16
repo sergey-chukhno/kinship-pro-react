@@ -373,6 +373,9 @@ const getPathwayFromTags = (tags: any[]): string | undefined => {
         'eac': 'eac',
         'créativité': 'creativite',
         'creativite': 'creativite',
+        'mlds': 'mlds',
+        'faj co': 'faj_co',
+        'faj_co': 'faj_co',
         'autre': 'other'
     };
     

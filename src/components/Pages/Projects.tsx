@@ -805,6 +805,8 @@ const Projects: React.FC = () => {
               <option value="technologie">Technologie</option>
               <option value="sante">Santé</option>
               <option value="environnement">Environnement</option>
+              <option value="mlds">MLDS</option>
+              <option value="faj_co">FAJ Co</option>
             </select>
           </div>
           <div className="filter-group">

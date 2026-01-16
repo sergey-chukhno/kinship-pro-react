@@ -61,6 +61,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
       case 'eac': return 'EAC';
       case 'creativite': return 'Créativité';
       case 'avenir': return 'Avenir';
+      case 'mlds': return 'MLDS';
+      case 'faj_co': return 'FAJ Co';
       default: return 'Autre';
     }
   };

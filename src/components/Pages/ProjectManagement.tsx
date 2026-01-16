@@ -3368,7 +3368,6 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
 
-              {state.showingPageType !== 'pro' && (
               <div className="form-group">
                 <label htmlFor="project-pathway">Parcours</label>
                 <select
@@ -3382,9 +3381,10 @@ const ProjectManagement: React.FC = () => {
                   <option value="citoyen">Citoyen</option>
                   <option value="creativite">Créativité</option>
                   <option value="avenir">Avenir</option>
+                  <option value="mlds">MLDS</option>
+                  <option value="faj_co">FAJ Co</option>
                 </select>
               </div>
-              )}
 
               <div className="form-group">
                 <label>Tags du projet</label>
