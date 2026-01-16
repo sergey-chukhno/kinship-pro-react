@@ -450,11 +450,11 @@ const ProjectManagement: React.FC = () => {
   
   // State for available members (for adding participants)
   const [availableMembers, setAvailableMembers] = useState<any[]>([]);
-  const [isLoadingAvailableMembers, setIsLoadingAvailableMembers] = useState(false);
+  const [_isLoadingAvailableMembers, setIsLoadingAvailableMembers] = useState(false); // Set but not used in UI
 
   // State for participants with extended type
   const [participants, setParticipants] = useState<any[]>([]);
-  const [isLoadingParticipants, setIsLoadingParticipants] = useState(false);
+  const [_isLoadingParticipants, setIsLoadingParticipants] = useState(false); // Set but not used in UI
   const lastLoadedProjectIdRef = useRef<string | null>(null);
   const previousIdsRef = useRef<{ projectId: string | null; apiProjectId: string | null }>({ projectId: null, apiProjectId: null });
   const isLoadingRef = useRef<boolean>(false); // Use ref to prevent re-render triggers
@@ -1308,6 +1308,7 @@ const ProjectManagement: React.FC = () => {
     } finally {
       setIsLoadingProjectBadges(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id, badgeSeriesFilter, badgeLevelFilter]);
 
   const fetchProjectDocuments = useCallback(async () => {
@@ -1614,33 +1615,33 @@ const ProjectManagement: React.FC = () => {
     );
   };
 
-  // Task management functions
-  const handleCreateTask = () => {
-    setIsCreateTaskModalOpen(true);
-    setNewTaskForm({
-      title: '',
-      description: '',
-      assigneeType: 'individual',
-      assigneeId: '',
-      startDate: '',
-      dueDate: '',
-      priority: 'medium'
-    });
-  };
+  // Task management functions (currently unused - kept for future implementation)
+  // const handleCreateTask = () => {
+  //   setIsCreateTaskModalOpen(true);
+  //   setNewTaskForm({
+  //     title: '',
+  //     description: '',
+  //     assigneeType: 'individual',
+  //     assigneeId: '',
+  //     startDate: '',
+  //     dueDate: '',
+  //     priority: 'medium'
+  //   });
+  // };
 
-  const handleEditTask = (task: any) => {
-    setSelectedTask(task);
-    setNewTaskForm({
-      title: task.title,
-      description: task.description,
-      assigneeType: task.assigneeType,
-      assigneeId: task.assigneeId,
-      startDate: task.startDate,
-      dueDate: task.dueDate,
-      priority: task.priority
-    });
-    setIsEditTaskModalOpen(true);
-  };
+  // const handleEditTask = (task: any) => {
+  //   setSelectedTask(task);
+  //   setNewTaskForm({
+  //     title: task.title,
+  //     description: task.description,
+  //     assigneeType: task.assigneeType,
+  //     assigneeId: task.assigneeId,
+  //     startDate: task.startDate,
+  //     dueDate: task.dueDate,
+  //     priority: task.priority
+  //   });
+  //   setIsEditTaskModalOpen(true);
+  // };
 
   const handleSaveTask = () => {
     if (!newTaskForm.title.trim()) {
@@ -1696,39 +1697,40 @@ const ProjectManagement: React.FC = () => {
     });
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) {
-      setTasks(tasks.filter(task => task.id !== taskId));
-    }
-  };
+  // Task management functions (currently unused - kept for future implementation)
+  // const handleDeleteTask = (taskId: string) => {
+  //   if (window.confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) {
+  //     setTasks(tasks.filter(task => task.id !== taskId));
+  //   }
+  // };
 
-  const handleTaskDrag = (taskId: string, newStatus: string) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, status: newStatus } : task
-    ));
-  };
+  // const handleTaskDrag = (taskId: string, newStatus: string) => {
+  //   setTasks(tasks.map(task => 
+  //     task.id === taskId ? { ...task, status: newStatus } : task
+  //   ));
+  // };
 
-  const getTasksByStatus = (status: string) => {
-    return tasks.filter(task => task.status === status);
-  };
+  // const getTasksByStatus = (status: string) => {
+  //   return tasks.filter(task => task.status === status);
+  // };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return '#ef4444';
-      case 'medium': return '#f59e0b';
-      case 'low': return '#10b981';
-      default: return '#6b7280';
-    }
-  };
+  // const getPriorityColor = (priority: string) => {
+  //   switch (priority) {
+  //     case 'high': return '#ef4444';
+  //     case 'medium': return '#f59e0b';
+  //     case 'low': return '#10b981';
+  //     default: return '#6b7280';
+  //   }
+  // };
 
-  const getPriorityLabel = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'Haute';
-      case 'medium': return 'Moyenne';
-      case 'low': return 'Basse';
-      default: return 'Non définie';
-    }
-  };
+  // const getPriorityLabel = (priority: string) => {
+  //   switch (priority) {
+  //     case 'high': return 'Haute';
+  //     case 'medium': return 'Moyenne';
+  //     case 'low': return 'Basse';
+  //     default: return 'Non définie';
+  //   }
+  // };
 
   const handleAddParticipant = async () => {
     setIsLoadingAvailableMembers(true);

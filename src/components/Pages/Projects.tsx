@@ -57,7 +57,7 @@ const Projects: React.FC = () => {
 
   // Loading states
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
-  const [isLoadingBadges, setIsLoadingBadges] = useState(false);
+  // const [isLoadingBadges, setIsLoadingBadges] = useState(false); // Unused
   const [initialLoad, setInitialLoad] = useState(true);
 
   // Fonction pour obtenir l'organizationId sélectionné (comme dans Dashboard)
