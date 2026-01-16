@@ -168,6 +168,7 @@ const Network: React.FC = () => {
   const [availabilityFilter, setAvailabilityFilter] = useState<string[]>([]);
   const [organizationFilter, setOrganizationFilter] = useState('');
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_skillsLoading, setSkillsLoading] = useState(false); // Set but not used in UI
   const [isAvailabilityDropdownOpen, setIsAvailabilityDropdownOpen] = useState(false);
   const [isPropositionsDropdownOpen, setIsPropositionsDropdownOpen] = useState(false);
@@ -201,6 +202,7 @@ const Network: React.FC = () => {
   
   // Personal user confirmed organizations (for activeCard display)
   const [myOrganizations, setMyOrganizations] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_myOrganizationsLoading, setMyOrganizationsLoading] = useState(false); // Set but not used in UI
 
   // Search results state

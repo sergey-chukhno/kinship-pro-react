@@ -46,6 +46,7 @@ const ProjectManagement: React.FC = () => {
   // Badge filters
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_badgeDomainFilter, setBadgeDomainFilter] = useState(''); // Set but not used in UI - kept for future use
   const [projectBadges, setProjectBadges] = useState<any[]>([]);
   const [isLoadingProjectBadges, setIsLoadingProjectBadges] = useState(false);
@@ -122,6 +123,7 @@ const ProjectManagement: React.FC = () => {
 
   // State for project data (fetched from API)
   const [project, setProject] = useState<Project>(state.selectedProject || mockProjects[0]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_isLoadingProject, setIsLoadingProject] = useState(false); // Set but not used in UI
   const [apiProjectData, setApiProjectData] = useState<any>(null);
   
@@ -451,10 +453,12 @@ const ProjectManagement: React.FC = () => {
   
   // State for available members (for adding participants)
   const [availableMembers, setAvailableMembers] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_isLoadingAvailableMembers, setIsLoadingAvailableMembers] = useState(false); // Set but not used in UI
 
   // State for participants with extended type
   const [participants, setParticipants] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_isLoadingParticipants, setIsLoadingParticipants] = useState(false); // Set but not used in UI
   const lastLoadedProjectIdRef = useRef<string | null>(null);
   const previousIdsRef = useRef<{ projectId: string | null; apiProjectId: string | null }>({ projectId: null, apiProjectId: null });
