@@ -16,6 +16,7 @@ interface MemberCardProps {
   isSuperadmin?: boolean; // New prop to indicate if member is superadmin
   onViewProfile?: () => void; // Optional prop for viewing profile
   extraActions?: Array<{ label: string; onClick: () => void }>;
+  badgeCartographyUrl?: string; // Optional URL for badge cartography
 }
 
 const MemberCard: React.FC<MemberCardProps> = ({
@@ -28,7 +29,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
   isSuperadmin = false,
   onViewProfile,
   categoryTag,
-  extraActions = []
+  extraActions = [],
+  badgeCartographyUrl
 }) => {
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -258,10 +260,26 @@ const MemberCard: React.FC<MemberCardProps> = ({
         </div>
       </div>
       
-      <div className="badge-counter">
-        <img src="/icons_logo/Icon=Badges.svg" alt="Badge" className="badge-icon" />
-        <span>{badgeCount}</span>
-      </div>
+      {badgeCartographyUrl ? (
+        <a
+          href={badgeCartographyUrl}
+          className="badge-counter"
+          target="_blank"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+          style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+          aria-label={`Voir la cartographie des badges de ${member.firstName} ${member.lastName}`}
+        >
+          <img src="/icons_logo/Icon=Badges.svg" alt="Badge" className="badge-icon" />
+          <span>{badgeCount}</span>
+        </a>
+      ) : (
+        <div className="badge-counter">
+          <img src="/icons_logo/Icon=Badges.svg" alt="Badge" className="badge-icon" />
+          <span>{badgeCount}</span>
+        </div>
+      )}
     </div>
   );
 };

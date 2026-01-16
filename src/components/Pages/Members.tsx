@@ -6,6 +6,7 @@ import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers,
 import { getSkills } from '../../api/Skills';
 import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent } from '../../api/Dashboard';
 import { getTeacherClassStudents } from '../../api/Dashboard';
+import { createStudentBadgeCartographyShare } from '../../api/BadgeCartography';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
@@ -110,6 +111,39 @@ const Members: React.FC = () => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Member | null>(null);
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
+  const [cartographyTokens, setCartographyTokens] = useState<Record<string, string>>({});
+  const [loadingCartographyTokens, setLoadingCartographyTokens] = useState<Record<string, boolean>>({});
+
+  // Function to get or generate cartography token for a student
+  const getCartographyToken = useCallback(async (studentId: string, schoolId: number | null): Promise<string | null> => {
+    if (!schoolId) return null;
+    
+    // If token already exists, return it
+    if (cartographyTokens[studentId]) {
+      return cartographyTokens[studentId];
+    }
+
+    // If already loading, return null
+    if (loadingCartographyTokens[studentId]) {
+      return null;
+    }
+
+    try {
+      setLoadingCartographyTokens(prev => ({ ...prev, [studentId]: true }));
+      const result = await createStudentBadgeCartographyShare(schoolId, studentId);
+      setCartographyTokens(prev => ({ ...prev, [studentId]: result.token }));
+      return result.token;
+    } catch (error) {
+      console.error(`Error generating cartography token for student ${studentId}:`, error);
+      return null;
+    } finally {
+      setLoadingCartographyTokens(prev => {
+        const newState = { ...prev };
+        delete newState[studentId];
+        return newState;
+      });
+    }
+  }, [cartographyTokens, loadingCartographyTokens]);
 
   const renderMembersLoading = () => (
     <div className="members-loading-container">
@@ -571,6 +605,18 @@ const Members: React.FC = () => {
     const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
     return studentRoles.includes(primaryRoleRaw);
   });
+
+  // Generate cartography tokens for students in background
+  useEffect(() => {
+    if (isSchoolContext && activeTab === 'students' && currentSchoolId && filteredStudents.length > 0) {
+      filteredStudents.forEach((student) => {
+        // Only generate if not already generated and not currently loading
+        if (!cartographyTokens[student.id] && !loadingCartographyTokens[student.id]) {
+          getCartographyToken(student.id, currentSchoolId);
+        }
+      });
+    }
+  }, [filteredStudents, currentSchoolId, isSchoolContext, activeTab, cartographyTokens, loadingCartographyTokens, getCartographyToken]);
 
   const filteredCommunityMembers = communityLists.filter(member => {
     const term = searchTerm.toLowerCase();
@@ -1372,6 +1418,18 @@ const Members: React.FC = () => {
                       }
                     }
                   ] : []}
+                  badgeCartographyUrl={(() => {
+                    // Get cartography token for this student
+                    const token = cartographyTokens[member.id];
+                    if (token) {
+                      return `/badge-cartography/${token}`;
+                    }
+                    // If token not yet generated, trigger generation and return placeholder
+                    if (currentSchoolId && !loadingCartographyTokens[member.id]) {
+                      getCartographyToken(member.id, currentSchoolId);
+                    }
+                    return undefined; // Will be updated once token is generated
+                  })()}
                 />
               );
             })

@@ -6,7 +6,7 @@ import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import BadgeCard from '../Badges/BadgeCard';
 import './PublicBadgeCartography.css';
 
-const PublicBadgeCartography: React.FC = () => {
+const SelectedStudentsBadgeCartography: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const [badges, setBadges] = useState<Badge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +43,7 @@ const PublicBadgeCartography: React.FC = () => {
 
         setBadges(transformedBadges);
       } catch (err: any) {
-        console.error('Error fetching public cartography:', err);
+        console.error('Error fetching selected students cartography:', err);
         setError(err.response?.data?.error || 'Erreur lors du chargement de la cartographie');
       } finally {
         setIsLoading(false);
@@ -100,7 +100,7 @@ const PublicBadgeCartography: React.FC = () => {
       <div className="public-cartography-container">
         <div className="public-cartography-loading">
           <i className="fas fa-spinner fa-spin"></i>
-          <p>Chargement de la cartographie...</p>
+          <p>Chargement de la cartographie des étudiants sélectionnés...</p>
         </div>
       </div>
     );
@@ -121,7 +121,7 @@ const PublicBadgeCartography: React.FC = () => {
   return (
     <div className="public-cartography-container">
       <div className="public-cartography-header">
-        <h1>Cartographie des badges</h1>
+        <h1>Cartographie des badges - Étudiants sélectionnés</h1>
         
         {shareInfo && (
           <div className="public-cartography-meta">
@@ -142,7 +142,7 @@ const PublicBadgeCartography: React.FC = () => {
           <div className="public-cartography-empty">
             <i className="fas fa-award"></i>
             <h4>Aucun badge trouvé</h4>
-            <p>Cette cartographie ne contient aucun badge.</p>
+            <p>Cette cartographie ne contient aucun badge pour les étudiants sélectionnés.</p>
           </div>
         ) : (
           sections.map((section) => {
@@ -189,5 +189,7 @@ const PublicBadgeCartography: React.FC = () => {
   );
 };
 
-export default PublicBadgeCartography;
+export default SelectedStudentsBadgeCartography;
+
+
 
