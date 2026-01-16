@@ -198,7 +198,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const minLength = password.length >= 8
     const lowercase = /[a-z]/.test(password)
     const uppercase = /[A-Z]/.test(password)
-    const specialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    const specialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
     // Le match n'est vrai que si les deux sont identiques ET que le champ n'est pas vide
     const match = password.length > 0 && password === passwordConfirmation
 
@@ -209,7 +209,7 @@ const SchoolRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       specialChar,
       match,
     })
-  }, [user.password, user.passwordConfirmation])
+  }, [user])
 
   useEffect(() => {
     const fetchRoles = async () => {

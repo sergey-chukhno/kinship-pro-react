@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAppContext } from '../../context/AppContext';
 import { getPersonalUserOrganizations } from '../../api/Projects';
 import { transferSuperadminRole, deleteAccount, getEligibleSchoolAdmins, getEligibleCompanyAdmins } from '../../api/UserDashBoard/Profile';
 import { useToast } from '../../hooks/useToast';
@@ -27,7 +26,6 @@ interface EligibleUser {
 }
 
 const DeleteAccountSection: React.FC = () => {
-  const { } = useAppContext();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   
