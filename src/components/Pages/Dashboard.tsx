@@ -1218,7 +1218,7 @@ const Dashboard: React.FC = () => {
   }>(() => {
     const activityByType = activityStats?.[selectedActivity];
     const dataset: ActivityStatsDataset | undefined = activityByType?.[selectedPeriod];
-    const defaultColor = ACTIVITY_DEFAULT_COLORS[selectedActivity];
+    // const defaultColor = ACTIVITY_DEFAULT_COLORS[selectedActivity]; // Unused variable
     const fallbackLabels = DEFAULT_ACTIVITY_LABELS[selectedPeriod] || [];
 
     if (!dataset) {
@@ -1464,7 +1464,7 @@ const Dashboard: React.FC = () => {
           <div className="dashboard-stats">
             <div className="stats-grid">
               {statCards.map((card) => {
-                if (card.label === "Enseignants" || card.label === "Membres actifs" && state.showingPageType === 'teacher') return null;
+                if ((card.label === "Enseignants" || card.label === "Membres actifs") && state.showingPageType === 'teacher') return null;
                 const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
                 return (
                   <div key={card.key} className={card.variant}>
