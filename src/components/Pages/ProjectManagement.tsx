@@ -46,7 +46,7 @@ const ProjectManagement: React.FC = () => {
   // Badge filters
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
-  const [badgeDomainFilter, setBadgeDomainFilter] = useState('');
+  const [_badgeDomainFilter, setBadgeDomainFilter] = useState(''); // Set but not used in UI - kept for future use
   const [projectBadges, setProjectBadges] = useState<any[]>([]);
   const [isLoadingProjectBadges, setIsLoadingProjectBadges] = useState(false);
   const [projectBadgesError, setProjectBadgesError] = useState<string | null>(null);
@@ -122,7 +122,7 @@ const ProjectManagement: React.FC = () => {
 
   // State for project data (fetched from API)
   const [project, setProject] = useState<Project>(state.selectedProject || mockProjects[0]);
-  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [_isLoadingProject, setIsLoadingProject] = useState(false); // Set but not used in UI
   const [apiProjectData, setApiProjectData] = useState<any>(null);
   
   // State for project statistics
@@ -351,7 +351,8 @@ const ProjectManagement: React.FC = () => {
       isCancelled = true;
       // Don't reset refs here - let the new effect run handle it
     };
-  }, [apiProjectData?.id, project?.id]); // Depend directly on ID values
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiProjectData?.id, project?.id]); // Depend directly on ID values - fetchAllProjectMembers and showError are stable
 
   // Fetch project badges when project changes
   // Fetch badges when page or filters change
