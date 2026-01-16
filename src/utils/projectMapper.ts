@@ -224,7 +224,7 @@ export const mapEditFormToBackend = (
     },
     tags: Tag[],
     project: Project
-): { payload: UpdateProjectPayload; mainImageFile: File | null } => {
+): UpdateProjectPayload => {
     // Normalize tags to ensure it's an array
     // Handle both Tag[] and { data: Tag[] } formats
     const normalizedTags: Tag[] = Array.isArray(tags) 
@@ -262,7 +262,7 @@ export const mapEditFormToBackend = (
 
     // Note: editImagePreview will be passed separately and converted in handleSaveEdit
 
-    return { payload, mainImageFile: null };
+    return payload;
 };
 
 /**

@@ -30,7 +30,7 @@ const SecuritySection: React.FC = () => {
     const minLength = newPassword.length >= 8;
     const lowercase = /[a-z]/.test(newPassword);
     const uppercase = /[A-Z]/.test(newPassword);
-    const specialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(newPassword);
+    const specialChar = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>?]/.test(newPassword);
     const match = newPassword.length > 0 && newPassword === passwordConfirmation;
 
     setPasswordCriteria({

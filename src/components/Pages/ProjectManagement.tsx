@@ -976,7 +976,7 @@ const ProjectManagement: React.FC = () => {
   const handleSaveEdit = async () => {
     try {
       // Map edit form to backend payload
-      const { payload } = mapEditFormToBackend(editForm, state.tags || [], project);
+      const payload = mapEditFormToBackend(editForm, state.tags || [], project);
       
       // Convert image preview to File if different from current image
       let mainImageFile: File | null = null;
