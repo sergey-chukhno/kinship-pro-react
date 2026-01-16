@@ -9,7 +9,7 @@ export const base64ToFile = (base64String: string, filename: string): File | nul
 
     try {
         // Extract the base64 data and mime type
-        const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        const matches = base64String.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
         if (!matches || matches.length !== 3) {
             return null;
         }
@@ -260,8 +260,6 @@ export const mapEditFormToBackend = (
         }
     };
 
-    // Convert image preview to File if different from current image
-    let mainImageFile: File | null = null;
     // Note: editImagePreview will be passed separately and converted in handleSaveEdit
 
     return { payload, mainImageFile: null };

@@ -5,7 +5,7 @@ import { PageType } from "../types";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export const useAuthInit = () => {
-  const { state, setCurrentPage, setShowingPageType, setUser } = useAppContext();
+  const { setCurrentPage, setShowingPageType, setUser } = useAppContext();
   const location = useLocation()
   const navigate = useNavigate()
   const [isAuthChecking, setIsAuthChecking] = useState(true);
