@@ -77,7 +77,8 @@ const OrganizationsSection: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [showError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     loadOrganizations();
