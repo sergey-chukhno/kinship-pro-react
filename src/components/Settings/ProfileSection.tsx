@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { updateUserProfile, uploadAvatar, deleteAvatar } from '../../api/UserDashBoard/Profile';
 import { updateUserEmail } from '../../api/UserDashBoard/Profile';
@@ -29,6 +29,14 @@ const ProfileSection: React.FC = () => {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // Sync form fields when user changes
+  useEffect(() => {
+    const { first: newFirst, last: newLast } = parseName(state.user.name || '');
+    setFirstName(newFirst);
+    setLastName(newLast);
+    setEmail(state.user.email || '');
+  }, [state.user]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();

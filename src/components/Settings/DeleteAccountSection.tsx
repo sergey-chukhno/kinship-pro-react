@@ -27,7 +27,7 @@ interface EligibleUser {
 }
 
 const DeleteAccountSection: React.FC = () => {
-  const { state } = useAppContext();
+  const { } = useAppContext();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   
