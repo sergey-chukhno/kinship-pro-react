@@ -56,8 +56,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
   // Loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoadingTags, setIsLoadingTags] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoadingPartnerships, setIsLoadingPartnerships] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);

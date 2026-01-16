@@ -83,6 +83,7 @@ type ActivityStatsPayload = Partial<
   Record<ActivityType, Partial<Record<ActivityPeriodKey, ActivityStatsDataset>>>
 >;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ACTIVITY_DEFAULT_COLORS: Record<ActivityType, string> = {
   projects: '#5570F1',
   badges: '#16A34A',
