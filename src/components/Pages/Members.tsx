@@ -8,7 +8,7 @@ import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeache
 import { getTeacherClassStudents } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
-import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
+import { translateSkill, translateSubSkill } from '../../translations/skills';
 import { ClassList, Member } from '../../types';
 import ClassCard from '../Class/ClassCard';
 import MemberCard from '../Members/MemberCard';
@@ -90,10 +90,12 @@ const Members: React.FC = () => {
   const [classLists, setClassLists] = useState<ClassList[]>([])
   const [members, setMembers] = useState<Member[]>([]);
   const [communityLists, setCommunityLists] = useState<Member[]>([]);
-  const [page, setPage] = useState(1);
-  const [per_page, setPerPage] = useState(12);
-  const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // Removed unused pagination variables - replaced with classesPage/classesTotalPages
+  // const [page, setPage] = useState(1);
+  // const [per_page, setPerPage] = useState(12);
+  // const [totalPages, setTotalPages] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [loading, setLoading] = useState(true); // setLoading is used in fetchLevels, but loading state is not read
   const [isMembersLoading, setIsMembersLoading] = useState(true);
   const [membersInitialLoad, setMembersInitialLoad] = useState(true);
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
@@ -872,6 +874,7 @@ const Members: React.FC = () => {
     if (selectedMember?.id === id) setSelectedMember({ ...selectedMember, ...updates });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleImportExport = (action: 'import' | 'export') => {
     if (action === 'import') {
       setIsCsvImportModalOpen(true);

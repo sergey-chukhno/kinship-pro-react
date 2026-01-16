@@ -224,7 +224,8 @@ const Badges: React.FC = () => {
     });
     
     return grouped;
-  }, [filteredBadges, selectedSeries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredBadges]); // selectedSeries is already captured in filteredBadges dependency
 
   // Define levels based on selected series - all series use level-based sections
   const getSections = (series: string) => {

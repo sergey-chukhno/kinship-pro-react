@@ -56,8 +56,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
   // Loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoadingTags, setIsLoadingTags] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoadingPartnerships, setIsLoadingPartnerships] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -456,8 +458,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     e.preventDefault();
     setSubmitError(null);
 
-    // Validation: Pathway is required only if visible (not 'pro')
-    const isPathwayRequired = state.showingPageType !== 'pro';
+    // Validation: Pathway is required for all dashboards
+    const isPathwayRequired = true;
     const isPathwayValid = !isPathwayRequired || formData.pathway;
 
     // For teachers, organization is always required (but pre-filled)
@@ -961,30 +963,30 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
               </div>
             </div>
 
-            {state.showingPageType !== 'pro' && (
-              <div className="form-group">
-                <label htmlFor="projectPathway">Parcours *</label>
-                <select
-                  id="projectPathway"
-                  name="pathway"
-                  required
-                  value={formData.pathway}
-                  onChange={handleInputChange}
-                  className="form-select"
-                >
-                  <option value="">Sélectionner un parcours</option>
-                  <option value="citoyen">Citoyen</option>
-                  <option value="creativite">Créativité</option>
-                  <option value="fabrication">Fabrication</option>
-                  <option value="psychologie">Psychologie</option>
-                  <option value="innovation">Innovation</option>
-                  <option value="education">Éducation</option>
-                  <option value="technologie">Technologie</option>
-                  <option value="sante">Santé</option>
-                  <option value="environnement">Environnement</option>
-                </select>
-              </div>
-            )}
+            <div className="form-group">
+              <label htmlFor="projectPathway">Parcours *</label>
+              <select
+                id="projectPathway"
+                name="pathway"
+                required
+                value={formData.pathway}
+                onChange={handleInputChange}
+                className="form-select"
+              >
+                <option value="">Sélectionner un parcours</option>
+                <option value="citoyen">Citoyen</option>
+                <option value="creativite">Créativité</option>
+                <option value="fabrication">Fabrication</option>
+                <option value="psychologie">Psychologie</option>
+                <option value="innovation">Innovation</option>
+                <option value="education">Éducation</option>
+                <option value="technologie">Technologie</option>
+                <option value="sante">Santé</option>
+                <option value="environnement">Environnement</option>
+                <option value="mlds">MLDS</option>
+                <option value="faj_co">FAJ Co</option>
+              </select>
+            </div>
 
             <div className="form-group">
               <label htmlFor="projectLinks">Liens utiles</label>

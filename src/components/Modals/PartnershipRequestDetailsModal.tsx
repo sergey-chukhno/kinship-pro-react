@@ -43,6 +43,7 @@ const PartnershipRequestDetailsModal: React.FC<PartnershipRequestDetailsModalPro
     return false;
   })();
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('fr-FR', {
@@ -54,6 +55,7 @@ const PartnershipRequestDetailsModal: React.FC<PartnershipRequestDetailsModalPro
     });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getPartnershipTypeLabel = (type: string) => {
     const types: Record<string, string> = {
       'bilateral': 'Partenariat bilatéral',

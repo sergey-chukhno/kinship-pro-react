@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getPersonalUserOrganizations, joinSchool, joinCompany } from '../../api/Projects';
 import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
 import { useSchoolSearch } from '../../hooks/useSchoolSearch';
@@ -65,11 +65,7 @@ const OrganizationsSection: React.FC = () => {
     return () => clearTimeout(timer);
   }, [companySearchQuery]);
 
-  useEffect(() => {
-    loadOrganizations();
-  }, []);
-
-  const loadOrganizations = async () => {
+  const loadOrganizations = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await getPersonalUserOrganizations();
@@ -81,7 +77,12 @@ const OrganizationsSection: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    loadOrganizations();
+  }, [loadOrganizations]);
 
   const handleJoinSchool = async (schoolId: number) => {
     try {

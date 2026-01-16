@@ -9,7 +9,7 @@ export const base64ToFile = (base64String: string, filename: string): File | nul
 
     try {
         // Extract the base64 data and mime type
-        const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        const matches = base64String.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
         if (!matches || matches.length !== 3) {
             return null;
         }
@@ -224,7 +224,7 @@ export const mapEditFormToBackend = (
     },
     tags: Tag[],
     project: Project
-): { payload: UpdateProjectPayload; mainImageFile: File | null } => {
+): UpdateProjectPayload => {
     // Normalize tags to ensure it's an array
     // Handle both Tag[] and { data: Tag[] } formats
     const normalizedTags: Tag[] = Array.isArray(tags) 
@@ -260,11 +260,9 @@ export const mapEditFormToBackend = (
         }
     };
 
-    // Convert image preview to File if different from current image
-    let mainImageFile: File | null = null;
     // Note: editImagePreview will be passed separately and converted in handleSaveEdit
 
-    return { payload, mainImageFile: null };
+    return payload;
 };
 
 /**
@@ -373,6 +371,9 @@ const getPathwayFromTags = (tags: any[]): string | undefined => {
         'eac': 'eac',
         'créativité': 'creativite',
         'creativite': 'creativite',
+        'mlds': 'mlds',
+        'faj co': 'faj_co',
+        'faj_co': 'faj_co',
         'autre': 'other'
     };
     

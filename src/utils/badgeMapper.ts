@@ -13,25 +13,6 @@ export const displaySeries = (seriesName?: string): string => {
  * @param userBadge - Données UserBadge du backend
  * @returns Badge formaté pour l'affichage
  */
-/**
- * Normalise le nom de série backend vers un format standardisé (minuscules)
- */
-const normalizeSeries = (series?: string): string => {
-  if (!series) return '';
-  const lower = series.toLowerCase();
-  // Normaliser les variantes de TouKouLeur
-  if (lower.includes('toukouleur') || lower.includes('universelle')) {
-    return 'toukouleur';
-  }
-  if (lower.includes('psychosociale') || lower.includes('cps')) {
-    return 'psychosociale';
-  }
-  if (lower.includes('audiovisuelle')) {
-    return 'audiovisuelle';
-  }
-  return lower;
-};
-
 export const mapBackendUserBadgeToBadge = (userBadge: any): Badge => {
   const badge = userBadge?.badge || {};
   const badgeName = badge.name || 'Badge';
