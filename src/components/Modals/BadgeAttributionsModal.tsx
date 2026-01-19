@@ -392,7 +392,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                           <span className="badge-pill badge-muted">Non lié</span>
                         )}
                       </td>
-                      <td>
+                      <td className="cell-description">
                         {attribution.event?.description ? (
                           <span>{attribution.event.description}</span>
                         ) : attribution.project?.description ? (
