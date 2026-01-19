@@ -6,6 +6,7 @@ import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import BadgeCard from '../Badges/BadgeCard';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import './PublicBadgeCartography.css';
+import { translateRole } from '../../utils/roleTranslations';
 
 const PublicBadgeCartography: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -265,15 +266,18 @@ const PublicBadgeCartography: React.FC = () => {
               id: attr.sender.id,
               full_name: attr.sender.full_name,
               email: attr.sender.email || '',
+              role: translateRole(attr.sender.role) || '',
               is_deleted: attr.sender.is_deleted || false
             },
             project: attr.project ? {
               id: attr.project.id,
-              title: attr.project.title
+              title: attr.project.title,
+              description: attr.project.description || null
             } : null,
             event: attr.event ? {
               id: attr.event.id,
-              title: attr.event.title
+              title: attr.event.title,
+              description: attr.event.description || null
             } : null,
             assigned_at: attr.assigned_at,
             comment: attr.comment || null,

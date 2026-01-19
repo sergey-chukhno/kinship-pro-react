@@ -38,15 +38,18 @@ interface BadgeAttribution {
     id: number;
     full_name: string;
     email?: string;
+    role?: string;
     is_deleted?: boolean;
   };
   project: {
     id: number;
     title: string;
+    description?: string | null;
   } | null;
   event?: {
     id: number;
     title: string;
+    description?: string | null;
   } | null;
   assigned_at: string;
   comment: string | null;
@@ -183,16 +186,22 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           full_name: item.receiver?.full_name || 'Unknown', 
           email: item.receiver?.email || '' 
         };
-        const sender = item.sender || { 
-          id: item.sender_id || 0, 
+        
+        // Always construct sender object to ensure all fields are present
+        const sender = {
+          id: item.sender?.id || item.sender_id || 0,
           full_name: item.sender?.full_name || 'Unknown',
-          email: item.sender?.email || ''
+          email: item.sender?.email || '',
+          role: item.sender?.role || '',
+          is_deleted: item.sender?.is_deleted || false
         };
-        const project = item.project || (item.project_id ? { id: item.project_id, title: item.project?.title || 'Unknown' } : null);
-        const event = item.event || (item.event_id ? { id: item.event_id, title: item.event?.title || 'Événement' } : null);
+        
+        const project = item.project || (item.project_id ? { id: item.project_id, title: item.project?.title || 'Unknown', description: item.project?.description || null } : null);
+        const event = item.event || (item.event_id ? { id: item.event_id, title: item.event?.title || 'Événement', description: item.event?.description || null } : null);
         
         return {
           id: item.id,
+          badge: item.badge,
           receiver: receiver,
           sender: sender,
           project: project,
@@ -359,6 +368,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                 <thead>
                   <tr>
                     <th>Contexte</th>
+                    <th className="cell-description">Description</th>
                     <th>Attribué à</th>
                     <th>Attribué par</th>
                     <th>Commentaire</th>
@@ -380,6 +390,15 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                           </span>
                         ) : (
                           <span className="badge-pill badge-muted">Non lié</span>
+                        )}
+                      </td>
+                      <td>
+                        {attribution.event?.description ? (
+                          <span>{attribution.event.description}</span>
+                        ) : attribution.project?.description ? (
+                          <span>{attribution.project.description}</span>
+                        ) : (
+                          <span className="no-comment">-</span>
                         )}
                       </td>
                       <td>
@@ -416,9 +435,9 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                             />
                           ) : (
                             <>
-                              <span className="person-name">{attribution.sender.full_name}</span>
-                              {attribution.sender.email && (
-                                <span className="person-email">{attribution.sender.email}</span>
+                              <span className="whitespace-nowrap person-name">{attribution.sender.full_name}</span>
+                              {attribution.sender.role && (
+                                <span className="whitespace-nowrap person-email">{attribution.sender.role}</span>
                               )}
                             </>
                           )}

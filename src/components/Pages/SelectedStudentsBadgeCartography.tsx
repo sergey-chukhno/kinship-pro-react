@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectedStudentsBadgeCartography } from '../../api/BadgeCartography';
 import { Badge } from '../../types';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
+import { translateRole } from '../../utils/roleTranslations';
 import BadgeCard from '../Badges/BadgeCard';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import './PublicBadgeCartography.css';
@@ -266,15 +267,18 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
               id: attr.sender.id,
               full_name: attr.sender.full_name,
               email: attr.sender.email || '',
+              role: translateRole(attr.sender.role) || '',
               is_deleted: attr.sender.is_deleted || false
             },
             project: attr.project ? {
               id: attr.project.id,
-              title: attr.project.title
+              title: attr.project.title,
+              description: attr.project.description || null
             } : null,
             event: attr.event ? {
               id: attr.event.id,
-              title: attr.event.title
+              title: attr.event.title,
+              description: attr.event.description || null
             } : null,
             assigned_at: attr.assigned_at,
             comment: attr.comment || null,
@@ -285,6 +289,8 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
         const badgeImage = filteredAttributions.length > 0 
           ? filteredAttributions[0].badge?.image_url || null
           : null;
+
+          console.log("filteredAttributions", filteredAttributions);
 
         return (
           <BadgeAttributionsModal

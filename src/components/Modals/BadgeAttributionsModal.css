@@ -121,6 +121,9 @@
   white-space: nowrap;
 }
 
+.cell-description {
+  width: 300px !important;
+}
 .badge-attributions-table td {
   padding: 1rem;
   border-bottom: 1px solid var(--border, #e5e7eb);
