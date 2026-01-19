@@ -339,30 +339,17 @@ export const validateImages = (
  * Frontend pathways: "sante", "citoyen", "eac", "creativite", "avenir", "other"
  */
 const getPathwayFromTags = (tags: any[]): string | undefined => {
-    console.log('🔍 [PATHWAY DEBUG] getPathwayFromTags called with:', tags);
-    console.log('🔍 [PATHWAY DEBUG] tags type:', typeof tags);
-    console.log('🔍 [PATHWAY DEBUG] tags is array:', Array.isArray(tags));
-    console.log('🔍 [PATHWAY DEBUG] tags length:', tags?.length);
-    
     if (!tags || tags.length === 0) {
-        console.log('⚠️ [PATHWAY DEBUG] No tags found, returning undefined (no pathway)');
         return undefined;
     }
     
     const firstTag = tags[0];
-    console.log('🔍 [PATHWAY DEBUG] First tag:', firstTag);
-    console.log('🔍 [PATHWAY DEBUG] First tag type:', typeof firstTag);
-    
     const tagName = firstTag?.name || firstTag;
-    console.log('🔍 [PATHWAY DEBUG] Tag name extracted:', tagName);
-    
     if (!tagName) {
-        console.log('⚠️ [PATHWAY DEBUG] No tag name found, returning default "avenir"');
         return 'avenir';
     }
     
     const normalizedName = tagName.toLowerCase().trim();
-    console.log('🔍 [PATHWAY DEBUG] Normalized name:', normalizedName);
     
     // Map French tag names to frontend pathway values
     const pathwayMap: Record<string, string> = {
@@ -377,8 +364,6 @@ const getPathwayFromTags = (tags: any[]): string | undefined => {
     };
     
     const mappedPathway = pathwayMap[normalizedName] || normalizedName;
-    console.log('✅ [PATHWAY DEBUG] Mapped pathway:', mappedPathway);
-    console.log('🔍 [PATHWAY DEBUG] Pathway map lookup:', pathwayMap[normalizedName] ? 'found' : 'not found, using normalized name');
     
     return mappedPathway;
 };
@@ -406,20 +391,8 @@ const mapKeywordsToTags = (keywords: any[]): string[] => {
  * Transforms backend API response to frontend Project interface
  */
 export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType: ShowingPageType, user?: User): Project => {
-    // Debug: Log API project data
-    console.log('📦 [PATHWAY DEBUG] ========== Mapping API Project ==========');
-    console.log('📦 [PATHWAY DEBUG] Project ID:', apiProject.id);
-    console.log('📦 [PATHWAY DEBUG] Project Title:', apiProject.title);
-    console.log('📦 [PATHWAY DEBUG] API Project tags:', apiProject.tags);
-    console.log('📦 [PATHWAY DEBUG] API Project tags type:', typeof apiProject.tags);
-    console.log('📦 [PATHWAY DEBUG] API Project tags is array:', Array.isArray(apiProject.tags));
-    console.log('📦 [PATHWAY DEBUG] API Project tags length:', apiProject.tags?.length);
-    
     // Determine pathway from tags (first tag is the pathway)
     const pathway = getPathwayFromTags(apiProject.tags || []);
-    console.log('✅ [PATHWAY DEBUG] Final pathway assigned:', pathway);
-    console.log('📦 [PATHWAY DEBUG] ===========================================');
-    
     // Get organization name: priority 1) API primary_organization_name, 2) available_contexts, 3) fallback
     let organizationName = '';
     if (apiProject.primary_organization_name) {
