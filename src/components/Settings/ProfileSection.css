@@ -172,3 +172,37 @@
   font-size: 0.875rem;
 }
 
+.checkbox-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: white;
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  cursor: pointer;
+  margin: 16px 0;
+  transition: all 0.2s ease;
+}
+
+.checkbox-toggle:hover {
+  border-color: var(--primary, #5570F1);
+  background: rgba(85, 112, 241, 0.05);
+}
+
+.checkbox-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--primary, #5570F1);
+}
+
+.checkbox-toggle span {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary, #374151);
+}
+
+
+
+

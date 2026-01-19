@@ -4,10 +4,10 @@ interface UserProfile {
     firstName: string;
     lastName: string;
     email: string;
-    take_trainee: string;
-    propose_workshop: string;
+    take_trainee: boolean;
+    propose_workshop: boolean;
     job: string;
-    show_my_skills: string;
+    show_my_skills: boolean;
 }
 
 export function updateUserProfile(profileData: UserProfile) {

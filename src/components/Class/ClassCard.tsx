@@ -7,12 +7,13 @@ interface ClassCardProps {
   studentCount: number;
   level?: string;
   teachers?: Array<{ id: number; full_name: string; email: string; is_creator: boolean }>;
+  pedagogical_team_members?: Array<{ id: number; full_name: string; email: string }>;
   onClick?: () => void;
   onDelete?: (e: React.MouseEvent) => void;
   onEdit?: (e: React.MouseEvent) => void;
 }
 
-const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, level, teachers, onClick, onDelete, onEdit }) => {
+const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, level, teachers, pedagogical_team_members, onClick, onDelete, onEdit }) => {
   const handleCardClick = (e: React.MouseEvent) => {
     // Ne pas déclencher onClick si on clique sur les boutons d'action
     if ((e.target as HTMLElement).closest('.class-card-action-btn')) {
@@ -98,6 +99,14 @@ const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, leve
         <p><strong>Niveau :</strong> {level}</p>
         {teachers && teachers.length > 0 && (
           <p><strong>Responsable{teachers.length > 1 ? 's' : ''} :</strong> {teachers.map(t => t.full_name).join(', ')}</p>
+        )}
+        {pedagogical_team_members && pedagogical_team_members.length > 0 && (
+          <p style={{ marginTop: '4px', lineHeight: '1.5' }}>
+            <strong>Équipe pédagogique :</strong>{' '}
+            <span style={{ display: 'inline', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+              {pedagogical_team_members.map(t => t.full_name).join(', ')}
+            </span>
+          </p>
         )}
         <p><strong>Étudiants :</strong> {studentCount}</p>
       </div>

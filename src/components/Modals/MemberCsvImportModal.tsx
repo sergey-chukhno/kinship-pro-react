@@ -85,6 +85,15 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
             <>
               <div className="form-group">
                 <label htmlFor="csvFile">Sélectionner un fichier CSV</label>
+                <a 
+                  download={isSchool ? "/template-liste-membres-ecole.csv" : "/template-liste-membres.csv"} 
+                  className="text-xs text-[-primary] flex items-center gap-1"
+                  href={isSchool ? "/template-liste-membres-ecole.csv" : "/template-liste-membres.csv"}
+                  style={{ display: 'inline-flex', marginBottom: '0.5rem' }}
+                >
+                  <i className="fas fa-info-circle"/> 
+                  Télécharger le template
+                </a>
                 <input
                   id="csvFile"
                   type="file"
@@ -234,4 +243,5 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
 };
 
 export default MemberCsvImportModal;
+
 

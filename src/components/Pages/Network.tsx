@@ -168,7 +168,8 @@ const Network: React.FC = () => {
   const [availabilityFilter, setAvailabilityFilter] = useState<string[]>([]);
   const [organizationFilter, setOrganizationFilter] = useState('');
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
-  const [skillsLoading, setSkillsLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_skillsLoading, setSkillsLoading] = useState(false); // Set but not used in UI
   const [isAvailabilityDropdownOpen, setIsAvailabilityDropdownOpen] = useState(false);
   const [isPropositionsDropdownOpen, setIsPropositionsDropdownOpen] = useState(false);
   // Filters - stage / atelier
@@ -201,7 +202,8 @@ const Network: React.FC = () => {
   
   // Personal user confirmed organizations (for activeCard display)
   const [myOrganizations, setMyOrganizations] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
-  const [myOrganizationsLoading, setMyOrganizationsLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_myOrganizationsLoading, setMyOrganizationsLoading] = useState(false); // Set but not used in UI
 
   // Search results state
   const [searchResults, setSearchResults] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
@@ -723,13 +725,11 @@ const Network: React.FC = () => {
     if (isPersonalUser) {
       try {
         // Get skill IDs from skill names if filter is set
-        let skillIds: number[] = [];
+        // Note: Currently passing skill names directly to API
+        // If the API expects IDs, we'd need to fetch the skill list with IDs
+        // For now, we'll pass the filter as-is and let the API handle it
         if (competenceFilter && skillsOptions.length > 0) {
-          // We need to match skill names to IDs - for now, we'll pass skill names
-          // The API might accept skill names or IDs
-          const skill = skillsOptions.find(s => s === competenceFilter);
-          // If the API expects IDs, we'd need to fetch the skill list with IDs
-          // For now, we'll pass the filter as-is and let the API handle it
+          // Future: Match skill names to IDs here if needed
         }
 
         const params: any = {

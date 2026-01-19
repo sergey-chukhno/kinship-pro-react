@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole, removeCompanyMember, importCompanyMembersCsv } from '../../api/CompanyDashboard/Members';
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel, addExistingStudentToLevel } from '../../api/SchoolDashboard/Levels';
@@ -9,7 +9,7 @@ import { getTeacherClassStudents } from '../../api/Dashboard';
 import { createStudentBadgeCartographyShare } from '../../api/BadgeCartography';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
-import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
+import { translateSkill, translateSubSkill } from '../../translations/skills';
 import { ClassList, Member } from '../../types';
 import ClassCard from '../Class/ClassCard';
 import MemberCard from '../Members/MemberCard';
@@ -91,10 +91,12 @@ const Members: React.FC = () => {
   const [classLists, setClassLists] = useState<ClassList[]>([])
   const [members, setMembers] = useState<Member[]>([]);
   const [communityLists, setCommunityLists] = useState<Member[]>([]);
-  const [page, setPage] = useState(1);
-  const [per_page, setPerPage] = useState(12);
-  const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // Removed unused pagination variables - replaced with classesPage/classesTotalPages
+  // const [page, setPage] = useState(1);
+  // const [per_page, setPerPage] = useState(12);
+  // const [totalPages, setTotalPages] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [loading, setLoading] = useState(true); // setLoading is used in fetchLevels, but loading state is not read
   const [isMembersLoading, setIsMembersLoading] = useState(true);
   const [membersInitialLoad, setMembersInitialLoad] = useState(true);
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
@@ -104,6 +106,10 @@ const Members: React.FC = () => {
   const [classSearchTerm, setClassSearchTerm] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<number | null>(null);
   const [availableSchoolsForFilter, setAvailableSchoolsForFilter] = useState<Array<{ id: number; name: string }>>([]);
+  // Pagination state for classes
+  const [classesPage, setClassesPage] = useState(1);
+  const [classesTotalPages, setClassesTotalPages] = useState(1);
+  const [classesTotalCount, setClassesTotalCount] = useState(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
@@ -312,7 +318,8 @@ const Members: React.FC = () => {
       
       // Si c'est un teacher rattaché à une école, utiliser l'API teachers/classes
       if (isTeacherContext) {
-        const levelsRes = await getTeacherClasses(page, per_page);
+        // Fetch all classes (large batch for client-side pagination)
+        const levelsRes = await getTeacherClasses(1, 200);
         const levels = levelsRes.data.data || levelsRes.data || [];
         // Extraire les teacher_ids depuis les teachers et ajouter school_id si disponible
         const levelsWithTeacherIds = levels.map((level: any) => ({
@@ -329,7 +336,8 @@ const Members: React.FC = () => {
           setLoading(false);
           return;
         }
-        const levelsRes = await getSchoolLevels(contextId, page, per_page);
+        // Fetch all classes (large batch for client-side pagination)
+        const levelsRes = await getSchoolLevels(contextId, 1, 200);
         const levels = levelsRes.data.data || levelsRes.data || [];
         // Extraire les teacher_ids depuis les teachers et ajouter school_id
         const levelsWithTeacherIds = levels.map((level: any) => ({
@@ -530,7 +538,7 @@ const Members: React.FC = () => {
       abortController.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, per_page, state.showingPageType]);
+  }, [state.showingPageType]);
 
   useEffect(() => {
     if (!isSchoolContext) {
@@ -539,6 +547,66 @@ const Members: React.FC = () => {
       setActiveTab('class');
     }
   }, [isSchoolContext, isTeacherContext, activeTab]);
+
+  // Reset classes page to 1 when filters change
+  useEffect(() => {
+    setClassesPage(1);
+  }, [classSearchTerm, selectedSchoolFilter]);
+
+  // Calculate filtered classes using useMemo
+  const filteredClasses = useMemo(() => {
+    let filtered = classLists;
+    
+    // Filtre par recherche (nom de la classe)
+    if (classSearchTerm.trim()) {
+      const searchLower = classSearchTerm.toLowerCase();
+      filtered = filtered.filter((classItem: ClassList) =>
+        classItem.name?.toLowerCase().includes(searchLower) ||
+        classItem.level?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Filtre par établissement
+    if (selectedSchoolFilter !== null) {
+      if (selectedSchoolFilter === -1) {
+        // Filtrer les classes sans établissement (school_id: null)
+        filtered = filtered.filter((classItem: any) =>
+          classItem.school_id === null || classItem.school_id === undefined
+        );
+      } else {
+        // Filtrer par établissement spécifique
+        filtered = filtered.filter((classItem: any) =>
+          classItem.school_id === selectedSchoolFilter
+        );
+      }
+    }
+    
+    return filtered;
+  }, [classLists, classSearchTerm, selectedSchoolFilter]);
+
+  // Calculate pagination metadata and update state
+  useEffect(() => {
+    const perPage = 12;
+    const totalCount = filteredClasses.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
+    
+    setClassesTotalCount(totalCount);
+    setClassesTotalPages(totalPages);
+    
+    // Ensure current page is valid
+    if (classesPage > totalPages && totalPages > 0) {
+      setClassesPage(totalPages);
+    }
+  }, [filteredClasses, classesPage]);
+
+  // Calculate paginated classes
+  const paginatedClasses = useMemo(() => {
+    const perPage = 12;
+    const validPage = Math.min(classesPage, classesTotalPages);
+    const startIndex = (validPage - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    return filteredClasses.slice(startIndex, endIndex);
+  }, [filteredClasses, classesPage, classesTotalPages]);
 
   // Refresh pending count when returning from membership requests page
   useEffect(() => {
@@ -855,6 +923,7 @@ const Members: React.FC = () => {
     if (selectedMember?.id === id) setSelectedMember({ ...selectedMember, ...updates });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleImportExport = (action: 'import' | 'export') => {
     if (action === 'import') {
       setIsCsvImportModalOpen(true);
@@ -1270,7 +1339,7 @@ const Members: React.FC = () => {
             </div>
           </div>
           <button className="btn btn-primary" onClick={() => setIsAddModalOpen(true)}>
-            <i className="fas fa-plus"></i> {isSchoolContext ? 'Ajouter un étudiant' : 'Ajouter un membre'}
+            <i className="fas fa-plus"></i> {isSchoolContext ? 'Ajouter un élève' : 'Ajouter un membre'}
           </button>
         </div>
       </div>
@@ -1512,55 +1581,75 @@ const Members: React.FC = () => {
               )}
             </div>
           <div className="members-grid">
-            {(() => {
-              // Filtrer les classes par recherche et établissement
-              let filteredClasses = classLists;
-              
-              // Filtre par recherche (nom de la classe)
-              if (classSearchTerm.trim()) {
-                const searchLower = classSearchTerm.toLowerCase();
-                filteredClasses = filteredClasses.filter((classItem: ClassList) =>
-                  classItem.name?.toLowerCase().includes(searchLower) ||
-                  classItem.level?.toLowerCase().includes(searchLower)
-                );
-              }
-              
-              // Filtre par établissement
-              if (selectedSchoolFilter !== null) {
-                if (selectedSchoolFilter === -1) {
-                  // Filtrer les classes sans établissement (school_id: null)
-                  filteredClasses = filteredClasses.filter((classItem: any) =>
-                    classItem.school_id === null || classItem.school_id === undefined
-                  );
-                } else {
-                  // Filtrer par établissement spécifique
-                  filteredClasses = filteredClasses.filter((classItem: any) =>
-                    classItem.school_id === selectedSchoolFilter
-                  );
-                }
-              }
-              
-              return filteredClasses.length > 0 ? filteredClasses.map((classItem: ClassList) => (
-                <ClassCard
-                  key={classItem?.id}
-                  name={classItem?.name}
-                  teacher={classItem?.teacher || ''}
-                  studentCount={classItem?.students_count || 0}
-                  level={classItem?.level || ''}
-                  teachers={classItem?.teachers}
-                  onClick={() => handleClassClick(classItem)}
-                  onEdit={() => handleEditClass(classItem)}
-                  onDelete={() => handleDeleteClass(classItem)}
-                />
-              )) : (
-                <div className="w-full text-center text-gray-500">
-                  {classSearchTerm || (selectedSchoolFilter !== null && selectedSchoolFilter !== -1) || selectedSchoolFilter === -1
-                    ? 'Aucune classe ne correspond aux critères de recherche' 
-                    : 'Aucune classe trouvée pour le moment'}
-                </div>
-              );
-            })()}
+            {paginatedClasses.length > 0 ? paginatedClasses.map((classItem: ClassList) => (
+              <ClassCard
+                key={classItem?.id}
+                name={classItem?.name}
+                teacher={classItem?.teacher || ''}
+                studentCount={classItem?.students_count || 0}
+                level={classItem?.level || ''}
+                teachers={classItem?.teachers}
+                pedagogical_team_members={classItem?.pedagogical_team_members}
+                onClick={() => handleClassClick(classItem)}
+                onEdit={() => handleEditClass(classItem)}
+                onDelete={() => handleDeleteClass(classItem)}
+              />
+            )) : (
+              <div className="w-full text-center text-gray-500">
+                {classSearchTerm || (selectedSchoolFilter !== null && selectedSchoolFilter !== -1) || selectedSchoolFilter === -1
+                  ? 'Aucune classe ne correspond aux critères de recherche' 
+                  : 'Aucune classe trouvée pour le moment'}
+              </div>
+            )}
           </div>
+          
+          {/* Pagination controls */}
+          {classesTotalPages > 1 && classesTotalCount > 0 && (
+            <div className="pagination-container">
+              <div className="pagination-info">
+                Page {classesPage} sur {classesTotalPages} ({classesTotalCount} résultat{classesTotalCount > 1 ? 's' : ''})
+              </div>
+              <div className="pagination-controls">
+                <button
+                  className="pagination-btn"
+                  onClick={() => setClassesPage(prev => Math.max(1, prev - 1))}
+                  disabled={classesPage === 1}
+                >
+                  <i className="fas fa-chevron-left"></i> Précédent
+                </button>
+                <div className="pagination-pages">
+                  {Array.from({ length: Math.min(5, classesTotalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (classesTotalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (classesPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (classesPage >= classesTotalPages - 2) {
+                      pageNum = classesTotalPages - 4 + i;
+                    } else {
+                      pageNum = classesPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        className={`pagination-page-btn ${classesPage === pageNum ? 'active' : ''}`}
+                        onClick={() => setClassesPage(pageNum)}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setClassesPage(prev => Math.min(classesTotalPages, prev + 1))}
+                  disabled={classesPage >= classesTotalPages}
+                >
+                  Suivant <i className="fas fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

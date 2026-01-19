@@ -25,7 +25,7 @@ interface MembershipRequest {
 }
 
 const MembershipRequests: React.FC = () => {
-  const { state, acceptMembershipRequest, rejectMembershipRequest, updateMembershipRequestRole, setCurrentPage } = useAppContext();
+  const { state, updateMembershipRequestRole, setCurrentPage } = useAppContext();
   const [requests, setRequests] = useState<MembershipRequest[]>([]);
   const [selectedRole, setSelectedRole] = useState<{ [key: string]: string }>({});
   const [openDropdowns, setOpenDropdowns] = useState<{ [key: string]: boolean }>({});
@@ -33,8 +33,6 @@ const MembershipRequests: React.FC = () => {
   const { showError } = useToast();
   const roleContainerRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
-  // 1. Ajout de l'état pour stocker l'ID de l'entreprise
-  const [companyId, setCompanyId] = useState<number | null>(null);
   const [contextId, setContextId] = useState<number | null>(null);
 
   // Convert backend role value to French display name
@@ -162,7 +160,7 @@ const MembershipRequests: React.FC = () => {
     };
 
     fetchPendingMembers();
-  }, [state.showingPageType]); // Ajout dépendance
+  }, [state.showingPageType, convertRoleToDisplay]); // Ajout dépendance
 
   // Helper function to separate and organize skills
   const organizeSkills = useCallback((skills: string[]) => {

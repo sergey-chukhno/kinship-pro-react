@@ -58,3 +58,13 @@ export function importSchoolMembersCsv(schoolId: number, csvFile: File) {
         },
     });
 }
+
+export function getSchoolStaff(schoolId: number, perPage: number = 100, options?: { search?: string }) {
+    return axiosClient.get(`/api/v1/schools/${schoolId}/staff`, {
+        params: {
+            status: 'confirmed',
+            per_page: perPage,
+            search: options?.search
+        }
+    });
+}
