@@ -4,6 +4,7 @@ import RolePill from '../UI/RolePill';
 import './MemberCard.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
+import { getLocalBadgeImage } from '../../utils/badgeImages';
 
 interface MemberCardProps {
   categoryTag?: { label: string; color: string };// Optional pill tag
@@ -205,6 +206,76 @@ const MemberCard: React.FC<MemberCardProps> = ({
         })}
       </div>
 
+      {/* Latest Badges Section */}
+      {member.latestBadges && member.latestBadges.length > 0 && (
+        <div className="member-badges" style={{ 
+          marginTop: '16px', 
+          marginBottom: '16px',
+          paddingTop: '16px',
+          borderTop: '1px solid #e5e7eb'
+        }}>
+          <h4 style={{ 
+            fontSize: '0.875rem', 
+            fontWeight: 600, 
+            color: '#6b7280', 
+            marginBottom: '12px',
+            marginTop: 0
+          }}>
+            3 derniers badges reçus
+          </h4>
+          <div style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            flexWrap: 'wrap',
+            alignItems: 'center'
+          }}>
+            {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
+              const badge = latestBadge.badge;
+              const badgeLevel = badge.level || 'level_1';
+              const badgeImage = badge.image_url || 
+                getLocalBadgeImage(badge.name, badgeLevel, badge.series) || 
+                '/TouKouLeur-Jaune.png';
+              
+              return (
+                <div
+                  key={index}
+                  style={{
+                    position: 'relative',
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    border: '1px solid #e5e7eb',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease',
+                  }}
+                  title={`${badge.name} - ${badgeLevel.replace('level_', 'Niveau ')}`}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.1)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <img
+                    src={badgeImage}
+                    alt={badge.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      padding: '4px',
+                      backgroundColor: '#f9fafb'
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="member-footer">
         <div className="member-actions">

@@ -13,6 +13,24 @@ export interface Member {
   avatar: string;
   isTrusted: boolean;
   badges: string[]; // Array of badge IDs
+  latestBadges?: Array<{
+    id: number;
+    badge: {
+      id: number;
+      name: string;
+      description?: string;
+      level: string;
+      series: string;
+      image_url?: string | null;
+    };
+    project?: any;
+    organization?: {
+      type: string;
+      id: number;
+      name: string;
+    };
+    assigned_at: string;
+  }>; // Latest badges received from API
   organization?: string;
   organizationType?: 'school' | 'company'; // Type of organization for styling
   canProposeStage?: boolean;

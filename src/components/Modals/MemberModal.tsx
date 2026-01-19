@@ -8,6 +8,7 @@ import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRoles, translateRole, normalizeRoleKey } from '../../utils/roleTranslations';
 import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
+import { getLocalBadgeImage } from '../../utils/badgeImages';
 
 interface MemberModalProps {
   member: Member;
@@ -18,6 +19,7 @@ interface MemberModalProps {
   hideDeleteButton?: boolean; // Option to hide delete button and permissions (for network members)
   hideEditButton?: boolean; // Option to hide edit button (for network members)
   isSuperadmin?: boolean; // Hide delete button for superadmins
+  badgeCartographyUrl?: string; // Optional URL for badge cartography
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
@@ -28,7 +30,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
   onContactClick,
   hideDeleteButton = false,
   hideEditButton = false,
-  isSuperadmin = false
+  isSuperadmin = false,
+  badgeCartographyUrl
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
@@ -302,6 +305,21 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 QR Code
               </button>
             )}
+            {isStudent() && badgeCartographyUrl && (
+              <a
+                href={badgeCartographyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-outline btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                title="Voir la cartographie des badges"
+              >
+                <i className="fas fa-map"></i>
+                Cartographie
+              </a>
+            )}
             {hideDeleteButton ? (
               <button 
                 className="btn btn-outline btn-sm" 
@@ -417,6 +435,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   </div>
                 </div>
 
+                {/* Compétences Section - hidden for members with temporary email */}
+                {!member.hasTemporaryEmail && (
                 <div className="info-section">
                   <h3>Compétences</h3>
                   {(() => {
@@ -475,7 +495,10 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     );
                   })()}
                 </div>
+                )}
 
+                {/* Disponibilités Section - hidden for members with temporary email */}
+                {!member.hasTemporaryEmail && (
                 <div className="info-section">
                   <h3>Disponibilités</h3>
                   <div className="availability-grid">
@@ -504,9 +527,10 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     )}
                   </div>
                 </div>
+                )}
 
-                {/* Services Section - only show for network members */}
-                {(member.take_trainee || member.propose_workshop) && (
+                {/* Services Section - only show for network members and not for temporary email */}
+                {!member.hasTemporaryEmail && (member.take_trainee || member.propose_workshop) && (
                   <div className="info-section">
                     <h3>Services proposés</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -525,6 +549,39 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Recent Badges Section - show for all members */}
+                <div className="info-section">
+                  <h3>3 derniers badges reçus</h3>
+                  {!member.latestBadges || member.latestBadges.length === 0 ? (
+                    <p className="w-full text-center no-badges">Aucun badge reçu</p>
+                  ) : (
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      {member.latestBadges.slice(0, 3).map((latestBadge) => {
+                        const badge = latestBadge.badge;
+                        const badgeLevel = badge.level || 'level_1';
+                        const badgeImage = badge.image_url || 
+                          getLocalBadgeImage(badge.name, badgeLevel, badge.series) || 
+                          '/TouKouLeur-Jaune.png';
+                        
+                        return (
+                          <img 
+                            key={latestBadge.id || `${badge.id}-${badgeLevel}`}
+                            src={badgeImage} 
+                            alt={badge.name}
+                            title={`${badge.name} - ${badgeLevel.replace('level_', 'Niveau ')}`}
+                            style={{ 
+                              width: '64px', 
+                              height: '64px', 
+                              objectFit: 'contain',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
                 {/* Badges reçus section - hidden as not used */}
                 {false && (
@@ -699,8 +756,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
               </div>
 
-              {/* Permissions Section */}
-              {!hideDeleteButton && (
+              {/* Permissions Section - hidden for members with temporary email */}
+              {!hideDeleteButton && !member.hasTemporaryEmail && (
                 <div className="info-section">
                   <h3>Permissions</h3>
                   <p className="section-subtitle">Le membre peut gérer :</p>
@@ -753,8 +810,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 </div>
               )}
 
-              {/* Proposals Section */}
-              {!hideDeleteButton && (
+              {/* Proposals Section - hidden for members with temporary email */}
+              {!hideDeleteButton && !member.hasTemporaryEmail && (
                 <div className="info-section">
                   <h3>Propositions</h3>
                   <p className="section-subtitle">Le membre peut proposer :</p>

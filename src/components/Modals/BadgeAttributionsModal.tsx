@@ -14,6 +14,8 @@ interface BadgeAttributionsModalProps {
   badgeName: string;
   badgeLevel: string;
   badgeId?: string; // Badge ID for filtering
+  preloadedAttributions?: BadgeAttribution[]; // Optional preloaded attributions data
+  badgeImageUrl?: string | null; // Optional badge image URL
 }
 
 interface BadgeAttribution {
@@ -23,6 +25,7 @@ interface BadgeAttribution {
     name: string;
     level: string;
     series?: string;
+    image_url?: string | null;
   };
   receiver: {
     id: number;
@@ -60,7 +63,9 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
   onClose,
   badgeName,
   badgeLevel,
-  badgeId
+  badgeId,
+  preloadedAttributions,
+  badgeImageUrl: propBadgeImageUrl
 }) => {
   const { state } = useAppContext();
   const [attributions, setAttributions] = useState<BadgeAttribution[]>([]);
@@ -78,11 +83,16 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
   const organizationId = getOrganizationId(state.user, state.showingPageType);
 
   const fetchAttributions = useCallback(async (page: number, append: boolean = false) => {
-    // Allow user context without organization ID
-    if (!organizationId && state.showingPageType !== 'teacher' && state.showingPageType !== 'user') {
-      setError('Organization ID not found');
+    // Don't fetch if preloaded attributions are provided
+    if (preloadedAttributions && preloadedAttributions.length > 0) {
       return;
     }
+
+    // Allow user context without organization ID
+    // if (!organizationId && state.showingPageType !== 'teacher' && state.showingPageType !== 'user') {
+    //   setError('Organization ID not found');
+    //   return;
+    // }
 
     const loadingState = append ? setIsLoadingMore : setIsLoading;
     loadingState(true);
@@ -227,7 +237,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
     } finally {
       loadingState(false);
     }
-  }, [organizationId, state.showingPageType, badgeId, badgeName, badgeLevel, perPage, badgeImageUrl]);
+  }, [organizationId, state.showingPageType, badgeId, badgeName, badgeLevel, perPage, badgeImageUrl, preloadedAttributions]);
 
   // Initial load
   useEffect(() => {
@@ -236,13 +246,29 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
       setCurrentPage(1);
       setHasMore(true);
       setError(null);
-      setBadgeImageUrl(null); // Reset badge image when modal opens
-      fetchAttributions(1, false);
+      setBadgeImageUrl(propBadgeImageUrl || null); // Use prop or reset badge image when modal opens
+      
+      // If preloaded attributions are provided, use them instead of fetching
+      if (preloadedAttributions && preloadedAttributions.length > 0) {
+        setAttributions(preloadedAttributions);
+        setTotalCount(preloadedAttributions.length);
+        setHasMore(false);
+        setIsLoading(false);
+        // Extract badge image from first attribution if available
+        if (!propBadgeImageUrl && preloadedAttributions[0]?.badge?.image_url) {
+          setBadgeImageUrl(preloadedAttributions[0].badge.image_url);
+        }
+      } else {
+        fetchAttributions(1, false);
+      }
     }
-  }, [isOpen, fetchAttributions]);
+  }, [isOpen, fetchAttributions, preloadedAttributions, propBadgeImageUrl]);
 
-  // Infinite scroll observer
+  // Infinite scroll observer - only if not using preloaded data
   useEffect(() => {
+    // Don't set up infinite scroll if using preloaded attributions
+    if (preloadedAttributions && preloadedAttributions.length > 0) return;
+    
     if (!isOpen || !hasMore || isLoading || isLoadingMore) return;
 
     const observer = new IntersectionObserver(
@@ -264,7 +290,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
         observer.unobserve(target);
       }
     };
-  }, [isOpen, hasMore, isLoading, isLoadingMore, currentPage, fetchAttributions]);
+  }, [isOpen, hasMore, isLoading, isLoadingMore, currentPage, fetchAttributions, preloadedAttributions]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';

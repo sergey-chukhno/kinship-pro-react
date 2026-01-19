@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { getPublicBadgeCartography } from '../../api/BadgeCartography';
+import { getSelectedStudentsBadgeCartography } from '../../api/BadgeCartography';
 import { Badge } from '../../types';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import BadgeCard from '../Badges/BadgeCard';
+import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import './PublicBadgeCartography.css';
 
 const SelectedStudentsBadgeCartography: React.FC = () => {
@@ -12,6 +13,9 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shareInfo, setShareInfo] = useState<any>(null);
+  const [rawAttributions, setRawAttributions] = useState<any[]>([]); // Store raw attribution data
+  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
+  const [isAttributionsModalOpen, setIsAttributionsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -23,7 +27,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
     const fetchCartography = async () => {
       try {
         setIsLoading(true);
-        const data = await getPublicBadgeCartography(token);
+        const data = await getSelectedStudentsBadgeCartography(token);
         
         if (data.error) {
           setError(data.error);
@@ -35,6 +39,9 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
           filters: data.filters,
           context: data.context
         });
+        
+        // Store raw attributions data for use in modal
+        setRawAttributions(data.badges || []);
         
         // Transform backend badges to frontend format
         const transformedBadges = data.badges.map((badgeData: any) => {
@@ -118,23 +125,63 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
     );
   }
 
+  // Check if the share has expired
+  const expiresAt =   shareInfo?.share?.expires_at || shareInfo?.expires_at;
+  const expiresAtDate = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }) : null;
+  const today = new Date().toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const isExpired = expiresAtDate && expiresAtDate < today;
+
+  if (isExpired) {
+    return (
+      <div className="public-cartography-container">
+        <div className="public-cartography-error">
+          <i className="fas fa-clock"></i>
+          <h2>Lien expiré</h2>
+          <p>Ce lien de partage a expiré le {new Date(expiresAt).toLocaleDateString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}.</p>
+          <p>Veuillez demander un nouveau lien de partage.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="public-cartography-container">
       <div className="public-cartography-header">
-        <h1>Cartographie des badges - Étudiants sélectionnés</h1>
+        <h1>Cartographie des badges - <span className="capitalize">{shareInfo?.context?.student?.full_name}</span></h1>
         
-        {shareInfo && (
-          <div className="public-cartography-meta">
-            <p>
-              <i className="fas fa-clock"></i>
-              Expire le {new Date(shareInfo.expires_at).toLocaleDateString('fr-FR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-              })}
-            </p>
-          </div>
-        )}
+        {shareInfo && (() => {
+          const expiresAt = shareInfo?.share?.expires_at || shareInfo?.expires_at;
+          return expiresAt ? (
+            <div className="public-cartography-meta">
+              <p>
+                <i className="fas fa-clock"></i>
+                Expire le {new Date(expiresAt).toLocaleDateString('fr-FR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric'
+                })}
+              </p>
+            </div>
+          ) : null;
+        })()}
       </div>
 
       <div className="public-cartography-content">
@@ -142,7 +189,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
           <div className="public-cartography-empty">
             <i className="fas fa-award"></i>
             <h4>Aucun badge trouvé</h4>
-            <p>Cette cartographie ne contient aucun badge pour les étudiants sélectionnés.</p>
+            <p>Cette cartographie ne contient aucun badge.</p>
           </div>
         ) : (
           sections.map((section) => {
@@ -171,11 +218,14 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
                       <BadgeCard
                         key={`${badge.name}-${badge.level}-${badge.id}`}
                         badge={badge}
-                        onClick={() => {}} // No action needed for public view
+                        onClick={() => {
+                          setSelectedBadge(badge);
+                          setIsAttributionsModalOpen(true);
+                        }}
                         onEdit={() => {}} // No edit in public view
                         onDelete={() => {}} // No delete in public view
                         attributionCount={attributionCount}
-                        showClickHint={false} // Hide click hint on public shared page
+                        showClickHint={true} // Show click hint to indicate badge is clickable
                       />
                     );
                   })}
@@ -185,6 +235,72 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
           })
         )}
       </div>
+
+      {/* Badge Attributions Modal */}
+      {selectedBadge && (() => {
+        // Filter attributions for the selected badge
+        const levelKey = selectedBadge.level.replace('Niveau ', 'level_');
+        const filteredAttributions = rawAttributions
+          .filter((attr: any) => {
+            const badge = attr.badge;
+            return badge && 
+                   badge.name === selectedBadge.name && 
+                   (badge.level === levelKey || badge.level === selectedBadge.level);
+          })
+          .map((attr: any) => ({
+            id: attr.id,
+            badge: {
+              id: attr.badge.id,
+              name: attr.badge.name,
+              level: attr.badge.level,
+              series: attr.badge.series,
+              image_url: attr.badge.image_url || null
+            },
+            receiver: {
+              id: attr.receiver.id,
+              full_name: attr.receiver.full_name,
+              email: attr.receiver.email || '',
+              is_deleted: attr.receiver.is_deleted || false
+            },
+            sender: {
+              id: attr.sender.id,
+              full_name: attr.sender.full_name,
+              email: attr.sender.email || '',
+              is_deleted: attr.sender.is_deleted || false
+            },
+            project: attr.project ? {
+              id: attr.project.id,
+              title: attr.project.title
+            } : null,
+            event: attr.event ? {
+              id: attr.event.id,
+              title: attr.event.title
+            } : null,
+            assigned_at: attr.assigned_at,
+            comment: attr.comment || null,
+            documents: attr.documents || []
+          }));
+
+        // Get badge image from first attribution if available
+        const badgeImage = filteredAttributions.length > 0 
+          ? filteredAttributions[0].badge?.image_url || null
+          : null;
+
+        return (
+          <BadgeAttributionsModal
+            isOpen={isAttributionsModalOpen}
+            onClose={() => {
+              setIsAttributionsModalOpen(false);
+              setSelectedBadge(null);
+            }}
+            badgeName={selectedBadge.name}
+            badgeLevel={selectedBadge.level}
+            badgeId={selectedBadge.id}
+            preloadedAttributions={filteredAttributions}
+            badgeImageUrl={badgeImage}
+          />
+        );
+      })()}
     </div>
   );
 };

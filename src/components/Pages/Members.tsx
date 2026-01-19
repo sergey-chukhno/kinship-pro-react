@@ -189,6 +189,7 @@ const Members: React.FC = () => {
             skills: [],
             availability: [],
             badges: s.badges || [],
+            latestBadges: s.latest_badges || [],
             experience: [],
             education: [],
             location: s.city || '',
@@ -269,6 +270,7 @@ const Members: React.FC = () => {
           avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
           isTrusted: m.status === 'confirmed',
           badges: m.badges?.data?.map((b: any) => b.id?.toString()) || [],
+          latestBadges: m.latest_badges || [],
           organization: '',
           canProposeStage: m.take_trainee || false,
           canProposeAtelier: m.propose_workshop || false,
@@ -401,6 +403,7 @@ const Members: React.FC = () => {
           avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
           isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
           badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
+          latestBadges: vol.latest_badges || [],
           organization: vol.organization || '',
           canProposeStage: vol.take_trainee || vol.user?.take_trainee || false,
           canProposeAtelier: vol.propose_workshop || vol.user?.propose_workshop || false,
@@ -1422,7 +1425,7 @@ const Members: React.FC = () => {
                     // Get cartography token for this student
                     const token = cartographyTokens[member.id];
                     if (token) {
-                      return `/badge-cartography/${token}`;
+                      return `/badge-cartography-selected/${token}`;
                     }
                     // If token not yet generated, trigger generation and return placeholder
                     if (currentSchoolId && !loadingCartographyTokens[member.id]) {
@@ -1629,6 +1632,20 @@ const Members: React.FC = () => {
           onContactClick={() => setIsContactModalOpen(true)}
           isSuperadmin={(selectedMember as any).isSuperadmin || 
             ((selectedMember as any).membershipRole || '').toLowerCase() === 'superadmin'}
+          badgeCartographyUrl={(() => {
+            // Get cartography token for this student (only for students in school context)
+            if (isSchoolContext && currentSchoolId) {
+              const token = cartographyTokens[selectedMember.id];
+              if (token) {
+                return `/badge-cartography-selected/${token}`;
+              }
+              // If token not yet generated, trigger generation
+              if (!loadingCartographyTokens[selectedMember.id]) {
+                getCartographyToken(selectedMember.id, currentSchoolId);
+              }
+            }
+            return undefined;
+          })()}
         />
       )}
 

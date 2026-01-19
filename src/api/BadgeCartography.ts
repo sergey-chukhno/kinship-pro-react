@@ -29,6 +29,15 @@ export const getPublicBadgeCartography = async (token: string): Promise<any> => 
 };
 
 /**
+ * Get selected students badge cartography data by token
+ * Uses axiosClientWithoutToken since this is a public endpoint
+ */
+export const getSelectedStudentsBadgeCartography = async (token: string): Promise<any> => {
+  const response = await axiosClientWithoutToken.get(`/badge-cartography-selected/${token}`);
+  return response.data;
+};
+
+/**
  * Create a shareable link for a specific student's badge cartography
  */
 export const createStudentBadgeCartographyShare = async (
