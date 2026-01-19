@@ -57,7 +57,6 @@ export const useAuthInit = () => {
         // Récupérer l'utilisateur pour toutes les routes
         const userResponse = await getCurrentUser();
         const user = userResponse.data;
-        console.log("UserData : ", user)
 
         if (user) {
           // Store user data in AppContext

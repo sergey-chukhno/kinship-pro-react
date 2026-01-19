@@ -81,7 +81,7 @@
 }
 
 .dropdown-menu.user-dashboard-dropdown {
-  transform: translateX(-140px);
+  /* transform: translateX(-140px); ceci n'est pas approprié car cela dépend de la largeur du menu sergey*/
 }
 
 .dropdown-menu button {

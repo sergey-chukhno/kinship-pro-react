@@ -1053,9 +1053,6 @@ const Network: React.FC = () => {
     try {
       const response = await getUserMembershipRequests();
       const data = response.data;
-
-      console.log('Membership requests response:', data);
-
       if (data) {
         setMyRequests({
           schools: data.schools || [],
@@ -1087,8 +1084,6 @@ const Network: React.FC = () => {
     try {
       const response = await getPersonalUserOrganizations();
       const data = response.data;
-
-      console.log('My confirmed organizations response:', data);
 
       if (data) {
         setMyOrganizations({
@@ -1591,9 +1586,6 @@ const Network: React.FC = () => {
   
   // Filter search results by propositions if filters are active
   const filteredSearchResults = useMemo(() => {
-    console.log('Filtering search results - filterStage:', filterStage, 'filterWorkshop:', filterWorkshop);
-    console.log('Total search results:', searchResultsAsOrganizations.length);
-    
     const filtered = searchResultsAsOrganizations.filter((org: any) => {
       // If any proposition filter is active, show only companies (not schools)
       if (filterStage || filterWorkshop) {
@@ -1619,7 +1611,6 @@ const Network: React.FC = () => {
       return true;
     });
     
-    console.log('Filtered results count:', filtered.length);
     return filtered;
   }, [searchResultsAsOrganizations, filterStage, filterWorkshop]);
 
