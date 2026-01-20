@@ -748,7 +748,7 @@ export interface UpdateProjectPayload {
         description?: string;
         start_date?: string;
         end_date?: string;
-        status?: 'coming' | 'in_progress' | 'ended';
+        status?: 'draft' | 'coming' | 'in_progress' | 'ended';
         private?: boolean;
         tag_ids?: number[];
         keyword_ids?: string[];

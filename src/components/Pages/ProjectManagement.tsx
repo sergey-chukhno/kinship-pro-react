@@ -34,7 +34,7 @@ const ProjectManagement: React.FC = () => {
     startDate: '',
     endDate: '',
     pathway: '',
-    status: 'coming' as 'coming' | 'in_progress' | 'ended',
+    status: 'draft' as 'draft' | 'coming' | 'in_progress' | 'ended',
     visibility: 'public' as 'public' | 'private'
   });
   const [editImagePreview, setEditImagePreview] = useState<string>('');
@@ -476,6 +476,7 @@ const ProjectManagement: React.FC = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
+      case 'draft': return 'Brouillon';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminé';
@@ -485,6 +486,7 @@ const ProjectManagement: React.FC = () => {
 
   const getStatusClass = (status: string) => {
     switch (status) {
+      case 'draft': return 'draft';
       case 'coming': return 'coming';
       case 'in_progress': return 'in-progress';
       case 'ended': return 'ended';

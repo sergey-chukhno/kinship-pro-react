@@ -115,7 +115,7 @@ export const mapFrontendToBackend = (
         startDate: string;
         endDate: string;
         organization: string;
-        status: 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
         pathway: string;
         tags: string;
@@ -183,6 +183,10 @@ export const mapFrontendToBackend = (
         });
     }
 
+    // Map draft status to coming for backend (backend doesn't support draft)
+    const backendStatus: 'coming' | 'in_progress' | 'ended' = 
+        formData.status === 'draft' ? 'coming' : formData.status;
+
     // Build payload
     const payload: CreateProjectPayload = {
         context,
@@ -192,7 +196,7 @@ export const mapFrontendToBackend = (
             description: formData.description,
             start_date: formData.startDate,
             end_date: formData.endDate,
-            status: formData.status,
+            status: backendStatus,
             private: isPrivate,
             participants_number: formData.participants.length + formData.coResponsibles.length,
             tag_ids: tagIds,
@@ -219,7 +223,7 @@ export const mapEditFormToBackend = (
         startDate: string;
         endDate: string;
         pathway: string;
-        status: 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
     },
     tags: Tag[],

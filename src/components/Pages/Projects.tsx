@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Project } from '../../types';
 import ProjectModal from '../Modals/ProjectModal';
+import MLDSProjectModal from '../Modals/MLDSProjectModal';
 import SubscriptionRequiredModal from '../Modals/SubscriptionRequiredModal';
 import ProjectCard from '../Projects/ProjectCard';
 import './Projects.css';
@@ -18,7 +19,9 @@ const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
   const { selectedProject } = state;
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isMLDSProjectModalOpen, setIsMLDSProjectModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
@@ -490,6 +493,19 @@ const Projects: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (isProjectDropdownOpen && !target.closest('.dropdown')) {
+        setIsProjectDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProjectDropdownOpen]);
+
   // --- Fetch des projets au chargement ---
   useEffect(() => {
     // Reset pagination and loading state when dashboard type changes
@@ -593,6 +609,22 @@ const Projects: React.FC = () => {
       // Open project creation modal for organizational users
       setSelectedProject(null);
       setIsProjectModalOpen(true);
+      setIsProjectDropdownOpen(false);
+    }
+  };
+
+  const handleCreateMLDSProject = () => {
+    // Check if user is a personal user (teacher or user)
+    const isPersonalUser = state.showingPageType === 'user';
+    
+    if (isPersonalUser) {
+      // Show subscription required modal for personal users
+      setIsSubscriptionModalOpen(true);
+    } else {
+      // Open MLDS project creation modal for organizational users
+      setSelectedProject(null);
+      setIsMLDSProjectModalOpen(true);
+      setIsProjectDropdownOpen(false);
     }
   };
 
@@ -716,9 +748,69 @@ const Projects: React.FC = () => {
               <i className="fas fa-download"></i> Exporter
             </button>
           </div>
-          <button className="btn btn-primary" onClick={handleCreateProject}>
-            <i className="fas fa-plus"></i> Créer un projet
-          </button>
+          <div className="dropdown" style={{ position: 'relative' }}>
+            <button 
+              className="btn btn-primary" 
+              onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+            >
+              <i className="fas fa-plus"></i> Créer un projet
+              <i className={`fas fa-chevron-${isProjectDropdownOpen ? 'up' : 'down'}`} style={{ marginLeft: '8px' }}></i>
+            </button>
+            {isProjectDropdownOpen && (
+              <div 
+                className="dropdown-menu" 
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  backgroundColor: 'white',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '8px',
+                  marginTop: '8px',
+                  minWidth: '250px',
+                  zIndex: 1000,
+                  overflow: 'hidden'
+                }}
+              >
+                <button
+                  onClick={handleCreateProject}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: 'none',
+                    background: 'white',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  <i className="fas fa-folder" style={{ marginRight: '8px' }}></i>
+                  Projet classique
+                </button>
+                <button
+                  onClick={handleCreateMLDSProject}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: 'none',
+                    background: 'white',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  <i className="fas fa-graduation-cap" style={{ marginRight: '8px' }}></i>
+                  Projet MLDS Volet Persévérance Scolaire
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -977,6 +1069,16 @@ const Projects: React.FC = () => {
           project={selectedProject}
           onClose={() => {
             setIsProjectModalOpen(false);
+            setSelectedProject(null);
+          }}
+          onSave={handleSaveProject}
+        />
+      )}
+
+      {isMLDSProjectModalOpen && (
+        <MLDSProjectModal
+          onClose={() => {
+            setIsMLDSProjectModalOpen(false);
             setSelectedProject(null);
           }}
           onSave={handleSaveProject}

@@ -115,7 +115,7 @@ export interface Project {
   id: string;
   title: string;
   description: string;
-  status: 'coming' | 'in_progress' | 'ended';
+  status: 'draft' | 'coming' | 'in_progress' | 'ended';
   visibility?: 'public' | 'private';
   pathway?: string;
   organization: string;

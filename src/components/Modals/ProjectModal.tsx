@@ -28,7 +28,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     startDate: '',
     endDate: '',
     organization: '',
-    status: 'coming' as 'coming' | 'in_progress' | 'ended',
+    status: 'draft' as 'draft' | 'coming' | 'in_progress' | 'ended',
     visibility: 'public' as 'public' | 'private',
     pathway: '',
     tags: '',
@@ -1038,7 +1038,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             {/* Partnership Section */}
             <div className="form-group">
-              <div className="checkbox-group">
+              <div className="flex gap-2 items-center checkbox-group">
                 <input
                   type="checkbox"
                   id="isPartnership"
@@ -1046,7 +1046,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                   checked={formData.isPartnership}
                   onChange={handleInputChange}
                 />
-                <label htmlFor="isPartnership">En partenariat</label>
+                <label htmlFor="isPartnership" className="pt-2 text-sm">Est-ce un partenariat ?</label>
               </div>
             </div>
 
