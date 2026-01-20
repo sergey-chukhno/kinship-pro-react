@@ -4,7 +4,6 @@ import { useAppContext } from '../../context/AppContext';
 import { getPartnerships, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import {
-  mapFrontendToBackend,
   getOrganizationId,
   getOrganizationType
 } from '../../utils/projectMapper';
@@ -72,32 +71,52 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     participants: '',
     partner: ''
   });
-  
-  // Teacher project context: 'independent' or 'school'
-  const teacherProjectContext: 'independent' | 'school' = 'independent';
-  const selectedSchoolId: number | undefined = undefined;
 
   // MLDS options
   const mldsRequestedByOptions = [
-    'Departement',
-    'Reseau foquale'
+    { value: 'departement', label: 'Departement' },
+    { value: 'reseau_foquale', label: 'Reseau foquale' }
   ];
 
   const mldsTargetAudienceOptions = [
-    'Élèves sans solution à la rentrée',
-    'Élèves en situation de décrochage repérés par le GPDS',
-    'Équipes des établissements'
+    { value: 'students_without_solution', label: 'Élèves sans solution à la rentrée' },
+    { value: 'students_at_risk', label: 'Élèves en situation de décrochage repérés par le GPDS' },
+    { value: 'school_teams', label: 'Équipes des établissements' }
   ];
 
   const mldsActionObjectivesOptions = [
-    'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles',
-    'La découverte des filières professionnelles',
-    'Le développement de la mobilité des élèves',
-    'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré',
-    'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, PAE, autres)',
-    'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire',
-    'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)',
-    'Autre'
+    {
+      value: 'path_security',
+      label: 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles'
+    },
+    {
+      value: 'professional_discovery',
+      label: 'La découverte des filières professionnelles'
+    },
+    {
+      value: 'student_mobility',
+      label: 'Le développement de la mobilité des élèves'
+    },
+    {
+      value: 'cps_development',
+      label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré'
+    },
+    {
+      value: 'territory_partnership',
+      label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, PAE, autres)'
+    },
+    {
+      value: 'family_links',
+      label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire'
+    },
+    {
+      value: 'professional_development',
+      label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)'
+    },
+    {
+      value: 'other',
+      label: 'Autre'
+    }
   ];
 
   const mldsCompetenciesOptions = [
@@ -362,17 +381,55 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         return;
       }
 
-      // Map frontend data to backend format
-      const backendData = mapFrontendToBackend(
-        formData,
-        state.user as any,
-        state.showingPageType as any,
-        teacherProjectContext as any,
-        selectedSchoolId as any
-      );
+      // Convert school level IDs from strings to numbers
+      const schoolLevelIds = formData.mldsOrganizations.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+
+      // Get context and organization ID
+      const organizationType = getOrganizationType(state.showingPageType);
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      
+      // Map organizationType to context
+      let context: 'company' | 'school' | 'teacher' | 'general' = 'general';
+      if (organizationType === 'company') context = 'company';
+      else if (organizationType === 'school') context = 'school';
+      else if (organizationType === 'teacher') context = 'teacher';
+
+      // Prepare MLDS-specific payload
+      const mldsPayload = {
+        context,
+        organization_id: organizationId,
+        project: {
+          title: formData.title,
+          description: formData.description,
+          start_date: formData.startDate,
+          end_date: formData.endDate,
+          status: formData.status,
+          private: formData.visibility === 'private',
+          school_level_ids: schoolLevelIds,
+          // Add co-responsibles, partner, and participants if needed
+          co_responsible_ids: formData.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id)),
+          participant_ids: formData.participants.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id)),
+          partnership_id: formData.partner ? Number.parseInt(formData.partner, 10) : null,
+          mlds_information_attributes: {
+            requested_by: formData.mldsRequestedBy,
+            school_level_ids: schoolLevelIds,
+            target_audience: formData.mldsTargetAudience,
+            action_objectives: formData.mldsActionObjectives,
+            action_objectives_other: formData.mldsActionObjectivesOther || null,
+            competencies_developed: formData.mldsCompetenciesDeveloped || null,
+            expected_participants: formData.mldsExpectedParticipants ? Number.parseInt(formData.mldsExpectedParticipants, 10) : null,
+            financial_hse: formData.mldsFinancialHSE ? Number.parseFloat(formData.mldsFinancialHSE) : null,
+            financial_hv: formData.mldsFinancialHV ? Number.parseFloat(formData.mldsFinancialHV) : null,
+            financial_transport: formData.mldsFinancialTransport ? Number.parseFloat(formData.mldsFinancialTransport) : null,
+            financial_operating: formData.mldsFinancialOperating ? Number.parseFloat(formData.mldsFinancialOperating) : null,
+            financial_service: formData.mldsFinancialService ? Number.parseFloat(formData.mldsFinancialService) : null,
+            objectives: formData.mldsObjectives || null
+          }
+        }
+      };
 
       // Create project via API
-      const response = await createProject(backendData);
+      const response = await createProject(mldsPayload);
       
       if (response) {
         // Show success message
@@ -506,9 +563,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                    value={formData.mldsRequestedBy}
                    onChange={handleInputChange}
                  >
-                
                   {mldsRequestedByOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </div>
@@ -656,8 +712,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 value={formData.mldsTargetAudience}
                 onChange={handleInputChange}
               >
+                <option value="">Sélectionner...</option>
                 {mldsTargetAudienceOptions.map(option => (
-                  <option key={option} value={option}>{option}</option>
+                  <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </div>
@@ -966,22 +1023,22 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
               <div className="multi-select-container">
                 {mldsActionObjectivesOptions.map(objective => (
                   <label 
-                    key={objective} 
-                    className={`multi-select-item  !flex items-center gap-2 ${formData.mldsActionObjectives.includes(objective) ? 'selected' : ''}`}
+                    key={objective.value} 
+                    className={`multi-select-item  !flex items-center gap-2 ${formData.mldsActionObjectives.includes(objective.value) ? 'selected' : ''}`}
                   >
                     <input
                       type="checkbox"
-                      checked={formData.mldsActionObjectives.includes(objective)}
-                      onChange={() => handleActionObjectiveToggle(objective)}
+                      checked={formData.mldsActionObjectives.includes(objective.value)}
+                      onChange={() => handleActionObjectiveToggle(objective.value)}
                     />
                     <div className="multi-select-checkmark">
                       <i className="fas fa-check"></i>
                     </div>
-                    <span className="multi-select-label">{objective}</span>
+                    <span className="multi-select-label">{objective.label}</span>
                   </label>
                 ))}
               </div>
-              {formData.mldsActionObjectives.includes('Autre') && (
+              {formData.mldsActionObjectives.includes('other') && (
                 <div style={{ marginTop: '12px' }}>
                   <label htmlFor="mldsActionObjectivesOther">Précisez l'autre objectif</label>
                   <textarea

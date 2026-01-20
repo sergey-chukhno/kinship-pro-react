@@ -67,7 +67,7 @@ export interface CreateProjectPayload {
         end_date: string;
         participants_number?: number;
         private: boolean;
-        status: 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'coming' | 'in_progress' | 'ended';
         school_level_ids?: number[];
         skill_ids?: number[];
         tag_ids?: number[];

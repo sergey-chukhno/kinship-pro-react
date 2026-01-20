@@ -624,7 +624,7 @@ const Projects: React.FC = () => {
       // Open MLDS project creation modal for organizational users
       setSelectedProject(null);
       setIsMLDSProjectModalOpen(true);
-      setIsProjectDropdownOpen(false);
+    setIsProjectDropdownOpen(false);
     }
   };
 
@@ -753,7 +753,7 @@ const Projects: React.FC = () => {
               className="btn btn-primary" 
               onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
             >
-              <i className="fas fa-plus"></i> Créer un projet
+            <i className="fas fa-plus"></i> Créer un projet
               <i className={`fas fa-chevron-${isProjectDropdownOpen ? 'up' : 'down'}`} style={{ marginLeft: '8px' }}></i>
             </button>
             {isProjectDropdownOpen && (
@@ -807,7 +807,7 @@ const Projects: React.FC = () => {
                 >
                   <i className="fas fa-graduation-cap" style={{ marginRight: '8px' }}></i>
                   Projet MLDS Volet Persévérance Scolaire
-                </button>
+          </button>
               </div>
             )}
           </div>
