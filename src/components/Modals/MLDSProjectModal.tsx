@@ -19,7 +19,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   const { state } = useAppContext();
 
   const [formData, setFormData] = useState({
-    title: '',
+    title: '', // Will be auto-generated as [id_mlds_information]_[year]
     description: '',
     startDate: '',
     endDate: '',
@@ -375,11 +375,15 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
 
     try {
       // Validate required fields
-      if (!formData.title || !formData.description || !formData.startDate || !formData.endDate) {
+      if (!formData.description || !formData.startDate || !formData.endDate) {
         setSubmitError('Veuillez remplir tous les champs obligatoires');
         setIsSubmitting(false);
         return;
       }
+
+      // Generate temporary title based on year (backend will generate final title with MLDS ID)
+      const year = new Date(formData.startDate).getFullYear();
+      const temporaryTitle = `MLDS_${year}`;
 
       // Convert school level IDs from strings to numbers
       const schoolLevelIds = formData.mldsOrganizations.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
@@ -399,7 +403,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         context,
         organization_id: organizationId,
         project: {
-          title: formData.title,
+          title: temporaryTitle, // Temporary title, backend will generate final one
           description: formData.description,
           start_date: formData.startDate,
           end_date: formData.endDate,
@@ -432,16 +436,19 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
       const response = await createProject(mldsPayload);
       
       if (response) {
+        // Get the actual title from API response (with MLDS ID)
+        const actualTitle = response.title || temporaryTitle;
+        
         // Show success message
         setSuccessData({
-          title: formData.title,
+          title: actualTitle,
           image: formData.image
         });
         setShowSuccess(true);
 
         // Build a Project object that matches the expected type
         const projectData: Omit<Project, 'id'> = {
-          title: formData.title,
+          title: actualTitle,
           description: formData.description,
           startDate: formData.startDate,
           endDate: formData.endDate,
@@ -569,17 +576,18 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 </select>
               </div>
             <div className="form-group">
-              <label htmlFor="title" className="required">Titre du projet</label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                className="form-input"
-                value={formData.title}
-                onChange={handleInputChange}
-                placeholder="Ex: Atelier de remobilisation scolaire"
-                required
-              />
+              <div className="form-label">Titre du projet</div>
+              <div style={{ 
+                padding: '12px', 
+                backgroundColor: '#f3f4f6', 
+                borderRadius: '8px',
+                color: '#6b7280',
+                fontSize: '14px',
+                fontStyle: 'italic'
+              }}>
+                <i className="fas fa-info-circle" style={{ marginRight: '8px', color: '#3b82f6' }}></i>
+                Le titre sera généré automatiquement au format : [ID_MLDS]_[Année]
+              </div>
             </div>
 
             <div className="form-group">

@@ -127,6 +127,9 @@ const ProjectManagement: React.FC = () => {
   const [_isLoadingProject, setIsLoadingProject] = useState(false); // Set but not used in UI
   const [apiProjectData, setApiProjectData] = useState<any>(null);
   
+  // Check if project has MLDS information
+  const isMLDSProject = apiProjectData?.mlds_information != null;
+  
   // State for project statistics
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -2367,6 +2370,15 @@ const ProjectManagement: React.FC = () => {
           >
             Documents
           </button>
+          {isMLDSProject && (
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'mlds-info' ? 'active' : ''}`}
+              onClick={() => setActiveTab('mlds-info')}
+            >
+              Informations supplémentaires
+            </button>
+          )}
         </div>
         )}
 
@@ -3263,6 +3275,214 @@ const ProjectManagement: React.FC = () => {
                     </div>
                               </div>
                             )}
+
+        {activeTab === 'mlds-info' && isMLDSProject && (
+          <div className="tab-content active">
+            <div className="badges-section">
+              <div className="badges-section-header">
+                <h3>Informations MLDS - Volet Persévérance Scolaire</h3>
+              </div>
+              
+              <div className="overview-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                {/* Demande faite par */}
+                {apiProjectData.mlds_information.requested_by && (
+                  <div className="stat-card">
+                    <div className="stat-content">
+                      <div className="stat-label">Demande faite par</div>
+                      <div className="stat-value" style={{ fontSize: '1.25rem', marginTop: '0.5rem' }}>
+                        {apiProjectData.mlds_information.requested_by === 'departement' ? 'Département' : 'Réseau foquale'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Public ciblé */}
+                {apiProjectData.mlds_information.target_audience && (
+                  <div className="stat-card">
+                    <div className="stat-content">
+                      <div className="stat-label">Public ciblé</div>
+                      <div className="stat-value" style={{ fontSize: '1rem', marginTop: '0.5rem', fontWeight: 'normal' }}>
+                        {apiProjectData.mlds_information.target_audience === 'students_without_solution' && 'Élèves sans solution à la rentrée'}
+                        {apiProjectData.mlds_information.target_audience === 'students_at_risk' && 'Élèves en situation de décrochage repérés par le GPDS'}
+                        {apiProjectData.mlds_information.target_audience === 'school_teams' && 'Équipes des établissements'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Effectifs prévisionnel */}
+                {apiProjectData.mlds_information.expected_participants != null && (
+                  <div className="stat-card">
+                    <div className="stat-icon">
+                      <i className="fas fa-users"></i>
+                    </div>
+                    <div className="stat-content">
+                      <div className="stat-value">{apiProjectData.mlds_information.expected_participants}</div>
+                      <div className="stat-label">Effectifs prévisionnel</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Objectifs pédagogiques */}
+                {apiProjectData.mlds_information.objectives && (
+                  <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Objectifs pédagogiques</div>
+                      <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                        {apiProjectData.mlds_information.objectives}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Objectifs de l'action */}
+                {apiProjectData.mlds_information.action_objectives && apiProjectData.mlds_information.action_objectives.length > 0 && (
+                  <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Objectifs de l'action</div>
+                      <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {apiProjectData.mlds_information.action_objectives.map((obj: string, index: number) => (
+                          <div key={index} style={{ fontSize: '0.9rem', color: '#374151', display: 'flex', alignItems: 'start', gap: '0.5rem' }}>
+                            <i className="fas fa-check-circle" style={{ color: '#10b981', marginTop: '0.25rem' }}></i>
+                            <span>
+                              {obj === 'path_security' && 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles'}
+                              {obj === 'professional_discovery' && 'La découverte des filières professionnelles'}
+                              {obj === 'student_mobility' && 'Le développement de la mobilité des élèves'}
+                              {obj === 'cps_development' && 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré'}
+                              {obj === 'territory_partnership' && 'Le rapprochement des établissements avec les partenaires du territoire'}
+                              {obj === 'family_links' && 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire'}
+                              {obj === 'professional_development' && 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes'}
+                              {obj === 'other' && 'Autre'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {apiProjectData.mlds_information.action_objectives_other && (
+                        <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: '0.5rem' }}>
+                          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>Autre objectif :</div>
+                          <div style={{ fontSize: '0.9rem', color: '#374151' }}>{apiProjectData.mlds_information.action_objectives_other}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Compétences développées */}
+                {apiProjectData.mlds_information.competencies_developed && (
+                  <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Compétences développées par l'action</div>
+                      <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                        {apiProjectData.mlds_information.competencies_developed}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Moyens financiers */}
+                {(apiProjectData.mlds_information.financial_hse != null || 
+                  apiProjectData.mlds_information.financial_hv != null ||
+                  apiProjectData.mlds_information.financial_transport != null ||
+                  apiProjectData.mlds_information.financial_operating != null ||
+                  apiProjectData.mlds_information.financial_service != null) && (
+                  <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Moyens financiers demandés</div>
+                      <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        {apiProjectData.mlds_information.financial_hse != null && (
+                          <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HSE</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
+                              {Number.parseFloat(apiProjectData.mlds_information.financial_hse).toFixed(2)} €
+                            </div>
+                          </div>
+                        )}
+                        {apiProjectData.mlds_information.financial_hv != null && (
+                          <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
+                              {Number.parseFloat(apiProjectData.mlds_information.financial_hv).toFixed(2)} €
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                        <div style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.75rem' }}>Crédits</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          {apiProjectData.mlds_information.financial_transport != null && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Frais de transport</span>
+                              <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+                                {Number.parseFloat(apiProjectData.mlds_information.financial_transport).toFixed(2)} €
+                              </span>
+                            </div>
+                          )}
+                          {apiProjectData.mlds_information.financial_operating != null && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Frais de fonctionnement</span>
+                              <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+                                {Number.parseFloat(apiProjectData.mlds_information.financial_operating).toFixed(2)} €
+                              </span>
+                            </div>
+                          )}
+                          {apiProjectData.mlds_information.financial_service != null && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Prestataires de service</span>
+                              <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+                                {Number.parseFloat(apiProjectData.mlds_information.financial_service).toFixed(2)} €
+                              </span>
+                            </div>
+                          )}
+                          <div style={{ 
+                            marginTop: '0.5rem', 
+                            padding: '0.75rem', 
+                            backgroundColor: '#e0f2fe', 
+                            borderRadius: '0.5rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits</span>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
+                              {(
+                                (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
+                                (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
+                                (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
+                              ).toFixed(2)} €
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{
+                        marginTop: '1rem',
+                        padding: '1rem',
+                        background: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%)',
+                        borderRadius: '0.5rem',
+                        border: '2px solid #0369a1',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>Total général</span>
+                        <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
+                          {(
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_hse) || 0) +
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_hv) || 0) +
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
+                          ).toFixed(2)} €
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
           </>
         )}
 

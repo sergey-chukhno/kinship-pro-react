@@ -26,6 +26,7 @@ const Projects: React.FC = () => {
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
   const [myProjects, setMyProjects] = useState<Project[]>([]);
+  const [mldsProjects, setMldsProjects] = useState<Project[]>([]);
   // Store raw API project data for permission checks (projectId -> raw API project)
   const [rawProjectsMap, setRawProjectsMap] = useState<Map<string, any>>(new Map());
   // Store all filtered projects for client-side pagination (for filters that need client-side filtering)
@@ -41,13 +42,18 @@ const Projects: React.FC = () => {
   const [myProjectsTotalPages, setMyProjectsTotalPages] = useState(1);
   const [myProjectsTotalCount, setMyProjectsTotalCount] = useState(0);
   
-  // Tab state for personal users
+  // Pagination state for "Projets MLDS" tab
+  const [mldsProjectsPage, setMldsProjectsPage] = useState(1);
+  const [mldsProjectsTotalPages, setMldsProjectsTotalPages] = useState(1);
+  const [mldsProjectsTotalCount, setMldsProjectsTotalCount] = useState(0);
+  
+  // Tab state for all users
   // Teachers should only see their own projects, not public projects
   const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   const isTeacher = state.showingPageType === 'teacher';
   // For teachers, default to 'mes-projets' since they shouldn't see public projects
-  // For regular users, default to 'nouveautes' to show public projects
-  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets'>(isTeacher ? 'mes-projets' : 'nouveautes');
+  // For regular users and pro/edu, default to 'nouveautes' to show public/org projects
+  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects'>(isTeacher ? 'mes-projets' : 'nouveautes');
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,8 +128,8 @@ const Projects: React.FC = () => {
       
       const response = await getAllProjects(apiParams);
       const rawProjects = response.data?.data || response.data || [];
-      // Filtrer uniquement les projets publics
-      const publicProjects = rawProjects.filter((p: any) => !p.private);
+      // Filtrer uniquement les projets publics et exclure les projets MLDS
+      const publicProjects = rawProjects.filter((p: any) => !p.private && p.mlds_information == null);
       const formattedProjects: Project[] = publicProjects.map((p: any) => {
         return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
       });
@@ -159,9 +165,12 @@ const Projects: React.FC = () => {
         const response = await getTeacherProjects({ page: page, per_page: 12 });
         const rawProjects = response.data || [];
         
+        // Exclure les projets MLDS
+        const nonMLDSProjects = rawProjects.filter((p: any) => p.mlds_information == null);
+        
         // Store raw API projects for permission checks
         const newRawProjectsMap = new Map<string, any>();
-        rawProjects.forEach((p: any) => {
+        nonMLDSProjects.forEach((p: any) => {
           if (p.id) {
             newRawProjectsMap.set(p.id.toString(), p);
           }
@@ -172,7 +181,7 @@ const Projects: React.FC = () => {
           return merged;
         });
         
-        const formattedProjects: Project[] = rawProjects.map((p: any) => {
+        const formattedProjects: Project[] = nonMLDSProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
         // Badge counts are now included in API response via badge_count
@@ -189,9 +198,12 @@ const Projects: React.FC = () => {
         const response = await getAllUserProjects(params);
         const rawProjects = response.data?.data || response.data || [];
         
+        // Exclure les projets MLDS
+        const nonMLDSProjects = rawProjects.filter((p: any) => p.mlds_information == null);
+        
         // Store raw API projects for permission checks
         const newRawProjectsMap = new Map<string, any>();
-        rawProjects.forEach((p: any) => {
+        nonMLDSProjects.forEach((p: any) => {
           if (p.id) {
             newRawProjectsMap.set(p.id.toString(), p);
           }
@@ -202,7 +214,7 @@ const Projects: React.FC = () => {
           return merged;
         });
         
-        const formattedProjects: Project[] = rawProjects.map((p: any) => {
+        const formattedProjects: Project[] = nonMLDSProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
         // Badge counts are now included in API response via badge_count
@@ -220,6 +232,92 @@ const Projects: React.FC = () => {
       setMyProjects([]);
       setMyProjectsTotalPages(1);
       setMyProjectsTotalCount(0);
+      setInitialLoad(false);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType]);
+
+  // Fonction pour récupérer les projets MLDS (avec mlds_information !== null)
+  const fetchMLDSProjects = React.useCallback(async (page: number = 1) => {
+    setIsLoadingProjects(true);
+    try {
+      const currentUser = await getCurrentUser();
+      
+      // Pour les projets MLDS, on récupère tous les projets et on filtre ceux avec mlds_information
+      const params: { page?: number; per_page?: number } = { page: 1, per_page: 200 }; // Récupérer un grand nombre pour filtrer côté client
+      let response: any;
+      let rawProjects: any[] = [];
+      
+      if (state.showingPageType === 'teacher') {
+        // Pour les enseignants : utiliser getTeacherProjects
+        response = await getTeacherProjects(params);
+        rawProjects = response.data || [];
+      } else if (state.showingPageType === 'user') {
+        // Pour les utilisateurs : utiliser getAllUserProjects
+        response = await getAllUserProjects(params);
+        rawProjects = response.data?.data || response.data || [];
+      } else {
+        // Pour les rôles pro et edu
+        const contextId = getSelectedOrganizationId();
+        if (!contextId) {
+          console.warn('⚠️ [Projects MLDS] Aucun contextId trouvé pour le type:', state.showingPageType);
+          setMldsProjects([]);
+          setMldsProjectsTotalPages(1);
+          setMldsProjectsTotalCount(0);
+          return;
+        }
+        
+        const isEdu = state.showingPageType === 'edu';
+        if (isEdu) {
+          response = await getSchoolProjects(contextId, true, 200, 1);
+        } else {
+          response = await getCompanyProjects(contextId, true, 200, 1);
+        }
+        rawProjects = response.data?.data || response.data || [];
+      }
+      
+      // Filtrer les projets avec mlds_information !== null
+      const mldsProjectsData = rawProjects.filter((p: any) => p.mlds_information != null);
+      
+      // Store raw API projects for permission checks
+      const newRawProjectsMap = new Map<string, any>();
+      mldsProjectsData.forEach((p: any) => {
+        if (p.id) {
+          newRawProjectsMap.set(p.id.toString(), p);
+        }
+      });
+      setRawProjectsMap(prev => {
+        const merged = new Map(prev);
+        newRawProjectsMap.forEach((value, key) => merged.set(key, value));
+        return merged;
+      });
+      
+      // Pagination côté client
+      const perPage = 12;
+      const startIndex = (page - 1) * perPage;
+      const endIndex = startIndex + perPage;
+      const paginatedProjects = mldsProjectsData.slice(startIndex, endIndex);
+      
+      const formattedProjects: Project[] = paginatedProjects.map((p: any) => {
+        return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+      });
+      
+      setMldsProjects(formattedProjects);
+      
+      // Update pagination metadata
+      const totalCount = mldsProjectsData.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
+      setMldsProjectsTotalPages(totalPages);
+      setMldsProjectsTotalCount(totalCount);
+      
+      setInitialLoad(false);
+    } catch (err) {
+      console.error('Erreur lors de la récupération des projets MLDS:', err);
+      setMldsProjects([]);
+      setMldsProjectsTotalPages(1);
+      setMldsProjectsTotalCount(0);
       setInitialLoad(false);
     } finally {
       setIsLoadingProjects(false);
@@ -269,6 +367,8 @@ const Projects: React.FC = () => {
             response = await getCompanyProjects(contextId, true, 12, page);
           }
           rawProjects = response.data?.data || response.data || [];
+          // Exclure les projets MLDS
+          rawProjects = rawProjects.filter((p: any) => p.mlds_information == null);
         } else if (organizationFilter === 'all-public') {
           // Tous les projets: utiliser getAllProjects sans filtre, puis filtrer côté client pour les projets publics
           response = await getAllProjects({ page: page, per_page: 12 });
@@ -285,6 +385,8 @@ const Projects: React.FC = () => {
           }
           response = await getAllProjects({ organization_type: 'établissement', page: page, per_page: 12 });
           rawProjects = response.data?.data || response.data || [];
+          // Exclure les projets MLDS
+          rawProjects = rawProjects.filter((p: any) => p.mlds_information == null);
         } else if (organizationFilter === 'other-orgs') {
           // Autres organisations: utiliser getAllProjects sans filtre, puis filtrer côté client (Pro only)
           if (state.showingPageType !== 'pro') {
@@ -338,13 +440,15 @@ const Projects: React.FC = () => {
           let filteredProjects: any[] = [];
           
           if (organizationFilter === 'all-public') {
-            // Filter to only public projects
-            filteredProjects = rawProjects.filter((p: any) => !p.private);
+            // Filter to only public projects and exclude MLDS projects
+            filteredProjects = rawProjects.filter((p: any) => !p.private && p.mlds_information == null);
             rawProjects = filteredProjects; // Use filtered results directly
           } else if (organizationFilter === 'other-orgs') {
             // Pro: Company projects excluding user's own
             filteredProjects = rawProjects.filter((p: any) => {
               if (p.private) return false;
+              // Exclude MLDS projects
+              if (p.mlds_information != null) return false;
               // Must have company_ids (projects without company_ids are likely school projects)
               if (!p.company_ids || !Array.isArray(p.company_ids) || p.company_ids.length === 0) {
                 return false;
@@ -381,6 +485,8 @@ const Projects: React.FC = () => {
             // So we just need to filter out user's own school and private projects
             filteredProjects = rawProjects.filter((p: any) => {
               if (p.private) return false;
+              // Exclude MLDS projects
+              if (p.mlds_information != null) return false;
               
               // Get all user's school IDs
               const userSchoolIds = state.user?.available_contexts?.schools?.map((s: any) => s.id) || [];
@@ -417,6 +523,8 @@ const Projects: React.FC = () => {
             // Edu: All company projects
             filteredProjects = rawProjects.filter((p: any) => {
               if (p.private) return false;
+              // Exclude MLDS projects
+              if (p.mlds_information != null) return false;
               // Must have company_ids
               if (!p.company_ids || !Array.isArray(p.company_ids) || p.company_ids.length === 0) {
                 return false;
@@ -449,7 +557,11 @@ const Projects: React.FC = () => {
             newRawProjectsMap.set(p.id.toString(), p);
           }
         });
-        setRawProjectsMap(newRawProjectsMap);
+        setRawProjectsMap(prev => {
+          const merged = new Map(prev);
+          newRawProjectsMap.forEach((value, key) => merged.set(key, value));
+          return merged;
+        });
 
         // Badge counts are now included in API response via badge_count
         setProjects(formattedProjects);
@@ -511,14 +623,18 @@ const Projects: React.FC = () => {
     // Reset pagination and loading state when dashboard type changes
     setProjectPage(1);
     setMyProjectsPage(1);
+    setMldsProjectsPage(1);
     setInitialLoad(true);
     if (isTeacher) {
       fetchMyProjects(1);
+      fetchMLDSProjects(1);
     } else if (state.showingPageType === 'user') {
       fetchPublicProjects(1);
       fetchMyProjects(1);
+      fetchMLDSProjects(1);
     } else {
       fetchProjects(1);
+      fetchMLDSProjects(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]); // Retirer state.user.available_contexts pour éviter les re-renders, le contexte est lu depuis localStorage
@@ -544,7 +660,11 @@ const Projects: React.FC = () => {
           newRawProjectsMap.set(p.id.toString(), p);
         }
       });
-      setRawProjectsMap(newRawProjectsMap);
+      setRawProjectsMap(prev => {
+        const merged = new Map(prev);
+        newRawProjectsMap.forEach((value, key) => merged.set(key, value));
+        return merged;
+      });
       
       // Badge counts are now included in API response via badge_count
       setProjects(formattedProjects);
@@ -579,20 +699,35 @@ const Projects: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myProjectsPage]);
 
+  // Fetch MLDS projects when mldsProjectsPage changes
+  useEffect(() => {
+    if (activeTab === 'mlds-projects') {
+      fetchMLDSProjects(mldsProjectsPage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mldsProjectsPage]);
+
   // Reset pagination and re-fetch when filters change
   useEffect(() => {
     // Reset to page 1 when filters change
     setProjectPage(1);
     setMyProjectsPage(1);
+    setMldsProjectsPage(1);
     
     if (isTeacher) {
       // Teachers only see their own projects, no public projects
       fetchMyProjects(1);
-    } else if (state.showingPageType === 'user' && activeTab === 'nouveautes') {
-      fetchPublicProjects(1);
+      fetchMLDSProjects(1);
+    } else if (state.showingPageType === 'user') {
+      if (activeTab === 'nouveautes') {
+        fetchPublicProjects(1);
+      } else if (activeTab === 'mlds-projects') {
+        fetchMLDSProjects(1);
+      }
     } else if (!isPersonalUser) {
       // Pour les rôles pro et edu, recharger les projets avec le nouveau filtre
       fetchProjects(1);
+      fetchMLDSProjects(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationFilter, statusFilter, pathwayFilter, searchTerm, startDate, endDate, visibilityFilter, isPersonalUser, isTeacher, activeTab]);
@@ -646,10 +781,20 @@ const Projects: React.FC = () => {
     setSelectedProject(null);
     
     // Rafraîchir la liste des projets après création/modification
-    await fetchProjects();
-    // Si on est sur l'onglet "Mes projets", rafraîchir aussi
-    if (isPersonalUser && activeTab === 'mes-projets') {
+    if (isTeacher) {
       await fetchMyProjects();
+      await fetchMLDSProjects();
+    } else if (isPersonalUser) {
+      if (activeTab === 'nouveautes') {
+        await fetchPublicProjects();
+      } else if (activeTab === 'mes-projets') {
+        await fetchMyProjects();
+      } else if (activeTab === 'mlds-projects') {
+        await fetchMLDSProjects();
+      }
+    } else {
+      await fetchProjects();
+      await fetchMLDSProjects();
     }
   };
 
@@ -664,10 +809,13 @@ const Projects: React.FC = () => {
       // Mise à jour de l'affichage local
       setProjects(prev => prev.filter(p => p.id !== projectId));
       setMyProjects(prev => prev.filter(p => p.id !== projectId));
+      setMldsProjects(prev => prev.filter(p => p.id !== projectId));
       setSelectedProject(null);
       
-      // Rafraîchir si on est sur l'onglet "Mes projets"
-      if (isPersonalUser && activeTab === 'mes-projets') {
+      // Rafraîchir en fonction de l'onglet actif
+      if (activeTab === 'mlds-projects') {
+        await fetchMLDSProjects();
+      } else if (isPersonalUser && activeTab === 'mes-projets') {
         await fetchMyProjects();
       }
     } catch (err) {
@@ -680,14 +828,20 @@ const Projects: React.FC = () => {
   };
 
   // Select projects to display based on active tab
-  // Teachers only see their own projects (myProjects)
-  // Regular users see public projects or their own projects based on activeTab
-  // Organization users (school/company) see their organization's projects
-  const projectsToDisplay = isTeacher 
-    ? myProjects  // Teachers only see their own projects
-    : (isPersonalUser 
-      ? (activeTab === 'nouveautes' ? projects : myProjects)
-      : projects);
+  // Teachers only see their own projects (myProjects) or MLDS projects
+  // Regular users see public projects, their own projects, or MLDS projects based on activeTab
+  // Organization users (school/company) see their organization's projects or MLDS projects
+  let projectsToDisplay: Project[];
+  
+  if (activeTab === 'mlds-projects') {
+    projectsToDisplay = mldsProjects;
+  } else if (isTeacher) {
+    projectsToDisplay = myProjects;
+  } else if (isPersonalUser) {
+    projectsToDisplay = activeTab === 'nouveautes' ? projects : myProjects;
+  } else {
+    projectsToDisplay = projects;
+  }
 
 
   // Filter projects based on search and filter criteria
@@ -814,29 +968,89 @@ const Projects: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs for personal users (but not teachers - teachers only see their projects) */}
-      {state.showingPageType === 'user' && (
-        <div className="filter-tabs" style={{ marginBottom: '24px' }}>
-          <button 
-            className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('nouveautes');
-              setProjectPage(1); // Reset pagination when switching tabs
-            }}
-          >
-            Nouveautés ({projectTotalCount > 0 ? projectTotalCount : projects.length})
-          </button>
-          <button 
-            className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('mes-projets');
-              setMyProjectsPage(1); // Reset pagination when switching tabs
-            }}
-          >
-            Mes projets ({myProjectsTotalCount > 0 ? myProjectsTotalCount : myProjects.length})
-          </button>
-        </div>
-      )}
+      {/* Tabs for all users */}
+      <div className="filter-tabs" style={{ marginBottom: '24px' }}>
+        {/* For users: show Nouveautés, Mes projets, and MLDS tabs */}
+        {state.showingPageType === 'user' && (
+          <>
+            <button 
+              className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('nouveautes');
+                setProjectPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Nouveautés ({projects.length})
+            </button>
+            <button 
+              className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mes-projets');
+                setMyProjectsPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Mes projets ({myProjects.length})
+            </button>
+            <button 
+              className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mlds-projects');
+                setMldsProjectsPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Projets MLDS Volet Persévérance ({mldsProjects.length})
+            </button>
+          </>
+        )}
+        
+        {/* For teachers: show Mes projets and MLDS tabs */}
+        {state.showingPageType === 'teacher' && (
+          <>
+            <button 
+              className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mes-projets');
+                setMyProjectsPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Mes projets ({myProjects.length})
+            </button>
+            <button 
+              className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mlds-projects');
+                setMldsProjectsPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Projets MLDS Volet Persévérance ({mldsProjects.length})
+            </button>
+          </>
+        )}
+        
+        {/* For pro/edu: show Projets and MLDS tabs */}
+        {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
+          <>
+            <button 
+              className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('nouveautes');
+                setProjectPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Projets ({projects.length})
+            </button>
+            <button 
+              className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mlds-projects');
+                setMldsProjectsPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Projets MLDS Volet Persévérance ({mldsProjects.length})
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Search Bar */}
       <div className="w-full projects-search-container">
@@ -987,10 +1201,27 @@ const Projects: React.FC = () => {
           {/* Pagination Controls */}
           {(() => {
             // Determine which pagination state to use based on active tab
-            const currentPage = (state.showingPageType === 'user' && activeTab === 'mes-projets') ? myProjectsPage : projectPage;
-            const totalPages = (state.showingPageType === 'user' && activeTab === 'mes-projets') ? myProjectsTotalPages : projectTotalPages;
-            const totalCount = (state.showingPageType === 'user' && activeTab === 'mes-projets') ? myProjectsTotalCount : projectTotalCount;
-            const setCurrentPage = (state.showingPageType === 'user' && activeTab === 'mes-projets') ? setMyProjectsPage : setProjectPage;
+            let currentPage: number;
+            let totalPages: number;
+            let totalCount: number;
+            let setCurrentPage: (page: number) => void;
+            
+            if (activeTab === 'mlds-projects') {
+              currentPage = mldsProjectsPage;
+              totalPages = mldsProjectsTotalPages;
+              totalCount = mldsProjectsTotalCount;
+              setCurrentPage = setMldsProjectsPage;
+            } else if (activeTab === 'mes-projets') {
+              currentPage = myProjectsPage;
+              totalPages = myProjectsTotalPages;
+              totalCount = myProjectsTotalCount;
+              setCurrentPage = setMyProjectsPage;
+            } else {
+              currentPage = projectPage;
+              totalPages = projectTotalPages;
+              totalCount = projectTotalCount;
+              setCurrentPage = setProjectPage;
+            }
             
             if (totalPages <= 1) return null;
             

@@ -161,6 +161,7 @@ export interface Project {
     logo: string;
     organization: string;
   } | null;
+  mlds_information?: any; // MLDS project specific information
 }
 
 export interface EventParticipant {
