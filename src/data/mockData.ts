@@ -1,4 +1,4 @@
-import { Member, Project, Event, Badge, Notification, User, DashboardStats, MembershipRequest, OrganizationList, ClassList } from '../types';
+import { Member, Project, Badge, Notification, User, DashboardStats, MembershipRequest, OrganizationList, ClassList } from '../types';
 
 export const mockUser: User = {
   id: '1',

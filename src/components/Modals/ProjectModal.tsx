@@ -56,8 +56,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
   // Loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoadingTags, setIsLoadingTags] = useState(false);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoadingPartnerships, setIsLoadingPartnerships] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -127,10 +129,32 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
   const getFilteredPartners = (searchTerm: string) => {
     if (!availablePartnerships || !Array.isArray(availablePartnerships)) return [];
-    if (!searchTerm.trim()) return availablePartnerships;
+    
+    // Get current organization from context
+    const savedContextId = localStorage.getItem('selectedContextId');
+    const savedContextType = localStorage.getItem('selectedContextType');
+    
+    // Filter partnerships to exclude current org
+    let filtered = availablePartnerships;
+    if (savedContextId && savedContextType) {
+      const currentOrgId = parseInt(savedContextId);
+      filtered = availablePartnerships.filter(partnership => {
+        // Check if any partner in this partnership matches current org
+        // Partnerships have partners array with id and type
+        return !partnership.partners?.some((partner: any) => 
+          partner.id === currentOrgId && 
+          partner.type?.toLowerCase() === savedContextType.toLowerCase()
+        );
+      });
+    }
+    
+    if (!searchTerm.trim()) return filtered;
     const searchLower = searchTerm.toLowerCase();
-    return availablePartnerships.filter(partnership =>
-      partnership.name.toLowerCase().includes(searchLower)
+    return filtered.filter(partnership =>
+      partnership.name?.toLowerCase().includes(searchLower) ||
+      partnership.partners?.some((p: any) => 
+        p.name?.toLowerCase().includes(searchLower)
+      )
     );
   };
 
@@ -456,8 +480,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     e.preventDefault();
     setSubmitError(null);
 
-    // Validation: Pathway is required only if visible (not 'pro')
-    const isPathwayRequired = state.showingPageType !== 'pro';
+    // Validation: Pathway is required for all dashboards
+    const isPathwayRequired = true;
     const isPathwayValid = !isPathwayRequired || formData.pathway;
 
     // For teachers, organization is always required (but pre-filled)
@@ -961,30 +985,30 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
               </div>
             </div>
 
-            {state.showingPageType !== 'pro' && (
-              <div className="form-group">
-                <label htmlFor="projectPathway">Parcours *</label>
-                <select
-                  id="projectPathway"
-                  name="pathway"
-                  required
-                  value={formData.pathway}
-                  onChange={handleInputChange}
-                  className="form-select"
-                >
-                  <option value="">Sélectionner un parcours</option>
-                  <option value="citoyen">Citoyen</option>
-                  <option value="creativite">Créativité</option>
-                  <option value="fabrication">Fabrication</option>
-                  <option value="psychologie">Psychologie</option>
-                  <option value="innovation">Innovation</option>
-                  <option value="education">Éducation</option>
-                  <option value="technologie">Technologie</option>
-                  <option value="sante">Santé</option>
-                  <option value="environnement">Environnement</option>
-                </select>
-              </div>
-            )}
+            <div className="form-group">
+              <label htmlFor="projectPathway">Parcours *</label>
+              <select
+                id="projectPathway"
+                name="pathway"
+                required
+                value={formData.pathway}
+                onChange={handleInputChange}
+                className="form-select"
+              >
+                <option value="">Sélectionner un parcours</option>
+                <option value="citoyen">Citoyen</option>
+                <option value="creativite">Créativité</option>
+                <option value="fabrication">Fabrication</option>
+                <option value="psychologie">Psychologie</option>
+                <option value="innovation">Innovation</option>
+                <option value="education">Éducation</option>
+                <option value="technologie">Technologie</option>
+                <option value="sante">Santé</option>
+                <option value="environnement">Environnement</option>
+                <option value="mlds">MLDS</option>
+                <option value="faj_co">FAJ Co</option>
+              </select>
+            </div>
 
             <div className="form-group">
               <label htmlFor="projectLinks">Liens utiles</label>
@@ -1045,12 +1069,23 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     <div className="selected-item">
                       {(() => {
                         const selected = getSelectedPartner(formData.partner);
-                        return selected ? (
+                        if (!selected) return null;
+                        
+                        const partnerOrgs = selected.partners || [];
+                        const firstPartner = partnerOrgs[0];
+                        
+                        return (
                           <div className="selected-member">
-                            <img src={selected.logo} alt={selected.name} className="selected-avatar" />
+                            <AvatarImage 
+                              src={firstPartner?.logo_url || '/default-avatar.png'} 
+                              alt={firstPartner?.name || 'Partnership'} 
+                              className="selected-avatar" 
+                            />
                             <div className="selected-info">
-                              <div className="selected-name">{selected.name}</div>
-                              <div className="selected-role">{selected.type}</div>
+                              <div className="selected-name">
+                                {partnerOrgs.map((p: any) => p.name).join(', ')}
+                              </div>
+                              <div className="selected-role">{selected.name || ''}</div>
                             </div>
                             <button
                               type="button"
@@ -1060,25 +1095,37 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                               <i className="fas fa-times"></i>
                             </button>
                           </div>
-                        ) : null;
+                        );
                       })()}
                     </div>
                   )}
                   {!formData.partner && (
                     <div className="selection-list">
-                      {getFilteredPartners(searchTerms.partner).map((partner) => (
-                        <div
-                          key={partner.id}
-                          className="selection-item"
-                          onClick={() => handlePartnerSelect(partner.id)}
-                        >
-                          <img src={partner.logo} alt={partner.name} className="item-avatar" />
-                          <div className="item-info">
-                            <div className="item-name">{partner.name}</div>
-                            <div className="item-role">{partner.type}</div>
+                      {getFilteredPartners(searchTerms.partner).map((partnership) => {
+                        // Get partner organizations (excluding current user's org, already filtered in getFilteredPartners)
+                        const partnerOrgs = partnership.partners || [];
+                        const firstPartner = partnerOrgs[0];
+                        
+                        return (
+                          <div
+                            key={partnership.id}
+                            className="selection-item"
+                            onClick={() => handlePartnerSelect(partnership.id)}
+                          >
+                            <AvatarImage 
+                              src={firstPartner?.logo_url || '/default-avatar.png'} 
+                              alt={firstPartner?.name || 'Partnership'} 
+                              className="item-avatar" 
+                            />
+                            <div className="item-info">
+                              <div className="item-name">
+                                {partnerOrgs.map((p: any) => p.name).join(', ')}
+                              </div>
+                              <div className="item-role">{partnership.name || ''}</div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

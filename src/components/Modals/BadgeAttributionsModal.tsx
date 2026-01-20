@@ -14,6 +14,8 @@ interface BadgeAttributionsModalProps {
   badgeName: string;
   badgeLevel: string;
   badgeId?: string; // Badge ID for filtering
+  preloadedAttributions?: BadgeAttribution[]; // Optional preloaded attributions data
+  badgeImageUrl?: string | null; // Optional badge image URL
 }
 
 interface BadgeAttribution {
@@ -23,6 +25,7 @@ interface BadgeAttribution {
     name: string;
     level: string;
     series?: string;
+    image_url?: string | null;
   };
   receiver: {
     id: number;
@@ -35,15 +38,18 @@ interface BadgeAttribution {
     id: number;
     full_name: string;
     email?: string;
+    role?: string;
     is_deleted?: boolean;
   };
   project: {
     id: number;
     title: string;
+    description?: string | null;
   } | null;
   event?: {
     id: number;
     title: string;
+    description?: string | null;
   } | null;
   assigned_at: string;
   comment: string | null;
@@ -60,7 +66,9 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
   onClose,
   badgeName,
   badgeLevel,
-  badgeId
+  badgeId,
+  preloadedAttributions,
+  badgeImageUrl: propBadgeImageUrl
 }) => {
   const { state } = useAppContext();
   const [attributions, setAttributions] = useState<BadgeAttribution[]>([]);
@@ -78,11 +86,16 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
   const organizationId = getOrganizationId(state.user, state.showingPageType);
 
   const fetchAttributions = useCallback(async (page: number, append: boolean = false) => {
-    // Allow user context without organization ID
-    if (!organizationId && state.showingPageType !== 'teacher' && state.showingPageType !== 'user') {
-      setError('Organization ID not found');
+    // Don't fetch if preloaded attributions are provided
+    if (preloadedAttributions && preloadedAttributions.length > 0) {
       return;
     }
+
+    // Allow user context without organization ID
+    // if (!organizationId && state.showingPageType !== 'teacher' && state.showingPageType !== 'user') {
+    //   setError('Organization ID not found');
+    //   return;
+    // }
 
     const loadingState = append ? setIsLoadingMore : setIsLoading;
     loadingState(true);
@@ -173,16 +186,22 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           full_name: item.receiver?.full_name || 'Unknown', 
           email: item.receiver?.email || '' 
         };
-        const sender = item.sender || { 
-          id: item.sender_id || 0, 
+        
+        // Always construct sender object to ensure all fields are present
+        const sender = {
+          id: item.sender?.id || item.sender_id || 0,
           full_name: item.sender?.full_name || 'Unknown',
-          email: item.sender?.email || ''
+          email: item.sender?.email || '',
+          role: item.sender?.role || '',
+          is_deleted: item.sender?.is_deleted || false
         };
-        const project = item.project || (item.project_id ? { id: item.project_id, title: item.project?.title || 'Unknown' } : null);
-        const event = item.event || (item.event_id ? { id: item.event_id, title: item.event?.title || 'Événement' } : null);
+        
+        const project = item.project || (item.project_id ? { id: item.project_id, title: item.project?.title || 'Unknown', description: item.project?.description || null } : null);
+        const event = item.event || (item.event_id ? { id: item.event_id, title: item.event?.title || 'Événement', description: item.event?.description || null } : null);
         
         return {
           id: item.id,
+          badge: item.badge,
           receiver: receiver,
           sender: sender,
           project: project,
@@ -227,7 +246,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
     } finally {
       loadingState(false);
     }
-  }, [organizationId, state.showingPageType, badgeId, badgeName, badgeLevel, perPage, badgeImageUrl]);
+  }, [organizationId, state.showingPageType, badgeId, badgeName, badgeLevel, perPage, badgeImageUrl, preloadedAttributions]);
 
   // Initial load
   useEffect(() => {
@@ -236,13 +255,29 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
       setCurrentPage(1);
       setHasMore(true);
       setError(null);
-      setBadgeImageUrl(null); // Reset badge image when modal opens
-      fetchAttributions(1, false);
+      setBadgeImageUrl(propBadgeImageUrl || null); // Use prop or reset badge image when modal opens
+      
+      // If preloaded attributions are provided, use them instead of fetching
+      if (preloadedAttributions && preloadedAttributions.length > 0) {
+        setAttributions(preloadedAttributions);
+        setTotalCount(preloadedAttributions.length);
+        setHasMore(false);
+        setIsLoading(false);
+        // Extract badge image from first attribution if available
+        if (!propBadgeImageUrl && preloadedAttributions[0]?.badge?.image_url) {
+          setBadgeImageUrl(preloadedAttributions[0].badge.image_url);
+        }
+      } else {
+        fetchAttributions(1, false);
+      }
     }
-  }, [isOpen, fetchAttributions]);
+  }, [isOpen, fetchAttributions, preloadedAttributions, propBadgeImageUrl]);
 
-  // Infinite scroll observer
+  // Infinite scroll observer - only if not using preloaded data
   useEffect(() => {
+    // Don't set up infinite scroll if using preloaded attributions
+    if (preloadedAttributions && preloadedAttributions.length > 0) return;
+    
     if (!isOpen || !hasMore || isLoading || isLoadingMore) return;
 
     const observer = new IntersectionObserver(
@@ -264,7 +299,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
         observer.unobserve(target);
       }
     };
-  }, [isOpen, hasMore, isLoading, isLoadingMore, currentPage, fetchAttributions]);
+  }, [isOpen, hasMore, isLoading, isLoadingMore, currentPage, fetchAttributions, preloadedAttributions]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -333,6 +368,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                 <thead>
                   <tr>
                     <th>Contexte</th>
+                    <th className="cell-description">Description</th>
                     <th>Attribué à</th>
                     <th>Attribué par</th>
                     <th>Commentaire</th>
@@ -354,6 +390,15 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                           </span>
                         ) : (
                           <span className="badge-pill badge-muted">Non lié</span>
+                        )}
+                      </td>
+                      <td className="cell-description">
+                        {attribution.event?.description ? (
+                          <span>{attribution.event.description}</span>
+                        ) : attribution.project?.description ? (
+                          <span>{attribution.project.description}</span>
+                        ) : (
+                          <span className="no-comment">-</span>
                         )}
                       </td>
                       <td>
@@ -390,9 +435,9 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                             />
                           ) : (
                             <>
-                              <span className="person-name">{attribution.sender.full_name}</span>
-                              {attribution.sender.email && (
-                                <span className="person-email">{attribution.sender.email}</span>
+                              <span className="whitespace-nowrap person-name">{attribution.sender.full_name}</span>
+                              {attribution.sender.role && (
+                                <span className="whitespace-nowrap person-email">{attribution.sender.role}</span>
                               )}
                             </>
                           )}

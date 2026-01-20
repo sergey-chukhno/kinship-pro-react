@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getPublicBadgeCartography } from '../../api/BadgeCartography';
+import { getSelectedStudentsBadgeCartography } from '../../api/BadgeCartography';
 import { Badge } from '../../types';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
+import { translateRole } from '../../utils/roleTranslations';
 import BadgeCard from '../Badges/BadgeCard';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import './PublicBadgeCartography.css';
-import { translateRole } from '../../utils/roleTranslations';
 
-const PublicBadgeCartography: React.FC = () => {
+const SelectedStudentsBadgeCartography: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const [badges, setBadges] = useState<Badge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,7 +28,7 @@ const PublicBadgeCartography: React.FC = () => {
     const fetchCartography = async () => {
       try {
         setIsLoading(true);
-        const data = await getPublicBadgeCartography(token);
+        const data = await getSelectedStudentsBadgeCartography(token);
         
         if (data.error) {
           setError(data.error);
@@ -51,7 +51,7 @@ const PublicBadgeCartography: React.FC = () => {
 
         setBadges(transformedBadges);
       } catch (err: any) {
-        console.error('Error fetching public cartography:', err);
+        console.error('Error fetching selected students cartography:', err);
         setError(err.response?.data?.error || 'Erreur lors du chargement de la cartographie');
       } finally {
         setIsLoading(false);
@@ -108,7 +108,7 @@ const PublicBadgeCartography: React.FC = () => {
       <div className="public-cartography-container">
         <div className="public-cartography-loading">
           <i className="fas fa-spinner fa-spin"></i>
-          <p>Chargement de la cartographie...</p>
+          <p>Chargement de la cartographie des étudiants sélectionnés...</p>
         </div>
       </div>
     );
@@ -162,10 +162,11 @@ const PublicBadgeCartography: React.FC = () => {
       </div>
     );
   }
+
   return (
     <div className="public-cartography-container">
       <div className="public-cartography-header">
-        <h1>Cartographie des badges</h1>
+        <h1>Cartographie des badges - <span className="capitalize">{shareInfo?.context?.student?.full_name}</span></h1>
         
         {shareInfo && (() => {
           const expiresAt = shareInfo?.share?.expires_at || shareInfo?.expires_at;
@@ -289,6 +290,8 @@ const PublicBadgeCartography: React.FC = () => {
           ? filteredAttributions[0].badge?.image_url || null
           : null;
 
+          console.log("filteredAttributions", filteredAttributions);
+
         return (
           <BadgeAttributionsModal
             isOpen={isAttributionsModalOpen}
@@ -308,5 +311,7 @@ const PublicBadgeCartography: React.FC = () => {
   );
 };
 
-export default PublicBadgeCartography;
+export default SelectedStudentsBadgeCartography;
+
+
 

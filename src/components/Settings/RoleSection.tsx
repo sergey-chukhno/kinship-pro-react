@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getPersonalUserRoles } from '../../api/RegistrationRessource';
 import { updateUserRole } from '../../api/UserDashBoard/Profile';
@@ -28,11 +28,7 @@ const RoleSection: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  useEffect(() => {
-    loadRoles();
-  }, []);
-
-  const loadRoles = async () => {
+  const loadRoles = useCallback(async () => {
     try {
       const response = await getPersonalUserRoles();
       const roles = response?.data?.data ?? response?.data ?? response ?? [];
@@ -69,7 +65,11 @@ const RoleSection: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [state.user.role, showError]);
+
+  useEffect(() => {
+    loadRoles();
+  }, [loadRoles]);
 
   const handleUpdateRole = async (e: React.FormEvent) => {
     e.preventDefault();

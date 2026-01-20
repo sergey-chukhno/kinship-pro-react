@@ -38,7 +38,6 @@ const MainLayout: React.FC = () => {
     if (isAuthChecking) return;
 
     const root = document.documentElement;
-    console.log("Current showingPageType:", state.showingPageType);
 
     if (state.showingPageType === "pro") {
       root.style.setProperty("--primary", "#5570F1"); // bleu pour pro

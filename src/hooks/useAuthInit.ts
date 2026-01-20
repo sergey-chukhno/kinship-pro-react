@@ -5,7 +5,7 @@ import { PageType } from "../types";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export const useAuthInit = () => {
-  const { state, setCurrentPage, setShowingPageType, setUser } = useAppContext();
+  const { setCurrentPage, setShowingPageType, setUser } = useAppContext();
   const location = useLocation()
   const navigate = useNavigate()
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -57,7 +57,6 @@ export const useAuthInit = () => {
         // Récupérer l'utilisateur pour toutes les routes
         const userResponse = await getCurrentUser();
         const user = userResponse.data;
-        console.log("UserData : ", user)
 
         if (user) {
           // Store user data in AppContext

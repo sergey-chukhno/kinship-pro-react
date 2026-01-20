@@ -300,7 +300,7 @@
 }
 
 .btn-attach:hover {
-  background: var(--secondary, #524c9c);
+  background: var(--hover-primary, #4258c4);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(85, 112, 241, 0.3);
 }

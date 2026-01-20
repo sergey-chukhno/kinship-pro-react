@@ -46,7 +46,8 @@ const ProjectManagement: React.FC = () => {
   // Badge filters
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
-  const [badgeDomainFilter, setBadgeDomainFilter] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_badgeDomainFilter, setBadgeDomainFilter] = useState(''); // Set but not used in UI - kept for future use
   const [projectBadges, setProjectBadges] = useState<any[]>([]);
   const [isLoadingProjectBadges, setIsLoadingProjectBadges] = useState(false);
   const [projectBadgesError, setProjectBadgesError] = useState<string | null>(null);
@@ -122,7 +123,8 @@ const ProjectManagement: React.FC = () => {
 
   // State for project data (fetched from API)
   const [project, setProject] = useState<Project>(state.selectedProject || mockProjects[0]);
-  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isLoadingProject, setIsLoadingProject] = useState(false); // Set but not used in UI
   const [apiProjectData, setApiProjectData] = useState<any>(null);
   
   // State for project statistics
@@ -162,6 +164,12 @@ const ProjectManagement: React.FC = () => {
         // Store raw API data for permission checks
         setApiProjectData(apiProject);
         
+        // Debug: Log organization info from API
+        console.log('🔍 [ProjectManagement] API Project primary_organization_name:', apiProject.primary_organization_name);
+        console.log('🔍 [ProjectManagement] Current user organization:', 
+          state.showingPageType === 'edu' ? state.user?.available_contexts?.schools?.[0]?.name : 
+          state.showingPageType === 'pro' ? state.user?.available_contexts?.companies?.[0]?.name : 'N/A');
+        
         // Determine user's role in the project
         const role = getUserProjectRole(apiProject, state.user?.id?.toString());
         setUserProjectRole(role);
@@ -172,6 +180,10 @@ const ProjectManagement: React.FC = () => {
         
         // Map API data to frontend format
         const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
+        
+        // Debug: Log mapped project organization info
+        console.log('🔍 [ProjectManagement] Mapped project.organization:', mappedProject.organization);
+        console.log('🔍 [ProjectManagement] Mapped project.responsible?.organization:', mappedProject.responsible?.organization);
         
         // Debug: Log mapped co-responsibles
         console.log('Mapped project coResponsibles:', mappedProject.coResponsibles);
@@ -351,7 +363,8 @@ const ProjectManagement: React.FC = () => {
       isCancelled = true;
       // Don't reset refs here - let the new effect run handle it
     };
-  }, [apiProjectData?.id, project?.id]); // Depend directly on ID values
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiProjectData?.id, project?.id]); // Depend directly on ID values - fetchAllProjectMembers and showError are stable
 
   // Fetch project badges when project changes
   // Fetch badges when page or filters change
@@ -450,11 +463,13 @@ const ProjectManagement: React.FC = () => {
   
   // State for available members (for adding participants)
   const [availableMembers, setAvailableMembers] = useState<any[]>([]);
-  const [isLoadingAvailableMembers, setIsLoadingAvailableMembers] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isLoadingAvailableMembers, setIsLoadingAvailableMembers] = useState(false); // Set but not used in UI
 
   // State for participants with extended type
   const [participants, setParticipants] = useState<any[]>([]);
-  const [isLoadingParticipants, setIsLoadingParticipants] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isLoadingParticipants, setIsLoadingParticipants] = useState(false); // Set but not used in UI
   const lastLoadedProjectIdRef = useRef<string | null>(null);
   const previousIdsRef = useRef<{ projectId: string | null; apiProjectId: string | null }>({ projectId: null, apiProjectId: null });
   const isLoadingRef = useRef<boolean>(false); // Use ref to prevent re-render triggers
@@ -699,7 +714,7 @@ const ProjectManagement: React.FC = () => {
         avatar: apiProjectData.owner.avatar_url || DEFAULT_AVATAR_SRC,
         skills: apiProjectData.owner.skills?.map((s: any) => s.name || s) || [],
         availability: apiProjectData.owner.availability || [],
-        organization: apiProjectData.owner_organization_name || '',
+        organization: apiProjectData.primary_organization_name || project.organization || '',
         role: 'owner',
         projectRole: 'owner',
         is_deleted: apiProjectData.owner.is_deleted || false
@@ -975,7 +990,7 @@ const ProjectManagement: React.FC = () => {
   const handleSaveEdit = async () => {
     try {
       // Map edit form to backend payload
-      const { payload } = mapEditFormToBackend(editForm, state.tags || [], project);
+      const payload = mapEditFormToBackend(editForm, state.tags || [], project);
       
       // Convert image preview to File if different from current image
       let mainImageFile: File | null = null;
@@ -1308,6 +1323,7 @@ const ProjectManagement: React.FC = () => {
     } finally {
       setIsLoadingProjectBadges(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id, badgeSeriesFilter, badgeLevelFilter]);
 
   const fetchProjectDocuments = useCallback(async () => {
@@ -1614,33 +1630,33 @@ const ProjectManagement: React.FC = () => {
     );
   };
 
-  // Task management functions
-  const handleCreateTask = () => {
-    setIsCreateTaskModalOpen(true);
-    setNewTaskForm({
-      title: '',
-      description: '',
-      assigneeType: 'individual',
-      assigneeId: '',
-      startDate: '',
-      dueDate: '',
-      priority: 'medium'
-    });
-  };
+  // Task management functions (currently unused - kept for future implementation)
+  // const handleCreateTask = () => {
+  //   setIsCreateTaskModalOpen(true);
+  //   setNewTaskForm({
+  //     title: '',
+  //     description: '',
+  //     assigneeType: 'individual',
+  //     assigneeId: '',
+  //     startDate: '',
+  //     dueDate: '',
+  //     priority: 'medium'
+  //   });
+  // };
 
-  const handleEditTask = (task: any) => {
-    setSelectedTask(task);
-    setNewTaskForm({
-      title: task.title,
-      description: task.description,
-      assigneeType: task.assigneeType,
-      assigneeId: task.assigneeId,
-      startDate: task.startDate,
-      dueDate: task.dueDate,
-      priority: task.priority
-    });
-    setIsEditTaskModalOpen(true);
-  };
+  // const handleEditTask = (task: any) => {
+  //   setSelectedTask(task);
+  //   setNewTaskForm({
+  //     title: task.title,
+  //     description: task.description,
+  //     assigneeType: task.assigneeType,
+  //     assigneeId: task.assigneeId,
+  //     startDate: task.startDate,
+  //     dueDate: task.dueDate,
+  //     priority: task.priority
+  //   });
+  //   setIsEditTaskModalOpen(true);
+  // };
 
   const handleSaveTask = () => {
     if (!newTaskForm.title.trim()) {
@@ -1696,39 +1712,40 @@ const ProjectManagement: React.FC = () => {
     });
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) {
-      setTasks(tasks.filter(task => task.id !== taskId));
-    }
-  };
+  // Task management functions (currently unused - kept for future implementation)
+  // const handleDeleteTask = (taskId: string) => {
+  //   if (window.confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) {
+  //     setTasks(tasks.filter(task => task.id !== taskId));
+  //   }
+  // };
 
-  const handleTaskDrag = (taskId: string, newStatus: string) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, status: newStatus } : task
-    ));
-  };
+  // const handleTaskDrag = (taskId: string, newStatus: string) => {
+  //   setTasks(tasks.map(task => 
+  //     task.id === taskId ? { ...task, status: newStatus } : task
+  //   ));
+  // };
 
-  const getTasksByStatus = (status: string) => {
-    return tasks.filter(task => task.status === status);
-  };
+  // const getTasksByStatus = (status: string) => {
+  //   return tasks.filter(task => task.status === status);
+  // };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return '#ef4444';
-      case 'medium': return '#f59e0b';
-      case 'low': return '#10b981';
-      default: return '#6b7280';
-    }
-  };
+  // const getPriorityColor = (priority: string) => {
+  //   switch (priority) {
+  //     case 'high': return '#ef4444';
+  //     case 'medium': return '#f59e0b';
+  //     case 'low': return '#10b981';
+  //     default: return '#6b7280';
+  //   }
+  // };
 
-  const getPriorityLabel = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'Haute';
-      case 'medium': return 'Moyenne';
-      case 'low': return 'Basse';
-      default: return 'Non définie';
-    }
-  };
+  // const getPriorityLabel = (priority: string) => {
+  //   switch (priority) {
+  //     case 'high': return 'Haute';
+  //     case 'medium': return 'Moyenne';
+  //     case 'low': return 'Basse';
+  //     default: return 'Non définie';
+  //   }
+  // };
 
   const handleAddParticipant = async () => {
     setIsLoadingAvailableMembers(true);
@@ -2220,7 +2237,7 @@ const ProjectManagement: React.FC = () => {
                   <div className="manager-right">
                     <div className="manager-organization">
                       <img src="/icons_logo/Icon=projet.svg" alt="Organization" className="manager-icon" />
-                      <span className="manager-text">{project.responsible?.organization || project.organization}</span>
+                      <span className="manager-text">{project.responsible?.organization || ''}</span>
                     </div>
                     <div className="manager-email">
                       <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
@@ -2276,7 +2293,11 @@ const ProjectManagement: React.FC = () => {
                   <div className="project-partner-info">
                     <div className="manager-left">
                       <div className="manager-avatar">
-                        <img src={project.partner.logo} alt={project.partner.name} />
+                        <AvatarImage 
+                          src={project.partner.logo || '/default-avatar.png'} 
+                          alt={project.partner.name} 
+                          className="manager-avatar-img"
+                        />
                       </div>
                       <div className="manager-details">
                         <div className="manager-name">{project.partner.name}</div>
@@ -3368,7 +3389,6 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
 
-              {state.showingPageType !== 'pro' && (
               <div className="form-group">
                 <label htmlFor="project-pathway">Parcours</label>
                 <select
@@ -3382,9 +3402,10 @@ const ProjectManagement: React.FC = () => {
                   <option value="citoyen">Citoyen</option>
                   <option value="creativite">Créativité</option>
                   <option value="avenir">Avenir</option>
+                  <option value="mlds">MLDS</option>
+                  <option value="faj_co">FAJ Co</option>
                 </select>
               </div>
-              )}
 
               <div className="form-group">
                 <label>Tags du projet</label>

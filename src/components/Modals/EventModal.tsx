@@ -922,8 +922,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                 <i className="fas fa-file-csv"></i> Importer une liste de participants (CSV)
               </label>
               <a download="/template-liste-participant.csv" 
-               className="text-xs text-[-primary] flex items-center gap-1"
+               className="text-xs text-[-primary] flex items-center gap-1 hover:underline"
                href="/template-liste-participant.csv"
+               title="Remplissez le template avec les participants que vous souhaitez inviter"
                >
                 <i className="fas fa-info-circle"/> 
               Télécharger le template</a>
@@ -1337,9 +1338,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         
         <div className="modal-footer">
           <button type="button" className="btn btn-outline" onClick={onClose}>Annuler</button>
-          <button type="submit" form="eventForm" className="btn btn-primary">
-            <i className="fas fa-plus"></i>
-            {forceCreate || !event ? 'Créer l\'événement' : 'Modifier l\'événement'}
+          <button type="submit" form="eventForm" className="flex gap-2 items-center btn btn-primary">
+          {forceCreate || !event ?  <i className="fas fa-plus"></i> : <i className="fas fa-pen"></i>}
+            {forceCreate || !event ? 'Créer l\'événement' : 'Valider les modifications'}
           </button>
         </div>
       </div>

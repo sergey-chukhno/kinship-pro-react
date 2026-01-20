@@ -9,7 +9,7 @@ export const base64ToFile = (base64String: string, filename: string): File | nul
 
     try {
         // Extract the base64 data and mime type
-        const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        const matches = base64String.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
         if (!matches || matches.length !== 3) {
             return null;
         }
@@ -224,7 +224,7 @@ export const mapEditFormToBackend = (
     },
     tags: Tag[],
     project: Project
-): { payload: UpdateProjectPayload; mainImageFile: File | null } => {
+): UpdateProjectPayload => {
     // Normalize tags to ensure it's an array
     // Handle both Tag[] and { data: Tag[] } formats
     const normalizedTags: Tag[] = Array.isArray(tags) 
@@ -260,11 +260,9 @@ export const mapEditFormToBackend = (
         }
     };
 
-    // Convert image preview to File if different from current image
-    let mainImageFile: File | null = null;
     // Note: editImagePreview will be passed separately and converted in handleSaveEdit
 
-    return { payload, mainImageFile: null };
+    return payload;
 };
 
 /**
@@ -339,30 +337,17 @@ export const validateImages = (
  * Frontend pathways: "sante", "citoyen", "eac", "creativite", "avenir", "other"
  */
 const getPathwayFromTags = (tags: any[]): string | undefined => {
-    console.log('🔍 [PATHWAY DEBUG] getPathwayFromTags called with:', tags);
-    console.log('🔍 [PATHWAY DEBUG] tags type:', typeof tags);
-    console.log('🔍 [PATHWAY DEBUG] tags is array:', Array.isArray(tags));
-    console.log('🔍 [PATHWAY DEBUG] tags length:', tags?.length);
-    
     if (!tags || tags.length === 0) {
-        console.log('⚠️ [PATHWAY DEBUG] No tags found, returning undefined (no pathway)');
         return undefined;
     }
     
     const firstTag = tags[0];
-    console.log('🔍 [PATHWAY DEBUG] First tag:', firstTag);
-    console.log('🔍 [PATHWAY DEBUG] First tag type:', typeof firstTag);
-    
     const tagName = firstTag?.name || firstTag;
-    console.log('🔍 [PATHWAY DEBUG] Tag name extracted:', tagName);
-    
     if (!tagName) {
-        console.log('⚠️ [PATHWAY DEBUG] No tag name found, returning default "avenir"');
         return 'avenir';
     }
     
     const normalizedName = tagName.toLowerCase().trim();
-    console.log('🔍 [PATHWAY DEBUG] Normalized name:', normalizedName);
     
     // Map French tag names to frontend pathway values
     const pathwayMap: Record<string, string> = {
@@ -373,12 +358,13 @@ const getPathwayFromTags = (tags: any[]): string | undefined => {
         'eac': 'eac',
         'créativité': 'creativite',
         'creativite': 'creativite',
+        'mlds': 'mlds',
+        'faj co': 'faj_co',
+        'faj_co': 'faj_co',
         'autre': 'other'
     };
     
     const mappedPathway = pathwayMap[normalizedName] || normalizedName;
-    console.log('✅ [PATHWAY DEBUG] Mapped pathway:', mappedPathway);
-    console.log('🔍 [PATHWAY DEBUG] Pathway map lookup:', pathwayMap[normalizedName] ? 'found' : 'not found, using normalized name');
     
     return mappedPathway;
 };
@@ -406,38 +392,33 @@ const mapKeywordsToTags = (keywords: any[]): string[] => {
  * Transforms backend API response to frontend Project interface
  */
 export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType: ShowingPageType, user?: User): Project => {
-    // Debug: Log API project data
-    console.log('📦 [PATHWAY DEBUG] ========== Mapping API Project ==========');
-    console.log('📦 [PATHWAY DEBUG] Project ID:', apiProject.id);
-    console.log('📦 [PATHWAY DEBUG] Project Title:', apiProject.title);
-    console.log('📦 [PATHWAY DEBUG] API Project tags:', apiProject.tags);
-    console.log('📦 [PATHWAY DEBUG] API Project tags type:', typeof apiProject.tags);
-    console.log('📦 [PATHWAY DEBUG] API Project tags is array:', Array.isArray(apiProject.tags));
-    console.log('📦 [PATHWAY DEBUG] API Project tags length:', apiProject.tags?.length);
-    
     // Determine pathway from tags (first tag is the pathway)
     const pathway = getPathwayFromTags(apiProject.tags || []);
-    console.log('✅ [PATHWAY DEBUG] Final pathway assigned:', pathway);
-    console.log('📦 [PATHWAY DEBUG] ===========================================');
     
-    // Get organization name: priority 1) API primary_organization_name, 2) available_contexts, 3) fallback
-    let organizationName = '';
+    // Get project's organization name (for project.organization field)
+    // This can fallback to user's organization if primary_organization_name is missing
+    let projectOrganizationName = '';
     if (apiProject.primary_organization_name) {
         // Use organization name from API (most reliable)
-        organizationName = apiProject.primary_organization_name;
+        projectOrganizationName = apiProject.primary_organization_name;
     } else if (user?.available_contexts) {
-        // Fallback to available_contexts
+        // Fallback to available_contexts for project organization only
         if (showingPageType === 'pro' && user.available_contexts.companies && user.available_contexts.companies.length > 0) {
-            organizationName = user.available_contexts.companies[0].name;
+            projectOrganizationName = user.available_contexts.companies[0].name;
         } else if ((showingPageType === 'edu' || showingPageType === 'teacher') && user.available_contexts.schools && user.available_contexts.schools.length > 0) {
-            organizationName = user.available_contexts.schools[0].name;
+            projectOrganizationName = user.available_contexts.schools[0].name;
         }
     }
     
     // Final fallback if still empty
-    if (!organizationName) {
-        organizationName = showingPageType === 'pro' ? 'Organisation' : 'École';
+    if (!projectOrganizationName) {
+        projectOrganizationName = showingPageType === 'pro' ? 'Organisation' : 'École';
     }
+    
+    // Get owner's organization name (for responsible.organization field)
+    // IMPORTANT: Only use primary_organization_name, never fallback to current user's org
+    // This ensures we show the project owner's actual organization, not the viewer's organization
+    const ownerOrganizationName = apiProject.primary_organization_name || '';
     
     // Map owner to responsible
     const owner = apiProject.owner;
@@ -446,20 +427,20 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         name: owner.full_name || `${owner.first_name} ${owner.last_name}`,
         avatar: owner.avatar_url || '/default-avatar.png',
         profession: owner.job || owner.role || 'Membre',
-        organization: organizationName,
+        organization: ownerOrganizationName, // Use owner's org, not project org or viewer's org
         email: owner.email || '',
         role: apiProject.owner_organization_role || undefined, // Role in organization
         city: apiProject.owner_city || undefined, // City of organization
         is_deleted: owner.is_deleted || false // Preserve deleted status
     } : null;
     
-    // Map co-owners
+    // Map co-owners (use ownerOrganizationName for consistency)
     const coResponsibles = (apiProject.co_owners || []).map((coOwner: any) => ({
         id: coOwner.id.toString(),
         name: coOwner.full_name || `${coOwner.first_name} ${coOwner.last_name}`,
         avatar: coOwner.avatar_url || '/default-avatar.png',
         profession: coOwner.job || 'Membre', // Profession réelle
-        organization: organizationName,
+        organization: ownerOrganizationName, // Use owner's org, not project org or viewer's org
         email: coOwner.email || '',
         role: coOwner.organization_role || undefined, // Role in organization
         city: coOwner.city || undefined, // City of organization
@@ -473,7 +454,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         status: apiProject.status,
         visibility: apiProject.private ? 'private' : 'public',
         pathway: pathway,
-        organization: organizationName,
+        organization: projectOrganizationName, // Project's organization (can fallback to user's org)
         owner: owner?.name || owner?.email || 'Inconnu',
         participants: apiProject.participants_number || apiProject.members_count || 0,
         badges: apiProject.badge_count || 0, // Use badge_count from API
@@ -489,11 +470,13 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         badges_list: [], // Not provided by current API
         responsible: responsible,
         coResponsibles: coResponsibles.length > 0 ? coResponsibles : [],
-        partner: apiProject.partnership_id ? {
-            id: apiProject.partnership_id.toString(),
-            name: '', // Would need to fetch partnership details
-            logo: '',
-            organization: ''
+        partner: apiProject.partnership_id && apiProject.partnership_details ? {
+            id: apiProject.partnership_details.partnership_id.toString(),
+            name: apiProject.partnership_details.partner_organizations?.[0]?.name 
+                  ? `Partenariat ${apiProject.partnership_details.partner_organizations[0].name}` 
+                  : '',
+            logo: apiProject.partnership_details.partner_organizations?.[0]?.logo_url || '',
+            organization: apiProject.partnership_details.partner_organizations?.[0]?.name || ''
         } : undefined
     };
 };

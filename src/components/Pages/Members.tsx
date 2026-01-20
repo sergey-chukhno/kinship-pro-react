@@ -6,9 +6,10 @@ import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers,
 import { getSkills } from '../../api/Skills';
 import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent } from '../../api/Dashboard';
 import { getTeacherClassStudents } from '../../api/Dashboard';
+import { createStudentBadgeCartographyShare } from '../../api/BadgeCartography';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
-import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
+import { translateSkill, translateSubSkill } from '../../translations/skills';
 import { ClassList, Member } from '../../types';
 import ClassCard from '../Class/ClassCard';
 import MemberCard from '../Members/MemberCard';
@@ -90,10 +91,12 @@ const Members: React.FC = () => {
   const [classLists, setClassLists] = useState<ClassList[]>([])
   const [members, setMembers] = useState<Member[]>([]);
   const [communityLists, setCommunityLists] = useState<Member[]>([]);
-  const [page, setPage] = useState(1);
-  const [per_page, setPerPage] = useState(12);
-  const [totalPages, setTotalPages] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // Removed unused pagination variables - replaced with classesPage/classesTotalPages
+  // const [page, setPage] = useState(1);
+  // const [per_page, setPerPage] = useState(12);
+  // const [totalPages, setTotalPages] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [loading, setLoading] = useState(true); // setLoading is used in fetchLevels, but loading state is not read
   const [isMembersLoading, setIsMembersLoading] = useState(true);
   const [membersInitialLoad, setMembersInitialLoad] = useState(true);
   const [skillsOptions, setSkillsOptions] = useState<string[]>([]);
@@ -114,6 +117,39 @@ const Members: React.FC = () => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Member | null>(null);
   const [selectedLevelId, setSelectedLevelId] = useState<number | null>(null);
+  const [cartographyTokens, setCartographyTokens] = useState<Record<string, string>>({});
+  const [loadingCartographyTokens, setLoadingCartographyTokens] = useState<Record<string, boolean>>({});
+
+  // Function to get or generate cartography token for a student
+  const getCartographyToken = useCallback(async (studentId: string, schoolId: number | null): Promise<string | null> => {
+    if (!schoolId) return null;
+    
+    // If token already exists, return it
+    if (cartographyTokens[studentId]) {
+      return cartographyTokens[studentId];
+    }
+
+    // If already loading, return null
+    if (loadingCartographyTokens[studentId]) {
+      return null;
+    }
+
+    try {
+      setLoadingCartographyTokens(prev => ({ ...prev, [studentId]: true }));
+      const result = await createStudentBadgeCartographyShare(schoolId, studentId);
+      setCartographyTokens(prev => ({ ...prev, [studentId]: result.token }));
+      return result.token;
+    } catch (error) {
+      console.error(`Error generating cartography token for student ${studentId}:`, error);
+      return null;
+    } finally {
+      setLoadingCartographyTokens(prev => {
+        const newState = { ...prev };
+        delete newState[studentId];
+        return newState;
+      });
+    }
+  }, [cartographyTokens, loadingCartographyTokens]);
 
   const renderMembersLoading = () => (
     <div className="members-loading-container">
@@ -159,6 +195,7 @@ const Members: React.FC = () => {
             skills: [],
             availability: [],
             badges: s.badges || [],
+            latestBadges: s.latest_badges || [],
             experience: [],
             education: [],
             location: s.city || '',
@@ -239,6 +276,7 @@ const Members: React.FC = () => {
           avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
           isTrusted: m.status === 'confirmed',
           badges: m.badges?.data?.map((b: any) => b.id?.toString()) || [],
+          latestBadges: m.latest_badges || [],
           organization: '',
           canProposeStage: m.take_trainee || false,
           canProposeAtelier: m.propose_workshop || false,
@@ -373,6 +411,7 @@ const Members: React.FC = () => {
           avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
           isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
           badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
+          latestBadges: vol.latest_badges || [],
           organization: vol.organization || '',
           canProposeStage: vol.take_trainee || vol.user?.take_trainee || false,
           canProposeAtelier: vol.propose_workshop || vol.user?.propose_workshop || false,
@@ -638,6 +677,18 @@ const Members: React.FC = () => {
     return studentRoles.includes(primaryRoleRaw);
   });
 
+  // Generate cartography tokens for students in background
+  useEffect(() => {
+    if (isSchoolContext && activeTab === 'students' && currentSchoolId && filteredStudents.length > 0) {
+      filteredStudents.forEach((student) => {
+        // Only generate if not already generated and not currently loading
+        if (!cartographyTokens[student.id] && !loadingCartographyTokens[student.id]) {
+          getCartographyToken(student.id, currentSchoolId);
+        }
+      });
+    }
+  }, [filteredStudents, currentSchoolId, isSchoolContext, activeTab, cartographyTokens, loadingCartographyTokens, getCartographyToken]);
+
   const filteredCommunityMembers = communityLists.filter(member => {
     const term = searchTerm.toLowerCase();
     const displayRoles = translateRoles(member.roles);
@@ -872,6 +923,7 @@ const Members: React.FC = () => {
     if (selectedMember?.id === id) setSelectedMember({ ...selectedMember, ...updates });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleImportExport = (action: 'import' | 'export') => {
     if (action === 'import') {
       setIsCsvImportModalOpen(true);
@@ -1438,6 +1490,18 @@ const Members: React.FC = () => {
                       }
                     }
                   ] : []}
+                  badgeCartographyUrl={(() => {
+                    // Get cartography token for this student
+                    const token = cartographyTokens[member.id];
+                    if (token) {
+                      return `/badge-cartography-selected/${token}`;
+                    }
+                    // If token not yet generated, trigger generation and return placeholder
+                    if (currentSchoolId && !loadingCartographyTokens[member.id]) {
+                      getCartographyToken(member.id, currentSchoolId);
+                    }
+                    return undefined; // Will be updated once token is generated
+                  })()}
                 />
               );
             })
@@ -1657,6 +1721,20 @@ const Members: React.FC = () => {
           onContactClick={() => setIsContactModalOpen(true)}
           isSuperadmin={(selectedMember as any).isSuperadmin || 
             ((selectedMember as any).membershipRole || '').toLowerCase() === 'superadmin'}
+          badgeCartographyUrl={(() => {
+            // Get cartography token for this student (only for students in school context)
+            if (isSchoolContext && currentSchoolId) {
+              const token = cartographyTokens[selectedMember.id];
+              if (token) {
+                return `/badge-cartography-selected/${token}`;
+              }
+              // If token not yet generated, trigger generation
+              if (!loadingCartographyTokens[selectedMember.id]) {
+                getCartographyToken(selectedMember.id, currentSchoolId);
+              }
+            }
+            return undefined;
+          })()}
         />
       )}
 
