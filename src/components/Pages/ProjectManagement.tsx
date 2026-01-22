@@ -2035,6 +2035,20 @@ const ProjectManagement: React.FC = () => {
     return `${day}-${month}-${year}`;
   };
 
+  // Format date range (start - end), returns single "Non renseigné" if both dates are invalid
+  const formatDateRange = (startDate: string, endDate: string) => {
+    const formattedStart = formatDate(startDate);
+    const formattedEnd = formatDate(endDate);
+    
+    // If both dates are invalid, return single "Non renseigné"
+    if (formattedStart === 'Non renseigné' && formattedEnd === 'Non renseigné') {
+      return 'Non renseigné';
+    }
+    
+    // Otherwise, return the range
+    return `${formattedStart} - ${formattedEnd}`;
+  };
+
   // Toggle comment collapse
   const toggleComment = (badgeId: string) => {
     setCollapsedComments(prev => {
@@ -2166,7 +2180,7 @@ const ProjectManagement: React.FC = () => {
     doc.setFontSize(9);
     doc.setTextColor(textColor[0], textColor[1], textColor[2]);
     doc.text(getStatusText(project.status), col1, yPosition);
-    doc.text(`${formatDate(project.startDate)} - ${formatDate(project.endDate)}`, col2, yPosition);
+    doc.text(formatDateRange(project.startDate, project.endDate), col2, yPosition);
     yPosition += lineHeight + 3;
 
     // Row 2: Parcours, Organisation
@@ -2703,7 +2717,7 @@ const ProjectManagement: React.FC = () => {
               <div className="project-meta-row">
                 <div className="meta-item">
                   <img src="/icons_logo/Icon=calendrier petit.svg" alt="Calendar" className="meta-icon" />
-                  <span className="meta-text">{formatDate(project.startDate)} - {formatDate(project.endDate)}</span>
+                  <span className="meta-text">{formatDateRange(project.startDate, project.endDate)}</span>
                 </div>
                 <div className="meta-item">
                   <img src="/icons_logo/Icon=Membres.svg" alt="Participants" className="meta-icon" />
@@ -3827,7 +3841,7 @@ const ProjectManagement: React.FC = () => {
 
                 {/* Organisations porteuses */}
                 {apiProjectData.mlds_information.organization_names && apiProjectData.mlds_information.organization_names.length > 0 && (
-                  <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                  <div className="!items-start stat-card" style={{ gridColumn: 'span 1' }}>
                     <div className="stat-content">
                       <div className="stat-label">Organisations porteuses</div>
                       <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
