@@ -720,7 +720,7 @@ const Projects: React.FC = () => {
       fetchMLDSProjects(1);
     } else if (state.showingPageType === 'user') {
       if (activeTab === 'nouveautes') {
-        fetchPublicProjects(1);
+      fetchPublicProjects(1);
       } else if (activeTab === 'mlds-projects') {
         fetchMLDSProjects(1);
       }
@@ -969,28 +969,28 @@ const Projects: React.FC = () => {
       </div>
 
       {/* Tabs for all users */}
-      <div className="filter-tabs" style={{ marginBottom: '24px' }}>
+        <div className="filter-tabs" style={{ marginBottom: '24px' }}>
         {/* For users: show Nouveautés, Mes projets, and MLDS tabs */}
         {state.showingPageType === 'user' && (
           <>
-            <button 
-              className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('nouveautes');
-                setProjectPage(1); // Reset pagination when switching tabs
-              }}
-            >
+          <button 
+            className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('nouveautes');
+              setProjectPage(1); // Reset pagination when switching tabs
+            }}
+          >
               Nouveautés ({projects.length})
-            </button>
-            <button 
-              className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('mes-projets');
-                setMyProjectsPage(1); // Reset pagination when switching tabs
-              }}
-            >
+          </button>
+          <button 
+            className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('mes-projets');
+              setMyProjectsPage(1); // Reset pagination when switching tabs
+            }}
+          >
               Mes projets ({myProjects.length})
-            </button>
+          </button>
             <button 
               className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
               onClick={() => {

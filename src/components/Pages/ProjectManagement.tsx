@@ -18,6 +18,7 @@ import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
 import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/projectPermissions';
+import { jsPDF } from 'jspdf';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
@@ -2015,8 +2016,19 @@ const ProjectManagement: React.FC = () => {
 
   // Format date from ISO string or YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString: string) => {
+    // Check if date string is valid
+    if (!dateString || dateString.trim() === '') {
+      return 'Non renseigné';
+    }
+    
     // Handle ISO string format
     const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (Number.isNaN(date.getTime())) {
+      return 'Non renseigné';
+    }
+    
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear().toString().slice(-2); // Get last 2 digits of year
@@ -2034,6 +2046,504 @@ const ProjectManagement: React.FC = () => {
       }
       return newSet;
     });
+  };
+
+  // Export MLDS information to PDF
+  const handleExportMLDSPDF = () => {
+    if (!apiProjectData?.mlds_information) return;
+
+    const doc = new jsPDF();
+    const mldsInfo = apiProjectData.mlds_information;
+    let yPosition = 25;
+    const lineHeight = 5.5;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 25;
+    const textColor = [40, 40, 40]; // Gris très foncé
+    const labelColor = [120, 120, 120]; // Gris moyen
+    const accentColor = [100, 100, 100]; // Gris foncé pour compatibilité
+    const primaryColor = [41, 98, 255]; // Bleu pour compatibilité
+
+    // Helper function to check if we need a new page
+    const checkNewPage = (requiredSpace = 10) => {
+      if (yPosition + requiredSpace > pageHeight - margin) {
+        doc.addPage();
+        addPageNumber();
+        yPosition = margin;
+        return true;
+      }
+      return false;
+    };
+
+    // Helper function to add page number
+    const addPageNumber = () => {
+      const pageCount = doc.getCurrentPageInfo().pageNumber;
+      doc.setFontSize(8);
+      doc.setTextColor(180, 180, 180);
+      doc.text(`Page ${pageCount}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    };
+
+    // Helper function to add text with word wrap
+    const addWrappedText = (text: string, x: number, maxWidth: number, isBold = false) => {
+      if (isBold) {
+        doc.setFont('helvetica', 'bold');
+      } else {
+        doc.setFont('helvetica', 'normal');
+      }
+      const lines = doc.splitTextToSize(text, maxWidth);
+      lines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, x, yPosition);
+        yPosition += lineHeight;
+      });
+    };
+
+    // Helper function to add section header
+    const addSectionHeader = (title: string) => {
+      checkNewPage(15);
+      yPosition += 2;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(title.toUpperCase(), margin, yPosition);
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.line(margin, yPosition + 2, pageWidth - margin, yPosition + 2);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      yPosition += 7;
+    };
+
+    // Clean minimal header
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Projet MLDS', margin, yPosition);
+    yPosition += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+    doc.text('Mission de Lutte contre le Décrochage Scolaire - Volet Persévérance', margin, yPosition);
+    yPosition += 10;
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    const titleLines = doc.splitTextToSize(project.title, pageWidth - 2 * margin);
+    titleLines.forEach((line: string) => {
+      doc.text(line, margin, yPosition);
+      yPosition += 6;
+    });
+
+    // ==================== INFORMATIONS GÉNÉRALES ====================
+    addSectionHeader('Informations générales');
+    doc.setFontSize(9);
+
+    // Description
+    if (project.description) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('Description', margin, yPosition);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      addWrappedText(project.description, margin, pageWidth - 2 * margin);
+      yPosition += 2;
+    }
+
+    // Grid layout for key info
+    checkNewPage(15);
+    const col1 = margin;
+    const col2 = margin + 50;
+
+    // Row 1: Statut, Période
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+    doc.text('STATUT', col1, yPosition);
+    doc.text('PÉRIODE', col2, yPosition);
+    yPosition += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(getStatusText(project.status), col1, yPosition);
+    doc.text(`${formatDate(project.startDate)} - ${formatDate(project.endDate)}`, col2, yPosition);
+    yPosition += lineHeight + 3;
+
+    // Row 2: Parcours, Organisation
+    if (project.pathway || project.organization) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      if (project.pathway) doc.text('PARCOURS', col1, yPosition);
+      if (project.organization) doc.text('ORGANISATION', col2, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      if (project.pathway) doc.text(project.pathway.toUpperCase(), col1, yPosition);
+      if (project.organization) {
+        const orgLines = doc.splitTextToSize(project.organization, 60);
+        doc.text(orgLines[0], col2, yPosition);
+      }
+      yPosition += lineHeight + 3;
+    }
+
+    // Row 3: Participants
+    checkNewPage(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+    doc.text('PARTICIPANTS', col1, yPosition);
+    yPosition += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(`${projectStats?.overview?.total_members || project.participants || 0}`, col1, yPosition);
+    yPosition += lineHeight + 3;
+
+    // Responsable du projet
+    if (project.responsible) {
+      checkNewPage(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('RESPONSABLE DU PROJET', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(project.responsible.name, margin, yPosition);
+      yPosition += lineHeight;
+      if (project.responsible.role || project.responsible.profession) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+        doc.text(project.responsible.role || project.responsible.profession, margin, yPosition);
+        yPosition += lineHeight - 0.5;
+      }
+      if (project.responsible.email) {
+        doc.setFontSize(8);
+        doc.text(project.responsible.email, margin, yPosition);
+        yPosition += lineHeight;
+      }
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      yPosition += 2;
+    }
+
+    // Co-responsables
+    if (project.coResponsibles && project.coResponsibles.length > 0) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('CO-RESPONSABLES', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      project.coResponsibles.forEach((coResp) => {
+        checkNewPage(10);
+        doc.text(coResp.name, margin, yPosition);
+        if (coResp.email) {
+          doc.text(` - ${coResp.email}`, margin + 45, yPosition);
+        }
+        yPosition += lineHeight;
+      });
+      yPosition += 2;
+    }
+
+    // Partenaire
+    if (project.partner) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('PARTENAIRE', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(project.partner.name, margin, yPosition);
+      yPosition += lineHeight + 2;
+    }
+
+    // Tags
+    if (project.tags && project.tags.length > 0) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('TAGS', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      const tagsText = project.tags.map(tag => `#${tag}`).join('  ');
+      addWrappedText(tagsText, margin, pageWidth - 2 * margin);
+      yPosition += 2;
+    }
+
+    // Organisations porteuses
+    if (mldsInfo.organization_names && mldsInfo.organization_names.length > 0) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('ORGANISATIONS PORTEUSES', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      
+      mldsInfo.organization_names.forEach((org: string) => {
+        checkNewPage(7);
+        doc.text(`• ${org}`, margin, yPosition);
+        yPosition += lineHeight - 1;
+      });
+      
+      yPosition += 2;
+    }
+
+    // ==================== INFORMATIONS MLDS ====================
+    yPosition += 3;
+    addSectionHeader('INFORMATIONS MLDS');
+    doc.setFontSize(10);
+
+    // Demande faite par et Public ciblé sur la même ligne si possible
+    if (mldsInfo.requested_by) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Demande faite par', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      const requestedByText = mldsInfo.requested_by === 'departement' ? 'Département' : 'Réseau foquale';
+      doc.text(requestedByText, margin + 45, yPosition);
+      yPosition += lineHeight + 2;
+    }
+
+    // Public ciblé
+    if (mldsInfo.target_audience) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Public ciblé', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      let targetText = '';
+      if (mldsInfo.target_audience === 'students_without_solution') targetText = 'Élèves sans solution à la rentrée';
+      else if (mldsInfo.target_audience === 'students_at_risk') targetText = 'Élèves en situation de décrochage repérés par le GPDS';
+      else if (mldsInfo.target_audience === 'school_teams') targetText = 'Équipes des établissements';
+      addWrappedText(targetText, margin + 2, 168);
+      yPosition += 1;
+    }
+
+    // Effectifs prévisionnel
+    if (mldsInfo.expected_participants != null) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Effectifs prévisionnel', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${mldsInfo.expected_participants} participants`, margin + 50, yPosition);
+      yPosition += lineHeight + 2;
+    }
+
+    // Objectifs pédagogiques
+    if (mldsInfo.objectives) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Objectifs pédagogiques', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      addWrappedText(mldsInfo.objectives, margin + 2, 168);
+      yPosition += 1;
+    }
+
+    // Objectifs de l'action
+    if (mldsInfo.action_objectives && mldsInfo.action_objectives.length > 0) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Objectifs de l\'action', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      
+      const objectiveLabels: { [key: string]: string } = {
+        'path_security': 'Sécurisation des parcours (liaison inter-cycles)',
+        'professional_discovery': 'Découverte des filières professionnelles',
+        'student_mobility': 'Développement de la mobilité des élèves',
+        'cps_development': 'Développement des CPS',
+        'territory_partnership': 'Rapprochement avec les partenaires du territoire',
+        'family_links': 'Renforcement des liens familles-élèves',
+        'professional_development': 'Co-développement professionnel',
+        'other': 'Autre'
+      };
+
+      mldsInfo.action_objectives.forEach((obj: string) => {
+        checkNewPage(7);
+        const label = objectiveLabels[obj] || obj;
+        doc.text(`• ${label}`, margin + 2, yPosition);
+        yPosition += lineHeight - 1;
+      });
+
+      if (mldsInfo.action_objectives_other) {
+        checkNewPage(7);
+        doc.setFont('helvetica', 'italic');
+        doc.text(`  ${mldsInfo.action_objectives_other}`, margin + 4, yPosition);
+        doc.setFont('helvetica', 'normal');
+        yPosition += lineHeight;
+      }
+      doc.setFontSize(10);
+      yPosition += 1;
+    }
+
+    // Compétences développées
+    if (mldsInfo.competencies_developed) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Compétences développées', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      addWrappedText(mldsInfo.competencies_developed, margin + 2, 168);
+      yPosition += 1;
+    }
+
+    // Moyens financiers
+    const hasFinancials = mldsInfo.financial_hse != null || 
+                          mldsInfo.financial_hv != null ||
+                          mldsInfo.financial_transport != null ||
+                          mldsInfo.financial_operating != null ||
+                          mldsInfo.financial_service != null;
+
+    if (hasFinancials) {
+      yPosition += 3;
+      addSectionHeader('MOYENS FINANCIERS DEMANDÉS');
+      doc.setFontSize(10);
+
+      // HSE and HV on same line if possible
+      let totalHS = 0;
+      if (mldsInfo.financial_hse != null || mldsInfo.financial_hv != null) {
+        checkNewPage(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.text('Heures supplémentaires', margin, yPosition);
+        doc.setTextColor(0, 0, 0);
+        yPosition += lineHeight;
+        
+        if (mldsInfo.financial_hse != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_hse);
+          totalHS += amount;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text('HSE', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} €`, margin + 40, yPosition);
+          yPosition += lineHeight;
+        }
+
+        if (mldsInfo.financial_hv != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_hv);
+          totalHS += amount;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text('HV', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} €`, margin + 40, yPosition);
+          yPosition += lineHeight;
+        }
+        doc.setFontSize(10);
+        yPosition += 1;
+      }
+
+      // Crédits
+      let totalCredits = 0;
+      const hasCredits = mldsInfo.financial_transport != null || 
+                        mldsInfo.financial_operating != null || 
+                        mldsInfo.financial_service != null;
+
+      if (hasCredits) {
+        checkNewPage(15);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.text('Crédits', margin, yPosition);
+        doc.setTextColor(0, 0, 0);
+        yPosition += lineHeight;
+        doc.setFontSize(9);
+
+        if (mldsInfo.financial_transport != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_transport);
+          totalCredits += amount;
+          checkNewPage(6);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Transport', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
+          yPosition += lineHeight;
+        }
+
+        if (mldsInfo.financial_operating != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_operating);
+          totalCredits += amount;
+          checkNewPage(6);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Fonctionnement', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
+          yPosition += lineHeight;
+        }
+
+        if (mldsInfo.financial_service != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_service);
+          totalCredits += amount;
+          checkNewPage(6);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Prestataires', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
+          yPosition += lineHeight;
+        }
+
+        // Sous-total crédits (utiliser le backend si disponible)
+        const creditsTotal = mldsInfo.total_financial_credits 
+          ? Number.parseFloat(mldsInfo.total_financial_credits) 
+          : totalCredits;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text('Sous-total', margin + 2, yPosition);
+        doc.text(`${creditsTotal.toFixed(2)} €`, margin + 50, yPosition);
+        yPosition += lineHeight + 2;
+        doc.setFontSize(10);
+      }
+
+      // Total général avec style (utiliser le backend si disponible)
+      checkNewPage(10);
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.5);
+      doc.line(margin, yPosition - 1, pageWidth - margin, yPosition - 1);
+      yPosition += 2;
+      
+      const totalGeneral = mldsInfo.total_financial 
+        ? Number.parseFloat(mldsInfo.total_financial)
+        : totalHS + totalCredits;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text('TOTAL GÉNÉRAL', margin, yPosition+2);
+      doc.text(`${totalGeneral.toFixed(2)} €`, pageWidth - margin, yPosition+2, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+    }
+
+    // Save the PDF
+    const fileName = `MLDS_${project.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+    
+    showSuccess('PDF exporté avec succès');
   };
 
 
@@ -2057,6 +2567,11 @@ const ProjectManagement: React.FC = () => {
           <button type="button" className="btn btn-outline" onClick={handleCopyLink}>
             <i className="fas fa-link"></i> Copier le lien
           </button>
+          {isMLDSProject && (
+            <button type="button" className="btn btn-outline" onClick={handleExportMLDSPDF}>
+              <i className="fas fa-file-pdf"></i> Exporter en PDF
+            </button>
+          )}
           {canAssignBadges && (
             <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
               <i className="fas fa-award"></i> Attribuer un badge
@@ -2160,7 +2675,7 @@ const ProjectManagement: React.FC = () => {
 
             {/* Project Description */}
             <div className="project-description-section">
-              <div className={`project-description-content ${isDescriptionExpanded ? 'expanded' : 'collapsed'}`}>
+              <div className={`project-description-content ${!isDescriptionExpanded ? 'expanded' : 'collapsed'}`}>
                 <p>{project.description}</p>
               </div>
               {project.description.length > 150 && (
@@ -3310,6 +3825,32 @@ const ProjectManagement: React.FC = () => {
                   </div>
                 )}
 
+                {/* Organisations porteuses */}
+                {apiProjectData.mlds_information.organization_names && apiProjectData.mlds_information.organization_names.length > 0 && (
+                  <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Organisations porteuses</div>
+                      <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {apiProjectData.mlds_information.organization_names.map((org: string, index: number) => (
+                          <span 
+                            key={index} 
+                            style={{ 
+                              padding: '0.5rem 0.75rem', 
+                              backgroundColor: '#e0f2fe', 
+                              color: '#0369a1', 
+                              borderRadius: '0.375rem',
+                              fontSize: '0.9rem',
+                              fontWeight: '500'
+                            }}
+                          >
+                            {org}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Effectifs prévisionnel */}
                 {apiProjectData.mlds_information.expected_participants != null && (
                   <div className="stat-card">
@@ -3325,7 +3866,7 @@ const ProjectManagement: React.FC = () => {
 
                 {/* Objectifs pédagogiques */}
                 {apiProjectData.mlds_information.objectives && (
-                  <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                  <div className="stat-card" style={{ gridColumn: 'span 1' }}>
                     <div className="stat-content">
                       <div className="stat-label">Objectifs pédagogiques</div>
                       <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
@@ -3337,14 +3878,14 @@ const ProjectManagement: React.FC = () => {
 
                 {/* Objectifs de l'action */}
                 {apiProjectData.mlds_information.action_objectives && apiProjectData.mlds_information.action_objectives.length > 0 && (
-                  <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                  <div className="stat-card" style={{ gridColumn: 'span 1' }}>
                     <div className="stat-content">
                       <div className="stat-label">Objectifs de l'action</div>
                       <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         {apiProjectData.mlds_information.action_objectives.map((obj: string, index: number) => (
                           <div key={index} style={{ fontSize: '0.9rem', color: '#374151', display: 'flex', alignItems: 'start', gap: '0.5rem' }}>
                             <i className="fas fa-check-circle" style={{ color: '#10b981', marginTop: '0.25rem' }}></i>
-                            <span>
+                            <span className='text-left'>
                               {obj === 'path_security' && 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles'}
                               {obj === 'professional_discovery' && 'La découverte des filières professionnelles'}
                               {obj === 'student_mobility' && 'Le développement de la mobilité des élèves'}
@@ -3445,11 +3986,14 @@ const ProjectManagement: React.FC = () => {
                           }}>
                             <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits</span>
                             <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
-                              {(
-                                (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
-                                (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
-                                (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
-                              ).toFixed(2)} €
+                              {apiProjectData.mlds_information.total_financial_credits 
+                                ? Number.parseFloat(apiProjectData.mlds_information.total_financial_credits).toFixed(2)
+                                : (
+                                    (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
+                                    (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
+                                    (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
+                                  ).toFixed(2)
+                              } €
                             </span>
                           </div>
                         </div>
@@ -3467,13 +4011,16 @@ const ProjectManagement: React.FC = () => {
                       }}>
                         <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>Total général</span>
                         <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
-                          {(
-                            (Number.parseFloat(apiProjectData.mlds_information.financial_hse) || 0) +
-                            (Number.parseFloat(apiProjectData.mlds_information.financial_hv) || 0) +
-                            (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
-                            (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
-                            (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
-                          ).toFixed(2)} €
+                          {apiProjectData.mlds_information.total_financial
+                            ? Number.parseFloat(apiProjectData.mlds_information.total_financial).toFixed(2)
+                            : (
+                                (Number.parseFloat(apiProjectData.mlds_information.financial_hse) || 0) +
+                                (Number.parseFloat(apiProjectData.mlds_information.financial_hv) || 0) +
+                                (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
+                                (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
+                                (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
+                              ).toFixed(2)
+                          } €
                         </span>
                       </div>
                     </div>

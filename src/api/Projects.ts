@@ -57,11 +57,27 @@ export interface LinkAttribute {
     url: string;
 }
 
+export interface MLDSInformationAttributes {
+    requested_by?: string;
+    school_level_ids?: number[];
+    target_audience?: string;
+    action_objectives?: string[];
+    action_objectives_other?: string | null;
+    competencies_developed?: string | null;
+    expected_participants?: number | null;
+    financial_hse?: number | null;
+    financial_hv?: number | null;
+    financial_transport?: number | null;
+    financial_operating?: number | null;
+    financial_service?: number | null;
+    objectives?: string | null;
+}
+
 export interface CreateProjectPayload {
     context: 'company' | 'school' | 'teacher' | 'general';
     organization_id?: number;
     project: {
-        title: string;
+        title?: string; // Optional for MLDS projects (backend auto-generates)
         description: string;
         start_date: string;
         end_date: string;
@@ -76,6 +92,9 @@ export interface CreateProjectPayload {
         partnership_id?: number | null;
         project_members_attributes?: ProjectMemberAttribute[];
         links_attributes?: LinkAttribute[];
+        co_responsible_ids?: number[];
+        participant_ids?: number[];
+        mlds_information_attributes?: MLDSInformationAttributes;
     };
 }
 
@@ -627,7 +646,9 @@ export const createProject = async (
 
     // Add project fields
     const project = payload.project;
-    formData.append('project[title]', project.title);
+    if (project.title) {
+        formData.append('project[title]', project.title);
+    }
     formData.append('project[description]', project.description);
     formData.append('project[start_date]', project.start_date);
     formData.append('project[end_date]', project.end_date);
@@ -676,6 +697,81 @@ export const createProject = async (
             formData.append(`project[links_attributes][${index}][name]`, link.name);
             formData.append(`project[links_attributes][${index}][url]`, link.url);
         });
+    }
+
+    // Add co_responsible_ids
+    if (project.co_responsible_ids && project.co_responsible_ids.length > 0) {
+        project.co_responsible_ids.forEach(id => {
+            formData.append('project[co_responsible_ids][]', id.toString());
+        });
+    }
+
+    // Add participant_ids
+    if (project.participant_ids && project.participant_ids.length > 0) {
+        project.participant_ids.forEach(id => {
+            formData.append('project[participant_ids][]', id.toString());
+        });
+    }
+
+    // Add MLDS information attributes (Rails nested attributes format)
+    if (project.mlds_information_attributes) {
+        const mlds = project.mlds_information_attributes;
+        
+        if (mlds.requested_by) {
+            formData.append('project[mlds_information_attributes][requested_by]', mlds.requested_by);
+        }
+        
+        if (mlds.school_level_ids && mlds.school_level_ids.length > 0) {
+            mlds.school_level_ids.forEach(id => {
+                formData.append('project[mlds_information_attributes][school_level_ids][]', id.toString());
+            });
+        }
+        
+        if (mlds.target_audience) {
+            formData.append('project[mlds_information_attributes][target_audience]', mlds.target_audience);
+        }
+        
+        if (mlds.action_objectives && mlds.action_objectives.length > 0) {
+            mlds.action_objectives.forEach(objective => {
+                formData.append('project[mlds_information_attributes][action_objectives][]', objective);
+            });
+        }
+        
+        if (mlds.action_objectives_other !== undefined && mlds.action_objectives_other !== null) {
+            formData.append('project[mlds_information_attributes][action_objectives_other]', mlds.action_objectives_other);
+        }
+        
+        if (mlds.competencies_developed !== undefined && mlds.competencies_developed !== null) {
+            formData.append('project[mlds_information_attributes][competencies_developed]', mlds.competencies_developed);
+        }
+        
+        if (mlds.expected_participants !== undefined && mlds.expected_participants !== null) {
+            formData.append('project[mlds_information_attributes][expected_participants]', mlds.expected_participants.toString());
+        }
+        
+        if (mlds.financial_hse !== undefined && mlds.financial_hse !== null) {
+            formData.append('project[mlds_information_attributes][financial_hse]', mlds.financial_hse.toString());
+        }
+        
+        if (mlds.financial_hv !== undefined && mlds.financial_hv !== null) {
+            formData.append('project[mlds_information_attributes][financial_hv]', mlds.financial_hv.toString());
+        }
+        
+        if (mlds.financial_transport !== undefined && mlds.financial_transport !== null) {
+            formData.append('project[mlds_information_attributes][financial_transport]', mlds.financial_transport.toString());
+        }
+        
+        if (mlds.financial_operating !== undefined && mlds.financial_operating !== null) {
+            formData.append('project[mlds_information_attributes][financial_operating]', mlds.financial_operating.toString());
+        }
+        
+        if (mlds.financial_service !== undefined && mlds.financial_service !== null) {
+            formData.append('project[mlds_information_attributes][financial_service]', mlds.financial_service.toString());
+        }
+        
+        if (mlds.objectives !== undefined && mlds.objectives !== null) {
+            formData.append('project[mlds_information_attributes][objectives]', mlds.objectives);
+        }
     }
 
     // Add images
