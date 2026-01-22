@@ -22,6 +22,8 @@ const Projects: React.FC = () => {
   const [isMLDSProjectModalOpen, setIsMLDSProjectModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; title: string } | null>(null);
   
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
@@ -63,6 +65,12 @@ const Projects: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [organizationFilter, setOrganizationFilter] = useState<'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies'>('my-org');
   const [visibilityFilter, setVisibilityFilter] = useState('all');
+  
+  // MLDS-specific filter states
+  const [mldsRequestedByFilter, setMldsRequestedByFilter] = useState('all');
+  const [mldsTargetAudienceFilter, setMldsTargetAudienceFilter] = useState('all');
+  const [mldsActionObjectivesFilter, setMldsActionObjectivesFilter] = useState('all');
+  const [mldsOrganizationFilter, setMldsOrganizationFilter] = useState('all');
 
   // Loading states
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
@@ -707,6 +715,22 @@ const Projects: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mldsProjectsPage]);
 
+  // Reset filters when switching tabs
+  useEffect(() => {
+    // Reset MLDS filters when leaving MLDS tab
+    if (activeTab !== 'mlds-projects') {
+      setMldsRequestedByFilter('all');
+      setMldsTargetAudienceFilter('all');
+      setMldsActionObjectivesFilter('all');
+      setMldsOrganizationFilter('all');
+    }
+    // Reset regular filters when entering MLDS tab
+    if (activeTab === 'mlds-projects') {
+      setPathwayFilter('all');
+      setVisibilityFilter('all');
+    }
+  }, [activeTab]);
+
   // Reset pagination and re-fetch when filters change
   useEffect(() => {
     // Reset to page 1 when filters change
@@ -730,7 +754,7 @@ const Projects: React.FC = () => {
       fetchMLDSProjects(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationFilter, statusFilter, pathwayFilter, searchTerm, startDate, endDate, visibilityFilter, isPersonalUser, isTeacher, activeTab]);
+  }, [organizationFilter, statusFilter, pathwayFilter, searchTerm, startDate, endDate, visibilityFilter, mldsRequestedByFilter, mldsTargetAudienceFilter, mldsActionObjectivesFilter, mldsOrganizationFilter, isPersonalUser, isTeacher, activeTab]);
 
 
   const handleCreateProject = () => {
@@ -803,13 +827,25 @@ const Projects: React.FC = () => {
     setCurrentPage('project-management');
   };
 
-  const handleDeleteProject = async (projectId: string) => {
+  const handleDeleteProject = (projectId: string) => {
+    // Find the project title for the confirmation modal
+    // Search in all project lists
+    const project = [...projects, ...myProjects, ...mldsProjects].find(p => p.id === projectId);
+    if (project) {
+      setProjectToDelete({ id: projectId, title: project.title });
+      setIsDeleteModalOpen(true);
+    }
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+    
     try {
-      await deleteProject(Number(projectId));
+      await deleteProject(Number(projectToDelete.id));
       // Mise à jour de l'affichage local
-      setProjects(prev => prev.filter(p => p.id !== projectId));
-      setMyProjects(prev => prev.filter(p => p.id !== projectId));
-      setMldsProjects(prev => prev.filter(p => p.id !== projectId));
+      setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+      setMyProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+      setMldsProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setSelectedProject(null);
       
       // Rafraîchir en fonction de l'onglet actif
@@ -818,9 +854,21 @@ const Projects: React.FC = () => {
       } else if (isPersonalUser && activeTab === 'mes-projets') {
         await fetchMyProjects();
       }
+      
+      // Close modal and reset state
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
     } catch (err) {
       console.error('Erreur lors de la suppression du projet:', err);
+      // Close modal even on error
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
     }
+  };
+
+  const cancelDeleteProject = () => {
+    setIsDeleteModalOpen(false);
+    setProjectToDelete(null);
   };
 
   const handleExportProjects = () => {
@@ -843,6 +891,17 @@ const Projects: React.FC = () => {
     projectsToDisplay = projects;
   }
 
+  // Extract unique organization names from MLDS projects for filter
+  const uniqueOrganizations = React.useMemo(() => {
+    const orgSet = new Set<string>();
+    mldsProjects.forEach(project => {
+      if (project.mlds_information?.organization_names && Array.isArray(project.mlds_information.organization_names)) {
+        project.mlds_information.organization_names.forEach((org: string) => orgSet.add(org));
+      }
+    });
+    return Array.from(orgSet).sort((a, b) => a.localeCompare(b));
+  }, [mldsProjects]);
+
 
   // Filter projects based on search and filter criteria
   // Note: On filtre maintenant sur 'projectsToDisplay' (local state) et non 'state.projects'
@@ -855,12 +914,13 @@ const Projects: React.FC = () => {
       (project.pathway && project.pathway.toLowerCase().includes(searchTerm.toLowerCase())) ||
       project.status.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Pathway filter
-    const matchesPathway = pathwayFilter === 'all' || project.pathway === pathwayFilter;
+    // Pathway filter (skip for MLDS projects)
+    const matchesPathway = activeTab === 'mlds-projects' || pathwayFilter === 'all' || project.pathway === pathwayFilter;
 
     // Status filter
     const matchesStatus = statusFilter === 'all' ||
       project.status === statusFilter ||
+      (statusFilter === 'draft' && project.status === 'draft') ||
       (statusFilter === 'À venir' && project.status === 'coming') ||
       (statusFilter === 'En cours' && project.status === 'in_progress') ||
       (statusFilter === 'Terminée' && project.status === 'ended');
@@ -868,8 +928,8 @@ const Projects: React.FC = () => {
     // Organization filter is now handled by API, no client-side filtering needed
     const matchesOrganization = true;
 
-    // Visibility filter
-    const matchesVisibility = visibilityFilter === 'all' ||
+    // Visibility filter (skip for MLDS projects)
+    const matchesVisibility = activeTab === 'mlds-projects' || visibilityFilter === 'all' ||
       (visibilityFilter === 'public' && (!project.visibility || project.visibility === 'public')) ||
       (visibilityFilter === 'private' && project.visibility === 'private');
 
@@ -885,7 +945,39 @@ const Projects: React.FC = () => {
       matchesEndDate = new Date(project.endDate) <= new Date(endDate);
     }
 
-    return matchesSearch && matchesPathway && matchesStatus && matchesOrganization && matchesVisibility && matchesStartDate && matchesEndDate;
+    // MLDS-specific filters (only apply if MLDS tab is active)
+    let matchesMldsRequestedBy = true;
+    let matchesMldsTargetAudience = true;
+    let matchesMldsActionObjectives = true;
+    let matchesMldsOrganization = true;
+    
+    if (activeTab === 'mlds-projects' && project.mlds_information) {
+      // Filter by requested_by
+      if (mldsRequestedByFilter !== 'all') {
+        matchesMldsRequestedBy = project.mlds_information.requested_by === mldsRequestedByFilter;
+      }
+      
+      // Filter by target_audience
+      if (mldsTargetAudienceFilter !== 'all') {
+        matchesMldsTargetAudience = project.mlds_information.target_audience === mldsTargetAudienceFilter;
+      }
+      
+      // Filter by action_objectives (array contains the selected objective)
+      if (mldsActionObjectivesFilter !== 'all') {
+        matchesMldsActionObjectives = project.mlds_information.action_objectives && 
+          Array.isArray(project.mlds_information.action_objectives) &&
+          project.mlds_information.action_objectives.includes(mldsActionObjectivesFilter);
+      }
+      
+      // Filter by organization_names (array contains the selected organization)
+      if (mldsOrganizationFilter !== 'all') {
+        matchesMldsOrganization = project.mlds_information.organization_names && 
+          Array.isArray(project.mlds_information.organization_names) &&
+          project.mlds_information.organization_names.includes(mldsOrganizationFilter);
+      }
+    }
+
+    return matchesSearch && matchesPathway && matchesStatus && matchesOrganization && matchesVisibility && matchesStartDate && matchesEndDate && matchesMldsRequestedBy && matchesMldsTargetAudience && matchesMldsActionObjectives && matchesMldsOrganization;
   });
 
   return (
@@ -1065,103 +1157,206 @@ const Projects: React.FC = () => {
           />
         </div>
         <div className="filters-container">
-          {/* Organization filter only for pro and edu dashboards */}
-          {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
-            <div className="filter-group">
-              <label htmlFor="organization-filter">Par Organisation</label>
-              <select
-                id="organization-filter"
-                className="filter-select"
-                value={organizationFilter}
-                onChange={(e) => setOrganizationFilter(e.target.value as 'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies')}
-              >
-                {state.showingPageType === 'pro' ? (
-                  <>
-                    <option value="my-org">Mon organisation</option>
-                    <option value="all-public">Tous les projets</option>
-                    <option value="school">Établissement</option>
-                    <option value="other-orgs">Autres organisations</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="my-org">Mon établissement</option>
-                    <option value="all-public">Tous les projets</option>
-                    <option value="other-schools">Autres établissements</option>
-                    <option value="companies">Organisations</option>
-                  </>
-                )}
-              </select>
-            </div>
+          {/* Show MLDS-specific filters for MLDS tab */}
+          {activeTab === 'mlds-projects' ? (
+            <>
+              <div className="filter-group">
+                <label htmlFor="mlds-requested-by-filter">Demande faite par</label>
+                <select
+                  id="mlds-requested-by-filter"
+                  className="filter-select"
+                  value={mldsRequestedByFilter}
+                  onChange={(e) => setMldsRequestedByFilter(e.target.value)}
+                >
+                  <option value="all">Tous</option>
+                  <option value="departement">Département</option>
+                  <option value="reseau_foquale">Réseau foquale</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="mlds-target-audience-filter">Public ciblé</label>
+                <select
+                  id="mlds-target-audience-filter"
+                  className="filter-select"
+                  value={mldsTargetAudienceFilter}
+                  onChange={(e) => setMldsTargetAudienceFilter(e.target.value)}
+                >
+                  <option value="all">Tous</option>
+                  <option value="students_without_solution">Élèves sans solution à la rentrée</option>
+                  <option value="students_at_risk">Élèves en situation de décrochage</option>
+                  <option value="school_teams">Équipes des établissements</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="mlds-action-objectives-filter">Objectifs de l&apos;action</label>
+                <select
+                  id="mlds-action-objectives-filter"
+                  className="filter-select"
+                  value={mldsActionObjectivesFilter}
+                  onChange={(e) => setMldsActionObjectivesFilter(e.target.value)}
+                >
+                  <option value="all">Tous</option>
+                  <option value="path_security">Sécurisation des parcours</option>
+                  <option value="professional_discovery">Découverte professionnelle</option>
+                  <option value="orientation_support">Accompagnement à l&apos;orientation</option>
+                  <option value="training_support">Accompagnement à la formation</option>
+                  <option value="citizenship">Citoyenneté</option>
+                  <option value="family_links">Liens avec les familles</option>
+                  <option value="professional_development">Développement professionnel</option>
+                  <option value="other">Autre</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="mlds-organization-filter">Organisations porteuses</label>
+                <select
+                  id="mlds-organization-filter"
+                  className="filter-select"
+                  value={mldsOrganizationFilter}
+                  onChange={(e) => setMldsOrganizationFilter(e.target.value)}
+                >
+                  <option value="all">Toutes</option>
+                  {uniqueOrganizations.map(org => (
+                    <option key={org} value={org}>{org}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="status-filter">Statut</label>
+                <select
+                  id="status-filter"
+                  className="filter-select"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="draft">Brouillon</option>
+                  <option value="À venir">À venir</option>
+                  <option value="En cours">En cours</option>
+                  <option value="Terminée">Terminée</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="start-date-filter">Date de début</label>
+                <input
+                  id="start-date-filter"
+                  type="date"
+                  className="filter-select"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="filter-group">
+                <label htmlFor="end-date-filter">Date de fin</label>
+                <input
+                  id="end-date-filter"
+                  type="date"
+                  className="filter-select"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Organization filter only for pro and edu dashboards */}
+              {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
+                <div className="filter-group">
+                  <label htmlFor="organization-filter">Par Organisation</label>
+                  <select
+                    id="organization-filter"
+                    className="filter-select"
+                    value={organizationFilter}
+                    onChange={(e) => setOrganizationFilter(e.target.value as 'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies')}
+                  >
+                    {state.showingPageType === 'pro' ? (
+                      <>
+                        <option value="my-org">Mon organisation</option>
+                        <option value="all-public">Tous les projets</option>
+                        <option value="school">Établissement</option>
+                        <option value="other-orgs">Autres organisations</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="my-org">Mon établissement</option>
+                        <option value="all-public">Tous les projets</option>
+                        <option value="other-schools">Autres établissements</option>
+                        <option value="companies">Organisations</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              )}
+              <div className="filter-group">
+                <label htmlFor="pathway-filter">Parcours</label>
+                <select
+                  id="pathway-filter"
+                  className="filter-select"
+                  value={pathwayFilter}
+                  onChange={(e) => setPathwayFilter(e.target.value)}
+                >
+                  <option value="all">Tous les parcours</option>
+                  <option value="citoyen">Citoyen</option>
+                  <option value="creativite">Créativité</option>
+                  <option value="fabrication">Fabrication</option>
+                  <option value="psychologie">Psychologie</option>
+                  <option value="innovation">Innovation</option>
+                  <option value="education">Éducation</option>
+                  <option value="technologie">Technologie</option>
+                  <option value="sante">Santé</option>
+                  <option value="environnement">Environnement</option>
+                  <option value="mlds">MLDS</option>
+                  <option value="faj_co">FAJ Co</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="status-filter">Statut</label>
+                <select
+                  id="status-filter"
+                  className="filter-select"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="À venir">À venir</option>
+                  <option value="En cours">En cours</option>
+                  <option value="Terminée">Terminée</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="start-date-filter">Date de début</label>
+                <input
+                  id="start-date-filter"
+                  type="date"
+                  className="filter-select"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="filter-group">
+                <label htmlFor="end-date-filter">Date de fin</label>
+                <input
+                  id="end-date-filter"
+                  type="date"
+                  className="filter-select"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+              <div className="filter-group">
+                <label htmlFor="visibility-filter">Visibilité</label>
+                <select
+                  id="visibility-filter"
+                  className="filter-select"
+                  value={visibilityFilter}
+                  onChange={(e) => setVisibilityFilter(e.target.value)}
+                >
+                  <option value="all">Tous les projets</option>
+                  <option value="public">Publics</option>
+                  <option value="private">Privés</option>
+                </select>
+              </div>
+            </>
           )}
-          <div className="filter-group">
-            <label htmlFor="pathway-filter">Parcours</label>
-            <select
-              id="pathway-filter"
-              className="filter-select"
-              value={pathwayFilter}
-              onChange={(e) => setPathwayFilter(e.target.value)}
-            >
-              <option value="all">Tous les parcours</option>
-              <option value="citoyen">Citoyen</option>
-              <option value="creativite">Créativité</option>
-              <option value="fabrication">Fabrication</option>
-              <option value="psychologie">Psychologie</option>
-              <option value="innovation">Innovation</option>
-              <option value="education">Éducation</option>
-              <option value="technologie">Technologie</option>
-              <option value="sante">Santé</option>
-              <option value="environnement">Environnement</option>
-              <option value="mlds">MLDS</option>
-              <option value="faj_co">FAJ Co</option>
-            </select>
-          </div>
-          <div className="filter-group">
-            <label htmlFor="status-filter">Statut</label>
-            <select
-              id="status-filter"
-              className="filter-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="À venir">À venir</option>
-              <option value="En cours">En cours</option>
-              <option value="Terminée">Terminée</option>
-            </select>
-          </div>
-          <div className="filter-group">
-            <label htmlFor="start-date-filter">Date de début</label>
-            <input
-              id="start-date-filter"
-              type="date"
-              className="filter-select"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="end-date-filter">Date de fin</label>
-            <input
-              id="end-date-filter"
-              type="date"
-              className="filter-select"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="visibility-filter">Visibilité</label>
-            <select
-              id="visibility-filter"
-              className="filter-select"
-              value={visibilityFilter}
-              onChange={(e) => setVisibilityFilter(e.target.value)}
-            >
-              <option value="all">Tous les projets</option>
-              <option value="public">Publics</option>
-              <option value="private">Privés</option>
-            </select>
-          </div>
         </div>
       </div>
 
@@ -1321,6 +1516,74 @@ const Projects: React.FC = () => {
           onClose={() => setIsSubscriptionModalOpen(false)}
           featureName="La création de projets"
         />
+      )}
+
+      {isDeleteModalOpen && projectToDelete && (
+        <div className="modal-overlay" onClick={cancelDeleteProject}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>Confirmer la suppression</h3>
+              <button className="modal-close" onClick={cancelDeleteProject}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div style={{ 
+                padding: '1.5rem', 
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '1rem'
+              }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: '#fee2e2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '0.5rem'
+                }}>
+                  <i className="fas fa-exclamation-triangle" style={{ fontSize: '2rem', color: '#dc2626' }}></i>
+                </div>
+                
+                <div>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
+                    Êtes-vous sûr de vouloir supprimer ce projet ?
+                  </h4>
+                  <p style={{ fontSize: '0.95rem', color: '#6b7280', marginBottom: '1rem' }}>
+                    Cette action est irréversible. Le projet <strong>"{projectToDelete.title}"</strong> sera définitivement supprimé.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn btn-outline" 
+                onClick={cancelDeleteProject}
+                style={{ minWidth: '100px' }}
+              >
+                Annuler
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={confirmDeleteProject}
+                style={{ 
+                  minWidth: '100px',
+                  backgroundColor: '#dc2626',
+                  borderColor: '#dc2626'
+                }}
+              >
+                <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </section>
