@@ -2874,6 +2874,16 @@
   transform: translateX(2px);
 }
 
+.team-modal .selection-item.selected {
+  background: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+  padding-left: calc(0.75rem - 3px);
+}
+
+.team-modal .selection-item.selected:hover {
+  background: rgba(16, 185, 129, 0.15);
+}
+
 .team-modal .item-avatar {
   width: 36px;
   height: 36px;

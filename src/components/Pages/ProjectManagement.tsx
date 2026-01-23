@@ -1,15 +1,16 @@
+// ProjectManagement Component - Project Details and Management
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getPartnerships } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
 import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
-import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize } from '../../utils/projectMapper';
+import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
@@ -19,6 +20,7 @@ import './MembershipRequests.css';
 import './ProjectManagement.css';
 import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/projectPermissions';
 import { jsPDF } from 'jspdf';
+import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
@@ -36,9 +38,36 @@ const ProjectManagement: React.FC = () => {
     endDate: '',
     pathway: '',
     status: 'draft' as 'draft' | 'coming' | 'in_progress' | 'ended',
-    visibility: 'public' as 'public' | 'private'
+    visibility: 'public' as 'public' | 'private',
+    isPartnership: false,
+    coResponsibles: [] as string[],
+    partners: [] as string[],
+    // MLDS fields
+    mldsRequestedBy: 'departement',
+    mldsTargetAudience: 'students_without_solution',
+    mldsActionObjectives: [] as string[],
+    mldsActionObjectivesOther: '',
+    mldsObjectives: '',
+    mldsCompetenciesDeveloped: '',
+    mldsExpectedParticipants: '',
+    mldsFinancialHSE: '',
+    mldsFinancialHV: '',
+    mldsFinancialTransport: '',
+    mldsFinancialOperating: '',
+    mldsFinancialService: '',
+    mldsOrganizationNames: [] as string[],
+    mldsSchoolLevelIds: [] as string[] // IDs of school levels
   });
   const [editImagePreview, setEditImagePreview] = useState<string>('');
+  const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
+  const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
+  const [editAvailableMembers, setEditAvailableMembers] = useState<any[]>([]);
+  const [editAvailablePartnerships, setEditAvailablePartnerships] = useState<any[]>([]);
+  const [isLoadingEditMembers, setIsLoadingEditMembers] = useState(false);
+  const [editSearchTerms, setEditSearchTerms] = useState({
+    coResponsibles: '',
+    partner: ''
+  });
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
@@ -978,7 +1007,69 @@ const ProjectManagement: React.FC = () => {
     return uniqueMembers;
   };
 
-  const handleEdit = () => {
+  // Helper functions for edit modal
+  const handleEditSearchChange = (field: 'coResponsibles' | 'partner', value: string) => {
+    setEditSearchTerms(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getEditFilteredMembers = (searchTerm: string) => {
+    if (!searchTerm) return editAvailableMembers;
+    const lowerSearch = searchTerm.toLowerCase();
+    return editAvailableMembers.filter((member: any) => {
+      const fullName = member.full_name || `${member.first_name} ${member.last_name}`;
+      return fullName.toLowerCase().includes(lowerSearch) || member.email?.toLowerCase().includes(lowerSearch);
+    });
+  };
+
+  const getEditFilteredPartnerships = (searchTerm: string) => {
+    // Filter out already selected partnerships
+    let available = editAvailablePartnerships.filter((partnership: any) => 
+      !editForm.partners.includes(partnership.id?.toString())
+    );
+    
+    if (!searchTerm) return available;
+    
+    const lowerSearch = searchTerm.toLowerCase();
+    return available.filter((partnership: any) => {
+      const partnerNames = partnership.partners?.map((p: any) => p.name).join(', ') || '';
+      return partnerNames.toLowerCase().includes(lowerSearch);
+    });
+  };
+
+  const handleEditMemberSelect = (field: 'coResponsibles', memberId: string) => {
+    setEditForm(prev => {
+      const currentList = prev[field];
+      const newList = currentList.includes(memberId)
+        ? currentList.filter((id: string) => id !== memberId)
+        : [...currentList, memberId];
+      return { ...prev, [field]: newList };
+    });
+  };
+
+  const handleEditPartnerSelect = (partnerId: string) => {
+    setEditForm(prev => {
+      const newPartners = prev.partners.includes(partnerId)
+        ? prev.partners.filter(id => id !== partnerId)
+        : [...prev.partners, partnerId];
+      return { ...prev, partners: newPartners };
+    });
+  };
+
+  const handleEdit = async () => {
+    const mldsInfo = apiProjectData?.mlds_information;
+    
+    // Get current co-responsibles and partnerships
+    const currentCoResponsibles = apiProjectData?.co_responsibles?.map((cr: any) => cr.id?.toString()) || [];
+    
+    // Get all partnership IDs (can be multiple)
+    let currentPartnerships: string[] = [];
+    if (apiProjectData?.partnership_id) {
+      currentPartnerships = [apiProjectData.partnership_id.toString()];
+    } else if (apiProjectData?.partnership?.id) {
+      currentPartnerships = [apiProjectData.partnership.id.toString()];
+    }
+    const isPartnerProject = apiProjectData?.is_partner_project || false;
+    
     setEditForm({
       title: project.title,
       description: project.description,
@@ -987,16 +1078,116 @@ const ProjectManagement: React.FC = () => {
       endDate: project.endDate,
       pathway: project.pathway || '',
       status: project.status || 'coming',
-      visibility: project.visibility || 'public'
+      visibility: project.visibility || 'public',
+      isPartnership: isPartnerProject,
+      coResponsibles: currentCoResponsibles,
+      partners: currentPartnerships,
+      // MLDS fields
+      mldsRequestedBy: mldsInfo?.requested_by || 'departement',
+      mldsTargetAudience: mldsInfo?.target_audience || 'students_without_solution',
+      mldsActionObjectives: mldsInfo?.action_objectives || [],
+      mldsActionObjectivesOther: mldsInfo?.action_objectives_other || '',
+      mldsObjectives: mldsInfo?.objectives || '',
+      mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
+      mldsExpectedParticipants: mldsInfo?.expected_participants?.toString() || '',
+      mldsFinancialHSE: mldsInfo?.financial_hse || '',
+      mldsFinancialHV: mldsInfo?.financial_hv || '',
+      mldsFinancialTransport: mldsInfo?.financial_transport || '',
+      mldsFinancialOperating: mldsInfo?.financial_operating || '',
+      mldsFinancialService: mldsInfo?.financial_service || '',
+      mldsOrganizationNames: mldsInfo?.organization_names || [],
+      mldsSchoolLevelIds: (mldsInfo?.school_level_ids || []).map((id: number) => id.toString())
     });
     setEditImagePreview(project.image || '');
     setIsEditModalOpen(true);
+    
+    // Load members
+    setIsLoadingEditMembers(true);
+    try {
+      const organizationType = getOrganizationType(state.showingPageType);
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      
+      let membersResult;
+      if (state.showingPageType === 'teacher') {
+        membersResult = await getTeacherMembers();
+      } else if (organizationType && organizationId) {
+        membersResult = await getOrganizationMembers(organizationId, organizationType);
+      }
+      setEditAvailableMembers(membersResult || []);
+    } catch (err) {
+      console.error('Error fetching members:', err);
+      setEditAvailableMembers([]);
+    } finally {
+      setIsLoadingEditMembers(false);
+    }
+    
+    // Load partnerships
+    try {
+      const organizationType = getOrganizationType(state.showingPageType);
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      
+      if (organizationType && organizationId && (organizationType === 'school' || organizationType === 'company')) {
+        const partnershipsResponse = await getPartnerships(organizationId, organizationType);
+        setEditAvailablePartnerships(partnershipsResponse.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching partnerships:', err);
+      setEditAvailablePartnerships([]);
+    }
+    
+    // Load school levels if MLDS project
+    if (isMLDSProject) {
+      setIsLoadingSchoolLevels(true);
+      try {
+        const organizationType = getOrganizationType(state.showingPageType);
+        const organizationId = getOrganizationId(state.user, state.showingPageType);
+        
+        if (organizationType === 'school' && organizationId) {
+          const response = await getSchoolLevels(organizationId, 1, 100);
+          setAvailableSchoolLevels(response.data?.data || []);
+        }
+      } catch (err) {
+        console.error('Error fetching school levels:', err);
+        setAvailableSchoolLevels([]);
+      } finally {
+        setIsLoadingSchoolLevels(false);
+      }
+    }
   };
 
   const handleSaveEdit = async () => {
     try {
       // Map edit form to backend payload
       const payload = mapEditFormToBackend(editForm, state.tags || [], project);
+      
+      // Add co-responsibles and partnership
+      payload.project.co_responsible_ids = editForm.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+      // Note: Backend currently accepts only one partnership_id, so we take the first one
+      payload.project.partnership_id = editForm.partners.length > 0 ? Number.parseInt(editForm.partners[0], 10) : null;
+      
+      // Add MLDS information if it's an MLDS project
+      if (isMLDSProject) {
+        // Remove title from payload for MLDS projects (title is auto-generated by backend)
+        delete payload.project.title;
+        const schoolLevelIds = editForm.mldsSchoolLevelIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+        
+        payload.project.mlds_information_attributes = {
+          requested_by: editForm.mldsRequestedBy,
+          school_level_ids: schoolLevelIds,
+          target_audience: editForm.mldsTargetAudience,
+          action_objectives: editForm.mldsActionObjectives,
+          action_objectives_other: editForm.mldsActionObjectivesOther || null,
+          objectives: editForm.mldsObjectives || null,
+          competencies_developed: editForm.mldsCompetenciesDeveloped || null,
+          expected_participants: editForm.mldsExpectedParticipants ? parseInt(editForm.mldsExpectedParticipants) : null,
+          financial_hse: editForm.mldsFinancialHSE ? Number.parseFloat(editForm.mldsFinancialHSE) : null,
+          financial_hv: editForm.mldsFinancialHV ? Number.parseFloat(editForm.mldsFinancialHV) : null,
+          financial_transport: editForm.mldsFinancialTransport ? Number.parseFloat(editForm.mldsFinancialTransport) : null,
+          financial_operating: editForm.mldsFinancialOperating ? Number.parseFloat(editForm.mldsFinancialOperating) : null,
+          financial_service: editForm.mldsFinancialService ? Number.parseFloat(editForm.mldsFinancialService) : null
+          // organization_names is automatically generated by backend from school_level_ids
+        };
+      }
       
       // Convert image preview to File if different from current image
       let mainImageFile: File | null = null;
@@ -1040,12 +1231,16 @@ const ProjectManagement: React.FC = () => {
       setProject(mappedProject);
       setSelectedProject(mappedProject);
       
+      // Update apiProjectData to reflect changes
+      setApiProjectData(apiProject);
+      
     setIsEditModalOpen(false);
       setEditImagePreview('');
+      showSuccess('Projet mis à jour avec succès');
     } catch (error: any) {
       console.error('Error updating project:', error);
       const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors de la mise à jour du projet';
-      alert(errorMessage);
+      showError(errorMessage);
     }
   };
 
@@ -4063,14 +4258,43 @@ const ProjectManagement: React.FC = () => {
             <div className="modal-body">
               <div className="form-group">
                 <label htmlFor="project-title">Titre du projet</label>
-                <input
-                  type="text"
-                  id="project-title"
-                  value={editForm.title}
-                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                  className="form-input"
-                  placeholder="Entrez le titre du projet"
-                />
+                {isMLDSProject ? (
+                  <>
+                    <input
+                      type="text"
+                      id="project-title"
+                      value={editForm.title}
+                      className="form-input"
+                      disabled
+                      style={{ 
+                        backgroundColor: '#f3f4f6', 
+                        cursor: 'not-allowed',
+                        color: '#6b7280'
+                      }}
+                    />
+                    <div style={{ 
+                      marginTop: '8px',
+                      padding: '12px', 
+                      backgroundColor: '#f3f4f6', 
+                      borderRadius: '8px',
+                      color: '#6b7280',
+                      fontSize: '14px',
+                      fontStyle: 'italic'
+                    }}>
+                      <i className="fas fa-info-circle" style={{ marginRight: '8px', color: '#3b82f6' }}></i>
+                      {' '}Le titre des projets MLDS est généré automatiquement et ne peut pas être modifié
+                    </div>
+                  </>
+                ) : (
+                  <input
+                    type="text"
+                    id="project-title"
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    className="form-input"
+                    placeholder="Entrez le titre du projet"
+                  />
+                )}
               </div>
 
               <div className="form-group">
@@ -4150,9 +4374,10 @@ const ProjectManagement: React.FC = () => {
                   <select
                     id="project-status"
                     value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'coming' | 'in_progress' | 'ended' })}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'draft' | 'coming' | 'in_progress' | 'ended' })}
                     className="form-input"
                   >
+                    <option value="draft">Brouillon</option>
                     <option value="coming">À venir</option>
                     <option value="in_progress">En cours</option>
                     <option value="ended">Terminé</option>
@@ -4172,56 +4397,531 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
 
+              {/* Organisation porteuse pour les projets MLDS */}
+              {isMLDSProject && (
+                <div className="form-group">
+                  <div className="form-label">Organisation porteuse</div>
+                  {availableSchoolLevels.length > 0 ? (
+                    <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                      {availableSchoolLevels.map(classItem => (
+                        <label 
+                          key={classItem.id} 
+                          className={`multi-select-item !flex items-center gap-2 ${editForm.mldsSchoolLevelIds.includes(classItem.id.toString()) ? 'selected' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editForm.mldsSchoolLevelIds.includes(classItem.id.toString())}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditForm({ 
+                                  ...editForm, 
+                                  mldsSchoolLevelIds: [...editForm.mldsSchoolLevelIds, classItem.id.toString()] 
+                                });
+                              } else {
+                                setEditForm({ 
+                                  ...editForm, 
+                                  mldsSchoolLevelIds: editForm.mldsSchoolLevelIds.filter(id => id !== classItem.id.toString()) 
+                                });
+                              }
+                            }}
+                          />
+                          <div className="multi-select-checkmark">
+                            <i className="fas fa-check"></i>
+                          </div>
+                          <span className="multi-select-label">{classItem.name} {classItem.level ? `- ${classItem.level}` : ''}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={isLoadingSchoolLevels ? 'loading-message' : 'no-items-message'}>
+                      {isLoadingSchoolLevels ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          <span>Chargement des classes...</span>
+                        </>
+                      ) : (
+                        'Aucune classe disponible'
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Parcours - Masqué pour les projets MLDS */}
+              {!isMLDSProject && (
+                <div className="form-group">
+                  <label htmlFor="project-pathway">Parcours</label>
+                  <select
+                    id="project-pathway"
+                    value={editForm.pathway}
+                    onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
+                    className="form-input"
+                  >
+                    <option value="sante">Santé</option>
+                    <option value="eac">EAC</option>
+                    <option value="citoyen">Citoyen</option>
+                    <option value="creativite">Créativité</option>
+                    <option value="avenir">Avenir</option>
+                    <option value="mlds">MLDS</option>
+                    <option value="faj_co">FAJ Co</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Tags - Masqué pour les projets MLDS */}
+              {!isMLDSProject && (
+                <div className="form-group">
+                  <label>Tags du projet</label>
+                  <div className="tags-input-container">
+                    {editForm.tags.map((tag, index) => (
+                      <div key={index} className="tag-input-row">
+                        <input
+                          type="text"
+                          value={tag}
+                          onChange={(e) => handleTagChange(index, e.target.value)}
+                          className="form-input tag-input"
+                          placeholder="Entrez un tag"
+                        />
+                        <button
+                          type="button"
+                          className="btn-icon remove-tag-btn"
+                          onClick={() => removeTag(index)}
+                          title="Supprimer ce tag"
+                        >
+                          <i className="fas fa-times"></i>
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn btn-outline add-tag-btn"
+                      onClick={addTag}
+                    >
+                      <i className="fas fa-plus"></i>
+                      Ajouter un tag
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Partnership Section */}
               <div className="form-group">
-                <label htmlFor="project-pathway">Parcours</label>
-                <select
-                  id="project-pathway"
-                  value={editForm.pathway}
-                  onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
-                  className="form-input"
-                >
-                  <option value="sante">Santé</option>
-                  <option value="eac">EAC</option>
-                  <option value="citoyen">Citoyen</option>
-                  <option value="creativite">Créativité</option>
-                  <option value="avenir">Avenir</option>
-                  <option value="mlds">MLDS</option>
-                  <option value="faj_co">FAJ Co</option>
-                </select>
+                <label className={`multi-select-item !flex items-center gap-2 ${editForm.isPartnership ? 'selected' : ''}`} style={{ cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    id="isPartnership"
+                    name="isPartnership"
+                    checked={editForm.isPartnership}
+                    onChange={(e) => setEditForm(prev => ({ 
+                      ...prev, 
+                      isPartnership: e.target.checked,
+                      partners: e.target.checked ? prev.partners : []
+                    }))}
+                  />
+                  <div className="multi-select-checkmark">
+                    <i className="fas fa-check"></i>
+                  </div>
+                  <span className="multi-select-label">Est-ce un partenariat ?</span>
+                </label>
               </div>
 
-              <div className="form-group">
-                <label>Tags du projet</label>
-                <div className="tags-input-container">
-                  {editForm.tags.map((tag, index) => (
-                    <div key={index} className="tag-input-row">
+              {/* Partenaires - Only visible if En partenariat is checked */}
+              {editForm.isPartnership && (
+                <div className="form-group">
+                  <label htmlFor="projectPartners">Partenaire(s)</label>
+                  <div className="compact-selection">
+                    <div className="search-input-container">
+                      <i className="fas fa-search search-icon"></i>
                       <input
                         type="text"
-                        value={tag}
-                        onChange={(e) => handleTagChange(index, e.target.value)}
-                        className="form-input tag-input"
-                        placeholder="Entrez un tag"
+                        className="form-input"
+                        placeholder="Rechercher un partenaire..."
+                        value={editSearchTerms.partner}
+                        onChange={(e) => handleEditSearchChange('partner', e.target.value)}
                       />
-                      <button
-                        type="button"
-                        className="btn-icon remove-tag-btn"
-                        onClick={() => removeTag(index)}
-                        title="Supprimer ce tag"
-                      >
-                        <i className="fas fa-times"></i>
-                      </button>
                     </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="btn btn-outline add-tag-btn"
-                    onClick={addTag}
-                  >
-                    <i className="fas fa-plus"></i>
-                    Ajouter un tag
-                  </button>
+                    
+                    <div className="selection-list">
+                      {getEditFilteredPartnerships(editSearchTerms.partner).length === 0 ? (
+                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                          <i className="fas fa-handshake" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                          <p>Aucun partenariat disponible</p>
+                        </div>
+                      ) : (
+                        getEditFilteredPartnerships(editSearchTerms.partner).map((partnership: any) => {
+                          const partnerOrgs = partnership.partners || [];
+                          const firstPartner = partnerOrgs[0];
+                          const isSelected = editForm.partners.includes(partnership.id.toString());
+                          
+                          return (
+                            <div
+                              key={partnership.id}
+                              className={`selection-item ${isSelected ? 'selected' : ''}`}
+                              onClick={() => handleEditPartnerSelect(partnership.id.toString())}
+                            >
+                              <AvatarImage 
+                                src={firstPartner?.logo_url || '/default-avatar.png'} 
+                                alt={firstPartner?.name || 'Partnership'} 
+                                className="item-avatar" 
+                              />
+                              <div className="item-info">
+                                <div className="item-name">
+                                  {partnerOrgs.map((p: any) => p.name).join(', ')}
+                                </div>
+                                <div className="item-role">{partnership.name || ''}</div>
+                              </div>
+                              {isSelected && (
+                                <div style={{ marginLeft: 'auto', color: '#10b981', fontSize: '1.2rem' }}>
+                                  <i className="fas fa-check-circle"></i>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Co-responsables */}
+              <div className="form-group">
+                <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+                <div className="compact-selection">
+                  <div className="search-input-container">
+                    <i className="fas fa-search search-icon"></i>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Rechercher des co-responsables..."
+                      value={editSearchTerms.coResponsibles}
+                      onChange={(e) => handleEditSearchChange('coResponsibles', e.target.value)}
+                      disabled={isLoadingEditMembers}
+                    />
+                  </div>
+                  
+                  {isLoadingEditMembers ? (
+                    <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
+                      <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                      <span>Chargement des membres...</span>
+                    </div>
+                  ) : (
+                    <div className="selection-list">
+                      {getEditFilteredMembers(editSearchTerms.coResponsibles).length === 0 ? (
+                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                          <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                          <p>Aucun membre disponible</p>
+                        </div>
+                      ) : (
+                        getEditFilteredMembers(editSearchTerms.coResponsibles).map((member: any) => {
+                          const isSelected = editForm.coResponsibles.includes(member.id.toString());
+                          return (
+                            <div
+                              key={member.id}
+                              className={`selection-item ${isSelected ? 'selected' : ''}`}
+                              onClick={() => handleEditMemberSelect('coResponsibles', member.id.toString())}
+                            >
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                              <div className="item-info">
+                                <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                <div className="item-role">{member.role}</div>
+                              </div>
+                              {isSelected && (
+                                <div style={{ marginLeft: 'auto', color: '#10b981', fontSize: '1.2rem' }}>
+                                  <i className="fas fa-check-circle"></i>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* MLDS-specific fields */}
+              {isMLDSProject && (
+                <div className="form-section">
+                  <h3 className="form-section-title">Volet Persévérance Scolaire</h3>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="mlds-requested-by">Demande faite par <span style={{ color: 'red' }}>*</span></label>
+                      <select
+                        id="mlds-requested-by"
+                        name="mldsRequestedBy"
+                        className="form-select"
+                        value={editForm.mldsRequestedBy}
+                        onChange={(e) => setEditForm({ ...editForm, mldsRequestedBy: e.target.value })}
+                        required
+                      >
+                        <option value="departement">Département</option>
+                        <option value="reseau_foquale">Réseau foquale</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="mlds-target-audience">Public ciblé <span style={{ color: 'red' }}>*</span></label>
+                      <select
+                        id="mlds-target-audience"
+                        name="mldsTargetAudience"
+                        className="form-select"
+                        value={editForm.mldsTargetAudience}
+                        onChange={(e) => setEditForm({ ...editForm, mldsTargetAudience: e.target.value })}
+                        required
+                      >
+                        <option value="students_without_solution">Élèves sans solution à la rentrée</option>
+                        <option value="students_at_risk">Élèves en situation de décrochage repérés par le GPDS</option>
+                        <option value="school_teams">Équipes des établissements</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="mlds-expected-participants">Effectifs prévisionnel</label>
+                    <input
+                      type="number"
+                      id="mlds-expected-participants"
+                      name="mldsExpectedParticipants"
+                      className="form-input"
+                      value={editForm.mldsExpectedParticipants}
+                      onChange={(e) => setEditForm({ ...editForm, mldsExpectedParticipants: e.target.value })}
+                      placeholder="Nombre de participants attendus"
+                      min="0"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="mlds-objectives">Objectifs pédagogiques</label>
+                    <textarea
+                      id="mlds-objectives"
+                      name="mldsObjectives"
+                      className="form-textarea"
+                      value={editForm.mldsObjectives}
+                      onChange={(e) => setEditForm({ ...editForm, mldsObjectives: e.target.value })}
+                      rows={3}
+                      placeholder="Décrire les objectifs de remobilisation et de persévérance scolaire..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div className="form-label">Objectifs de l'action</div>
+                    <div className="multi-select-container">
+                      {[
+                        { value: 'path_security', label: 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles' },
+                        { value: 'professional_discovery', label: 'La découverte des filières professionnelles' },
+                        { value: 'student_mobility', label: 'Le développement de la mobilité des élèves' },
+                        { value: 'cps_development', label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré' },
+                        { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, PAE, autres)' },
+                        { value: 'family_links', label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire' },
+                        { value: 'professional_development', label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)' },
+                        { value: 'other', label: 'Autre' }
+                      ].map((objective) => (
+                        <label 
+                          key={objective.value} 
+                          className={`multi-select-item !flex items-center gap-2 ${editForm.mldsActionObjectives.includes(objective.value) ? 'selected' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editForm.mldsActionObjectives.includes(objective.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditForm({ ...editForm, mldsActionObjectives: [...editForm.mldsActionObjectives, objective.value] });
+                              } else {
+                                setEditForm({ ...editForm, mldsActionObjectives: editForm.mldsActionObjectives.filter(v => v !== objective.value) });
+                              }
+                            }}
+                          />
+                          <div className="multi-select-checkmark">
+                            <i className="fas fa-check"></i>
+                          </div>
+                          <span className="multi-select-label">{objective.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {editForm.mldsActionObjectives.includes('other') && (
+                      <div style={{ marginTop: '12px' }}>
+                        <label htmlFor="mlds-action-objectives-other">Précisez l'autre objectif</label>
+                        <textarea
+                          id="mlds-action-objectives-other"
+                          name="mldsActionObjectivesOther"
+                          className="form-textarea"
+                          value={editForm.mldsActionObjectivesOther}
+                          onChange={(e) => setEditForm({ ...editForm, mldsActionObjectivesOther: e.target.value })}
+                          placeholder="Décrivez l'autre objectif..."
+                          rows={2}
+                          style={{ marginTop: '8px' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="mlds-competencies-developed">Compétences développées par l'action</label>
+                    <textarea
+                      id="mlds-competencies-developed"
+                      name="mldsCompetenciesDeveloped"
+                      className="form-textarea"
+                      value={editForm.mldsCompetenciesDeveloped}
+                      onChange={(e) => setEditForm({ ...editForm, mldsCompetenciesDeveloped: e.target.value })}
+                      rows={3}
+                      placeholder="Décrivez les compétences que les participants développeront..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div className="form-label">Moyens financiers demandés</div>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '1rem',
+                      marginTop: '12px',
+                      padding: '16px',
+                      background: '#f9fafb',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      <div className="form-group" style={{ marginBottom: '0' }}>
+                        <label htmlFor="mlds-financial-hse">HSE</label>
+                        <input
+                          type="number"
+                          id="mlds-financial-hse"
+                          name="mldsFinancialHSE"
+                          className="form-input"
+                          value={editForm.mldsFinancialHSE}
+                          onChange={(e) => setEditForm({ ...editForm, mldsFinancialHSE: e.target.value })}
+                          placeholder="Montant en €"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: '0' }}>
+                        <label htmlFor="mlds-financial-hv">HV</label>
+                        <input
+                          type="number"
+                          id="mlds-financial-hv"
+                          name="mldsFinancialHV"
+                          className="form-input"
+                          value={editForm.mldsFinancialHV}
+                          onChange={(e) => setEditForm({ ...editForm, mldsFinancialHV: e.target.value })}
+                          placeholder="Montant en €"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '16px',
+                      background: '#f9fafb',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      <h4 style={{ 
+                        fontSize: '0.95rem', 
+                        fontWeight: 600, 
+                        color: '#374151', 
+                        marginBottom: '12px',
+                        marginTop: '0'
+                      }}>
+                        Crédits
+                      </h4>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr',
+                        gap: '1rem'
+                      }}>
+                        <div className="form-group" style={{ marginBottom: '0' }}>
+                          <label htmlFor="mlds-financial-transport">Frais de transport</label>
+                          <input
+                            type="number"
+                            id="mlds-financial-transport"
+                            name="mldsFinancialTransport"
+                            className="form-input"
+                            value={editForm.mldsFinancialTransport}
+                            onChange={(e) => setEditForm({ ...editForm, mldsFinancialTransport: e.target.value })}
+                            placeholder="Montant en €"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: '0' }}>
+                          <label htmlFor="mlds-financial-operating">Frais de fonctionnement</label>
+                          <input
+                            type="number"
+                            id="mlds-financial-operating"
+                            name="mldsFinancialOperating"
+                            className="form-input"
+                            value={editForm.mldsFinancialOperating}
+                            onChange={(e) => setEditForm({ ...editForm, mldsFinancialOperating: e.target.value })}
+                            placeholder="Montant en €"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: '0' }}>
+                          <label htmlFor="mlds-financial-service">Prestataires de service</label>
+                          <input
+                            type="number"
+                            id="mlds-financial-service"
+                            name="mldsFinancialService"
+                            className="form-input"
+                            value={editForm.mldsFinancialService}
+                            onChange={(e) => setEditForm({ ...editForm, mldsFinancialService: e.target.value })}
+                            placeholder="Montant en €"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                      </div>
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '10px',
+                        background: '#e0f2fe',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits :</span>
+                        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
+                          {(
+                            (Number.parseFloat(editForm.mldsFinancialTransport) || 0) +
+                            (Number.parseFloat(editForm.mldsFinancialOperating) || 0) +
+                            (Number.parseFloat(editForm.mldsFinancialService) || 0)
+                          ).toFixed(2)} €
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '12px',
+                      background: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%)',
+                      borderRadius: '8px',
+                      border: '2px solid #0369a1',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>
+                        Total général :
+                      </span>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
+                        {(
+                          (Number.parseFloat(editForm.mldsFinancialHSE) || 0) +
+                          (Number.parseFloat(editForm.mldsFinancialHV) || 0) +
+                          (Number.parseFloat(editForm.mldsFinancialTransport) || 0) +
+                          (Number.parseFloat(editForm.mldsFinancialOperating) || 0) +
+                          (Number.parseFloat(editForm.mldsFinancialService) || 0)
+                        ).toFixed(2)} €
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="modal-footer">

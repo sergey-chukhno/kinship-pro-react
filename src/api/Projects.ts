@@ -71,6 +71,7 @@ export interface MLDSInformationAttributes {
     financial_operating?: number | null;
     financial_service?: number | null;
     objectives?: string | null;
+    organization_names?: string[];
 }
 
 export interface CreateProjectPayload {
@@ -849,6 +850,10 @@ export interface UpdateProjectPayload {
         tag_ids?: number[];
         keyword_ids?: string[];
         links_attributes?: LinkAttribute[];
+        co_responsible_ids?: number[];
+        participant_ids?: number[];
+        partnership_id?: number | null;
+        mlds_information_attributes?: MLDSInformationAttributes;
     };
 }
 

@@ -35,7 +35,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     image: '',
     coResponsibles: [] as string[],
     isPartnership: false,
-    partner: '',
+    partners: [] as string[],
     additionalImages: [] as string[],
     // MLDS specific fields
     mldsRequestedBy: 'departement', // Demande faite par: Departement / reseau foquale
@@ -219,7 +219,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
       setFormData(prev => ({
         ...prev,
         isPartnership: (e.target as HTMLInputElement).checked,
-        partner: (e.target as HTMLInputElement).checked ? prev.partner : ''
+        partners: (e.target as HTMLInputElement).checked ? prev.partners : []
       }));
     } else {
       setFormData(prev => ({
@@ -325,6 +325,11 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
       });
     }
     
+    // Filter out already selected partnerships
+    filtered = filtered.filter((partnership: any) => 
+      !formData.partners.includes(partnership.id?.toString())
+    );
+    
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter((partnership: any) => {
@@ -359,7 +364,12 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   };
 
   const handlePartnerSelect = (partnerId: string) => {
-    setFormData(prev => ({ ...prev, partner: partnerId }));
+    setFormData(prev => {
+      const newPartners = prev.partners.includes(partnerId)
+        ? prev.partners.filter(id => id !== partnerId)
+        : [...prev.partners, partnerId];
+      return { ...prev, partners: newPartners };
+    });
   };
 
   const getSelectedMember = (memberId: string) => {
@@ -418,7 +428,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
           // Add co-responsibles, partner, and participants if needed
           co_responsible_ids: formData.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id)),
           participant_ids: formData.participants.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id)),
-          partnership_id: formData.partner ? Number.parseInt(formData.partner, 10) : null,
+          // Note: Backend currently accepts only one partnership_id, so we take the first one
+          partnership_id: formData.partners.length > 0 ? Number.parseInt(formData.partners[0], 10) : null,
           mlds_information_attributes: {
             requested_by: formData.mldsRequestedBy,
             school_level_ids: schoolLevelIds,
@@ -497,9 +508,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
               email: member?.email || ''
             };
           }),
-          partner: formData.isPartnership && formData.partner ? {
-            id: formData.partner,
-            name: availablePartnerships.find(p => p.id.toString() === formData.partner)?.name || '',
+          partner: formData.isPartnership && formData.partners.length > 0 ? {
+            id: formData.partners[0],
+            name: availablePartnerships.find(p => p.id.toString() === formData.partners[0])?.name || '',
             logo: '',
             organization: ''
           } : null,
@@ -795,10 +806,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
               </label>
             </div>
 
-            {/* Partenaire - Only visible if En partenariat is checked */}
+            {/* Partenaires - Only visible if En partenariat is checked */}
             {formData.isPartnership && (
               <div className="form-group">
-                <label htmlFor="projectPartner">Partenaire</label>
+                <label htmlFor="projectPartner">Partenaire(s)</label>
                 <div className="compact-selection">
                   <div className="search-input-container">
                     <i className="fas fa-search search-icon"></i>
@@ -810,17 +821,18 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                       onChange={(e) => handleSearchChange('partner', e.target.value)}
                     />
                   </div>
-                  {formData.partner && (
-                    <div className="selected-item">
-                      {(() => {
-                        const selected = getSelectedPartner(formData.partner);
+                  
+                  {formData.partners.length > 0 && (
+                    <div className="selected-items">
+                      {formData.partners.map((partnerId) => {
+                        const selected = getSelectedPartner(partnerId);
                         if (!selected) return null;
                         
                         const partnerOrgs = selected.partners || [];
                         const firstPartner = partnerOrgs[0];
                         
                         return (
-                          <div className="selected-member">
+                          <div key={partnerId} className="selected-member">
                             <AvatarImage 
                               src={firstPartner?.logo_url || '/default-avatar.png'} 
                               alt={firstPartner?.name || 'Partnership'} 
@@ -835,43 +847,42 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                             <button
                               type="button"
                               className="remove-selection"
-                              onClick={() => setFormData(prev => ({ ...prev, partner: '' }))}
+                              onClick={() => handlePartnerSelect(partnerId)}
                             >
                               <i className="fas fa-times"></i>
                             </button>
                           </div>
                         );
-                      })()}
-                    </div>
-                  )}
-                  {!formData.partner && (
-                    <div className="selection-list">
-                      {getFilteredPartners(searchTerms.partner).map((partnership) => {
-                        const partnerOrgs = partnership.partners || [];
-                        const firstPartner = partnerOrgs[0];
-                        
-                        return (
-                          <div
-                            key={partnership.id}
-                            className="selection-item"
-                            onClick={() => handlePartnerSelect(partnership.id)}
-                          >
-                            <AvatarImage 
-                              src={firstPartner?.logo_url || '/default-avatar.png'} 
-                              alt={firstPartner?.name || 'Partnership'} 
-                              className="item-avatar" 
-                            />
-                            <div className="item-info">
-                              <div className="item-name">
-                                {partnerOrgs.map((p: any) => p.name).join(', ')}
-                              </div>
-                              <div className="item-role">{partnership.name || ''}</div>
-                            </div>
-                          </div>
-                        );
                       })}
                     </div>
                   )}
+                  
+                  <div className="selection-list">
+                    {getFilteredPartners(searchTerms.partner).map((partnership) => {
+                      const partnerOrgs = partnership.partners || [];
+                      const firstPartner = partnerOrgs[0];
+                      
+                      return (
+                        <div
+                          key={partnership.id}
+                          className="selection-item"
+                          onClick={() => handlePartnerSelect(partnership.id)}
+                        >
+                          <AvatarImage 
+                            src={firstPartner?.logo_url || '/default-avatar.png'} 
+                            alt={firstPartner?.name || 'Partnership'} 
+                            className="item-avatar" 
+                          />
+                          <div className="item-info">
+                            <div className="item-name">
+                              {partnerOrgs.map((p: any) => p.name).join(', ')}
+                            </div>
+                            <div className="item-role">{partnership.name || ''}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}

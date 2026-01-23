@@ -58,6 +58,10 @@
   text-transform: uppercase;
 }
 
+.status-draft {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+}
 .status-coming {
   background: linear-gradient(135deg, #5570F1 0%, #4c63d2 100%);
   color: white;
