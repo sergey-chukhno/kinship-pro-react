@@ -230,6 +230,30 @@
   font-weight: 500;
 }
 
+.toggle-list-btn {
+  background: none;
+  border: none;
+  color: var(--primary, #5570F1);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.toggle-list-btn:hover {
+  color: var(--primary-dark, #4338ca);
+}
+
+.empty-list-message {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #6b7280);
+  font-style: italic;
+  margin: 0;
+}
+
 /* Request Actions */
 .request-actions {
   display: flex;
