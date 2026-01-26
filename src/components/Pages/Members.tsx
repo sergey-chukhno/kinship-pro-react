@@ -1491,9 +1491,19 @@ const Members: React.FC = () => {
           </div>
         </>
       )}
-      {/* Contenu du tab “Élèves” */}
+      {/* Contenu du tab "Élèves" */}
       {isSchoolContext && activeTab === 'students' && (
         <div className="min-h-[65vh]">
+          {/* Search bar for Élèves section */}
+          <div className="search-bar" style={{ marginBottom: '16px', maxWidth: '400px' }}>
+            <i className="fas fa-search"></i>
+            <input
+              type="text"
+              placeholder="Rechercher un élève par nom..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
           <div className="members-grid">
                 {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
               const totalBadgeCount = member.badges?.length || 0;
