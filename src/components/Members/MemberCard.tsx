@@ -34,6 +34,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
   badgeCartographyUrl
 }) => {
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [showAllClasses, setShowAllClasses] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleRoleClick = (e: React.MouseEvent) => {
@@ -166,6 +167,47 @@ const MemberCard: React.FC<MemberCardProps> = ({
             return translatedSystemRole ? (
               <p className="member-profession" style={{ marginTop: 4 }}>{translatedSystemRole}</p>
             ) : null;
+          })()}
+          {(() => {
+            // Display classes for students
+            const systemRole = (member as any).systemRole || '';
+            const studentRoles = ['eleve_primaire', 'collegien', 'collégien', 'lyceen', 'lycéen', 'etudiant', 'étudiant', 'student', 'eleve', 'élève'];
+            const isStudent = studentRoles.includes(systemRole.toLowerCase());
+            const classes = member.classes || [];
+            
+            if (!isStudent || !classes || classes.length === 0) {
+              return null;
+            }
+            
+            const displayClasses = showAllClasses || classes.length <= 2 
+              ? classes 
+              : classes.slice(0, 2);
+            const hasMoreClasses = classes.length > 2;
+            
+            return (
+              <div className="member-classes">
+                {displayClasses.map((cls: any, index: number) => (
+                  <span
+                    key={cls.id || index}
+                    className="class-tag"
+                  >
+                    {cls.name}
+                  </span>
+                ))}
+                {hasMoreClasses && (
+                  <button
+                    type="button"
+                    className="class-toggle-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAllClasses(!showAllClasses);
+                    }}
+                  >
+                    {showAllClasses ? 'Voir moins' : 'Voir plus'}
+                  </button>
+                )}
+              </div>
+            );
           })()}
         </div>
       </div>
