@@ -4047,7 +4047,21 @@ const ProjectManagement: React.FC = () => {
                     <div className="stat-content">
                       <div className="stat-label">Demande faite par</div>
                       <div className="stat-value" style={{ fontSize: '1.25rem', marginTop: '0.5rem' }}>
-                        {apiProjectData.mlds_information.requested_by === 'departement' ? 'Département' : 'Réseau foquale'}
+                        {apiProjectData.mlds_information.requested_by === 'departement' ? (
+                          <>
+                            Département
+                            {apiProjectData.mlds_information.department_number && (
+                              <div style={{ fontSize: '1rem', marginTop: '0.5rem', color: '#6b7280', fontWeight: 'normal' }}>
+                                {(() => {
+                                  const dept = departments.find(d => d.code === apiProjectData.mlds_information.department_number);
+                                  return dept ? `${dept.code} - ${dept.nom}` : apiProjectData.mlds_information.department_number;
+                                })()}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          'Réseau foquale'
+                        )}
                       </div>
                     </div>
                   </div>
