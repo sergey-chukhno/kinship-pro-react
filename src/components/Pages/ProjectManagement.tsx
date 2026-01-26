@@ -23,31 +23,31 @@ import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/p
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
   const [showAll, setShowAll] = React.useState(false);
   const maxVisible = 3;
+  
+  // Only render if skills exist
+  if (!skills || skills.length === 0) {
+    return null;
+  }
+
   const hasMore = skills.length > maxVisible;
   const visibleSkills = showAll ? skills : skills.slice(0, maxVisible);
 
   return (
     <div className="request-skills">
       <h4>Compétences</h4>
-      {skills.length > 0 ? (
-        <>
-          <div className="skills-list">
-            {visibleSkills.map((skill: string, index: number) => (
-              <span key={index} className="skill-pill">{skill}</span>
-            ))}
-          </div>
-          {hasMore && (
-            <button
-              type="button"
-              className="toggle-list-btn"
-              onClick={() => setShowAll(!showAll)}
-            >
-              {showAll ? 'Voir moins' : `Voir plus (${skills.length - maxVisible} autres)`}
-            </button>
-          )}
-        </>
-      ) : (
-        <p className="empty-list-message">Aucune compétence renseignée</p>
+      <div className="skills-list">
+        {visibleSkills.map((skill: string, index: number) => (
+          <span key={index} className="skill-pill">{skill}</span>
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          type="button"
+          className="toggle-list-btn"
+          onClick={() => setShowAll(!showAll)}
+        >
+          {showAll ? 'Voir moins' : `Voir plus (${skills.length - maxVisible} autres)`}
+        </button>
       )}
     </div>
   );
@@ -57,31 +57,31 @@ const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
 const ParticipantAvailabilityList: React.FC<{ availability: string[] }> = ({ availability }) => {
   const [showAll, setShowAll] = React.useState(false);
   const maxVisible = 3;
+  
+  // Only render if availability exists
+  if (!availability || availability.length === 0) {
+    return null;
+  }
+
   const hasMore = availability.length > maxVisible;
   const visibleAvailability = showAll ? availability : availability.slice(0, maxVisible);
 
   return (
     <div className="request-availability">
       <h4>Disponibilités</h4>
-      {availability.length > 0 ? (
-        <>
-          <div className="availability-list">
-            {visibleAvailability.map((day: string, index: number) => (
-              <span key={index} className="availability-pill">{day}</span>
-            ))}
-          </div>
-          {hasMore && (
-            <button
-              type="button"
-              className="toggle-list-btn"
-              onClick={() => setShowAll(!showAll)}
-            >
-              {showAll ? 'Voir moins' : `Voir plus (${availability.length - maxVisible} autres)`}
-            </button>
-          )}
-        </>
-      ) : (
-        <p className="empty-list-message">Aucune disponibilité renseignée</p>
+      <div className="availability-list">
+        {visibleAvailability.map((day: string, index: number) => (
+          <span key={index} className="availability-pill">{day}</span>
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          type="button"
+          className="toggle-list-btn"
+          onClick={() => setShowAll(!showAll)}
+        >
+          {showAll ? 'Voir moins' : `Voir plus (${availability.length - maxVisible} autres)`}
+        </button>
       )}
     </div>
   );
@@ -2772,8 +2772,12 @@ const ProjectManagement: React.FC = () => {
                         </div>
                     </div>
                     
-                    <ParticipantSkillsList skills={participant.skills || []} />
-                    <ParticipantAvailabilityList availability={participant.availability || []} />
+                    {participant.skills && participant.skills.length > 0 && (
+                      <ParticipantSkillsList skills={participant.skills} />
+                    )}
+                    {participant.availability && participant.availability.length > 0 && (
+                      <ParticipantAvailabilityList availability={participant.availability} />
+                    )}
                       
                       <div className="request-role-selector" style={{ marginTop: '0.75rem' }}>
                         <h4>Rôle dans le projet</h4>
