@@ -171,7 +171,13 @@ const Members: React.FC = () => {
             try {
               const res = await getTeacherClassStudents(cls.id, 200);
               const data = res.data?.data ?? res.data ?? [];
-              return Array.isArray(data) ? data.map((stu: any) => ({ ...stu, class_id: cls.id, class_name: cls.name })) : [];
+              return Array.isArray(data) ? data.map((stu: any) => ({ 
+                ...stu, 
+                class_id: cls.id, 
+                class_name: cls.name,
+                class_school_id: cls.school_id,
+                class_school: cls.school
+              })) : [];
             } catch (err) {
               console.error('Erreur récupération élèves pour la classe', cls.id, err);
               return [];
@@ -179,7 +185,44 @@ const Members: React.FC = () => {
           })
         );
 
-        const allStudents = studentsArrays.flat().map((s: any) => {
+        // Aggregate all students and their classes
+        const studentMap = new Map<string, {
+          student: any;
+          classes: Array<{
+            id: number;
+            name: string;
+            school_id?: number;
+            school?: { id: number; name: string };
+          }>;
+        }>();
+
+        studentsArrays.flat().forEach((s: any) => {
+          const studentId = (s.id || s.user_id || s.student_id || `${Date.now()}-${Math.random()}`).toString();
+          
+          if (!studentMap.has(studentId)) {
+            studentMap.set(studentId, {
+              student: s,
+              classes: []
+            });
+          }
+          
+          // Add class if it doesn't already exist for this student
+          const studentData = studentMap.get(studentId)!;
+          const classExists = studentData.classes.some(c => c.id === s.class_id);
+          if (!classExists && s.class_id) {
+            studentData.classes.push({
+              id: s.class_id,
+              name: s.class_name,
+              school_id: s.class_school_id,
+              school: s.class_school ? {
+                id: s.class_school.id,
+                name: s.class_school.name
+              } : undefined
+            });
+          }
+        });
+
+        const allStudents = Array.from(studentMap.values()).map(({ student: s, classes: studentClasses }) => {
           const role = s.role || 'etudiant';
           return {
             id: (s.id || s.user_id || s.student_id || `${Date.now()}-${Math.random()}`).toString(),
@@ -200,10 +243,9 @@ const Members: React.FC = () => {
             education: [],
             location: s.city || '',
             phone: s.phone || '',
-            classId: s.class_id,
-            className: s.class_name,
             avatar: s.avatar || DEFAULT_AVATAR_SRC,
-            isTrusted: Boolean(s.isTrusted)
+            isTrusted: Boolean(s.isTrusted),
+            classes: studentClasses
           } as Member;
         });
 
@@ -283,6 +325,7 @@ const Members: React.FC = () => {
           claim_token: m.claim_token,
           hasTemporaryEmail: m.has_temporary_email || false,
           isSuperadmin: isSuperadmin,
+          classes: m.classes || []
         } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
       });
 
@@ -1448,9 +1491,19 @@ const Members: React.FC = () => {
           </div>
         </>
       )}
-      {/* Contenu du tab “Élèves” */}
+      {/* Contenu du tab "Élèves" */}
       {isSchoolContext && activeTab === 'students' && (
         <div className="min-h-[65vh]">
+          {/* Search bar for Élèves section */}
+          <div className="search-bar" style={{ marginBottom: '16px', maxWidth: '400px' }}>
+            <i className="fas fa-search"></i>
+            <input
+              type="text"
+              placeholder="Rechercher un élève par nom..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
           <div className="members-grid">
                 {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
               const totalBadgeCount = member.badges?.length || 0;
