@@ -84,7 +84,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
 
       <div className="project-content">
         <div className="project-header">
-          <h3 className="project-title">{project.title}</h3>
+          {/* Display RS before title for MLDS projects with dates */}
+          
+          <h3 className="project-title">
+          <span className='text-sm text-gray-500'>{project.mlds_information && project.rs && project.rs + ' '}</span>
+            {project.title}
+            
+            </h3>
           {project.pathway && (
             <span className={`pathway-pill ${getPathwayColor(project.pathway)}`}>
               {getPathwayText(project.pathway)}

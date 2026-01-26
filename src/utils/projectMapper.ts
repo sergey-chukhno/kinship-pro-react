@@ -482,7 +482,8 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
             logo: apiProject.partnership_details.partner_organizations?.[0]?.logo_url || '',
             organization: apiProject.partnership_details.partner_organizations?.[0]?.name || ''
         } : undefined,
-        mlds_information: apiProject.mlds_information || undefined // Map MLDS information
+        mlds_information: apiProject.mlds_information || undefined, // Map MLDS information
+        rs: apiProject.rs || undefined // Map RS field
     };
 };
 

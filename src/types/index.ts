@@ -162,6 +162,7 @@ export interface Project {
     organization: string;
   } | null;
   mlds_information?: any; // MLDS project specific information
+  rs?: string; // RS field for MLDS projects
 }
 
 export interface EventParticipant {

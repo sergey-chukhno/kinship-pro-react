@@ -59,6 +59,7 @@ export interface LinkAttribute {
 
 export interface MLDSInformationAttributes {
     requested_by?: string;
+    department_number?: string | null;
     school_level_ids?: number[];
     target_audience?: string;
     action_objectives?: string[];

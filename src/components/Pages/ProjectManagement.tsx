@@ -44,6 +44,7 @@ const ProjectManagement: React.FC = () => {
     partners: [] as string[],
     // MLDS fields
     mldsRequestedBy: 'departement',
+    mldsDepartment: '',
     mldsTargetAudience: 'students_without_solution',
     mldsActionObjectives: [] as string[],
     mldsActionObjectivesOther: '',
@@ -64,6 +65,8 @@ const ProjectManagement: React.FC = () => {
   const [editAvailableMembers, setEditAvailableMembers] = useState<any[]>([]);
   const [editAvailablePartnerships, setEditAvailablePartnerships] = useState<any[]>([]);
   const [isLoadingEditMembers, setIsLoadingEditMembers] = useState(false);
+  const [departments, setDepartments] = useState<Array<{ code: string; nom: string }>>([]);
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
   const [editSearchTerms, setEditSearchTerms] = useState({
     coResponsibles: '',
     partner: ''
@@ -489,6 +492,34 @@ const ProjectManagement: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id]);
+
+  // Fetch departments from API
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      setIsLoadingDepartments(true);
+      try {
+        const response = await fetch('https://geo.api.gouv.fr/departements');
+        if (response.ok) {
+          const data = await response.json();
+          // Sort departments by name
+          const sortedData = data.sort((a: { nom: string }, b: { nom: string }) => 
+            a.nom.localeCompare(b.nom)
+          );
+          setDepartments(sortedData);
+        } else {
+          console.error('Error fetching departments:', response.statusText);
+          setDepartments([]);
+        }
+      } catch (err) {
+        console.error('Error fetching departments:', err);
+        setDepartments([]);
+      } finally {
+        setIsLoadingDepartments(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   // State for requests (pending project join requests)
   const [requests, setRequests] = useState<any[]>([]);
@@ -1084,6 +1115,7 @@ const ProjectManagement: React.FC = () => {
       partners: currentPartnerships,
       // MLDS fields
       mldsRequestedBy: mldsInfo?.requested_by || 'departement',
+      mldsDepartment: mldsInfo?.department_number || mldsInfo?.department_code || '',
       mldsTargetAudience: mldsInfo?.target_audience || 'students_without_solution',
       mldsActionObjectives: mldsInfo?.action_objectives || [],
       mldsActionObjectivesOther: mldsInfo?.action_objectives_other || '',
@@ -1173,6 +1205,7 @@ const ProjectManagement: React.FC = () => {
         
         payload.project.mlds_information_attributes = {
           requested_by: editForm.mldsRequestedBy,
+          department_number: editForm.mldsRequestedBy === 'departement' && editForm.mldsDepartment ? editForm.mldsDepartment : null,
           school_level_ids: schoolLevelIds,
           target_audience: editForm.mldsTargetAudience,
           action_objectives: editForm.mldsActionObjectives,
@@ -4653,13 +4686,46 @@ const ProjectManagement: React.FC = () => {
                         name="mldsRequestedBy"
                         className="form-select"
                         value={editForm.mldsRequestedBy}
-                        onChange={(e) => setEditForm({ ...editForm, mldsRequestedBy: e.target.value })}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          mldsRequestedBy: e.target.value,
+                          mldsDepartment: e.target.value === 'departement' ? editForm.mldsDepartment : ''
+                        })}
                         required
                       >
                         <option value="departement">Département</option>
                         <option value="reseau_foquale">Réseau foquale</option>
                       </select>
                     </div>
+
+                    {/* Département select - Only visible when "Demande faite par" is "Département" */}
+                    {editForm.mldsRequestedBy === 'departement' && (
+                      <div className="form-group">
+                        <label htmlFor="mldsDepartment">Département <span style={{ color: 'red' }}>*</span></label>
+                        {isLoadingDepartments ? (
+                          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                            <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                            Chargement des départements...
+                          </div>
+                        ) : (
+                          <select
+                            id="mldsDepartment"
+                            name="mldsDepartment"
+                            className="form-select"
+                            value={editForm.mldsDepartment}
+                            onChange={(e) => setEditForm({ ...editForm, mldsDepartment: e.target.value })}
+                            required={editForm.mldsRequestedBy === 'departement'}
+                          >
+                            <option value="">Sélectionnez un département</option>
+                            {departments.map(dept => (
+                              <option key={dept.code} value={dept.code}>
+                                {dept.nom} ({dept.code})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    )}
 
                     <div className="form-group">
                       <label htmlFor="mlds-target-audience">Public ciblé <span style={{ color: 'red' }}>*</span></label>
