@@ -2657,7 +2657,7 @@ const ProjectManagement: React.FC = () => {
                         <div className="request-info">
                           <h4 className="request-name">{participant.name}</h4>
                           <p className="request-profession">{participant.profession}</p>
-                          <p className="request-email">{participant.email}</p>
+                          <p className="request-email" title={participant.email}>{participant.email}</p>
                           <p className="request-date">{participant.organization}</p>
                         </div>
                     </div>
