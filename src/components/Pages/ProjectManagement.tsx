@@ -2680,7 +2680,7 @@ const ProjectManagement: React.FC = () => {
                       </div>
                     </div>
                       
-                      <div className="request-role-selector" style={{ marginTop: '1rem' }}>
+                      <div className="request-role-selector" style={{ marginTop: '0.75rem' }}>
                         <h4>Rôle dans le projet</h4>
                         <select
                           value={getCurrentRoleValue(participant)}
