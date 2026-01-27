@@ -3,6 +3,7 @@ import { ClassList, Member } from '../../types';
 import { useToast } from '../../hooks/useToast';
 import { useAppContext } from '../../context/AppContext';
 import { getCurrentUser } from '../../api/Authentication';
+import { getSelectedSchoolId } from '../../utils/contextUtils';
 import { getSchoolStaff } from '../../api/SchoolDashboard/Members';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -71,7 +72,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
       try {
         setLoadingStaff(true);
         const currentUser = await getCurrentUser();
-        const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+        const schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         
         if (!schoolId) {
           if (isMounted) {

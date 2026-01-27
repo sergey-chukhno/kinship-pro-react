@@ -24,6 +24,7 @@ import ConfirmModal from '../Modals/ConfirmModal';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './Members.css';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
+import { getSelectedOrganizationId, getSelectedSchoolId, getSelectedCompanyId, getSelectedOrganizationRole } from '../../utils/contextUtils';
 
 const AVAILABILITY_OPTIONS = [
   'Lundi',
@@ -64,7 +65,7 @@ const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
   const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
   const isTeacherContext = state.showingPageType === 'teacher';
-  const currentSchoolRole = state.user?.available_contexts?.schools?.[0]?.role || '';
+  const currentSchoolRole = getSelectedOrganizationRole(state.user, state.showingPageType);
   const isSchoolAdmin = currentSchoolRole === 'admin' || currentSchoolRole === 'superadmin';
   const { showSuccess, showError } = useToast();
   const showStaffTab = !isTeacherContext;
@@ -266,9 +267,7 @@ const Members: React.FC = () => {
       const isEdu = isSchoolContext;
 
       // 1. Bascule de l'ID (Company vs School)
-      const contextId = isEdu
-        ? currentUser.data?.available_contexts?.schools?.[0]?.id
-        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+      const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
       if (!contextId) return;
       if (isEdu) setCurrentSchoolId(contextId);
@@ -374,7 +373,7 @@ const Members: React.FC = () => {
       } else {
         // Sinon, utiliser l'API schools/levels pour les admins d'école
         const isEdu = isSchoolContext;
-        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        const contextId = isEdu ? getSelectedSchoolId(currentUser.data, state.showingPageType) : null;
         if (!contextId) {
           setLoading(false);
           return;
@@ -408,7 +407,7 @@ const Members: React.FC = () => {
     try {
       const currentUser = await getCurrentUser();
       const isEdu = isSchoolContext;
-      const schoolId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+      const schoolId = isEdu ? getSelectedSchoolId(currentUser.data, state.showingPageType) : null;
       if (!schoolId) {
         setCommunityLists([]);
         return;
@@ -532,9 +531,7 @@ const Members: React.FC = () => {
     try {
       const currentUser = await getCurrentUser();
       const isEdu = state.showingPageType === 'edu';
-      const contextId = isEdu
-        ? currentUser.data?.available_contexts?.schools?.[0]?.id
-        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+      const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
       if (!contextId) {
         setPendingRequestsCount(0);
@@ -982,13 +979,13 @@ const Members: React.FC = () => {
       let response;
       
       if (isSchoolContext) {
-        const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+        const schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         if (!schoolId) {
           throw new Error('School ID not found');
         }
         response = await importSchoolMembersCsv(schoolId, file);
       } else {
-        const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+        const companyId = getSelectedCompanyId(currentUser.data, state.showingPageType);
         if (!companyId) {
           throw new Error('Company ID not found');
         }
@@ -1013,9 +1010,7 @@ const Members: React.FC = () => {
       const currentUser = await getCurrentUser();
       const isEdu = state.showingPageType === 'edu';
       // 1. Bascule ID pour le changement de rôle
-      const contextId = isEdu
-        ? currentUser.data?.available_contexts?.schools?.[0]?.id
-        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+      const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
       if (!contextId) {
         showError("Impossible de trouver le contexte");
@@ -1108,8 +1103,7 @@ const Members: React.FC = () => {
         await createTeacherClass(teacherClassData);
       } else {
         // Sinon, utiliser l'API schools/levels pour les admins d'école
-        const isEdu = state.showingPageType === 'edu';
-        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        const contextId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         
         if (!contextId) {
           showError("Impossible de trouver le contexte de l'école");
@@ -1145,8 +1139,7 @@ const Members: React.FC = () => {
         await deleteTeacherClass(Number(classItem.id));
       } else {
         // Sinon, utiliser l'API schools/levels pour les admins d'école
-        const isEdu = state.showingPageType === 'edu';
-        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        const contextId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         
         if (!contextId) {
           showError("Impossible de trouver le contexte de l'école");
@@ -1180,7 +1173,7 @@ const Members: React.FC = () => {
       // Si c'est un teacher, utiliser l'API teachers/classes avec un payload différent
       if (isTeacherContext) {
         // Utiliser le school_id passé depuis le modal, ou le premier disponible
-        const schoolId = levelData.level.school_id || currentUser.data?.available_contexts?.schools?.[0]?.id;
+        const schoolId = levelData.level.school_id || getSelectedSchoolId(currentUser.data, state.showingPageType);
         if (!schoolId) {
           showError("Impossible de trouver l'identifiant de l'école");
           return;
@@ -1203,8 +1196,7 @@ const Members: React.FC = () => {
         await updateTeacherClass(Number(editingClass.id), teacherClassData);
       } else {
         // Sinon, utiliser l'API schools/levels pour les admins d'école
-        const isEdu = state.showingPageType === 'edu';
-        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        const contextId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         
         if (!contextId) {
           showError("Impossible de trouver le contexte de l'école");
@@ -1265,9 +1257,7 @@ const Members: React.FC = () => {
         await fetchLevels();
       } else {
         // For companies and schools
-        const contextId = isEdu
-          ? currentUser.data?.available_contexts?.schools?.[0]?.id
-          : currentUser.data?.available_contexts?.companies?.[0]?.id;
+        const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
         if (!contextId) {
           showError("Impossible de trouver le contexte");

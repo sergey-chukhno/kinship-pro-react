@@ -31,6 +31,7 @@ import {
 } from '../../api/Dashboard';
 import { OrganizationStatsResponse } from '../../types';
 import { getOrganizationId, validateImageSize } from '../../utils/projectMapper';
+import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -429,77 +430,14 @@ const Dashboard: React.FC = () => {
   
   // Utiliser le contexte sélectionné depuis localStorage si disponible et valide
   const getSelectedOrganizationId = (): number | undefined => {
-    const savedContextId = localStorage.getItem('selectedContextId');
-    const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
-    const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | null;
-    
-    console.log('📊 [Dashboard] Contexte sauvegardé:', {
-      savedContextId,
-      savedContextType,
-      savedPageType,
-      showingPageType: state.showingPageType
-    });
-    
-    // Si on a un contexte sauvegardé et que c'est une école ou une entreprise
-    if (savedContextId && savedContextType && (savedContextType === 'school' || savedContextType === 'company')) {
-      // Vérifier que l'utilisateur a toujours accès à ce contexte
-      if (savedContextType === 'company') {
-        const company = state.user.available_contexts?.companies?.find(
-          (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
-        );
-        if (company) {
-          console.log('✅ [Dashboard] Utilisation du contexte entreprise sauvegardé:', {
-            companyId: Number(savedContextId),
-            companyName: company.name,
-            role: company.role
-          });
-          return Number(savedContextId);
-        }
-      } else if (savedContextType === 'school') {
-        const school = state.user.available_contexts?.schools?.find(
-          (s: any) => s.id.toString() === savedContextId && (s.role === 'admin' || s.role === 'superadmin')
-        );
-        if (school) {
-          console.log('✅ [Dashboard] Utilisation du contexte école sauvegardé:', {
-            schoolId: Number(savedContextId),
-            schoolName: school.name,
-            role: school.role
-          });
-          return Number(savedContextId);
-        }
-      }
-    }
-    
-    // Sinon, utiliser la logique par défaut (qui vérifie déjà le rôle admin)
-    const defaultOrgId = getOrganizationId(state.user, state.showingPageType);
-    
-    if (defaultOrgId) {
-      // Vérifier à nouveau que l'utilisateur est bien admin de cette organisation
-      if (state.showingPageType === 'pro') {
-        const company = state.user.available_contexts?.companies?.find(
-          (c: any) => c.id === defaultOrgId && (c.role === 'admin' || c.role === 'superadmin')
-        );
-        if (!company) {
-          console.log('❌ [Dashboard] Organisation par défaut trouvée mais utilisateur n\'est pas admin');
-          return undefined;
-        }
-      } else if (state.showingPageType === 'edu' || state.showingPageType === 'teacher') {
-        const school = state.user.available_contexts?.schools?.find(
-          (s: any) => s.id === defaultOrgId && (s.role === 'admin' || s.role === 'superadmin')
-        );
-        if (!school) {
-          console.log('❌ [Dashboard] École par défaut trouvée mais utilisateur n\'est pas admin');
-          return undefined;
-        }
-      }
-    }
-    
-    console.log('⚠️ [Dashboard] Utilisation du contexte par défaut:', {
-      organizationId: defaultOrgId,
+    const orgId = getSelectedOrgId(state.user, state.showingPageType);
+    console.log('📊 [Dashboard] Organization ID sélectionné:', {
+      organizationId: orgId,
       showingPageType: state.showingPageType,
-      reason: !savedContextId ? 'Aucun contexte sauvegardé' : 'Contexte sauvegardé invalide ou non trouvé'
+      savedContextId: localStorage.getItem('selectedContextId'),
+      savedContextType: localStorage.getItem('selectedContextType')
     });
-    return defaultOrgId;
+    return orgId;
   };
   
   const organizationId = getSelectedOrganizationId();
