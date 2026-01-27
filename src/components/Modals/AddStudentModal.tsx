@@ -7,6 +7,7 @@ import { getSchoolLevels, createLevelStudent } from '../../api/SchoolDashboard/L
 import { getTeacherClasses, createTeacherLevelStudent } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
+import { getSelectedSchoolId } from '../../utils/contextUtils';
 import QRCodePrintModal from './QRCodePrintModal';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -168,7 +169,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         } else {
           // Pour les admins d'école, utiliser l'API schools/levels
           const currentUser = await getCurrentUser();
-          const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+          const schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
 
           if (!schoolId) {
             if (isMounted) {
@@ -383,7 +384,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         } else {
           // Pour les admins d'école, utiliser la première école disponible
           const currentUser = await getCurrentUser();
-          schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id || null;
+          schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         }
 
         // Pour les admins d'école, schoolId est obligatoire

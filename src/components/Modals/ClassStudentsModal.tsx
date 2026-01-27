@@ -4,6 +4,7 @@ import { getCurrentUser } from '../../api/Authentication';
 import { getTeacherClassStudents, getTeacherClass } from '../../api/Dashboard';
 import { useToast } from '../../hooks/useToast';
 import { useAppContext } from '../../context/AppContext';
+import { getSelectedSchoolId } from '../../utils/contextUtils';
 import './Modal.css';
 import QRCodePrintModal from './QRCodePrintModal';
 import AvatarImage from '../UI/AvatarImage';
@@ -95,7 +96,7 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
       } else {
         // Pour les admins d'école, utiliser l'API schools/levels
         const currentUser = await getCurrentUser();
-        schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+        schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
 
         if (!schoolId) {
           showErrorRef.current("Impossible de récupérer l'identifiant de l'école");

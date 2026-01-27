@@ -9,6 +9,7 @@ import { acceptMember, getCompanyMembersPending, removeCompanyMember } from '../
 import { acceptSchoolMember, getSchoolMembersPending, removeSchoolMember } from '../../api/SchoolDashboard/Members';
 import { useToast } from '../../hooks/useToast';
 import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
+import { getSelectedOrganizationId } from '../../utils/contextUtils';
 
 interface MembershipRequest {
   id: string;
@@ -63,9 +64,7 @@ const MembershipRequests: React.FC = () => {
         const isEdu = state.showingPageType === 'edu';
 
         // 1. Bascule ID
-        const cId = isEdu
-          ? currentUser.data?.available_contexts?.schools?.[0]?.id
-          : currentUser.data?.available_contexts?.companies?.[0]?.id;
+        const cId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
         if (!cId) return;
 
