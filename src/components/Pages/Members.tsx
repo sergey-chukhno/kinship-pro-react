@@ -4,8 +4,8 @@ import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMembe
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel, addExistingStudentToLevel } from '../../api/SchoolDashboard/Levels';
 import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole, removeSchoolMember, importSchoolMembersCsv } from '../../api/SchoolDashboard/Members';
 import { getSkills } from '../../api/Skills';
-import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent } from '../../api/Dashboard';
-import { getTeacherClassStudents } from '../../api/Dashboard';
+import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent, createTeacherLevelStudent } from '../../api/Dashboard';
+import { getTeacherClassStudents, getTeacherAllStudents } from '../../api/Dashboard';
 import { createStudentBadgeCartographyShare } from '../../api/BadgeCartography';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
@@ -164,66 +164,12 @@ const Members: React.FC = () => {
     if (isTeacherContext) {
       try {
         setIsMembersLoading(true);
-        const classesRes = await getTeacherClasses(1, 200); // charger suffisamment pour inclure tout le staff/élèves
-        const classes = classesRes.data?.data || classesRes.data || [];
-
-        const studentsArrays = await Promise.all(
-          classes.map(async (cls: any) => {
-            try {
-              const res = await getTeacherClassStudents(cls.id, 200);
-              const data = res.data?.data ?? res.data ?? [];
-              return Array.isArray(data) ? data.map((stu: any) => ({ 
-                ...stu, 
-                class_id: cls.id, 
-                class_name: cls.name,
-                class_school_id: cls.school_id,
-                class_school: cls.school
-              })) : [];
-            } catch (err) {
-              console.error('Erreur récupération élèves pour la classe', cls.id, err);
-              return [];
-            }
-          })
-        );
-
-        // Aggregate all students and their classes
-        const studentMap = new Map<string, {
-          student: any;
-          classes: Array<{
-            id: number;
-            name: string;
-            school_id?: number;
-            school?: { id: number; name: string };
-          }>;
-        }>();
-
-        studentsArrays.flat().forEach((s: any) => {
-          const studentId = (s.id || s.user_id || s.student_id || `${Date.now()}-${Math.random()}`).toString();
-          
-          if (!studentMap.has(studentId)) {
-            studentMap.set(studentId, {
-              student: s,
-              classes: []
-            });
-          }
-          
-          // Add class if it doesn't already exist for this student
-          const studentData = studentMap.get(studentId)!;
-          const classExists = studentData.classes.some(c => c.id === s.class_id);
-          if (!classExists && s.class_id) {
-            studentData.classes.push({
-              id: s.class_id,
-              name: s.class_name,
-              school_id: s.class_school_id,
-              school: s.class_school ? {
-                id: s.class_school.id,
-                name: s.class_school.name
-              } : undefined
-            });
-          }
-        });
-
-        const allStudents = Array.from(studentMap.values()).map(({ student: s, classes: studentClasses }) => {
+        
+        // Use new endpoint that includes students from all confirmed schools
+        const response = await getTeacherAllStudents({ per_page: 200 });
+        const studentsData = response.data?.data ?? response.data ?? [];
+        
+        const allStudents = Array.isArray(studentsData) ? studentsData.map((s: any) => {
           const role = s.role || 'etudiant';
           return {
             id: (s.id || s.user_id || s.student_id || `${Date.now()}-${Math.random()}`).toString(),
@@ -244,11 +190,11 @@ const Members: React.FC = () => {
             education: [],
             location: s.city || '',
             phone: s.phone || '',
-            avatar: s.avatar || DEFAULT_AVATAR_SRC,
+            avatar: s.avatar_url || s.avatar || DEFAULT_AVATAR_SRC,
             isTrusted: Boolean(s.isTrusted),
-            classes: studentClasses
+            schools: s.schools || [] // Include school information from API
           } as Member;
-        });
+        }) : [];
 
         setMembers(allStudents);
       } catch (err) {
@@ -765,10 +711,24 @@ const Members: React.FC = () => {
   });
 
   const handleAssignStudentToClass = async () => {
-    if (!selectedStudent || !selectedLevelId || !currentSchoolId) {
+    if (!selectedStudent || !selectedLevelId) {
       showError("Sélectionnez un élève et une classe.");
       return;
     }
+    
+    // For teachers, we don't need currentSchoolId
+    if (isTeacherContext) {
+      if (!selectedLevelId) {
+        showError("Sélectionnez une classe.");
+        return;
+      }
+    } else {
+      if (!currentSchoolId) {
+        showError("Sélectionnez un élève et une classe.");
+        return;
+      }
+    }
+    
     try {
       // Use systemRole (role_in_system) for backend, not the translated/organization role
       const systemRole = (selectedStudent as any).systemRole || (selectedStudent as any).rawRole || '';
@@ -788,15 +748,27 @@ const Members: React.FC = () => {
       };
       const normalizedRole = roleMap[systemRole.toLowerCase()] || systemRole.toLowerCase() || 'etudiant';
       
-      // Backend requires first_name and last_name even for existing students
-      await addExistingStudentToLevel(currentSchoolId, selectedLevelId, {
-        student: { 
-          email: selectedStudent.email, 
-          role: normalizedRole,
-          first_name: selectedStudent.firstName || '',
-          last_name: selectedStudent.lastName || ''
-        }
-      });
+      if (isTeacherContext) {
+        // For teachers, use teacher-specific endpoint
+        await createTeacherLevelStudent(selectedLevelId, {
+          student: { 
+            email: selectedStudent.email, 
+            role: normalizedRole,
+            first_name: selectedStudent.firstName || '',
+            last_name: selectedStudent.lastName || ''
+          }
+        });
+      } else {
+        // For school admins, use school endpoint
+        await addExistingStudentToLevel(currentSchoolId!, selectedLevelId, {
+          student: { 
+            email: selectedStudent.email, 
+            role: normalizedRole,
+            first_name: selectedStudent.firstName || '',
+            last_name: selectedStudent.lastName || ''
+          }
+        });
+      }
       showSuccess("Élève assigné à la classe.");
       setIsAssignModalOpen(false);
       setSelectedStudent(null);
@@ -1504,7 +1476,17 @@ const Members: React.FC = () => {
               };
               const isSuperadmin = (member as any).isSuperadmin || 
                 ((member as any).membershipRole || '').toLowerCase() === 'superadmin';
-              const canAssignClass = !isSuperadmin && !isTeacherContext && currentSchoolId !== null && isSchoolAdmin;
+              // For teachers: allow assigning students to their classes
+              // For school admins: allow if not superadmin and has school admin rights
+              const canAssignClass = isTeacherContext 
+                ? classLists.length > 0 // Teacher can assign if they have classes
+                : !isSuperadmin && currentSchoolId !== null && isSchoolAdmin;
+              
+              // Check if member is a student
+              const systemRole = (member as any).systemRole || '';
+              const studentRoles = ['eleve_primaire', 'collegien', 'collégien', 'lyceen', 'lycéen', 'etudiant', 'étudiant', 'student', 'eleve', 'élève'];
+              const isStudent = studentRoles.includes(systemRole.toLowerCase());
+              
               return (
                 <MemberCard
                   key={member.id}
@@ -1523,7 +1505,8 @@ const Members: React.FC = () => {
                     handleRoleChange(member, newRole, 'members');
                   }}
                   isSuperadmin={isSuperadmin}
-                  disableRoleDropdown={isSuperadmin}
+                  disableRoleDropdown={isSuperadmin || (isTeacherContext && isStudent)}
+                  hideRolePill={isTeacherContext && isStudent}
                   extraActions={canAssignClass ? [
                     {
                       label: 'Assigner à une classe',

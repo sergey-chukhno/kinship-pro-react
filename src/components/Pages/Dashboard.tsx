@@ -32,6 +32,7 @@ import {
 import { OrganizationStatsResponse } from '../../types';
 import { getOrganizationId, validateImageSize } from '../../utils/projectMapper';
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
+import { getTeacherProjects } from '../../api/Projects';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -497,7 +498,37 @@ const Dashboard: React.FC = () => {
     };
   }, [revokeLogoObjectUrl]);
   const logoContext = useMemo<LogoContextHandlers | null>(() => {
-    if (state.showingPageType === 'teacher' && organizationId === undefined) {
+    if (state.showingPageType === 'teacher') {
+      // For teachers: use teacher logo if no school, or school info if confirmed member
+      if (organizationId === undefined) {
+        return {
+          fetcher: () => getTeacherLogo(),
+          uploader: (file: File) => uploadTeacherLogo(file),
+          deleter: () => deleteTeacherLogo(),
+          displayNameFallback: state.user.organization || state.user.name || 'Mon espace enseignant',
+          expectsBlob: false,
+        };
+      }
+      
+      // Teacher with confirmed school membership - use school info from available_contexts
+      const school = state.user.available_contexts?.schools?.find((s: any) => s.id === organizationId);
+      if (school) {
+        return {
+          fetcher: async () => ({ 
+            data: { 
+              data: { 
+                name: school.name, 
+                logo_url: school.logo_url 
+              } 
+            } 
+          }),
+          uploader: async () => { throw new Error('Teachers cannot upload school logos'); },
+          deleter: async () => { throw new Error('Teachers cannot delete school logos'); },
+          displayNameFallback: school.name,
+          expectsBlob: false,
+        };
+      }
+      
       return {
         fetcher: () => getTeacherLogo(),
         uploader: (file: File) => uploadTeacherLogo(file),
@@ -518,7 +549,7 @@ const Dashboard: React.FC = () => {
       };
     }
 
-    if (state.showingPageType === 'edu' || state.showingPageType === 'teacher') {
+    if (state.showingPageType === 'edu') {
       return {
         fetcher: () => getSchoolDetails(id),
         uploader: (file: File) => uploadSchoolLogo(id, file),
@@ -527,7 +558,7 @@ const Dashboard: React.FC = () => {
     }
 
     return null;
-  }, [organizationId, state.showingPageType, state.user.organization, state.user.name]);
+  }, [organizationId, state.showingPageType, state.user.organization, state.user.name, state.user.available_contexts]);
   const canUploadLogo = Boolean(logoContext);
 
   useEffect(() => {
@@ -815,8 +846,15 @@ const Dashboard: React.FC = () => {
 
         if (state.showingPageType === 'pro') {
           response = await getCompanyProjects(Number(organizationId), includeBranches);
+        } else if (state.showingPageType === 'teacher') {
+          // Use teacher-specific endpoint
+          const teacherProjectsResponse = await getTeacherProjects({ 
+            per_page: 3, 
+            page: 1 
+          });
+          response = { data: { data: teacherProjectsResponse.data } };
         } else {
-          // edu or teacher (teachers are tied to a school)
+          // edu
           response = await getSchoolProjects(Number(organizationId), includeBranches);
         }
 
@@ -1381,7 +1419,14 @@ const Dashboard: React.FC = () => {
             {state.showingPageType === 'teacher' && (
               <div className="flex gap-2 items-center">
                 <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
-                <span>Tableau de bord enseignant</span>
+                <span>
+                  Tableau de bord enseignant
+                  {state.user.available_contexts?.schools && state.user.available_contexts.schools.length > 0 && (
+                    <span className="text-sm text-gray-600 ml-2">
+                      ({state.user.available_contexts.schools.map((s: any) => s.name).join(', ')})
+                    </span>
+                  )}
+                </span>
               </div>
             )}
             {state.showingPageType !== 'teacher' && (

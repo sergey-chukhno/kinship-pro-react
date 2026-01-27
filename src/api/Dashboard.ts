@@ -257,3 +257,11 @@ export const deleteTeacherLogo = () => {
   return axiosClient.delete(`/api/v1/teachers/logo`);
 };
 
+export const getTeacherSchoolInfo = (schoolId: number) => {
+  return axiosClient.get(`/api/v1/teachers/schools/${schoolId}/info`);
+};
+
+export const getTeacherAllStudents = (params?: { per_page?: number; page?: number; search?: string }) => {
+  return axiosClient.get('/api/v1/teachers/all-students', { params });
+};
+
