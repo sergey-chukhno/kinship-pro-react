@@ -20,17 +20,26 @@ export const getSelectedOrganizationId = (
       );
       if (company) return Number(savedContextId);
     } else if (savedContextType === 'school' && (showingPageType === 'edu' || showingPageType === 'teacher')) {
+      // For teachers: check if confirmed member (any role), not just admin/superadmin
+      // For edu: still require admin/superadmin
       const school = user.available_contexts?.schools?.find(
-        (s: any) => s.id.toString() === savedContextId && (s.role === 'admin' || s.role === 'superadmin')
+        (s: any) => s.id.toString() === savedContextId
       );
-      if (school) return Number(savedContextId);
+      if (school) {
+        if (showingPageType === 'teacher' || school.role === 'admin' || school.role === 'superadmin') {
+          return Number(savedContextId);
+        }
+      }
     }
   }
   
   // Fallback to first organization (backward compatibility)
   if (showingPageType === 'pro') {
     return user.available_contexts?.companies?.[0]?.id;
-  } else if (showingPageType === 'edu' || showingPageType === 'teacher') {
+  } else if (showingPageType === 'edu') {
+    return user.available_contexts?.schools?.[0]?.id;
+  } else if (showingPageType === 'teacher') {
+    // For teachers: return first confirmed school membership (any role)
     return user.available_contexts?.schools?.[0]?.id;
   }
   

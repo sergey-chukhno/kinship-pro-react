@@ -233,6 +233,7 @@ export interface OrganizationContext {
   city: string;
   school_type?: string;
   company_type?: string;
+  logo_url?: string | null;
   role: 'superadmin' | 'admin' | 'referent' | 'intervenant' | 'member';
   permissions: {
     superadmin: boolean;
