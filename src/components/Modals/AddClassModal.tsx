@@ -3,6 +3,7 @@ import { ClassList, Member } from '../../types';
 import { useToast } from '../../hooks/useToast';
 import { useAppContext } from '../../context/AppContext';
 import { getCurrentUser } from '../../api/Authentication';
+import { getSelectedSchoolId } from '../../utils/contextUtils';
 import { getSchoolStaff } from '../../api/SchoolDashboard/Members';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -30,7 +31,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
   const [searchTermPedagogicalTeam, setSearchTermPedagogicalTeam] = useState('');
   const { showError, showSuccess } = useToast();
 
-  // Charger les écoles disponibles pour les teachers (seulement celles où l'utilisateur est admin, superadmin ou referent)
+  // Charger les écoles disponibles pour les teachers (toutes les écoles confirmées)
   useEffect(() => {
     const fetchSchools = async () => {
       if (!isTeacherContext) return;
@@ -39,12 +40,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
         const currentUser = await getCurrentUser();
         const schools = currentUser.data?.available_contexts?.schools || [];
         
-        // Filtrer pour ne garder que les écoles où l'utilisateur est admin, superadmin ou referent
-        const filteredSchools = schools.filter((school: any) => 
-          school.role === 'admin' || school.role === 'superadmin' || school.role === 'referent'
-        );
-        
-        const schoolsList = filteredSchools.map((school: any) => ({
+        const schoolsList = schools.map((school: any) => ({
           id: school.id,
           name: school.name
         }));
@@ -71,7 +67,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
       try {
         setLoadingStaff(true);
         const currentUser = await getCurrentUser();
-        const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+        const schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         
         if (!schoolId) {
           if (isMounted) {
@@ -356,8 +352,8 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
             </select>
           </div>
 
-          {/* Sélecteur d'école pour les teachers (toujours affiché si au moins une école disponible) */}
-          {isTeacherContext && availableSchools.length > 0 && (
+          {/* Sélecteur d'école pour les teachers */}
+          {isTeacherContext && (
             <div className="form-group">
               <label htmlFor="schoolId">Établissement</label>
               <select

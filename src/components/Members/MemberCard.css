@@ -90,6 +90,39 @@
   line-height: 1.5;
 }
 
+.member-classes {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.class-tag {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+  background: var(--border, #f3f4f6);
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.class-toggle-button {
+  font-size: 0.75rem;
+  color: var(--primary, #5570F1);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.class-toggle-button:hover {
+  color: var(--primary-dark, #3b4fd8);
+}
+
 
 .member-roles {
   margin-bottom: 24px;

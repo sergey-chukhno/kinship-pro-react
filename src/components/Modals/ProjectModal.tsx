@@ -11,6 +11,7 @@ import {
   getOrganizationType,
   validateImages
 } from '../../utils/projectMapper';
+import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -239,10 +240,20 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       // Prefill organization based on context
       let defaultOrg = '';
 
-      if (state.showingPageType === 'pro' && state.user.available_contexts?.companies && state.user.available_contexts.companies.length > 0) {
-        defaultOrg = state.user.available_contexts.companies[0].name;
-      } else if (state.showingPageType === 'edu' && state.user.available_contexts?.schools && state.user.available_contexts.schools.length > 0) {
-        defaultOrg = state.user.available_contexts.schools[0].name;
+      if (state.showingPageType === 'pro' || state.showingPageType === 'edu') {
+        const selectedOrgId = getSelectedOrganizationId(state.user, state.showingPageType);
+        if (selectedOrgId) {
+          const selectedOrg = state.showingPageType === 'pro'
+            ? state.user.available_contexts?.companies?.find((c: any) => c.id === selectedOrgId)
+            : state.user.available_contexts?.schools?.find((s: any) => s.id === selectedOrgId);
+          defaultOrg = selectedOrg?.name || '';
+        }
+
+        if (!defaultOrg) {
+          defaultOrg = state.showingPageType === 'pro'
+            ? state.user.available_contexts?.companies?.[0]?.name || ''
+            : state.user.available_contexts?.schools?.[0]?.name || '';
+        }
       } else if (state.showingPageType === 'teacher') {
         // For teachers: default to independent teacher name format "Prénom Nom - Enseignant"
         const independentTeacher = state.user.available_contexts?.independent_teacher as any;

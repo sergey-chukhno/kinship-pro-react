@@ -14,6 +14,7 @@ interface MemberCardProps {
   onContactClick: () => void;
   onRoleChange: (newRole: string) => void;
   disableRoleDropdown?: boolean; // New prop to disable role dropdown
+  hideRolePill?: boolean; // New prop to completely hide role pill
   isSuperadmin?: boolean; // New prop to indicate if member is superadmin
   onViewProfile?: () => void; // Optional prop for viewing profile
   extraActions?: Array<{ label: string; onClick: () => void }>;
@@ -27,6 +28,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
   onContactClick,
   onRoleChange,
   disableRoleDropdown = false,
+  hideRolePill = false,
   isSuperadmin = false,
   onViewProfile,
   categoryTag,
@@ -34,6 +36,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
   badgeCartographyUrl
 }) => {
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [showAllClasses, setShowAllClasses] = useState(false);
+  const [showAllSchools, setShowAllSchools] = useState<Record<string, boolean>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleRoleClick = (e: React.MouseEvent) => {
@@ -167,54 +171,137 @@ const MemberCard: React.FC<MemberCardProps> = ({
               <p className="member-profession" style={{ marginTop: 4 }}>{translatedSystemRole}</p>
             ) : null;
           })()}
+          {(() => {
+            // Display schools for students (from teacher dashboard)
+            const schools = (member as any).schools || [];
+            if (schools && schools.length > 0) {
+              const memberId = member.id.toString();
+              const isExpanded = showAllSchools[memberId] || false;
+              const displaySchools = isExpanded || schools.length <= 2 
+                ? schools 
+                : schools.slice(0, 2);
+              const hasMoreSchools = schools.length > 2;
+              
+              return (
+                <div className="member-schools" style={{ marginTop: 4 }}>
+                  {displaySchools.map((school: any, index: number) => (
+                    <span
+                      key={school.id || index}
+                      className="organization-type"
+                      style={{ background: "#dcfce71a", color: "#10b981", marginRight: '4px', marginBottom: '4px', display: 'inline-block' }}
+                      title="École"
+                    >
+                      <i className="fas fa-school" style={{ marginRight: '4px', fontSize: '0.75rem' }}></i>
+                      {school.name}
+                    </span>
+                  ))}
+                  {hasMoreSchools && (
+                    <button
+                      type="button"
+                      className="class-toggle-button"
+                      style={{ marginLeft: '4px' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowAllSchools(prev => ({ ...prev, [memberId]: !prev[memberId] }));
+                      }}
+                    >
+                      {isExpanded ? 'Voir moins' : 'Voir plus'}
+                    </button>
+                  )}
+                </div>
+              );
+            }
+            
+            // Display classes for students (fallback to existing behavior)
+            const systemRole = (member as any).systemRole || '';
+            const studentRoles = ['eleve_primaire', 'collegien', 'collégien', 'lyceen', 'lycéen', 'etudiant', 'étudiant', 'student', 'eleve', 'élève'];
+            const isStudent = studentRoles.includes(systemRole.toLowerCase());
+            const classes = member.classes || [];
+            
+            if (!isStudent || !classes || classes.length === 0) {
+              return null;
+            }
+            
+            const displayClasses = showAllClasses || classes.length <= 2 
+              ? classes 
+              : classes.slice(0, 2);
+            const hasMoreClasses = classes.length > 2;
+            
+            return (
+              <div className="member-classes">
+                {displayClasses.map((cls: any, index: number) => (
+                  <span
+                    key={cls.id || index}
+                    className="class-tag"
+                  >
+                    {cls.name}
+                  </span>
+                ))}
+                {hasMoreClasses && (
+                  <button
+                    type="button"
+                    className="class-toggle-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAllClasses(!showAllClasses);
+                    }}
+                  >
+                    {showAllClasses ? 'Voir moins' : 'Voir plus'}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
-      <div className="member-roles">
-        {member.roles.map((role, index) => {
-          // Disable dropdown if member is superadmin or if explicitly disabled
-          const shouldDisableRoleDropdown = disableRoleDropdown || isSuperadmin;
-          
-          return (
-            <div key={index} className={`role-container ${shouldDisableRoleDropdown ? 'role-disabled' : ''}`} ref={dropdownRef}>
-              <RolePill
-                role={role}
-                color={getRoleColor(role)}
-                onClick={shouldDisableRoleDropdown ? undefined : handleRoleClick}
-                isDropdown={!shouldDisableRoleDropdown}
-              />
-              {!shouldDisableRoleDropdown && isRoleDropdownOpen && (
-              <div className="role-dropdown">
-                <div 
-                  className={`role-option  ${role === 'Admin' ? 'selected' : ''}`} 
-                  onClick={(e) => handleRoleSelect('admin', e)}
-                >
-                  Admin
+      {!hideRolePill && (
+        <div className="member-roles">
+          {member.roles.map((role, index) => {
+            // Disable dropdown if member is superadmin or if explicitly disabled
+            const shouldDisableRoleDropdown = disableRoleDropdown || isSuperadmin;
+            
+            return (
+              <div key={index} className={`role-container ${shouldDisableRoleDropdown ? 'role-disabled' : ''}`} ref={dropdownRef}>
+                <RolePill
+                  role={role}
+                  color={getRoleColor(role)}
+                  onClick={shouldDisableRoleDropdown ? undefined : handleRoleClick}
+                  isDropdown={!shouldDisableRoleDropdown}
+                />
+                {!shouldDisableRoleDropdown && isRoleDropdownOpen && (
+                <div className="role-dropdown">
+                  <div 
+                    className={`role-option  ${role === 'Admin' ? 'selected' : ''}`} 
+                    onClick={(e) => handleRoleSelect('admin', e)}
+                  >
+                    Admin
+                  </div>
+                  <div 
+                    className={`role-option ${role === 'Référent' ? 'selected' : ''}`} 
+                    onClick={(e) => handleRoleSelect('referent', e)}
+                  >
+                    Référent
+                  </div>
+                  <div 
+                    className={`role-option ${role === 'Membre' ? 'selected' : ''}`} 
+                    onClick={(e) => handleRoleSelect('member', e)}
+                  >
+                    Membre
+                  </div>
+                  <div 
+                    className={`role-option ${role === 'Intervenant' ? 'selected' : ''}`} 
+                    onClick={(e) => handleRoleSelect('intervenant', e)}
+                  >
+                    Intervenant
+                  </div>
                 </div>
-                <div 
-                  className={`role-option ${role === 'Référent' ? 'selected' : ''}`} 
-                  onClick={(e) => handleRoleSelect('referent', e)}
-                >
-                  Référent
-                </div>
-                <div 
-                  className={`role-option ${role === 'Membre' ? 'selected' : ''}`} 
-                  onClick={(e) => handleRoleSelect('member', e)}
-                >
-                  Membre
-                </div>
-                <div 
-                  className={`role-option ${role === 'Intervenant' ? 'selected' : ''}`} 
-                  onClick={(e) => handleRoleSelect('intervenant', e)}
-                >
-                  Intervenant
-                </div>
+                )}
               </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Latest Badges Section */}
       {member.latestBadges && member.latestBadges.length > 0 && (

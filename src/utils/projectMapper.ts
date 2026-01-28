@@ -1,5 +1,6 @@
 import { CreateProjectPayload, ProjectMemberAttribute, LinkAttribute, Tag, UpdateProjectPayload } from '../api/Projects';
 import { ShowingPageType, User, Project } from '../types';
+import { getSelectedOrganizationId } from './contextUtils';
 
 /**
  * Convert Base64 string to File object
@@ -59,18 +60,13 @@ export const getOrganizationId = (
     showingPageType: ShowingPageType,
     selectedSchoolId?: number | undefined
 ): number | undefined => {
-    if (showingPageType === 'pro') {
-        return user.available_contexts?.companies?.[0]?.id;
-    } else if (showingPageType === 'edu') {
-        return user.available_contexts?.schools?.[0]?.id;
-    } else if (showingPageType === 'teacher') {
-        // If school selected, use it; otherwise return undefined (independent teacher)
-        if (selectedSchoolId !== undefined) {
-            return selectedSchoolId;
-        }
-        return undefined;
+    // For teachers with explicit school selection, use it
+    if (showingPageType === 'teacher' && selectedSchoolId !== undefined) {
+        return selectedSchoolId;
     }
-    return undefined;
+    
+    // Use context-aware selection
+    return getSelectedOrganizationId(user, showingPageType);
 };
 
 /**

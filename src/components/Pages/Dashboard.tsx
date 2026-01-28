@@ -31,6 +31,8 @@ import {
 } from '../../api/Dashboard';
 import { OrganizationStatsResponse } from '../../types';
 import { getOrganizationId, validateImageSize } from '../../utils/projectMapper';
+import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
+import { getTeacherProjects } from '../../api/Projects';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -429,77 +431,14 @@ const Dashboard: React.FC = () => {
   
   // Utiliser le contexte sélectionné depuis localStorage si disponible et valide
   const getSelectedOrganizationId = (): number | undefined => {
-    const savedContextId = localStorage.getItem('selectedContextId');
-    const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
-    const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | null;
-    
-    console.log('📊 [Dashboard] Contexte sauvegardé:', {
-      savedContextId,
-      savedContextType,
-      savedPageType,
-      showingPageType: state.showingPageType
-    });
-    
-    // Si on a un contexte sauvegardé et que c'est une école ou une entreprise
-    if (savedContextId && savedContextType && (savedContextType === 'school' || savedContextType === 'company')) {
-      // Vérifier que l'utilisateur a toujours accès à ce contexte
-      if (savedContextType === 'company') {
-        const company = state.user.available_contexts?.companies?.find(
-          (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
-        );
-        if (company) {
-          console.log('✅ [Dashboard] Utilisation du contexte entreprise sauvegardé:', {
-            companyId: Number(savedContextId),
-            companyName: company.name,
-            role: company.role
-          });
-          return Number(savedContextId);
-        }
-      } else if (savedContextType === 'school') {
-        const school = state.user.available_contexts?.schools?.find(
-          (s: any) => s.id.toString() === savedContextId && (s.role === 'admin' || s.role === 'superadmin')
-        );
-        if (school) {
-          console.log('✅ [Dashboard] Utilisation du contexte école sauvegardé:', {
-            schoolId: Number(savedContextId),
-            schoolName: school.name,
-            role: school.role
-          });
-          return Number(savedContextId);
-        }
-      }
-    }
-    
-    // Sinon, utiliser la logique par défaut (qui vérifie déjà le rôle admin)
-    const defaultOrgId = getOrganizationId(state.user, state.showingPageType);
-    
-    if (defaultOrgId) {
-      // Vérifier à nouveau que l'utilisateur est bien admin de cette organisation
-      if (state.showingPageType === 'pro') {
-        const company = state.user.available_contexts?.companies?.find(
-          (c: any) => c.id === defaultOrgId && (c.role === 'admin' || c.role === 'superadmin')
-        );
-        if (!company) {
-          console.log('❌ [Dashboard] Organisation par défaut trouvée mais utilisateur n\'est pas admin');
-          return undefined;
-        }
-      } else if (state.showingPageType === 'edu' || state.showingPageType === 'teacher') {
-        const school = state.user.available_contexts?.schools?.find(
-          (s: any) => s.id === defaultOrgId && (s.role === 'admin' || s.role === 'superadmin')
-        );
-        if (!school) {
-          console.log('❌ [Dashboard] École par défaut trouvée mais utilisateur n\'est pas admin');
-          return undefined;
-        }
-      }
-    }
-    
-    console.log('⚠️ [Dashboard] Utilisation du contexte par défaut:', {
-      organizationId: defaultOrgId,
+    const orgId = getSelectedOrgId(state.user, state.showingPageType);
+    console.log('📊 [Dashboard] Organization ID sélectionné:', {
+      organizationId: orgId,
       showingPageType: state.showingPageType,
-      reason: !savedContextId ? 'Aucun contexte sauvegardé' : 'Contexte sauvegardé invalide ou non trouvé'
+      savedContextId: localStorage.getItem('selectedContextId'),
+      savedContextType: localStorage.getItem('selectedContextType')
     });
-    return defaultOrgId;
+    return orgId;
   };
   
   const organizationId = getSelectedOrganizationId();
@@ -559,7 +498,37 @@ const Dashboard: React.FC = () => {
     };
   }, [revokeLogoObjectUrl]);
   const logoContext = useMemo<LogoContextHandlers | null>(() => {
-    if (state.showingPageType === 'teacher' && organizationId === undefined) {
+    if (state.showingPageType === 'teacher') {
+      // For teachers: use teacher logo if no school, or school info if confirmed member
+      if (organizationId === undefined) {
+        return {
+          fetcher: () => getTeacherLogo(),
+          uploader: (file: File) => uploadTeacherLogo(file),
+          deleter: () => deleteTeacherLogo(),
+          displayNameFallback: state.user.organization || state.user.name || 'Mon espace enseignant',
+          expectsBlob: false,
+        };
+      }
+      
+      // Teacher with confirmed school membership - use school info from available_contexts
+      const school = state.user.available_contexts?.schools?.find((s: any) => s.id === organizationId);
+      if (school) {
+        return {
+          fetcher: async () => ({ 
+            data: { 
+              data: { 
+                name: school.name, 
+                logo_url: school.logo_url 
+              } 
+            } 
+          }),
+          uploader: async () => { throw new Error('Teachers cannot upload school logos'); },
+          deleter: async () => { throw new Error('Teachers cannot delete school logos'); },
+          displayNameFallback: school.name,
+          expectsBlob: false,
+        };
+      }
+      
       return {
         fetcher: () => getTeacherLogo(),
         uploader: (file: File) => uploadTeacherLogo(file),
@@ -580,7 +549,7 @@ const Dashboard: React.FC = () => {
       };
     }
 
-    if (state.showingPageType === 'edu' || state.showingPageType === 'teacher') {
+    if (state.showingPageType === 'edu') {
       return {
         fetcher: () => getSchoolDetails(id),
         uploader: (file: File) => uploadSchoolLogo(id, file),
@@ -589,7 +558,7 @@ const Dashboard: React.FC = () => {
     }
 
     return null;
-  }, [organizationId, state.showingPageType, state.user.organization, state.user.name]);
+  }, [organizationId, state.showingPageType, state.user.organization, state.user.name, state.user.available_contexts]);
   const canUploadLogo = Boolean(logoContext);
 
   useEffect(() => {
@@ -877,8 +846,15 @@ const Dashboard: React.FC = () => {
 
         if (state.showingPageType === 'pro') {
           response = await getCompanyProjects(Number(organizationId), includeBranches);
+        } else if (state.showingPageType === 'teacher') {
+          // Use teacher-specific endpoint
+          const teacherProjectsResponse = await getTeacherProjects({ 
+            per_page: 3, 
+            page: 1 
+          });
+          response = { data: { data: teacherProjectsResponse.data } };
         } else {
-          // edu or teacher (teachers are tied to a school)
+          // edu
           response = await getSchoolProjects(Number(organizationId), includeBranches);
         }
 
@@ -1181,12 +1157,12 @@ const Dashboard: React.FC = () => {
     },
     {
       key: state.showingPageType === 'pro' ? 'total_branches' : 'total_students',
-      label: state.showingPageType === 'pro' ? 'Sous-organisations' : 'Étudiants',
+      label: state.showingPageType === 'pro' ? 'Sous-organisations' : 'Élèves',
       icon: '/icons_logo/Icon=Reseau.svg',
       value: state.showingPageType === 'pro' ? branches?.total_branches : overview?.total_students,
       variant: 'stat-card',
     },
-    // Classes card for edu dashboard (placed after Étudiants)
+    // Classes card for edu dashboard (placed after Élèves)
     ...(state.showingPageType === 'edu' ? [{
       key: 'total_levels',
       label: 'Classes',
@@ -1445,7 +1421,14 @@ const Dashboard: React.FC = () => {
             {state.showingPageType === 'teacher' && (
               <div className="flex gap-2 items-center">
                 <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
-                <span>Tableau de bord enseignant</span>
+                <span>
+                  Tableau de bord enseignant
+                  {state.user.available_contexts?.schools && state.user.available_contexts.schools.length > 0 && (
+                    <span className="text-sm text-gray-600 ml-2">
+                      ({state.user.available_contexts.schools.map((s: any) => s.name).join(', ')})
+                    </span>
+                  )}
+                </span>
               </div>
             )}
             {state.showingPageType !== 'teacher' && (
@@ -1487,57 +1470,6 @@ const Dashboard: React.FC = () => {
                 {statsError}
               </p>
             )}
-          </div>
-
-          <div className="projects-in-progress-container">
-            <div className="projects-header">
-              <div className="projects-title-group">
-                <img src="/icons_logo/Icon=Projet grand.svg" alt="Projets" className="projects-icon" />
-                <h3>Projets en cours</h3>
-              </div>
-              {/* <button className="btn btn-primary">Créer un projet +</button> */}
-            </div>
-
-            <div className="project-list">
-              {projectsLoading && (
-                <p className="project-feedback-text">Chargement des projets...</p>
-              )}
-
-              {!projectsLoading && projectsError && (
-                <p className="project-feedback-text error">{projectsError}</p>
-              )}
-
-              {!projectsLoading && !projectsError && recentProjects.length === 0 && (
-                <p className="project-feedback-text">Aucun projet à afficher pour le moment.</p>
-              )}
-
-              {!projectsLoading && !projectsError && recentProjects.map((project) => {
-                const statusMeta = getStatusMeta(project.status);
-                return (
-                  <div className="project-item" key={project.id}>
-                    <div className="project-info">
-                      <span className="project-name">{project.title}</span>
-                      <span className={`project-badge ${statusMeta.className}`}>{statusMeta.label}</span>
-                    </div>
-                    <div className="project-details-row">
-                      <div className="project-dates">
-                        {formatDateRange(project.start_date, project.end_date)}
-                      </div>
-                      {/* <div className="project-progress">
-                        <div className="progress-bar-wrapper">
-                          <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-                        </div>
-                        <span className="progress-value">{progress}%</span>
-                      </div> */}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="projects-footer">
-              <a href="/projects" className="btn btn-text">Voir tous les projets →</a>
-            </div>
           </div>
         </div>
         {/* --- FIN DE LA COLONNE DE GAUCHE --- */}
@@ -1590,10 +1522,122 @@ const Dashboard: React.FC = () => {
                 ))}
             </div>
           </div>
+        </div>
+      </div>
+      {/* --- FIN DE dashboard-main-content --- */}
 
-          {/* Charts and Analytics */}
-          <div className="dashboard-charts">
-            <div className="chart-container">
+      {/* Full-width section: Projets en cours + Membres récents spanning both columns */}
+      <div className="members-overview-section members-overview-section-full-width projects-members-section">
+        <div className="projects-members-row">
+          <div className="projects-in-progress-container">
+            <div className="projects-header">
+              <div className="projects-title-group">
+                <img src="/icons_logo/Icon=Projet grand.svg" alt="Projets" className="projects-icon" />
+                <h3>Projets en cours</h3>
+              </div>
+              {/* <button className="btn btn-primary">Créer un projet +</button> */}
+            </div>
+
+            <div className="project-list">
+              {projectsLoading && (
+                <p className="project-feedback-text">Chargement des projets...</p>
+              )}
+
+              {!projectsLoading && projectsError && (
+                <p className="project-feedback-text error">{projectsError}</p>
+              )}
+
+              {!projectsLoading && !projectsError && recentProjects.length === 0 && (
+                <p className="project-feedback-text">Aucun projet à afficher pour le moment.</p>
+              )}
+
+              {!projectsLoading && !projectsError && recentProjects.map((project) => {
+                const statusMeta = getStatusMeta(project.status);
+                return (
+                  <div className="project-item" key={project.id}>
+                    <div className="project-info">
+                      <span className="project-name">{project.title}</span>
+                      <span className={`project-badge ${statusMeta.className}`}>{statusMeta.label}</span>
+                    </div>
+                    <div className="project-details-row">
+                      <div className="project-dates">
+                        {formatDateRange(project.start_date, project.end_date)}
+                      </div>
+                      {/* <div className="project-progress">
+                        <div className="progress-bar-wrapper">
+                          <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+                        </div>
+                        <span className="progress-value">{progress}%</span>
+                      </div> */}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="projects-footer">
+              <a href="/projects" className="btn btn-text">Voir tous les projets →</a>
+            </div>
+          </div>
+
+          {/* Membres récents */}
+          <div className="recent-members-container">
+            <div className="recent-members-header">
+              <img src="/icons_logo/Icon=Membres.svg" alt="Membres" className="members-icon" />
+              <h3>Membres récents</h3>
+            </div>
+            
+            <div className="member-list">
+              {recentMembersLoading && (
+                <p className="member-feedback-text">Chargement des membres...</p>
+              )}
+
+              {!recentMembersLoading && recentMembersError && (
+                <p className="member-feedback-text error">{recentMembersError}</p>
+              )}
+
+              {!recentMembersLoading && !recentMembersError && recentMembers.length === 0 && (
+                <p className="member-feedback-text">Aucun membre récent à afficher.</p>
+              )}
+
+              {!recentMembersLoading &&
+                !recentMembersError &&
+                recentMembers.map((member) => (
+                  <div className="member-item" key={member.id}>
+                    <div className="member-avatar">
+                      <img
+                        src={member.avatarUrl || DEFAULT_AVATAR_SRC}
+                        alt={member.name}
+                        onError={(event) => {
+                          if (event.currentTarget.src !== DEFAULT_AVATAR_SRC) {
+                            event.currentTarget.src = DEFAULT_AVATAR_SRC;
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="member-content">
+                      <div className="member-name">{member.name}</div>
+                      <div className="member-role">{member.role || 'Membre'}</div>
+                      {member.created_at && (
+                        <div className="member-meta">{formatRelativeTime(member.created_at)}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+            
+            <div className="members-footer">
+              <a href="/members" className="btn btn-text">Voir tous les membres →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* NOUVELLE SECTION : Répartition des badges + Activité des membres - SPANS BOTH COLUMNS */}
+      <div className="members-overview-section members-overview-section-full-width">
+            
+            {/* PARTIE GAUCHE : Répartition des badges (1/3 width) */}
+            <div className="chart-container badge-distribution-chart">
               <div className="chart-header">
                 <h3>Répartition des badges</h3>
               </div>
@@ -1631,66 +1675,8 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-      {/* --- FIN DE dashboard-main-content --- */}
-
-      {/* NOUVELLE SECTION : Fusion Membres Récents + Activité - SPANS BOTH COLUMNS */}
-      <div className="members-overview-section members-overview-section-full-width">
             
-            {/* PARTIE GAUCHE : Membres récents */}
-            <div className="recent-members-container">
-              <div className="recent-members-header">
-                <img src="/icons_logo/Icon=Membres.svg" alt="Membres" className="members-icon" />
-                <h3>Membres récents</h3>
-              </div>
-              
-              <div className="member-list">
-                {recentMembersLoading && (
-                  <p className="member-feedback-text">Chargement des membres...</p>
-                )}
-
-                {!recentMembersLoading && recentMembersError && (
-                  <p className="member-feedback-text error">{recentMembersError}</p>
-                )}
-
-                {!recentMembersLoading && !recentMembersError && recentMembers.length === 0 && (
-                  <p className="member-feedback-text">Aucun membre récent à afficher.</p>
-                )}
-
-                {!recentMembersLoading &&
-                  !recentMembersError &&
-                  recentMembers.map((member) => (
-                    <div className="member-item" key={member.id}>
-                      <div className="member-avatar">
-                        <img
-                          src={member.avatarUrl || DEFAULT_AVATAR_SRC}
-                          alt={member.name}
-                          onError={(event) => {
-                            if (event.currentTarget.src !== DEFAULT_AVATAR_SRC) {
-                              event.currentTarget.src = DEFAULT_AVATAR_SRC;
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="member-content">
-                        <div className="member-name">{member.name}</div>
-                        <div className="member-role">{member.role || 'Membre'}</div>
-                        {member.created_at && (
-                          <div className="member-meta">{formatRelativeTime(member.created_at)}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-              
-              <div className="members-footer">
-                <a href="/members" className="btn btn-text">Voir tous les membres →</a>
-              </div>
-            </div>
-            
-            {/* PARTIE DROITE : Activité des membres (Le graphique) */}
+            {/* PARTIE DROITE : Activité des membres (2/3 width) */}
             <div className="member-activity-chart-container">
               {/* NOUVEL EN-TÊTE : Titre et Sélecteur d'activité sur la même ligne logique */}
               <div className="chart-header">

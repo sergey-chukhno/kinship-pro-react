@@ -835,8 +835,32 @@
 
 .participants-table {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  width: 100%;
+}
+
+.participants-table > .request-card {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 1200px) {
+  .participants-table {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .participants-table {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .participants-table {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Members Section */

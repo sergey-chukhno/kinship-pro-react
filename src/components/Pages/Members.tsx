@@ -4,9 +4,9 @@ import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMembe
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel, addExistingStudentToLevel } from '../../api/SchoolDashboard/Levels';
 import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole, removeSchoolMember, importSchoolMembersCsv } from '../../api/SchoolDashboard/Members';
 import { getSkills } from '../../api/Skills';
-import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent } from '../../api/Dashboard';
-import { getTeacherClassStudents } from '../../api/Dashboard';
-import { createStudentBadgeCartographyShare } from '../../api/BadgeCartography';
+import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent, createTeacherLevelStudent } from '../../api/Dashboard';
+import { getTeacherClassStudents, getTeacherAllStudents } from '../../api/Dashboard';
+import { createStudentBadgeCartographyShare, createTeacherStudentBadgeCartographyShare } from '../../api/BadgeCartography';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { translateSkill, translateSubSkill } from '../../translations/skills';
@@ -24,6 +24,7 @@ import ConfirmModal from '../Modals/ConfirmModal';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './Members.css';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
+import { getSelectedOrganizationId, getSelectedSchoolId, getSelectedCompanyId, getSelectedOrganizationRole } from '../../utils/contextUtils';
 
 const AVAILABILITY_OPTIONS = [
   'Lundi',
@@ -64,7 +65,7 @@ const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
   const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
   const isTeacherContext = state.showingPageType === 'teacher';
-  const currentSchoolRole = state.user?.available_contexts?.schools?.[0]?.role || '';
+  const currentSchoolRole = getSelectedOrganizationRole(state.user, state.showingPageType);
   const isSchoolAdmin = currentSchoolRole === 'admin' || currentSchoolRole === 'superadmin';
   const { showSuccess, showError } = useToast();
   const showStaffTab = !isTeacherContext;
@@ -73,6 +74,7 @@ const Members: React.FC = () => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactEmail, setContactEmail] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [teacherSchoolFilter, setTeacherSchoolFilter] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState('');
   const [competenceFilter, setCompetenceFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState('');
@@ -122,7 +124,7 @@ const Members: React.FC = () => {
 
   // Function to get or generate cartography token for a student
   const getCartographyToken = useCallback(async (studentId: string, schoolId: number | null): Promise<string | null> => {
-    if (!schoolId) return null;
+    if (!schoolId && !isTeacherContext) return null;
     
     // If token already exists, return it
     if (cartographyTokens[studentId]) {
@@ -136,7 +138,16 @@ const Members: React.FC = () => {
 
     try {
       setLoadingCartographyTokens(prev => ({ ...prev, [studentId]: true }));
-      const result = await createStudentBadgeCartographyShare(schoolId, studentId);
+      
+      let result: { shareable_url: string; token: string; expires_at: string };
+      if (isTeacherContext) {
+        // Use teacher endpoint for teacher context
+        result = await createTeacherStudentBadgeCartographyShare(studentId, schoolId);
+      } else {
+        // Use school endpoint for school context
+        result = await createStudentBadgeCartographyShare(schoolId!, studentId);
+      }
+      
       setCartographyTokens(prev => ({ ...prev, [studentId]: result.token }));
       return result.token;
     } catch (error) {
@@ -149,7 +160,7 @@ const Members: React.FC = () => {
         return newState;
       });
     }
-  }, [cartographyTokens, loadingCartographyTokens]);
+  }, [cartographyTokens, loadingCartographyTokens, isTeacherContext]);
 
   const renderMembersLoading = () => (
     <div className="members-loading-container">
@@ -163,24 +174,20 @@ const Members: React.FC = () => {
     if (isTeacherContext) {
       try {
         setIsMembersLoading(true);
-        const classesRes = await getTeacherClasses(1, 200); // charger suffisamment pour inclure tout le staff/élèves
-        const classes = classesRes.data?.data || classesRes.data || [];
-
-        const studentsArrays = await Promise.all(
-          classes.map(async (cls: any) => {
-            try {
-              const res = await getTeacherClassStudents(cls.id, 200);
-              const data = res.data?.data ?? res.data ?? [];
-              return Array.isArray(data) ? data.map((stu: any) => ({ ...stu, class_id: cls.id, class_name: cls.name })) : [];
-            } catch (err) {
-              console.error('Erreur récupération élèves pour la classe', cls.id, err);
-              return [];
-            }
-          })
-        );
-
-        const allStudents = studentsArrays.flat().map((s: any) => {
+        
+        // Use new endpoint that includes students from all confirmed schools
+        const response = await getTeacherAllStudents({ per_page: 200 });
+        const studentsData = response.data?.data ?? response.data ?? [];
+        
+        const allStudents = Array.isArray(studentsData) ? studentsData.map((s: any) => {
           const role = s.role || 'etudiant';
+          // Handle badges structure: can be array (old format) or object with data/meta (new format)
+          let badges: any = s.badges || [];
+          if (s.badges && typeof s.badges === 'object' && !Array.isArray(s.badges)) {
+            // New format: { data: [...], meta: { total_count: ... } }
+            badges = s.badges;
+          }
+          
           return {
             id: (s.id || s.user_id || s.student_id || `${Date.now()}-${Math.random()}`).toString(),
             firstName: s.first_name,
@@ -194,18 +201,19 @@ const Members: React.FC = () => {
             membershipRole: 'student',
             skills: [],
             availability: [],
-            badges: s.badges || [],
+            badges: badges,
             latestBadges: s.latest_badges || [],
             experience: [],
             education: [],
             location: s.city || '',
             phone: s.phone || '',
-            classId: s.class_id,
-            className: s.class_name,
-            avatar: s.avatar || DEFAULT_AVATAR_SRC,
-            isTrusted: Boolean(s.isTrusted)
+            avatar: s.avatar_url || s.avatar || DEFAULT_AVATAR_SRC,
+            isTrusted: Boolean(s.isTrusted),
+            schools: s.schools || [], // Include school information from API
+            claim_token: s.claim_token || null,
+            hasTemporaryEmail: s.has_temporary_email || false
           } as Member;
-        });
+        }) : [];
 
         setMembers(allStudents);
       } catch (err) {
@@ -224,9 +232,7 @@ const Members: React.FC = () => {
       const isEdu = isSchoolContext;
 
       // 1. Bascule de l'ID (Company vs School)
-      const contextId = isEdu
-        ? currentUser.data?.available_contexts?.schools?.[0]?.id
-        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+      const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
       if (!contextId) return;
       if (isEdu) setCurrentSchoolId(contextId);
@@ -283,6 +289,7 @@ const Members: React.FC = () => {
           claim_token: m.claim_token,
           hasTemporaryEmail: m.has_temporary_email || false,
           isSuperadmin: isSuperadmin,
+          classes: m.classes || []
         } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
       });
 
@@ -325,13 +332,14 @@ const Members: React.FC = () => {
         const levelsWithTeacherIds = levels.map((level: any) => ({
           ...level,
           teacher_ids: level.teachers?.map((t: any) => t.id) || [],
-          school_id: level.school_id || null
+          school_id: level.school_id || null,
+          school: level.school ? { id: level.school.id, name: level.school.name } : undefined
         }));
         setClassLists(levelsWithTeacherIds);
       } else {
         // Sinon, utiliser l'API schools/levels pour les admins d'école
         const isEdu = isSchoolContext;
-        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        const contextId = isEdu ? getSelectedSchoolId(currentUser.data, state.showingPageType) : null;
         if (!contextId) {
           setLoading(false);
           return;
@@ -365,7 +373,7 @@ const Members: React.FC = () => {
     try {
       const currentUser = await getCurrentUser();
       const isEdu = isSchoolContext;
-      const schoolId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+      const schoolId = isEdu ? getSelectedSchoolId(currentUser.data, state.showingPageType) : null;
       if (!schoolId) {
         setCommunityLists([]);
         return;
@@ -489,9 +497,7 @@ const Members: React.FC = () => {
     try {
       const currentUser = await getCurrentUser();
       const isEdu = state.showingPageType === 'edu';
-      const contextId = isEdu
-        ? currentUser.data?.available_contexts?.schools?.[0]?.id
-        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+      const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
       if (!contextId) {
         setPendingRequestsCount(0);
@@ -672,22 +678,156 @@ const Members: React.FC = () => {
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
   });
 
+  const teacherSchoolOptions = isTeacherContext
+    ? (state.user.available_contexts?.schools || []).map((school: any) => ({
+        id: school.id,
+        name: school.name
+      }))
+    : [];
+
   const filteredStudents = baseFilteredMembers.filter(member => {
     const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
-    return studentRoles.includes(primaryRoleRaw);
+    if (!studentRoles.includes(primaryRoleRaw)) {
+      return false;
+    }
+    if (!isTeacherContext || teacherSchoolFilter === '') {
+      return true;
+    }
+    const studentSchools = (member as any).schools || [];
+    if (teacherSchoolFilter === 'none') {
+      return !studentSchools || studentSchools.length === 0;
+    }
+    const selectedId = Number(teacherSchoolFilter);
+    return studentSchools.some((school: any) => Number(school.id) === selectedId);
   });
+
+  // Filter classes for student assignment based on student's schools (only for teacher context)
+  const filteredClassesForStudent = useMemo(() => {
+    if (!isTeacherContext || !selectedStudent) {
+      return classLists;
+    }
+    
+    const studentSchools = (selectedStudent as any).schools || [];
+    
+    // If student has no schools, show only independent classes (school_id null)
+    if (!studentSchools || studentSchools.length === 0) {
+      return classLists.filter((cl) => cl.school_id === null || cl.school_id === undefined);
+    }
+    
+    // If student has schools, show only classes from those schools (exclude independent classes)
+    const studentSchoolIds = studentSchools.map((s: any) => Number(s.id));
+    return classLists.filter((cl) => {
+      const classSchoolId = cl.school_id;
+      return classSchoolId !== null && classSchoolId !== undefined && studentSchoolIds.includes(Number(classSchoolId));
+    });
+  }, [isTeacherContext, selectedStudent, classLists]);
+
+  // Reset selectedLevelId if it's not in the filtered classes list
+  useEffect(() => {
+    if (isAssignModalOpen && isTeacherContext && selectedLevelId !== null) {
+      const isValidClass = filteredClassesForStudent.some((cl) => Number(cl.id) === selectedLevelId);
+      if (!isValidClass) {
+        setSelectedLevelId(null);
+      }
+    }
+  }, [isAssignModalOpen, isTeacherContext, selectedLevelId, filteredClassesForStudent]);
 
   // Generate cartography tokens for students in background
   useEffect(() => {
-    if (isSchoolContext && activeTab === 'students' && currentSchoolId && filteredStudents.length > 0) {
+    if (activeTab === 'students' && filteredStudents.length > 0) {
       filteredStudents.forEach((student) => {
         // Only generate if not already generated and not currently loading
         if (!cartographyTokens[student.id] && !loadingCartographyTokens[student.id]) {
-          getCartographyToken(student.id, currentSchoolId);
+          let schoolId: number | null = null;
+          
+          if (isSchoolContext && currentSchoolId) {
+            // For school context, use currentSchoolId
+            schoolId = currentSchoolId;
+          } else if (isTeacherContext) {
+            // For teacher context, use first school from student's schools array
+            const studentSchools = (student as any).schools || [];
+            if (studentSchools.length > 0 && studentSchools[0].id) {
+              schoolId = Number(studentSchools[0].id);
+            }
+          }
+          
+          if (schoolId) {
+            getCartographyToken(student.id, schoolId);
+          }
         }
       });
     }
-  }, [filteredStudents, currentSchoolId, isSchoolContext, activeTab, cartographyTokens, loadingCartographyTokens, getCartographyToken]);
+  }, [filteredStudents, currentSchoolId, isSchoolContext, isTeacherContext, activeTab, cartographyTokens, loadingCartographyTokens, getCartographyToken]);
+
+  // Compute badgeCartographyUrl reactively for selectedMember
+  const badgeCartographyUrlForSelectedMember = useMemo(() => {
+    if (!selectedMember) return undefined;
+    
+    // Get cartography token for this student
+    let schoolId: number | null = null;
+    
+    if (isSchoolContext && currentSchoolId) {
+      // For school context, use currentSchoolId
+      schoolId = currentSchoolId;
+    } else if (isTeacherContext) {
+      // For teacher context, use first school from student's schools array
+      const studentSchools = (selectedMember as any).schools || [];
+      if (studentSchools.length > 0 && studentSchools[0].id) {
+        schoolId = Number(studentSchools[0].id);
+      }
+    }
+    
+    if (schoolId) {
+      const token = cartographyTokens[selectedMember.id];
+      if (token) {
+        return `/badge-cartography-selected/${token}`;
+      }
+      // If token not yet generated, trigger generation
+      if (!loadingCartographyTokens[selectedMember.id]) {
+        getCartographyToken(selectedMember.id, schoolId);
+      }
+      // Return undefined while token is being generated - component will re-render when token is ready
+      return undefined;
+    }
+    return undefined;
+  }, [selectedMember, cartographyTokens, loadingCartographyTokens, isSchoolContext, isTeacherContext, currentSchoolId, getCartographyToken]);
+
+  // Compute cartography URLs for all filtered students reactively
+  const studentCartographyUrls = useMemo(() => {
+    const urlMap: Record<string, string | undefined> = {};
+    
+    filteredStudents.forEach((student) => {
+      let schoolId: number | null = null;
+      
+      if (isSchoolContext && currentSchoolId) {
+        // For school context, use currentSchoolId
+        schoolId = currentSchoolId;
+      } else if (isTeacherContext) {
+        // For teacher context, use first school from student's schools array
+        const studentSchools = (student as any).schools || [];
+        if (studentSchools.length > 0 && studentSchools[0].id) {
+          schoolId = Number(studentSchools[0].id);
+        }
+      }
+      
+      if (schoolId) {
+        const token = cartographyTokens[student.id];
+        if (token) {
+          urlMap[student.id] = `/badge-cartography-selected/${token}`;
+        } else {
+          // If token not yet generated, trigger generation
+          if (!loadingCartographyTokens[student.id]) {
+            getCartographyToken(student.id, schoolId);
+          }
+          urlMap[student.id] = undefined;
+        }
+      } else {
+        urlMap[student.id] = undefined;
+      }
+    });
+    
+    return urlMap;
+  }, [filteredStudents, cartographyTokens, loadingCartographyTokens, isSchoolContext, isTeacherContext, currentSchoolId, getCartographyToken]);
 
   const filteredCommunityMembers = communityLists.filter(member => {
     const term = searchTerm.toLowerCase();
@@ -725,10 +865,24 @@ const Members: React.FC = () => {
   });
 
   const handleAssignStudentToClass = async () => {
-    if (!selectedStudent || !selectedLevelId || !currentSchoolId) {
+    if (!selectedStudent || !selectedLevelId) {
       showError("Sélectionnez un élève et une classe.");
       return;
     }
+    
+    // For teachers, we don't need currentSchoolId
+    if (isTeacherContext) {
+      if (!selectedLevelId) {
+        showError("Sélectionnez une classe.");
+        return;
+      }
+    } else {
+      if (!currentSchoolId) {
+        showError("Sélectionnez un élève et une classe.");
+        return;
+      }
+    }
+    
     try {
       // Use systemRole (role_in_system) for backend, not the translated/organization role
       const systemRole = (selectedStudent as any).systemRole || (selectedStudent as any).rawRole || '';
@@ -748,15 +902,27 @@ const Members: React.FC = () => {
       };
       const normalizedRole = roleMap[systemRole.toLowerCase()] || systemRole.toLowerCase() || 'etudiant';
       
-      // Backend requires first_name and last_name even for existing students
-      await addExistingStudentToLevel(currentSchoolId, selectedLevelId, {
-        student: { 
-          email: selectedStudent.email, 
-          role: normalizedRole,
-          first_name: selectedStudent.firstName || '',
-          last_name: selectedStudent.lastName || ''
-        }
-      });
+      if (isTeacherContext) {
+        // For teachers, use teacher-specific endpoint
+        await createTeacherLevelStudent(selectedLevelId, {
+          student: { 
+            email: selectedStudent.email, 
+            role: normalizedRole,
+            first_name: selectedStudent.firstName || '',
+            last_name: selectedStudent.lastName || ''
+          }
+        });
+      } else {
+        // For school admins, use school endpoint
+        await addExistingStudentToLevel(currentSchoolId!, selectedLevelId, {
+          student: { 
+            email: selectedStudent.email, 
+            role: normalizedRole,
+            first_name: selectedStudent.firstName || '',
+            last_name: selectedStudent.lastName || ''
+          }
+        });
+      }
       showSuccess("Élève assigné à la classe.");
       setIsAssignModalOpen(false);
       setSelectedStudent(null);
@@ -939,13 +1105,13 @@ const Members: React.FC = () => {
       let response;
       
       if (isSchoolContext) {
-        const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+        const schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         if (!schoolId) {
           throw new Error('School ID not found');
         }
         response = await importSchoolMembersCsv(schoolId, file);
       } else {
-        const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+        const companyId = getSelectedCompanyId(currentUser.data, state.showingPageType);
         if (!companyId) {
           throw new Error('Company ID not found');
         }
@@ -970,9 +1136,7 @@ const Members: React.FC = () => {
       const currentUser = await getCurrentUser();
       const isEdu = state.showingPageType === 'edu';
       // 1. Bascule ID pour le changement de rôle
-      const contextId = isEdu
-        ? currentUser.data?.available_contexts?.schools?.[0]?.id
-        : currentUser.data?.available_contexts?.companies?.[0]?.id;
+      const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
       if (!contextId) {
         showError("Impossible de trouver le contexte");
@@ -1065,8 +1229,7 @@ const Members: React.FC = () => {
         await createTeacherClass(teacherClassData);
       } else {
         // Sinon, utiliser l'API schools/levels pour les admins d'école
-        const isEdu = state.showingPageType === 'edu';
-        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        const contextId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         
         if (!contextId) {
           showError("Impossible de trouver le contexte de l'école");
@@ -1102,8 +1265,7 @@ const Members: React.FC = () => {
         await deleteTeacherClass(Number(classItem.id));
       } else {
         // Sinon, utiliser l'API schools/levels pour les admins d'école
-        const isEdu = state.showingPageType === 'edu';
-        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        const contextId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         
         if (!contextId) {
           showError("Impossible de trouver le contexte de l'école");
@@ -1119,7 +1281,12 @@ const Members: React.FC = () => {
       await fetchLevels();
     } catch (err) {
       console.error("Erreur lors de la suppression de la classe :", err);
-      showError("Erreur lors de la suppression de la classe");
+      const backendMessage = (err as any)?.response?.data?.message;
+      if (backendMessage === "Cannot delete school-owned classes. Please contact school admin.") {
+        showError("Impossible de supprimer une classe rattachée à un établissement. Veuillez contacter l'administrateur de l'école.");
+      } else {
+        showError("Erreur lors de la suppression de la classe");
+      }
     }
   };
 
@@ -1137,7 +1304,7 @@ const Members: React.FC = () => {
       // Si c'est un teacher, utiliser l'API teachers/classes avec un payload différent
       if (isTeacherContext) {
         // Utiliser le school_id passé depuis le modal, ou le premier disponible
-        const schoolId = levelData.level.school_id || currentUser.data?.available_contexts?.schools?.[0]?.id;
+        const schoolId = levelData.level.school_id || getSelectedSchoolId(currentUser.data, state.showingPageType);
         if (!schoolId) {
           showError("Impossible de trouver l'identifiant de l'école");
           return;
@@ -1160,8 +1327,7 @@ const Members: React.FC = () => {
         await updateTeacherClass(Number(editingClass.id), teacherClassData);
       } else {
         // Sinon, utiliser l'API schools/levels pour les admins d'école
-        const isEdu = state.showingPageType === 'edu';
-        const contextId = isEdu ? currentUser.data?.available_contexts?.schools?.[0]?.id : null;
+        const contextId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         
         if (!contextId) {
           showError("Impossible de trouver le contexte de l'école");
@@ -1222,9 +1388,7 @@ const Members: React.FC = () => {
         await fetchLevels();
       } else {
         // For companies and schools
-        const contextId = isEdu
-          ? currentUser.data?.available_contexts?.schools?.[0]?.id
-          : currentUser.data?.available_contexts?.companies?.[0]?.id;
+        const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
         if (!contextId) {
           showError("Impossible de trouver le contexte");
@@ -1405,7 +1569,10 @@ const Members: React.FC = () => {
                 <div className="members-grid">
                   {staffMembers.length > 0 ? (
                     staffMembers.map((member: Member) => {
-                      const totalBadgeCount = member.badges?.length || 0;
+                      // Handle both old format (array) and new format (object with data/meta)
+                      const totalBadgeCount = Array.isArray(member.badges) 
+                        ? member.badges.length 
+                        : (member.badges as any)?.meta?.total_count || (member.badges as any)?.data?.length || 0;
                       const memberForDisplay = {
                         ...member,
                         roles: translateRoles(member.roles),
@@ -1448,12 +1615,43 @@ const Members: React.FC = () => {
           </div>
         </>
       )}
-      {/* Contenu du tab “Élèves” */}
+      {/* Contenu du tab "Élèves" */}
       {isSchoolContext && activeTab === 'students' && (
         <div className="min-h-[65vh]">
+          {/* Search bar for Élèves section */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <div className="search-bar" style={{ maxWidth: '400px', flex: '1 1 300px' }}>
+              <i className="fas fa-search"></i>
+              <input
+                type="text"
+                placeholder="Rechercher un élève par nom..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            {isTeacherContext && (
+              <select
+                className="form-select"
+                value={teacherSchoolFilter}
+                onChange={(e) => setTeacherSchoolFilter(e.target.value)}
+                style={{ minWidth: '220px', width: 'auto', flex: '0 0 auto' }}
+              >
+                <option value="">Tous les établissements</option>
+                <option value="none">Aucun</option>
+                {teacherSchoolOptions.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
           <div className="members-grid">
                 {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
-              const totalBadgeCount = member.badges?.length || 0;
+              // Handle both old format (array) and new format (object with data/meta)
+              const totalBadgeCount = Array.isArray(member.badges) 
+                ? member.badges.length 
+                : (member.badges as any)?.meta?.total_count || (member.badges as any)?.data?.length || 0;
               const memberForDisplay = {
                 ...member,
                 roles: translateRoles(member.roles),
@@ -1461,7 +1659,17 @@ const Members: React.FC = () => {
               };
               const isSuperadmin = (member as any).isSuperadmin || 
                 ((member as any).membershipRole || '').toLowerCase() === 'superadmin';
-              const canAssignClass = !isSuperadmin && !isTeacherContext && currentSchoolId !== null && isSchoolAdmin;
+              // For teachers: allow assigning students to their classes
+              // For school admins: allow if not superadmin and has school admin rights
+              const canAssignClass = isTeacherContext 
+                ? classLists.length > 0 // Teacher can assign if they have classes
+                : !isSuperadmin && currentSchoolId !== null && isSchoolAdmin;
+              
+              // Check if member is a student
+              const systemRole = (member as any).systemRole || '';
+              const studentRoles = ['eleve_primaire', 'collegien', 'collégien', 'lyceen', 'lycéen', 'etudiant', 'étudiant', 'student', 'eleve', 'élève'];
+              const isStudent = studentRoles.includes(systemRole.toLowerCase());
+              
               return (
                 <MemberCard
                   key={member.id}
@@ -1480,7 +1688,8 @@ const Members: React.FC = () => {
                     handleRoleChange(member, newRole, 'members');
                   }}
                   isSuperadmin={isSuperadmin}
-                  disableRoleDropdown={isSuperadmin}
+                  disableRoleDropdown={isSuperadmin || (isTeacherContext && isStudent)}
+                  hideRolePill={isTeacherContext && isStudent}
                   extraActions={canAssignClass ? [
                     {
                       label: 'Assigner à une classe',
@@ -1490,18 +1699,7 @@ const Members: React.FC = () => {
                       }
                     }
                   ] : []}
-                  badgeCartographyUrl={(() => {
-                    // Get cartography token for this student
-                    const token = cartographyTokens[member.id];
-                    if (token) {
-                      return `/badge-cartography-selected/${token}`;
-                    }
-                    // If token not yet generated, trigger generation and return placeholder
-                    if (currentSchoolId && !loadingCartographyTokens[member.id]) {
-                      getCartographyToken(member.id, currentSchoolId);
-                    }
-                    return undefined; // Will be updated once token is generated
-                  })()}
+                  badgeCartographyUrl={studentCartographyUrls[member.id]}
                 />
               );
             })
@@ -1588,6 +1786,8 @@ const Members: React.FC = () => {
                 teacher={classItem?.teacher || ''}
                 studentCount={classItem?.students_count || 0}
                 level={classItem?.level || ''}
+                schoolName={classItem?.school?.name || null}
+                showSchoolName={isTeacherContext}
                 teachers={classItem?.teachers}
                 pedagogical_team_members={classItem?.pedagogical_team_members}
                 onClick={() => handleClassClick(classItem)}
@@ -1721,20 +1921,7 @@ const Members: React.FC = () => {
           onContactClick={() => setIsContactModalOpen(true)}
           isSuperadmin={(selectedMember as any).isSuperadmin || 
             ((selectedMember as any).membershipRole || '').toLowerCase() === 'superadmin'}
-          badgeCartographyUrl={(() => {
-            // Get cartography token for this student (only for students in school context)
-            if (isSchoolContext && currentSchoolId) {
-              const token = cartographyTokens[selectedMember.id];
-              if (token) {
-                return `/badge-cartography-selected/${token}`;
-              }
-              // If token not yet generated, trigger generation
-              if (!loadingCartographyTokens[selectedMember.id]) {
-                getCartographyToken(selectedMember.id, currentSchoolId);
-              }
-            }
-            return undefined;
-          })()}
+          badgeCartographyUrl={badgeCartographyUrlForSelectedMember}
         />
       )}
 
@@ -1807,25 +1994,35 @@ const Members: React.FC = () => {
             </div>
             <div className="modal-body">
               <p className="mb-3 text-gray-600">Sélectionnez une classe pour {selectedStudent?.fullName || 'cet élève'}.</p>
-              <div className="form-field">
-                <label className="form-label">Classe</label>
-                <select
-                  className="form-input"
-                  value={selectedLevelId ?? ''}
-                  onChange={(e) => setSelectedLevelId(Number(e.target.value))}
-                >
-                  <option value="">Choisir une classe</option>
-                  {classLists.map((cl) => (
-                    <option key={cl.id} value={cl.id}>{cl.name}</option>
-                  ))}
-                </select>
-              </div>
+              {filteredClassesForStudent.length === 0 ? (
+                <div className="text-gray-500 text-center py-4">
+                  Aucune classe disponible pour cet élève. Veuillez créer une classe correspondant à son établissement.
+                </div>
+              ) : (
+                <div className="form-field">
+                  <label className="form-label">Classe</label>
+                  <select
+                    className="form-input"
+                    value={selectedLevelId ?? ''}
+                    onChange={(e) => setSelectedLevelId(Number(e.target.value))}
+                  >
+                    <option value="">Choisir une classe</option>
+                    {filteredClassesForStudent.map((cl) => (
+                      <option key={cl.id} value={cl.id}>{cl.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => { setIsAssignModalOpen(false); setSelectedLevelId(null); }}>
                 Annuler
               </button>
-              <button className="btn btn-primary" onClick={handleAssignStudentToClass}>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleAssignStudentToClass}
+                disabled={filteredClassesForStudent.length === 0}
+              >
                 Assigner
               </button>
             </div>

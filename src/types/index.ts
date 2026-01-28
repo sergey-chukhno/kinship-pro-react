@@ -47,6 +47,16 @@ export interface Member {
     schools: Array<{ id: number; name: string; type: string }>;
     companies: Array<{ id: number; name: string; type: string }>;
   }; // Organisations communes avec l'utilisateur actuel
+  classes?: Array<{
+    id: number;
+    name: string;
+    school_id?: number;
+    school?: {
+      id: number;
+      name: string;
+    };
+    joined_at?: string;
+  }>; // Classes (school_levels) for students
 }
 
 export interface Badge {
@@ -225,6 +235,7 @@ export interface OrganizationContext {
   city: string;
   school_type?: string;
   company_type?: string;
+  logo_url?: string | null;
   role: 'superadmin' | 'admin' | 'referent' | 'intervenant' | 'member';
   permissions: {
     superadmin: boolean;
@@ -423,6 +434,7 @@ export interface ClassList {
   pedagogical_team_members?: PedagogicalTeamMember[];
   pedagogical_team_count?: number;
   school_id?: number | null;
+  school?: { id: number; name: string };
 }
 
 export interface Tag {

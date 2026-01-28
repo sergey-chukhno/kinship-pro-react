@@ -13,6 +13,7 @@ import { deleteProject, getAllProjects, getAllUserProjects} from '../../api/Proj
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
 import { getTeacherProjects } from '../../api/Projects';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
+import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { canUserManageProject, canUserDeleteProject } from '../../utils/projectPermissions';
 
 const Projects: React.FC = () => {
@@ -79,46 +80,7 @@ const Projects: React.FC = () => {
 
   // Fonction pour obtenir l'organizationId sélectionné (comme dans Dashboard)
   const getSelectedOrganizationId = (): number | undefined => {
-    const savedContextId = localStorage.getItem('selectedContextId');
-    const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
-    
-    // Si on a un contexte sauvegardé et que c'est une école ou une entreprise
-    if (savedContextId && savedContextType && (savedContextType === 'school' || savedContextType === 'company')) {
-      // Vérifier que l'utilisateur a toujours accès à ce contexte
-      if (savedContextType === 'company') {
-        const company = state.user.available_contexts?.companies?.find(
-          (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
-        );
-        if (company) {
-          console.log('✅ [Projects] Utilisation du contexte entreprise sauvegardé:', {
-            companyId: Number(savedContextId),
-            companyName: company.name,
-            role: company.role
-          });
-          return Number(savedContextId);
-        }
-      } else if (savedContextType === 'school') {
-        const school = state.user.available_contexts?.schools?.find(
-          (s: any) => s.id.toString() === savedContextId && (s.role === 'admin' || s.role === 'superadmin')
-        );
-        if (school) {
-          console.log('✅ [Projects] Utilisation du contexte école sauvegardé:', {
-            schoolId: Number(savedContextId),
-            schoolName: school.name,
-            role: school.role
-          });
-          return Number(savedContextId);
-        }
-      }
-    }
-    
-    // Sinon, utiliser la logique par défaut
-    const defaultOrgId = getOrganizationId(state.user, state.showingPageType);
-    console.log('⚠️ [Projects] Utilisation du contexte par défaut:', {
-      organizationId: defaultOrgId,
-      showingPageType: state.showingPageType
-    });
-    return defaultOrgId;
+    return getSelectedOrgId(state.user, state.showingPageType);
   };
 
   // Fonction pour récupérer les projets publics (Nouveautés)

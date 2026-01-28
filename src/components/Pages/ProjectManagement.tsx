@@ -19,9 +19,77 @@ import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
 import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/projectPermissions';
+import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { translateRole } from '../../utils/roleTranslations';
+// Component for displaying skills with "Voir plus"/"Voir moins" functionality
+const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
+  const [showAll, setShowAll] = React.useState(false);
+  const maxVisible = 3;
+  
+  // Only render if skills exist
+  if (!skills || skills.length === 0) {
+    return null;
+  }
+
+  const hasMore = skills.length > maxVisible;
+  const visibleSkills = showAll ? skills : skills.slice(0, maxVisible);
+
+  return (
+    <div className="request-skills">
+      <h4>Compétences</h4>
+      <div className="skills-list">
+        {visibleSkills.map((skill: string, index: number) => (
+          <span key={index} className="skill-pill">{skill}</span>
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          type="button"
+          className="toggle-list-btn"
+          onClick={() => setShowAll(!showAll)}
+        >
+          {showAll ? 'Voir moins' : `Voir plus (${skills.length - maxVisible} autres)`}
+        </button>
+      )}
+    </div>
+  );
+};
+
+// Component for displaying availability with "Voir plus"/"Voir moins" functionality
+const ParticipantAvailabilityList: React.FC<{ availability: string[] }> = ({ availability }) => {
+  const [showAll, setShowAll] = React.useState(false);
+  const maxVisible = 3;
+  
+  // Only render if availability exists
+  if (!availability || availability.length === 0) {
+    return null;
+  }
+
+  const hasMore = availability.length > maxVisible;
+  const visibleAvailability = showAll ? availability : availability.slice(0, maxVisible);
+
+  return (
+    <div className="request-availability">
+      <h4>Disponibilités</h4>
+      <div className="availability-list">
+        {visibleAvailability.map((day: string, index: number) => (
+          <span key={index} className="availability-pill">{day}</span>
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          type="button"
+          className="toggle-list-btn"
+          onClick={() => setShowAll(!showAll)}
+        >
+          {showAll ? 'Voir moins' : `Voir plus (${availability.length - maxVisible} autres)`}
+        </button>
+      )}
+    </div>
+  );
+};
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
@@ -203,9 +271,13 @@ const ProjectManagement: React.FC = () => {
         
         // Debug: Log organization info from API
         console.log('🔍 [ProjectManagement] API Project primary_organization_name:', apiProject.primary_organization_name);
-        console.log('🔍 [ProjectManagement] Current user organization:', 
-          state.showingPageType === 'edu' ? state.user?.available_contexts?.schools?.[0]?.name : 
-          state.showingPageType === 'pro' ? state.user?.available_contexts?.companies?.[0]?.name : 'N/A');
+        const selectedOrgId = getSelectedOrganizationId(state.user, state.showingPageType);
+        const selectedOrg = state.showingPageType === 'edu' 
+          ? state.user?.available_contexts?.schools?.find((s: any) => s.id === selectedOrgId)
+          : state.showingPageType === 'pro'
+          ? state.user?.available_contexts?.companies?.find((c: any) => c.id === selectedOrgId)
+          : null;
+        console.log('🔍 [ProjectManagement] Current user organization:', selectedOrg?.name || 'N/A');
         
         // Determine user's role in the project
         const role = getUserProjectRole(apiProject, state.user?.id?.toString());
@@ -769,6 +841,48 @@ const ProjectManagement: React.FC = () => {
     // Track user IDs that have already been added to avoid duplicates
     const addedUserIds = new Set<string>();
     
+    // Helper function to convert availability object to array of labels
+    const availabilityToLabels = (availability: any = {}) => {
+      if (!availability || typeof availability !== 'object') return [];
+      
+      const mapping: Record<string, string> = {
+        monday: 'Lundi',
+        tuesday: 'Mardi',
+        wednesday: 'Mercredi',
+        thursday: 'Jeudi',
+        friday: 'Vendredi',
+        saturday: 'Samedi',
+        sunday: 'Dimanche',
+        other: 'Autre',
+      };
+
+      const labels = Object.entries(mapping).reduce<string[]>((acc, [key, label]) => {
+        if (availability[key]) acc.push(label);
+        return acc;
+      }, []);
+
+      if (availability.available && labels.length === 0) {
+        labels.push('Disponible');
+      }
+
+      return labels;
+    };
+
+    // Extract skills as array of names
+    const extractSkills = (skills: any) => {
+      if (!skills || !Array.isArray(skills)) return [];
+      return skills.flatMap((s: any) => {
+        const result = [];
+        if (s.name) result.push(s.name);
+        if (s.sub_skills && Array.isArray(s.sub_skills)) {
+          s.sub_skills.forEach((sub: any) => {
+            if (sub.name) result.push(sub.name);
+          });
+        }
+        return result;
+      });
+    };
+    
     // Add owner (skip if soft-deleted - they shouldn't appear in badge assignment list)
     if (apiProjectData.owner && !apiProjectData.owner.is_deleted) {
       const ownerId = apiProjectData.owner.id.toString();
@@ -781,8 +895,8 @@ const ProjectManagement: React.FC = () => {
         profession: apiProjectData.owner.job || 'Propriétaire',
         email: apiProjectData.owner.email || '',
         avatar: apiProjectData.owner.avatar_url || DEFAULT_AVATAR_SRC,
-        skills: apiProjectData.owner.skills?.map((s: any) => s.name || s) || [],
-        availability: apiProjectData.owner.availability || [],
+        skills: extractSkills(apiProjectData.owner.skills),
+        availability: availabilityToLabels(apiProjectData.owner.availability),
         organization: apiProjectData.primary_organization_name || project.organization || '',
         role: 'owner',
         projectRole: 'owner',
@@ -810,8 +924,8 @@ const ProjectManagement: React.FC = () => {
           profession: coOwner.job || 'Co-propriétaire',
           email: coOwner.email || '',
           avatar: coOwner.avatar_url || DEFAULT_AVATAR_SRC,
-          skills: coOwner.skills?.map((s: any) => s.name || s) || [],
-          availability: coOwner.availability || [],
+          skills: extractSkills(coOwner.skills),
+          availability: availabilityToLabels(coOwner.availability),
           organization: coOwner.organization_name || coOwner.city || '',
           role: 'co-owner',
           projectRole: 'co_owner',
@@ -854,8 +968,8 @@ const ProjectManagement: React.FC = () => {
           profession: member.user?.job || 'Membre',
           email: member.user?.email || '',
           avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
-          skills: member.user?.skills?.map((s: any) => s.name || s) || [],
-          availability: member.user?.availability || [],
+          skills: extractSkills(member.user?.skills),
+          availability: availabilityToLabels(member.user?.availability),
           organization: member.user?.organization || '',
           role: member.project_role === 'admin' ? 'admin' : 'member',
           projectRole: member.project_role,
@@ -906,14 +1020,14 @@ const ProjectManagement: React.FC = () => {
       if (apiProjectData.school_levels && apiProjectData.school_levels.length > 0) {
         organizationId = apiProjectData.school_levels[0]?.school?.id;
       } else {
-        organizationId = state.user?.available_contexts?.schools?.[0]?.id || null;
+        organizationId = getSelectedOrganizationId(state.user, state.showingPageType) || null;
       }
     } else {
       // For companies, get from project's companies or user context
       if (apiProjectData.companies && apiProjectData.companies.length > 0) {
         organizationId = apiProjectData.companies[0]?.id;
       } else {
-        organizationId = state.user?.available_contexts?.companies?.[0]?.id || null;
+        organizationId = getSelectedOrganizationId(state.user, state.showingPageType) || null;
       }
     }
     
@@ -3505,30 +3619,19 @@ const ProjectManagement: React.FC = () => {
                         <div className="request-info">
                           <h4 className="request-name">{participant.name}</h4>
                           <p className="request-profession">{participant.profession}</p>
-                          <p className="request-email">{participant.email}</p>
+                          <p className="request-email" title={participant.email}>{participant.email}</p>
                           <p className="request-date">{participant.organization}</p>
                         </div>
                     </div>
                     
-                    <div className="request-skills">
-                      <h4>Compétences</h4>
-                      <div className="skills-list">
-                          {(participant.skills || []).map((skill: string, index: number) => (
-                          <span key={index} className="skill-pill">{skill}</span>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="request-availability">
-                      <h4>Disponibilités</h4>
-                      <div className="availability-list">
-                          {(participant.availability || []).map((day: string, index: number) => (
-                          <span key={index} className="availability-pill">{day}</span>
-                        ))}
-                      </div>
-                    </div>
+                    {participant.skills && participant.skills.length > 0 && (
+                      <ParticipantSkillsList skills={participant.skills} />
+                    )}
+                    {participant.availability && participant.availability.length > 0 && (
+                      <ParticipantAvailabilityList availability={participant.availability} />
+                    )}
                       
-                      <div className="request-role-selector" style={{ marginTop: '1rem' }}>
+                      <div className="request-role-selector" style={{ marginTop: '0.75rem' }}>
                         <h4>Rôle dans le projet</h4>
                         <select
                           value={getCurrentRoleValue(participant)}
