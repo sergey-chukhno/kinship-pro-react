@@ -70,6 +70,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [availablePartnerships, setAvailablePartnerships] = useState<any[]>([]);
   const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
+  const [availablePathways, setAvailablePathways] = useState<any[]>([]);
+  const [isLoadingPathways, setIsLoadingPathways] = useState(false);
   
   // Teacher project context: 'independent' or 'school'
   const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('independent');
@@ -302,6 +304,30 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     fetchTags();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.tags.length]); // setTags est stable du contexte, pas besoin de le mettre en dépendance
+
+  // Fetch pathways (tags) for pathway select
+  useEffect(() => {
+    const fetchPathways = async () => {
+      setIsLoadingPathways(true);
+      try {
+        const tagsData = await getTags();
+        // Ensure tagsData is an array before setting
+        if (Array.isArray(tagsData)) {
+          setAvailablePathways(tagsData);
+        } else {
+          console.error('getTags returned non-array:', tagsData);
+          setAvailablePathways([]);
+        }
+      } catch (error) {
+        console.error('Error fetching pathways:', error);
+        setAvailablePathways([]);
+      } finally {
+        setIsLoadingPathways(false);
+      }
+    };
+
+    fetchPathways();
+  }, []);
 
   // Fetch school levels (organisations porteuses) when modal opens
   useEffect(() => {
@@ -1085,27 +1111,28 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             <div className="form-group">
               <label htmlFor="projectPathway">Parcours *</label>
-              <select
-                id="projectPathway"
-                name="pathway"
-                required
-                value={formData.pathway}
-                onChange={handleInputChange}
-                className="form-select"
-              >
-                <option value="">Sélectionner un parcours</option>
-                <option value="citoyen">Citoyen</option>
-                <option value="creativite">Créativité</option>
-                <option value="fabrication">Fabrication</option>
-                <option value="psychologie">Psychologie</option>
-                <option value="innovation">Innovation</option>
-                <option value="education">Éducation</option>
-                <option value="technologie">Technologie</option>
-                <option value="sante">Santé</option>
-                <option value="environnement">Environnement</option>
-                <option value="mlds">MLDS</option>
-                <option value="faj_co">FAJ Co</option>
-              </select>
+              {isLoadingPathways ? (
+                <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                  <span>Chargement des parcours...</span>
+                </div>
+              ) : (
+                <select
+                  id="projectPathway"
+                  name="pathway"
+                  required
+                  value={formData.pathway}
+                  onChange={handleInputChange}
+                  className="form-select"
+                >
+                  <option value="">Sélectionner un parcours</option>
+                  {availablePathways.map((pathway: any) => (
+                    <option key={pathway.id} value={pathway.name}>
+                      {pathway.name_fr || pathway.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Organisation porteuse */}

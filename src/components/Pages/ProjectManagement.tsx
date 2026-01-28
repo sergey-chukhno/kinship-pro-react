@@ -4700,8 +4700,7 @@ const ProjectManagement: React.FC = () => {
                 </div>
               )}
 
-              {/* Parcours - Masqué pour les projets MLDS */}
-              {!isMLDSProject && (
+              {/* Parcours - Affiché pour tous les projets, y compris MLDS */}
               <div className="form-group">
                 <label htmlFor="project-pathway">Parcours</label>
                 <select
@@ -4710,6 +4709,7 @@ const ProjectManagement: React.FC = () => {
                   onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
                   className="form-input"
                 >
+                  <option value="">Sélectionner un parcours</option>
                   <option value="sante">Santé</option>
                   <option value="eac">EAC</option>
                   <option value="citoyen">Citoyen</option>
@@ -4719,7 +4719,6 @@ const ProjectManagement: React.FC = () => {
                   <option value="faj_co">FAJ Co</option>
                 </select>
               </div>
-              )}
 
               {/* Tags - Masqué pour les projets MLDS */}
               {!isMLDSProject && (
@@ -4756,6 +4755,8 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
               )}
+
+              {/* Parcours - Masqué pour les projets MLDS */}
 
               {/* Partnership Section */}
               <div className="form-group">
