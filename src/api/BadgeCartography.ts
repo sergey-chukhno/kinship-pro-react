@@ -53,6 +53,27 @@ export const createStudentBadgeCartographyShare = async (
 };
 
 /**
+ * Create a shareable link for a specific student's badge cartography (teacher endpoint)
+ */
+export const createTeacherStudentBadgeCartographyShare = async (
+  studentId: string | number,
+  schoolId?: number | null
+): Promise<{ shareable_url: string; token: string; expires_at: string }> => {
+  const params: any = {
+    filters: {
+      student_id: studentId.toString()
+    }
+  };
+  
+  if (schoolId) {
+    params.school_id = schoolId;
+  }
+  
+  const response = await axiosClient.post('/api/v1/teachers/badges/cartography/share', params);
+  return response.data;
+};
+
+/**
  * Create a shareable link for multiple selected students' badge cartography
  */
 export const createSelectedStudentsBadgeCartographyShare = async (
