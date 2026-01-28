@@ -6,7 +6,7 @@ import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers,
 import { getSkills } from '../../api/Skills';
 import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent, createTeacherLevelStudent } from '../../api/Dashboard';
 import { getTeacherClassStudents, getTeacherAllStudents } from '../../api/Dashboard';
-import { createStudentBadgeCartographyShare } from '../../api/BadgeCartography';
+import { createStudentBadgeCartographyShare, createTeacherStudentBadgeCartographyShare } from '../../api/BadgeCartography';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { translateSkill, translateSubSkill } from '../../translations/skills';
@@ -124,7 +124,7 @@ const Members: React.FC = () => {
 
   // Function to get or generate cartography token for a student
   const getCartographyToken = useCallback(async (studentId: string, schoolId: number | null): Promise<string | null> => {
-    if (!schoolId) return null;
+    if (!schoolId && !isTeacherContext) return null;
     
     // If token already exists, return it
     if (cartographyTokens[studentId]) {
@@ -138,7 +138,16 @@ const Members: React.FC = () => {
 
     try {
       setLoadingCartographyTokens(prev => ({ ...prev, [studentId]: true }));
-      const result = await createStudentBadgeCartographyShare(schoolId, studentId);
+      
+      let result: { shareable_url: string; token: string; expires_at: string };
+      if (isTeacherContext) {
+        // Use teacher endpoint for teacher context
+        result = await createTeacherStudentBadgeCartographyShare(studentId, schoolId);
+      } else {
+        // Use school endpoint for school context
+        result = await createStudentBadgeCartographyShare(schoolId!, studentId);
+      }
+      
       setCartographyTokens(prev => ({ ...prev, [studentId]: result.token }));
       return result.token;
     } catch (error) {
@@ -151,7 +160,7 @@ const Members: React.FC = () => {
         return newState;
       });
     }
-  }, [cartographyTokens, loadingCartographyTokens]);
+  }, [cartographyTokens, loadingCartographyTokens, isTeacherContext]);
 
   const renderMembersLoading = () => (
     <div className="members-loading-container">
@@ -172,6 +181,13 @@ const Members: React.FC = () => {
         
         const allStudents = Array.isArray(studentsData) ? studentsData.map((s: any) => {
           const role = s.role || 'etudiant';
+          // Handle badges structure: can be array (old format) or object with data/meta (new format)
+          let badges: any = s.badges || [];
+          if (s.badges && typeof s.badges === 'object' && !Array.isArray(s.badges)) {
+            // New format: { data: [...], meta: { total_count: ... } }
+            badges = s.badges;
+          }
+          
           return {
             id: (s.id || s.user_id || s.student_id || `${Date.now()}-${Math.random()}`).toString(),
             firstName: s.first_name,
@@ -185,7 +201,7 @@ const Members: React.FC = () => {
             membershipRole: 'student',
             skills: [],
             availability: [],
-            badges: s.badges || [],
+            badges: badges,
             latestBadges: s.latest_badges || [],
             experience: [],
             education: [],
@@ -193,7 +209,9 @@ const Members: React.FC = () => {
             phone: s.phone || '',
             avatar: s.avatar_url || s.avatar || DEFAULT_AVATAR_SRC,
             isTrusted: Boolean(s.isTrusted),
-            schools: s.schools || [] // Include school information from API
+            schools: s.schools || [], // Include school information from API
+            claim_token: s.claim_token || null,
+            hasTemporaryEmail: s.has_temporary_email || false
           } as Member;
         }) : [];
 
@@ -716,15 +734,100 @@ const Members: React.FC = () => {
 
   // Generate cartography tokens for students in background
   useEffect(() => {
-    if (isSchoolContext && activeTab === 'students' && currentSchoolId && filteredStudents.length > 0) {
+    if (activeTab === 'students' && filteredStudents.length > 0) {
       filteredStudents.forEach((student) => {
         // Only generate if not already generated and not currently loading
         if (!cartographyTokens[student.id] && !loadingCartographyTokens[student.id]) {
-          getCartographyToken(student.id, currentSchoolId);
+          let schoolId: number | null = null;
+          
+          if (isSchoolContext && currentSchoolId) {
+            // For school context, use currentSchoolId
+            schoolId = currentSchoolId;
+          } else if (isTeacherContext) {
+            // For teacher context, use first school from student's schools array
+            const studentSchools = (student as any).schools || [];
+            if (studentSchools.length > 0 && studentSchools[0].id) {
+              schoolId = Number(studentSchools[0].id);
+            }
+          }
+          
+          if (schoolId) {
+            getCartographyToken(student.id, schoolId);
+          }
         }
       });
     }
-  }, [filteredStudents, currentSchoolId, isSchoolContext, activeTab, cartographyTokens, loadingCartographyTokens, getCartographyToken]);
+  }, [filteredStudents, currentSchoolId, isSchoolContext, isTeacherContext, activeTab, cartographyTokens, loadingCartographyTokens, getCartographyToken]);
+
+  // Compute badgeCartographyUrl reactively for selectedMember
+  const badgeCartographyUrlForSelectedMember = useMemo(() => {
+    if (!selectedMember) return undefined;
+    
+    // Get cartography token for this student
+    let schoolId: number | null = null;
+    
+    if (isSchoolContext && currentSchoolId) {
+      // For school context, use currentSchoolId
+      schoolId = currentSchoolId;
+    } else if (isTeacherContext) {
+      // For teacher context, use first school from student's schools array
+      const studentSchools = (selectedMember as any).schools || [];
+      if (studentSchools.length > 0 && studentSchools[0].id) {
+        schoolId = Number(studentSchools[0].id);
+      }
+    }
+    
+    if (schoolId) {
+      const token = cartographyTokens[selectedMember.id];
+      if (token) {
+        return `/badge-cartography-selected/${token}`;
+      }
+      // If token not yet generated, trigger generation
+      if (!loadingCartographyTokens[selectedMember.id]) {
+        getCartographyToken(selectedMember.id, schoolId);
+      }
+      // Return undefined while token is being generated - component will re-render when token is ready
+      return undefined;
+    }
+    return undefined;
+  }, [selectedMember, cartographyTokens, loadingCartographyTokens, isSchoolContext, isTeacherContext, currentSchoolId, getCartographyToken]);
+
+  // Compute cartography URLs for all filtered students reactively
+  const studentCartographyUrls = useMemo(() => {
+    const urlMap: Record<string, string | undefined> = {};
+    
+    filteredStudents.forEach((student) => {
+      let schoolId: number | null = null;
+      
+      if (isSchoolContext && currentSchoolId) {
+        // For school context, use currentSchoolId
+        schoolId = currentSchoolId;
+      } else if (isTeacherContext) {
+        // For teacher context, use first school from student's schools array
+        const studentSchools = (student as any).schools || [];
+        if (studentSchools.length > 0 && studentSchools[0].id) {
+          schoolId = Number(studentSchools[0].id);
+        }
+      }
+      
+      if (schoolId) {
+        const token = cartographyTokens[student.id];
+        if (token) {
+          urlMap[student.id] = `/badge-cartography-selected/${token}`;
+        } else {
+          // If token not yet generated, trigger generation
+          if (!loadingCartographyTokens[student.id]) {
+            getCartographyToken(student.id, schoolId);
+          }
+          urlMap[student.id] = undefined;
+        }
+      } else {
+        urlMap[student.id] = undefined;
+      }
+    });
+    
+    return urlMap;
+  }, [filteredStudents, cartographyTokens, loadingCartographyTokens, isSchoolContext, isTeacherContext, currentSchoolId, getCartographyToken]);
 
   const filteredCommunityMembers = communityLists.filter(member => {
     const term = searchTerm.toLowerCase();
@@ -1466,7 +1569,10 @@ const Members: React.FC = () => {
                 <div className="members-grid">
                   {staffMembers.length > 0 ? (
                     staffMembers.map((member: Member) => {
-                      const totalBadgeCount = member.badges?.length || 0;
+                      // Handle both old format (array) and new format (object with data/meta)
+                      const totalBadgeCount = Array.isArray(member.badges) 
+                        ? member.badges.length 
+                        : (member.badges as any)?.meta?.total_count || (member.badges as any)?.data?.length || 0;
                       const memberForDisplay = {
                         ...member,
                         roles: translateRoles(member.roles),
@@ -1542,7 +1648,10 @@ const Members: React.FC = () => {
           </div>
           <div className="members-grid">
                 {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
-              const totalBadgeCount = member.badges?.length || 0;
+              // Handle both old format (array) and new format (object with data/meta)
+              const totalBadgeCount = Array.isArray(member.badges) 
+                ? member.badges.length 
+                : (member.badges as any)?.meta?.total_count || (member.badges as any)?.data?.length || 0;
               const memberForDisplay = {
                 ...member,
                 roles: translateRoles(member.roles),
@@ -1590,18 +1699,7 @@ const Members: React.FC = () => {
                       }
                     }
                   ] : []}
-                  badgeCartographyUrl={(() => {
-                    // Get cartography token for this student
-                    const token = cartographyTokens[member.id];
-                    if (token) {
-                      return `/badge-cartography-selected/${token}`;
-                    }
-                    // If token not yet generated, trigger generation and return placeholder
-                    if (currentSchoolId && !loadingCartographyTokens[member.id]) {
-                      getCartographyToken(member.id, currentSchoolId);
-                    }
-                    return undefined; // Will be updated once token is generated
-                  })()}
+                  badgeCartographyUrl={studentCartographyUrls[member.id]}
                 />
               );
             })
@@ -1823,20 +1921,7 @@ const Members: React.FC = () => {
           onContactClick={() => setIsContactModalOpen(true)}
           isSuperadmin={(selectedMember as any).isSuperadmin || 
             ((selectedMember as any).membershipRole || '').toLowerCase() === 'superadmin'}
-          badgeCartographyUrl={(() => {
-            // Get cartography token for this student (only for students in school context)
-            if (isSchoolContext && currentSchoolId) {
-              const token = cartographyTokens[selectedMember.id];
-              if (token) {
-                return `/badge-cartography-selected/${token}`;
-              }
-              // If token not yet generated, trigger generation
-              if (!loadingCartographyTokens[selectedMember.id]) {
-                getCartographyToken(selectedMember.id, currentSchoolId);
-              }
-            }
-            return undefined;
-          })()}
+          badgeCartographyUrl={badgeCartographyUrlForSelectedMember}
         />
       )}
 
