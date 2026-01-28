@@ -268,6 +268,11 @@
   color: white;
 }
 
+.project-modal-status-pill.to-process {
+  background: #f59e0b;
+  color: white;
+}
+
 .project-modal-status-pill.in-progress {
   background: #ef4444;
   color: white;
@@ -1329,8 +1334,8 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  max-width: 500px;
-  width: 100%;
+  max-width: 900px;
+  width: 95%;
   max-height: 90vh;
   overflow-y: auto;
 }

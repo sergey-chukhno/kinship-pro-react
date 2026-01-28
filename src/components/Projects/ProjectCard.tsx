@@ -25,6 +25,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'draft': return 'status-draft';
+      case 'to_process': return 'status-to-process';
       case 'À venir': return 'status-coming';
       case 'En cours': return 'status-in-progress';
       case 'Terminée': return 'status-ended';
@@ -38,6 +39,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
   const getStatusText = (status: string) => {
     switch (status) {
       case 'draft': return 'Brouillon';
+      case 'to_process': return 'À traiter';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminée';

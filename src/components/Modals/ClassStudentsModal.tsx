@@ -265,7 +265,7 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
               onClick={() => setActiveTab('projects')}
             >
               <i className="fas fa-project-diagram" style={{ marginRight: '0.5rem' }}></i>
-              Projets MLDS ({mldsProjects.length})
+              Projets ({mldsProjects.length})
             </button>
           </div>
 

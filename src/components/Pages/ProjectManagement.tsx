@@ -21,6 +21,7 @@ import './ProjectManagement.css';
 import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/projectPermissions';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
+import { translateRole } from '../../utils/roleTranslations';
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject } = useAppContext();
@@ -37,7 +38,7 @@ const ProjectManagement: React.FC = () => {
     startDate: '',
     endDate: '',
     pathway: '',
-    status: 'draft' as 'draft' | 'coming' | 'in_progress' | 'ended',
+    status: 'coming' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
     visibility: 'public' as 'public' | 'private',
     isPartnership: false,
     coResponsibles: [] as string[],
@@ -541,6 +542,7 @@ const ProjectManagement: React.FC = () => {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'draft': return 'Brouillon';
+      case 'to_process': return 'À traiter';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminé';
@@ -551,6 +553,7 @@ const ProjectManagement: React.FC = () => {
   const getStatusClass = (status: string) => {
     switch (status) {
       case 'draft': return 'draft';
+      case 'to_process': return 'to-process';
       case 'coming': return 'coming';
       case 'in_progress': return 'in-progress';
       case 'ended': return 'ended';
@@ -1044,9 +1047,14 @@ const ProjectManagement: React.FC = () => {
   };
 
   const getEditFilteredMembers = (searchTerm: string) => {
-    if (!searchTerm) return editAvailableMembers;
+    // Filter out already selected co-responsibles
+    let available = editAvailableMembers.filter((member: any) => 
+      !editForm.coResponsibles.includes(member.id.toString())
+    );
+    
+    if (!searchTerm) return available;
     const lowerSearch = searchTerm.toLowerCase();
-    return editAvailableMembers.filter((member: any) => {
+    return available.filter((member: any) => {
       const fullName = member.full_name || `${member.first_name} ${member.last_name}`;
       return fullName.toLowerCase().includes(lowerSearch) || member.email?.toLowerCase().includes(lowerSearch);
     });
@@ -1088,10 +1096,19 @@ const ProjectManagement: React.FC = () => {
 
   const handleEdit = async () => {
     const mldsInfo = apiProjectData?.mlds_information;
-    
+
     // Get current co-responsibles and partnerships
-    const currentCoResponsibles = apiProjectData?.co_responsibles?.map((cr: any) => cr.id?.toString()) || [];
-    
+    // Check both co_responsibles and co_owners to ensure we get all co-responsibles
+    let currentCoResponsibles: string[] = [];
+    if (apiProjectData?.co_responsibles && Array.isArray(apiProjectData.co_responsibles)) {
+      currentCoResponsibles = apiProjectData.co_responsibles.map((cr: any) => cr.id?.toString()).filter(Boolean);
+    } else if (apiProjectData?.co_owners && Array.isArray(apiProjectData.co_owners)) {
+      // Fallback to co_owners if co_responsibles doesn't exist
+      currentCoResponsibles = apiProjectData.co_owners.map((cr: any) => cr.id?.toString()).filter(Boolean);
+    }
+
+    console.log('🔍 [handleEdit] Current co-responsibles IDs:', currentCoResponsibles);
+
     // Get all partnership IDs (can be multiple)
     let currentPartnerships: string[] = [];
     if (apiProjectData?.partnership_id) {
@@ -1138,14 +1155,19 @@ const ProjectManagement: React.FC = () => {
     try {
       const organizationType = getOrganizationType(state.showingPageType);
       const organizationId = getOrganizationId(state.user, state.showingPageType);
-      
-      let membersResult;
+
+      let membersResult: any[] = [];
       if (state.showingPageType === 'teacher') {
         membersResult = await getTeacherMembers();
       } else if (organizationType && organizationId) {
         membersResult = await getOrganizationMembers(organizationId, organizationType);
       }
       setEditAvailableMembers(membersResult || []);
+
+      // Debug: log available members IDs
+      console.log('🔍 [handleEdit] Available members:', membersResult?.length || 0);
+      console.log('🔍 [handleEdit] Available member IDs:', membersResult?.map((m: any) => m.id?.toString()).slice(0, 5));
+      console.log('🔍 [handleEdit] Co-responsibles to select:', currentCoResponsibles);
     } catch (err) {
       console.error('Error fetching members:', err);
       setEditAvailableMembers([]);
@@ -1187,10 +1209,16 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEditInternal = async (
+    desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended'
+  ) => {
     try {
+      const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+        desiredStatus || editForm.status;
+
       // Map edit form to backend payload
       const payload = mapEditFormToBackend(editForm, state.tags || [], project);
+      payload.project.status = effectiveStatus;
       
       // Add co-responsibles and partnership
       payload.project.co_responsible_ids = editForm.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
@@ -1199,8 +1227,7 @@ const ProjectManagement: React.FC = () => {
       
       // Add MLDS information if it's an MLDS project
       if (isMLDSProject) {
-        // Remove title from payload for MLDS projects (title is auto-generated by backend)
-        delete payload.project.title;
+
         const schoolLevelIds = editForm.mldsSchoolLevelIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
         
         payload.project.mlds_information_attributes = {
@@ -1267,7 +1294,7 @@ const ProjectManagement: React.FC = () => {
       // Update apiProjectData to reflect changes
       setApiProjectData(apiProject);
       
-    setIsEditModalOpen(false);
+      setIsEditModalOpen(false);
       setEditImagePreview('');
       showSuccess('Projet mis à jour avec succès');
     } catch (error: any) {
@@ -1275,6 +1302,58 @@ const ProjectManagement: React.FC = () => {
       const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors de la mise à jour du projet';
       showError(errorMessage);
     }
+  };
+
+  const handleSaveEdit = async () => {
+    // Pour les projets MLDS et rôle enseignant, on force le statut "À traiter"
+    const isTeacher =
+      isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher');
+    const statusForSubmit: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+      isTeacher ? 'to_process' : editForm.status;
+
+    await handleSaveEditInternal(statusForSubmit);
+  };
+
+  const handleSaveEditDraft = async () => {
+    // Sauvegarde en brouillon
+    await handleSaveEditInternal('draft');
+  };
+
+  const handleEditOrganizationToggle = (schoolLevelId: string) => {
+    setEditForm(prev => {
+      const isAlreadySelected = prev.mldsSchoolLevelIds.includes(schoolLevelId);
+
+      const updatedSchoolLevelIds = isAlreadySelected
+        ? prev.mldsSchoolLevelIds.filter(id => id !== schoolLevelId)
+        : [...prev.mldsSchoolLevelIds, schoolLevelId];
+
+      // Lorsqu'on sélectionne une organisation porteuse (classe),
+      // on pré‑sélectionne les enseignants responsables comme co‑responsables.
+      if (!isAlreadySelected) {
+        const selectedLevel = availableSchoolLevels.find(
+          (level: any) => level.id?.toString() === schoolLevelId
+        );
+
+        const teacherIds =
+          selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
+
+        if (teacherIds.length > 0) {
+          const coResponsiblesSet = new Set(prev.coResponsibles);
+          teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
+
+          return {
+            ...prev,
+            mldsSchoolLevelIds: updatedSchoolLevelIds,
+            coResponsibles: Array.from(coResponsiblesSet)
+          };
+        }
+      }
+
+      return {
+        ...prev,
+        mldsSchoolLevelIds: updatedSchoolLevelIds
+      };
+    });
   };
 
   const handleCancelEdit = () => {
@@ -2673,7 +2752,6 @@ const ProjectManagement: React.FC = () => {
       doc.setFontSize(10);
 
       // HSE and HV on same line if possible
-      let totalHS = 0;
       if (mldsInfo.financial_hse != null || mldsInfo.financial_hv != null) {
         checkNewPage(8);
         doc.setFont('helvetica', 'bold');
@@ -2684,17 +2762,15 @@ const ProjectManagement: React.FC = () => {
         
         if (mldsInfo.financial_hse != null) {
           const amount = Number.parseFloat(mldsInfo.financial_hse);
-          totalHS += amount;
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
           doc.text('HSE', margin + 2, yPosition);
-          doc.text(`${amount.toFixed(2)} €`, margin + 40, yPosition);
+          doc.text(`${amount.toFixed(2)} heures`, margin + 40, yPosition);
           yPosition += lineHeight;
         }
 
         if (mldsInfo.financial_hv != null) {
           const amount = Number.parseFloat(mldsInfo.financial_hv);
-          totalHS += amount;
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
           doc.text('HV', margin + 2, yPosition);
@@ -2762,16 +2838,17 @@ const ProjectManagement: React.FC = () => {
         doc.setFontSize(10);
       }
 
-      // Total général avec style (utiliser le backend si disponible)
+      // Total général avec style (calculer uniquement avec les crédits, sans HSE et HV)
       checkNewPage(10);
       doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setLineWidth(0.5);
       doc.line(margin, yPosition - 1, pageWidth - margin, yPosition - 1);
       yPosition += 2;
       
-      const totalGeneral = mldsInfo.total_financial 
-        ? Number.parseFloat(mldsInfo.total_financial)
-        : totalHS + totalCredits;
+      // Utiliser total_financial_credits du backend si disponible, sinon calculer avec les crédits uniquement
+      const totalGeneral = mldsInfo.total_financial_credits 
+        ? Number.parseFloat(mldsInfo.total_financial_credits)
+        : totalCredits;
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -2991,7 +3068,7 @@ const ProjectManagement: React.FC = () => {
                     <div className="manager-details">
                       <div className="manager-name">{project.responsible?.name || project.owner}</div>
                       <div className="manager-role">
-                        {project.responsible?.role || project.responsible?.profession || 'Membre'}
+                        {translateRole(project.responsible?.role) || project.responsible?.profession || 'Membre'}
                         {project.responsible?.city && ` • ${project.responsible.city}`}
                       </div>
                     </div>
@@ -4190,7 +4267,7 @@ const ProjectManagement: React.FC = () => {
                           <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
                             <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HSE</div>
                             <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
-                              {Number.parseFloat(apiProjectData.mlds_information.financial_hse).toFixed(2)} €
+                              {Number.parseFloat(apiProjectData.mlds_information.financial_hse).toFixed(2)} heures
                             </div>
                           </div>
                         )}
@@ -4267,16 +4344,11 @@ const ProjectManagement: React.FC = () => {
                       }}>
                         <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>Total général</span>
                         <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
-                          {apiProjectData.mlds_information.total_financial
-                            ? Number.parseFloat(apiProjectData.mlds_information.total_financial).toFixed(2)
-                            : (
-                                (Number.parseFloat(apiProjectData.mlds_information.financial_hse) || 0) +
-                                (Number.parseFloat(apiProjectData.mlds_information.financial_hv) || 0) +
-                                (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
-                                (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
-                                (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
-                              ).toFixed(2)
-                          } €
+                          {(
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
+                          ).toFixed(2)} €
                         </span>
                       </div>
                     </div>
@@ -4305,43 +4377,15 @@ const ProjectManagement: React.FC = () => {
             <div className="modal-body">
               <div className="form-group">
                 <label htmlFor="project-title">Titre du projet</label>
-                {isMLDSProject ? (
-                  <>
-                    <input
-                      type="text"
-                      id="project-title"
-                      value={editForm.title}
-                      className="form-input"
-                      disabled
-                      style={{ 
-                        backgroundColor: '#f3f4f6', 
-                        cursor: 'not-allowed',
-                        color: '#6b7280'
-                      }}
-                    />
-                    <div style={{ 
-                      marginTop: '8px',
-                      padding: '12px', 
-                      backgroundColor: '#f3f4f6', 
-                      borderRadius: '8px',
-                      color: '#6b7280',
-                      fontSize: '14px',
-                      fontStyle: 'italic'
-                    }}>
-                      <i className="fas fa-info-circle" style={{ marginRight: '8px', color: '#3b82f6' }}></i>
-                      {' '}Le titre des projets MLDS est généré automatiquement et ne peut pas être modifié
-                    </div>
-                  </>
-                ) : (
-                  <input
-                    type="text"
-                    id="project-title"
-                    value={editForm.title}
-                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                    className="form-input"
-                    placeholder="Entrez le titre du projet"
-                  />
-                )}
+        
+                <input
+                  type="text"
+                  id="project-title"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="form-input"
+                  placeholder="Entrez le titre du projet"
+                />
               </div>
 
               <div className="form-group">
@@ -4421,10 +4465,9 @@ const ProjectManagement: React.FC = () => {
                   <select
                     id="project-status"
                     value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'draft' | 'coming' | 'in_progress' | 'ended' })}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' })}
                     className="form-input"
                   >
-                    <option value="draft">Brouillon</option>
                     <option value="coming">À venir</option>
                     <option value="in_progress">En cours</option>
                     <option value="ended">Terminé</option>
@@ -4458,19 +4501,7 @@ const ProjectManagement: React.FC = () => {
                           <input
                             type="checkbox"
                             checked={editForm.mldsSchoolLevelIds.includes(classItem.id.toString())}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setEditForm({ 
-                                  ...editForm, 
-                                  mldsSchoolLevelIds: [...editForm.mldsSchoolLevelIds, classItem.id.toString()] 
-                                });
-                              } else {
-                                setEditForm({ 
-                                  ...editForm, 
-                                  mldsSchoolLevelIds: editForm.mldsSchoolLevelIds.filter(id => id !== classItem.id.toString()) 
-                                });
-                              }
-                            }}
+                          onChange={() => handleEditOrganizationToggle(classItem.id.toString())}
                           />
                           <div className="multi-select-checkmark">
                             <i className="fas fa-check"></i>
@@ -4496,59 +4527,59 @@ const ProjectManagement: React.FC = () => {
 
               {/* Parcours - Masqué pour les projets MLDS */}
               {!isMLDSProject && (
-                <div className="form-group">
-                  <label htmlFor="project-pathway">Parcours</label>
-                  <select
-                    id="project-pathway"
-                    value={editForm.pathway}
-                    onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
-                    className="form-input"
-                  >
-                    <option value="sante">Santé</option>
-                    <option value="eac">EAC</option>
-                    <option value="citoyen">Citoyen</option>
-                    <option value="creativite">Créativité</option>
-                    <option value="avenir">Avenir</option>
-                    <option value="mlds">MLDS</option>
-                    <option value="faj_co">FAJ Co</option>
-                  </select>
-                </div>
+              <div className="form-group">
+                <label htmlFor="project-pathway">Parcours</label>
+                <select
+                  id="project-pathway"
+                  value={editForm.pathway}
+                  onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="sante">Santé</option>
+                  <option value="eac">EAC</option>
+                  <option value="citoyen">Citoyen</option>
+                  <option value="creativite">Créativité</option>
+                  <option value="avenir">Avenir</option>
+                  <option value="mlds">MLDS</option>
+                  <option value="faj_co">FAJ Co</option>
+                </select>
+              </div>
               )}
 
               {/* Tags - Masqué pour les projets MLDS */}
               {!isMLDSProject && (
-                <div className="form-group">
-                  <label>Tags du projet</label>
-                  <div className="tags-input-container">
-                    {editForm.tags.map((tag, index) => (
-                      <div key={index} className="tag-input-row">
-                        <input
-                          type="text"
-                          value={tag}
-                          onChange={(e) => handleTagChange(index, e.target.value)}
-                          className="form-input tag-input"
-                          placeholder="Entrez un tag"
-                        />
-                        <button
-                          type="button"
-                          className="btn-icon remove-tag-btn"
-                          onClick={() => removeTag(index)}
-                          title="Supprimer ce tag"
-                        >
-                          <i className="fas fa-times"></i>
-                        </button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      className="btn btn-outline add-tag-btn"
-                      onClick={addTag}
-                    >
-                      <i className="fas fa-plus"></i>
-                      Ajouter un tag
-                    </button>
-                  </div>
+              <div className="form-group">
+                <label>Tags du projet</label>
+                <div className="tags-input-container">
+                  {editForm.tags.map((tag, index) => (
+                    <div key={index} className="tag-input-row">
+                      <input
+                        type="text"
+                        value={tag}
+                        onChange={(e) => handleTagChange(index, e.target.value)}
+                        className="form-input tag-input"
+                        placeholder="Entrez un tag"
+                      />
+                      <button
+                        type="button"
+                        className="btn-icon remove-tag-btn"
+                        onClick={() => removeTag(index)}
+                        title="Supprimer ce tag"
+                      >
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn btn-outline add-tag-btn"
+                    onClick={addTag}
+                  >
+                    <i className="fas fa-plus"></i>
+                    Ajouter un tag
+                  </button>
                 </div>
+              </div>
               )}
 
               {/* Partnership Section */}
@@ -4646,6 +4677,35 @@ const ProjectManagement: React.FC = () => {
                       disabled={isLoadingEditMembers}
                     />
                   </div>
+                  
+                  {/* Display selected co-responsables above the search input */}
+                  {editForm.coResponsibles.length > 0 && (
+                    <div className="selected-items">
+                      {editForm.coResponsibles.map((memberId) => {
+                        const member = editAvailableMembers.find((m: any) => m.id.toString() === memberId);
+                        return member ? (
+                          <div key={memberId} className="selected-member">
+                            <AvatarImage 
+                              src={member.avatar_url || '/default-avatar.png'} 
+                              alt={member.full_name || `${member.first_name} ${member.last_name}`} 
+                              className="selected-avatar" 
+                            />
+                            <div className="selected-info">
+                              <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                              <div className="selected-role">{member.role}</div>
+                            </div>
+                            <button 
+                              type="button" 
+                              className="remove-selection"
+                              onClick={() => handleEditMemberSelect('coResponsibles', memberId)}
+                            >
+                              <i className="fas fa-times"></i>
+                            </button>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
                   
                   {isLoadingEditMembers ? (
                     <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
@@ -4871,7 +4931,7 @@ const ProjectManagement: React.FC = () => {
                           className="form-input"
                           value={editForm.mldsFinancialHSE}
                           onChange={(e) => setEditForm({ ...editForm, mldsFinancialHSE: e.target.value })}
-                          placeholder="Montant en €"
+                          placeholder="Nombre d'heures"
                           min="0"
                           step="0.01"
                         />
@@ -4991,8 +5051,6 @@ const ProjectManagement: React.FC = () => {
                       </span>
                       <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
                         {(
-                          (Number.parseFloat(editForm.mldsFinancialHSE) || 0) +
-                          (Number.parseFloat(editForm.mldsFinancialHV) || 0) +
                           (Number.parseFloat(editForm.mldsFinancialTransport) || 0) +
                           (Number.parseFloat(editForm.mldsFinancialOperating) || 0) +
                           (Number.parseFloat(editForm.mldsFinancialService) || 0)
@@ -5008,8 +5066,13 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={handleCancelEdit}>
                 Annuler
               </button>
+              <button className="btn btn-outline" onClick={handleSaveEditDraft}>
+                Sauvegarder en brouillon
+              </button>
               <button className="btn btn-primary" onClick={handleSaveEdit}>
-                Sauvegarder
+                {isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher')
+                  ? 'Soumettre le projet MLDS'
+                  : 'Sauvegarder'}
               </button>
             </div>
           </div>

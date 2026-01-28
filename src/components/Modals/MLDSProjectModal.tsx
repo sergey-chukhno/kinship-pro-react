@@ -26,7 +26,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     startDate: '',
     endDate: '',
     organization: '',
-    status: 'draft' as 'draft' | 'coming' | 'in_progress' | 'ended',
+    status: 'coming' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
     visibility: 'public' as 'public' | 'private',
     pathway: 'mlds', // Set to MLDS by default
     tags: '',
@@ -286,12 +286,40 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   };
 
   const handleOrganizationToggle = (orgId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      mldsOrganizations: prev.mldsOrganizations.includes(orgId)
+    setFormData(prev => {
+      const isAlreadySelected = prev.mldsOrganizations.includes(orgId);
+
+      // Toggle selection of the organization (school level)
+      const updatedOrganizations = isAlreadySelected
         ? prev.mldsOrganizations.filter(o => o !== orgId)
-        : [...prev.mldsOrganizations, orgId]
-    }));
+        : [...prev.mldsOrganizations, orgId];
+
+      // When selecting (not unselecting), pré‑sélectionner les enseignants responsables
+      if (!isAlreadySelected) {
+        const selectedClass = availableClasses.find(
+          (classItem: any) => classItem.id?.toString() === orgId
+        );
+
+        const teacherIds =
+          selectedClass?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
+
+        if (teacherIds.length > 0) {
+          const coResponsiblesSet = new Set(prev.coResponsibles);
+          teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
+
+          return {
+            ...prev,
+            mldsOrganizations: updatedOrganizations,
+            coResponsibles: Array.from(coResponsiblesSet)
+          };
+        }
+      }
+
+      return {
+        ...prev,
+        mldsOrganizations: updatedOrganizations
+      };
+    });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -418,14 +446,16 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     return availablePartnerships.find((p: any) => p.id === partnerId || p.id === Number.parseInt(partnerId));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended') => {
     setIsSubmitting(true);
     setSubmitError(null);
 
+    const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+      desiredStatus || formData.status;
+
     try {
       // Validate required fields only if not in draft mode
-      if (formData.status !== 'draft') {
+      if (effectiveStatus !== 'draft') {
         if (!formData.title || !formData.description || !formData.startDate || !formData.endDate || 
             !formData.mldsRequestedBy || !formData.mldsTargetAudience) {
           setSubmitError('Veuillez remplir tous les champs obligatoires');
@@ -462,7 +492,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
           description: formData.description,
           start_date: formData.startDate,
           end_date: formData.endDate,
-          status: formData.status,
+          status: effectiveStatus,
           private: formData.visibility === 'private',
           school_level_ids: schoolLevelIds,
           // Add co-responsibles, partner, and participants if needed
@@ -524,7 +554,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
           startDate: formData.startDate,
           endDate: formData.endDate,
           organization: formData.organization,
-          status: formData.status,
+          status: effectiveStatus,
           visibility: formData.visibility,
           pathway: formData.pathway,
           tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
@@ -571,6 +601,22 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Pour les enseignants, on soumet toujours le projet en statut "À traiter"
+    const isTeacher = state.showingPageType === 'teacher' || state.user?.role === 'teacher';
+    const statusForSubmit: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+      isTeacher ? 'to_process' : formData.status;
+
+    await submitProject(statusForSubmit);
+  };
+
+  const handleSaveDraft = async () => {
+    // Sauvegarde en brouillon, sans validation forte
+    await submitProject('draft');
   };
 
   if (showSuccess && successData) {
@@ -772,7 +818,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                   value={formData.status}
                   onChange={handleInputChange}
                 >
-                  <option value="draft">Brouillon</option>
                   <option value="coming">À venir</option>
                   <option value="in_progress">En cours</option>
                   <option value="ended">Terminé</option>
@@ -1192,7 +1237,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                     className="form-input"
                     value={formData.mldsFinancialHSE}
                     onChange={handleInputChange}
-                    placeholder="Montant en €"
+                    placeholder="Nombre d'heures"
                     min="0"
                     step="0.01"
                   />
@@ -1312,8 +1357,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 </span>
                 <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
                   {(
-                    (Number.parseFloat(formData.mldsFinancialHSE) || 0) +
-                    (Number.parseFloat(formData.mldsFinancialHV) || 0) +
                     (Number.parseFloat(formData.mldsFinancialTransport) || 0) +
                     (Number.parseFloat(formData.mldsFinancialOperating) || 0) +
                     (Number.parseFloat(formData.mldsFinancialService) || 0)
@@ -1325,9 +1368,17 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
           </div>
 
           {/* Form Actions */}
-          <div className="modal-actions">
+          <div className="flex flex-wrap gap-2 modal-actions">
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={isSubmitting}>
               Annuler
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={handleSaveDraft}
+              disabled={isSubmitting}
+            >
+              Sauvegarder en brouillon
             </button>
             <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
               {isSubmitting ? (
@@ -1338,7 +1389,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
               ) : (
                 <>
                   <i className="fas fa-plus" style={{ marginRight: '8px' }}></i>
-                  Créer le projet MLDS
+                  {state.showingPageType === 'teacher' || state.user?.role === 'teacher'
+                    ? 'Soumettre le projet MLDS'
+                    : 'Créer le projet MLDS'}
                 </>
               )}
             </button>

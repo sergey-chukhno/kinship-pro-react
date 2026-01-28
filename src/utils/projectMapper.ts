@@ -115,7 +115,7 @@ export const mapFrontendToBackend = (
         startDate: string;
         endDate: string;
         organization: string;
-        status: 'draft' | 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
         pathway: string;
         tags: string;
@@ -183,8 +183,9 @@ export const mapFrontendToBackend = (
         });
     }
 
-    // Map draft status to coming for backend (backend doesn't support draft)
-    const backendStatus: 'coming' | 'in_progress' | 'ended' = 
+    // Map draft status to coming for backend (backend doesn't support draft).
+    // Keep 'to_process' as-is so it can be handled explicitly server-side.
+    const backendStatus: 'to_process' | 'coming' | 'in_progress' | 'ended' =
         formData.status === 'draft' ? 'coming' : formData.status;
 
     // Build payload
@@ -223,7 +224,7 @@ export const mapEditFormToBackend = (
         startDate: string;
         endDate: string;
         pathway: string;
-        status: 'draft' | 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
     },
     tags: Tag[],

@@ -28,7 +28,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     startDate: '',
     endDate: '',
     organization: '',
-    status: 'draft' as 'draft' | 'coming' | 'in_progress' | 'ended',
+    status: 'draft' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
     visibility: 'public' as 'public' | 'private',
     pathway: '',
     tags: '',
@@ -575,7 +575,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         id: createdProject.id.toString(),
         title: createdProject.title,
         description: createdProject.description,
-        status: createdProject.status as 'coming' | 'in_progress' | 'ended',
+        status: createdProject.status as 'to_process' | 'coming' | 'in_progress' | 'ended',
         visibility: payload.project.private ? 'private' : 'public' as 'public' | 'private',
         pathway: formData.pathway || 'citoyen',
         organization: formData.organization,
@@ -949,6 +949,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                   className="form-select"
                 >
                   <option value="">Sélectionner un statut</option>
+                  <option value="to_process">À traiter</option>
                   <option value="coming">À venir</option>
                   <option value="in_progress">En cours</option>
                   <option value="ended">Terminé</option>
