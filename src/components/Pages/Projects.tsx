@@ -750,6 +750,10 @@ const Projects: React.FC = () => {
   };
 
   const handleEditProject = (project: Project) => {
+    // Prevent editing if project is ended
+    if (project.status === 'ended') {
+      return;
+    }
     setSelectedProject(project);
     setIsProjectModalOpen(true);
   };
@@ -785,6 +789,7 @@ const Projects: React.FC = () => {
   };
 
   const handleManageProject = (project: Project) => {
+    // Always allow viewing/managing (even if ended, user can still view)
     setSelectedProject(project);
     setCurrentPage('project-management');
   };
@@ -794,6 +799,10 @@ const Projects: React.FC = () => {
     // Search in all project lists
     const project = [...projects, ...myProjects, ...mldsProjects].find(p => p.id === projectId);
     if (project) {
+      // Prevent deleting if project is ended
+      if (project.status === 'ended') {
+        return;
+      }
       setProjectToDelete({ id: projectId, title: project.title });
       setIsDeleteModalOpen(true);
     }
@@ -1340,16 +1349,19 @@ const Projects: React.FC = () => {
               const canManage = rawApiProject ? canUserManageProject(rawApiProject, state.user) : false;
               const canDelete = rawApiProject ? canUserDeleteProject(rawApiProject, state.user?.id?.toString()) : false;
               
+              // Check if project is ended - disable edit/delete actions if true, but allow viewing
+              const isProjectEnded = project.status === 'ended';
+              
               return (
                 <ProjectCard
                   key={project.id}
                   project={project}
-                  onEdit={() => handleEditProject(project)}
-                  onManage={() => handleManageProject(project)}
-                  onDelete={canDelete ? () => handleDeleteProject(project.id) : undefined}
+                  onEdit={!isProjectEnded ? () => handleEditProject(project) : undefined}
+                  onManage={() => handleManageProject(project)} // Always allow viewing/managing
+                  onDelete={canDelete && !isProjectEnded ? () => handleDeleteProject(project.id) : undefined}
                   isPersonalUser={isPersonalUser}
-                  canManage={canManage}
-                  canDelete={canDelete}
+                  canManage={canManage && !isProjectEnded} // Can't manage if ended, but can view
+                  canDelete={canDelete && !isProjectEnded}
                 />
               );
             })}

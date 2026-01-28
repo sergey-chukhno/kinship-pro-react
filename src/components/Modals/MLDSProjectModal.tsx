@@ -27,7 +27,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     endDate: '',
     organization: '',
     status: 'coming' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
-    visibility: 'public' as 'public' | 'private',
+    visibility: 'private' as 'public' | 'private', // MLDS projects are private by default
     pathway: 'mlds', // Set to MLDS by default
     tags: '',
     links: '',
@@ -823,19 +823,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                   <option value="ended">Terminé</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label htmlFor="visibility">Visibilité</label>
-                <select
-                  id="visibility"
-                  name="visibility"
-                  className="form-select"
-                  value={formData.visibility}
-                  onChange={handleInputChange}
-                >
-                  <option value="private">Privé</option>
-                  <option value="public">Public</option>
-                </select>
-              </div>
+              {/* Visibilité masquée pour les projets MLDS - toujours privé par défaut */}
             </div>
 
             <div className="form-row">

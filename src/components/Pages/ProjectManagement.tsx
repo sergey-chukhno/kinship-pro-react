@@ -232,6 +232,9 @@ const ProjectManagement: React.FC = () => {
   // Check if project has MLDS information
   const isMLDSProject = apiProjectData?.mlds_information != null;
   
+  // Check if project is ended - disable all actions if true
+  const isProjectEnded = project?.status === 'ended';
+  
   // State for project statistics
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -1209,6 +1212,12 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleEdit = async () => {
+    // Prevent editing if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de modifier un projet terminé');
+      return;
+    }
+    
     const mldsInfo = apiProjectData?.mlds_information;
 
     // Get current co-responsibles and partnerships
@@ -1240,7 +1249,7 @@ const ProjectManagement: React.FC = () => {
       endDate: project.endDate,
       pathway: project.pathway || '',
       status: project.status || 'coming',
-      visibility: project.visibility || 'public',
+      visibility: isMLDSProject ? 'private' : (project.visibility || 'public'), // MLDS projects are always private
       isPartnership: isPartnerProject,
       coResponsibles: currentCoResponsibles,
       partners: currentPartnerships,
@@ -1330,8 +1339,13 @@ const ProjectManagement: React.FC = () => {
       const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
         desiredStatus || editForm.status;
 
+      // For MLDS projects, force visibility to private
+      const formDataWithVisibility = isMLDSProject 
+        ? { ...editForm, visibility: 'private' as const }
+        : editForm;
+
       // Map edit form to backend payload
-      const payload = mapEditFormToBackend(editForm, state.tags || [], project);
+      const payload = mapEditFormToBackend(formDataWithVisibility, state.tags || [], project);
       payload.project.status = effectiveStatus;
       
       // Add co-responsibles and partnership
@@ -1422,8 +1436,16 @@ const ProjectManagement: React.FC = () => {
     // Pour les projets MLDS et rôle enseignant, on force le statut "À traiter"
     const isTeacher =
       isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher');
-    const statusForSubmit: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
-      isTeacher ? 'to_process' : editForm.status;
+    
+    let statusForSubmit: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
+    
+    if (isTeacher) {
+      // Cas spécial : enseignants avec projets MLDS → "À traiter"
+      statusForSubmit = 'to_process';
+    } else {
+      // Utiliser le statut sélectionné dans le formulaire
+      statusForSubmit = editForm.status || 'coming';
+    }
 
     await handleSaveEditInternal(statusForSubmit);
   };
@@ -1582,6 +1604,12 @@ const ProjectManagement: React.FC = () => {
 
   // Participant handlers
   const handleRemoveParticipant = async (participantId: string) => {
+    // Prevent removing participants if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de retirer des participants d\'un projet terminé');
+      return;
+    }
+    
     const participant = participants.find(p => p.id === participantId);
     if (!participant || !project?.id) return;
     
@@ -1656,6 +1684,12 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleAssignBadge = () => {
+    // Prevent assigning badges if project is ended
+    if (isProjectEnded) {
+      showError('Impossible d\'attribuer des badges à un projet terminé');
+      return;
+    }
+    
     // Open badge modal without pre-selecting a participant
     setSelectedParticipantForBadge(null);
     setIsBadgeModalOpen(true);
@@ -1806,6 +1840,13 @@ const ProjectManagement: React.FC = () => {
 
   const handleDeleteDocument = async (attachmentId: number) => {
     if (!project?.id) return;
+    
+    // Prevent deleting documents if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de supprimer un document d\'un projet terminé');
+      return;
+    }
+    
     if (!window.confirm('Supprimer ce document ?')) return;
 
     setIsLoadingProjectDocuments(true);
@@ -1853,6 +1894,12 @@ const ProjectManagement: React.FC = () => {
 
   // Team management functions
   const handleCreateTeam = () => {
+    // Prevent creating teams if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de créer une équipe pour un projet terminé');
+      return;
+    }
+    
     setIsCreateTeamModalOpen(true);
     setNewTeamForm({
       name: '',
@@ -1863,6 +1910,12 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleEditTeam = (team: any) => {
+    // Prevent editing teams if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de modifier une équipe d\'un projet terminé');
+      return;
+    }
+    
     setSelectedTeam(team);
     setNewTeamForm({
       name: team.name,
@@ -1908,6 +1961,12 @@ const ProjectManagement: React.FC = () => {
 
   const handleDeleteTeam = async (teamId: string) => {
     if (!project?.id) return;
+    
+    // Prevent deleting teams if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de supprimer une équipe d\'un projet terminé');
+      return;
+    }
     
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) {
       return;
@@ -2175,6 +2234,12 @@ const ProjectManagement: React.FC = () => {
   // };
 
   const handleAddParticipant = async () => {
+    // Prevent adding participants if project is ended
+    if (isProjectEnded) {
+      showError('Impossible d\'ajouter des participants à un projet terminé');
+      return;
+    }
+    
     setIsLoadingAvailableMembers(true);
     try {
       const members = await fetchAvailableMembers();
@@ -3005,7 +3070,7 @@ const ProjectManagement: React.FC = () => {
               <i className="fas fa-file-pdf"></i> Exporter en PDF
             </button>
           )}
-          {canAssignBadges && (
+          {canAssignBadges && !isProjectEnded && (
             <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
               <i className="fas fa-award"></i> Attribuer un badge
             </button>
@@ -3098,7 +3163,7 @@ const ProjectManagement: React.FC = () => {
                   </span>
                 ) : null}
                 {/* Edit button for owners/admins */}
-                {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && (
+                {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && !isProjectEnded && (
                 <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
                   <i className="fas fa-edit"></i>
                 </button>
@@ -3484,7 +3549,7 @@ const ProjectManagement: React.FC = () => {
                       ))}
                     </div>
                     <div className="member-actions">
-                      {canAssignBadges && (
+                      {canAssignBadges && !isProjectEnded && (
                         <button 
                           type="button" 
                           className="btn-icon badge-btn" 
@@ -3498,7 +3563,7 @@ const ProjectManagement: React.FC = () => {
                         </button>
                       )}
                       {/* Show remove button if user can see it and participant can be removed */}
-                      {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
+                      {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && !isProjectEnded && (
                         <button 
                           type="button" 
                           className="btn-icon" 
@@ -3600,13 +3665,15 @@ const ProjectManagement: React.FC = () => {
             <div className="participants-section">
               <div className="section-header">
                 <h3>Participants du projet</h3>
-                <button 
-                  className="btn btn-primary btn-sm"
-                  onClick={handleAddParticipant}
-                >
-                  <i className="fas fa-plus"></i>
-                  Ajouter un participant
-                </button>
+                {!isProjectEnded && (
+                  <button 
+                    className="btn btn-primary btn-sm"
+                    onClick={handleAddParticipant}
+                  >
+                    <i className="fas fa-plus"></i>
+                    Ajouter un participant
+                  </button>
+                )}
               </div>
               
               <div className="participants-table">
@@ -3705,7 +3772,7 @@ const ProjectManagement: React.FC = () => {
                 </div>
                 <div className="section-actions">
                   <span className="team-count">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
-                  {shouldShowTabs() && (
+                  {shouldShowTabs() && !isProjectEnded && (
                   <button className="btn btn-primary" onClick={handleCreateTeam}>
                     <i className="fas fa-plus"></i>
                     Créer une équipe
@@ -3725,7 +3792,7 @@ const ProjectManagement: React.FC = () => {
                   </div>
                   <h4>Aucune équipe créée</h4>
                   <p>Créez votre première équipe pour organiser vos participants et améliorer la collaboration.</p>
-                  {shouldShowTabs() && (
+                  {shouldShowTabs() && !isProjectEnded && (
                   <button className="btn btn-primary" onClick={handleCreateTeam}>
                     <i className="fas fa-plus"></i>
                     Créer une équipe
@@ -3793,7 +3860,7 @@ const ProjectManagement: React.FC = () => {
                                 >
                                   <i className="fas fa-eye"></i>
                                 </button>
-                                {shouldShowTabs() && (
+                                {shouldShowTabs() && !isProjectEnded && (
                                   <>
                                 <button 
                                   className="btn-icon edit-btn" 
@@ -4177,14 +4244,16 @@ const ProjectManagement: React.FC = () => {
                                   Télécharger
                                 </a>
                               )}
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-sm btn-danger"
-                                onClick={() => handleDeleteDocument(doc.id)}
-                              >
-                                <i className="fas fa-trash"></i>
-                                Supprimer
-                              </button>
+                              {!isProjectEnded && (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm btn-danger"
+                                  onClick={() => handleDeleteDocument(doc.id)}
+                                >
+                                  <i className="fas fa-trash"></i>
+                                  Supprimer
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -4576,18 +4645,21 @@ const ProjectManagement: React.FC = () => {
                     <option value="ended">Terminé</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="project-visibility">Visibilité</label>
-                  <select
-                    id="project-visibility"
-                    value={editForm.visibility}
-                    onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
-                    className="form-input"
-                  >
-                    <option value="public">Projet public</option>
-                    <option value="private">Projet privé</option>
-                  </select>
-                </div>
+                {/* Visibilité masquée pour les projets MLDS - toujours privé par défaut */}
+                {!isMLDSProject && (
+                  <div className="form-group">
+                    <label htmlFor="project-visibility">Visibilité</label>
+                    <select
+                      id="project-visibility"
+                      value={editForm.visibility}
+                      onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
+                      className="form-input"
+                    >
+                      <option value="public">Projet public</option>
+                      <option value="private">Projet privé</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Organisation porteuse pour les projets MLDS */}
@@ -4722,6 +4794,40 @@ const ProjectManagement: React.FC = () => {
                       />
                     </div>
                     
+                    {/* Display selected partnerships above the search input */}
+                    {editForm.partners.length > 0 && (
+                      <div className="selected-items">
+                        {editForm.partners.map((partnerId) => {
+                          const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId);
+                          if (!partnership) return null;
+                          const partnerOrgs = partnership.partners || [];
+                          const firstPartner = partnerOrgs[0];
+                          return (
+                            <div key={partnerId} className="selected-member">
+                              <AvatarImage 
+                                src={firstPartner?.logo_url || '/default-avatar.png'} 
+                                alt={partnerOrgs.map((p: any) => p.name).join(', ') || 'Partnership'} 
+                                className="selected-avatar" 
+                              />
+                              <div className="selected-info">
+                                <div className="selected-name">
+                                  {partnerOrgs.map((p: any) => p.name).join(', ')}
+                                </div>
+                                <div className="selected-role">{partnership.name || ''}</div>
+                              </div>
+                              <button 
+                                type="button" 
+                                className="remove-selection"
+                                onClick={() => handleEditPartnerSelect(partnerId)}
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
                     <div className="selection-list">
                       {getEditFilteredPartnerships(editSearchTerms.partner).length === 0 ? (
                         <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
@@ -4732,12 +4838,11 @@ const ProjectManagement: React.FC = () => {
                         getEditFilteredPartnerships(editSearchTerms.partner).map((partnership: any) => {
                           const partnerOrgs = partnership.partners || [];
                           const firstPartner = partnerOrgs[0];
-                          const isSelected = editForm.partners.includes(partnership.id.toString());
                           
                           return (
                             <div
                               key={partnership.id}
-                              className={`selection-item ${isSelected ? 'selected' : ''}`}
+                              className="selection-item"
                               onClick={() => handleEditPartnerSelect(partnership.id.toString())}
                             >
                               <AvatarImage 
@@ -4751,11 +4856,6 @@ const ProjectManagement: React.FC = () => {
                                 </div>
                                 <div className="item-role">{partnership.name || ''}</div>
                               </div>
-                              {isSelected && (
-                                <div style={{ marginLeft: 'auto', color: '#10b981', fontSize: '1.2rem' }}>
-                                  <i className="fas fa-check-circle"></i>
-                                </div>
-                              )}
                             </div>
                           );
                         })
@@ -5169,9 +5269,12 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={handleCancelEdit}>
                 Annuler
               </button>
-              <button className="btn btn-outline" onClick={handleSaveEditDraft}>
-                Sauvegarder en brouillon
-              </button>
+              {/* Afficher le bouton "Sauvegarder en brouillon" uniquement si le statut est "en cours" ou "à venir" */}
+              {(editForm.status !== 'in_progress' && editForm.status !== 'coming') && (
+                <button className="btn btn-outline" onClick={handleSaveEditDraft}>
+                  Sauvegarder en brouillon
+                </button>
+              )}
               <button className="btn btn-primary" onClick={handleSaveEdit}>
                 {isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher')
                   ? 'Soumettre le projet MLDS'
@@ -5485,13 +5588,15 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={() => setIsViewTeamModalOpen(false)}>
                 Fermer
               </button>
-              <button className="btn btn-primary" onClick={() => {
-                setIsViewTeamModalOpen(false);
-                handleEditTeam(selectedTeam);
-              }}>
-                <i className="fas fa-edit"></i>
-                Modifier l'équipe
-              </button>
+              {!isProjectEnded && (
+                <button className="btn btn-primary" onClick={() => {
+                  setIsViewTeamModalOpen(false);
+                  handleEditTeam(selectedTeam);
+                }}>
+                  <i className="fas fa-edit"></i>
+                  Modifier l'équipe
+                </button>
+              )}
             </div>
           </div>
         </div>
