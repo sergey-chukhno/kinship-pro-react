@@ -848,6 +848,7 @@ export interface UpdateProjectPayload {
         end_date?: string;
         status?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
         private?: boolean;
+        school_level_ids?: number[];
         tag_ids?: number[];
         keyword_ids?: string[];
         links_attributes?: LinkAttribute[];
@@ -908,6 +909,13 @@ export const updateProject = async (
     if (project.tag_ids && project.tag_ids.length > 0) {
         project.tag_ids.forEach(id => {
             formData.append('project[tag_ids][]', id.toString());
+        });
+    }
+
+    // School levels (non-MLDS school projects)
+    if (project.school_level_ids) {
+        project.school_level_ids.forEach(id => {
+            formData.append('project[school_level_ids][]', id.toString());
         });
     }
 

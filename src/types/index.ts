@@ -172,6 +172,11 @@ export interface Project {
     organization: string;
   } | null;
   mlds_information?: any; // MLDS project specific information
+  school_levels?: Array<{
+    id: number;
+    name: string;
+    level?: string;
+  }>;
   rs?: string; // RS field for MLDS projects
 }
 
