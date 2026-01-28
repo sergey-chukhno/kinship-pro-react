@@ -1128,7 +1128,12 @@ const Members: React.FC = () => {
       await fetchLevels();
     } catch (err) {
       console.error("Erreur lors de la suppression de la classe :", err);
-      showError("Erreur lors de la suppression de la classe");
+      const backendMessage = (err as any)?.response?.data?.message;
+      if (backendMessage === "Cannot delete school-owned classes. Please contact school admin.") {
+        showError("Impossible de supprimer une classe rattachée à un établissement. Veuillez contacter l'administrateur de l'école.");
+      } else {
+        showError("Erreur lors de la suppression de la classe");
+      }
     }
   };
 
