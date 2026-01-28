@@ -313,7 +313,8 @@ const Members: React.FC = () => {
         const levelsWithTeacherIds = levels.map((level: any) => ({
           ...level,
           teacher_ids: level.teachers?.map((t: any) => t.id) || [],
-          school_id: level.school_id || null
+          school_id: level.school_id || null,
+          school: level.school ? { id: level.school.id, name: level.school.name } : undefined
         }));
         setClassLists(levelsWithTeacherIds);
       } else {
@@ -1614,6 +1615,8 @@ const Members: React.FC = () => {
                 teacher={classItem?.teacher || ''}
                 studentCount={classItem?.students_count || 0}
                 level={classItem?.level || ''}
+                schoolName={classItem?.school?.name || null}
+                showSchoolName={isTeacherContext}
                 teachers={classItem?.teachers}
                 pedagogical_team_members={classItem?.pedagogical_team_members}
                 onClick={() => handleClassClick(classItem)}
