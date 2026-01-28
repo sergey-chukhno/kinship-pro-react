@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Project } from '../../types';
 import ProjectModal from '../Modals/ProjectModal';
+import MLDSProjectModal from '../Modals/MLDSProjectModal';
 import SubscriptionRequiredModal from '../Modals/SubscriptionRequiredModal';
 import ProjectCard from '../Projects/ProjectCard';
 import './Projects.css';
@@ -19,11 +20,16 @@ const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
   const { selectedProject } = state;
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isMLDSProjectModalOpen, setIsMLDSProjectModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<{ id: string; title: string } | null>(null);
   
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
   const [myProjects, setMyProjects] = useState<Project[]>([]);
+  const [mldsProjects, setMldsProjects] = useState<Project[]>([]);
   // Store raw API project data for permission checks (projectId -> raw API project)
   const [rawProjectsMap, setRawProjectsMap] = useState<Map<string, any>>(new Map());
   // Store all filtered projects for client-side pagination (for filters that need client-side filtering)
@@ -39,13 +45,18 @@ const Projects: React.FC = () => {
   const [myProjectsTotalPages, setMyProjectsTotalPages] = useState(1);
   const [myProjectsTotalCount, setMyProjectsTotalCount] = useState(0);
   
-  // Tab state for personal users
+  // Pagination state for "Projets MLDS" tab
+  const [mldsProjectsPage, setMldsProjectsPage] = useState(1);
+  const [mldsProjectsTotalPages, setMldsProjectsTotalPages] = useState(1);
+  const [mldsProjectsTotalCount, setMldsProjectsTotalCount] = useState(0);
+  
+  // Tab state for all users
   // Teachers should only see their own projects, not public projects
   const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   const isTeacher = state.showingPageType === 'teacher';
   // For teachers, default to 'mes-projets' since they shouldn't see public projects
-  // For regular users, default to 'nouveautes' to show public projects
-  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets'>(isTeacher ? 'mes-projets' : 'nouveautes');
+  // For regular users and pro/edu, default to 'nouveautes' to show public/org projects
+  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects'>(isTeacher ? 'mes-projets' : 'nouveautes');
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,6 +66,12 @@ const Projects: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [organizationFilter, setOrganizationFilter] = useState<'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies'>('my-org');
   const [visibilityFilter, setVisibilityFilter] = useState('all');
+  
+  // MLDS-specific filter states
+  const [mldsRequestedByFilter, setMldsRequestedByFilter] = useState('all');
+  const [mldsTargetAudienceFilter, setMldsTargetAudienceFilter] = useState('all');
+  const [mldsActionObjectivesFilter, setMldsActionObjectivesFilter] = useState('all');
+  const [mldsOrganizationFilter, setMldsOrganizationFilter] = useState('all');
 
   // Loading states
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
@@ -81,8 +98,8 @@ const Projects: React.FC = () => {
       
       const response = await getAllProjects(apiParams);
       const rawProjects = response.data?.data || response.data || [];
-      // Filtrer uniquement les projets publics
-      const publicProjects = rawProjects.filter((p: any) => !p.private);
+      // Filtrer uniquement les projets publics et exclure les projets MLDS
+      const publicProjects = rawProjects.filter((p: any) => !p.private && p.mlds_information == null);
       const formattedProjects: Project[] = publicProjects.map((p: any) => {
         return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
       });
@@ -118,9 +135,12 @@ const Projects: React.FC = () => {
         const response = await getTeacherProjects({ page: page, per_page: 12 });
         const rawProjects = response.data || [];
         
+        // Exclure les projets MLDS
+        const nonMLDSProjects = rawProjects.filter((p: any) => p.mlds_information == null);
+        
         // Store raw API projects for permission checks
         const newRawProjectsMap = new Map<string, any>();
-        rawProjects.forEach((p: any) => {
+        nonMLDSProjects.forEach((p: any) => {
           if (p.id) {
             newRawProjectsMap.set(p.id.toString(), p);
           }
@@ -131,7 +151,7 @@ const Projects: React.FC = () => {
           return merged;
         });
         
-        const formattedProjects: Project[] = rawProjects.map((p: any) => {
+        const formattedProjects: Project[] = nonMLDSProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
         // Badge counts are now included in API response via badge_count
@@ -148,9 +168,12 @@ const Projects: React.FC = () => {
         const response = await getAllUserProjects(params);
         const rawProjects = response.data?.data || response.data || [];
         
+        // Exclure les projets MLDS
+        const nonMLDSProjects = rawProjects.filter((p: any) => p.mlds_information == null);
+        
         // Store raw API projects for permission checks
         const newRawProjectsMap = new Map<string, any>();
-        rawProjects.forEach((p: any) => {
+        nonMLDSProjects.forEach((p: any) => {
           if (p.id) {
             newRawProjectsMap.set(p.id.toString(), p);
           }
@@ -161,7 +184,7 @@ const Projects: React.FC = () => {
           return merged;
         });
         
-        const formattedProjects: Project[] = rawProjects.map((p: any) => {
+        const formattedProjects: Project[] = nonMLDSProjects.map((p: any) => {
           return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
         });
         // Badge counts are now included in API response via badge_count
@@ -179,6 +202,92 @@ const Projects: React.FC = () => {
       setMyProjects([]);
       setMyProjectsTotalPages(1);
       setMyProjectsTotalCount(0);
+      setInitialLoad(false);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType]);
+
+  // Fonction pour récupérer les projets MLDS (avec mlds_information !== null)
+  const fetchMLDSProjects = React.useCallback(async (page: number = 1) => {
+    setIsLoadingProjects(true);
+    try {
+      const currentUser = await getCurrentUser();
+      
+      // Pour les projets MLDS, on récupère tous les projets et on filtre ceux avec mlds_information
+      const params: { page?: number; per_page?: number } = { page: 1, per_page: 200 }; // Récupérer un grand nombre pour filtrer côté client
+      let response: any;
+      let rawProjects: any[] = [];
+      
+      if (state.showingPageType === 'teacher') {
+        // Pour les enseignants : utiliser getTeacherProjects
+        response = await getTeacherProjects(params);
+        rawProjects = response.data || [];
+      } else if (state.showingPageType === 'user') {
+        // Pour les utilisateurs : utiliser getAllUserProjects
+        response = await getAllUserProjects(params);
+        rawProjects = response.data?.data || response.data || [];
+      } else {
+        // Pour les rôles pro et edu
+        const contextId = getSelectedOrganizationId();
+        if (!contextId) {
+          console.warn('⚠️ [Projects MLDS] Aucun contextId trouvé pour le type:', state.showingPageType);
+          setMldsProjects([]);
+          setMldsProjectsTotalPages(1);
+          setMldsProjectsTotalCount(0);
+          return;
+        }
+        
+        const isEdu = state.showingPageType === 'edu';
+        if (isEdu) {
+          response = await getSchoolProjects(contextId, true, 200, 1);
+        } else {
+          response = await getCompanyProjects(contextId, true, 200, 1);
+        }
+        rawProjects = response.data?.data || response.data || [];
+      }
+      
+      // Filtrer les projets avec mlds_information !== null
+      const mldsProjectsData = rawProjects.filter((p: any) => p.mlds_information != null);
+      
+      // Store raw API projects for permission checks
+      const newRawProjectsMap = new Map<string, any>();
+      mldsProjectsData.forEach((p: any) => {
+        if (p.id) {
+          newRawProjectsMap.set(p.id.toString(), p);
+        }
+      });
+      setRawProjectsMap(prev => {
+        const merged = new Map(prev);
+        newRawProjectsMap.forEach((value, key) => merged.set(key, value));
+        return merged;
+      });
+      
+      // Pagination côté client
+      const perPage = 12;
+      const startIndex = (page - 1) * perPage;
+      const endIndex = startIndex + perPage;
+      const paginatedProjects = mldsProjectsData.slice(startIndex, endIndex);
+      
+      const formattedProjects: Project[] = paginatedProjects.map((p: any) => {
+        return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+      });
+      
+      setMldsProjects(formattedProjects);
+      
+      // Update pagination metadata
+      const totalCount = mldsProjectsData.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
+      setMldsProjectsTotalPages(totalPages);
+      setMldsProjectsTotalCount(totalCount);
+      
+      setInitialLoad(false);
+    } catch (err) {
+      console.error('Erreur lors de la récupération des projets MLDS:', err);
+      setMldsProjects([]);
+      setMldsProjectsTotalPages(1);
+      setMldsProjectsTotalCount(0);
       setInitialLoad(false);
     } finally {
       setIsLoadingProjects(false);
@@ -228,6 +337,8 @@ const Projects: React.FC = () => {
             response = await getCompanyProjects(contextId, true, 12, page);
           }
           rawProjects = response.data?.data || response.data || [];
+          // Exclure les projets MLDS
+          rawProjects = rawProjects.filter((p: any) => p.mlds_information == null);
         } else if (organizationFilter === 'all-public') {
           // Tous les projets: utiliser getAllProjects sans filtre, puis filtrer côté client pour les projets publics
           response = await getAllProjects({ page: page, per_page: 12 });
@@ -244,6 +355,8 @@ const Projects: React.FC = () => {
           }
           response = await getAllProjects({ organization_type: 'établissement', page: page, per_page: 12 });
           rawProjects = response.data?.data || response.data || [];
+          // Exclure les projets MLDS
+          rawProjects = rawProjects.filter((p: any) => p.mlds_information == null);
         } else if (organizationFilter === 'other-orgs') {
           // Autres organisations: utiliser getAllProjects sans filtre, puis filtrer côté client (Pro only)
           if (state.showingPageType !== 'pro') {
@@ -297,13 +410,15 @@ const Projects: React.FC = () => {
           let filteredProjects: any[] = [];
           
           if (organizationFilter === 'all-public') {
-            // Filter to only public projects
-            filteredProjects = rawProjects.filter((p: any) => !p.private);
+            // Filter to only public projects and exclude MLDS projects
+            filteredProjects = rawProjects.filter((p: any) => !p.private && p.mlds_information == null);
             rawProjects = filteredProjects; // Use filtered results directly
           } else if (organizationFilter === 'other-orgs') {
             // Pro: Company projects excluding user's own
             filteredProjects = rawProjects.filter((p: any) => {
               if (p.private) return false;
+              // Exclude MLDS projects
+              if (p.mlds_information != null) return false;
               // Must have company_ids (projects without company_ids are likely school projects)
               if (!p.company_ids || !Array.isArray(p.company_ids) || p.company_ids.length === 0) {
                 return false;
@@ -340,6 +455,8 @@ const Projects: React.FC = () => {
             // So we just need to filter out user's own school and private projects
             filteredProjects = rawProjects.filter((p: any) => {
               if (p.private) return false;
+              // Exclude MLDS projects
+              if (p.mlds_information != null) return false;
               
               // Get all user's school IDs
               const userSchoolIds = state.user?.available_contexts?.schools?.map((s: any) => s.id) || [];
@@ -376,6 +493,8 @@ const Projects: React.FC = () => {
             // Edu: All company projects
             filteredProjects = rawProjects.filter((p: any) => {
               if (p.private) return false;
+              // Exclude MLDS projects
+              if (p.mlds_information != null) return false;
               // Must have company_ids
               if (!p.company_ids || !Array.isArray(p.company_ids) || p.company_ids.length === 0) {
                 return false;
@@ -408,7 +527,11 @@ const Projects: React.FC = () => {
             newRawProjectsMap.set(p.id.toString(), p);
           }
         });
-        setRawProjectsMap(newRawProjectsMap);
+        setRawProjectsMap(prev => {
+          const merged = new Map(prev);
+          newRawProjectsMap.forEach((value, key) => merged.set(key, value));
+          return merged;
+        });
 
         // Badge counts are now included in API response via badge_count
         setProjects(formattedProjects);
@@ -452,19 +575,36 @@ const Projects: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (isProjectDropdownOpen && !target.closest('.dropdown')) {
+        setIsProjectDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProjectDropdownOpen]);
+
   // --- Fetch des projets au chargement ---
   useEffect(() => {
     // Reset pagination and loading state when dashboard type changes
     setProjectPage(1);
     setMyProjectsPage(1);
+    setMldsProjectsPage(1);
     setInitialLoad(true);
     if (isTeacher) {
       fetchMyProjects(1);
+      fetchMLDSProjects(1);
     } else if (state.showingPageType === 'user') {
       fetchPublicProjects(1);
       fetchMyProjects(1);
+      fetchMLDSProjects(1);
     } else {
       fetchProjects(1);
+      fetchMLDSProjects(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]); // Retirer state.user.available_contexts pour éviter les re-renders, le contexte est lu depuis localStorage
@@ -490,7 +630,11 @@ const Projects: React.FC = () => {
           newRawProjectsMap.set(p.id.toString(), p);
         }
       });
-      setRawProjectsMap(newRawProjectsMap);
+      setRawProjectsMap(prev => {
+        const merged = new Map(prev);
+        newRawProjectsMap.forEach((value, key) => merged.set(key, value));
+        return merged;
+      });
       
       // Badge counts are now included in API response via badge_count
       setProjects(formattedProjects);
@@ -525,23 +669,54 @@ const Projects: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myProjectsPage]);
 
+  // Fetch MLDS projects when mldsProjectsPage changes
+  useEffect(() => {
+    if (activeTab === 'mlds-projects') {
+      fetchMLDSProjects(mldsProjectsPage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mldsProjectsPage]);
+
+  // Reset filters when switching tabs
+  useEffect(() => {
+    // Reset MLDS filters when leaving MLDS tab
+    if (activeTab !== 'mlds-projects') {
+      setMldsRequestedByFilter('all');
+      setMldsTargetAudienceFilter('all');
+      setMldsActionObjectivesFilter('all');
+      setMldsOrganizationFilter('all');
+    }
+    // Reset regular filters when entering MLDS tab
+    if (activeTab === 'mlds-projects') {
+      setPathwayFilter('all');
+      setVisibilityFilter('all');
+    }
+  }, [activeTab]);
+
   // Reset pagination and re-fetch when filters change
   useEffect(() => {
     // Reset to page 1 when filters change
     setProjectPage(1);
     setMyProjectsPage(1);
+    setMldsProjectsPage(1);
     
     if (isTeacher) {
       // Teachers only see their own projects, no public projects
       fetchMyProjects(1);
-    } else if (state.showingPageType === 'user' && activeTab === 'nouveautes') {
+      fetchMLDSProjects(1);
+    } else if (state.showingPageType === 'user') {
+      if (activeTab === 'nouveautes') {
       fetchPublicProjects(1);
+      } else if (activeTab === 'mlds-projects') {
+        fetchMLDSProjects(1);
+      }
     } else if (!isPersonalUser) {
       // Pour les rôles pro et edu, recharger les projets avec le nouveau filtre
       fetchProjects(1);
+      fetchMLDSProjects(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationFilter, statusFilter, pathwayFilter, searchTerm, startDate, endDate, visibilityFilter, isPersonalUser, isTeacher, activeTab]);
+  }, [organizationFilter, statusFilter, pathwayFilter, searchTerm, startDate, endDate, visibilityFilter, mldsRequestedByFilter, mldsTargetAudienceFilter, mldsActionObjectivesFilter, mldsOrganizationFilter, isPersonalUser, isTeacher, activeTab]);
 
 
   const handleCreateProject = () => {
@@ -555,10 +730,30 @@ const Projects: React.FC = () => {
       // Open project creation modal for organizational users
       setSelectedProject(null);
       setIsProjectModalOpen(true);
+      setIsProjectDropdownOpen(false);
+    }
+  };
+
+  const handleCreateMLDSProject = () => {
+    // Check if user is a personal user (teacher or user)
+    const isPersonalUser = state.showingPageType === 'user';
+    
+    if (isPersonalUser) {
+      // Show subscription required modal for personal users
+      setIsSubscriptionModalOpen(true);
+    } else {
+      // Open MLDS project creation modal for organizational users
+      setSelectedProject(null);
+      setIsMLDSProjectModalOpen(true);
+    setIsProjectDropdownOpen(false);
     }
   };
 
   const handleEditProject = (project: Project) => {
+    // Prevent editing if project is ended
+    if (project.status === 'ended') {
+      return;
+    }
     setSelectedProject(project);
     setIsProjectModalOpen(true);
   };
@@ -576,33 +771,75 @@ const Projects: React.FC = () => {
     setSelectedProject(null);
     
     // Rafraîchir la liste des projets après création/modification
-    await fetchProjects();
-    // Si on est sur l'onglet "Mes projets", rafraîchir aussi
-    if (isPersonalUser && activeTab === 'mes-projets') {
+    if (isTeacher) {
       await fetchMyProjects();
+      await fetchMLDSProjects();
+    } else if (isPersonalUser) {
+      if (activeTab === 'nouveautes') {
+        await fetchPublicProjects();
+      } else if (activeTab === 'mes-projets') {
+        await fetchMyProjects();
+      } else if (activeTab === 'mlds-projects') {
+        await fetchMLDSProjects();
+      }
+    } else {
+      await fetchProjects();
+      await fetchMLDSProjects();
     }
   };
 
   const handleManageProject = (project: Project) => {
+    // Always allow viewing/managing (even if ended, user can still view)
     setSelectedProject(project);
     setCurrentPage('project-management');
   };
 
-  const handleDeleteProject = async (projectId: string) => {
+  const handleDeleteProject = (projectId: string) => {
+    // Find the project title for the confirmation modal
+    // Search in all project lists
+    const project = [...projects, ...myProjects, ...mldsProjects].find(p => p.id === projectId);
+    if (project) {
+      // Prevent deleting if project is ended
+      if (project.status === 'ended') {
+        return;
+      }
+      setProjectToDelete({ id: projectId, title: project.title });
+      setIsDeleteModalOpen(true);
+    }
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+    
     try {
-      await deleteProject(Number(projectId));
+      await deleteProject(Number(projectToDelete.id));
       // Mise à jour de l'affichage local
-      setProjects(prev => prev.filter(p => p.id !== projectId));
-      setMyProjects(prev => prev.filter(p => p.id !== projectId));
+      setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+      setMyProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+      setMldsProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setSelectedProject(null);
       
-      // Rafraîchir si on est sur l'onglet "Mes projets"
-      if (isPersonalUser && activeTab === 'mes-projets') {
+      // Rafraîchir en fonction de l'onglet actif
+      if (activeTab === 'mlds-projects') {
+        await fetchMLDSProjects();
+      } else if (isPersonalUser && activeTab === 'mes-projets') {
         await fetchMyProjects();
       }
+      
+      // Close modal and reset state
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
     } catch (err) {
       console.error('Erreur lors de la suppression du projet:', err);
+      // Close modal even on error
+      setIsDeleteModalOpen(false);
+      setProjectToDelete(null);
     }
+  };
+
+  const cancelDeleteProject = () => {
+    setIsDeleteModalOpen(false);
+    setProjectToDelete(null);
   };
 
   const handleExportProjects = () => {
@@ -610,14 +847,31 @@ const Projects: React.FC = () => {
   };
 
   // Select projects to display based on active tab
-  // Teachers only see their own projects (myProjects)
-  // Regular users see public projects or their own projects based on activeTab
-  // Organization users (school/company) see their organization's projects
-  const projectsToDisplay = isTeacher 
-    ? myProjects  // Teachers only see their own projects
-    : (isPersonalUser 
-      ? (activeTab === 'nouveautes' ? projects : myProjects)
-      : projects);
+  // Teachers only see their own projects (myProjects) or MLDS projects
+  // Regular users see public projects, their own projects, or MLDS projects based on activeTab
+  // Organization users (school/company) see their organization's projects or MLDS projects
+  let projectsToDisplay: Project[];
+  
+  if (activeTab === 'mlds-projects') {
+    projectsToDisplay = mldsProjects;
+  } else if (isTeacher) {
+    projectsToDisplay = myProjects;
+  } else if (isPersonalUser) {
+    projectsToDisplay = activeTab === 'nouveautes' ? projects : myProjects;
+  } else {
+    projectsToDisplay = projects;
+  }
+
+  // Extract unique organization names from MLDS projects for filter
+  const uniqueOrganizations = React.useMemo(() => {
+    const orgSet = new Set<string>();
+    mldsProjects.forEach(project => {
+      if (project.mlds_information?.organization_names && Array.isArray(project.mlds_information.organization_names)) {
+        project.mlds_information.organization_names.forEach((org: string) => orgSet.add(org));
+      }
+    });
+    return Array.from(orgSet).sort((a, b) => a.localeCompare(b));
+  }, [mldsProjects]);
 
 
   // Filter projects based on search and filter criteria
@@ -631,12 +885,13 @@ const Projects: React.FC = () => {
       (project.pathway && project.pathway.toLowerCase().includes(searchTerm.toLowerCase())) ||
       project.status.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Pathway filter
-    const matchesPathway = pathwayFilter === 'all' || project.pathway === pathwayFilter;
+    // Pathway filter (skip for MLDS projects)
+    const matchesPathway = activeTab === 'mlds-projects' || pathwayFilter === 'all' || project.pathway === pathwayFilter;
 
     // Status filter
     const matchesStatus = statusFilter === 'all' ||
       project.status === statusFilter ||
+      (statusFilter === 'draft' && project.status === 'draft') ||
       (statusFilter === 'À venir' && project.status === 'coming') ||
       (statusFilter === 'En cours' && project.status === 'in_progress') ||
       (statusFilter === 'Terminée' && project.status === 'ended');
@@ -644,8 +899,8 @@ const Projects: React.FC = () => {
     // Organization filter is now handled by API, no client-side filtering needed
     const matchesOrganization = true;
 
-    // Visibility filter
-    const matchesVisibility = visibilityFilter === 'all' ||
+    // Visibility filter (skip for MLDS projects)
+    const matchesVisibility = activeTab === 'mlds-projects' || visibilityFilter === 'all' ||
       (visibilityFilter === 'public' && (!project.visibility || project.visibility === 'public')) ||
       (visibilityFilter === 'private' && project.visibility === 'private');
 
@@ -661,7 +916,39 @@ const Projects: React.FC = () => {
       matchesEndDate = new Date(project.endDate) <= new Date(endDate);
     }
 
-    return matchesSearch && matchesPathway && matchesStatus && matchesOrganization && matchesVisibility && matchesStartDate && matchesEndDate;
+    // MLDS-specific filters (only apply if MLDS tab is active)
+    let matchesMldsRequestedBy = true;
+    let matchesMldsTargetAudience = true;
+    let matchesMldsActionObjectives = true;
+    let matchesMldsOrganization = true;
+    
+    if (activeTab === 'mlds-projects' && project.mlds_information) {
+      // Filter by requested_by
+      if (mldsRequestedByFilter !== 'all') {
+        matchesMldsRequestedBy = project.mlds_information.requested_by === mldsRequestedByFilter;
+      }
+      
+      // Filter by target_audience
+      if (mldsTargetAudienceFilter !== 'all') {
+        matchesMldsTargetAudience = project.mlds_information.target_audience === mldsTargetAudienceFilter;
+      }
+      
+      // Filter by action_objectives (array contains the selected objective)
+      if (mldsActionObjectivesFilter !== 'all') {
+        matchesMldsActionObjectives = project.mlds_information.action_objectives && 
+          Array.isArray(project.mlds_information.action_objectives) &&
+          project.mlds_information.action_objectives.includes(mldsActionObjectivesFilter);
+      }
+      
+      // Filter by organization_names (array contains the selected organization)
+      if (mldsOrganizationFilter !== 'all') {
+        matchesMldsOrganization = project.mlds_information.organization_names && 
+          Array.isArray(project.mlds_information.organization_names) &&
+          project.mlds_information.organization_names.includes(mldsOrganizationFilter);
+      }
+    }
+
+    return matchesSearch && matchesPathway && matchesStatus && matchesOrganization && matchesVisibility && matchesStartDate && matchesEndDate && matchesMldsRequestedBy && matchesMldsTargetAudience && matchesMldsActionObjectives && matchesMldsOrganization;
   });
 
   return (
@@ -678,15 +965,77 @@ const Projects: React.FC = () => {
               <i className="fas fa-download"></i> Exporter
             </button>
           </div>
-          <button className="btn btn-primary" onClick={handleCreateProject}>
+          <div className="dropdown" style={{ position: 'relative' }}>
+            <button 
+              className="btn btn-primary" 
+              onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
+            >
             <i className="fas fa-plus"></i> Créer un projet
+              <i className={`fas fa-chevron-${isProjectDropdownOpen ? 'up' : 'down'}`} style={{ marginLeft: '8px' }}></i>
+            </button>
+            {isProjectDropdownOpen && (
+              <div 
+                className="dropdown-menu" 
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  backgroundColor: 'white',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '8px',
+                  marginTop: '8px',
+                  minWidth: '250px',
+                  zIndex: 1000,
+                  overflow: 'hidden'
+                }}
+              >
+                <button
+                  onClick={handleCreateProject}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: 'none',
+                    background: 'white',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  <i className="fas fa-folder" style={{ marginRight: '8px' }}></i>
+                  Projet classique
+                </button>
+                <button
+                  onClick={handleCreateMLDSProject}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: 'none',
+                    background: 'white',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  <i className="fas fa-graduation-cap" style={{ marginRight: '8px' }}></i>
+                  Projet MLDS Volet Persévérance Scolaire
           </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Tabs for personal users (but not teachers - teachers only see their projects) */}
-      {state.showingPageType === 'user' && (
+      {/* Tabs for all users */}
         <div className="filter-tabs" style={{ marginBottom: '24px' }}>
+        {/* For users: show Nouveautés, Mes projets, and MLDS tabs */}
+        {state.showingPageType === 'user' && (
+          <>
           <button 
             className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
             onClick={() => {
@@ -694,7 +1043,7 @@ const Projects: React.FC = () => {
               setProjectPage(1); // Reset pagination when switching tabs
             }}
           >
-            Nouveautés ({projectTotalCount > 0 ? projectTotalCount : projects.length})
+              Nouveautés ({projects.length})
           </button>
           <button 
             className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
@@ -703,10 +1052,68 @@ const Projects: React.FC = () => {
               setMyProjectsPage(1); // Reset pagination when switching tabs
             }}
           >
-            Mes projets ({myProjectsTotalCount > 0 ? myProjectsTotalCount : myProjects.length})
+              Mes projets ({myProjects.length})
           </button>
-        </div>
-      )}
+            <button 
+              className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mlds-projects');
+                setMldsProjectsPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Projets MLDS Volet Persévérance ({mldsProjects.length})
+            </button>
+          </>
+        )}
+        
+        {/* For teachers: show Mes projets and MLDS tabs */}
+        {state.showingPageType === 'teacher' && (
+          <>
+            <button 
+              className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mes-projets');
+                setMyProjectsPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Mes projets ({myProjects.length})
+            </button>
+            <button 
+              className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mlds-projects');
+                setMldsProjectsPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Projets MLDS Volet Persévérance ({mldsProjects.length})
+            </button>
+          </>
+        )}
+        
+        {/* For pro/edu: show Projets and MLDS tabs */}
+        {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
+          <>
+            <button 
+              className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('nouveautes');
+                setProjectPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Projets ({projects.length})
+            </button>
+            <button 
+              className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mlds-projects');
+                setMldsProjectsPage(1); // Reset pagination when switching tabs
+              }}
+            >
+              Projets MLDS Volet Persévérance ({mldsProjects.length})
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Search Bar */}
       <div className="w-full projects-search-container">
@@ -721,103 +1128,206 @@ const Projects: React.FC = () => {
           />
         </div>
         <div className="filters-container">
-          {/* Organization filter only for pro and edu dashboards */}
-          {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
-            <div className="filter-group">
-              <label htmlFor="organization-filter">Par Organisation</label>
-              <select
-                id="organization-filter"
-                className="filter-select"
-                value={organizationFilter}
-                onChange={(e) => setOrganizationFilter(e.target.value as 'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies')}
-              >
-                {state.showingPageType === 'pro' ? (
-                  <>
-                    <option value="my-org">Mon organisation</option>
-                    <option value="all-public">Tous les projets</option>
-                    <option value="school">Établissement</option>
-                    <option value="other-orgs">Autres organisations</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="my-org">Mon établissement</option>
-                    <option value="all-public">Tous les projets</option>
-                    <option value="other-schools">Autres établissements</option>
-                    <option value="companies">Organisations</option>
-                  </>
-                )}
-              </select>
-            </div>
+          {/* Show MLDS-specific filters for MLDS tab */}
+          {activeTab === 'mlds-projects' ? (
+            <>
+              <div className="filter-group">
+                <label htmlFor="mlds-requested-by-filter">Demande faite par</label>
+                <select
+                  id="mlds-requested-by-filter"
+                  className="filter-select"
+                  value={mldsRequestedByFilter}
+                  onChange={(e) => setMldsRequestedByFilter(e.target.value)}
+                >
+                  <option value="all">Tous</option>
+                  <option value="departement">Département</option>
+                  <option value="reseau_foquale">Réseau foquale</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="mlds-target-audience-filter">Public ciblé</label>
+                <select
+                  id="mlds-target-audience-filter"
+                  className="filter-select"
+                  value={mldsTargetAudienceFilter}
+                  onChange={(e) => setMldsTargetAudienceFilter(e.target.value)}
+                >
+                  <option value="all">Tous</option>
+                  <option value="students_without_solution">Élèves sans solution à la rentrée</option>
+                  <option value="students_at_risk">Élèves en situation de décrochage</option>
+                  <option value="school_teams">Équipes des établissements</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="mlds-action-objectives-filter">Objectifs de l&apos;action</label>
+                <select
+                  id="mlds-action-objectives-filter"
+                  className="filter-select"
+                  value={mldsActionObjectivesFilter}
+                  onChange={(e) => setMldsActionObjectivesFilter(e.target.value)}
+                >
+                  <option value="all">Tous</option>
+                  <option value="path_security">Sécurisation des parcours</option>
+                  <option value="professional_discovery">Découverte professionnelle</option>
+                  <option value="orientation_support">Accompagnement à l&apos;orientation</option>
+                  <option value="training_support">Accompagnement à la formation</option>
+                  <option value="citizenship">Citoyenneté</option>
+                  <option value="family_links">Liens avec les familles</option>
+                  <option value="professional_development">Développement professionnel</option>
+                  <option value="other">Autre</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="mlds-organization-filter">Organisations porteuses</label>
+                <select
+                  id="mlds-organization-filter"
+                  className="filter-select"
+                  value={mldsOrganizationFilter}
+                  onChange={(e) => setMldsOrganizationFilter(e.target.value)}
+                >
+                  <option value="all">Toutes</option>
+                  {uniqueOrganizations.map(org => (
+                    <option key={org} value={org}>{org}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="status-filter">Statut</label>
+                <select
+                  id="status-filter"
+                  className="filter-select"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="draft">Brouillon</option>
+                  <option value="À venir">À venir</option>
+                  <option value="En cours">En cours</option>
+                  <option value="Terminée">Terminée</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="start-date-filter">Date de début</label>
+                <input
+                  id="start-date-filter"
+                  type="date"
+                  className="filter-select"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="filter-group">
+                <label htmlFor="end-date-filter">Date de fin</label>
+                <input
+                  id="end-date-filter"
+                  type="date"
+                  className="filter-select"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Organization filter only for pro and edu dashboards */}
+              {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
+                <div className="filter-group">
+                  <label htmlFor="organization-filter">Par Organisation</label>
+                  <select
+                    id="organization-filter"
+                    className="filter-select"
+                    value={organizationFilter}
+                    onChange={(e) => setOrganizationFilter(e.target.value as 'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies')}
+                  >
+                    {state.showingPageType === 'pro' ? (
+                      <>
+                        <option value="my-org">Mon organisation</option>
+                        <option value="all-public">Tous les projets</option>
+                        <option value="school">Établissement</option>
+                        <option value="other-orgs">Autres organisations</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="my-org">Mon établissement</option>
+                        <option value="all-public">Tous les projets</option>
+                        <option value="other-schools">Autres établissements</option>
+                        <option value="companies">Organisations</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              )}
+              <div className="filter-group">
+                <label htmlFor="pathway-filter">Parcours</label>
+                <select
+                  id="pathway-filter"
+                  className="filter-select"
+                  value={pathwayFilter}
+                  onChange={(e) => setPathwayFilter(e.target.value)}
+                >
+                  <option value="all">Tous les parcours</option>
+                  <option value="citoyen">Citoyen</option>
+                  <option value="creativite">Créativité</option>
+                  <option value="fabrication">Fabrication</option>
+                  <option value="psychologie">Psychologie</option>
+                  <option value="innovation">Innovation</option>
+                  <option value="education">Éducation</option>
+                  <option value="technologie">Technologie</option>
+                  <option value="sante">Santé</option>
+                  <option value="environnement">Environnement</option>
+                  <option value="mlds">MLDS</option>
+                  <option value="faj_co">FAJ Co</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="status-filter">Statut</label>
+                <select
+                  id="status-filter"
+                  className="filter-select"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="À venir">À venir</option>
+                  <option value="En cours">En cours</option>
+                  <option value="Terminée">Terminée</option>
+                </select>
+              </div>
+              <div className="filter-group">
+                <label htmlFor="start-date-filter">Date de début</label>
+                <input
+                  id="start-date-filter"
+                  type="date"
+                  className="filter-select"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="filter-group">
+                <label htmlFor="end-date-filter">Date de fin</label>
+                <input
+                  id="end-date-filter"
+                  type="date"
+                  className="filter-select"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+              <div className="filter-group">
+                <label htmlFor="visibility-filter">Visibilité</label>
+                <select
+                  id="visibility-filter"
+                  className="filter-select"
+                  value={visibilityFilter}
+                  onChange={(e) => setVisibilityFilter(e.target.value)}
+                >
+                  <option value="all">Tous les projets</option>
+                  <option value="public">Publics</option>
+                  <option value="private">Privés</option>
+                </select>
+              </div>
+            </>
           )}
-          <div className="filter-group">
-            <label htmlFor="pathway-filter">Parcours</label>
-            <select
-              id="pathway-filter"
-              className="filter-select"
-              value={pathwayFilter}
-              onChange={(e) => setPathwayFilter(e.target.value)}
-            >
-              <option value="all">Tous les parcours</option>
-              <option value="citoyen">Citoyen</option>
-              <option value="creativite">Créativité</option>
-              <option value="fabrication">Fabrication</option>
-              <option value="psychologie">Psychologie</option>
-              <option value="innovation">Innovation</option>
-              <option value="education">Éducation</option>
-              <option value="technologie">Technologie</option>
-              <option value="sante">Santé</option>
-              <option value="environnement">Environnement</option>
-              <option value="mlds">MLDS</option>
-              <option value="faj_co">FAJ Co</option>
-            </select>
-          </div>
-          <div className="filter-group">
-            <label htmlFor="status-filter">Statut</label>
-            <select
-              id="status-filter"
-              className="filter-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="À venir">À venir</option>
-              <option value="En cours">En cours</option>
-              <option value="Terminée">Terminée</option>
-            </select>
-          </div>
-          <div className="filter-group">
-            <label htmlFor="start-date-filter">Date de début</label>
-            <input
-              id="start-date-filter"
-              type="date"
-              className="filter-select"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="end-date-filter">Date de fin</label>
-            <input
-              id="end-date-filter"
-              type="date"
-              className="filter-select"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="visibility-filter">Visibilité</label>
-            <select
-              id="visibility-filter"
-              className="filter-select"
-              value={visibilityFilter}
-              onChange={(e) => setVisibilityFilter(e.target.value)}
-            >
-              <option value="all">Tous les projets</option>
-              <option value="public">Publics</option>
-              <option value="private">Privés</option>
-            </select>
-          </div>
         </div>
       </div>
 
@@ -839,16 +1349,19 @@ const Projects: React.FC = () => {
               const canManage = rawApiProject ? canUserManageProject(rawApiProject, state.user) : false;
               const canDelete = rawApiProject ? canUserDeleteProject(rawApiProject, state.user?.id?.toString()) : false;
               
+              // Check if project is ended - disable edit/delete actions if true, but allow viewing
+              const isProjectEnded = project.status === 'ended';
+              
               return (
                 <ProjectCard
                   key={project.id}
                   project={project}
-                  onEdit={() => handleEditProject(project)}
-                  onManage={() => handleManageProject(project)}
-                  onDelete={canDelete ? () => handleDeleteProject(project.id) : undefined}
+                  onEdit={!isProjectEnded ? () => handleEditProject(project) : undefined}
+                  onManage={() => handleManageProject(project)} // Always allow viewing/managing
+                  onDelete={canDelete && !isProjectEnded ? () => handleDeleteProject(project.id) : undefined}
                   isPersonalUser={isPersonalUser}
-                  canManage={canManage}
-                  canDelete={canDelete}
+                  canManage={canManage && !isProjectEnded} // Can't manage if ended, but can view
+                  canDelete={canDelete && !isProjectEnded}
                 />
               );
             })}
@@ -857,10 +1370,27 @@ const Projects: React.FC = () => {
           {/* Pagination Controls */}
           {(() => {
             // Determine which pagination state to use based on active tab
-            const currentPage = (state.showingPageType === 'user' && activeTab === 'mes-projets') ? myProjectsPage : projectPage;
-            const totalPages = (state.showingPageType === 'user' && activeTab === 'mes-projets') ? myProjectsTotalPages : projectTotalPages;
-            const totalCount = (state.showingPageType === 'user' && activeTab === 'mes-projets') ? myProjectsTotalCount : projectTotalCount;
-            const setCurrentPage = (state.showingPageType === 'user' && activeTab === 'mes-projets') ? setMyProjectsPage : setProjectPage;
+            let currentPage: number;
+            let totalPages: number;
+            let totalCount: number;
+            let setCurrentPage: (page: number) => void;
+            
+            if (activeTab === 'mlds-projects') {
+              currentPage = mldsProjectsPage;
+              totalPages = mldsProjectsTotalPages;
+              totalCount = mldsProjectsTotalCount;
+              setCurrentPage = setMldsProjectsPage;
+            } else if (activeTab === 'mes-projets') {
+              currentPage = myProjectsPage;
+              totalPages = myProjectsTotalPages;
+              totalCount = myProjectsTotalCount;
+              setCurrentPage = setMyProjectsPage;
+            } else {
+              currentPage = projectPage;
+              totalPages = projectTotalPages;
+              totalCount = projectTotalCount;
+              setCurrentPage = setProjectPage;
+            }
             
             if (totalPages <= 1) return null;
             
@@ -945,11 +1475,89 @@ const Projects: React.FC = () => {
         />
       )}
 
+      {isMLDSProjectModalOpen && (
+        <MLDSProjectModal
+          onClose={() => {
+            setIsMLDSProjectModalOpen(false);
+            setSelectedProject(null);
+          }}
+          onSave={handleSaveProject}
+        />
+      )}
+
       {isSubscriptionModalOpen && (
         <SubscriptionRequiredModal
           onClose={() => setIsSubscriptionModalOpen(false)}
           featureName="La création de projets"
         />
+      )}
+
+      {isDeleteModalOpen && projectToDelete && (
+        <div className="modal-overlay" onClick={cancelDeleteProject}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>Confirmer la suppression</h3>
+              <button className="modal-close" onClick={cancelDeleteProject}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div style={{ 
+                padding: '1.5rem', 
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '1rem'
+              }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: '#fee2e2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '0.5rem'
+                }}>
+                  <i className="fas fa-exclamation-triangle" style={{ fontSize: '2rem', color: '#dc2626' }}></i>
+                </div>
+                
+                <div>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
+                    Êtes-vous sûr de vouloir supprimer ce projet ?
+                  </h4>
+                  <p style={{ fontSize: '0.95rem', color: '#6b7280', marginBottom: '1rem' }}>
+                    Cette action est irréversible. Le projet <strong>"{projectToDelete.title}"</strong> sera définitivement supprimé.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn btn-outline" 
+                onClick={cancelDeleteProject}
+                style={{ minWidth: '100px' }}
+              >
+                Annuler
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={confirmDeleteProject}
+                style={{ 
+                  minWidth: '100px',
+                  backgroundColor: '#dc2626',
+                  borderColor: '#dc2626'
+                }}
+              >
+                <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </section>

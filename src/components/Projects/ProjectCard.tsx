@@ -15,6 +15,9 @@ interface ProjectCardProps {
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, onDelete, isPersonalUser = false, canManage = false, canDelete = false }) => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  
+  // Check if project is ended - disable all actions if true
+  const isProjectEnded = project.status === 'ended';
   // Format date from YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -24,6 +27,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'draft': return 'status-draft';
+      case 'to_process': return 'status-to-process';
       case 'À venir': return 'status-coming';
       case 'En cours': return 'status-in-progress';
       case 'Terminée': return 'status-ended';
@@ -36,6 +41,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
 
   const getStatusText = (status: string) => {
     switch (status) {
+      case 'draft': return 'Brouillon';
+      case 'to_process': return 'À traiter';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminée';
@@ -82,7 +89,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
 
       <div className="project-content">
         <div className="project-header">
-          <h3 className="project-title">{project.title}</h3>
+          {/* Display RS before title for MLDS projects with dates */}
+          
+          <h3 className="project-title">
+          <span className='text-sm text-gray-500'>{project.mlds_information && project.rs && project.rs + ' '}</span>
+            {project.title}
+            
+            </h3>
           {project.pathway && (
             <span className={`pathway-pill ${getPathwayColor(project.pathway)}`}>
               {getPathwayText(project.pathway)}
@@ -137,13 +150,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
         </div>
 
         <div className="project-actions">
-          {canDelete && onDelete && (
+          {canDelete && onDelete && !isProjectEnded && (
             <button className="btn btn-outline btn-sm btn-danger" onClick={() => onDelete(project)}>
               <i className="fas fa-trash"></i>
               Supprimer
             </button>
           )}
-          {canManage ? (
+          {canManage && !isProjectEnded ? (
             <button className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
               <i className="fas fa-cog"></i>
               Gérer

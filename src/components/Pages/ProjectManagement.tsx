@@ -1,15 +1,16 @@
+// ProjectManagement Component - Project Details and Management
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getPartnerships } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
 import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
-import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize } from '../../utils/projectMapper';
+import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
@@ -19,7 +20,9 @@ import './MembershipRequests.css';
 import './ProjectManagement.css';
 import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/projectPermissions';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
-
+import { jsPDF } from 'jspdf';
+import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
+import { translateRole } from '../../utils/roleTranslations';
 // Component for displaying skills with "Voir plus"/"Voir moins" functionality
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
   const [showAll, setShowAll] = React.useState(false);
@@ -103,10 +106,40 @@ const ProjectManagement: React.FC = () => {
     startDate: '',
     endDate: '',
     pathway: '',
-    status: 'coming' as 'coming' | 'in_progress' | 'ended',
-    visibility: 'public' as 'public' | 'private'
+    status: 'coming' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
+    visibility: 'public' as 'public' | 'private',
+    isPartnership: false,
+    coResponsibles: [] as string[],
+    partners: [] as string[],
+    // MLDS fields
+    mldsRequestedBy: 'departement',
+    mldsDepartment: '',
+    mldsTargetAudience: 'students_without_solution',
+    mldsActionObjectives: [] as string[],
+    mldsActionObjectivesOther: '',
+    mldsObjectives: '',
+    mldsCompetenciesDeveloped: '',
+    mldsExpectedParticipants: '',
+    mldsFinancialHSE: '',
+    mldsFinancialHV: '',
+    mldsFinancialTransport: '',
+    mldsFinancialOperating: '',
+    mldsFinancialService: '',
+    mldsOrganizationNames: [] as string[],
+    mldsSchoolLevelIds: [] as string[] // IDs of school levels
   });
   const [editImagePreview, setEditImagePreview] = useState<string>('');
+  const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
+  const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
+  const [editAvailableMembers, setEditAvailableMembers] = useState<any[]>([]);
+  const [editAvailablePartnerships, setEditAvailablePartnerships] = useState<any[]>([]);
+  const [isLoadingEditMembers, setIsLoadingEditMembers] = useState(false);
+  const [departments, setDepartments] = useState<Array<{ code: string; nom: string }>>([]);
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
+  const [editSearchTerms, setEditSearchTerms] = useState({
+    coResponsibles: '',
+    partner: ''
+  });
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
@@ -195,6 +228,12 @@ const ProjectManagement: React.FC = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_isLoadingProject, setIsLoadingProject] = useState(false); // Set but not used in UI
   const [apiProjectData, setApiProjectData] = useState<any>(null);
+  
+  // Check if project has MLDS information
+  const isMLDSProject = apiProjectData?.mlds_information != null;
+  
+  // Check if project is ended - disable all actions if true
+  const isProjectEnded = project?.status === 'ended';
   
   // State for project statistics
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
@@ -530,6 +569,34 @@ const ProjectManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id]);
 
+  // Fetch departments from API
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      setIsLoadingDepartments(true);
+      try {
+        const response = await fetch('https://geo.api.gouv.fr/departements');
+        if (response.ok) {
+          const data = await response.json();
+          // Sort departments by name
+          const sortedData = data.sort((a: { nom: string }, b: { nom: string }) => 
+            a.nom.localeCompare(b.nom)
+          );
+          setDepartments(sortedData);
+        } else {
+          console.error('Error fetching departments:', response.statusText);
+          setDepartments([]);
+        }
+      } catch (err) {
+        console.error('Error fetching departments:', err);
+        setDepartments([]);
+      } finally {
+        setIsLoadingDepartments(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
+
   // State for requests (pending project join requests)
   const [requests, setRequests] = useState<any[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
@@ -549,6 +616,8 @@ const ProjectManagement: React.FC = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
+      case 'draft': return 'Brouillon';
+      case 'to_process': return 'À traiter';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminé';
@@ -558,6 +627,8 @@ const ProjectManagement: React.FC = () => {
 
   const getStatusClass = (status: string) => {
     switch (status) {
+      case 'draft': return 'draft';
+      case 'to_process': return 'to-process';
       case 'coming': return 'coming';
       case 'in_progress': return 'in-progress';
       case 'ended': return 'ended';
@@ -1087,7 +1158,89 @@ const ProjectManagement: React.FC = () => {
     return uniqueMembers;
   };
 
-  const handleEdit = () => {
+  // Helper functions for edit modal
+  const handleEditSearchChange = (field: 'coResponsibles' | 'partner', value: string) => {
+    setEditSearchTerms(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getEditFilteredMembers = (searchTerm: string) => {
+    // Filter out already selected co-responsibles
+    let available = editAvailableMembers.filter((member: any) => 
+      !editForm.coResponsibles.includes(member.id.toString())
+    );
+    
+    if (!searchTerm) return available;
+    const lowerSearch = searchTerm.toLowerCase();
+    return available.filter((member: any) => {
+      const fullName = member.full_name || `${member.first_name} ${member.last_name}`;
+      return fullName.toLowerCase().includes(lowerSearch) || member.email?.toLowerCase().includes(lowerSearch);
+    });
+  };
+
+  const getEditFilteredPartnerships = (searchTerm: string) => {
+    // Filter out already selected partnerships
+    let available = editAvailablePartnerships.filter((partnership: any) => 
+      !editForm.partners.includes(partnership.id?.toString())
+    );
+    
+    if (!searchTerm) return available;
+    
+    const lowerSearch = searchTerm.toLowerCase();
+    return available.filter((partnership: any) => {
+      const partnerNames = partnership.partners?.map((p: any) => p.name).join(', ') || '';
+      return partnerNames.toLowerCase().includes(lowerSearch);
+    });
+  };
+
+  const handleEditMemberSelect = (field: 'coResponsibles', memberId: string) => {
+    setEditForm(prev => {
+      const currentList = prev[field];
+      const newList = currentList.includes(memberId)
+        ? currentList.filter((id: string) => id !== memberId)
+        : [...currentList, memberId];
+      return { ...prev, [field]: newList };
+    });
+  };
+
+  const handleEditPartnerSelect = (partnerId: string) => {
+    setEditForm(prev => {
+      const newPartners = prev.partners.includes(partnerId)
+        ? prev.partners.filter(id => id !== partnerId)
+        : [...prev.partners, partnerId];
+      return { ...prev, partners: newPartners };
+    });
+  };
+
+  const handleEdit = async () => {
+    // Prevent editing if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de modifier un projet terminé');
+      return;
+    }
+    
+    const mldsInfo = apiProjectData?.mlds_information;
+
+    // Get current co-responsibles and partnerships
+    // Check both co_responsibles and co_owners to ensure we get all co-responsibles
+    let currentCoResponsibles: string[] = [];
+    if (apiProjectData?.co_responsibles && Array.isArray(apiProjectData.co_responsibles)) {
+      currentCoResponsibles = apiProjectData.co_responsibles.map((cr: any) => cr.id?.toString()).filter(Boolean);
+    } else if (apiProjectData?.co_owners && Array.isArray(apiProjectData.co_owners)) {
+      // Fallback to co_owners if co_responsibles doesn't exist
+      currentCoResponsibles = apiProjectData.co_owners.map((cr: any) => cr.id?.toString()).filter(Boolean);
+    }
+
+    console.log('🔍 [handleEdit] Current co-responsibles IDs:', currentCoResponsibles);
+
+    // Get all partnership IDs (can be multiple)
+    let currentPartnerships: string[] = [];
+    if (apiProjectData?.partnership_id) {
+      currentPartnerships = [apiProjectData.partnership_id.toString()];
+    } else if (apiProjectData?.partnership?.id) {
+      currentPartnerships = [apiProjectData.partnership.id.toString()];
+    }
+    const isPartnerProject = apiProjectData?.is_partner_project || false;
+    
     setEditForm({
       title: project.title,
       description: project.description,
@@ -1096,16 +1249,146 @@ const ProjectManagement: React.FC = () => {
       endDate: project.endDate,
       pathway: project.pathway || '',
       status: project.status || 'coming',
-      visibility: project.visibility || 'public'
+      visibility: isMLDSProject ? 'private' : (project.visibility || 'public'), // MLDS projects are always private
+      isPartnership: isPartnerProject,
+      coResponsibles: currentCoResponsibles,
+      partners: currentPartnerships,
+      // MLDS fields
+      mldsRequestedBy: mldsInfo?.requested_by || 'departement',
+      mldsDepartment: mldsInfo?.department_number || mldsInfo?.department_code || '',
+      mldsTargetAudience: mldsInfo?.target_audience || 'students_without_solution',
+      mldsActionObjectives: mldsInfo?.action_objectives || [],
+      mldsActionObjectivesOther: mldsInfo?.action_objectives_other || '',
+      mldsObjectives: mldsInfo?.objectives || '',
+      mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
+      mldsExpectedParticipants: mldsInfo?.expected_participants?.toString() || '',
+      mldsFinancialHSE: mldsInfo?.financial_hse || '',
+      mldsFinancialHV: mldsInfo?.financial_hv || '',
+      mldsFinancialTransport: mldsInfo?.financial_transport || '',
+      mldsFinancialOperating: mldsInfo?.financial_operating || '',
+      mldsFinancialService: mldsInfo?.financial_service || '',
+      mldsOrganizationNames: mldsInfo?.organization_names || [],
+      // For MLDS: use mlds_information.school_level_ids
+      // For non-MLDS school projects: use root school_level_ids (as returned by API)
+      mldsSchoolLevelIds: (
+        (mldsInfo?.school_level_ids || apiProjectData?.school_level_ids || []) as number[]
+      ).map((id: number) => id.toString())
     });
     setEditImagePreview(project.image || '');
     setIsEditModalOpen(true);
+    
+    // Load members
+    setIsLoadingEditMembers(true);
+    try {
+      const organizationType = getOrganizationType(state.showingPageType);
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+
+      let membersResult: any[] = [];
+      if (state.showingPageType === 'teacher') {
+        membersResult = await getTeacherMembers();
+      } else if (organizationType && organizationId) {
+        membersResult = await getOrganizationMembers(organizationId, organizationType);
+      }
+      setEditAvailableMembers(membersResult || []);
+
+      // Debug: log available members IDs
+      console.log('🔍 [handleEdit] Available members:', membersResult?.length || 0);
+      console.log('🔍 [handleEdit] Available member IDs:', membersResult?.map((m: any) => m.id?.toString()).slice(0, 5));
+      console.log('🔍 [handleEdit] Co-responsibles to select:', currentCoResponsibles);
+    } catch (err) {
+      console.error('Error fetching members:', err);
+      setEditAvailableMembers([]);
+    } finally {
+      setIsLoadingEditMembers(false);
+    }
+    
+    // Load partnerships
+    try {
+      const organizationType = getOrganizationType(state.showingPageType);
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      
+      if (organizationType && organizationId && (organizationType === 'school' || organizationType === 'company')) {
+        const partnershipsResponse = await getPartnerships(organizationId, organizationType);
+        setEditAvailablePartnerships(partnershipsResponse.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching partnerships:', err);
+      setEditAvailablePartnerships([]);
+    }
+    
+    // Load school levels (classes) for school context (MLDS and non-MLDS)
+    setIsLoadingSchoolLevels(true);
+    try {
+      const organizationType = getOrganizationType(state.showingPageType);
+      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      
+      if (organizationType === 'school' && organizationId) {
+        const response = await getSchoolLevels(organizationId, 1, 100);
+        setAvailableSchoolLevels(response.data?.data || []);
+      } else {
+        setAvailableSchoolLevels([]);
+      }
+    } catch (err) {
+      console.error('Error fetching school levels:', err);
+      setAvailableSchoolLevels([]);
+    } finally {
+      setIsLoadingSchoolLevels(false);
+    }
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEditInternal = async (
+    desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended'
+  ) => {
     try {
+      const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+        desiredStatus || editForm.status;
+
+      // For MLDS projects, force visibility to private
+      const formDataWithVisibility = isMLDSProject 
+        ? { ...editForm, visibility: 'private' as const }
+        : editForm;
+
       // Map edit form to backend payload
-      const payload = mapEditFormToBackend(editForm, state.tags || [], project);
+      const payload = mapEditFormToBackend(formDataWithVisibility, state.tags || [], project);
+      payload.project.status = effectiveStatus;
+      
+      // Add co-responsibles and partnership
+      payload.project.co_responsible_ids = editForm.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+      // Note: Backend currently accepts only one partnership_id, so we take the first one
+      payload.project.partnership_id = editForm.partners.length > 0 ? Number.parseInt(editForm.partners[0], 10) : null;
+      
+      // Add MLDS information if it's an MLDS project
+      if (isMLDSProject) {
+
+        const schoolLevelIds = editForm.mldsSchoolLevelIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+        
+        payload.project.mlds_information_attributes = {
+          requested_by: editForm.mldsRequestedBy,
+          department_number: editForm.mldsRequestedBy === 'departement' && editForm.mldsDepartment ? editForm.mldsDepartment : null,
+          school_level_ids: schoolLevelIds,
+          target_audience: editForm.mldsTargetAudience,
+          action_objectives: editForm.mldsActionObjectives,
+          action_objectives_other: editForm.mldsActionObjectivesOther || null,
+          objectives: editForm.mldsObjectives || null,
+          competencies_developed: editForm.mldsCompetenciesDeveloped || null,
+          expected_participants: editForm.mldsExpectedParticipants ? parseInt(editForm.mldsExpectedParticipants) : null,
+          financial_hse: editForm.mldsFinancialHSE ? Number.parseFloat(editForm.mldsFinancialHSE) : null,
+          financial_hv: editForm.mldsFinancialHV ? Number.parseFloat(editForm.mldsFinancialHV) : null,
+          financial_transport: editForm.mldsFinancialTransport ? Number.parseFloat(editForm.mldsFinancialTransport) : null,
+          financial_operating: editForm.mldsFinancialOperating ? Number.parseFloat(editForm.mldsFinancialOperating) : null,
+          financial_service: editForm.mldsFinancialService ? Number.parseFloat(editForm.mldsFinancialService) : null
+          // organization_names is automatically generated by backend from school_level_ids
+        };
+      } else {
+        // Non-MLDS school projects can still have school_level_ids at root level
+        const schoolLevelIds = editForm.mldsSchoolLevelIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+        if (schoolLevelIds.length > 0) {
+          (payload.project as any).school_level_ids = schoolLevelIds;
+        } else {
+          // Allow clearing school levels
+          (payload.project as any).school_level_ids = [];
+        }
+      }
       
       // Convert image preview to File if different from current image
       let mainImageFile: File | null = null;
@@ -1149,13 +1432,77 @@ const ProjectManagement: React.FC = () => {
       setProject(mappedProject);
       setSelectedProject(mappedProject);
       
-    setIsEditModalOpen(false);
+      // Update apiProjectData to reflect changes
+      setApiProjectData(apiProject);
+      
+      setIsEditModalOpen(false);
       setEditImagePreview('');
+      showSuccess('Projet mis à jour avec succès');
     } catch (error: any) {
       console.error('Error updating project:', error);
       const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors de la mise à jour du projet';
-      alert(errorMessage);
+      showError(errorMessage);
     }
+  };
+
+  const handleSaveEdit = async () => {
+    // Pour les projets MLDS et rôle enseignant, on force le statut "À traiter"
+    const isTeacher =
+      isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher');
+    
+    let statusForSubmit: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
+    
+    if (isTeacher) {
+      // Cas spécial : enseignants avec projets MLDS → "À traiter"
+      statusForSubmit = 'to_process';
+    } else {
+      // Utiliser le statut sélectionné dans le formulaire
+      statusForSubmit = editForm.status || 'coming';
+    }
+
+    await handleSaveEditInternal(statusForSubmit);
+  };
+
+  const handleSaveEditDraft = async () => {
+    // Sauvegarde en brouillon
+    await handleSaveEditInternal('draft');
+  };
+
+  const handleEditOrganizationToggle = (schoolLevelId: string) => {
+    setEditForm(prev => {
+      const isAlreadySelected = prev.mldsSchoolLevelIds.includes(schoolLevelId);
+
+      const updatedSchoolLevelIds = isAlreadySelected
+        ? prev.mldsSchoolLevelIds.filter(id => id !== schoolLevelId)
+        : [...prev.mldsSchoolLevelIds, schoolLevelId];
+
+      // Lorsqu'on sélectionne une organisation porteuse (classe),
+      // on pré‑sélectionne les enseignants responsables comme co‑responsables.
+      if (!isAlreadySelected) {
+        const selectedLevel = availableSchoolLevels.find(
+          (level: any) => level.id?.toString() === schoolLevelId
+        );
+
+        const teacherIds =
+          selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
+
+        if (teacherIds.length > 0) {
+          const coResponsiblesSet = new Set(prev.coResponsibles);
+          teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
+
+          return {
+            ...prev,
+            mldsSchoolLevelIds: updatedSchoolLevelIds,
+            coResponsibles: Array.from(coResponsiblesSet)
+          };
+        }
+      }
+
+      return {
+        ...prev,
+        mldsSchoolLevelIds: updatedSchoolLevelIds
+      };
+    });
   };
 
   const handleCancelEdit = () => {
@@ -1270,6 +1617,12 @@ const ProjectManagement: React.FC = () => {
 
   // Participant handlers
   const handleRemoveParticipant = async (participantId: string) => {
+    // Prevent removing participants if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de retirer des participants d\'un projet terminé');
+      return;
+    }
+    
     const participant = participants.find(p => p.id === participantId);
     if (!participant || !project?.id) return;
     
@@ -1344,6 +1697,12 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleAssignBadge = () => {
+    // Prevent assigning badges if project is ended
+    if (isProjectEnded) {
+      showError('Impossible d\'attribuer des badges à un projet terminé');
+      return;
+    }
+    
     // Open badge modal without pre-selecting a participant
     setSelectedParticipantForBadge(null);
     setIsBadgeModalOpen(true);
@@ -1494,6 +1853,13 @@ const ProjectManagement: React.FC = () => {
 
   const handleDeleteDocument = async (attachmentId: number) => {
     if (!project?.id) return;
+    
+    // Prevent deleting documents if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de supprimer un document d\'un projet terminé');
+      return;
+    }
+    
     if (!window.confirm('Supprimer ce document ?')) return;
 
     setIsLoadingProjectDocuments(true);
@@ -1541,6 +1907,12 @@ const ProjectManagement: React.FC = () => {
 
   // Team management functions
   const handleCreateTeam = () => {
+    // Prevent creating teams if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de créer une équipe pour un projet terminé');
+      return;
+    }
+    
     setIsCreateTeamModalOpen(true);
     setNewTeamForm({
       name: '',
@@ -1551,6 +1923,12 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleEditTeam = (team: any) => {
+    // Prevent editing teams if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de modifier une équipe d\'un projet terminé');
+      return;
+    }
+    
     setSelectedTeam(team);
     setNewTeamForm({
       name: team.name,
@@ -1596,6 +1974,12 @@ const ProjectManagement: React.FC = () => {
 
   const handleDeleteTeam = async (teamId: string) => {
     if (!project?.id) return;
+    
+    // Prevent deleting teams if project is ended
+    if (isProjectEnded) {
+      showError('Impossible de supprimer une équipe d\'un projet terminé');
+      return;
+    }
     
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) {
       return;
@@ -1863,6 +2247,12 @@ const ProjectManagement: React.FC = () => {
   // };
 
   const handleAddParticipant = async () => {
+    // Prevent adding participants if project is ended
+    if (isProjectEnded) {
+      showError('Impossible d\'ajouter des participants à un projet terminé');
+      return;
+    }
+    
     setIsLoadingAvailableMembers(true);
     try {
       const members = await fetchAvailableMembers();
@@ -2125,12 +2515,37 @@ const ProjectManagement: React.FC = () => {
 
   // Format date from ISO string or YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString: string) => {
+    // Check if date string is valid
+    if (!dateString || dateString.trim() === '') {
+      return 'Non renseigné';
+    }
+    
     // Handle ISO string format
     const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (Number.isNaN(date.getTime())) {
+      return 'Non renseigné';
+    }
+    
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear().toString().slice(-2); // Get last 2 digits of year
     return `${day}-${month}-${year}`;
+  };
+
+  // Format date range (start - end), returns single "Non renseigné" if both dates are invalid
+  const formatDateRange = (startDate: string, endDate: string) => {
+    const formattedStart = formatDate(startDate);
+    const formattedEnd = formatDate(endDate);
+    
+    // If both dates are invalid, return single "Non renseigné"
+    if (formattedStart === 'Non renseigné' && formattedEnd === 'Non renseigné') {
+      return 'Non renseigné';
+    }
+    
+    // Otherwise, return the range
+    return `${formattedStart} - ${formattedEnd}`;
   };
 
   // Toggle comment collapse
@@ -2144,6 +2559,502 @@ const ProjectManagement: React.FC = () => {
       }
       return newSet;
     });
+  };
+
+  // Export MLDS information to PDF
+  const handleExportMLDSPDF = () => {
+    if (!apiProjectData?.mlds_information) return;
+
+    const doc = new jsPDF();
+    const mldsInfo = apiProjectData.mlds_information;
+    let yPosition = 25;
+    const lineHeight = 5.5;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 25;
+    const textColor = [40, 40, 40]; // Gris très foncé
+    const labelColor = [120, 120, 120]; // Gris moyen
+    const accentColor = [100, 100, 100]; // Gris foncé pour compatibilité
+    const primaryColor = [41, 98, 255]; // Bleu pour compatibilité
+
+    // Helper function to check if we need a new page
+    const checkNewPage = (requiredSpace = 10) => {
+      if (yPosition + requiredSpace > pageHeight - margin) {
+        doc.addPage();
+        addPageNumber();
+        yPosition = margin;
+        return true;
+      }
+      return false;
+    };
+
+    // Helper function to add page number
+    const addPageNumber = () => {
+      const pageCount = doc.getCurrentPageInfo().pageNumber;
+      doc.setFontSize(8);
+      doc.setTextColor(180, 180, 180);
+      doc.text(`Page ${pageCount}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    };
+
+    // Helper function to add text with word wrap
+    const addWrappedText = (text: string, x: number, maxWidth: number, isBold = false) => {
+      if (isBold) {
+        doc.setFont('helvetica', 'bold');
+      } else {
+        doc.setFont('helvetica', 'normal');
+      }
+      const lines = doc.splitTextToSize(text, maxWidth);
+      lines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, x, yPosition);
+        yPosition += lineHeight;
+      });
+    };
+
+    // Helper function to add section header
+    const addSectionHeader = (title: string) => {
+      checkNewPage(15);
+      yPosition += 2;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(title.toUpperCase(), margin, yPosition);
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.line(margin, yPosition + 2, pageWidth - margin, yPosition + 2);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      yPosition += 7;
+    };
+
+    // Clean minimal header
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Projet MLDS', margin, yPosition);
+    yPosition += 7;
+    doc.setFontSize(9);
+    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+    doc.text('Mission de Lutte contre le Décrochage Scolaire - Volet Persévérance', margin, yPosition);
+    yPosition += 10;
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    const titleLines = doc.splitTextToSize(project.title, pageWidth - 2 * margin);
+    titleLines.forEach((line: string) => {
+      doc.text(line, margin, yPosition);
+      yPosition += 6;
+    });
+
+    // ==================== INFORMATIONS GÉNÉRALES ====================
+    addSectionHeader('Informations générales');
+    doc.setFontSize(9);
+
+    // Description
+    if (project.description) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('Description', margin, yPosition);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      addWrappedText(project.description, margin, pageWidth - 2 * margin);
+      yPosition += 2;
+    }
+
+    // Grid layout for key info
+    checkNewPage(15);
+    const col1 = margin;
+    const col2 = margin + 50;
+
+    // Row 1: Statut, Période
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+    doc.text('STATUT', col1, yPosition);
+    doc.text('PÉRIODE', col2, yPosition);
+    yPosition += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(getStatusText(project.status), col1, yPosition);
+    doc.text(formatDateRange(project.startDate, project.endDate), col2, yPosition);
+    yPosition += lineHeight + 3;
+
+    // Row 2: Parcours, Organisation
+    if (project.pathway || project.organization) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      if (project.pathway) doc.text('PARCOURS', col1, yPosition);
+      if (project.organization) doc.text('ORGANISATION', col2, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      if (project.pathway) doc.text(project.pathway.toUpperCase(), col1, yPosition);
+      if (project.organization) {
+        const orgLines = doc.splitTextToSize(project.organization, 60);
+        doc.text(orgLines[0], col2, yPosition);
+      }
+      yPosition += lineHeight + 3;
+    }
+
+    // Row 3: Participants
+    checkNewPage(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+    doc.text('PARTICIPANTS', col1, yPosition);
+    yPosition += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text(`${projectStats?.overview?.total_members || project.participants || 0}`, col1, yPosition);
+    yPosition += lineHeight + 3;
+
+    // Responsable du projet
+    if (project.responsible) {
+      checkNewPage(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('RESPONSABLE DU PROJET', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(project.responsible.name, margin, yPosition);
+      yPosition += lineHeight;
+      if (project.responsible.role || project.responsible.profession) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+        doc.text(project.responsible.role || project.responsible.profession, margin, yPosition);
+        yPosition += lineHeight - 0.5;
+      }
+      if (project.responsible.email) {
+        doc.setFontSize(8);
+        doc.text(project.responsible.email, margin, yPosition);
+        yPosition += lineHeight;
+      }
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      yPosition += 2;
+    }
+
+    // Co-responsables
+    if (project.coResponsibles && project.coResponsibles.length > 0) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('CO-RESPONSABLES', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      project.coResponsibles.forEach((coResp) => {
+        checkNewPage(10);
+        doc.text(coResp.name, margin, yPosition);
+        if (coResp.email) {
+          doc.text(` - ${coResp.email}`, margin + 45, yPosition);
+        }
+        yPosition += lineHeight;
+      });
+      yPosition += 2;
+    }
+
+    // Partenaire
+    if (project.partner) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('PARTENAIRE', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text(project.partner.name, margin, yPosition);
+      yPosition += lineHeight + 2;
+    }
+
+    // Tags
+    if (project.tags && project.tags.length > 0) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('TAGS', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      const tagsText = project.tags.map(tag => `#${tag}`).join('  ');
+      addWrappedText(tagsText, margin, pageWidth - 2 * margin);
+      yPosition += 2;
+    }
+
+    // Organisations porteuses
+    if (mldsInfo.organization_names && mldsInfo.organization_names.length > 0) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
+      doc.text('ORGANISATIONS PORTEUSES', margin, yPosition);
+      yPosition += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      
+      mldsInfo.organization_names.forEach((org: string) => {
+        checkNewPage(7);
+        doc.text(`• ${org}`, margin, yPosition);
+        yPosition += lineHeight - 1;
+      });
+      
+      yPosition += 2;
+    }
+
+    // ==================== INFORMATIONS MLDS ====================
+    yPosition += 3;
+    addSectionHeader('INFORMATIONS MLDS');
+    doc.setFontSize(10);
+
+    // Demande faite par et Public ciblé sur la même ligne si possible
+    if (mldsInfo.requested_by) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Demande faite par', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      const requestedByText = mldsInfo.requested_by === 'departement' ? 'Département' : 'Réseau foquale';
+      doc.text(requestedByText, margin + 45, yPosition);
+      yPosition += lineHeight + 2;
+    }
+
+    // Public ciblé
+    if (mldsInfo.target_audience) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Public ciblé', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      let targetText = '';
+      if (mldsInfo.target_audience === 'students_without_solution') targetText = 'Élèves sans solution à la rentrée';
+      else if (mldsInfo.target_audience === 'students_at_risk') targetText = 'Élèves en situation de décrochage repérés par le GPDS';
+      else if (mldsInfo.target_audience === 'school_teams') targetText = 'Équipes des établissements';
+      addWrappedText(targetText, margin + 2, 168);
+      yPosition += 1;
+    }
+
+    // Effectifs prévisionnel
+    if (mldsInfo.expected_participants != null) {
+      checkNewPage(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Effectifs prévisionnel', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${mldsInfo.expected_participants} participants`, margin + 50, yPosition);
+      yPosition += lineHeight + 2;
+    }
+
+    // Objectifs pédagogiques
+    if (mldsInfo.objectives) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Objectifs pédagogiques', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      addWrappedText(mldsInfo.objectives, margin + 2, 168);
+      yPosition += 1;
+    }
+
+    // Objectifs de l'action
+    if (mldsInfo.action_objectives && mldsInfo.action_objectives.length > 0) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Objectifs de l\'action', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      
+      const objectiveLabels: { [key: string]: string } = {
+        'path_security': 'Sécurisation des parcours (liaison inter-cycles)',
+        'professional_discovery': 'Découverte des filières professionnelles',
+        'student_mobility': 'Développement de la mobilité des élèves',
+        'cps_development': 'Développement des CPS',
+        'territory_partnership': 'Rapprochement avec les partenaires du territoire',
+        'family_links': 'Renforcement des liens familles-élèves',
+        'professional_development': 'Co-développement professionnel',
+        'other': 'Autre'
+      };
+
+      mldsInfo.action_objectives.forEach((obj: string) => {
+        checkNewPage(7);
+        const label = objectiveLabels[obj] || obj;
+        doc.text(`• ${label}`, margin + 2, yPosition);
+        yPosition += lineHeight - 1;
+      });
+
+      if (mldsInfo.action_objectives_other) {
+        checkNewPage(7);
+        doc.setFont('helvetica', 'italic');
+        doc.text(`  ${mldsInfo.action_objectives_other}`, margin + 4, yPosition);
+        doc.setFont('helvetica', 'normal');
+        yPosition += lineHeight;
+      }
+      doc.setFontSize(10);
+      yPosition += 1;
+    }
+
+    // Compétences développées
+    if (mldsInfo.competencies_developed) {
+      checkNewPage(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.text('Compétences développées', margin, yPosition);
+      doc.setTextColor(0, 0, 0);
+      yPosition += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      addWrappedText(mldsInfo.competencies_developed, margin + 2, 168);
+      yPosition += 1;
+    }
+
+    // Moyens financiers
+    const hasFinancials = mldsInfo.financial_hse != null || 
+                          mldsInfo.financial_hv != null ||
+                          mldsInfo.financial_transport != null ||
+                          mldsInfo.financial_operating != null ||
+                          mldsInfo.financial_service != null;
+
+    if (hasFinancials) {
+      yPosition += 3;
+      addSectionHeader('MOYENS FINANCIERS DEMANDÉS');
+      doc.setFontSize(10);
+
+      // HSE and HV on same line if possible
+      if (mldsInfo.financial_hse != null || mldsInfo.financial_hv != null) {
+        checkNewPage(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.text('Heures supplémentaires', margin, yPosition);
+        doc.setTextColor(0, 0, 0);
+        yPosition += lineHeight;
+        
+        if (mldsInfo.financial_hse != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_hse);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text('HSE', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} heures`, margin + 40, yPosition);
+          yPosition += lineHeight;
+        }
+
+        if (mldsInfo.financial_hv != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_hv);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text('HV', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} €`, margin + 40, yPosition);
+          yPosition += lineHeight;
+        }
+        doc.setFontSize(10);
+        yPosition += 1;
+      }
+
+      // Crédits
+      let totalCredits = 0;
+      const hasCredits = mldsInfo.financial_transport != null || 
+                        mldsInfo.financial_operating != null || 
+                        mldsInfo.financial_service != null;
+
+      if (hasCredits) {
+        checkNewPage(15);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.text('Crédits', margin, yPosition);
+        doc.setTextColor(0, 0, 0);
+        yPosition += lineHeight;
+        doc.setFontSize(9);
+
+        if (mldsInfo.financial_transport != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_transport);
+          totalCredits += amount;
+          checkNewPage(6);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Transport', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
+          yPosition += lineHeight;
+        }
+
+        if (mldsInfo.financial_operating != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_operating);
+          totalCredits += amount;
+          checkNewPage(6);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Fonctionnement', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
+          yPosition += lineHeight;
+        }
+
+        if (mldsInfo.financial_service != null) {
+          const amount = Number.parseFloat(mldsInfo.financial_service);
+          totalCredits += amount;
+          checkNewPage(6);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Prestataires', margin + 2, yPosition);
+          doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
+          yPosition += lineHeight;
+        }
+
+        // Sous-total crédits (utiliser le backend si disponible)
+        const creditsTotal = mldsInfo.total_financial_credits 
+          ? Number.parseFloat(mldsInfo.total_financial_credits) 
+          : totalCredits;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text('Sous-total', margin + 2, yPosition);
+        doc.text(`${creditsTotal.toFixed(2)} €`, margin + 50, yPosition);
+        yPosition += lineHeight + 2;
+        doc.setFontSize(10);
+      }
+
+      // Total général avec style (calculer uniquement avec les crédits, sans HSE et HV)
+      checkNewPage(10);
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.5);
+      doc.line(margin, yPosition - 1, pageWidth - margin, yPosition - 1);
+      yPosition += 2;
+      
+      // Utiliser total_financial_credits du backend si disponible, sinon calculer avec les crédits uniquement
+      const totalGeneral = mldsInfo.total_financial_credits 
+        ? Number.parseFloat(mldsInfo.total_financial_credits)
+        : totalCredits;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text('TOTAL GÉNÉRAL', margin, yPosition+2);
+      doc.text(`${totalGeneral.toFixed(2)} €`, pageWidth - margin, yPosition+2, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+    }
+
+    // Save the PDF
+    const fileName = `MLDS_${project.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+    
+    showSuccess('PDF exporté avec succès');
   };
 
 
@@ -2167,7 +3078,12 @@ const ProjectManagement: React.FC = () => {
           <button type="button" className="btn btn-outline" onClick={handleCopyLink}>
             <i className="fas fa-link"></i> Copier le lien
           </button>
-          {canAssignBadges && (
+          {isMLDSProject && (
+            <button type="button" className="btn btn-outline" onClick={handleExportMLDSPDF}>
+              <i className="fas fa-file-pdf"></i> Exporter en PDF
+            </button>
+          )}
+          {canAssignBadges && !isProjectEnded && (
             <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
               <i className="fas fa-award"></i> Attribuer un badge
             </button>
@@ -2260,7 +3176,7 @@ const ProjectManagement: React.FC = () => {
                   </span>
                 ) : null}
                 {/* Edit button for owners/admins */}
-                {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && (
+                {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && !isProjectEnded && (
                 <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
                   <i className="fas fa-edit"></i>
                 </button>
@@ -2270,7 +3186,7 @@ const ProjectManagement: React.FC = () => {
 
             {/* Project Description */}
             <div className="project-description-section">
-              <div className={`project-description-content ${isDescriptionExpanded ? 'expanded' : 'collapsed'}`}>
+              <div className={`project-description-content ${!isDescriptionExpanded ? 'expanded' : 'collapsed'}`}>
                 <p>{project.description}</p>
               </div>
               {project.description.length > 150 && (
@@ -2298,7 +3214,7 @@ const ProjectManagement: React.FC = () => {
               <div className="project-meta-row">
                 <div className="meta-item">
                   <img src="/icons_logo/Icon=calendrier petit.svg" alt="Calendar" className="meta-icon" />
-                  <span className="meta-text">{formatDate(project.startDate)} - {formatDate(project.endDate)}</span>
+                  <span className="meta-text">{formatDateRange(project.startDate, project.endDate)}</span>
                 </div>
                 <div className="meta-item">
                   <img src="/icons_logo/Icon=Membres.svg" alt="Participants" className="meta-icon" />
@@ -2326,6 +3242,29 @@ const ProjectManagement: React.FC = () => {
                     ))}
                   </div>
                 </div>
+                {(() => {
+                  // Prefer raw API payload for school levels (it contains `school_levels`)
+                  // Fallback to `project.school_levels` if present.
+                  const schoolLevels =
+                    (apiProjectData?.school_levels as any[] | undefined) ||
+                    ((project as any)?.school_levels as any[] | undefined) ||
+                    [];
+
+                  if (!Array.isArray(schoolLevels) || schoolLevels.length === 0) return null;
+
+                  return (
+                    <div className="school_level-section">
+                      <div className="section-label">Organisation porteuse</div>
+                      <div className="project-tags">
+                        {schoolLevels.map((school_level: any) => (
+                          <span key={school_level.id?.toString() || school_level.name} className="tag">
+                            {school_level.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -2344,7 +3283,7 @@ const ProjectManagement: React.FC = () => {
                     <div className="manager-details">
                       <div className="manager-name">{project.responsible?.name || project.owner}</div>
                       <div className="manager-role">
-                        {project.responsible?.role || project.responsible?.profession || 'Membre'}
+                        {translateRole(project.responsible?.role) || project.responsible?.profession || 'Membre'}
                         {project.responsible?.city && ` • ${project.responsible.city}`}
                       </div>
                     </div>
@@ -2480,6 +3419,15 @@ const ProjectManagement: React.FC = () => {
           >
             Documents
           </button>
+          {isMLDSProject && (
+            <button 
+              type="button" 
+              className={`tab-btn ${activeTab === 'mlds-info' ? 'active' : ''}`}
+              onClick={() => setActiveTab('mlds-info')}
+            >
+              Informations supplémentaires
+            </button>
+          )}
         </div>
         )}
 
@@ -2637,7 +3585,7 @@ const ProjectManagement: React.FC = () => {
                       ))}
                     </div>
                     <div className="member-actions">
-                      {canAssignBadges && (
+                      {canAssignBadges && !isProjectEnded && (
                         <button 
                           type="button" 
                           className="btn-icon badge-btn" 
@@ -2651,7 +3599,7 @@ const ProjectManagement: React.FC = () => {
                         </button>
                       )}
                       {/* Show remove button if user can see it and participant can be removed */}
-                      {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
+                      {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && !isProjectEnded && (
                         <button 
                           type="button" 
                           className="btn-icon" 
@@ -2753,13 +3701,15 @@ const ProjectManagement: React.FC = () => {
             <div className="participants-section">
               <div className="section-header">
                 <h3>Participants du projet</h3>
-                <button 
-                  className="btn btn-primary btn-sm"
-                  onClick={handleAddParticipant}
-                >
-                  <i className="fas fa-plus"></i>
-                  Ajouter un participant
-                </button>
+                {!isProjectEnded && (
+                  <button 
+                    className="btn btn-primary btn-sm"
+                    onClick={handleAddParticipant}
+                  >
+                    <i className="fas fa-plus"></i>
+                    Ajouter un participant
+                  </button>
+                )}
               </div>
               
               <div className="participants-table">
@@ -2858,7 +3808,7 @@ const ProjectManagement: React.FC = () => {
                 </div>
                 <div className="section-actions">
                   <span className="team-count">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
-                  {shouldShowTabs() && (
+                  {shouldShowTabs() && !isProjectEnded && (
                   <button className="btn btn-primary" onClick={handleCreateTeam}>
                     <i className="fas fa-plus"></i>
                     Créer une équipe
@@ -2878,7 +3828,7 @@ const ProjectManagement: React.FC = () => {
                   </div>
                   <h4>Aucune équipe créée</h4>
                   <p>Créez votre première équipe pour organiser vos participants et améliorer la collaboration.</p>
-                  {shouldShowTabs() && (
+                  {shouldShowTabs() && !isProjectEnded && (
                   <button className="btn btn-primary" onClick={handleCreateTeam}>
                     <i className="fas fa-plus"></i>
                     Créer une équipe
@@ -2946,7 +3896,7 @@ const ProjectManagement: React.FC = () => {
                                 >
                                   <i className="fas fa-eye"></i>
                                 </button>
-                                {shouldShowTabs() && (
+                                {shouldShowTabs() && !isProjectEnded && (
                                   <>
                                 <button 
                                   className="btn-icon edit-btn" 
@@ -3330,14 +4280,16 @@ const ProjectManagement: React.FC = () => {
                                   Télécharger
                                 </a>
                               )}
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-sm btn-danger"
-                                onClick={() => handleDeleteDocument(doc.id)}
-                              >
-                                <i className="fas fa-trash"></i>
-                                Supprimer
-                              </button>
+                              {!isProjectEnded && (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm btn-danger"
+                                  onClick={() => handleDeleteDocument(doc.id)}
+                                >
+                                  <i className="fas fa-trash"></i>
+                                  Supprimer
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -3365,6 +4317,255 @@ const ProjectManagement: React.FC = () => {
                     </div>
                               </div>
                             )}
+
+        {activeTab === 'mlds-info' && isMLDSProject && (
+          <div className="tab-content active">
+            <div className="badges-section">
+              <div className="badges-section-header">
+                <h3>Informations MLDS - Volet Persévérance Scolaire</h3>
+              </div>
+              
+              <div className="overview-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                {/* Demande faite par */}
+                {apiProjectData.mlds_information.requested_by && (
+                  <div className="stat-card">
+                    <div className="stat-content">
+                      <div className="stat-label">Demande faite par</div>
+                      <div className="stat-value" style={{ fontSize: '1.25rem', marginTop: '0.5rem' }}>
+                        {apiProjectData.mlds_information.requested_by === 'departement' ? (
+                          <>
+                            Département
+                            {apiProjectData.mlds_information.department_number && (
+                              <div style={{ fontSize: '1rem', marginTop: '0.5rem', color: '#6b7280', fontWeight: 'normal' }}>
+                                {(() => {
+                                  const dept = departments.find(d => d.code === apiProjectData.mlds_information.department_number);
+                                  return dept ? `${dept.code} - ${dept.nom}` : apiProjectData.mlds_information.department_number;
+                                })()}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          'Réseau foquale'
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Public ciblé */}
+                {apiProjectData.mlds_information.target_audience && (
+                  <div className="stat-card">
+                    <div className="stat-content">
+                      <div className="stat-label">Public ciblé</div>
+                      <div className="stat-value" style={{ fontSize: '1rem', marginTop: '0.5rem', fontWeight: 'normal' }}>
+                        {apiProjectData.mlds_information.target_audience === 'students_without_solution' && 'Élèves sans solution à la rentrée'}
+                        {apiProjectData.mlds_information.target_audience === 'students_at_risk' && 'Élèves en situation de décrochage repérés par le GPDS'}
+                        {apiProjectData.mlds_information.target_audience === 'school_teams' && 'Équipes des établissements'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Organisations porteuses */}
+                {apiProjectData.mlds_information.organization_names && apiProjectData.mlds_information.organization_names.length > 0 && (
+                  <div className="!items-start stat-card" style={{ gridColumn: 'span 1' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Organisations porteuses</div>
+                      <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {apiProjectData.mlds_information.organization_names.map((org: string, index: number) => (
+                          <span 
+                            key={index} 
+                            style={{ 
+                              padding: '0.5rem 0.75rem', 
+                              backgroundColor: '#e0f2fe', 
+                              color: '#0369a1', 
+                              borderRadius: '0.375rem',
+                              fontSize: '0.9rem',
+                              fontWeight: '500'
+                            }}
+                          >
+                            {org}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Effectifs prévisionnel */}
+                {apiProjectData.mlds_information.expected_participants != null && (
+                  <div className="stat-card">
+                    <div className="stat-icon">
+                      <i className="fas fa-users"></i>
+                    </div>
+                    <div className="stat-content">
+                      <div className="stat-value">{apiProjectData.mlds_information.expected_participants}</div>
+                      <div className="stat-label">Effectifs prévisionnel</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Objectifs pédagogiques */}
+                {apiProjectData.mlds_information.objectives && (
+                  <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Objectifs pédagogiques</div>
+                      <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                        {apiProjectData.mlds_information.objectives}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Objectifs de l'action */}
+                {apiProjectData.mlds_information.action_objectives && apiProjectData.mlds_information.action_objectives.length > 0 && (
+                  <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Objectifs de l'action</div>
+                      <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {apiProjectData.mlds_information.action_objectives.map((obj: string, index: number) => (
+                          <div key={index} style={{ fontSize: '0.9rem', color: '#374151', display: 'flex', alignItems: 'start', gap: '0.5rem' }}>
+                            <i className="fas fa-check-circle" style={{ color: '#10b981', marginTop: '0.25rem' }}></i>
+                            <span className='text-left'>
+                              {obj === 'path_security' && 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles'}
+                              {obj === 'professional_discovery' && 'La découverte des filières professionnelles'}
+                              {obj === 'student_mobility' && 'Le développement de la mobilité des élèves'}
+                              {obj === 'cps_development' && 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré'}
+                              {obj === 'territory_partnership' && 'Le rapprochement des établissements avec les partenaires du territoire'}
+                              {obj === 'family_links' && 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire'}
+                              {obj === 'professional_development' && 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes'}
+                              {obj === 'other' && 'Autre'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {apiProjectData.mlds_information.action_objectives_other && (
+                        <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: '0.5rem' }}>
+                          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>Autre objectif :</div>
+                          <div style={{ fontSize: '0.9rem', color: '#374151' }}>{apiProjectData.mlds_information.action_objectives_other}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Compétences développées */}
+                {apiProjectData.mlds_information.competencies_developed && (
+                  <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Compétences développées par l'action</div>
+                      <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                        {apiProjectData.mlds_information.competencies_developed}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Moyens financiers */}
+                {(apiProjectData.mlds_information.financial_hse != null || 
+                  apiProjectData.mlds_information.financial_hv != null ||
+                  apiProjectData.mlds_information.financial_transport != null ||
+                  apiProjectData.mlds_information.financial_operating != null ||
+                  apiProjectData.mlds_information.financial_service != null) && (
+                  <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                    <div className="stat-content">
+                      <div className="stat-label">Moyens financiers demandés</div>
+                      <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        {apiProjectData.mlds_information.financial_hse != null && (
+                          <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HSE</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
+                              {Number.parseFloat(apiProjectData.mlds_information.financial_hse).toFixed(2)} heures
+                            </div>
+                          </div>
+                        )}
+                        {apiProjectData.mlds_information.financial_hv != null && (
+                          <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                            <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
+                              {Number.parseFloat(apiProjectData.mlds_information.financial_hv).toFixed(2)} €
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                        <div style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.75rem' }}>Crédits</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          {apiProjectData.mlds_information.financial_transport != null && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Frais de transport</span>
+                              <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+                                {Number.parseFloat(apiProjectData.mlds_information.financial_transport).toFixed(2)} €
+                              </span>
+                            </div>
+                          )}
+                          {apiProjectData.mlds_information.financial_operating != null && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Frais de fonctionnement</span>
+                              <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+                                {Number.parseFloat(apiProjectData.mlds_information.financial_operating).toFixed(2)} €
+                              </span>
+                            </div>
+                          )}
+                          {apiProjectData.mlds_information.financial_service != null && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Prestataires de service</span>
+                              <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
+                                {Number.parseFloat(apiProjectData.mlds_information.financial_service).toFixed(2)} €
+                              </span>
+                            </div>
+                          )}
+                          <div style={{ 
+                            marginTop: '0.5rem', 
+                            padding: '0.75rem', 
+                            backgroundColor: '#e0f2fe', 
+                            borderRadius: '0.5rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits</span>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
+                              {apiProjectData.mlds_information.total_financial_credits 
+                                ? Number.parseFloat(apiProjectData.mlds_information.total_financial_credits).toFixed(2)
+                                : (
+                                    (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
+                                    (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
+                                    (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
+                                  ).toFixed(2)
+                              } €
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{
+                        marginTop: '1rem',
+                        padding: '1rem',
+                        background: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%)',
+                        borderRadius: '0.5rem',
+                        border: '2px solid #0369a1',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>Total général</span>
+                        <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
+                          {(
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
+                            (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
+                          ).toFixed(2)} €
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
           </>
         )}
 
@@ -3384,6 +4585,7 @@ const ProjectManagement: React.FC = () => {
             <div className="modal-body">
               <div className="form-group">
                 <label htmlFor="project-title">Titre du projet</label>
+        
                 <input
                   type="text"
                   id="project-title"
@@ -3471,7 +4673,7 @@ const ProjectManagement: React.FC = () => {
                   <select
                     id="project-status"
                     value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'coming' | 'in_progress' | 'ended' })}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' })}
                     className="form-input"
                   >
                     <option value="coming">À venir</option>
@@ -3479,20 +4681,24 @@ const ProjectManagement: React.FC = () => {
                     <option value="ended">Terminé</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="project-visibility">Visibilité</label>
-                  <select
-                    id="project-visibility"
-                    value={editForm.visibility}
-                    onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
-                    className="form-input"
-                  >
-                    <option value="public">Projet public</option>
-                    <option value="private">Projet privé</option>
-                  </select>
-                </div>
+                {/* Visibilité masquée pour les projets MLDS - toujours privé par défaut */}
+                {!isMLDSProject && (
+                  <div className="form-group">
+                    <label htmlFor="project-visibility">Visibilité</label>
+                    <select
+                      id="project-visibility"
+                      value={editForm.visibility}
+                      onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
+                      className="form-input"
+                    >
+                      <option value="public">Projet public</option>
+                      <option value="private">Projet privé</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
+              {/* Parcours - Affiché pour tous les projets, y compris MLDS */}
               <div className="form-group">
                 <label htmlFor="project-pathway">Parcours</label>
                 <select
@@ -3501,6 +4707,7 @@ const ProjectManagement: React.FC = () => {
                   onChange={(e) => setEditForm({ ...editForm, pathway: e.target.value })}
                   className="form-input"
                 >
+                  <option value="">Sélectionner un parcours</option>
                   <option value="sante">Santé</option>
                   <option value="eac">EAC</option>
                   <option value="citoyen">Citoyen</option>
@@ -3511,6 +4718,8 @@ const ProjectManagement: React.FC = () => {
                 </select>
               </div>
 
+              {/* Tags - Masqué pour les projets MLDS */}
+              {!isMLDSProject && (
               <div className="form-group">
                 <label>Tags du projet</label>
                 <div className="tags-input-container">
@@ -3543,14 +4752,572 @@ const ProjectManagement: React.FC = () => {
                   </button>
                 </div>
               </div>
+              )}
+
+              {/* Organisation porteuse - sous Parcours/Tags (projets école) */}
+              {getOrganizationType(state.showingPageType) === 'school' && (
+                <div className="form-group">
+                  <div className="form-label">Organisation porteuse</div>
+                  {availableSchoolLevels.length > 0 ? (
+                    <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                      {availableSchoolLevels.map(classItem => (
+                        <label
+                          key={classItem.id}
+                          className={`multi-select-item !flex items-center gap-2 ${editForm.mldsSchoolLevelIds.includes(classItem.id.toString()) ? 'selected' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editForm.mldsSchoolLevelIds.includes(classItem.id.toString())}
+                            onChange={() => handleEditOrganizationToggle(classItem.id.toString())}
+                          />
+                          <div className="multi-select-checkmark">
+                            <i className="fas fa-check"></i>
+                          </div>
+                          <span className="multi-select-label">
+                            {classItem.name} {classItem.level ? `- ${classItem.level}` : ''}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={isLoadingSchoolLevels ? 'loading-message' : 'no-items-message'}>
+                      {isLoadingSchoolLevels ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          <span>Chargement des classes...</span>
+                        </>
+                      ) : (
+                        'Aucune classe disponible'
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Parcours - Masqué pour les projets MLDS */}
+
+              {/* Partnership Section */}
+              <div className="form-group">
+                <label className={`multi-select-item !flex items-center gap-2 ${editForm.isPartnership ? 'selected' : ''}`} style={{ cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    id="isPartnership"
+                    name="isPartnership"
+                    checked={editForm.isPartnership}
+                    onChange={(e) => setEditForm(prev => ({ 
+                      ...prev, 
+                      isPartnership: e.target.checked,
+                      partners: e.target.checked ? prev.partners : []
+                    }))}
+                  />
+                  <div className="multi-select-checkmark">
+                    <i className="fas fa-check"></i>
+                  </div>
+                  <span className="multi-select-label">Est-ce un partenariat ?</span>
+                </label>
+              </div>
+
+              {/* Partenaires - Only visible if En partenariat is checked */}
+              {editForm.isPartnership && (
+                <div className="form-group">
+                  <label htmlFor="projectPartners">Partenaire(s)</label>
+                  <div className="compact-selection">
+                    <div className="search-input-container">
+                      <i className="fas fa-search search-icon"></i>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Rechercher un partenaire..."
+                        value={editSearchTerms.partner}
+                        onChange={(e) => handleEditSearchChange('partner', e.target.value)}
+                      />
+                    </div>
+                    
+                    {/* Display selected partnerships above the search input */}
+                    {editForm.partners.length > 0 && (
+                      <div className="selected-items">
+                        {editForm.partners.map((partnerId) => {
+                          const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId);
+                          if (!partnership) return null;
+                          const partnerOrgs = partnership.partners || [];
+                          const firstPartner = partnerOrgs[0];
+                          return (
+                            <div key={partnerId} className="selected-member">
+                              <AvatarImage 
+                                src={firstPartner?.logo_url || '/default-avatar.png'} 
+                                alt={partnerOrgs.map((p: any) => p.name).join(', ') || 'Partnership'} 
+                                className="selected-avatar" 
+                              />
+                              <div className="selected-info">
+                                <div className="selected-name">
+                                  {partnerOrgs.map((p: any) => p.name).join(', ')}
+                                </div>
+                                <div className="selected-role">{partnership.name || ''}</div>
+                              </div>
+                              <button 
+                                type="button" 
+                                className="remove-selection"
+                                onClick={() => handleEditPartnerSelect(partnerId)}
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    <div className="selection-list">
+                      {getEditFilteredPartnerships(editSearchTerms.partner).length === 0 ? (
+                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                          <i className="fas fa-handshake" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                          <p>Aucun partenariat disponible</p>
+                        </div>
+                      ) : (
+                        getEditFilteredPartnerships(editSearchTerms.partner).map((partnership: any) => {
+                          const partnerOrgs = partnership.partners || [];
+                          const firstPartner = partnerOrgs[0];
+                          
+                          return (
+                            <div
+                              key={partnership.id}
+                              className="selection-item"
+                              onClick={() => handleEditPartnerSelect(partnership.id.toString())}
+                            >
+                              <AvatarImage 
+                                src={firstPartner?.logo_url || '/default-avatar.png'} 
+                                alt={firstPartner?.name || 'Partnership'} 
+                                className="item-avatar" 
+                              />
+                              <div className="item-info">
+                                <div className="item-name">
+                                  {partnerOrgs.map((p: any) => p.name).join(', ')}
+                                </div>
+                                <div className="item-role">{partnership.name || ''}</div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Co-responsables */}
+              <div className="form-group">
+                <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+                <div className="compact-selection">
+                  <div className="search-input-container">
+                    <i className="fas fa-search search-icon"></i>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Rechercher des co-responsables..."
+                      value={editSearchTerms.coResponsibles}
+                      onChange={(e) => handleEditSearchChange('coResponsibles', e.target.value)}
+                      disabled={isLoadingEditMembers}
+                    />
+                  </div>
+                  
+                  {/* Display selected co-responsables above the search input */}
+                  {editForm.coResponsibles.length > 0 && (
+                    <div className="selected-items">
+                      {editForm.coResponsibles.map((memberId) => {
+                        const member = editAvailableMembers.find((m: any) => m.id.toString() === memberId);
+                        return member ? (
+                          <div key={memberId} className="selected-member">
+                            <AvatarImage 
+                              src={member.avatar_url || '/default-avatar.png'} 
+                              alt={member.full_name || `${member.first_name} ${member.last_name}`} 
+                              className="selected-avatar" 
+                            />
+                            <div className="selected-info">
+                              <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                              <div className="selected-role">{member.role}</div>
+                            </div>
+                            <button 
+                              type="button" 
+                              className="remove-selection"
+                              onClick={() => handleEditMemberSelect('coResponsibles', memberId)}
+                            >
+                              <i className="fas fa-times"></i>
+                            </button>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                  
+                  {isLoadingEditMembers ? (
+                    <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
+                      <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+                      <span>Chargement des membres...</span>
+                    </div>
+                  ) : (
+                    <div className="selection-list">
+                      {getEditFilteredMembers(editSearchTerms.coResponsibles).length === 0 ? (
+                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                          <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                          <p>Aucun membre disponible</p>
+                        </div>
+                      ) : (
+                        getEditFilteredMembers(editSearchTerms.coResponsibles).map((member: any) => {
+                          const isSelected = editForm.coResponsibles.includes(member.id.toString());
+                          return (
+                            <div
+                              key={member.id}
+                              className={`selection-item ${isSelected ? 'selected' : ''}`}
+                              onClick={() => handleEditMemberSelect('coResponsibles', member.id.toString())}
+                            >
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                              <div className="item-info">
+                                <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                <div className="item-role">{member.role}</div>
+                              </div>
+                              {isSelected && (
+                                <div style={{ marginLeft: 'auto', color: '#10b981', fontSize: '1.2rem' }}>
+                                  <i className="fas fa-check-circle"></i>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* MLDS-specific fields */}
+              {isMLDSProject && (
+                <div className="form-section">
+                  <h3 className="form-section-title">Volet Persévérance Scolaire</h3>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="mlds-requested-by">Demande faite par <span style={{ color: 'red' }}>*</span></label>
+                      <select
+                        id="mlds-requested-by"
+                        name="mldsRequestedBy"
+                        className="form-select"
+                        value={editForm.mldsRequestedBy}
+                        onChange={(e) => setEditForm({ 
+                          ...editForm, 
+                          mldsRequestedBy: e.target.value,
+                          mldsDepartment: e.target.value === 'departement' ? editForm.mldsDepartment : ''
+                        })}
+                        required
+                      >
+                        <option value="departement">Département</option>
+                        <option value="reseau_foquale">Réseau foquale</option>
+                      </select>
+                    </div>
+
+                    {/* Département select - Only visible when "Demande faite par" is "Département" */}
+                    {editForm.mldsRequestedBy === 'departement' && (
+                      <div className="form-group">
+                        <label htmlFor="mldsDepartment">Département <span style={{ color: 'red' }}>*</span></label>
+                        {isLoadingDepartments ? (
+                          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                            <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                            Chargement des départements...
+                          </div>
+                        ) : (
+                          <select
+                            id="mldsDepartment"
+                            name="mldsDepartment"
+                            className="form-select"
+                            value={editForm.mldsDepartment}
+                            onChange={(e) => setEditForm({ ...editForm, mldsDepartment: e.target.value })}
+                            required={editForm.mldsRequestedBy === 'departement'}
+                          >
+                            <option value="">Sélectionnez un département</option>
+                            {departments.map(dept => (
+                              <option key={dept.code} value={dept.code}>
+                                {dept.nom} ({dept.code})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label htmlFor="mlds-target-audience">Public ciblé <span style={{ color: 'red' }}>*</span></label>
+                      <select
+                        id="mlds-target-audience"
+                        name="mldsTargetAudience"
+                        className="form-select"
+                        value={editForm.mldsTargetAudience}
+                        onChange={(e) => setEditForm({ ...editForm, mldsTargetAudience: e.target.value })}
+                        required
+                      >
+                        <option value="students_without_solution">Élèves sans solution à la rentrée</option>
+                        <option value="students_at_risk">Élèves en situation de décrochage repérés par le GPDS</option>
+                        <option value="school_teams">Équipes des établissements</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="mlds-expected-participants">Effectifs prévisionnel</label>
+                    <input
+                      type="number"
+                      id="mlds-expected-participants"
+                      name="mldsExpectedParticipants"
+                      className="form-input"
+                      value={editForm.mldsExpectedParticipants}
+                      onChange={(e) => setEditForm({ ...editForm, mldsExpectedParticipants: e.target.value })}
+                      placeholder="Nombre de participants attendus"
+                      min="0"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="mlds-objectives">Objectifs pédagogiques</label>
+                    <textarea
+                      id="mlds-objectives"
+                      name="mldsObjectives"
+                      className="form-textarea"
+                      value={editForm.mldsObjectives}
+                      onChange={(e) => setEditForm({ ...editForm, mldsObjectives: e.target.value })}
+                      rows={3}
+                      placeholder="Décrire les objectifs de remobilisation et de persévérance scolaire..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div className="form-label">Objectifs de l'action</div>
+                    <div className="multi-select-container">
+                      {[
+                        { value: 'path_security', label: 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles' },
+                        { value: 'professional_discovery', label: 'La découverte des filières professionnelles' },
+                        { value: 'student_mobility', label: 'Le développement de la mobilité des élèves' },
+                        { value: 'cps_development', label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré' },
+                        { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, PAE, autres)' },
+                        { value: 'family_links', label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire' },
+                        { value: 'professional_development', label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)' },
+                        { value: 'other', label: 'Autre' }
+                      ].map((objective) => (
+                        <label 
+                          key={objective.value} 
+                          className={`multi-select-item !flex items-center gap-2 ${editForm.mldsActionObjectives.includes(objective.value) ? 'selected' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editForm.mldsActionObjectives.includes(objective.value)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditForm({ ...editForm, mldsActionObjectives: [...editForm.mldsActionObjectives, objective.value] });
+                              } else {
+                                setEditForm({ ...editForm, mldsActionObjectives: editForm.mldsActionObjectives.filter(v => v !== objective.value) });
+                              }
+                            }}
+                          />
+                          <div className="multi-select-checkmark">
+                            <i className="fas fa-check"></i>
+                          </div>
+                          <span className="multi-select-label">{objective.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {editForm.mldsActionObjectives.includes('other') && (
+                      <div style={{ marginTop: '12px' }}>
+                        <label htmlFor="mlds-action-objectives-other">Précisez l'autre objectif</label>
+                        <textarea
+                          id="mlds-action-objectives-other"
+                          name="mldsActionObjectivesOther"
+                          className="form-textarea"
+                          value={editForm.mldsActionObjectivesOther}
+                          onChange={(e) => setEditForm({ ...editForm, mldsActionObjectivesOther: e.target.value })}
+                          placeholder="Décrivez l'autre objectif..."
+                          rows={2}
+                          style={{ marginTop: '8px' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="mlds-competencies-developed">Compétences développées par l'action</label>
+                    <textarea
+                      id="mlds-competencies-developed"
+                      name="mldsCompetenciesDeveloped"
+                      className="form-textarea"
+                      value={editForm.mldsCompetenciesDeveloped}
+                      onChange={(e) => setEditForm({ ...editForm, mldsCompetenciesDeveloped: e.target.value })}
+                      rows={3}
+                      placeholder="Décrivez les compétences que les participants développeront..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <div className="form-label">Moyens financiers demandés</div>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '1rem',
+                      marginTop: '12px',
+                      padding: '16px',
+                      background: '#f9fafb',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      <div className="form-group" style={{ marginBottom: '0' }}>
+                        <label htmlFor="mlds-financial-hse">HSE</label>
+                        <input
+                          type="number"
+                          id="mlds-financial-hse"
+                          name="mldsFinancialHSE"
+                          className="form-input"
+                          value={editForm.mldsFinancialHSE}
+                          onChange={(e) => setEditForm({ ...editForm, mldsFinancialHSE: e.target.value })}
+                          placeholder="Nombre d'heures"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: '0' }}>
+                        <label htmlFor="mlds-financial-hv">HV</label>
+                        <input
+                          type="number"
+                          id="mlds-financial-hv"
+                          name="mldsFinancialHV"
+                          className="form-input"
+                          value={editForm.mldsFinancialHV}
+                          onChange={(e) => setEditForm({ ...editForm, mldsFinancialHV: e.target.value })}
+                          placeholder="Montant en €"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '16px',
+                      background: '#f9fafb',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      <h4 style={{ 
+                        fontSize: '0.95rem', 
+                        fontWeight: 600, 
+                        color: '#374151', 
+                        marginBottom: '12px',
+                        marginTop: '0'
+                      }}>
+                        Crédits
+                      </h4>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr',
+                        gap: '1rem'
+                      }}>
+                        <div className="form-group" style={{ marginBottom: '0' }}>
+                          <label htmlFor="mlds-financial-transport">Frais de transport</label>
+                          <input
+                            type="number"
+                            id="mlds-financial-transport"
+                            name="mldsFinancialTransport"
+                            className="form-input"
+                            value={editForm.mldsFinancialTransport}
+                            onChange={(e) => setEditForm({ ...editForm, mldsFinancialTransport: e.target.value })}
+                            placeholder="Montant en €"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: '0' }}>
+                          <label htmlFor="mlds-financial-operating">Frais de fonctionnement</label>
+                          <input
+                            type="number"
+                            id="mlds-financial-operating"
+                            name="mldsFinancialOperating"
+                            className="form-input"
+                            value={editForm.mldsFinancialOperating}
+                            onChange={(e) => setEditForm({ ...editForm, mldsFinancialOperating: e.target.value })}
+                            placeholder="Montant en €"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: '0' }}>
+                          <label htmlFor="mlds-financial-service">Prestataires de service</label>
+                          <input
+                            type="number"
+                            id="mlds-financial-service"
+                            name="mldsFinancialService"
+                            className="form-input"
+                            value={editForm.mldsFinancialService}
+                            onChange={(e) => setEditForm({ ...editForm, mldsFinancialService: e.target.value })}
+                            placeholder="Montant en €"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                      </div>
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '10px',
+                        background: '#e0f2fe',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits :</span>
+                        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
+                          {(
+                            (Number.parseFloat(editForm.mldsFinancialTransport) || 0) +
+                            (Number.parseFloat(editForm.mldsFinancialOperating) || 0) +
+                            (Number.parseFloat(editForm.mldsFinancialService) || 0)
+                          ).toFixed(2)} €
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      marginTop: '12px',
+                      padding: '12px',
+                      background: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%)',
+                      borderRadius: '8px',
+                      border: '2px solid #0369a1',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>
+                        Total général :
+                      </span>
+                      <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
+                        {(
+                          (Number.parseFloat(editForm.mldsFinancialTransport) || 0) +
+                          (Number.parseFloat(editForm.mldsFinancialOperating) || 0) +
+                          (Number.parseFloat(editForm.mldsFinancialService) || 0)
+                        ).toFixed(2)} €
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={handleCancelEdit}>
                 Annuler
               </button>
+              {/* Afficher le bouton "Sauvegarder en brouillon" uniquement si le statut est "en cours" ou "à venir" */}
+              {(editForm.status !== 'in_progress' && editForm.status !== 'coming') && (
+                <button className="btn btn-outline" onClick={handleSaveEditDraft}>
+                  Sauvegarder en brouillon
+                </button>
+              )}
               <button className="btn btn-primary" onClick={handleSaveEdit}>
-                Sauvegarder
+                {isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher')
+                  ? 'Soumettre le projet MLDS'
+                  : 'Sauvegarder'}
               </button>
             </div>
           </div>
@@ -3860,13 +5627,15 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={() => setIsViewTeamModalOpen(false)}>
                 Fermer
               </button>
-              <button className="btn btn-primary" onClick={() => {
-                setIsViewTeamModalOpen(false);
-                handleEditTeam(selectedTeam);
-              }}>
-                <i className="fas fa-edit"></i>
-                Modifier l'équipe
-              </button>
+              {!isProjectEnded && (
+                <button className="btn btn-primary" onClick={() => {
+                  setIsViewTeamModalOpen(false);
+                  handleEditTeam(selectedTeam);
+                }}>
+                  <i className="fas fa-edit"></i>
+                  Modifier l'équipe
+                </button>
+              )}
             </div>
           </div>
         </div>

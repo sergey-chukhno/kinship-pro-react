@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getTags, getPartnerships, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
+import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import {
   mapFrontendToBackend,
   base64ToFile,
@@ -29,7 +30,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     startDate: '',
     endDate: '',
     organization: '',
-    status: 'coming' as 'coming' | 'in_progress' | 'ended',
+    status: 'draft' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
     visibility: 'public' as 'public' | 'private',
     pathway: '',
     tags: '',
@@ -40,7 +41,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     coResponsibles: [] as string[],
     isPartnership: false, // New field
     partner: '',
-    additionalImages: [] as string[]
+    additionalImages: [] as string[],
+    // School levels (organisations porteuses)
+    schoolLevelIds: [] as string[]
   });
 
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -65,6 +68,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [availablePartnerships, setAvailablePartnerships] = useState<any[]>([]);
+  const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
+  const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
+  const [availablePathways, setAvailablePathways] = useState<any[]>([]);
+  const [isLoadingPathways, setIsLoadingPathways] = useState(false);
   
   // Teacher project context: 'independent' or 'school'
   const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('independent');
@@ -223,7 +230,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         coResponsibles: [],
         isPartnership: !!project.partner, // Infer from existing data
         partner: project.partner?.id || '',
-        additionalImages: []
+        additionalImages: [],
+        schoolLevelIds: [] // Will be populated from API if project has school levels
       });
       setImagePreview(project.image || '');
     } else {
@@ -296,6 +304,56 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     fetchTags();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.tags.length]); // setTags est stable du contexte, pas besoin de le mettre en dépendance
+
+  // Fetch pathways (tags) for pathway select
+  useEffect(() => {
+    const fetchPathways = async () => {
+      setIsLoadingPathways(true);
+      try {
+        const tagsData = await getTags();
+        // Ensure tagsData is an array before setting
+        if (Array.isArray(tagsData)) {
+          setAvailablePathways(tagsData);
+        } else {
+          console.error('getTags returned non-array:', tagsData);
+          setAvailablePathways([]);
+        }
+      } catch (error) {
+        console.error('Error fetching pathways:', error);
+        setAvailablePathways([]);
+      } finally {
+        setIsLoadingPathways(false);
+      }
+    };
+
+    fetchPathways();
+  }, []);
+
+  // Fetch school levels (organisations porteuses) when modal opens
+  useEffect(() => {
+    const fetchSchoolLevels = async () => {
+      setIsLoadingSchoolLevels(true);
+      try {
+        const organizationType = getOrganizationType(state.showingPageType);
+        const organizationId = getOrganizationId(state.user, state.showingPageType);
+
+        // Only fetch classes for school context
+        if (organizationType === 'school' && organizationId) {
+          const response = await getSchoolLevels(organizationId, 1, 100);
+          setAvailableSchoolLevels(response.data?.data || []);
+        } else {
+          setAvailableSchoolLevels([]);
+        }
+      } catch (err) {
+        console.error('Error fetching school levels:', err);
+        setAvailableSchoolLevels([]);
+      } finally {
+        setIsLoadingSchoolLevels(false);
+      }
+    };
+
+    fetchSchoolLevels();
+  }, [state.showingPageType, state.user]);
 
   // Fetch members and partnerships when modal opens
   useEffect(() => {
@@ -487,9 +545,48 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSchoolLevelToggle = (schoolLevelId: string) => {
+    setFormData(prev => {
+      const isAlreadySelected = prev.schoolLevelIds.includes(schoolLevelId);
+
+      // Toggle selection of the organization (school level)
+      const updatedSchoolLevelIds = isAlreadySelected
+        ? prev.schoolLevelIds.filter(id => id !== schoolLevelId)
+        : [...prev.schoolLevelIds, schoolLevelId];
+
+      // When selecting (not unselecting), pré‑sélectionner les enseignants responsables
+      if (!isAlreadySelected) {
+        const selectedLevel = availableSchoolLevels.find(
+          (level: any) => level.id?.toString() === schoolLevelId
+        );
+
+        const teacherIds =
+          selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
+
+        if (teacherIds.length > 0) {
+          const coResponsiblesSet = new Set(prev.coResponsibles);
+          teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
+
+          return {
+            ...prev,
+            schoolLevelIds: updatedSchoolLevelIds,
+            coResponsibles: Array.from(coResponsiblesSet)
+          };
+        }
+      }
+
+      return {
+        ...prev,
+        schoolLevelIds: updatedSchoolLevelIds
+      };
+    });
+  };
+
+  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended') => {
     setSubmitError(null);
+
+    const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+      desiredStatus || formData.status;
 
     // Validation: Pathway is required for all dashboards
     const isPathwayRequired = true;
@@ -499,23 +596,26 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     // For others, organization is required
     const isOrganizationRequired = true; // Always required, but pre-filled for teachers
 
-    if (!formData.title || !formData.startDate || !formData.endDate || 
-        (isOrganizationRequired && !formData.organization) || 
-        !formData.status || !isPathwayValid) {
-      setSubmitError('Veuillez remplir tous les champs obligatoires');
-      return;
-    }
-
-    // Additional validation for teachers: if school context chosen, school must be selected
-    if (state.showingPageType === 'teacher' && teacherProjectContext === 'school') {
-      const availableSchools = state.user.available_contexts?.schools || [];
-      if (availableSchools.length === 0) {
-        setSubmitError('Vous ne pouvez pas créer un projet pour une école car vous n\'avez aucune école avec un statut confirmé. Veuillez sélectionner "Enseignant Indépendant".');
+    // Skip strict validation for draft status
+    if (effectiveStatus !== 'draft') {
+      if (!formData.title || !formData.startDate || !formData.endDate || 
+          (isOrganizationRequired && !formData.organization) || 
+          !effectiveStatus || !isPathwayValid) {
+        setSubmitError('Veuillez remplir tous les champs obligatoires');
         return;
       }
-      if (!selectedSchoolId) {
-        setSubmitError('Veuillez sélectionner une école');
-        return;
+
+      // Additional validation for teachers: if school context chosen, school must be selected
+      if (state.showingPageType === 'teacher' && teacherProjectContext === 'school') {
+        const availableSchools = state.user.available_contexts?.schools || [];
+        if (availableSchools.length === 0) {
+          setSubmitError('Vous ne pouvez pas créer un projet pour une école car vous n\'avez aucune école avec un statut confirmé. Veuillez sélectionner "Enseignant Indépendant".');
+          return;
+        }
+        if (!selectedSchoolId) {
+          setSubmitError('Veuillez sélectionner une école');
+          return;
+        }
       }
     }
 
@@ -529,9 +629,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         ? getOrganizationId(state.user, state.showingPageType, teacherProjectContext === 'school' ? selectedSchoolId : undefined)
         : getOrganizationId(state.user, state.showingPageType);
 
-      // Map frontend data to backend format
+      // Map frontend data to backend format with effective status
       const payload = mapFrontendToBackend(
-        formData,
+        {
+          ...formData,
+          status: effectiveStatus
+        },
         context,
         organizationId,
         state.tags,
@@ -586,7 +689,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         id: createdProject.id.toString(),
         title: createdProject.title,
         description: createdProject.description,
-        status: createdProject.status as 'coming' | 'in_progress' | 'ended',
+        status: createdProject.status as 'to_process' | 'coming' | 'in_progress' | 'ended',
         visibility: payload.project.private ? 'private' : 'public' as 'public' | 'private',
         pathway: formData.pathway || 'citoyen',
         organization: formData.organization,
@@ -644,6 +747,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitProject();
+  };
+
+  const handleSaveDraft = async () => {
+    // Sauvegarde en brouillon, sans validation stricte
+    await submitProject('draft');
   };
 
   const handleAdditionalImageChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
@@ -998,28 +1111,61 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             <div className="form-group">
               <label htmlFor="projectPathway">Parcours *</label>
-              <select
-                id="projectPathway"
-                name="pathway"
-                required
-                value={formData.pathway}
-                onChange={handleInputChange}
-                className="form-select"
-              >
-                <option value="">Sélectionner un parcours</option>
-                <option value="citoyen">Citoyen</option>
-                <option value="creativite">Créativité</option>
-                <option value="fabrication">Fabrication</option>
-                <option value="psychologie">Psychologie</option>
-                <option value="innovation">Innovation</option>
-                <option value="education">Éducation</option>
-                <option value="technologie">Technologie</option>
-                <option value="sante">Santé</option>
-                <option value="environnement">Environnement</option>
-                <option value="mlds">MLDS</option>
-                <option value="faj_co">FAJ Co</option>
-              </select>
+              {isLoadingPathways ? (
+                <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                  <span>Chargement des parcours...</span>
+                </div>
+              ) : (
+                <select
+                  id="projectPathway"
+                  name="pathway"
+                  required
+                  value={formData.pathway}
+                  onChange={handleInputChange}
+                  className="form-select"
+                >
+                  <option value="">Sélectionner un parcours</option>
+                  {availablePathways.map((pathway: any) => (
+                    <option key={pathway.id} value={pathway.name}>
+                      {pathway.name_fr || pathway.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
+
+            {/* Organisation porteuse */}
+            {availableSchoolLevels.length > 0 && (
+              <div className="form-group">
+                <div className="form-label">Organisation porteuse</div>
+                {isLoadingSchoolLevels ? (
+                  <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                    <span>Chargement des classes...</span>
+                  </div>
+                ) : (
+                  <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {availableSchoolLevels.map(classItem => (
+                      <label 
+                        key={classItem.id} 
+                        className={`multi-select-item !flex items-center gap-2 ${formData.schoolLevelIds.includes(classItem.id.toString()) ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.schoolLevelIds.includes(classItem.id.toString())}
+                          onChange={() => handleSchoolLevelToggle(classItem.id.toString())}
+                        />
+                        <div className="multi-select-checkmark">
+                          <i className="fas fa-check"></i>
+                        </div>
+                        <span className="multi-select-label">{classItem.name} {classItem.level ? `- ${classItem.level}` : ''}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="projectLinks">Liens utiles</label>
@@ -1049,7 +1195,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             {/* Partnership Section */}
             <div className="form-group">
-              <div className="checkbox-group">
+              <div className="flex gap-2 items-center checkbox-group">
                 <input
                   type="checkbox"
                   id="isPartnership"
@@ -1057,7 +1203,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                   checked={formData.isPartnership}
                   onChange={handleInputChange}
                 />
-                <label htmlFor="isPartnership">En partenariat</label>
+                <label htmlFor="isPartnership" className="pt-2 text-sm">Est-ce un partenariat ?</label>
               </div>
             </div>
 
@@ -1371,6 +1517,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
         <div className="modal-footer">
           <button type="button" className="btn btn-outline" onClick={onClose} disabled={isSubmitting}>Annuler</button>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={handleSaveDraft}
+            disabled={isSubmitting}
+          >
+            Sauvegarder en brouillon
+          </button>
           <button type="submit" form="projectForm" className="btn btn-primary" disabled={isSubmitting}>
             {isSubmitting ? 'Création en cours...' : (project ? 'Modifier le projet' : 'Créer le projet')}
           </button>

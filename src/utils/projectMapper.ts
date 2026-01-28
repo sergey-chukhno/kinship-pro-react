@@ -111,7 +111,7 @@ export const mapFrontendToBackend = (
         startDate: string;
         endDate: string;
         organization: string;
-        status: 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
         pathway: string;
         tags: string;
@@ -120,6 +120,7 @@ export const mapFrontendToBackend = (
         coResponsibles: string[];
         isPartnership: boolean;
         partner: string;
+        schoolLevelIds?: string[];
     },
     context: 'company' | 'school' | 'teacher' | 'general',
     organizationId: number | undefined,
@@ -179,6 +180,16 @@ export const mapFrontendToBackend = (
         });
     }
 
+    // Map draft status to coming for backend (backend doesn't support draft).
+    // Keep 'to_process' as-is so it can be handled explicitly server-side.
+    const backendStatus: 'to_process' | 'coming' | 'in_progress' | 'ended' =
+        formData.status === 'draft' ? 'coming' : formData.status;
+
+    // Convert school level IDs from strings to numbers if provided
+    const schoolLevelIds = formData.schoolLevelIds
+        ? formData.schoolLevelIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
+        : undefined;
+
     // Build payload
     const payload: CreateProjectPayload = {
         context,
@@ -188,7 +199,7 @@ export const mapFrontendToBackend = (
             description: formData.description,
             start_date: formData.startDate,
             end_date: formData.endDate,
-            status: formData.status,
+            status: backendStatus,
             private: isPrivate,
             participants_number: formData.participants.length + formData.coResponsibles.length,
             tag_ids: tagIds,
@@ -196,7 +207,8 @@ export const mapFrontendToBackend = (
             keyword_ids: keywords,
             partnership_id: formData.isPartnership && formData.partner ? parseInt(formData.partner) : null,
             project_members_attributes: projectMembers.length > 0 ? projectMembers : undefined,
-            links_attributes: links.length > 0 ? links : undefined
+            links_attributes: links.length > 0 ? links : undefined,
+            school_level_ids: schoolLevelIds
         }
     };
 
@@ -215,7 +227,7 @@ export const mapEditFormToBackend = (
         startDate: string;
         endDate: string;
         pathway: string;
-        status: 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
     },
     tags: Tag[],
@@ -473,7 +485,9 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
                   : '',
             logo: apiProject.partnership_details.partner_organizations?.[0]?.logo_url || '',
             organization: apiProject.partnership_details.partner_organizations?.[0]?.name || ''
-        } : undefined
+        } : undefined,
+        mlds_information: apiProject.mlds_information || undefined, // Map MLDS information
+        rs: apiProject.rs || undefined // Map RS field
     };
 };
 
