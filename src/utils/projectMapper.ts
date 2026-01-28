@@ -124,6 +124,7 @@ export const mapFrontendToBackend = (
         coResponsibles: string[];
         isPartnership: boolean;
         partner: string;
+        schoolLevelIds?: string[];
     },
     context: 'company' | 'school' | 'teacher' | 'general',
     organizationId: number | undefined,
@@ -188,6 +189,11 @@ export const mapFrontendToBackend = (
     const backendStatus: 'to_process' | 'coming' | 'in_progress' | 'ended' =
         formData.status === 'draft' ? 'coming' : formData.status;
 
+    // Convert school level IDs from strings to numbers if provided
+    const schoolLevelIds = formData.schoolLevelIds
+        ? formData.schoolLevelIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
+        : undefined;
+
     // Build payload
     const payload: CreateProjectPayload = {
         context,
@@ -205,7 +211,8 @@ export const mapFrontendToBackend = (
             keyword_ids: keywords,
             partnership_id: formData.isPartnership && formData.partner ? parseInt(formData.partner) : null,
             project_members_attributes: projectMembers.length > 0 ? projectMembers : undefined,
-            links_attributes: links.length > 0 ? links : undefined
+            links_attributes: links.length > 0 ? links : undefined,
+            school_level_ids: schoolLevelIds
         }
     };
 
