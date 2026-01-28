@@ -74,6 +74,7 @@ const Members: React.FC = () => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactEmail, setContactEmail] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [teacherSchoolFilter, setTeacherSchoolFilter] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState('');
   const [competenceFilter, setCompetenceFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState('');
@@ -659,9 +660,27 @@ const Members: React.FC = () => {
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
   });
 
+  const teacherSchoolOptions = isTeacherContext
+    ? (state.user.available_contexts?.schools || []).map((school: any) => ({
+        id: school.id,
+        name: school.name
+      }))
+    : [];
+
   const filteredStudents = baseFilteredMembers.filter(member => {
     const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
-    return studentRoles.includes(primaryRoleRaw);
+    if (!studentRoles.includes(primaryRoleRaw)) {
+      return false;
+    }
+    if (!isTeacherContext || teacherSchoolFilter === '') {
+      return true;
+    }
+    const studentSchools = (member as any).schools || [];
+    if (teacherSchoolFilter === 'none') {
+      return !studentSchools || studentSchools.length === 0;
+    }
+    const selectedId = Number(teacherSchoolFilter);
+    return studentSchools.some((school: any) => Number(school.id) === selectedId);
   });
 
   // Generate cartography tokens for students in background
@@ -1463,14 +1482,32 @@ const Members: React.FC = () => {
       {isSchoolContext && activeTab === 'students' && (
         <div className="min-h-[65vh]">
           {/* Search bar for Élèves section */}
-          <div className="search-bar" style={{ marginBottom: '16px', maxWidth: '400px' }}>
-            <i className="fas fa-search"></i>
-            <input
-              type="text"
-              placeholder="Rechercher un élève par nom..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <div className="search-bar" style={{ maxWidth: '400px', flex: '1 1 300px' }}>
+              <i className="fas fa-search"></i>
+              <input
+                type="text"
+                placeholder="Rechercher un élève par nom..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            {isTeacherContext && (
+              <select
+                className="form-select"
+                value={teacherSchoolFilter}
+                onChange={(e) => setTeacherSchoolFilter(e.target.value)}
+                style={{ minWidth: '220px', width: 'auto', flex: '0 0 auto' }}
+              >
+                <option value="">Tous les établissements</option>
+                <option value="none">Aucun</option>
+                {teacherSchoolOptions.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="members-grid">
                 {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
