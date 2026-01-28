@@ -683,6 +683,37 @@ const Members: React.FC = () => {
     return studentSchools.some((school: any) => Number(school.id) === selectedId);
   });
 
+  // Filter classes for student assignment based on student's schools (only for teacher context)
+  const filteredClassesForStudent = useMemo(() => {
+    if (!isTeacherContext || !selectedStudent) {
+      return classLists;
+    }
+    
+    const studentSchools = (selectedStudent as any).schools || [];
+    
+    // If student has no schools, show only independent classes (school_id null)
+    if (!studentSchools || studentSchools.length === 0) {
+      return classLists.filter((cl) => cl.school_id === null || cl.school_id === undefined);
+    }
+    
+    // If student has schools, show only classes from those schools (exclude independent classes)
+    const studentSchoolIds = studentSchools.map((s: any) => Number(s.id));
+    return classLists.filter((cl) => {
+      const classSchoolId = cl.school_id;
+      return classSchoolId !== null && classSchoolId !== undefined && studentSchoolIds.includes(Number(classSchoolId));
+    });
+  }, [isTeacherContext, selectedStudent, classLists]);
+
+  // Reset selectedLevelId if it's not in the filtered classes list
+  useEffect(() => {
+    if (isAssignModalOpen && isTeacherContext && selectedLevelId !== null) {
+      const isValidClass = filteredClassesForStudent.some((cl) => Number(cl.id) === selectedLevelId);
+      if (!isValidClass) {
+        setSelectedLevelId(null);
+      }
+    }
+  }, [isAssignModalOpen, isTeacherContext, selectedLevelId, filteredClassesForStudent]);
+
   // Generate cartography tokens for students in background
   useEffect(() => {
     if (isSchoolContext && activeTab === 'students' && currentSchoolId && filteredStudents.length > 0) {
@@ -1878,25 +1909,35 @@ const Members: React.FC = () => {
             </div>
             <div className="modal-body">
               <p className="mb-3 text-gray-600">Sélectionnez une classe pour {selectedStudent?.fullName || 'cet élève'}.</p>
-              <div className="form-field">
-                <label className="form-label">Classe</label>
-                <select
-                  className="form-input"
-                  value={selectedLevelId ?? ''}
-                  onChange={(e) => setSelectedLevelId(Number(e.target.value))}
-                >
-                  <option value="">Choisir une classe</option>
-                  {classLists.map((cl) => (
-                    <option key={cl.id} value={cl.id}>{cl.name}</option>
-                  ))}
-                </select>
-              </div>
+              {filteredClassesForStudent.length === 0 ? (
+                <div className="text-gray-500 text-center py-4">
+                  Aucune classe disponible pour cet élève. Veuillez créer une classe correspondant à son établissement.
+                </div>
+              ) : (
+                <div className="form-field">
+                  <label className="form-label">Classe</label>
+                  <select
+                    className="form-input"
+                    value={selectedLevelId ?? ''}
+                    onChange={(e) => setSelectedLevelId(Number(e.target.value))}
+                  >
+                    <option value="">Choisir une classe</option>
+                    {filteredClassesForStudent.map((cl) => (
+                      <option key={cl.id} value={cl.id}>{cl.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => { setIsAssignModalOpen(false); setSelectedLevelId(null); }}>
                 Annuler
               </button>
-              <button className="btn btn-primary" onClick={handleAssignStudentToClass}>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleAssignStudentToClass}
+                disabled={filteredClassesForStudent.length === 0}
+              >
                 Assigner
               </button>
             </div>
