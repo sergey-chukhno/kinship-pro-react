@@ -432,6 +432,7 @@ export interface ClassList {
   pedagogical_team_members?: PedagogicalTeamMember[];
   pedagogical_team_count?: number;
   school_id?: number | null;
+  school?: { id: number; name: string };
 }
 
 export interface Tag {

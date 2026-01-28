@@ -313,7 +313,8 @@ const Members: React.FC = () => {
         const levelsWithTeacherIds = levels.map((level: any) => ({
           ...level,
           teacher_ids: level.teachers?.map((t: any) => t.id) || [],
-          school_id: level.school_id || null
+          school_id: level.school_id || null,
+          school: level.school ? { id: level.school.id, name: level.school.name } : undefined
         }));
         setClassLists(levelsWithTeacherIds);
       } else {
@@ -1127,7 +1128,12 @@ const Members: React.FC = () => {
       await fetchLevels();
     } catch (err) {
       console.error("Erreur lors de la suppression de la classe :", err);
-      showError("Erreur lors de la suppression de la classe");
+      const backendMessage = (err as any)?.response?.data?.message;
+      if (backendMessage === "Cannot delete school-owned classes. Please contact school admin.") {
+        showError("Impossible de supprimer une classe rattachée à un établissement. Veuillez contacter l'administrateur de l'école.");
+      } else {
+        showError("Erreur lors de la suppression de la classe");
+      }
     }
   };
 
@@ -1614,6 +1620,8 @@ const Members: React.FC = () => {
                 teacher={classItem?.teacher || ''}
                 studentCount={classItem?.students_count || 0}
                 level={classItem?.level || ''}
+                schoolName={classItem?.school?.name || null}
+                showSchoolName={isTeacherContext}
                 teachers={classItem?.teachers}
                 pedagogical_team_members={classItem?.pedagogical_team_members}
                 onClick={() => handleClassClick(classItem)}
