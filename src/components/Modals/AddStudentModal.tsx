@@ -7,6 +7,7 @@ import { getSchoolLevels, createLevelStudent } from '../../api/SchoolDashboard/L
 import { getTeacherClasses, createTeacherLevelStudent } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
+import { getSelectedSchoolId } from '../../utils/contextUtils';
 import QRCodePrintModal from './QRCodePrintModal';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -63,7 +64,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Chargement des écoles disponibles pour les teachers (seulement celles où l'utilisateur est admin, superadmin ou referent)
+  // Chargement des écoles disponibles pour les teachers (toutes les écoles confirmées)
   useEffect(() => {
     const fetchSchools = async () => {
       if (!isTeacherContext) return;
@@ -72,19 +73,15 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         const currentUser = await getCurrentUser();
         const schools = currentUser.data?.available_contexts?.schools || [];
         
-        // Filtrer pour ne garder que les écoles où l'utilisateur est admin, superadmin ou referent
-        const filteredSchools = schools.filter((school: any) => 
-          school.role === 'admin' || school.role === 'superadmin' || school.role === 'referent'
-        );
-        
-        const schoolsList = filteredSchools.map((school: any) => ({
+        // Inclure toutes les écoles confirmées (pas de filtre de rôle)
+        const schoolsList = schools.map((school: any) => ({
           id: school.id,
           name: school.name
         }));
         
         setAvailableSchools(schoolsList);
         
-        // Ne pas sélectionner d'école par défaut - l'utilisateur doit choisir ou laisser "non renseigné"
+        // "Aucun" est sélectionné par défaut (selectedSchoolId est initialisé à null)
       } catch (error) {
         console.error("Erreur lors du chargement des écoles", error);
       }
@@ -144,20 +141,31 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 level: l.level || l.level_name || '',
                 school_id: l.school_id || null
               }));
-              setLevels(mappedLevels);
+              
+              // Filtrer les classes en fonction de l'école sélectionnée
+              let filteredLevels = mappedLevels;
+              if (selectedSchoolId === null) {
+                // Si "Aucun" est sélectionné, montrer uniquement les classes indépendantes (school_id null)
+                filteredLevels = mappedLevels.filter((l) => l.school_id === null || l.school_id === undefined);
+              } else if (selectedSchoolId !== null) {
+                // Si une école est sélectionnée, montrer uniquement les classes de cette école
+                filteredLevels = mappedLevels.filter((l) => l.school_id !== null && l.school_id !== undefined && Number(l.school_id) === selectedSchoolId);
+              }
+              
+              setLevels(filteredLevels);
               // Sélectionner automatiquement la première classe par défaut si aucune n'est déjà sélectionnée
               setFormData(prev => {
                 if (prev.levelId) {
-                  // Vérifier si la classe sélectionnée existe toujours dans la nouvelle liste
-                  const levelExists = mappedLevels.some(l => l.id.toString() === prev.levelId);
+                  // Vérifier si la classe sélectionnée existe toujours dans la nouvelle liste filtrée
+                  const levelExists = filteredLevels.some(l => l.id.toString() === prev.levelId);
                   if (!levelExists) {
                     // Si la classe sélectionnée n'existe plus, sélectionner la première disponible
-                    return { ...prev, levelId: mappedLevels.length > 0 ? mappedLevels[0].id.toString() : '' };
+                    return { ...prev, levelId: filteredLevels.length > 0 ? filteredLevels[0].id.toString() : '' };
                   }
                   return prev;
                 } else {
                   // Si aucune classe n'est sélectionnée, sélectionner la première par défaut
-                  return { ...prev, levelId: mappedLevels.length > 0 ? mappedLevels[0].id.toString() : '' };
+                  return { ...prev, levelId: filteredLevels.length > 0 ? filteredLevels[0].id.toString() : '' };
                 }
               });
             } else {
@@ -168,7 +176,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         } else {
           // Pour les admins d'école, utiliser l'API schools/levels
           const currentUser = await getCurrentUser();
-          const schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id;
+          const schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
 
           if (!schoolId) {
             if (isMounted) {
@@ -383,7 +391,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         } else {
           // Pour les admins d'école, utiliser la première école disponible
           const currentUser = await getCurrentUser();
-          schoolId = currentUser.data?.available_contexts?.schools?.[0]?.id || null;
+          schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
         }
 
         // Pour les admins d'école, schoolId est obligatoire
@@ -591,10 +599,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
               />
             </div>
             
-            {/* Sélecteur d'école pour les teachers (toujours affiché si au moins une école disponible) */}
-            {isTeacherContext && availableSchools.length > 0 && (
+            {/* Sélecteur d'école pour les teachers (toujours affiché) */}
+            {isTeacherContext && (
               <div className="form-group">
-                <label htmlFor="schoolId">Établissement</label>
+                <label htmlFor="schoolId">Établissement *</label>
                 <select
                   id="schoolId"
                   name="schoolId"
@@ -608,7 +616,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                   }}
                   className="form-select"
                 >
-                  <option value="">Non renseigné</option>
+                  <option value="">Aucun</option>
                   {availableSchools.map((school) => (
                     <option key={school.id} value={school.id}>
                       {school.name}

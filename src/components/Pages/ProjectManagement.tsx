@@ -18,6 +18,7 @@ import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
 import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/projectPermissions';
+import { getSelectedOrganizationId } from '../../utils/contextUtils';
 
 // Component for displaying skills with "Voir plus"/"Voir moins" functionality
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
@@ -234,9 +235,13 @@ const ProjectManagement: React.FC = () => {
         
         // Debug: Log organization info from API
         console.log('🔍 [ProjectManagement] API Project primary_organization_name:', apiProject.primary_organization_name);
-        console.log('🔍 [ProjectManagement] Current user organization:', 
-          state.showingPageType === 'edu' ? state.user?.available_contexts?.schools?.[0]?.name : 
-          state.showingPageType === 'pro' ? state.user?.available_contexts?.companies?.[0]?.name : 'N/A');
+        const selectedOrgId = getSelectedOrganizationId(state.user, state.showingPageType);
+        const selectedOrg = state.showingPageType === 'edu' 
+          ? state.user?.available_contexts?.schools?.find((s: any) => s.id === selectedOrgId)
+          : state.showingPageType === 'pro'
+          ? state.user?.available_contexts?.companies?.find((c: any) => c.id === selectedOrgId)
+          : null;
+        console.log('🔍 [ProjectManagement] Current user organization:', selectedOrg?.name || 'N/A');
         
         // Determine user's role in the project
         const role = getUserProjectRole(apiProject, state.user?.id?.toString());
@@ -947,14 +952,14 @@ const ProjectManagement: React.FC = () => {
       if (apiProjectData.school_levels && apiProjectData.school_levels.length > 0) {
         organizationId = apiProjectData.school_levels[0]?.school?.id;
       } else {
-        organizationId = state.user?.available_contexts?.schools?.[0]?.id || null;
+        organizationId = getSelectedOrganizationId(state.user, state.showingPageType) || null;
       }
     } else {
       // For companies, get from project's companies or user context
       if (apiProjectData.companies && apiProjectData.companies.length > 0) {
         organizationId = apiProjectData.companies[0]?.id;
       } else {
-        organizationId = state.user?.available_contexts?.companies?.[0]?.id || null;
+        organizationId = getSelectedOrganizationId(state.user, state.showingPageType) || null;
       }
     }
     

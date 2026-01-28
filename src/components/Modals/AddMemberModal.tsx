@@ -6,6 +6,7 @@ import { getPersonalUserRoles } from '../../api/RegistrationRessource';
 import { addCompanyMember } from '../../api/CompanyDashboard/Members';
 import { useAppContext } from '../../context/AppContext';
 import AvatarImage from '../UI/AvatarImage';
+import { getSelectedCompanyId } from '../../utils/contextUtils';
 import { useToast } from '../../hooks/useToast';
 import QRCodePrintModal from './QRCodePrintModal';
 
@@ -175,7 +176,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     try {
       // Get company ID
       const currentUser = await getCurrentUser();
-      const companyId = currentUser.data?.available_contexts?.companies?.[0]?.id;
+      const companyId = getSelectedCompanyId(currentUser.data, state.showingPageType);
 
       if (!companyId) {
         showError("Impossible de récupérer l'identifiant de l'entreprise");

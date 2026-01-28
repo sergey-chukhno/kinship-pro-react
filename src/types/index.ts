@@ -233,6 +233,7 @@ export interface OrganizationContext {
   city: string;
   school_type?: string;
   company_type?: string;
+  logo_url?: string | null;
   role: 'superadmin' | 'admin' | 'referent' | 'intervenant' | 'member';
   permissions: {
     superadmin: boolean;
@@ -431,6 +432,7 @@ export interface ClassList {
   pedagogical_team_members?: PedagogicalTeamMember[];
   pedagogical_team_count?: number;
   school_id?: number | null;
+  school?: { id: number; name: string };
 }
 
 export interface Tag {
