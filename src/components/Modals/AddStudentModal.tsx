@@ -602,7 +602,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             {/* Sélecteur d'école pour les teachers (toujours affiché) */}
             {isTeacherContext && (
               <div className="form-group">
-                <label htmlFor="schoolId">Établissement</label>
+                <label htmlFor="schoolId">Établissement *</label>
                 <select
                   id="schoolId"
                   name="schoolId"
