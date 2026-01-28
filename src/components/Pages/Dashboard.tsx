@@ -1469,57 +1469,6 @@ const Dashboard: React.FC = () => {
               </p>
             )}
           </div>
-
-          <div className="projects-in-progress-container">
-            <div className="projects-header">
-              <div className="projects-title-group">
-                <img src="/icons_logo/Icon=Projet grand.svg" alt="Projets" className="projects-icon" />
-                <h3>Projets en cours</h3>
-              </div>
-              {/* <button className="btn btn-primary">Créer un projet +</button> */}
-            </div>
-
-            <div className="project-list">
-              {projectsLoading && (
-                <p className="project-feedback-text">Chargement des projets...</p>
-              )}
-
-              {!projectsLoading && projectsError && (
-                <p className="project-feedback-text error">{projectsError}</p>
-              )}
-
-              {!projectsLoading && !projectsError && recentProjects.length === 0 && (
-                <p className="project-feedback-text">Aucun projet à afficher pour le moment.</p>
-              )}
-
-              {!projectsLoading && !projectsError && recentProjects.map((project) => {
-                const statusMeta = getStatusMeta(project.status);
-                return (
-                  <div className="project-item" key={project.id}>
-                    <div className="project-info">
-                      <span className="project-name">{project.title}</span>
-                      <span className={`project-badge ${statusMeta.className}`}>{statusMeta.label}</span>
-                    </div>
-                    <div className="project-details-row">
-                      <div className="project-dates">
-                        {formatDateRange(project.start_date, project.end_date)}
-                      </div>
-                      {/* <div className="project-progress">
-                        <div className="progress-bar-wrapper">
-                          <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-                        </div>
-                        <span className="progress-value">{progress}%</span>
-                      </div> */}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="projects-footer">
-              <a href="/projects" className="btn btn-text">Voir tous les projets →</a>
-            </div>
-          </div>
         </div>
         {/* --- FIN DE LA COLONNE DE GAUCHE --- */}
 
@@ -1571,10 +1520,122 @@ const Dashboard: React.FC = () => {
                 ))}
             </div>
           </div>
+        </div>
+      </div>
+      {/* --- FIN DE dashboard-main-content --- */}
 
-          {/* Charts and Analytics */}
-          <div className="dashboard-charts">
-            <div className="chart-container">
+      {/* Full-width section: Projets en cours + Membres récents spanning both columns */}
+      <div className="members-overview-section members-overview-section-full-width projects-members-section">
+        <div className="projects-members-row">
+          <div className="projects-in-progress-container">
+            <div className="projects-header">
+              <div className="projects-title-group">
+                <img src="/icons_logo/Icon=Projet grand.svg" alt="Projets" className="projects-icon" />
+                <h3>Projets en cours</h3>
+              </div>
+              {/* <button className="btn btn-primary">Créer un projet +</button> */}
+            </div>
+
+            <div className="project-list">
+              {projectsLoading && (
+                <p className="project-feedback-text">Chargement des projets...</p>
+              )}
+
+              {!projectsLoading && projectsError && (
+                <p className="project-feedback-text error">{projectsError}</p>
+              )}
+
+              {!projectsLoading && !projectsError && recentProjects.length === 0 && (
+                <p className="project-feedback-text">Aucun projet à afficher pour le moment.</p>
+              )}
+
+              {!projectsLoading && !projectsError && recentProjects.map((project) => {
+                const statusMeta = getStatusMeta(project.status);
+                return (
+                  <div className="project-item" key={project.id}>
+                    <div className="project-info">
+                      <span className="project-name">{project.title}</span>
+                      <span className={`project-badge ${statusMeta.className}`}>{statusMeta.label}</span>
+                    </div>
+                    <div className="project-details-row">
+                      <div className="project-dates">
+                        {formatDateRange(project.start_date, project.end_date)}
+                      </div>
+                      {/* <div className="project-progress">
+                        <div className="progress-bar-wrapper">
+                          <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+                        </div>
+                        <span className="progress-value">{progress}%</span>
+                      </div> */}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="projects-footer">
+              <a href="/projects" className="btn btn-text">Voir tous les projets →</a>
+            </div>
+          </div>
+
+          {/* Membres récents */}
+          <div className="recent-members-container">
+            <div className="recent-members-header">
+              <img src="/icons_logo/Icon=Membres.svg" alt="Membres" className="members-icon" />
+              <h3>Membres récents</h3>
+            </div>
+            
+            <div className="member-list">
+              {recentMembersLoading && (
+                <p className="member-feedback-text">Chargement des membres...</p>
+              )}
+
+              {!recentMembersLoading && recentMembersError && (
+                <p className="member-feedback-text error">{recentMembersError}</p>
+              )}
+
+              {!recentMembersLoading && !recentMembersError && recentMembers.length === 0 && (
+                <p className="member-feedback-text">Aucun membre récent à afficher.</p>
+              )}
+
+              {!recentMembersLoading &&
+                !recentMembersError &&
+                recentMembers.map((member) => (
+                  <div className="member-item" key={member.id}>
+                    <div className="member-avatar">
+                      <img
+                        src={member.avatarUrl || DEFAULT_AVATAR_SRC}
+                        alt={member.name}
+                        onError={(event) => {
+                          if (event.currentTarget.src !== DEFAULT_AVATAR_SRC) {
+                            event.currentTarget.src = DEFAULT_AVATAR_SRC;
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="member-content">
+                      <div className="member-name">{member.name}</div>
+                      <div className="member-role">{member.role || 'Membre'}</div>
+                      {member.created_at && (
+                        <div className="member-meta">{formatRelativeTime(member.created_at)}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+            
+            <div className="members-footer">
+              <a href="/members" className="btn btn-text">Voir tous les membres →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* NOUVELLE SECTION : Répartition des badges + Activité des membres - SPANS BOTH COLUMNS */}
+      <div className="members-overview-section members-overview-section-full-width">
+            
+            {/* PARTIE GAUCHE : Répartition des badges (1/3 width) */}
+            <div className="chart-container badge-distribution-chart">
               <div className="chart-header">
                 <h3>Répartition des badges</h3>
               </div>
@@ -1612,66 +1673,8 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-      {/* --- FIN DE dashboard-main-content --- */}
-
-      {/* NOUVELLE SECTION : Fusion Membres Récents + Activité - SPANS BOTH COLUMNS */}
-      <div className="members-overview-section members-overview-section-full-width">
             
-            {/* PARTIE GAUCHE : Membres récents */}
-            <div className="recent-members-container">
-              <div className="recent-members-header">
-                <img src="/icons_logo/Icon=Membres.svg" alt="Membres" className="members-icon" />
-                <h3>Membres récents</h3>
-              </div>
-              
-              <div className="member-list">
-                {recentMembersLoading && (
-                  <p className="member-feedback-text">Chargement des membres...</p>
-                )}
-
-                {!recentMembersLoading && recentMembersError && (
-                  <p className="member-feedback-text error">{recentMembersError}</p>
-                )}
-
-                {!recentMembersLoading && !recentMembersError && recentMembers.length === 0 && (
-                  <p className="member-feedback-text">Aucun membre récent à afficher.</p>
-                )}
-
-                {!recentMembersLoading &&
-                  !recentMembersError &&
-                  recentMembers.map((member) => (
-                    <div className="member-item" key={member.id}>
-                      <div className="member-avatar">
-                        <img
-                          src={member.avatarUrl || DEFAULT_AVATAR_SRC}
-                          alt={member.name}
-                          onError={(event) => {
-                            if (event.currentTarget.src !== DEFAULT_AVATAR_SRC) {
-                              event.currentTarget.src = DEFAULT_AVATAR_SRC;
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="member-content">
-                        <div className="member-name">{member.name}</div>
-                        <div className="member-role">{member.role || 'Membre'}</div>
-                        {member.created_at && (
-                          <div className="member-meta">{formatRelativeTime(member.created_at)}</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-              
-              <div className="members-footer">
-                <a href="/members" className="btn btn-text">Voir tous les membres →</a>
-              </div>
-            </div>
-            
-            {/* PARTIE DROITE : Activité des membres (Le graphique) */}
+            {/* PARTIE DROITE : Activité des membres (2/3 width) */}
             <div className="member-activity-chart-container">
               {/* NOUVEL EN-TÊTE : Titre et Sélecteur d'activité sur la même ligne logique */}
               <div className="chart-header">

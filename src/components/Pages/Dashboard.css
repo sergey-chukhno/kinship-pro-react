@@ -229,16 +229,12 @@
 
 /* Nouvelle classe pour la partie gauche */
 .dashboard-left-column {
-  flex: 1 1 auto !important;
+  flex: 1 1 0 !important; /* Grow to fill available space */
   display: flex;
   flex-direction: column;
   gap: 32px;
   min-width: 0; /* Important pour la réactivité des graphiques */
-  width: 100% !important;
   max-width: none !important;
-  flex-grow: 1;
-  flex-shrink: 1;
-  flex-basis: auto;
 }
 
 /* --- FIN MODIFICATION STRUCTURE --- */
@@ -368,6 +364,13 @@
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   min-width: 0; /* Important pour flex/grid */
+}
+
+/* Badge distribution chart in bottom section (1/3 width, left side) */
+.members-overview-section .badge-distribution-chart {
+  flex: 1 1 33.333%;
+  display: flex;
+  flex-direction: column;
 }
 
 .chart-header {
@@ -831,6 +834,20 @@
   }
 }
 
+/* Row container for Projects and Members cards */
+.projects-members-row {
+  display: flex;
+  gap: 24px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0; /* Important for flex responsiveness */
+}
+
+/* Full-width section for Projects and Members (spans both columns) */
+.projects-members-section {
+  margin-top: 24px;
+}
+
 /* Styles du nouveau bloc "Projet en cours" */
 .projects-in-progress-container {
   background: var(--card-bg, #ffffff);
@@ -838,6 +855,10 @@
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex: 1; /* Grow equally to fill available space */
+  min-width: 0; /* Allow shrinking if needed */
+  display: flex;
+  flex-direction: column;
 }
 
 .projects-header {
@@ -981,6 +1002,7 @@
 .projects-footer {
   text-align: left;
   padding-top: 16px;
+  margin-top: auto; /* Push footer to bottom of flex container */
 }
 
 .btn-text {
@@ -1062,11 +1084,12 @@
 
 .members-overview-section {
   display: flex !important;
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden; /* Assure que les coins arrondis sont respectés */
+  gap: 24px; /* Add spacing between badge chart and activity chart */
+  background: transparent; /* Remove background since cards have their own */
+  border: none; /* Remove border since cards have their own */
+  border-radius: 0; /* Remove border radius */
+  box-shadow: none; /* Remove box shadow */
+  overflow: visible; /* Allow spacing to be visible */
   width: 100% !important;
   min-width: 0;
   max-width: none !important;
@@ -1082,21 +1105,22 @@
   margin-top: 24px;
 }
 
-/* Conteneur des Membres (Partie Gauche) */
+/* Conteneur des Membres - Now standalone card in left column */
 .recent-members-container {
-  /* On retire les styles de card pour ne pas avoir double bordure/ombre */
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
   padding: 24px;
-  flex: 0 0 320px; /* Largeur fixe pour la liste des membres */
-  min-width: 280px;
-  max-width: 400px;
-  border-right: 1px solid var(--border, #f3f4f6); /* Séparateur visuel */
-  box-shadow: none;
-  background: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex: 1; /* Grow equally to fill available space */
+  min-width: 0; /* Allow shrinking if needed */
+  display: flex;
+  flex-direction: column;
 }
 
-/* Conteneur de l'Activité des membres (Partie Droite) */
+/* Conteneur de l'Activité des membres (Partie Droite - 2/3 width) */
 .member-activity-chart-container {
-  flex: 1 1 auto !important;
+  flex: 2 1 66.666% !important;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1104,9 +1128,10 @@
   min-width: 0;
   width: 100% !important;
   max-width: none !important;
-  flex-grow: 1;
-  flex-shrink: 1;
-  flex-basis: 0;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .recent-members-header {
@@ -1200,6 +1225,7 @@
 
 /* Footer Membres */
 .members-footer {
+  margin-top: auto; /* Push footer to bottom of flex container */
   text-align: center;
   padding-top: 16px;
 }
