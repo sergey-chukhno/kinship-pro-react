@@ -74,6 +74,7 @@ const Members: React.FC = () => {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactEmail, setContactEmail] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [teacherSchoolFilter, setTeacherSchoolFilter] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState('');
   const [competenceFilter, setCompetenceFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState('');
@@ -659,10 +660,59 @@ const Members: React.FC = () => {
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
   });
 
+  const teacherSchoolOptions = isTeacherContext
+    ? (state.user.available_contexts?.schools || []).map((school: any) => ({
+        id: school.id,
+        name: school.name
+      }))
+    : [];
+
   const filteredStudents = baseFilteredMembers.filter(member => {
     const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
-    return studentRoles.includes(primaryRoleRaw);
+    if (!studentRoles.includes(primaryRoleRaw)) {
+      return false;
+    }
+    if (!isTeacherContext || teacherSchoolFilter === '') {
+      return true;
+    }
+    const studentSchools = (member as any).schools || [];
+    if (teacherSchoolFilter === 'none') {
+      return !studentSchools || studentSchools.length === 0;
+    }
+    const selectedId = Number(teacherSchoolFilter);
+    return studentSchools.some((school: any) => Number(school.id) === selectedId);
   });
+
+  // Filter classes for student assignment based on student's schools (only for teacher context)
+  const filteredClassesForStudent = useMemo(() => {
+    if (!isTeacherContext || !selectedStudent) {
+      return classLists;
+    }
+    
+    const studentSchools = (selectedStudent as any).schools || [];
+    
+    // If student has no schools, show only independent classes (school_id null)
+    if (!studentSchools || studentSchools.length === 0) {
+      return classLists.filter((cl) => cl.school_id === null || cl.school_id === undefined);
+    }
+    
+    // If student has schools, show only classes from those schools (exclude independent classes)
+    const studentSchoolIds = studentSchools.map((s: any) => Number(s.id));
+    return classLists.filter((cl) => {
+      const classSchoolId = cl.school_id;
+      return classSchoolId !== null && classSchoolId !== undefined && studentSchoolIds.includes(Number(classSchoolId));
+    });
+  }, [isTeacherContext, selectedStudent, classLists]);
+
+  // Reset selectedLevelId if it's not in the filtered classes list
+  useEffect(() => {
+    if (isAssignModalOpen && isTeacherContext && selectedLevelId !== null) {
+      const isValidClass = filteredClassesForStudent.some((cl) => Number(cl.id) === selectedLevelId);
+      if (!isValidClass) {
+        setSelectedLevelId(null);
+      }
+    }
+  }, [isAssignModalOpen, isTeacherContext, selectedLevelId, filteredClassesForStudent]);
 
   // Generate cartography tokens for students in background
   useEffect(() => {
@@ -1463,14 +1513,32 @@ const Members: React.FC = () => {
       {isSchoolContext && activeTab === 'students' && (
         <div className="min-h-[65vh]">
           {/* Search bar for Élèves section */}
-          <div className="search-bar" style={{ marginBottom: '16px', maxWidth: '400px' }}>
-            <i className="fas fa-search"></i>
-            <input
-              type="text"
-              placeholder="Rechercher un élève par nom..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <div className="search-bar" style={{ maxWidth: '400px', flex: '1 1 300px' }}>
+              <i className="fas fa-search"></i>
+              <input
+                type="text"
+                placeholder="Rechercher un élève par nom..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            {isTeacherContext && (
+              <select
+                className="form-select"
+                value={teacherSchoolFilter}
+                onChange={(e) => setTeacherSchoolFilter(e.target.value)}
+                style={{ minWidth: '220px', width: 'auto', flex: '0 0 auto' }}
+              >
+                <option value="">Tous les établissements</option>
+                <option value="none">Aucun</option>
+                {teacherSchoolOptions.map((school) => (
+                  <option key={school.id} value={school.id}>
+                    {school.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="members-grid">
                 {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
@@ -1841,25 +1909,35 @@ const Members: React.FC = () => {
             </div>
             <div className="modal-body">
               <p className="mb-3 text-gray-600">Sélectionnez une classe pour {selectedStudent?.fullName || 'cet élève'}.</p>
-              <div className="form-field">
-                <label className="form-label">Classe</label>
-                <select
-                  className="form-input"
-                  value={selectedLevelId ?? ''}
-                  onChange={(e) => setSelectedLevelId(Number(e.target.value))}
-                >
-                  <option value="">Choisir une classe</option>
-                  {classLists.map((cl) => (
-                    <option key={cl.id} value={cl.id}>{cl.name}</option>
-                  ))}
-                </select>
-              </div>
+              {filteredClassesForStudent.length === 0 ? (
+                <div className="text-gray-500 text-center py-4">
+                  Aucune classe disponible pour cet élève. Veuillez créer une classe correspondant à son établissement.
+                </div>
+              ) : (
+                <div className="form-field">
+                  <label className="form-label">Classe</label>
+                  <select
+                    className="form-input"
+                    value={selectedLevelId ?? ''}
+                    onChange={(e) => setSelectedLevelId(Number(e.target.value))}
+                  >
+                    <option value="">Choisir une classe</option>
+                    {filteredClassesForStudent.map((cl) => (
+                      <option key={cl.id} value={cl.id}>{cl.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => { setIsAssignModalOpen(false); setSelectedLevelId(null); }}>
                 Annuler
               </button>
-              <button className="btn btn-primary" onClick={handleAssignStudentToClass}>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleAssignStudentToClass}
+                disabled={filteredClassesForStudent.length === 0}
+              >
                 Assigner
               </button>
             </div>
