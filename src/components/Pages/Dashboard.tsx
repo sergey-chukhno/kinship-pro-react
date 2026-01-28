@@ -1157,12 +1157,12 @@ const Dashboard: React.FC = () => {
     },
     {
       key: state.showingPageType === 'pro' ? 'total_branches' : 'total_students',
-      label: state.showingPageType === 'pro' ? 'Sous-organisations' : 'Étudiants',
+      label: state.showingPageType === 'pro' ? 'Sous-organisations' : 'Élèves',
       icon: '/icons_logo/Icon=Reseau.svg',
       value: state.showingPageType === 'pro' ? branches?.total_branches : overview?.total_students,
       variant: 'stat-card',
     },
-    // Classes card for edu dashboard (placed after Étudiants)
+    // Classes card for edu dashboard (placed after Élèves)
     ...(state.showingPageType === 'edu' ? [{
       key: 'total_levels',
       label: 'Classes',
