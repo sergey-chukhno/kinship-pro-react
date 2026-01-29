@@ -125,7 +125,7 @@ export interface Project {
   id: string;
   title: string;
   description: string;
-  status: 'coming' | 'in_progress' | 'ended';
+  status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
   visibility?: 'public' | 'private';
   pathway?: string;
   organization: string;
@@ -171,6 +171,13 @@ export interface Project {
     logo: string;
     organization: string;
   } | null;
+  mlds_information?: any; // MLDS project specific information
+  school_levels?: Array<{
+    id: number;
+    name: string;
+    level?: string;
+  }>;
+  rs?: string; // RS field for MLDS projects
 }
 
 export interface EventParticipant {

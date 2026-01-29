@@ -1275,6 +1275,8 @@ const Dashboard: React.FC = () => {
     switch (status) {
       case 'in_progress':
         return { label: 'En cours', className: 'badge-inprogress' };
+      case 'to_process':
+        return { label: 'À traiter', className: 'badge-upcoming' };
       case 'coming':
         return { label: 'À venir', className: 'badge-upcoming' };
       case 'ended':

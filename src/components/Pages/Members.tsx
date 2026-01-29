@@ -494,9 +494,16 @@ const Members: React.FC = () => {
   }, []);
 
   const fetchPendingRequestsCount = useCallback(async () => {
+    // Skip for teachers - they don't have permission to view pending membership requests
+    // Only admins/superadmins can see the "Gérer demandes d'adhésion" button
+    if (isTeacherContext) {
+      setPendingRequestsCount(0);
+      return;
+    }
+
     try {
       const currentUser = await getCurrentUser();
-      const isEdu = state.showingPageType === 'edu';
+      const isEdu = isSchoolContext;
       const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
       if (!contextId) {
@@ -514,7 +521,7 @@ const Members: React.FC = () => {
       console.error('Error fetching pending requests count:', error);
       setPendingRequestsCount(0);
     }
-  }, [state.showingPageType]);
+  }, [state.showingPageType, isSchoolContext, isTeacherContext]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1134,7 +1141,7 @@ const Members: React.FC = () => {
   const handleRoleChange = async (member: Member, newRole: string, source: RoleChangeSource = 'members') => {
     try {
       const currentUser = await getCurrentUser();
-      const isEdu = state.showingPageType === 'edu';
+      const isEdu = isSchoolContext;
       // 1. Bascule ID pour le changement de rôle
       const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
 
@@ -1368,7 +1375,7 @@ const Members: React.FC = () => {
 
     try {
       const currentUser = await getCurrentUser();
-      const isEdu = state.showingPageType === 'edu';
+      const isEdu = isSchoolContext;
       const isTeacher = state.showingPageType === 'teacher';
 
       if (isTeacher) {

@@ -21,6 +21,7 @@ const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
 
   const getStatusText = (status: string) => {
     switch (status) {
+      case 'to_process': return 'À traiter';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminé';
@@ -30,6 +31,7 @@ const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
 
   const getStatusClass = (status: string) => {
     switch (status) {
+      case 'to_process': return 'to-process';
       case 'coming': return 'coming';
       case 'in_progress': return 'in-progress';
       case 'ended': return 'ended';

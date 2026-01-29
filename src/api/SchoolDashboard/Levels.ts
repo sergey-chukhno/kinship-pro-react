@@ -66,3 +66,9 @@ export function deleteSchoolLevel(schoolId: number, levelId: number) {
 export function updateSchoolLevel(schoolId: number, levelId: number, levelData: { level: { name: string; level: string; teacher_ids?: number[] } }) {
     return axiosClient.patch(`/api/v1/schools/${schoolId}/levels/${levelId}`, levelData);
 }
+
+export function getLevelMLDSProjects(levelId: number) {
+    return axiosClient.get(`/api/v1/mlds/projects`, {
+        params: { school_level_id: levelId }
+    });
+}
