@@ -160,6 +160,36 @@ export const getTeacherProjects = async (params?: {
 };
 
 /**
+ * Fetch school partnerships for a teacher (read-only, confirmed only)
+ * Use when teacher selects a school in project modal and "en partenariat"
+ */
+export const getTeacherSchoolPartnerships = async (
+    schoolId: number,
+    params?: { page?: number; per_page?: number; status?: string }
+): Promise<{ data: Partnership[]; meta?: any }> => {
+    const response = await apiClient.get(`/api/v1/teachers/schools/${schoolId}/partnerships`, {
+        params: params || { status: 'confirmed' }
+    });
+    if (response.data?.data) {
+        return { data: response.data.data, meta: response.data.meta };
+    }
+    return { data: Array.isArray(response.data) ? response.data : [], meta: undefined };
+};
+
+/**
+ * Fetch school members for a teacher (staff and community, excluding students)
+ * Use for co-responsibles when teacher selects a school in project modal
+ */
+export const getTeacherSchoolMembers = async (
+    schoolId: number,
+    params?: { per_page?: number; page?: number; search?: string; exclude_me?: boolean }
+): Promise<{ data: OrganizationMember[]; meta?: any }> => {
+    const response = await apiClient.get(`/api/v1/teachers/schools/${schoolId}/members`, { params });
+    const data = response.data?.data || response.data || [];
+    return { data: Array.isArray(data) ? data : [], meta: response.data?.meta };
+};
+
+/**
  * Fetch partnerships for an organization
  */
 export const getPartnerships = async (
