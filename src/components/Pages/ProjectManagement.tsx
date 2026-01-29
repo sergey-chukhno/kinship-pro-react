@@ -22,6 +22,7 @@ import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/p
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
+import { getTeacherAllStudents } from '../../api/Dashboard';
 import { translateRole } from '../../utils/roleTranslations';
 // Component for displaying skills with "Voir plus"/"Voir moins" functionality
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
@@ -1011,7 +1012,52 @@ const ProjectManagement: React.FC = () => {
    */
   const fetchAvailableMembers = async (): Promise<any[]> => {
     if (!apiProjectData) return [];
-    
+
+    // Teacher: same pool as project creation Participants (all students from teacher's schools)
+    if (state.showingPageType === 'teacher') {
+      try {
+        const allStudents: any[] = [];
+        let page = 1;
+        let hasMore = true;
+        while (hasMore) {
+          const res = await getTeacherAllStudents({ page, per_page: 500 });
+          const data = res.data?.data ?? res.data ?? [];
+          const list = Array.isArray(data) ? data : [];
+          if (list.length === 0) {
+            hasMore = false;
+          } else {
+            allStudents.push(...list.map((student: any) => {
+              const name = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Inconnu';
+              const organization = student.schools?.length
+                ? (student.schools as any[]).map((s: any) => s.name).join(', ')
+                : '';
+              return {
+                id: student.id?.toString(),
+                memberId: student.id?.toString(),
+                name,
+                profession: student.role || 'Élève',
+                email: student.email || '',
+                avatar: student.avatar_url || DEFAULT_AVATAR_SRC,
+                skills: [] as string[],
+                availability: [] as string[],
+                organization
+              };
+            }));
+            const totalPages = res.data?.meta?.total_pages ?? 1;
+            if (page >= totalPages) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          }
+        }
+        return allStudents;
+      } catch (err) {
+        console.error('Error fetching teacher students for add participant:', err);
+        return [];
+      }
+    }
+
     const isEdu = state.showingPageType === 'edu';
     const organizationType = isEdu ? 'school' : 'company';
     
