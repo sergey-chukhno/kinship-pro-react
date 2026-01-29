@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
-import { getTags, getPartnerships, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
+import { getTags, getPartnerships, getTeacherSchoolPartnerships, getTeacherSchoolMembers, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
+import { getTeacherAllStudents } from '../../api/Dashboard';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import {
   mapFrontendToBackend,
@@ -77,6 +78,17 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('independent');
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | undefined>(undefined);
 
+  // Co-responsibles options when teacher selects school (staff + community, not students)
+  const [coResponsibleOptions, setCoResponsibleOptions] = useState<any[]>([]);
+  const [isLoadingCoResponsibles, setIsLoadingCoResponsibles] = useState(false);
+
+  // Participants options when teacher: all students from teacher's schools with infinite scroll
+  const [participantsOptions, setParticipantsOptions] = useState<any[]>([]);
+  const [participantsPage, setParticipantsPage] = useState(1);
+  const [hasMoreParticipants, setHasMoreParticipants] = useState(false);
+  const [isLoadingParticipants, setIsLoadingParticipants] = useState(false);
+  const participantsListRef = React.useRef<HTMLDivElement | null>(null);
+
   // Search functionality with exclusion of already selected members
   // Members are mutually exclusive: cannot be both co-responsible AND participant
   // Project creator (owner) is excluded from selection as they are automatically added
@@ -138,20 +150,27 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const getFilteredPartners = (searchTerm: string) => {
     if (!availablePartnerships || !Array.isArray(availablePartnerships)) return [];
     
-    // Get current organization from context
-    const savedContextId = localStorage.getItem('selectedContextId');
-    const savedContextType = localStorage.getItem('selectedContextType');
+    // Get current organization to exclude: for teacher+school use selected school; otherwise localStorage
+    let currentOrgId: number | null = null;
+    let currentOrgType: string | null = null;
+    if (state.showingPageType === 'teacher' && teacherProjectContext === 'school' && selectedSchoolId) {
+      currentOrgId = selectedSchoolId;
+      currentOrgType = 'school';
+    } else {
+      const savedContextId = localStorage.getItem('selectedContextId');
+      const savedContextType = localStorage.getItem('selectedContextType');
+      if (savedContextId && savedContextType) {
+        currentOrgId = parseInt(savedContextId);
+        currentOrgType = savedContextType;
+      }
+    }
     
-    // Filter partnerships to exclude current org
     let filtered = availablePartnerships;
-    if (savedContextId && savedContextType) {
-      const currentOrgId = parseInt(savedContextId);
+    if (currentOrgId != null && currentOrgType) {
       filtered = availablePartnerships.filter(partnership => {
-        // Check if any partner in this partnership matches current org
-        // Partnerships have partners array with id and type
-        return !partnership.partners?.some((partner: any) => 
-          partner.id === currentOrgId && 
-          partner.type?.toLowerCase() === savedContextType.toLowerCase()
+        return !partnership.partners?.some((partner: any) =>
+          partner.id === currentOrgId &&
+          partner.type?.toLowerCase() === currentOrgType!.toLowerCase()
         );
       });
     }
@@ -449,17 +468,33 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
           setIsLoadingMembers(false);
         }
 
-        // Fetch partnerships if partnership checkbox is checked (only for school context)
+        // Fetch partnerships via teacher endpoint when school context and "en partenariat"
         if (formData.isPartnership && teacherProjectContext === 'school' && selectedSchoolId) {
           setIsLoadingPartnerships(true);
           try {
-            const partnershipsResponse = await getPartnerships(selectedSchoolId, 'school');
+            const partnershipsResponse = await getTeacherSchoolPartnerships(selectedSchoolId, { status: 'confirmed' });
             setAvailablePartnerships(partnershipsResponse.data || []);
           } catch (error) {
-            console.error('Error fetching partnerships:', error);
+            console.error('Error fetching teacher school partnerships:', error);
           } finally {
             setIsLoadingPartnerships(false);
           }
+        }
+
+        // Fetch co-responsibles options (school staff + community) when teacher selects school
+        if (teacherProjectContext === 'school' && selectedSchoolId) {
+          setIsLoadingCoResponsibles(true);
+          try {
+            const membersResponse = await getTeacherSchoolMembers(selectedSchoolId, { per_page: 500, exclude_me: true });
+            setCoResponsibleOptions(membersResponse.data || []);
+          } catch (error) {
+            console.error('Error fetching teacher school members:', error);
+            setCoResponsibleOptions([]);
+          } finally {
+            setIsLoadingCoResponsibles(false);
+          }
+        } else {
+          setCoResponsibleOptions([]);
         }
       } else if (organizationId && organizationType) {
         // For non-teacher contexts (school, company), use existing logic
@@ -511,6 +546,52 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, state.user.id, formData.isPartnership, teacherProjectContext, selectedSchoolId]); // Add teacherProjectContext and selectedSchoolId to dependencies
 
+  // Participants for teacher: load all students from teacher's schools with infinite scroll
+  useEffect(() => {
+    if (state.showingPageType !== 'teacher') {
+      setParticipantsOptions([]);
+      setHasMoreParticipants(false);
+      return;
+    }
+    let cancelled = false;
+    const fetchPage1 = async () => {
+      setIsLoadingParticipants(true);
+      setParticipantsPage(1);
+      try {
+        const res = await getTeacherAllStudents({ page: 1, per_page: 20, search: searchTerms.participants });
+        const data = res.data?.data ?? res.data ?? [];
+        const list = Array.isArray(data) ? data : [];
+        const meta = res.data?.meta;
+        if (!cancelled) {
+          setParticipantsOptions(list);
+          setHasMoreParticipants(!!(meta && meta.total_pages > 1));
+        }
+      } catch (err) {
+        if (!cancelled) setParticipantsOptions([]);
+      } finally {
+        if (!cancelled) setIsLoadingParticipants(false);
+      }
+    };
+    fetchPage1();
+    return () => { cancelled = true; };
+  }, [state.showingPageType, searchTerms.participants]);
+
+  const loadMoreParticipants = React.useCallback(async () => {
+    if (state.showingPageType !== 'teacher' || !hasMoreParticipants || isLoadingParticipants) return;
+    setIsLoadingParticipants(true);
+    const nextPage = participantsPage + 1;
+    try {
+      const res = await getTeacherAllStudents({ page: nextPage, per_page: 20, search: searchTerms.participants });
+      const data = res.data?.data ?? res.data ?? [];
+      const list = Array.isArray(data) ? data : [];
+      const meta = res.data?.meta;
+      setParticipantsOptions(prev => [...prev, ...list]);
+      setParticipantsPage(nextPage);
+      setHasMoreParticipants(!!(meta && meta.total_pages > nextPage));
+    } finally {
+      setIsLoadingParticipants(false);
+    }
+  }, [state.showingPageType, hasMoreParticipants, isLoadingParticipants, participantsPage, searchTerms.participants]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -833,7 +914,36 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   };
 
   const getSelectedMember = (memberId: string) => {
-    return members.find((m: any) => m.id === memberId || m.id === parseInt(memberId));
+    const id = memberId.toString();
+    const byId = (m: any) => m?.id?.toString() === id || m?.id === parseInt(memberId, 10);
+    return members.find(byId) ?? coResponsibleOptions.find(byId) ?? participantsOptions.find(byId) ?? null;
+  };
+
+  // Co-responsibles list: when teacher + school use coResponsibleOptions (staff only); else use members
+  const getFilteredCoResponsibles = (searchTerm: string) => {
+    const selectedIds = [
+      ...formData.coResponsibles.map(id => id.toString()),
+      ...formData.participants.map(id => id.toString())
+    ];
+    const currentUserId = state.user?.id?.toString();
+    if (state.showingPageType === 'teacher' && teacherProjectContext === 'school' && selectedSchoolId) {
+      let list = (coResponsibleOptions || []).filter((m: any) => {
+        const id = m?.id?.toString();
+        if (currentUserId && id === currentUserId) return false;
+        if (selectedIds.includes(id)) return false;
+        return true;
+      });
+      if (searchTerm.trim()) {
+        const lower = searchTerm.toLowerCase();
+        list = list.filter((m: any) =>
+          (m.full_name || `${m.first_name || ''} ${m.last_name || ''}`).toLowerCase().includes(lower) ||
+          (m.email || '').toLowerCase().includes(lower) ||
+          (m.role || '').toLowerCase().includes(lower)
+        );
+      }
+      return list;
+    }
+    return getFilteredMembers(searchTerm);
   };
 
   const getSelectedPartner = (partnerId: string) => {
@@ -1301,11 +1411,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     placeholder="Rechercher des co-responsables..."
                     value={searchTerms.coResponsibles}
                     onChange={(e) => handleSearchChange('coResponsibles', e.target.value)}
-                    disabled={isLoadingMembers}
+                    disabled={state.showingPageType === 'teacher' && teacherProjectContext === 'school' ? isLoadingCoResponsibles : isLoadingMembers}
                   />
                 </div>
                 
-                {isLoadingMembers ? (
+                {(state.showingPageType === 'teacher' && teacherProjectContext === 'school' ? isLoadingCoResponsibles : isLoadingMembers) ? (
                   <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
                     <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
                     <span>Chargement des membres...</span>
@@ -1321,7 +1431,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{member.role}</div>
+                                <div className="selected-role">{member.role_in_system ?? member.role}</div>
                               </div>
                               <button
                                 type="button"
@@ -1336,13 +1446,13 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       </div>
                     )}
                     <div className="selection-list">
-                      {getFilteredMembers(searchTerms.coResponsibles).length === 0 ? (
+                      {getFilteredCoResponsibles(searchTerms.coResponsibles).length === 0 ? (
                         <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
                           <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
                           <p>Aucun membre disponible</p>
                         </div>
                       ) : (
-                        getFilteredMembers(searchTerms.coResponsibles).map((member: any) => (
+                        getFilteredCoResponsibles(searchTerms.coResponsibles).map((member: any) => (
                           <div
                             key={member.id}
                             className="selection-item"
@@ -1351,7 +1461,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                             <div className="item-info">
                               <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                              <div className="item-role">{member.role}</div>
+                              <div className="item-role">{member.role_in_system ?? member.role}</div>
                             </div>
                           </div>
                         ))
@@ -1374,14 +1484,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     placeholder="Rechercher des participants..."
                     value={searchTerms.participants}
                     onChange={(e) => handleSearchChange('participants', e.target.value)}
-                    disabled={isLoadingMembers}
+                    disabled={state.showingPageType === 'teacher' ? isLoadingParticipants : isLoadingMembers}
                   />
                 </div>
                 
-                {isLoadingMembers ? (
+                {(state.showingPageType === 'teacher' ? isLoadingParticipants && participantsOptions.length === 0 : isLoadingMembers) ? (
                   <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
                     <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
-                    <span>Chargement des membres...</span>
+                    <span>Chargement des participants...</span>
                   </div>
                 ) : (
                   <>
@@ -1389,12 +1499,13 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       <div className="selected-items">
                         {formData.participants.map((memberId) => {
                           const member = getSelectedMember(memberId);
+                          const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{member.role}</div>
+                                <div className="selected-role">{schoolLabel || member.role}</div>
                               </div>
                               <button
                                 type="button"
@@ -1408,8 +1519,62 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         })}
                       </div>
                     )}
-                    <div className="selection-list">
-                      {getFilteredMembers(searchTerms.participants).length === 0 ? (
+                    <div
+                      className="selection-list"
+                      ref={el => { participantsListRef.current = el; }}
+                      style={state.showingPageType === 'teacher' ? { maxHeight: 280, overflowY: 'auto' } : undefined}
+                      onScroll={state.showingPageType === 'teacher' ? (e) => {
+                        const el = e.currentTarget;
+                        if (!hasMoreParticipants || isLoadingParticipants) return;
+                        if (el.scrollHeight - el.scrollTop <= el.clientHeight + 100) loadMoreParticipants();
+                      } : undefined}
+                    >
+                      {state.showingPageType === 'teacher' ? (() => {
+                        const selectedIds = new Set([
+                          ...formData.participants.map(id => id.toString()),
+                          ...formData.coResponsibles.map(id => id.toString())
+                        ]);
+                        const currentUserId = state.user?.id?.toString();
+                        const available = (participantsOptions || []).filter((m: any) => {
+                          const id = m?.id?.toString();
+                          if (currentUserId && id === currentUserId) return false;
+                          if (selectedIds.has(id)) return false;
+                          return true;
+                        });
+                        if (available.length === 0 && !isLoadingParticipants) {
+                          return (
+                            <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                              <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                              <p>Aucun participant disponible</p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <>
+                            {available.map((member: any) => {
+                              const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
+                              return (
+                                <div
+                                  key={member.id}
+                                  className="selection-item"
+                                  onClick={() => handleMemberSelect('participants', member.id)}
+                                >
+                                  <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                                  <div className="item-info">
+                                    <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                    <div className="item-role">{schoolLabel || member.role}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {hasMoreParticipants && (
+                              <div style={{ padding: '0.5rem', textAlign: 'center', color: '#6b7280' }}>
+                                {isLoadingParticipants ? <i className="fas fa-spinner fa-spin" /> : <span>Faites défiler pour charger plus</span>}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })() : getFilteredMembers(searchTerms.participants).length === 0 ? (
                         <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
                           <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
                           <p>Aucun membre disponible</p>
