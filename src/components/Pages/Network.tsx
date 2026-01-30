@@ -1866,38 +1866,22 @@ const Network: React.FC = () => {
       })
     : [];
 
-  // Get unique organizations for filter dropdown from all organizations members belong to
+  // Organization filter dropdown: only user's own orgs (not partner orgs or all members' orgs)
   const organizationOptions = isPersonalUser
-    ? Array.from(new Set(
-        networkUsersAsMembers.flatMap(member => {
-          // Use allOrganizations if available (contains all orgs from user.organizations + common_organizations)
-          if ((member as any).allOrganizations && (member as any).allOrganizations.length > 0) {
-            return (member as any).allOrganizations;
-          }
-          // Fallback to old method if allOrganizations not available
-          const orgs: string[] = [];
-          if (member.organization) {
-            orgs.push(member.organization);
-          }
-          if (member.commonOrganizations) {
-            orgs.push(
-              ...member.commonOrganizations.schools.map(s => s.name),
-              ...member.commonOrganizations.companies.map(c => c.name)
-            );
-          }
-          return orgs;
-        }).filter((org): org is string => !!org)
-      )).sort()
+    ? Array.from(new Set([
+        ...(myOrganizations.schools || []).filter((s: any) => s.my_status === 'confirmed').map((s: any) => s.name),
+        ...(myOrganizations.companies || []).filter((c: any) => c.my_status === 'confirmed').map((c: any) => c.name)
+      ].filter(Boolean))).sort()
     : isOrgDashboard
-    ? Array.from(new Set(
-        networkMembers.flatMap(member => {
-          if (!member.commonOrganizations) return [];
-          return [
-            ...member.commonOrganizations.schools.map(s => s.name),
-            ...member.commonOrganizations.companies.map(c => c.name)
-          ];
-        }).filter((org): org is string => !!org)
-      )).sort()
+    ? (() => {
+        const organizationId = getOrganizationId(state.user, state.showingPageType);
+        const organizationType = getOrganizationType(state.showingPageType);
+        if (!organizationId || !organizationType) return [];
+        const org = organizationType === 'school'
+          ? state.user?.available_contexts?.schools?.find((s: any) => Number(s.id) === organizationId)
+          : state.user?.available_contexts?.companies?.find((c: any) => Number(c.id) === organizationId);
+        return org?.name ? [org.name] : [];
+      })()
     : [];
 
   // Filter personal user network by skills, availability, and organization
