@@ -15,6 +15,7 @@ import {
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
+import { translateRole } from '../../utils/roleTranslations';
 
 interface ProjectModalProps {
   project?: Project | null;
@@ -73,7 +74,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
   const [availablePathways, setAvailablePathways] = useState<any[]>([]);
   const [isLoadingPathways, setIsLoadingPathways] = useState(false);
-  
+  // Contact users from selected partnership, pre-selected as co-responsibles (for display)
+  const [partnershipContactMembers, setPartnershipContactMembers] = useState<any[]>([]);
+
   // Teacher project context: 'independent' or 'school'
   const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('school');
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | undefined>(undefined);
@@ -598,11 +601,23 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     const { name, value } = e.target;
     // Handle checkbox for isPartnership
     if (name === 'isPartnership') {
-      setFormData(prev => ({
-        ...prev,
-        isPartnership: (e.target as HTMLInputElement).checked,
-        partner: (e.target as HTMLInputElement).checked ? prev.partner : '' // Clear partner if unchecked
-      }));
+      const checked = (e.target as HTMLInputElement).checked;
+      if (!checked) {
+        const contactIds = partnershipContactMembers.map((c: any) => c.id.toString());
+        setFormData(prev => ({
+          ...prev,
+          isPartnership: false,
+          partner: '',
+          coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+        }));
+        setPartnershipContactMembers([]);
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          isPartnership: true,
+          partner: prev.partner
+        }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -729,7 +744,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     setSubmitError(null);
 
     const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
-      desiredStatus || formData.status;
+      desiredStatus ?? formData.status;
+
+    // Mettre à jour le formulaire avec le statut effectif (ex. brouillon) pour que le select s'affiche correctement
+    if (desiredStatus !== undefined) {
+      setFormData(prev => ({ ...prev, status: effectiveStatus }));
+    }
 
     // Validation: Pathway is required for all dashboards
     const isPathwayRequired = true;
@@ -898,7 +918,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   };
 
   const handleSaveDraft = async () => {
-    // Sauvegarde en brouillon, sans validation stricte
+    // Mettre à jour le formulaire tout de suite pour que le select Statut affiche "Brouillon"
+    setFormData(prev => ({ ...prev, status: 'draft' }));
     await submitProject('draft');
   };
 
@@ -972,13 +993,43 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   };
 
   const handlePartnerSelect = (partnerId: string) => {
-    setFormData(prev => ({ ...prev, partner: partnerId }));
+    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
+    const contactUsers = partnership
+      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
+          id: c.id,
+          full_name: c.full_name || '',
+          email: c.email || '',
+          role: c.role_in_organization || ''
+        })))
+      : [];
+    setPartnershipContactMembers(contactUsers);
+    const newContactIds = contactUsers.map((c: any) => c.id.toString());
+    setFormData(prev => {
+      const prevPartner = availablePartnerships.find((p: any) => p.id?.toString() === prev.partner || p.id === prev.partner);
+      const prevContactIds = prevPartner
+        ? (prevPartner.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => c.id.toString()))
+        : [];
+      const coResponsiblesWithoutPrev = prev.coResponsibles.filter(id => !prevContactIds.includes(id.toString()));
+      const combined = [...coResponsiblesWithoutPrev, ...newContactIds];
+      const unique = Array.from(new Set(combined));
+      return { ...prev, partner: partnerId, coResponsibles: unique };
+    });
+  };
+
+  const handlePartnerRemove = () => {
+    const contactIds = partnershipContactMembers.map((c: any) => c.id.toString());
+    setFormData(prev => ({
+      ...prev,
+      partner: '',
+      coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+    }));
+    setPartnershipContactMembers([]);
   };
 
   const getSelectedMember = (memberId: string) => {
     const id = memberId.toString();
     const byId = (m: any) => m?.id?.toString() === id || m?.id === parseInt(memberId, 10);
-    return members.find(byId) ?? coResponsibleOptions.find(byId) ?? participantsOptions.find(byId) ?? null;
+    return members.find(byId) ?? coResponsibleOptions.find(byId) ?? participantsOptions.find(byId) ?? partnershipContactMembers.find(byId) ?? null;
   };
 
   // Co-responsibles list: when teacher + school use coResponsibleOptions (staff only); else use members
@@ -1235,6 +1286,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       className="form-select"
                     >
                       <option value="">Sélectionner un statut</option>
+                      <option value="draft">Brouillon</option>
                       <option value="coming">À venir</option>
                       <option value="in_progress">En cours</option>
                       <option value="ended">Terminé</option>
@@ -1257,6 +1309,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     className="form-select"
                   >
                     <option value="">Sélectionner un statut</option>
+                    <option value="draft">Brouillon</option>
                     <option value="coming">À venir</option>
                     <option value="in_progress">En cours</option>
                     <option value="ended">Terminé</option>
@@ -1432,7 +1485,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <button
                               type="button"
                               className="remove-selection"
-                              onClick={() => setFormData(prev => ({ ...prev, partner: '' }))}
+                              onClick={handlePartnerRemove}
                             >
                               <i className="fas fa-times"></i>
                             </button>
@@ -1503,10 +1556,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                           const member = getSelectedMember(memberId);
                           return member ? (
                             <div key={memberId} className="selected-member">
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()} className="selected-avatar" />
                               <div className="selected-info">
-                                <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{member.role_in_system ?? member.role}</div>
+                                <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
+                                <div className="selected-role">{translateRole(member.role_in_system ?? member.role ?? '')}</div>
                               </div>
                               <button
                                 type="button"
@@ -1536,7 +1589,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                             <div className="item-info">
                               <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                              <div className="item-role">{member.role_in_system ?? member.role}</div>
+                              <div className="item-role">{translateRole(member.role_in_system ?? member.role)}</div>
                             </div>
                           </div>
                         ))

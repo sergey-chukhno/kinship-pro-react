@@ -134,6 +134,7 @@ const ProjectManagement: React.FC = () => {
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
   const [editAvailableMembers, setEditAvailableMembers] = useState<any[]>([]);
   const [editAvailablePartnerships, setEditAvailablePartnerships] = useState<any[]>([]);
+  const [editPartnershipContactMembers, setEditPartnershipContactMembers] = useState<any[]>([]);
   const [isLoadingEditMembers, setIsLoadingEditMembers] = useState(false);
   const [departments, setDepartments] = useState<Array<{ code: string; nom: string }>>([]);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
@@ -1249,11 +1250,35 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleEditPartnerSelect = (partnerId: string) => {
+    const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
+    const contactUsers = partnership
+      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
+          id: c.id,
+          full_name: c.full_name || '',
+          email: c.email || '',
+          role: c.role_in_organization || ''
+        })))
+      : [];
+    const contactIds = contactUsers.map((c: any) => c.id.toString());
+
     setEditForm(prev => {
-      const newPartners = prev.partners.includes(partnerId)
-        ? prev.partners.filter(id => id !== partnerId)
-        : [...prev.partners, partnerId];
-      return { ...prev, partners: newPartners };
+      const isAdding = !prev.partners.includes(partnerId);
+      const newPartners = isAdding
+        ? [...prev.partners, partnerId]
+        : prev.partners.filter(id => id !== partnerId);
+      const newCoResponsibles = isAdding
+        ? Array.from(new Set([...prev.coResponsibles, ...contactIds]))
+        : prev.coResponsibles.filter(id => !contactIds.includes(id.toString()));
+      return { ...prev, partners: newPartners, coResponsibles: newCoResponsibles };
+    });
+
+    setEditPartnershipContactMembers(prev => {
+      const isAdding = !editForm.partners.includes(partnerId);
+      if (isAdding) {
+        return [...prev, ...contactUsers];
+      }
+      const toRemoveIds = new Set(contactIds);
+      return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
     });
   };
 
@@ -1287,6 +1312,7 @@ const ProjectManagement: React.FC = () => {
     }
     const isPartnerProject = apiProjectData?.is_partner_project || false;
     
+    setEditPartnershipContactMembers([]);
     setEditForm({
       title: project.title,
       description: project.description,
@@ -1510,7 +1536,7 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleSaveEditDraft = async () => {
-    // Sauvegarde en brouillon
+    setEditForm(prev => ({ ...prev, status: 'draft' }));
     await handleSaveEditInternal('draft');
   };
 
@@ -4970,7 +4996,8 @@ const ProjectManagement: React.FC = () => {
                   {editForm.coResponsibles.length > 0 && (
                     <div className="selected-items">
                       {editForm.coResponsibles.map((memberId) => {
-                        const member = editAvailableMembers.find((m: any) => m.id.toString() === memberId);
+                        const member = editAvailableMembers.find((m: any) => m.id.toString() === memberId)
+                          ?? editPartnershipContactMembers.find((m: any) => m.id?.toString() === memberId);
                         return member ? (
                           <div key={memberId} className="selected-member">
                             <AvatarImage 
@@ -4979,8 +5006,8 @@ const ProjectManagement: React.FC = () => {
                               className="selected-avatar" 
                             />
                             <div className="selected-info">
-                              <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                              <div className="selected-role">{member.role}</div>
+                              <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
+                              <div className="selected-role">{member.role ?? member.role_in_organization ?? ''}</div>
                             </div>
                             <button 
                               type="button" 

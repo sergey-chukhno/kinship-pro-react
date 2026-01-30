@@ -68,6 +68,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [availablePartnerships, setAvailablePartnerships] = useState<any[]>([]);
+  const [partnershipContactMembers, setPartnershipContactMembers] = useState<any[]>([]);
   const [availableClasses, setAvailableClasses] = useState<any[]>([]);
   const [departments, setDepartments] = useState<Array<{ code: string; nom: string }>>([]);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
@@ -430,16 +431,45 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   };
 
   const handlePartnerSelect = (partnerId: string) => {
+    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
+    const contactUsers = partnership
+      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
+          id: c.id,
+          full_name: c.full_name || '',
+          email: c.email || '',
+          role: c.role_in_organization || ''
+        })))
+      : [];
+    const contactIds = contactUsers.map((c: any) => c.id.toString());
+
     setFormData(prev => {
-      const newPartners = prev.partners.includes(partnerId)
-        ? prev.partners.filter(id => id !== partnerId)
-        : [...prev.partners, partnerId];
-      return { ...prev, partners: newPartners };
+      const isAdding = !prev.partners.includes(partnerId);
+      const newPartners = isAdding
+        ? [...prev.partners, partnerId]
+        : prev.partners.filter(id => id !== partnerId);
+      let newCoResponsibles = prev.coResponsibles;
+      if (isAdding) {
+        newCoResponsibles = Array.from(new Set([...prev.coResponsibles, ...contactIds]));
+      } else {
+        newCoResponsibles = prev.coResponsibles.filter(id => !contactIds.includes(id.toString()));
+      }
+      return { ...prev, partners: newPartners, coResponsibles: newCoResponsibles };
+    });
+
+    setPartnershipContactMembers(prev => {
+      const isAdding = !formData.partners.includes(partnerId);
+      if (isAdding) {
+        return [...prev, ...contactUsers];
+      }
+      const toRemoveIds = new Set(contactIds);
+      return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
     });
   };
 
   const getSelectedMember = (memberId: string) => {
-    return members.find((m: any) => m.id === memberId || m.id === Number.parseInt(memberId));
+    const id = memberId.toString();
+    const byId = (m: any) => m?.id?.toString() === id || m?.id === Number.parseInt(memberId, 10);
+    return members.find(byId) ?? partnershipContactMembers.find(byId) ?? null;
   };
 
   const getSelectedPartner = (partnerId: string) => {
@@ -615,7 +645,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   };
 
   const handleSaveDraft = async () => {
-    // Sauvegarde en brouillon, sans validation forte
+    setFormData(prev => ({ ...prev, status: 'draft' }));
     await submitProject('draft');
   };
 
