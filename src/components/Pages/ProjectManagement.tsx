@@ -24,6 +24,29 @@ import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { getTeacherAllStudents } from '../../api/Dashboard';
 import { translateRole } from '../../utils/roleTranslations';
+
+/** Converts API availability (object or array) to an array of day labels for display. */
+function normalizeAvailabilityToLabels(availability: any): string[] {
+  if (Array.isArray(availability)) return availability;
+  if (!availability || typeof availability !== 'object') return [];
+  const mapping: Record<string, string> = {
+    monday: 'Lundi',
+    tuesday: 'Mardi',
+    wednesday: 'Mercredi',
+    thursday: 'Jeudi',
+    friday: 'Vendredi',
+    saturday: 'Samedi',
+    sunday: 'Dimanche',
+    other: 'Autre',
+  };
+  const labels = Object.entries(mapping).reduce<string[]>((acc, [key, label]) => {
+    if (availability[key]) acc.push(label);
+    return acc;
+  }, []);
+  if (availability.available && labels.length === 0) labels.push('Disponible');
+  return labels;
+}
+
 // Component for displaying skills with "Voir plus"/"Voir moins" functionality
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
   const [showAll, setShowAll] = React.useState(false);
@@ -367,7 +390,7 @@ const ProjectManagement: React.FC = () => {
             email: member.user?.email || '',
             avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
             skills: member.user?.skills?.map((s: any) => s.name || s) || [],
-            availability: member.user?.availability || [],
+            availability: normalizeAvailabilityToLabels(member.user?.availability),
             requestDate: member.created_at ? new Date(member.created_at).toLocaleDateString('fr-FR') : '',
             organization: member.user?.organization || 'Non renseigné'
           }));
@@ -1618,7 +1641,7 @@ const ProjectManagement: React.FC = () => {
       });
       
       showSuccess('Demande acceptée avec succès');
-      
+      console.log("Requests", requests)
       // Remove from requests
       setRequests(requests.filter(r => r.id !== requestId));
       
@@ -3710,7 +3733,7 @@ const ProjectManagement: React.FC = () => {
                       <div className="request-availability">
                         <h4>Disponibilités</h4>
                         <div className="availability-list">
-                          {request.availability.map((day: string, index: number) => (
+                          {request !== null && request?.availability.length !== 0 && request?.availability?.map((day: string, index: number) => (
                             <span key={index} className="availability-pill">{day}</span>
                           ))}
                         </div>
