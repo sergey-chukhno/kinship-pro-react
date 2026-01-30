@@ -1618,7 +1618,7 @@ const ProjectManagement: React.FC = () => {
       });
       
       showSuccess('Demande acceptée avec succès');
-      
+      console.log("Requests", requests)
       // Remove from requests
       setRequests(requests.filter(r => r.id !== requestId));
       
@@ -3710,7 +3710,7 @@ const ProjectManagement: React.FC = () => {
                       <div className="request-availability">
                         <h4>Disponibilités</h4>
                         <div className="availability-list">
-                          {request.availability.map((day: string, index: number) => (
+                          {request !== null && request?.availability.length !== 0 && request?.availability?.map((day: string, index: number) => (
                             <span key={index} className="availability-pill">{day}</span>
                           ))}
                         </div>
