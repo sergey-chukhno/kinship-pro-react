@@ -75,7 +75,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [isLoadingPathways, setIsLoadingPathways] = useState(false);
   
   // Teacher project context: 'independent' or 'school'
-  const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('independent');
+  const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('school');
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | undefined>(undefined);
 
   // Co-responsibles options when teacher selects school (staff + community, not students)
@@ -185,11 +185,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     );
   };
 
-  // Reset teacher context when modal opens/closes
+  // Reset teacher context when modal opens/closes (default: school)
   useEffect(() => {
     if (!project && state.showingPageType === 'teacher') {
-      setTeacherProjectContext('independent');
-      setSelectedSchoolId(undefined);
+      setTeacherProjectContext('school');
+      const schools = state.user.available_contexts?.schools || [];
+      setSelectedSchoolId(schools.length > 0 ? schools[0].id : undefined);
     }
   }, [project, state.showingPageType]);
   
@@ -635,7 +636,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         ? prev.schoolLevelIds.filter(id => id !== schoolLevelId)
         : [...prev.schoolLevelIds, schoolLevelId];
 
-      // When selecting (not unselecting), pré‑sélectionner les enseignants responsables
+      // When selecting (not unselecting), pré‑sélectionner les enseignants responsables et les participants de la classe
       if (!isAlreadySelected) {
         const selectedLevel = availableSchoolLevels.find(
           (level: any) => level.id?.toString() === schoolLevelId
@@ -644,16 +645,77 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         const teacherIds =
           selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
 
-        if (teacherIds.length > 0) {
-          const coResponsiblesSet = new Set(prev.coResponsibles);
-          teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
+        // Participants de la classe : membres dont classes ou level_school contient cette classe
+        const memberIdsInClass = Array.isArray(members)
+          ? members
+              .filter((member: any) => {
+                if (!member?.id) return false;
+                const inClasses =
+                  Array.isArray(member.classes) &&
+                  member.classes.some((c: any) => c?.id?.toString() === schoolLevelId);
+                const inLevelSchool =
+                  Array.isArray(member.level_school) &&
+                  member.level_school.some((l: any) => l?.id?.toString() === schoolLevelId);
+                return inClasses || inLevelSchool;
+              })
+              .map((m: any) => m.id?.toString())
+              .filter(Boolean)
+          : [];
 
-          return {
-            ...prev,
-            schoolLevelIds: updatedSchoolLevelIds,
-            coResponsibles: Array.from(coResponsiblesSet)
-          };
-        }
+        const coResponsiblesSet = new Set(prev.coResponsibles);
+        teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
+
+        const participantsSet = new Set(prev.participants);
+        memberIdsInClass.forEach((id: string) => participantsSet.add(id));
+
+        return {
+          ...prev,
+          schoolLevelIds: updatedSchoolLevelIds,
+          coResponsibles: Array.from(coResponsiblesSet),
+          participants: Array.from(participantsSet)
+        };
+      }
+
+      // Quand la classe est désélectionnée, désélectionner les participants et co-responsables de cette classe
+      if (isAlreadySelected) {
+        const selectedLevel = availableSchoolLevels.find(
+          (level: any) => level.id?.toString() === schoolLevelId
+        );
+        const teacherIds =
+          selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
+
+        const memberIdsInClass = Array.isArray(members)
+          ? members
+              .filter((member: any) => {
+                if (!member?.id) return false;
+                const inClasses =
+                  Array.isArray(member.classes) &&
+                  member.classes.some((c: any) => c?.id?.toString() === schoolLevelId);
+                const inLevelSchool =
+                  Array.isArray(member.level_school) &&
+                  member.level_school.some((l: any) => l?.id?.toString() === schoolLevelId);
+                return inClasses || inLevelSchool;
+              })
+              .map((m: any) => m.id?.toString())
+              .filter(Boolean)
+          : [];
+
+        const coResponsiblesToRemove = new Set(teacherIds);
+        const participantsToRemove = new Set(memberIdsInClass);
+
+        const updatedCoResponsibles = prev.coResponsibles.filter(
+          (id) => !coResponsiblesToRemove.has(id.toString())
+        );
+        const updatedParticipants = prev.participants.filter(
+          (id) => !participantsToRemove.has(id.toString())
+        );
+
+        return {
+          ...prev,
+          schoolLevelIds: updatedSchoolLevelIds,
+          coResponsibles: updatedCoResponsibles,
+          participants: updatedParticipants
+        };
       }
 
       return {
@@ -1045,16 +1107,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             </div>
 
             <div className="form-row">
+              {/* Colonne 1 : Créer le projet en tant que (teacher) ou Organisation (non-teacher) */}
               <div className="form-group">
-                {/* Teacher context selector (only for teachers creating new projects) */}
                 {state.showingPageType === 'teacher' && !project && (
-                  <div style={{ marginBottom: '12px' }}>
+                  <div>
                     <label htmlFor="teacherProjectContext">Créer le projet en tant que *</label>
                     {(() => {
-                      // Check if teacher has any confirmed school memberships
                       const availableSchools = state.user.available_contexts?.schools || [];
                       const hasSchools = availableSchools.length > 0;
-                      
                       return (
                         <>
                           <select
@@ -1066,8 +1126,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                               if (newContext === 'independent') {
                                 setSelectedSchoolId(undefined);
                               } else if (newContext === 'school' && hasSchools) {
-                                // Auto-select first school if available (sorted alphabetically)
-                                const sortedSchools = [...availableSchools].sort((a: any, b: any) => 
+                                const sortedSchools = [...availableSchools].sort((a: any, b: any) =>
                                   (a.name || '').localeCompare(b.name || '')
                                 );
                                 setSelectedSchoolId(sortedSchools[0]?.id);
@@ -1076,22 +1135,21 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             className="form-select"
                             required
                           >
-                            <option value="independent">Enseignant Indépendant</option>
                             <option value="school" disabled={!hasSchools}>
                               École{!hasSchools ? ' (Aucune école disponible)' : ''}
                             </option>
                           </select>
                           {!hasSchools && teacherProjectContext === 'school' && (
-                            <div style={{ 
-                              marginTop: '8px', 
-                              padding: '8px', 
-                              backgroundColor: '#fff3cd', 
+                            <div style={{
+                              marginTop: '8px',
+                              padding: '8px',
+                              backgroundColor: '#fff3cd',
                               border: '1px solid #ffc107',
                               borderRadius: '4px',
                               fontSize: '14px',
                               color: '#856404'
                             }}>
-                              <strong>⚠️</strong> Vous n'avez aucune école avec un statut confirmé. 
+                              <strong>⚠️</strong> Vous n'avez aucune école avec un statut confirmé.
                               Veuillez sélectionner "Enseignant Indépendant" pour créer votre projet.
                             </div>
                           )}
@@ -1100,19 +1158,48 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     })()}
                   </div>
                 )}
-                
-                {/* School selector (only shown when teacher chooses 'school' context and has schools) */}
+                {state.showingPageType !== 'teacher' && (
+                  <>
+                    <label htmlFor="projectOrganization">Organisation *</label>
+                    {isOrgReadOnly ? (
+                      <input
+                        type="text"
+                        id="projectOrganization"
+                        name="organization"
+                        value={formData.organization}
+                        readOnly
+                        className="form-input"
+                        style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                      />
+                    ) : (
+                      <select
+                        id="projectOrganization"
+                        name="organization"
+                        required
+                        value={formData.organization}
+                        onChange={handleInputChange}
+                        className="form-select"
+                      >
+                        <option value="">Sélectionner une organisation</option>
+                        {state.user.available_contexts?.companies?.map((c: any) => (
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                        {state.user.available_contexts?.schools?.map((s: any) => (
+                          <option key={s.id} value={s.name}>{s.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </>
+                )}
+              </div>
+              {/* Colonne 2 : Sélectionner une école (teacher) ou Statut (non-teacher) */}
+              <div className="form-group">
                 {state.showingPageType === 'teacher' && !project && teacherProjectContext === 'school' && (() => {
                   const availableSchools = state.user.available_contexts?.schools || [];
                   const hasSchools = availableSchools.length > 0;
-                  
-                  if (!hasSchools) {
-                    // If no schools available, don't show the selector
-                    return null;
-                  }
-                  
+                  if (!hasSchools) return null;
                   return (
-                    <div style={{ marginBottom: '12px' }}>
+                    <div>
                       <label htmlFor="selectedSchool">Sélectionner une école *</label>
                       <select
                         id="selectedSchool"
@@ -1125,70 +1212,58 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         required={teacherProjectContext === 'school'}
                       >
                         <option value="">Sélectionner une école</option>
-                        {(() => {
-                          // Get all confirmed schools, sorted alphabetically
-                          const sortedSchools = [...availableSchools].sort((a: any, b: any) => 
-                            (a.name || '').localeCompare(b.name || '')
-                          );
-                          return sortedSchools.map((school: any) => (
-                            <option key={school.id} value={school.id}>
-                              {school.name}
-                            </option>
-                          ));
-                        })()}
+                        {[...availableSchools].sort((a: any, b: any) =>
+                          (a.name || '').localeCompare(b.name || '')
+                        ).map((school: any) => (
+                          <option key={school.id} value={school.id}>
+                            {school.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   );
                 })()}
-
-                <label htmlFor="projectOrganization">Organisation *</label>
-                {isOrgReadOnly || (state.showingPageType === 'teacher' && !project) ? (
-                  <input
-                    type="text"
-                    id="projectOrganization"
-                    name="organization"
-                    value={formData.organization}
-                    readOnly
-                    className="form-input"
-                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
-                  />
-                ) : (
+                {state.showingPageType !== 'teacher' && (
+                  <>
+                    <label htmlFor="projectStatus">Statut *</label>
+                    <select
+                      id="projectStatus"
+                      name="status"
+                      required
+                      value={formData.status}
+                      onChange={handleInputChange}
+                      className="form-select"
+                    >
+                      <option value="">Sélectionner un statut</option>
+                      <option value="coming">À venir</option>
+                      <option value="in_progress">En cours</option>
+                      <option value="ended">Terminé</option>
+                    </select>
+                  </>
+                )}
+              </div>
+            </div>
+            {/* Statut pleine largeur pour teacher */}
+            {state.showingPageType === 'teacher' && (
+              <div className="form-row">
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label htmlFor="projectStatus">Statut *</label>
                   <select
-                    id="projectOrganization"
-                    name="organization"
+                    id="projectStatus"
+                    name="status"
                     required
-                    value={formData.organization}
+                    value={formData.status}
                     onChange={handleInputChange}
                     className="form-select"
                   >
-                    <option value="">Sélectionner une organisation</option>
-                    {/* Assuming user has available_contexts.companies or similar to map here for personal user */}
-                    {state.user.available_contexts?.companies?.map((c: any) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                    {state.user.available_contexts?.schools?.map((s: any) => (
-                      <option key={s.id} value={s.name}>{s.name}</option>
-                    ))}
+                    <option value="">Sélectionner un statut</option>
+                    <option value="coming">À venir</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="ended">Terminé</option>
                   </select>
-                )}
+                </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="projectStatus">Statut *</label>
-                <select
-                  id="projectStatus"
-                  name="status"
-                  required
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="form-select"
-                >
-                  <option value="">Sélectionner un statut</option>
-                  <option value="coming">À venir</option>
-                  <option value="in_progress">En cours</option>
-                  <option value="ended">Terminé</option>
-                </select>
-              </div>
-            </div>
+            )}
 
             <div className="form-row">
               <div className="form-group">
@@ -1248,7 +1323,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             {/* Organisation porteuse */}
             {availableSchoolLevels.length > 0 && (
               <div className="form-group">
-                <div className="form-label">Organisation porteuse</div>
+                <div className="form-label">Classes</div>
                 {isLoadingSchoolLevels ? (
                   <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
                     <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>

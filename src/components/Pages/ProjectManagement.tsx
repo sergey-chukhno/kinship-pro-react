@@ -3300,7 +3300,7 @@ const ProjectManagement: React.FC = () => {
 
                   return (
                     <div className="school_level-section">
-                      <div className="section-label">Organisation porteuse</div>
+                      <div className="section-label">Classes</div>
                       <div className="project-tags">
                         {schoolLevels.map((school_level: any) => (
                           <span key={school_level.id?.toString() || school_level.name} className="tag">

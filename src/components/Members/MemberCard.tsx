@@ -232,7 +232,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
                 {displayClasses.map((cls: any, index: number) => (
                   <span
                     key={cls.id || index}
-                    className="class-tag"
+                    className="class-tag "
                   >
                     {cls.name}
                   </span>
