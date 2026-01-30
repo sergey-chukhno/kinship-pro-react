@@ -1618,7 +1618,7 @@ const ProjectManagement: React.FC = () => {
       });
       
       showSuccess('Demande acceptée avec succès');
-      
+      console.log("Requests", requests)
       // Remove from requests
       setRequests(requests.filter(r => r.id !== requestId));
       
