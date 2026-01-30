@@ -13,8 +13,11 @@ import {
   validateImages
 } from '../../utils/projectMapper';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
+import { translateRole } from '../../utils/roleTranslations';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
+
+const STUDENT_SYSTEM_ROLES = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant'];
 
 interface ProjectModalProps {
   project?: Project | null;
@@ -943,7 +946,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       }
       return list;
     }
-    return getFilteredMembers(searchTerm);
+    const baseList = getFilteredMembers(searchTerm);
+    if (state.showingPageType === 'edu') {
+      return baseList.filter((m: any) => {
+        const role = (m.role_in_system || m.role || '').toString().toLowerCase();
+        return !STUDENT_SYSTEM_ROLES.includes(role);
+      });
+    }
+    return baseList;
   };
 
   const getSelectedPartner = (partnerId: string) => {
@@ -1431,7 +1441,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{member.role_in_system ?? member.role}</div>
+                                <div className="selected-role">{translateRole(member.role_in_system ?? member.role)}</div>
                               </div>
                               <button
                                 type="button"
@@ -1461,7 +1471,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                             <div className="item-info">
                               <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                              <div className="item-role">{member.role_in_system ?? member.role}</div>
+                              <div className="item-role">{translateRole(member.role_in_system ?? member.role)}</div>
                             </div>
                           </div>
                         ))
@@ -1505,7 +1515,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{schoolLabel || member.role}</div>
+                                <div className="selected-role">{schoolLabel || translateRole(member.role_in_system || member.role)}</div>
                               </div>
                               <button
                                 type="button"
@@ -1562,7 +1572,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                                   <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                                   <div className="item-info">
                                     <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                    <div className="item-role">{schoolLabel || member.role}</div>
+                                    <div className="item-role">{schoolLabel || translateRole(member.role_in_system || member.role)}</div>
                                   </div>
                                 </div>
                               );
@@ -1589,7 +1599,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                             <div className="item-info">
                               <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                              <div className="item-role">{member.role}</div>
+                              <div className="item-role">{translateRole(member.role_in_system || member.role)}</div>
                             </div>
                           </div>
                         ))
