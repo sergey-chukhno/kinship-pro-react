@@ -3710,7 +3710,7 @@ const ProjectManagement: React.FC = () => {
                       <div className="request-availability">
                         <h4>Disponibilités</h4>
                         <div className="availability-list">
-                          {request?.availability && request?.availability?.map((day: string, index: number) => (
+                          {request !== null && request?.availability.length !== 0 && request?.availability?.map((day: string, index: number) => (
                             <span key={index} className="availability-pill">{day}</span>
                           ))}
                         </div>
