@@ -25,10 +25,15 @@ const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, leve
   };
 
   return (
-    <div className="class-card" onClick={handleCardClick} style={{ cursor: onClick ? 'pointer' : 'default', position: 'relative' }}>
-      {(onEdit || onDelete) && (
+    <div className="flex-col justify-between class-card" onClick={handleCardClick} style={{ cursor: onClick ? 'pointer' : 'default', position: 'relative' }}>
+
+      <div className="flex !items-baseline class-card-header">
+        {/* <img src="/icons_logo/Icon=Class.svg" alt="Classe" className="class-icon" /> */}
+        <i className="fas fa-school"></i>
+        <h4>{name}</h4>
+        {(onEdit || onDelete) && (
         <div style={{
-          position: 'absolute',
+          // position: 'absolute',
           top: '8px',
           right: '8px',
           display: 'flex',
@@ -92,10 +97,6 @@ const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, leve
           )}
         </div>
       )}
-      <div className="class-card-header">
-        {/* <img src="/icons_logo/Icon=Class.svg" alt="Classe" className="class-icon" /> */}
-        <i className="fas fa-school"></i>
-        <h4>{name}</h4>
       </div>
       <div className="class-card-body">
         {showSchoolName && (

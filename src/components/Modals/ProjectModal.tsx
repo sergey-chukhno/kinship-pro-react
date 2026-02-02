@@ -44,7 +44,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     // responsible: '', // Removed as per request
     coResponsibles: [] as string[],
     isPartnership: false, // New field
-    partner: '',
+    partners: [] as string[],
     additionalImages: [] as string[],
     // School levels (organisations porteuses)
     schoolLevelIds: [] as string[]
@@ -76,9 +76,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
   const [availablePathways, setAvailablePathways] = useState<any[]>([]);
   const [isLoadingPathways, setIsLoadingPathways] = useState(false);
-  
+  // Contact users from selected partnership, pre-selected as co-responsibles (for display)
+  const [partnershipContactMembers, setPartnershipContactMembers] = useState<any[]>([]);
+
   // Teacher project context: 'independent' or 'school'
-  const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('independent');
+  const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('school');
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | undefined>(undefined);
 
   // Co-responsibles options when teacher selects school (staff + community, not students)
@@ -178,6 +180,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       });
     }
     
+    // Filter out already selected partnerships (compare as string for number/string ids)
+    const selectedPartnerIds = new Set(formData.partners.map((id: string) => id?.toString()));
+    filtered = filtered.filter((partnership: any) =>
+      !selectedPartnerIds.has(partnership.id?.toString())
+    );
+
     if (!searchTerm.trim()) return filtered;
     const searchLower = searchTerm.toLowerCase();
     return filtered.filter(partnership =>
@@ -188,11 +196,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     );
   };
 
-  // Reset teacher context when modal opens/closes
+  // Reset teacher context when modal opens/closes (default: school)
   useEffect(() => {
     if (!project && state.showingPageType === 'teacher') {
-      setTeacherProjectContext('independent');
-      setSelectedSchoolId(undefined);
+      setTeacherProjectContext('school');
+      const schools = state.user.available_contexts?.schools || [];
+      setSelectedSchoolId(schools.length > 0 ? schools[0].id : undefined);
     }
   }, [project, state.showingPageType]);
   
@@ -250,8 +259,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         image: project.image || '',
         // responsible: '',
         coResponsibles: [],
-        isPartnership: !!project.partner, // Infer from existing data
-        partner: project.partner?.id || '',
+        isPartnership: !!(project.partners?.length || project.partner), // Infer from existing data
+        partners: (project.partners?.length ? project.partners.map((p: { id: string }) => p.id) : (project.partner?.id ? [project.partner.id.toString()] : [])),
         additionalImages: [],
         schoolLevelIds: [] // Will be populated from API if project has school levels
       });
@@ -600,11 +609,23 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     const { name, value } = e.target;
     // Handle checkbox for isPartnership
     if (name === 'isPartnership') {
-      setFormData(prev => ({
-        ...prev,
-        isPartnership: (e.target as HTMLInputElement).checked,
-        partner: (e.target as HTMLInputElement).checked ? prev.partner : '' // Clear partner if unchecked
-      }));
+      const checked = (e.target as HTMLInputElement).checked;
+      if (!checked) {
+        const contactIds = partnershipContactMembers.map((c: any) => c.id.toString());
+        setFormData(prev => ({
+          ...prev,
+          isPartnership: false,
+          partners: [],
+          coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+        }));
+        setPartnershipContactMembers([]);
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          isPartnership: true,
+          partners: prev.partners
+        }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -638,7 +659,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         ? prev.schoolLevelIds.filter(id => id !== schoolLevelId)
         : [...prev.schoolLevelIds, schoolLevelId];
 
-      // When selecting (not unselecting), pré‑sélectionner les enseignants responsables
+      // When selecting (not unselecting), pré‑sélectionner les enseignants responsables et les participants de la classe
       if (!isAlreadySelected) {
         const selectedLevel = availableSchoolLevels.find(
           (level: any) => level.id?.toString() === schoolLevelId
@@ -647,16 +668,77 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         const teacherIds =
           selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
 
-        if (teacherIds.length > 0) {
-          const coResponsiblesSet = new Set(prev.coResponsibles);
-          teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
+        // Participants de la classe : membres dont classes ou level_school contient cette classe
+        const memberIdsInClass = Array.isArray(members)
+          ? members
+              .filter((member: any) => {
+                if (!member?.id) return false;
+                const inClasses =
+                  Array.isArray(member.classes) &&
+                  member.classes.some((c: any) => c?.id?.toString() === schoolLevelId);
+                const inLevelSchool =
+                  Array.isArray(member.level_school) &&
+                  member.level_school.some((l: any) => l?.id?.toString() === schoolLevelId);
+                return inClasses || inLevelSchool;
+              })
+              .map((m: any) => m.id?.toString())
+              .filter(Boolean)
+          : [];
 
-          return {
-            ...prev,
-            schoolLevelIds: updatedSchoolLevelIds,
-            coResponsibles: Array.from(coResponsiblesSet)
-          };
-        }
+        const coResponsiblesSet = new Set(prev.coResponsibles);
+        teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
+
+        const participantsSet = new Set(prev.participants);
+        memberIdsInClass.forEach((id: string) => participantsSet.add(id));
+
+        return {
+          ...prev,
+          schoolLevelIds: updatedSchoolLevelIds,
+          coResponsibles: Array.from(coResponsiblesSet),
+          participants: Array.from(participantsSet)
+        };
+      }
+
+      // Quand la classe est désélectionnée, désélectionner les participants et co-responsables de cette classe
+      if (isAlreadySelected) {
+        const selectedLevel = availableSchoolLevels.find(
+          (level: any) => level.id?.toString() === schoolLevelId
+        );
+        const teacherIds =
+          selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
+
+        const memberIdsInClass = Array.isArray(members)
+          ? members
+              .filter((member: any) => {
+                if (!member?.id) return false;
+                const inClasses =
+                  Array.isArray(member.classes) &&
+                  member.classes.some((c: any) => c?.id?.toString() === schoolLevelId);
+                const inLevelSchool =
+                  Array.isArray(member.level_school) &&
+                  member.level_school.some((l: any) => l?.id?.toString() === schoolLevelId);
+                return inClasses || inLevelSchool;
+              })
+              .map((m: any) => m.id?.toString())
+              .filter(Boolean)
+          : [];
+
+        const coResponsiblesToRemove = new Set(teacherIds);
+        const participantsToRemove = new Set(memberIdsInClass);
+
+        const updatedCoResponsibles = prev.coResponsibles.filter(
+          (id) => !coResponsiblesToRemove.has(id.toString())
+        );
+        const updatedParticipants = prev.participants.filter(
+          (id) => !participantsToRemove.has(id.toString())
+        );
+
+        return {
+          ...prev,
+          schoolLevelIds: updatedSchoolLevelIds,
+          coResponsibles: updatedCoResponsibles,
+          participants: updatedParticipants
+        };
       }
 
       return {
@@ -670,7 +752,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     setSubmitError(null);
 
     const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
-      desiredStatus || formData.status;
+      desiredStatus ?? formData.status;
+
+    // Mettre à jour le formulaire avec le statut effectif (ex. brouillon) pour que le select s'affiche correctement
+    if (desiredStatus !== undefined) {
+      setFormData(prev => ({ ...prev, status: effectiveStatus }));
+    }
 
     // Validation: Pathway is required for all dashboards
     const isPathwayRequired = true;
@@ -713,12 +800,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         ? getOrganizationId(state.user, state.showingPageType, teacherProjectContext === 'school' ? selectedSchoolId : undefined)
         : getOrganizationId(state.user, state.showingPageType);
 
-      // Map frontend data to backend format with effective status
+      // Map frontend data to backend format with effective status (partnership_ids: array)
       const payload = mapFrontendToBackend(
-        {
-          ...formData,
-          status: effectiveStatus
-        },
+        { ...formData, status: effectiveStatus },
         context,
         organizationId,
         state.tags,
@@ -799,7 +883,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
           email: state.user.email
         },
         coResponsibles: [],
-        partner: null
+        partner: formData.partners.length > 0 ? (() => {
+          const p = availablePartnerships.find((x: any) => x.id?.toString() === formData.partners[0]);
+          if (!p) return null;
+          const firstOrg = p.partners?.[0];
+          return { id: p.id.toString(), name: p.name || '', logo: firstOrg?.logo_url || '', organization: firstOrg?.name || '' };
+        })() : null
       };
 
       // Add project to local state
@@ -839,7 +928,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   };
 
   const handleSaveDraft = async () => {
-    // Sauvegarde en brouillon, sans validation stricte
+    // Mettre à jour le formulaire tout de suite pour que le select Statut affiche "Brouillon"
+    setFormData(prev => ({ ...prev, status: 'draft' }));
     await submitProject('draft');
   };
 
@@ -912,14 +1002,59 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     }
   };
 
-  const handlePartnerSelect = (partnerId: string) => {
-    setFormData(prev => ({ ...prev, partner: partnerId }));
+  const handlePartnerSelect = (partnerId: string | number) => {
+    const idStr = partnerId?.toString();
+    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === idStr || p.id === Number(partnerId));
+    const contactUsers = partnership
+      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
+          id: c.id,
+          full_name: c.full_name || '',
+          email: c.email || '',
+          role: c.role || '',
+          role_in_organization: c.role_in_organization || '',
+          organization: p.name || ''
+        })))
+      : [];
+    const contactIds = contactUsers.map((c: any) => c.id.toString());
+
+    setFormData(prev => {
+      const isAdding = !prev.partners.some((id) => id?.toString() === idStr);
+      const newPartners = isAdding
+        ? [...prev.partners, idStr]
+        : prev.partners.filter(id => id?.toString() !== idStr);
+      const newCoResponsibles = isAdding
+        ? Array.from(new Set([...prev.coResponsibles, ...contactIds]))
+        : prev.coResponsibles.filter(id => !contactIds.includes(id.toString()));
+      return { ...prev, partners: newPartners, coResponsibles: newCoResponsibles };
+    });
+
+    setPartnershipContactMembers(prev => {
+      const isAdding = !formData.partners.some((id) => id?.toString() === idStr);
+      if (isAdding) {
+        return [...prev, ...contactUsers];
+      }
+      const toRemoveIds = new Set(contactIds);
+      return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
+    });
+  };
+
+  const handlePartnerRemove = (partnerId: string) => {
+    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
+    const contactIds = partnership
+      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => c.id.toString()))
+      : [];
+    setFormData(prev => ({
+      ...prev,
+      partners: prev.partners.filter(id => id !== partnerId),
+      coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+    }));
+    setPartnershipContactMembers(prev => prev.filter((m: any) => !contactIds.includes(m.id?.toString())));
   };
 
   const getSelectedMember = (memberId: string) => {
     const id = memberId.toString();
     const byId = (m: any) => m?.id?.toString() === id || m?.id === parseInt(memberId, 10);
-    return members.find(byId) ?? coResponsibleOptions.find(byId) ?? participantsOptions.find(byId) ?? null;
+    return members.find(byId) ?? coResponsibleOptions.find(byId) ?? participantsOptions.find(byId) ?? partnershipContactMembers.find(byId) ?? null;
   };
 
   // Co-responsibles list: when teacher + school use coResponsibleOptions (staff only); else use members
@@ -1055,16 +1190,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             </div>
 
             <div className="form-row">
+              {/* Colonne 1 : Créer le projet en tant que (teacher) ou Organisation (non-teacher) */}
               <div className="form-group">
-                {/* Teacher context selector (only for teachers creating new projects) */}
                 {state.showingPageType === 'teacher' && !project && (
-                  <div style={{ marginBottom: '12px' }}>
+                  <div>
                     <label htmlFor="teacherProjectContext">Créer le projet en tant que *</label>
                     {(() => {
-                      // Check if teacher has any confirmed school memberships
                       const availableSchools = state.user.available_contexts?.schools || [];
                       const hasSchools = availableSchools.length > 0;
-                      
                       return (
                         <>
                           <select
@@ -1076,8 +1209,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                               if (newContext === 'independent') {
                                 setSelectedSchoolId(undefined);
                               } else if (newContext === 'school' && hasSchools) {
-                                // Auto-select first school if available (sorted alphabetically)
-                                const sortedSchools = [...availableSchools].sort((a: any, b: any) => 
+                                const sortedSchools = [...availableSchools].sort((a: any, b: any) =>
                                   (a.name || '').localeCompare(b.name || '')
                                 );
                                 setSelectedSchoolId(sortedSchools[0]?.id);
@@ -1086,22 +1218,21 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             className="form-select"
                             required
                           >
-                            <option value="independent">Enseignant Indépendant</option>
                             <option value="school" disabled={!hasSchools}>
                               École{!hasSchools ? ' (Aucune école disponible)' : ''}
                             </option>
                           </select>
                           {!hasSchools && teacherProjectContext === 'school' && (
-                            <div style={{ 
-                              marginTop: '8px', 
-                              padding: '8px', 
-                              backgroundColor: '#fff3cd', 
+                            <div style={{
+                              marginTop: '8px',
+                              padding: '8px',
+                              backgroundColor: '#fff3cd',
                               border: '1px solid #ffc107',
                               borderRadius: '4px',
                               fontSize: '14px',
                               color: '#856404'
                             }}>
-                              <strong>⚠️</strong> Vous n'avez aucune école avec un statut confirmé. 
+                              <strong>⚠️</strong> Vous n'avez aucune école avec un statut confirmé.
                               Veuillez sélectionner "Enseignant Indépendant" pour créer votre projet.
                             </div>
                           )}
@@ -1110,19 +1241,48 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     })()}
                   </div>
                 )}
-                
-                {/* School selector (only shown when teacher chooses 'school' context and has schools) */}
+                {state.showingPageType !== 'teacher' && (
+                  <>
+                    <label htmlFor="projectOrganization">Organisation *</label>
+                    {isOrgReadOnly ? (
+                      <input
+                        type="text"
+                        id="projectOrganization"
+                        name="organization"
+                        value={formData.organization}
+                        readOnly
+                        className="form-input"
+                        style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                      />
+                    ) : (
+                      <select
+                        id="projectOrganization"
+                        name="organization"
+                        required
+                        value={formData.organization}
+                        onChange={handleInputChange}
+                        className="form-select"
+                      >
+                        <option value="">Sélectionner une organisation</option>
+                        {state.user.available_contexts?.companies?.map((c: any) => (
+                          <option key={c.id} value={c.name}>{c.name}</option>
+                        ))}
+                        {state.user.available_contexts?.schools?.map((s: any) => (
+                          <option key={s.id} value={s.name}>{s.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </>
+                )}
+              </div>
+              {/* Colonne 2 : Sélectionner une école (teacher) ou Statut (non-teacher) */}
+              <div className="form-group">
                 {state.showingPageType === 'teacher' && !project && teacherProjectContext === 'school' && (() => {
                   const availableSchools = state.user.available_contexts?.schools || [];
                   const hasSchools = availableSchools.length > 0;
-                  
-                  if (!hasSchools) {
-                    // If no schools available, don't show the selector
-                    return null;
-                  }
-                  
+                  if (!hasSchools) return null;
                   return (
-                    <div style={{ marginBottom: '12px' }}>
+                    <div>
                       <label htmlFor="selectedSchool">Sélectionner une école *</label>
                       <select
                         id="selectedSchool"
@@ -1135,70 +1295,60 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         required={teacherProjectContext === 'school'}
                       >
                         <option value="">Sélectionner une école</option>
-                        {(() => {
-                          // Get all confirmed schools, sorted alphabetically
-                          const sortedSchools = [...availableSchools].sort((a: any, b: any) => 
-                            (a.name || '').localeCompare(b.name || '')
-                          );
-                          return sortedSchools.map((school: any) => (
-                            <option key={school.id} value={school.id}>
-                              {school.name}
-                            </option>
-                          ));
-                        })()}
+                        {[...availableSchools].sort((a: any, b: any) =>
+                          (a.name || '').localeCompare(b.name || '')
+                        ).map((school: any) => (
+                          <option key={school.id} value={school.id}>
+                            {school.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   );
                 })()}
-
-                <label htmlFor="projectOrganization">Organisation *</label>
-                {isOrgReadOnly || (state.showingPageType === 'teacher' && !project) ? (
-                  <input
-                    type="text"
-                    id="projectOrganization"
-                    name="organization"
-                    value={formData.organization}
-                    readOnly
-                    className="form-input"
-                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
-                  />
-                ) : (
+                {state.showingPageType !== 'teacher' && (
+                  <>
+                    <label htmlFor="projectStatus">Statut *</label>
+                    <select
+                      id="projectStatus"
+                      name="status"
+                      required
+                      value={formData.status}
+                      onChange={handleInputChange}
+                      className="form-select"
+                    >
+                      <option value="">Sélectionner un statut</option>
+                      <option value="draft">Brouillon</option>
+                      <option value="coming">À venir</option>
+                      <option value="in_progress">En cours</option>
+                      <option value="ended">Terminé</option>
+                    </select>
+                  </>
+                )}
+              </div>
+            </div>
+            {/* Statut pleine largeur pour teacher */}
+            {state.showingPageType === 'teacher' && (
+              <div className="form-row">
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label htmlFor="projectStatus">Statut *</label>
                   <select
-                    id="projectOrganization"
-                    name="organization"
+                    id="projectStatus"
+                    name="status"
                     required
-                    value={formData.organization}
+                    value={formData.status}
                     onChange={handleInputChange}
                     className="form-select"
                   >
-                    <option value="">Sélectionner une organisation</option>
-                    {/* Assuming user has available_contexts.companies or similar to map here for personal user */}
-                    {state.user.available_contexts?.companies?.map((c: any) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                    {state.user.available_contexts?.schools?.map((s: any) => (
-                      <option key={s.id} value={s.name}>{s.name}</option>
-                    ))}
+                    <option value="">Sélectionner un statut</option>
+                    <option value="draft">Brouillon</option>
+                    <option value="coming">À venir</option>
+                    <option value="in_progress">En cours</option>
+                    <option value="ended">Terminé</option>
                   </select>
-                )}
+                </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="projectStatus">Statut *</label>
-                <select
-                  id="projectStatus"
-                  name="status"
-                  required
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="form-select"
-                >
-                  <option value="">Sélectionner un statut</option>
-                  <option value="coming">À venir</option>
-                  <option value="in_progress">En cours</option>
-                  <option value="ended">Terminé</option>
-                </select>
-              </div>
-            </div>
+            )}
 
             <div className="form-row">
               <div className="form-group">
@@ -1258,7 +1408,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             {/* Organisation porteuse */}
             {availableSchoolLevels.length > 0 && (
               <div className="form-group">
-                <div className="form-label">Organisation porteuse</div>
+                <div className="form-label">Classes</div>
                 {isLoadingSchoolLevels ? (
                   <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
                     <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
@@ -1342,17 +1492,18 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       onChange={(e) => handleSearchChange('partner', e.target.value)}
                     />
                   </div>
-                  {formData.partner && (
-                    <div className="selected-item">
-                      {(() => {
-                        const selected = getSelectedPartner(formData.partner);
+                  {formData.partners.length > 0 && (
+                    <div className="selected-items">
+                      {formData.partners.map((partnerId) => {
+                        const selected = getSelectedPartner(partnerId);
                         if (!selected) return null;
                         
                         const partnerOrgs = selected.partners || [];
                         const firstPartner = partnerOrgs[0];
+                        const roleInPartnership = firstPartner?.role_in_partnership;
                         
                         return (
-                          <div className="selected-member">
+                          <div key={partnerId} className="selected-member">
                             <AvatarImage 
                               src={firstPartner?.logo_url || '/default-avatar.png'} 
                               alt={firstPartner?.name || 'Partnership'} 
@@ -1363,48 +1514,54 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                                 {partnerOrgs.map((p: any) => p.name).join(', ')}
                               </div>
                               <div className="selected-role">{selected.name || ''}</div>
+                              {roleInPartnership && (
+                                <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+                                  Rôle dans le partenariat : {roleInPartnership}
+                                </div>
+                              )}
                             </div>
                             <button
                               type="button"
                               className="remove-selection"
-                              onClick={() => setFormData(prev => ({ ...prev, partner: '' }))}
+                              onClick={() => handlePartnerRemove(partnerId)}
                             >
                               <i className="fas fa-times"></i>
                             </button>
                           </div>
                         );
-                      })()}
-                    </div>
-                  )}
-                  {!formData.partner && (
-                    <div className="selection-list">
-                      {getFilteredPartners(searchTerms.partner).map((partnership) => {
-                        // Get partner organizations (excluding current user's org, already filtered in getFilteredPartners)
-                        const partnerOrgs = partnership.partners || [];
-                        const firstPartner = partnerOrgs[0];
-                        
-                        return (
-                          <div
-                            key={partnership.id}
-                            className="selection-item"
-                            onClick={() => handlePartnerSelect(partnership.id)}
-                          >
-                            <AvatarImage 
-                              src={firstPartner?.logo_url || '/default-avatar.png'} 
-                              alt={firstPartner?.name || 'Partnership'} 
-                              className="item-avatar" 
-                            />
-                            <div className="item-info">
-                              <div className="item-name">
-                                {partnerOrgs.map((p: any) => p.name).join(', ')}
-                              </div>
-                              <div className="item-role">{partnership.name || ''}</div>
-                            </div>
-                          </div>
-                        );
                       })}
                     </div>
                   )}
+                  <div className="selection-list">
+                    {getFilteredPartners(searchTerms.partner).map((partnership) => {
+                      const partnerOrgs = partnership.partners || [];
+                      const firstPartner = partnerOrgs[0];
+                      const roleInPartnership = firstPartner?.role_in_partnership;
+                      
+                      return (
+                        <div
+                          key={partnership.id}
+                          className="selection-item"
+                          onClick={() => handlePartnerSelect(partnership.id)}
+                        >
+                          <AvatarImage 
+                            src={firstPartner?.logo_url || '/default-avatar.png'} 
+                            alt={firstPartner?.name || 'Partnership'} 
+                            className="item-avatar" 
+                          />
+                          <div className="item-info">
+                            <div className="item-name">
+                              {partnerOrgs.map((p: any) => p.name).join(', ')}
+                            </div>
+                            <div className="item-role">{partnership.name || ''}</div>
+                            {roleInPartnership && (
+                              <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Rôle dans le partenariat : {roleInPartnership}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -1436,12 +1593,17 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       <div className="selected-items">
                         {formData.coResponsibles.map((memberId) => {
                           const member = getSelectedMember(memberId);
+                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
                           return member ? (
                             <div key={memberId} className="selected-member">
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()} className="selected-avatar" />
                               <div className="selected-info">
-                                <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{translateRole(member.role_in_system ?? member.role)}</div>
+                                <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
+                                <div className="selected-role">{translateRole(member.role_in_system ?? member.role ?? '')}</div>
+                                
+                                {memberOrg && (
+                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -1472,6 +1634,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <div className="item-info">
                               <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
                               <div className="item-role">{translateRole(member.role_in_system ?? member.role)}</div>
+                              {(typeof member.organization === 'string' ? member.organization : member.organization?.name) && (
+                                <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {typeof member.organization === 'string' ? member.organization : member.organization?.name}</div>
+                              )}
                             </div>
                           </div>
                         ))
@@ -1510,12 +1675,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         {formData.participants.map((memberId) => {
                           const member = getSelectedMember(memberId);
                           const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
+                          const memberOrg = typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '') || schoolLabel || '';
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{schoolLabel || translateRole(member.role_in_system || member.role)}</div>
+                                <div className="selected-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                {memberOrg && (
+                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -1563,6 +1732,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                           <>
                             {available.map((member: any) => {
                               const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
+                              const memberOrg = typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '') || schoolLabel || '';
                               return (
                                 <div
                                   key={member.id}
@@ -1572,7 +1742,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                                   <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                                   <div className="item-info">
                                     <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                    <div className="item-role">{schoolLabel || translateRole(member.role_in_system || member.role)}</div>
+                                    <div className="item-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                    {memberOrg && (
+                                      <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {memberOrg}</div>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -1590,19 +1763,25 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                           <p>Aucun membre disponible</p>
                         </div>
                       ) : (
-                        getFilteredMembers(searchTerms.participants).map((member: any) => (
-                          <div
-                            key={member.id}
-                            className="selection-item"
-                            onClick={() => handleMemberSelect('participants', member.id)}
-                          >
-                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
-                            <div className="item-info">
-                              <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                              <div className="item-role">{translateRole(member.role_in_system || member.role)}</div>
+                        getFilteredMembers(searchTerms.participants).map((member: any) => {
+                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
+                          return (
+                            <div
+                              key={member.id}
+                              className="selection-item"
+                              onClick={() => handleMemberSelect('participants', member.id)}
+                            >
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                              <div className="item-info">
+                                <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                <div className="item-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                {memberOrg && (
+                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {memberOrg}</div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </>

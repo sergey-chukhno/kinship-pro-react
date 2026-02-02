@@ -6,6 +6,7 @@ import { getCurrentUser } from '../../api/Authentication';
 import { getSelectedSchoolId } from '../../utils/contextUtils';
 import { getSchoolStaff } from '../../api/SchoolDashboard/Members';
 import AvatarImage from '../UI/AvatarImage';
+import { translateRole } from '../../utils/roleTranslations';
 
 type Props = {
   onClose: () => void;
@@ -46,9 +47,8 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
         }));
         
         setAvailableSchools(schoolsList);
-        
-        // Par défaut, ne rien sélectionner (option "Aucun")
-        setSelectedSchoolId(null);
+        // Teacher : sélectionner le premier établissement par défaut s'il y en a plusieurs
+        setSelectedSchoolId(schoolsList.length > 0 ? schoolsList[0].id : null);
       } catch (error) {
         console.error("Erreur lors du chargement des écoles", error);
       }
@@ -268,6 +268,17 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
       return;
     }
 
+    // Teacher : un établissement est obligatoire ; bloquer si aucun disponible ou non sélectionné
+    if (isTeacherContext) {
+      if (availableSchools.length === 0) {
+        showError('Aucun établissement disponible. Impossible de créer la classe.');
+        return;
+      }
+      if (selectedSchoolId === null) {
+        showError('Veuillez sélectionner un établissement');
+        return;
+      }
+    }
 
     try {
       setIsLoading(true);
@@ -277,9 +288,8 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           level: level.trim(),
           ...(selectedStaffIds.length > 0 && { teacher_ids: selectedStaffIds }),
           ...(selectedPedagogicalTeamIds.length > 0 && { pedagogical_team_member_ids: selectedPedagogicalTeamIds }),
-          // Pour les teachers avec des écoles disponibles, inclure school_id même si null (pour "Aucun")
-          ...(isTeacherContext && availableSchools.length > 0 && { 
-            school_id: selectedSchoolId !== null ? selectedSchoolId : null 
+          ...(isTeacherContext && availableSchools.length > 0 && selectedSchoolId !== null && {
+            school_id: selectedSchoolId
           })
         }
       };
@@ -355,7 +365,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           {/* Sélecteur d'école pour les teachers */}
           {isTeacherContext && (
             <div className="form-group">
-              <label htmlFor="schoolId">Établissement</label>
+              <label htmlFor="schoolId">Établissement *</label>
               <select
                 id="schoolId"
                 name="schoolId"
@@ -366,13 +376,17 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
                 }}
                 className="form-select"
                 disabled={isEdit}
+                required
               >
-                <option value="">Aucun</option>
-                {availableSchools.map((school) => (
-                  <option key={school.id} value={school.id}>
-                    {school.name}
-                  </option>
-                ))}
+                {availableSchools.length === 0 ? (
+                  <option value="">Aucun établissement disponible</option>
+                ) : (
+                  availableSchools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
           )}
@@ -407,7 +421,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
                               <AvatarImage src={staff.avatar || '/default-avatar.png'} alt={staff.fullName} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{staff.fullName}</div>
-                                <div className="selected-role">{staff.profession}</div>
+                                <div className="selected-role">{translateRole(staff.profession)}</div>
                               </div>
                               <button
                                 type="button"
@@ -437,7 +451,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
                             <AvatarImage src={staff.avatar || '/default-avatar.png'} alt={staff.fullName} className="item-avatar" />
                             <div className="item-info">
                               <div className="item-name">{staff.fullName}</div>
-                              <div className="item-role">{staff.profession}</div>
+                              <div className="item-role">{translateRole(staff.profession)}</div>
                             </div>
                           </div>
                         ))
@@ -476,7 +490,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
                                 <AvatarImage src={staff.avatar || '/default-avatar.png'} alt={staff.fullName} className="selected-avatar" />
                                 <div className="selected-info">
                                   <div className="selected-name">{staff.fullName}</div>
-                                  <div className="selected-role">{staff.profession}</div>
+                                  <div className="selected-role">{translateRole(staff.profession)}</div>
                                 </div>
                                 <button
                                   type="button"
@@ -506,7 +520,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
                               <AvatarImage src={staff.avatar || '/default-avatar.png'} alt={staff.fullName} className="item-avatar" />
                               <div className="item-info">
                                 <div className="item-name">{staff.fullName}</div>
-                                <div className="item-role">{staff.profession}</div>
+                                <div className="item-role">{translateRole(staff.profession)}</div>
                               </div>
                             </div>
                           ))
@@ -533,7 +547,12 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={isLoading}>
               Annuler
             </button>
-            <button type="submit" className="btn btn-primary" onClick={handleSubmit} disabled={isLoading}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              onClick={handleSubmit}
+              disabled={isLoading || (isTeacherContext && (availableSchools.length === 0 || selectedSchoolId === null))}
+            >
               <i className={isEdit ? 'fas fa-save' : 'fas fa-plus'}></i>
               {isLoading ? (isEdit ? 'Modification en cours...' : 'Ajout en cours...') : (isEdit ? 'Modifier la classe' : 'Ajouter la classe')}
             </button>
