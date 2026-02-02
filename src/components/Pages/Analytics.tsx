@@ -6,7 +6,7 @@ import { getOrganizationId } from '../../utils/projectMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import './Analytics.css';
 
-const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#8B5CF6'];
+const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
 const LEVEL_LABELS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
 
 const Analytics: React.FC = () => {
@@ -532,7 +532,7 @@ const Analytics: React.FC = () => {
           {/* Axis labels (competences) */}
           {axes.map((label, i) => {
             const angle = i * angleStep - Math.PI / 2;
-            const dist = maxRadius + 6;
+            const dist = maxRadius + 12;
             const x = centerX + dist * Math.cos(angle);
             const y = centerY + dist * Math.sin(angle);
             return (
@@ -543,10 +543,10 @@ const Analytics: React.FC = () => {
                 textAnchor="middle"
                 dominantBaseline="middle"
                 className="radar-label"
-                fontSize="2.2"
+                fontSize="2.9"
                 fill="#6b7280"
               >
-                {label.length > 12 ? label.slice(0, 10) + '…' : label}
+                {label}
               </text>
             );
           })}
