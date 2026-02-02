@@ -181,6 +181,7 @@
   padding: 1.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
+  min-width: 0;
 }
 
 .analytics-chart-card:hover {
@@ -493,12 +494,15 @@
   gap: 1rem;
   margin-bottom: 1rem;
   align-items: flex-end;
+  min-width: 0;
 }
 
 .analytics-filter-group {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 0;
 }
 
 .analytics-filter-group label {
@@ -508,13 +512,18 @@
 }
 
 .analytics-select {
-  min-width: 180px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border, #e5e7eb);
   border-radius: 8px;
   font-size: 0.875rem;
   background: var(--card-bg, #ffffff);
   color: var(--text-main, #1f2937);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
 }
 
 .analytics-chart-empty {
