@@ -1,6 +1,20 @@
 import { User } from '../types';
 
 /**
+ * Check if the current user is superadmin in any of their organizations (school or company)
+ */
+export const isUserSuperadmin = (user: User | undefined): boolean => {
+  if (!user?.available_contexts) return false;
+  const hasSuperadminSchool = (user.available_contexts.schools || []).some(
+    (s: any) => (s.role || '').toLowerCase() === 'superadmin'
+  );
+  const hasSuperadminCompany = (user.available_contexts.companies || []).some(
+    (c: any) => (c.role || '').toLowerCase() === 'superadmin'
+  );
+  return hasSuperadminSchool || hasSuperadminCompany;
+};
+
+/**
  * Check if user is admin/referent/superadmin of a given organization
  */
 export const isUserOrgAdmin = (

@@ -4,7 +4,7 @@ import './Modal.css';
 import { getCurrentUser } from '../../api/Authentication';
 import { getPersonalUserRoles } from '../../api/RegistrationRessource';
 import { getSchoolLevels, createLevelStudent } from '../../api/SchoolDashboard/Levels';
-import { getTeacherClasses, createTeacherLevelStudent } from '../../api/Dashboard';
+import { getTeacherClasses } from '../../api/Dashboard';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { getSelectedSchoolId } from '../../utils/contextUtils';
@@ -80,8 +80,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         }));
         
         setAvailableSchools(schoolsList);
-        
-        // "Aucun" est sélectionné par défaut (selectedSchoolId est initialisé à null)
+        // Teacher : sélectionner le premier établissement par défaut s'il y en a plusieurs
+        setSelectedSchoolId(schoolsList.length > 0 ? schoolsList[0].id : null);
       } catch (error) {
         console.error("Erreur lors du chargement des écoles", error);
       }
@@ -348,32 +348,22 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       return;
     }
 
+    // Teacher : un établissement est obligatoire ; bloquer si aucun disponible ou non sélectionné
+    if (isTeacherContext) {
+      if (availableSchools.length === 0) {
+        showError('Aucun établissement disponible. Impossible d\'ajouter le membre.');
+        return;
+      }
+      if (!selectedSchoolId) {
+        showError('Veuillez sélectionner un établissement');
+        return;
+      }
+    }
+
     try {
       let response: any;
       
-      // Si c'est un teacher et qu'aucune école n'est sélectionnée, utiliser l'API teachers/levels/:level_id/students
-      if (isTeacherContext && !selectedSchoolId) {
-        // Utiliser l'API teachers/levels/:level_id/students
-        const teacherPayload = {
-          student: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            email: formData.email || undefined,
-            birthday: formData.birthday, // Requis si pas d'email
-            role: formData.role || 'eleve_primaire',
-            role_additional_information: formData.role || undefined,
-            accept_privacy_policy: true
-          }
-        };
-
-        console.log('Payload teacher envoyé:', teacherPayload);
-        console.log('LevelId:', formData.levelId);
-
-        response = await createTeacherLevelStudent(
-          Number(formData.levelId),
-          teacherPayload
-        );
-      } else {
+      {
         // Sinon, utiliser l'API schools/:schoolId/levels/:levelId/students
         let schoolId: number | null = null;
         
@@ -611,17 +601,20 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                     const value = e.target.value;
                     const schoolId = value === '' ? null : Number(value);
                     setSelectedSchoolId(schoolId);
-                    // Réinitialiser la classe sélectionnée quand on change d'école
                     setFormData(prev => ({ ...prev, levelId: '' }));
                   }}
                   className="form-select"
+                  required
                 >
-                  <option value="">Aucun</option>
-                  {availableSchools.map((school) => (
-                    <option key={school.id} value={school.id}>
-                      {school.name}
-                    </option>
-                  ))}
+                  {availableSchools.length === 0 ? (
+                    <option value="">Aucun établissement disponible</option>
+                  ) : (
+                    availableSchools.map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.name}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             )}
@@ -702,7 +695,12 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
           <button type="button" className="btn btn-outline" onClick={onClose}>
             Annuler
           </button>
-          <button type="submit" className="btn btn-primary" onClick={handleSubmit}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            onClick={handleSubmit}
+            disabled={isTeacherContext && (availableSchools.length === 0 || selectedSchoolId === null)}
+          >
             <i className="fas fa-plus"></i>
             Ajouter le membre
           </button>
