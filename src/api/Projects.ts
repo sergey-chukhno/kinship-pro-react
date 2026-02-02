@@ -33,6 +33,7 @@ export interface Partnership {
     name?: string;
     description?: string;
     has_sponsorship?: boolean;
+    partnership_kind?: string | null;
 }
 
 export interface OrganizationMember {
@@ -333,6 +334,7 @@ export interface CreatePartnershipPayload {
     has_sponsorship: boolean;
     initiator_role: 'beneficiary' | 'sponsor';
     partner_role: 'beneficiary' | 'sponsor';
+    partnership_kind?: string | null;
 }
 
 export interface CreatePartnershipResponse {
