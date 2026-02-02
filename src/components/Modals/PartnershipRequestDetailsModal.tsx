@@ -112,12 +112,14 @@ const PartnershipRequestDetailsModal: React.FC<PartnershipRequestDetailsModalPro
               </div>
             )}
 
-            {/* <div className="form-group">
-              <label>Type de partenariat</label>
-              <div style={{ fontSize: '1rem', color: '#374151' }}>
-                {getPartnershipTypeLabel(partnership.partnership_type)}
+            {partnership.partnership_kind && (
+              <div className="form-group">
+                <label>Type de partenariat</label>
+                <div style={{ fontSize: '1rem', color: '#374151' }}>
+                  {partnership.partnership_kind === 'administratif' ? 'Partenariat administratif' : partnership.partnership_kind}
+                </div>
               </div>
-            </div> */}
+            )}
 
             {partnership.description && (
               <div className="form-group">

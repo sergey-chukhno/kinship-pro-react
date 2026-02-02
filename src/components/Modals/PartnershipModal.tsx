@@ -23,12 +23,13 @@ interface PartnershipModalProps {
   organizationType?: 'school' | 'company';
 }
 
+const PARTNERSHIP_TYPE_ADMINISTRATIF = 'Partenariat administratif';
+
 const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, initialOrganization, organizationType }) => {
   const [formData, setFormData] = useState({
-    partnershipType: '',
+    partnershipType: PARTNERSHIP_TYPE_ADMINISTRATIF,
     description: ''
   });
-
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -37,19 +38,10 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, in
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Partnership type not used for now; only message is required
     if (formData.description.trim()) {
-      onSave({ description: formData.description });
+      onSave({ description: formData.description.trim(), partnershipType: formData.partnershipType });
     }
   };
-
-  const partnershipTypes = [
-    'Partenariat éducatif',
-    'Partenariat technologique',
-    'Partenariat environnemental',
-    'Partenariat social',
-    'Partenariat culturel'
-  ];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -69,25 +61,19 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, in
             )}
             
             <div className="form-group">
-              <label htmlFor="partnershipType" style={{ color: '#9ca3af' }}>
-                Type de partenariat (désactivé pour l'instant)
-              </label>
+              <label htmlFor="partnershipType">Type de partenariat *</label>
               <select
                 id="partnershipType"
                 name="partnershipType"
                 value={formData.partnershipType}
                 onChange={handleInputChange}
-                disabled
                 className="form-select"
-                style={{ backgroundColor: '#f3f4f6', color: '#9ca3af', cursor: 'not-allowed' }}
               >
-                <option value="">(Inactif pour le moment)</option>
-                {partnershipTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
+                <option value={PARTNERSHIP_TYPE_ADMINISTRATIF}>{PARTNERSHIP_TYPE_ADMINISTRATIF}</option>
               </select>
+              <p style={{ marginTop: '6px', fontSize: '0.875rem', color: '#6b7280', lineHeight: 1.4 }}>
+                Le partenariat administratif permet de rendre visibles les administrateurs et superadministrateurs des organisations partenaires dans «&nbsp;Membres de mon réseau&nbsp;» une fois le partenariat confirmé.
+              </p>
             </div>
 
             <div className="form-group">
