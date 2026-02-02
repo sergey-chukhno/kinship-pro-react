@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges } from '../../api/Badges';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
+import { getSchoolMembersAccepted } from '../../api/SchoolDashboard/Members';
+import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Members';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import './Analytics.css';
@@ -82,6 +84,12 @@ const Analytics: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [assignedBadgesRaw, setAssignedBadgesRaw] = useState<any[]>([]);
   const [loadingAssignedBadges, setLoadingAssignedBadges] = useState(false);
+
+  // Stats cards (org-wide): total badges, average per member, attributions this month
+  const [assignedBadgesForStats, setAssignedBadgesForStats] = useState<any[]>([]);
+  const [loadingStatsBadges, setLoadingStatsBadges] = useState(false);
+  const [memberCount, setMemberCount] = useState<number>(0);
+  const [loadingMemberCount, setLoadingMemberCount] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'badges' || !isEduOrPro) return;
@@ -268,6 +276,66 @@ const Analytics: React.FC = () => {
     fetchAssignedBadges();
   }, [activeTab, isEduOrPro, organizationId, selectedSeries, selectedProjectId, state.showingPageType]);
 
+  // Stats cards: org-wide assigned badges (no series, no project)
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro || !organizationId) return;
+    const fetchStatsBadges = async () => {
+      setLoadingStatsBadges(true);
+      setAssignedBadgesForStats([]);
+      try {
+        const perPage = 500;
+        let all: any[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          let res: any;
+          if (state.showingPageType === 'edu') {
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, undefined, undefined);
+          } else {
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, undefined, undefined);
+          }
+          const data = res.data?.data ?? res.data ?? [];
+          const list = Array.isArray(data) ? data : [];
+          all = all.concat(list);
+          totalPages = res.data?.meta?.total_pages ?? 1;
+          page += 1;
+        } while (page <= totalPages);
+        setAssignedBadgesForStats(all);
+      } catch (e) {
+        console.error('Error fetching badges for stats', e);
+      } finally {
+        setLoadingStatsBadges(false);
+      }
+    };
+    fetchStatsBadges();
+  }, [activeTab, isEduOrPro, organizationId, state.showingPageType]);
+
+  // Stats cards: member count (confirmed) for average per member
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro || !organizationId) return;
+    const fetchMemberCount = async () => {
+      setLoadingMemberCount(true);
+      setMemberCount(0);
+      try {
+        let res: any;
+        if (state.showingPageType === 'edu') {
+          res = await getSchoolMembersAccepted(Number(organizationId), 1000);
+        } else {
+          res = await getCompanyMembersAccepted(Number(organizationId), 1000);
+        }
+        const data = res.data?.data ?? res.data ?? [];
+        const list = Array.isArray(data) ? data : [];
+        const total = res.data?.meta?.total_count ?? list.length;
+        setMemberCount(typeof total === 'number' ? total : list.length);
+      } catch (e) {
+        console.error('Error fetching member count', e);
+      } finally {
+        setLoadingMemberCount(false);
+      }
+    };
+    fetchMemberCount();
+  }, [activeTab, isEduOrPro, organizationId, state.showingPageType]);
+
   const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
 
   function buildMonthlyAttributions(assignedBadges: any[]): Array<{ month: string; badges: number }> {
@@ -313,6 +381,24 @@ const Analytics: React.FC = () => {
   const monthlyAttributions = useMemo(() => buildMonthlyAttributions(assignedBadgesMonthlyChart), [assignedBadgesMonthlyChart]);
 
   const trendAttributions = useMemo(() => buildMonthlyAttributions(assignedBadgesTrendChart), [assignedBadgesTrendChart]);
+
+  // Stats cards: derived from org-wide assigned badges + member count
+  const totalBadges = useMemo(() => assignedBadgesForStats.length, [assignedBadgesForStats]);
+  const badgesThisMonth = useMemo(() => {
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return assignedBadgesForStats.filter((ub: any) => {
+      const at = ub.assigned_at || ub.created_at;
+      if (!at) return false;
+      const date = new Date(at);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      return key === currentKey;
+    }).length;
+  }, [assignedBadgesForStats]);
+  const averagePerMember = useMemo(() => {
+    if (memberCount <= 0) return 0;
+    return Math.round((totalBadges / memberCount) * 10) / 10;
+  }, [totalBadges, memberCount]);
 
   const radarCompetenceData = useMemo(() => {
     const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
@@ -881,36 +967,37 @@ const Analytics: React.FC = () => {
 
         {activeTab === 'badges' && (
           <div className="analytics-content">
-            <div className="analytics-stats">
-              <StatCard
-                title="Badges totaux"
-                value={badgesData.totalBadges}
-                subtitle={`${badgesData.badgesAwarded} attribués`}
-                icon="/icons_logo/Icon=Badges.svg"
-                color="#5570F1"
-                iconType="image"
-              />
-              <StatCard
-                title="Moyenne par membre"
-                value={badgesData.averagePerMember}
-                subtitle="Badges par personne"
-                icon="fas fa-user-graduate"
-                color="#10B981"
-              />
-              <StatCard
-                title="Taux de complétion"
-                value={`${badgesData.completionRate}%`}
-                subtitle="Badges validés"
-                icon="fas fa-check-circle"
-                color="#F59E0B"
-              />
-              <StatCard
-                title="Attributions ce mois"
-                value="28"
-                subtitle="Nouveaux badges"
-                icon="fas fa-star"
-                color="#EF4444"
-              />
+            <div className="analytics-stats analytics-stats--badges">
+              {!isEduOrPro || !organizationId ? (
+                <div className="analytics-stats-message">Sélectionnez un contexte organisation pour voir les statistiques.</div>
+              ) : loadingStatsBadges || loadingMemberCount ? (
+                <div className="analytics-stats-message">Chargement…</div>
+              ) : (
+                <>
+                  <StatCard
+                    title="Badges totaux"
+                    value={totalBadges}
+                    subtitle={`${totalBadges} attribués`}
+                    icon="/icons_logo/Icon=Badges.svg"
+                    color="#5570F1"
+                    iconType="image"
+                  />
+                  <StatCard
+                    title="Moyenne par membre"
+                    value={averagePerMember}
+                    subtitle="Badges par personne"
+                    icon="fas fa-user-graduate"
+                    color="#10B981"
+                  />
+                  <StatCard
+                    title="Attributions ce mois"
+                    value={badgesThisMonth}
+                    subtitle="Nouveaux badges"
+                    icon="fas fa-star"
+                    color="#EF4444"
+                  />
+                </>
+              )}
             </div>
 
             <div className="analytics-charts">
