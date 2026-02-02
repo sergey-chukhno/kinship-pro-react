@@ -47,7 +47,7 @@ function wrapRadarLabel(label: string, maxCharsPerLine = 22): string[] {
 
 const Analytics: React.FC = () => {
   const { state } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'projects' | 'badges'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'badges'>('badges');
 
   const organizationId = useMemo(() => {
     if (!state.user) return undefined;
@@ -874,7 +874,7 @@ const Analytics: React.FC = () => {
             <img src="/icons_logo/Icon=Analytics.svg" alt="Statistiques et KPI" className="section-icon" />
             <h2>Statistiques et KPI</h2>
           </div>
-            <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
+            {activeTab === 'projects' && <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>}
             </div>
           <div className="analytics-actions">
             <button className="btn btn-outline" onClick={() => console.log('Export analytics')}>
@@ -885,16 +885,16 @@ const Analytics: React.FC = () => {
 
         <div className="analytics-tabs">
           <button
-            className={`tab-button ${activeTab === 'projects' ? 'active' : ''}`}
-            onClick={() => setActiveTab('projects')}
-          >
-            Projets
-          </button>
-          <button
             className={`tab-button ${activeTab === 'badges' ? 'active' : ''}`}
             onClick={() => setActiveTab('badges')}
           >
             Badges
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveTab('projects')}
+          >
+            Projets
           </button>
         </div>
 
