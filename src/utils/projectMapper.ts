@@ -119,7 +119,9 @@ export const mapFrontendToBackend = (
         participants: string[];
         coResponsibles: string[];
         isPartnership: boolean;
-        partner: string;
+        /** Single partner (legacy) or use partners array */
+        partner?: string;
+        partners?: string[];
         schoolLevelIds?: string[];
     },
     context: 'company' | 'school' | 'teacher' | 'general',
@@ -205,7 +207,12 @@ export const mapFrontendToBackend = (
             tag_ids: tagIds,
             skill_ids: [], // Empty as per user decision
             keyword_ids: keywords,
-            partnership_id: formData.isPartnership && formData.partner ? parseInt(formData.partner) : null,
+            partnership_ids: (() => {
+                if (!formData.isPartnership) return undefined;
+                const raw = (formData.partners?.length ? formData.partners : (formData.partner ? [formData.partner] : []));
+                const ids = raw.map((id: string) => Number.parseInt(id, 10)).filter((id: number) => !Number.isNaN(id));
+                return ids.length > 0 ? ids : undefined;
+            })(),
             project_members_attributes: projectMembers.length > 0 ? projectMembers : undefined,
             links_attributes: links.length > 0 ? links : undefined,
             school_level_ids: schoolLevelIds
@@ -442,13 +449,15 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         is_deleted: owner.is_deleted || false // Preserve deleted status
     } : null;
     
-    // Map co-owners (use ownerOrganizationName for consistency)
+    // Map co-owners: use partner_organization.name when organization_source === 'partner'
     const coResponsibles = (apiProject.co_owners || []).map((coOwner: any) => ({
         id: coOwner.id.toString(),
         name: coOwner.full_name || `${coOwner.first_name} ${coOwner.last_name}`,
         avatar: coOwner.avatar_url || '/default-avatar.png',
         profession: coOwner.job || 'Membre', // Profession réelle
-        organization: ownerOrganizationName, // Use owner's org, not project org or viewer's org
+        organization: coOwner.organization_source === 'partner' && coOwner.partner_organization?.name
+            ? coOwner.partner_organization.name
+            : ownerOrganizationName,
         email: coOwner.email || '',
         role: coOwner.organization_role || undefined, // Role in organization
         city: coOwner.city || undefined, // City of organization
@@ -478,14 +487,35 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         badges_list: [], // Not provided by current API
         responsible: responsible,
         coResponsibles: coResponsibles.length > 0 ? coResponsibles : [],
-        partner: apiProject.partnership_id && apiProject.partnership_details ? {
-            id: apiProject.partnership_details.partnership_id.toString(),
-            name: apiProject.partnership_details.partner_organizations?.[0]?.name 
-                  ? `Partenariat ${apiProject.partnership_details.partner_organizations[0].name}` 
-                  : '',
-            logo: apiProject.partnership_details.partner_organizations?.[0]?.logo_url || '',
-            organization: apiProject.partnership_details.partner_organizations?.[0]?.name || ''
-        } : undefined,
+        partner: (() => {
+            const details = apiProject.partnership_details;
+            if (!details || !Array.isArray(details) || details.length === 0) {
+                return undefined;
+            }
+            const first = details[0];
+            const firstOrg = first?.partner_organizations?.[0];
+            return {
+                id: first.partnership_id?.toString() || '',
+                name: first.partnership_name || (firstOrg?.name ? `Partenariat ${firstOrg.name}` : ''),
+                logo: firstOrg?.logo_url || '',
+                organization: firstOrg?.name || ''
+            };
+        })(),
+        partners: (() => {
+            const details = apiProject.partnership_details;
+            if (!details || !Array.isArray(details) || details.length === 0) {
+                return undefined;
+            }
+            return details.map((d: any) => {
+                const firstOrg = d?.partner_organizations?.[0];
+                return {
+                    id: d.partnership_id?.toString() || '',
+                    name: d.partnership_name || (firstOrg?.name ? `Partenariat ${firstOrg.name}` : ''),
+                    logo: firstOrg?.logo_url || '',
+                    organization: firstOrg?.name || ''
+                };
+            });
+        })(),
         mlds_information: apiProject.mlds_information || undefined, // Map MLDS information
         rs: apiProject.rs || undefined // Map RS field
     };

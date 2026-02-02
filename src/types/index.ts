@@ -171,6 +171,13 @@ export interface Project {
     logo: string;
     organization: string;
   } | null;
+  /** Multiple partners (from API partnership_details array) */
+  partners?: Array<{
+    id: string;
+    name: string;
+    logo: string;
+    organization: string;
+  }>;
   mlds_information?: any; // MLDS project specific information
   school_levels?: Array<{
     id: number;

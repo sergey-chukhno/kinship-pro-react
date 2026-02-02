@@ -14,6 +14,7 @@ interface Organization {
   joinedDate: string;
   contactPerson: string;
   email: string;
+  partnership_kind?: string | null;
 }
 
 interface OrganizationCardProps {
@@ -64,6 +65,12 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
       case 'companies': return '#3b82f6'; // Blue for companies
       default: return '#3b82f6'; // Default to blue
     }
+  };
+
+  const getPartnershipKindLabel = (kind: string | null | undefined): string => {
+    if (!kind) return '';
+    if (kind === 'administratif') return 'Partenariat administratif';
+    return kind;
   };
 
   const formatDate = (dateString: string) => {
@@ -176,6 +183,12 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
             <i className="fas fa-calendar"></i>
             <span>Rejoint le {formatDate(organization.joinedDate)}</span>
           </div>)}
+          {organization.type === 'partner' && organization.partnership_kind && (
+          <div className="detail-item">
+            <i className="fas fa-handshake"></i>
+            <span>Type de partenariat : {getPartnershipKindLabel(organization.partnership_kind)}</span>
+          </div>
+          )}
           {organization.website && (
             <div className="detail-item">
               <i className="fas fa-globe"></i>

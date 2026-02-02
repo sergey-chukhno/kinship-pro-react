@@ -11,6 +11,7 @@ import {
 } from '../../utils/projectMapper';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
+import { translateRole } from '../../utils/roleTranslations';
 
 interface MLDSProjectModalProps {
   onClose: () => void;
@@ -68,6 +69,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [availablePartnerships, setAvailablePartnerships] = useState<any[]>([]);
+  const [partnershipContactMembers, setPartnershipContactMembers] = useState<any[]>([]);
   const [availableClasses, setAvailableClasses] = useState<any[]>([]);
   const [departments, setDepartments] = useState<Array<{ code: string; nom: string }>>([]);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
@@ -430,16 +432,47 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   };
 
   const handlePartnerSelect = (partnerId: string) => {
+    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
+    const contactUsers = partnership
+      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
+          id: c.id,
+          full_name: c.full_name || '',
+          email: c.email || '',
+          role: c.role || '',
+          role_in_organization: c.role_in_organization || '',
+          organization: p.name || ''
+        })))
+      : [];
+    const contactIds = contactUsers.map((c: any) => c.id.toString());
+
     setFormData(prev => {
-      const newPartners = prev.partners.includes(partnerId)
-        ? prev.partners.filter(id => id !== partnerId)
-        : [...prev.partners, partnerId];
-      return { ...prev, partners: newPartners };
+      const isAdding = !prev.partners.includes(partnerId);
+      const newPartners = isAdding
+        ? [...prev.partners, partnerId]
+        : prev.partners.filter(id => id !== partnerId);
+      let newCoResponsibles = prev.coResponsibles;
+      if (isAdding) {
+        newCoResponsibles = Array.from(new Set([...prev.coResponsibles, ...contactIds]));
+      } else {
+        newCoResponsibles = prev.coResponsibles.filter(id => !contactIds.includes(id.toString()));
+      }
+      return { ...prev, partners: newPartners, coResponsibles: newCoResponsibles };
+    });
+
+    setPartnershipContactMembers(prev => {
+      const isAdding = !formData.partners.includes(partnerId);
+      if (isAdding) {
+        return [...prev, ...contactUsers];
+      }
+      const toRemoveIds = new Set(contactIds);
+      return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
     });
   };
 
   const getSelectedMember = (memberId: string) => {
-    return members.find((m: any) => m.id === memberId || m.id === Number.parseInt(memberId));
+    const id = memberId.toString();
+    const byId = (m: any) => m?.id?.toString() === id || m?.id === Number.parseInt(memberId, 10);
+    return members.find(byId) ?? partnershipContactMembers.find(byId) ?? null;
   };
 
   const getSelectedPartner = (partnerId: string) => {
@@ -498,8 +531,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
           // Add co-responsibles, partner, and participants if needed
           co_responsible_ids: formData.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id)),
           participant_ids: formData.participants.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id)),
-          // Note: Backend currently accepts only one partnership_id, so we take the first one
-          partnership_id: formData.partners.length > 0 ? Number.parseInt(formData.partners[0], 10) : null,
+          partnership_ids: formData.partners.length > 0
+            ? formData.partners.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
+            : undefined,
           mlds_information_attributes: {
             requested_by: formData.mldsRequestedBy,
             department_number: formData.mldsRequestedBy === 'departement' && formData.mldsDepartment ? formData.mldsDepartment : null,
@@ -615,7 +649,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   };
 
   const handleSaveDraft = async () => {
-    // Sauvegarde en brouillon, sans validation forte
+    setFormData(prev => ({ ...prev, status: 'draft' }));
     await submitProject('draft');
   };
 
@@ -932,6 +966,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                         
                         const partnerOrgs = selected.partners || [];
                         const firstPartner = partnerOrgs[0];
+                        const roleInPartnership = firstPartner?.role_in_partnership;
                         
                         return (
                           <div key={partnerId} className="selected-member">
@@ -945,6 +980,11 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                                 {partnerOrgs.map((p: any) => p.name).join(', ')}
                               </div>
                               <div className="selected-role">{selected.name || ''}</div>
+                              {roleInPartnership && (
+                                <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+                                  Rôle dans le partenariat : {roleInPartnership}
+                                </div>
+                              )}
                             </div>
                             <button
                               type="button"
@@ -963,6 +1003,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                     {getFilteredPartners(searchTerms.partner).map((partnership) => {
                       const partnerOrgs = partnership.partners || [];
                       const firstPartner = partnerOrgs[0];
+                      const roleInPartnership = firstPartner?.role_in_partnership;
                       
                       return (
                         <div
@@ -980,6 +1021,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                               {partnerOrgs.map((p: any) => p.name).join(', ')}
                             </div>
                             <div className="item-role">{partnership.name || ''}</div>
+                            {roleInPartnership && (
+                              <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Rôle dans le partenariat : {roleInPartnership}</div>
+                            )}
                           </div>
                         </div>
                       );
@@ -1016,12 +1060,16 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                       <div className="selected-items">
                         {formData.coResponsibles.map((memberId) => {
                           const member = getSelectedMember(memberId);
+                          const memberOrg = typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '');
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{member.role}</div>
+                                <div className="selected-role">{translateRole(member.role_in_system ?? member.role ?? '')}</div>
+                                {memberOrg && (
+                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -1051,7 +1099,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                             <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                             <div className="item-info">
                               <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                              <div className="item-role">{member.role}</div>
+                              <div className="item-role">{translateRole(member.role_in_system ?? member.role)}</div>
+                              {(typeof member.organization === 'string' ? member.organization : member.organization?.name) && (
+                                <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {typeof member.organization === 'string' ? member.organization : member.organization?.name}</div>
+                              )}
                             </div>
                           </div>
                         ))
@@ -1089,12 +1140,16 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                       <div className="selected-items">
                         {formData.participants.map((memberId) => {
                           const member = getSelectedMember(memberId);
+                          const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '')) : '';
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{member.role}</div>
+                                <div className="selected-role">Rôle : {translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                {memberOrg && (
+                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -1115,19 +1170,25 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                           <p>Aucun membre disponible</p>
                         </div>
                       ) : (
-                        getFilteredMembers(searchTerms.participants).map((member: any) => (
-                          <div
-                            key={member.id}
-                            className="selection-item"
-                            onClick={() => handleMemberSelect('participants', member.id)}
-                          >
-                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
-                            <div className="item-info">
-                              <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                              <div className="item-role">{member.role}</div>
+                        getFilteredMembers(searchTerms.participants).map((member: any) => {
+                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
+                          return (
+                            <div
+                              key={member.id}
+                              className="selection-item"
+                              onClick={() => handleMemberSelect('participants', member.id)}
+                            >
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                              <div className="item-info">
+                                <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                <div className="item-role">Rôle : {translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                {memberOrg && (
+                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {memberOrg}</div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </>

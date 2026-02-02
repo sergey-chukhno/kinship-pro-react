@@ -45,8 +45,18 @@ export function createSchoolStudent(schoolId: number, studentData: {
     return axiosClient.post(`/api/v1/schools/${schoolId}/members`, studentData);
 }
 
-export function getSchoolVolunteers(schoolId: number, status: string = 'confirmed') {
-    return axiosClient.get(`/api/v1/schools/${schoolId}/volunteers?status=${status}`);
+export function getSchoolVolunteers(
+    schoolId: number,
+    status: string = 'confirmed',
+    options?: { page?: number; per_page?: number }
+) {
+    return axiosClient.get(`/api/v1/schools/${schoolId}/volunteers`, {
+        params: {
+            status,
+            page: options?.page ?? 1,
+            per_page: options?.per_page ?? 1000,
+        },
+    });
 }
 
 export function importSchoolMembersCsv(schoolId: number, csvFile: File) {

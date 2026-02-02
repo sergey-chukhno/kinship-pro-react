@@ -33,6 +33,7 @@ export interface Partnership {
     name?: string;
     description?: string;
     has_sponsorship?: boolean;
+    partnership_kind?: string | null;
 }
 
 export interface OrganizationMember {
@@ -91,7 +92,7 @@ export interface CreateProjectPayload {
         tag_ids?: number[];
         company_ids?: number[];
         keyword_ids?: string[];
-        partnership_id?: number | null;
+        partnership_ids?: number[];
         project_members_attributes?: ProjectMemberAttribute[];
         links_attributes?: LinkAttribute[];
         co_responsible_ids?: number[];
@@ -333,6 +334,7 @@ export interface CreatePartnershipPayload {
     has_sponsorship: boolean;
     initiator_role: 'beneficiary' | 'sponsor';
     partner_role: 'beneficiary' | 'sponsor';
+    partnership_kind?: string | null;
 }
 
 export interface CreatePartnershipResponse {
@@ -710,8 +712,10 @@ export const createProject = async (
         });
     }
 
-    if (project.partnership_id) {
-        formData.append('project[partnership_id]', project.partnership_id.toString());
+    if (project.partnership_ids && project.partnership_ids.length > 0) {
+        project.partnership_ids.forEach(id => {
+            formData.append('project[partnership_ids][]', id.toString());
+        });
     }
 
     // Add project members (Rails nested attributes format for multipart/form-data)
@@ -884,7 +888,7 @@ export interface UpdateProjectPayload {
         links_attributes?: LinkAttribute[];
         co_responsible_ids?: number[];
         participant_ids?: number[];
-        partnership_id?: number | null;
+        partnership_ids?: number[];
         mlds_information_attributes?: MLDSInformationAttributes;
     };
 }
@@ -952,6 +956,12 @@ export const updateProject = async (
     if (project.keyword_ids && project.keyword_ids.length > 0) {
         project.keyword_ids.forEach(keyword => {
             formData.append('project[keyword_ids][]', keyword);
+        });
+    }
+
+    if (project.partnership_ids && project.partnership_ids.length > 0) {
+        project.partnership_ids.forEach(id => {
+            formData.append('project[partnership_ids][]', id.toString());
         });
     }
 

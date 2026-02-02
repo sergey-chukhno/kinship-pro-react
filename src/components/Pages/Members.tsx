@@ -112,6 +112,10 @@ const Members: React.FC = () => {
   const [classesPage, setClassesPage] = useState(1);
   const [classesTotalPages, setClassesTotalPages] = useState(1);
   const [classesTotalCount, setClassesTotalCount] = useState(0);
+  // Pagination state for community tab
+  const [communityPage, setCommunityPage] = useState(1);
+  const [communityTotalPages, setCommunityTotalPages] = useState(1);
+  const [communityTotalCount, setCommunityTotalCount] = useState(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
@@ -363,7 +367,7 @@ const Members: React.FC = () => {
     }
   };
 
-  const fetchCommunityVolunteers = async () => {
+  const fetchCommunityVolunteers = async (page: number = 1) => {
     // Ne pas récupérer les volontaires pour les teachers
     if (isTeacherContext) {
       setCommunityLists([]);
@@ -379,10 +383,15 @@ const Members: React.FC = () => {
         return;
       }
 
-      const volunteersRes = await getSchoolVolunteers(Number(schoolId), 'confirmed');
-      const volunteers = volunteersRes.data?.data ?? volunteersRes.data ?? [];
+      const volunteersRes = await getSchoolVolunteers(Number(schoolId), 'confirmed', {
+        page,
+        per_page: 1000,
+      });
+      const responseData = volunteersRes.data as { data?: unknown[]; meta?: { total_pages?: number; total_count?: number } };
+      const volunteers = responseData?.data ?? volunteersRes.data ?? [];
+      const meta = responseData?.meta;
 
-      const mappedVolunteers: Member[] = volunteers.map((vol: any) => {
+      const mappedVolunteers: Member[] = (Array.isArray(volunteers) ? volunteers : []).map((vol: any) => {
         const volunteerSystemRole = vol.role_in_system || vol.user?.role || '';
         const volunteerMembershipRole = vol.role_in_school || vol.role_in_company || 'volunteer';
         const volunteerRole = volunteerMembershipRole; // Use membershipRole for role selector
@@ -436,6 +445,8 @@ const Members: React.FC = () => {
       });
 
       setCommunityLists(mappedVolunteers);
+      setCommunityTotalPages(meta?.total_pages ?? 1);
+      setCommunityTotalCount(meta?.total_count ?? 0);
     } catch (err) {
       console.error('Erreur récupération des volontaires:', err);
       showError('Impossible de récupérer les volontaires');
@@ -534,7 +545,7 @@ const Members: React.FC = () => {
         await Promise.all([
           fetchLevels(),
           fetchMembers(),
-          fetchCommunityVolunteers(),
+          fetchCommunityVolunteers(1),
           fetchPendingRequestsCount()
         ]);
       } catch (error) {
@@ -871,6 +882,25 @@ const Members: React.FC = () => {
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
   });
 
+  // Reset community page when filters change
+  useEffect(() => {
+    setCommunityPage(1);
+  }, [searchTerm, roleFilter, competenceFilter, subSkillFilter, availabilityFilter]);
+
+  // Fetch / refetch volunteers when on Community tab (pagination côté API : page, per_page 1000)
+  useEffect(() => {
+    if (activeTab !== 'community' || isTeacherContext || !isSchoolContext) return;
+    const run = async () => {
+      const currentUser = await getCurrentUser();
+      const schoolId = getSelectedSchoolId(currentUser.data, state.showingPageType);
+      if (schoolId) {
+        await fetchCommunityVolunteers(communityPage);
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, communityPage]);
+
   const handleAssignStudentToClass = async () => {
     if (!selectedStudent || !selectedLevelId) {
       showError("Sélectionnez un élève et une classe.");
@@ -1176,7 +1206,7 @@ const Members: React.FC = () => {
       }
 
       if (source === 'community' && (state.showingPageType === 'edu' || state.showingPageType === 'teacher')) {
-        await fetchCommunityVolunteers();
+        await fetchCommunityVolunteers(communityPage);
       }
 
     } catch (err) {
@@ -1420,7 +1450,7 @@ const Members: React.FC = () => {
         
         // Refresh community volunteers if applicable
         if (isEdu) {
-          await fetchCommunityVolunteers();
+          await fetchCommunityVolunteers(communityPage);
         }
       }
 
@@ -1914,6 +1944,53 @@ const Members: React.FC = () => {
                   </div>
                 )}
               </div>
+              {/* Pagination Communauté */}
+              {communityTotalPages > 1 && communityTotalCount > 0 && (
+                <div className="pagination-container">
+                  <div className="pagination-info">
+                    Page {communityPage} sur {communityTotalPages} ({communityTotalCount} résultat{communityTotalCount > 1 ? 's' : ''})
+                  </div>
+                  <div className="pagination-controls">
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setCommunityPage(prev => Math.max(1, prev - 1))}
+                      disabled={communityPage === 1}
+                    >
+                      <i className="fas fa-chevron-left"></i> Précédent
+                    </button>
+                    <div className="pagination-pages">
+                      {Array.from({ length: Math.min(5, communityTotalPages) }, (_, i) => {
+                        let pageNum: number;
+                        if (communityTotalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (communityPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (communityPage >= communityTotalPages - 2) {
+                          pageNum = communityTotalPages - 4 + i;
+                        } else {
+                          pageNum = communityPage - 2 + i;
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            className={`pagination-page-btn ${communityPage === pageNum ? 'active' : ''}`}
+                            onClick={() => setCommunityPage(pageNum)}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setCommunityPage(prev => Math.min(communityTotalPages, prev + 1))}
+                      disabled={communityPage >= communityTotalPages}
+                    >
+                      Suivant <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -2002,7 +2079,7 @@ const Members: React.FC = () => {
             <div className="modal-body">
               <p className="mb-3 text-gray-600">Sélectionnez une classe pour {selectedStudent?.fullName || 'cet élève'}.</p>
               {filteredClassesForStudent.length === 0 ? (
-                <div className="text-gray-500 text-center py-4">
+                <div className="py-4 text-center text-gray-500">
                   Aucune classe disponible pour cet élève. Veuillez créer une classe correspondant à son établissement.
                 </div>
               ) : (

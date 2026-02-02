@@ -693,6 +693,13 @@ const Projects: React.FC = () => {
     }
   }, [activeTab]);
 
+  // Switch away from MLDS tab when there are no MLDS projects (tab is hidden)
+  useEffect(() => {
+    if (mldsProjects.length === 0 && activeTab === 'mlds-projects') {
+      setActiveTab(isTeacher ? 'mes-projets' : 'nouveautes');
+    }
+  }, [mldsProjects.length, activeTab, isTeacher]);
+
   // Reset pagination and re-fetch when filters change
   useEffect(() => {
     // Reset to page 1 when filters change
@@ -720,18 +727,10 @@ const Projects: React.FC = () => {
 
 
   const handleCreateProject = () => {
-    // Check if user is a personal user (teacher or user)
-    const isPersonalUser = state.showingPageType === 'user';
-    
-    if (isPersonalUser) {
-      // Show subscription required modal for personal users
-      setIsSubscriptionModalOpen(true);
-    } else {
-      // Open project creation modal for organizational users
-      setSelectedProject(null);
-      setIsProjectModalOpen(true);
-      setIsProjectDropdownOpen(false);
-    }
+    // Pro et user : ouvrir directement ProjectModal (pas de dropdown, pas de MLDS)
+    setSelectedProject(null);
+    setIsProjectModalOpen(true);
+    setIsProjectDropdownOpen(false);
   };
 
   const handleCreateMLDSProject = () => {
@@ -966,66 +965,77 @@ const Projects: React.FC = () => {
             </button>
           </div>
           <div className="dropdown" style={{ position: 'relative' }}>
-            <button 
-              className="btn btn-primary" 
-              onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
-            >
-            <i className="fas fa-plus"></i> Créer un projet
-              <i className={`fas fa-chevron-${isProjectDropdownOpen ? 'up' : 'down'}`} style={{ marginLeft: '8px' }}></i>
-            </button>
-            {isProjectDropdownOpen && (
-              <div 
-                className="dropdown-menu" 
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  backgroundColor: 'white',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                  borderRadius: '8px',
-                  marginTop: '8px',
-                  minWidth: '250px',
-                  zIndex: 1000,
-                  overflow: 'hidden'
-                }}
+            {(state.showingPageType === 'pro' || state.showingPageType === 'user') ? (
+              <button
+                className="btn btn-primary"
+                onClick={handleCreateProject}
               >
+                <i className="fas fa-plus"></i> Créer un projet
+              </button>
+            ) : (
+              <>
                 <button
-                  onClick={handleCreateProject}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: 'none',
-                    background: 'white',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    transition: 'background-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                  className="btn btn-primary"
+                  onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
                 >
-                  <i className="fas fa-folder" style={{ marginRight: '8px' }}></i>
-                  Projet classique
+                  <i className="fas fa-plus"></i> Créer un projet
+                  <i className={`fas fa-chevron-${isProjectDropdownOpen ? 'up' : 'down'}`} style={{ marginLeft: '8px' }}></i>
                 </button>
-                <button
-                  onClick={handleCreateMLDSProject}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: 'none',
-                    background: 'white',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    transition: 'background-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                >
-                  <i className="fas fa-graduation-cap" style={{ marginRight: '8px' }}></i>
-                  Projet MLDS Volet Persévérance Scolaire
-          </button>
-              </div>
+                {isProjectDropdownOpen && (
+                  <div
+                    className="dropdown-menu"
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      backgroundColor: 'white',
+                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                      borderRadius: '8px',
+                      marginTop: '8px',
+                      minWidth: '250px',
+                      zIndex: 1000,
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <button
+                      onClick={handleCreateProject}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: 'white',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        transition: 'background-color 0.2s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                    >
+                      <i className="fas fa-folder" style={{ marginRight: '8px' }}></i>
+                      Projet classique
+                    </button>
+                    <button
+                      onClick={handleCreateMLDSProject}
+                      style={{
+                        width: '100%',
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: 'white',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        transition: 'background-color 0.2s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                    >
+                      <i className="fas fa-graduation-cap" style={{ marginRight: '8px' }}></i>
+                      Projet MLDS Volet Persévérance Scolaire
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -1045,24 +1055,26 @@ const Projects: React.FC = () => {
           >
               Nouveautés ({projects.length})
           </button>
-          <button 
-            className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('mes-projets');
-              setMyProjectsPage(1); // Reset pagination when switching tabs
-            }}
-          >
-              Mes projets ({myProjects.length})
-          </button>
             <button 
-              className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+              className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
               onClick={() => {
-                setActiveTab('mlds-projects');
-                setMldsProjectsPage(1); // Reset pagination when switching tabs
+                setActiveTab('mes-projets');
+                setMyProjectsPage(1); // Reset pagination when switching tabs
               }}
             >
-              Projets MLDS Volet Persévérance ({mldsProjects.length})
+              Mes projets ({myProjects.length})
             </button>
+            {mldsProjects.length > 0 && (
+              <button 
+                className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('mlds-projects');
+                  setMldsProjectsPage(1); // Reset pagination when switching tabs
+                }}
+              >
+                Projets MLDS Volet Persévérance ({mldsProjects.length})
+              </button>
+            )}
           </>
         )}
         
@@ -1078,15 +1090,17 @@ const Projects: React.FC = () => {
             >
               Mes projets ({myProjects.length})
             </button>
-            <button 
-              className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('mlds-projects');
-                setMldsProjectsPage(1); // Reset pagination when switching tabs
-              }}
-            >
-              Projets MLDS Volet Persévérance ({mldsProjects.length})
-            </button>
+            {mldsProjects.length > 0 && (
+              <button 
+                className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('mlds-projects');
+                  setMldsProjectsPage(1); // Reset pagination when switching tabs
+                }}
+              >
+                Projets MLDS Volet Persévérance ({mldsProjects.length})
+              </button>
+            )}
           </>
         )}
         
@@ -1102,15 +1116,17 @@ const Projects: React.FC = () => {
             >
               Projets ({projects.length})
             </button>
-            <button 
-              className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('mlds-projects');
-                setMldsProjectsPage(1); // Reset pagination when switching tabs
-              }}
-            >
-              Projets MLDS Volet Persévérance ({mldsProjects.length})
-            </button>
+            {mldsProjects.length > 0 && (
+              <button 
+                className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('mlds-projects');
+                  setMldsProjectsPage(1); // Reset pagination when switching tabs
+                }}
+              >
+                Projets MLDS Volet Persévérance ({mldsProjects.length})
+              </button>
+            )}
           </>
         )}
       </div>

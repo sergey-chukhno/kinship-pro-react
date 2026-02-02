@@ -34,6 +34,7 @@ interface Organization {
   email: string;
   take_trainee?: boolean;
   propose_workshop?: boolean;
+  partnership_kind?: string | null;
 }
 
 
@@ -114,6 +115,12 @@ const availabilityToLabels = (availability: any = {}) => {
   }
 
   return labels;
+};
+
+const getPartnershipKindLabel = (kind: string | null | undefined): string => {
+  if (!kind) return '';
+  if (kind === 'administratif') return 'Partenariat administratif';
+  return kind;
 };
 
 const Network: React.FC = () => {
@@ -1335,7 +1342,8 @@ const Network: React.FC = () => {
         share_projects: false,
         has_sponsorship: hasSponsorship,
         initiator_role: initiatorRole,
-        partner_role: partnerRole
+        partner_role: partnerRole,
+        partnership_kind: partnershipData.partnershipType === 'Partenariat administratif' ? 'administratif' : undefined
       };
 
       // Create partnership
@@ -1678,7 +1686,8 @@ const Network: React.FC = () => {
                 status: 'active' as const,
                 joinedDate: partnership.created_at || '',
                 contactPerson: '',
-                email: partner.email || ''
+                email: partner.email || '',
+                partnership_kind: partnership.partnership_kind ?? undefined
               }));
           })
       ];
@@ -2053,7 +2062,8 @@ const Network: React.FC = () => {
         email: '',
         partnershipId: partnership.id, // Store partnership ID for accept/reject
         partnership: partnership, // Store full partnership data
-        message: partnership.description || ''
+        message: partnership.description || '',
+        partnership_kind: partnership.partnership_kind ?? undefined
       } as Organization & { partnershipId: number; partnership: Partnership; message?: string }));
   });
 
@@ -3091,6 +3101,12 @@ const Network: React.FC = () => {
                         </span>
                       )}
                     </div>
+                    {organization.partnership_kind && (
+                      <div className="detail-item" style={{ marginBottom: '12px' }}>
+                        <i className="fas fa-handshake" style={{ marginRight: '6px' }}></i>
+                        <span>Type de partenariat : {getPartnershipKindLabel(organization.partnership_kind)}</span>
+                      </div>
+                    )}
                     {!isInitiator && (
                       <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                         <button
@@ -3407,6 +3423,12 @@ const Network: React.FC = () => {
                         </span>
                       )}
                     </div>
+                    {organization.partnership_kind && (
+                      <div className="detail-item" style={{ marginBottom: '12px' }}>
+                        <i className="fas fa-handshake" style={{ marginRight: '6px' }}></i>
+                        <span>Type de partenariat : {getPartnershipKindLabel(organization.partnership_kind)}</span>
+                      </div>
+                    )}
                     {!isInitiator && (
                       <div className="organization-actions" style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                         <button

@@ -819,6 +819,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     <div className="permission-item">
                       <label className="permission-checkbox">
                         <input
+                          disabled
                           type="checkbox"
                           checked={proposals.canProposeStage}
                           onChange={() => handleProposalChange('canProposeStage')}
@@ -830,6 +831,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     <div className="permission-item">
                       <label className="permission-checkbox">
                         <input
+                          disabled
                           type="checkbox"
                           checked={proposals.canProposeAtelier}
                           onChange={() => handleProposalChange('canProposeAtelier')}
@@ -847,7 +849,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
               <button className="btn btn-outline" onClick={onClose}>
                 Fermer
               </button>
-              {isEditing ? (
+              {/* {isEditing ? (
                 <>
                   <button className="btn btn-outline" onClick={handleEditToggle}>
                     <i className="fas fa-times"></i>
@@ -865,7 +867,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     Modifier
                   </button>
                 )
-              )}
+              )} */}
             </div>
           </>
         )}
