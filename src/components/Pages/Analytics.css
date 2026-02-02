@@ -438,6 +438,80 @@
   transition: all 0.2s ease;
 }
 
+.radar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-light, #6b7280);
+}
+
+.radar-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.radar-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.radar-chart-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-light, #6b7280);
+  font-size: 0.9rem;
+}
+
+/* Compétences par niveau chart filters */
+.analytics-chart-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: flex-end;
+}
+
+.analytics-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.analytics-filter-group label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-light, #6b7280);
+}
+
+.analytics-select {
+  min-width: 180px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--card-bg, #ffffff);
+  color: var(--text-main, #1f2937);
+}
+
+.analytics-chart-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-light, #6b7280);
+  font-size: 0.9rem;
+}
+
+.analytics-chart-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-light, #6b7280);
+  font-size: 0.9rem;
+}
+
 /* Chart Tooltips */
 .chart-tooltip {
   position: fixed;

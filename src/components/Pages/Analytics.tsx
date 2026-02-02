@@ -1,8 +1,133 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAppContext } from '../../context/AppContext';
+import { getBadges } from '../../api/Badges';
+import { getSchoolAssignedBadges, getCompanyAssignedBadges, getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
+import { getOrganizationId } from '../../utils/projectMapper';
+import { displaySeries } from '../../utils/badgeMapper';
 import './Analytics.css';
 
+const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#8B5CF6'];
+const LEVEL_LABELS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
+
 const Analytics: React.FC = () => {
+  const { state } = useAppContext();
   const [activeTab, setActiveTab] = useState<'projects' | 'badges'>('projects');
+
+  const organizationId = useMemo(() => {
+    if (!state.user) return undefined;
+    return getOrganizationId(state.user, state.showingPageType);
+  }, [state.showingPageType, state.user]);
+
+  const isEduOrPro = state.showingPageType === 'edu' || state.showingPageType === 'pro';
+
+  // Badge series options (same list as "Attribuer un badge" modal)
+  const [badgeSeriesOptions, setBadgeSeriesOptions] = useState<string[]>([]);
+  const [selectedSeries, setSelectedSeries] = useState<string>('Série TouKouLeur');
+  const [projectOptions, setProjectOptions] = useState<Array<{ id: number; title: string }>>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [assignedBadgesRaw, setAssignedBadgesRaw] = useState<any[]>([]);
+  const [loadingSeries, setLoadingSeries] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingAssignedBadges, setLoadingAssignedBadges] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro) return;
+    const fetchSeries = async () => {
+      setLoadingSeries(true);
+      try {
+        const badges = await getBadges();
+        const seriesSet = new Set<string>();
+        (badges || []).forEach((b: any) => {
+          if (b.series) seriesSet.add(b.series);
+        });
+        setBadgeSeriesOptions(Array.from(seriesSet));
+      } catch (e) {
+        console.error('Error fetching badge series', e);
+      } finally {
+        setLoadingSeries(false);
+      }
+    };
+    fetchSeries();
+  }, [activeTab, isEduOrPro]);
+
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro || !organizationId) return;
+    const fetchProjects = async () => {
+      setLoadingProjects(true);
+      try {
+        if (state.showingPageType === 'edu') {
+          const res = await getSchoolProjects(Number(organizationId), false, 200, 1);
+          const data = res.data?.data ?? res.data ?? [];
+          const list = Array.isArray(data) ? data : [];
+          setProjectOptions(list.map((p: any) => ({ id: p.id, title: p.title ?? p.name ?? String(p.id) })));
+        } else {
+          const res = await getCompanyProjects(Number(organizationId), false, 200, 1);
+          const data = res.data?.data ?? res.data ?? [];
+          const list = Array.isArray(data) ? data : [];
+          setProjectOptions(list.map((p: any) => ({ id: p.id, title: p.title ?? p.name ?? String(p.id) })));
+        }
+      } catch (e) {
+        console.error('Error fetching projects', e);
+      } finally {
+        setLoadingProjects(false);
+      }
+    };
+    fetchProjects();
+  }, [activeTab, isEduOrPro, organizationId, state.showingPageType]);
+
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro || !organizationId || !selectedSeries) return;
+    const fetchAssignedBadges = async () => {
+      setLoadingAssignedBadges(true);
+      setAssignedBadgesRaw([]);
+      try {
+        const perPage = 500;
+        const projectIdParam = selectedProjectId ? Number(selectedProjectId) : undefined;
+        let all: any[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          let res: any;
+          if (state.showingPageType === 'edu') {
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries, projectIdParam);
+          } else {
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries, projectIdParam);
+          }
+          const data = res.data?.data ?? res.data ?? [];
+          const list = Array.isArray(data) ? data : [];
+          all = all.concat(list);
+          totalPages = res.data?.meta?.total_pages ?? 1;
+          page += 1;
+        } while (page <= totalPages);
+        setAssignedBadgesRaw(all);
+      } catch (e) {
+        console.error('Error fetching assigned badges', e);
+      } finally {
+        setLoadingAssignedBadges(false);
+      }
+    };
+    fetchAssignedBadges();
+  }, [activeTab, isEduOrPro, organizationId, selectedSeries, selectedProjectId, state.showingPageType]);
+
+  const radarCompetenceData = useMemo(() => {
+    const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
+    assignedBadgesRaw.forEach((ub: any) => {
+      const name = ub.badge?.name;
+      const level = ub.badge?.level;
+      if (!name || !level) return;
+      if (!byCompetenceAndLevel[name]) byCompetenceAndLevel[name] = { level_1: 0, level_2: 0, level_3: 0, level_4: 0 };
+      const key = level as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+      if (key in byCompetenceAndLevel[name]) byCompetenceAndLevel[name][key] += 1;
+    });
+    const axes = Object.keys(byCompetenceAndLevel).sort();
+    if (axes.length === 0) return { axes: [], series: [] };
+    const series = LEVEL_LABELS.map((label, idx) => {
+      const levelKey = `level_${idx + 1}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+      const values = axes.map((comp) => (byCompetenceAndLevel[comp]?.[levelKey] ?? 0));
+      return { level: label, values, color: LEVEL_COLORS[idx] ?? '#5570F1' };
+    });
+    return { axes, series };
+  }, [assignedBadgesRaw]);
 
   // Mock data for charts
   const projectsData = {
@@ -345,115 +470,98 @@ const Analytics: React.FC = () => {
     );
   };
 
-  const RadarChart = ({ data }: { data: Array<{ level: string; competencies: string[]; badgesAttributed: number }> }) => {
-    const [hoveredItem, setHoveredItem] = useState<{ level: string; competencies: string[]; badgesAttributed: number } | null>(null);
+  const RadarChartByCompetence = ({ axes, series }: { axes: string[]; series: Array<{ level: string; values: number[]; color: string }> }) => {
+    const [hoveredSeries, setHoveredSeries] = useState<{ level: string; values: number[]; color: string } | null>(null);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
     const centerX = 50;
     const centerY = 50;
-    const maxRadius = 40;
-    const levels = data.length;
-    const angleStep = (2 * Math.PI) / levels;
-
-    // Calculate points for each level
-    const points = data.map((item, index) => {
-      const angle = index * angleStep - Math.PI / 2; // Start from top
-      const radius = (item.badgesAttributed / Math.max(...data.map(d => d.badgesAttributed))) * maxRadius;
-      const x = centerX + radius * Math.cos(angle);
-      const y = centerY + radius * Math.sin(angle);
-      return { x, y, item, angle };
-    });
-
-    // Create path for the radar shape
-    const pathData = points.map((point, index) =>
-      `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
-    ).join(' ') + ' Z';
+    const maxRadius = 38;
+    const n = axes.length;
+    if (n === 0) return <div className="radar-chart-empty">Aucune compétence</div>;
+    const angleStep = (2 * Math.PI) / n;
+    const maxVal = Math.max(1, ...series.flatMap((s) => s.values));
 
     return (
       <div className="radar-chart">
-        <svg width="100%" height="200" className="radar-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
-          {/* Subtle grid circles */}
-          {[0.2, 0.4, 0.6, 0.8, 1.0].map((scale, index) => (
-            <circle
-              key={index}
-              cx={centerX}
-              cy={centerY}
-              r={maxRadius * scale}
-              fill="none"
-              stroke="#f8fafc"
-              strokeWidth="0.2"
-            />
+        <svg width="100%" height="220" className="radar-svg" viewBox="0 0 100 110" preserveAspectRatio="xMidYMid meet">
+          {/* Grid circles */}
+          {[0.25, 0.5, 0.75, 1.0].map((scale, i) => (
+            <circle key={i} cx={centerX} cy={centerY} r={maxRadius * scale} fill="none" stroke="#f0f0f0" strokeWidth="0.3" />
           ))}
-
-          {/* Subtle grid lines from center to each level */}
-          {points.map((point, index) => (
-            <line
-              key={index}
-              x1={centerX}
-              y1={centerY}
-              x2={centerX + maxRadius * Math.cos(point.angle)}
-              y2={centerY + maxRadius * Math.sin(point.angle)}
-              stroke="#f8fafc"
-              strokeWidth="0.2"
-            />
-          ))}
-
-          {/* Area fill */}
-          <polygon
-            points={points.map(p => `${p.x},${p.y}`).join(' ')}
-            fill="rgba(85, 112, 241, 0.15)"
-            stroke="none"
-          />
-
-          {/* Main radar line - thinner and more subtle */}
-          <path
-            d={pathData}
-            fill="none"
-            stroke="#5570F1"
-            strokeWidth="0.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="radar-path"
-            onMouseEnter={(e) => {
-              setHoveredItem(data[0]); // Show first item on hover
-              setMousePosition({ x: e.clientX, y: e.clientY });
-            }}
-            onMouseMove={(e) => {
-              setMousePosition({ x: e.clientX, y: e.clientY });
-            }}
-            onMouseLeave={() => setHoveredItem(null)}
-            style={{ cursor: 'pointer' }}
-          />
-
-          {/* Level labels */}
-          {points.map((point, index) => (
-            <text
-              key={index}
-              x={centerX + (maxRadius + 8) * Math.cos(point.angle)}
-              y={centerY + (maxRadius + 8) * Math.sin(point.angle)}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="radar-label"
-              fontSize="2.5"
-              fill="#6b7280"
-              fontWeight="500"
-            >
-              {point.item.level}
-            </text>
-          ))}
+          {/* Grid lines from center to each competence axis */}
+          {axes.map((_, i) => {
+            const angle = i * angleStep - Math.PI / 2;
+            const x2 = centerX + maxRadius * Math.cos(angle);
+            const y2 = centerY + maxRadius * Math.sin(angle);
+            return <line key={i} x1={centerX} y1={centerY} x2={x2} y2={y2} stroke="#f0f0f0" strokeWidth="0.3" />;
+          })}
+          {/* One polygon per level */}
+          {series.map((s, seriesIdx) => {
+            const points = s.values.map((val, i) => {
+              const angle = i * angleStep - Math.PI / 2;
+              const r = maxVal > 0 ? (val / maxVal) * maxRadius : 0;
+              return { x: centerX + r * Math.cos(angle), y: centerY + r * Math.sin(angle) };
+            });
+            const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
+            return (
+              <g key={s.level}>
+                <polygon
+                  points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+                  fill={`${s.color}20`}
+                  stroke="none"
+                />
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth="0.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  onMouseEnter={(e) => {
+                    setHoveredSeries(s);
+                    setMousePosition({ x: e.clientX, y: e.clientY });
+                  }}
+                  onMouseMove={(e) => setMousePosition({ x: e.clientX, y: e.clientY })}
+                  onMouseLeave={() => setHoveredSeries(null)}
+                  style={{ cursor: 'pointer' }}
+                />
+              </g>
+            );
+          })}
+          {/* Axis labels (competences) */}
+          {axes.map((label, i) => {
+            const angle = i * angleStep - Math.PI / 2;
+            const dist = maxRadius + 6;
+            const x = centerX + dist * Math.cos(angle);
+            const y = centerY + dist * Math.sin(angle);
+            return (
+              <text
+                key={i}
+                x={x}
+                y={y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="radar-label"
+                fontSize="2.2"
+                fill="#6b7280"
+              >
+                {label.length > 12 ? label.slice(0, 10) + '…' : label}
+              </text>
+            );
+          })}
         </svg>
-
-        {hoveredItem && (
-          <div
-            className="chart-tooltip"
-            style={{
-              left: mousePosition.x + 10,
-              top: mousePosition.y - 10,
-            }}
-          >
-            <div className="tooltip-title">{hoveredItem.level}</div>
-            <div className="tooltip-value">{hoveredItem.badgesAttributed} badges attribués</div>
-            <div className="tooltip-competencies">{hoveredItem.competencies.join(', ')}</div>
+        <div className="radar-legend">
+          {series.map((s, i) => (
+            <span key={i} className="radar-legend-item" style={{ color: s.color }}>
+              <span className="radar-legend-dot" style={{ backgroundColor: s.color }} /> {s.level}
+            </span>
+          ))}
+        </div>
+        {hoveredSeries && (
+          <div className="chart-tooltip" style={{ left: mousePosition.x + 10, top: mousePosition.y - 10 }}>
+            <div className="tooltip-title">{hoveredSeries.level}</div>
+            <div className="tooltip-value">{hoveredSeries.values.reduce((a, b) => a + b, 0)} badges</div>
           </div>
         )}
       </div>
@@ -611,9 +719,48 @@ const Analytics: React.FC = () => {
               </ChartCard>
 
               <ChartCard title="Compétences par niveau">
-                <RadarChart
-                  data={badgesData.radarData}
-                />
+                {isEduOrPro && organizationId && (
+                  <div className="analytics-chart-filters">
+                    <div className="analytics-filter-group">
+                      <label htmlFor="analytics-badge-series">Par série des badges</label>
+                      <select
+                        id="analytics-badge-series"
+                        className="analytics-select"
+                        value={selectedSeries}
+                        onChange={(e) => setSelectedSeries(e.target.value)}
+                        disabled={loadingSeries}
+                      >
+                        {badgeSeriesOptions.map((s) => (
+                          <option key={s} value={s}>{displaySeries(s)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="analytics-filter-group">
+                      <label htmlFor="analytics-project">Par projet</label>
+                      <select
+                        id="analytics-project"
+                        className="analytics-select"
+                        value={selectedProjectId}
+                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                        disabled={loadingProjects}
+                      >
+                        <option value="">Tous les projets</option>
+                        {projectOptions.map((p) => (
+                          <option key={p.id} value={String(p.id)}>{p.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {!isEduOrPro || !organizationId ? (
+                  <div className="analytics-chart-empty">Sélectionnez un contexte organisation (établissement ou entreprise) pour voir les données.</div>
+                ) : loadingAssignedBadges ? (
+                  <div className="analytics-chart-loading">Chargement des données…</div>
+                ) : radarCompetenceData.axes.length === 0 ? (
+                  <div className="analytics-chart-empty">Aucune donnée pour les critères sélectionnés.</div>
+                ) : (
+                  <RadarChartByCompetence axes={radarCompetenceData.axes} series={radarCompetenceData.series} />
+                )}
               </ChartCard>
 
               <ChartCard title="Tendance d'attribution">
