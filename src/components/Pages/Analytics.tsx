@@ -9,6 +9,40 @@ import './Analytics.css';
 const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
 const LEVEL_LABELS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
 
+/** Split a long axis label into multiple lines to avoid overflow and overlap. */
+function wrapRadarLabel(label: string, maxCharsPerLine = 22): string[] {
+  if (!label || label.length <= maxCharsPerLine) return [label];
+  const parts = label.split(/\s*-\s*/).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+  for (const part of parts) {
+    const next = current ? `${current}-${part}` : part;
+    if (next.length <= maxCharsPerLine) {
+      current = next;
+    } else {
+      if (current) lines.push(current);
+      if (part.length > maxCharsPerLine) {
+        const words = part.split(/\s+/);
+        let line = '';
+        for (const w of words) {
+          const candidate = line ? `${line} ${w}` : w;
+          if (candidate.length <= maxCharsPerLine) {
+            line = candidate;
+          } else {
+            if (line) lines.push(line);
+            line = w;
+          }
+        }
+        current = line;
+      } else {
+        current = part;
+      }
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length ? lines : [label];
+}
+
 const Analytics: React.FC = () => {
   const { state } = useAppContext();
   const [activeTab, setActiveTab] = useState<'projects' | 'badges'>('projects');
@@ -529,12 +563,13 @@ const Analytics: React.FC = () => {
               </g>
             );
           })}
-          {/* Axis labels (competences) */}
+          {/* Axis labels (competences) - wrapped to multiple lines when long */}
           {axes.map((label, i) => {
             const angle = i * angleStep - Math.PI / 2;
             const dist = maxRadius + 12;
             const x = centerX + dist * Math.cos(angle);
             const y = centerY + dist * Math.sin(angle);
+            const lines = wrapRadarLabel(label);
             return (
               <text
                 key={i}
@@ -546,7 +581,11 @@ const Analytics: React.FC = () => {
                 fontSize="2.9"
                 fill="#6b7280"
               >
-                {label}
+                {lines.map((line, j) => (
+                  <tspan key={j} x={x} dy={j === 0 ? `${(lines.length - 1) * -0.6}em` : '1.2em'}>
+                    {line}
+                  </tspan>
+                ))}
               </text>
             );
           })}
