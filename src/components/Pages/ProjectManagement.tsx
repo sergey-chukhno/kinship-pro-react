@@ -18,12 +18,25 @@ import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
-import { isUserAdminOfProjectOrg, isUserProjectParticipant } from '../../utils/projectPermissions';
+import { isUserAdminOfProjectOrg, isUserProjectParticipant, isUserSuperadmin } from '../../utils/projectPermissions';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { getTeacherAllStudents } from '../../api/Dashboard';
 import { translateRole } from '../../utils/roleTranslations';
+
+/** Safely render a value that may be a string or an object with id/name/type/city (e.g. organization from API). */
+function toDisplayString(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value !== null && 'name' in value && typeof (value as { name?: unknown }).name === 'string') {
+    return (value as { name: string }).name;
+  }
+  // Avoid rendering arbitrary objects as [object Object]
+  if (typeof value === 'object' && value !== null) return '';
+  return String(value);
+}
+
 // Component for displaying skills with "Voir plus"/"Voir moins" functionality
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
   const [showAll, setShowAll] = React.useState(false);
@@ -370,7 +383,11 @@ const ProjectManagement: React.FC = () => {
             skills: member.user?.skills?.map((s: any) => s.name || s) || [],
             availability: member.user?.availability || [],
             requestDate: member.created_at ? new Date(member.created_at).toLocaleDateString('fr-FR') : '',
-            organization: member.user?.organization || 'Non renseigné'
+            organization: typeof member.user?.organization === 'string' ? member.user.organization : (member.user?.organization?.name ?? '') || 'Non renseigné',
+            userRole: member.user?.role ?? '',
+            school_level_name: typeof member.user?.school_level === 'object' && member.user?.school_level?.name
+              ? member.user.school_level.name
+              : ''
           }));
           
           setRequests(mappedRequests);
@@ -784,13 +801,27 @@ const ProjectManagement: React.FC = () => {
   };
 
   /**
+   * Superadmin qui n'est pas dans le projet : voir tous les onglets et participants en lecture seule, boutons d'actions cachés
+   */
+  const isSuperadminViewingReadOnly =
+    isUserSuperadmin(state.user) &&
+    apiProjectData != null &&
+    state.user?.id != null &&
+    !isUserProjectParticipant(apiProjectData, state.user.id.toString());
+
+  /**
    * Determine if tabs should be shown based on user type and role
    * Personal users (teacher/user) can only see tabs if they are admin/co-owner/owner
    * Organizational users (pro/edu) can see tabs if they are:
    * - Project owner/co-owner/admin, OR
    * - Organization admin/referent/superadmin of project's organization
+   * Superadmin: always show all tabs (in read-only if they don't manage the project)
    */
   const shouldShowTabs = (): boolean => {
+    if (isUserSuperadmin(state.user)) {
+      return true;
+    }
+
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     
     // For personal users, check role
@@ -905,7 +936,11 @@ const ProjectManagement: React.FC = () => {
         organization: apiProjectData.primary_organization_name || project.organization || '',
         role: 'owner',
         projectRole: 'owner',
-        is_deleted: apiProjectData.owner.is_deleted || false
+        is_deleted: apiProjectData.owner.is_deleted || false,
+        userRole: apiProjectData.owner.role ?? '',
+        school_level_name: typeof apiProjectData.owner.school_level === 'object' && apiProjectData.owner.school_level?.name
+          ? apiProjectData.owner.school_level.name
+          : ''
       };
       allMembers.push({
         ...ownerParticipant,
@@ -931,10 +966,14 @@ const ProjectManagement: React.FC = () => {
           avatar: coOwner.avatar_url || DEFAULT_AVATAR_SRC,
           skills: extractSkills(coOwner.skills),
           availability: availabilityToLabels(coOwner.availability),
-          organization: coOwner.organization_name || coOwner.city || '',
+          organization: (typeof coOwner.organization_name === 'string' ? coOwner.organization_name : (coOwner.organization_name?.name ?? coOwner.partner_organization?.name ?? '')) || (typeof coOwner.city === 'string' ? coOwner.city : '') || '',
           role: 'co-owner',
           projectRole: 'co_owner',
-          is_deleted: coOwner.is_deleted || false
+          is_deleted: coOwner.is_deleted || false,
+          userRole: coOwner.role ?? '',
+          school_level_name: typeof coOwner.school_level === 'object' && coOwner.school_level?.name
+            ? coOwner.school_level.name
+            : ''
         };
         allMembers.push({
           ...coOwnerParticipant,
@@ -975,10 +1014,14 @@ const ProjectManagement: React.FC = () => {
           avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
           skills: extractSkills(member.user?.skills),
           availability: availabilityToLabels(member.user?.availability),
-          organization: member.user?.organization || '',
+          organization: typeof member.user?.organization === 'string' ? member.user.organization : (member.user?.organization?.name ?? member.user?.organization_name ?? '') || '',
           role: member.project_role === 'admin' ? 'admin' : 'member',
           projectRole: member.project_role,
-          canAssignBadges: member.can_assign_badges_in_project || false
+          canAssignBadges: member.can_assign_badges_in_project || false,
+          userRole: member.user?.role ?? '',
+          school_level_name: typeof member.user?.school_level === 'object' && member.user?.school_level?.name
+            ? member.user.school_level.name
+            : ''
         };
         allMembers.push({
           ...memberParticipant,
@@ -1256,7 +1299,8 @@ const ProjectManagement: React.FC = () => {
           id: c.id,
           full_name: c.full_name || '',
           email: c.email || '',
-          role: c.role_in_organization || ''
+          role: c.role_in_organization || '',
+          organization: p.name || ''
         })))
       : [];
     const contactIds = contactUsers.map((c: any) => c.id.toString());
@@ -1305,7 +1349,9 @@ const ProjectManagement: React.FC = () => {
 
     // Get all partnership IDs (can be multiple)
     let currentPartnerships: string[] = [];
-    if (apiProjectData?.partnership_id) {
+    if (apiProjectData?.partnership_ids?.length) {
+      currentPartnerships = apiProjectData.partnership_ids.map((id: number) => id.toString());
+    } else if (apiProjectData?.partnership_id) {
       currentPartnerships = [apiProjectData.partnership_id.toString()];
     } else if (apiProjectData?.partnership?.id) {
       currentPartnerships = [apiProjectData.partnership.id.toString()];
@@ -1426,8 +1472,9 @@ const ProjectManagement: React.FC = () => {
       
       // Add co-responsibles and partnership
       payload.project.co_responsible_ids = editForm.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
-      // Note: Backend currently accepts only one partnership_id, so we take the first one
-      payload.project.partnership_id = editForm.partners.length > 0 ? Number.parseInt(editForm.partners[0], 10) : null;
+      payload.project.partnership_ids = editForm.partners.length > 0
+        ? editForm.partners.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
+        : undefined;
       
       // Add MLDS information if it's an MLDS project
       if (isMLDSProject) {
@@ -2195,10 +2242,13 @@ const ProjectManagement: React.FC = () => {
     }
     
     const searchLower = memberSearchTerm.toLowerCase();
-    return available.filter(participant => 
-      participant.name.toLowerCase().includes(searchLower) ||
-      participant.profession.toLowerCase().includes(searchLower)
-    );
+    return available.filter(participant => {
+      const p = participant as any;
+      return participant.name.toLowerCase().includes(searchLower) ||
+        participant.profession.toLowerCase().includes(searchLower) ||
+        (p.userRole && translateRole(p.userRole).toLowerCase().includes(searchLower)) ||
+        (p.school_level_name && p.school_level_name.toLowerCase().includes(searchLower));
+    });
   };
 
   // Task management functions (currently unused - kept for future implementation)
@@ -2838,19 +2888,23 @@ const ProjectManagement: React.FC = () => {
       yPosition += 2;
     }
 
-    // Partenaire
-    if (project.partner) {
-      checkNewPage(8);
+    // Partenaire(s)
+    const partnersList = (project.partners && project.partners.length > 0) ? project.partners : (project.partner ? [project.partner] : []);
+    if (partnersList.length > 0) {
+      checkNewPage(8 + partnersList.length * (lineHeight + 2));
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('PARTENAIRE', margin, yPosition);
+      doc.text(partnersList.length > 1 ? 'PARTENAIRES' : 'PARTENAIRE', margin, yPosition);
       yPosition += 4;
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(project.partner.name, margin, yPosition);
-      yPosition += lineHeight + 2;
+      partnersList.forEach((p) => {
+        doc.text(p.name, margin, yPosition);
+        yPosition += lineHeight;
+      });
+      yPosition += 2;
     }
 
     // Tags
@@ -3155,7 +3209,7 @@ const ProjectManagement: React.FC = () => {
               <i className="fas fa-file-pdf"></i> Exporter en PDF
             </button>
           )}
-          {canAssignBadges && !isProjectEnded && (
+          {canAssignBadges && !isProjectEnded && !isSuperadminViewingReadOnly && (
             <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
               <i className="fas fa-award"></i> Attribuer un badge
             </button>
@@ -3247,8 +3301,8 @@ const ProjectManagement: React.FC = () => {
                     {getRoleDisplayText(userProjectRole)}
                   </span>
                 ) : null}
-                {/* Edit button for owners/admins */}
-                {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && !isProjectEnded && (
+                {/* Edit button for owners/admins (hidden for superadmin in read-only view) */}
+                {apiProjectData && canUserEditProject(apiProjectData, state.user?.id?.toString()) && !isProjectEnded && !isSuperadminViewingReadOnly && (
                 <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
                   <i className="fas fa-edit"></i>
                 </button>
@@ -3363,7 +3417,7 @@ const ProjectManagement: React.FC = () => {
                   <div className="manager-right">
                     <div className="manager-organization">
                       <img src="/icons_logo/Icon=projet.svg" alt="Organization" className="manager-icon" />
-                      <span className="manager-text">{project.responsible?.organization || ''}</span>
+                      <span className="manager-text">{toDisplayString(project.responsible?.organization)}</span>
                     </div>
                     <div className="manager-email">
                       <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
@@ -3397,7 +3451,7 @@ const ProjectManagement: React.FC = () => {
                         <div className="manager-right">
                           <div className="manager-organization">
                             <img src="/icons_logo/Icon=projet.svg" alt="Organization" className="manager-icon" />
-                            <span className="manager-text">{coResponsible.organization}</span>
+                            <span className="manager-text">{toDisplayString(coResponsible.organization)}</span>
                           </div>
                           <div className="manager-email">
                             <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
@@ -3410,26 +3464,31 @@ const ProjectManagement: React.FC = () => {
                 </div>
               )}
 
-              {/* Partenaire */}
-              {project.partner && (
+              {/* Partenaire(s) - from partnership_details */}
+              {((project.partners && project.partners.length > 0) || project.partner) && (
                 <div className="project-partner-section">
                   <div className="project-manager-header">
-                    <h4>Partenaire</h4>
+                    <h4>Partenaire{((project.partners?.length ?? 0) > 1 ? 's' : '')}</h4>
                   </div>
-                  <div className="project-partner-info">
-                    <div className="manager-left">
-                      <div className="manager-avatar">
-                        <AvatarImage 
-                          src={project.partner.logo || '/default-avatar.png'} 
-                          alt={project.partner.name} 
-                          className="manager-avatar-img"
-                        />
+                  <div className="flex flex-col !items-start project-partner-info">
+                    {(project.partners && project.partners.length > 0
+                      ? project.partners
+                      : project.partner ? [project.partner] : []
+                    ).map((p) => (
+                      <div key={p.id} className="manager-left">
+                        <div className="manager-avatar">
+                          <AvatarImage 
+                            src={p.logo || '/default-avatar.png'} 
+                            alt={p.name} 
+                            className="manager-avatar-img"
+                          />
+                        </div>
+                        <div className="manager-details">
+                          {/* <div className="manager-name">{p.name}</div> */}
+                          <div className="manager-name">{toDisplayString(p.organization)}</div>
+                        </div>
                       </div>
-                      <div className="manager-details">
-                        <div className="manager-name">{project.partner.name}</div>
-                        <div className="manager-role">{project.partner.organization}</div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -3501,6 +3560,25 @@ const ProjectManagement: React.FC = () => {
             </button>
           )}
         </div>
+        )}
+
+        {/* Bannière vue lecture seule pour superadmin */}
+        {isSuperadminViewingReadOnly && (
+          <div className="project-readonly-banner" style={{
+            padding: '0.75rem 1rem',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.875rem',
+            color: '#92400e'
+          }}>
+            <i className="fas fa-eye"></i>
+            <span>Vue lecture seule (superadmin) — vous pouvez consulter tous les onglets et participants sans modifier le projet.</span>
+          </div>
         )}
 
         {/* Tab Content */}
@@ -3627,14 +3705,19 @@ const ProjectManagement: React.FC = () => {
                       ) : (
                         <div className="member-name">{participant.name}</div>
                       )}
-                      {participant.organization && (
+                      {toDisplayString(participant.organization) && (
                         <div className="member-organization" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                          {participant.organization}
+                          {toDisplayString(participant.organization)}
                     </div>
                       )}
-                      {participant.profession && (
+                      {(participant as any).school_level_name && (
+                        <div className="member-school-level" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                          Classe : {(participant as any).school_level_name}
+                        </div>
+                      )}
+                      {(translateRole((participant as any).userRole) || participant.profession) && (
                         <div className="member-profession" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                          {participant.profession}
+                          {(participant as any).userRole ? translateRole((participant as any).userRole) : participant.profession}
                         </div>
                       )}
                     </div>
@@ -3657,7 +3740,7 @@ const ProjectManagement: React.FC = () => {
                       ))}
                     </div>
                     <div className="member-actions">
-                      {canAssignBadges && !isProjectEnded && (
+                      {canAssignBadges && !isProjectEnded && !isSuperadminViewingReadOnly && (
                         <button 
                           type="button" 
                           className="btn-icon badge-btn" 
@@ -3671,7 +3754,7 @@ const ProjectManagement: React.FC = () => {
                         </button>
                       )}
                       {/* Show remove button if user can see it and participant can be removed */}
-                      {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && !isProjectEnded && (
+                      {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && !isProjectEnded && !isSuperadminViewingReadOnly && (
                         <button 
                           type="button" 
                           className="btn-icon" 
@@ -3742,6 +3825,7 @@ const ProjectManagement: React.FC = () => {
                         </div>
                       </div>
                       
+                      {!isSuperadminViewingReadOnly && (
                       <div className="request-actions">
                         <div className="action-buttons">
                           <button 
@@ -3760,6 +3844,7 @@ const ProjectManagement: React.FC = () => {
                           </button>
                         </div>
                       </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -3773,7 +3858,7 @@ const ProjectManagement: React.FC = () => {
             <div className="participants-section">
               <div className="section-header">
                 <h3>Participants du projet</h3>
-                {!isProjectEnded && (
+                {!isProjectEnded && !isSuperadminViewingReadOnly && (
                   <button 
                     className="btn btn-primary btn-sm"
                     onClick={handleAddParticipant}
@@ -3793,9 +3878,12 @@ const ProjectManagement: React.FC = () => {
                       </div>
                         <div className="request-info">
                           <h4 className="request-name">{participant.name}</h4>
-                          <p className="request-profession">{participant.profession}</p>
+                          <p className="request-profession">{(participant as any).userRole ? translateRole((participant as any).userRole) : participant.profession}</p>
+                          {(participant as any).school_level_name && (
+                            <p className="request-school-level">Classe : {(participant as any).school_level_name}</p>
+                          )}
                           <p className="request-email" title={participant.email}>{participant.email}</p>
-                          <p className="request-date">{participant.organization}</p>
+                          <p className="request-date">{toDisplayString(participant.organization)}</p>
                         </div>
                     </div>
                     
@@ -3880,7 +3968,7 @@ const ProjectManagement: React.FC = () => {
                 </div>
                 <div className="section-actions">
                   <span className="team-count">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
-                  {shouldShowTabs() && !isProjectEnded && (
+                  {shouldShowTabs() && !isProjectEnded && !isSuperadminViewingReadOnly && (
                   <button className="btn btn-primary" onClick={handleCreateTeam}>
                     <i className="fas fa-plus"></i>
                     Créer une équipe
@@ -3900,7 +3988,7 @@ const ProjectManagement: React.FC = () => {
                   </div>
                   <h4>Aucune équipe créée</h4>
                   <p>Créez votre première équipe pour organiser vos participants et améliorer la collaboration.</p>
-                  {shouldShowTabs() && !isProjectEnded && (
+                  {shouldShowTabs() && !isProjectEnded && !isSuperadminViewingReadOnly && (
                   <button className="btn btn-primary" onClick={handleCreateTeam}>
                     <i className="fas fa-plus"></i>
                     Créer une équipe
@@ -3968,7 +4056,7 @@ const ProjectManagement: React.FC = () => {
                                 >
                                   <i className="fas fa-eye"></i>
                                 </button>
-                                {shouldShowTabs() && !isProjectEnded && (
+                                {shouldShowTabs() && !isProjectEnded && !isSuperadminViewingReadOnly && (
                                   <>
                                 <button 
                                   className="btn-icon edit-btn" 
@@ -4278,6 +4366,7 @@ const ProjectManagement: React.FC = () => {
                 <h3>Documents</h3>
               </div>
 
+              {!isSuperadminViewingReadOnly && (
               <div className="badge-filters">
                 <div className="filter-group" style={{ width: '100%' }}>
                   <input
@@ -4304,6 +4393,7 @@ const ProjectManagement: React.FC = () => {
                   </label>
                 </div>
               </div>
+              )}
 
               {projectDocumentsError && (
                 <div className="error-message">
@@ -4352,7 +4442,7 @@ const ProjectManagement: React.FC = () => {
                                   Télécharger
                                 </a>
                               )}
-                              {!isProjectEnded && (
+                              {!isProjectEnded && !isSuperadminViewingReadOnly && (
                                 <button
                                   type="button"
                                   className="btn btn-outline btn-sm btn-danger"
@@ -4444,7 +4534,7 @@ const ProjectManagement: React.FC = () => {
                     <div className="stat-content">
                       <div className="stat-label">Organisations porteuses</div>
                       <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        {apiProjectData.mlds_information.organization_names.map((org: string, index: number) => (
+                        {apiProjectData.mlds_information.organization_names.map((org: string | { id?: number; name?: string; type?: string; city?: string }, index: number) => (
                           <span 
                             key={index} 
                             style={{ 
@@ -4456,7 +4546,7 @@ const ProjectManagement: React.FC = () => {
                               fontWeight: '500'
                             }}
                           >
-                            {org}
+                            {toDisplayString(org)}
                           </span>
                         ))}
                       </div>
@@ -4913,6 +5003,7 @@ const ProjectManagement: React.FC = () => {
                           if (!partnership) return null;
                           const partnerOrgs = partnership.partners || [];
                           const firstPartner = partnerOrgs[0];
+                          const roleInPartnership = firstPartner?.role_in_partnership;
                           return (
                             <div key={partnerId} className="selected-member">
                               <AvatarImage 
@@ -4925,6 +5016,11 @@ const ProjectManagement: React.FC = () => {
                                   {partnerOrgs.map((p: any) => p.name).join(', ')}
                                 </div>
                                 <div className="selected-role">{partnership.name || ''}</div>
+                                {roleInPartnership && (
+                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+                                    Rôle dans le partenariat : {roleInPartnership}
+                                  </div>
+                                )}
                               </div>
                               <button 
                                 type="button" 
@@ -4949,6 +5045,7 @@ const ProjectManagement: React.FC = () => {
                         getEditFilteredPartnerships(editSearchTerms.partner).map((partnership: any) => {
                           const partnerOrgs = partnership.partners || [];
                           const firstPartner = partnerOrgs[0];
+                          const roleInPartnership = firstPartner?.role_in_partnership;
                           
                           return (
                             <div
@@ -4966,6 +5063,9 @@ const ProjectManagement: React.FC = () => {
                                   {partnerOrgs.map((p: any) => p.name).join(', ')}
                                 </div>
                                 <div className="item-role">{partnership.name || ''}</div>
+                                {roleInPartnership && (
+                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Rôle dans le partenariat : {roleInPartnership}</div>
+                                )}
                               </div>
                             </div>
                           );
@@ -4998,6 +5098,7 @@ const ProjectManagement: React.FC = () => {
                       {editForm.coResponsibles.map((memberId) => {
                         const member = editAvailableMembers.find((m: any) => m.id.toString() === memberId)
                           ?? editPartnershipContactMembers.find((m: any) => m.id?.toString() === memberId);
+                        const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '')) : '';
                         return member ? (
                           <div key={memberId} className="selected-member">
                             <AvatarImage 
@@ -5007,7 +5108,10 @@ const ProjectManagement: React.FC = () => {
                             />
                             <div className="selected-info">
                               <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
-                              <div className="selected-role">{member.role ?? member.role_in_organization ?? ''}</div>
+                              <div className="selected-role">Rôle : {translateRole(member.role ?? member.role_in_organization ?? '')}</div>
+                              {memberOrg && (
+                                <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {toDisplayString(member.organization)}</div>
+                              )}
                             </div>
                             <button 
                               type="button" 
@@ -5037,6 +5141,7 @@ const ProjectManagement: React.FC = () => {
                       ) : (
                         getEditFilteredMembers(editSearchTerms.coResponsibles).map((member: any) => {
                           const isSelected = editForm.coResponsibles.includes(member.id.toString());
+                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
                           return (
                             <div
                               key={member.id}
@@ -5046,7 +5151,10 @@ const ProjectManagement: React.FC = () => {
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                               <div className="item-info">
                                 <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="item-role">{member.role}</div>
+                                <div className="item-role">Rôle : {translateRole(member.role ?? '')}</div>
+                                {memberOrg && (
+                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {toDisplayString(member.organization)}</div>
+                                )}
                               </div>
                               {isSelected && (
                                 <div style={{ marginLeft: 'auto', color: '#10b981', fontSize: '1.2rem' }}>
@@ -5700,7 +5808,7 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={() => setIsViewTeamModalOpen(false)}>
                 Fermer
               </button>
-              {!isProjectEnded && (
+              {!isProjectEnded && !isSuperadminViewingReadOnly && (
                 <button className="btn btn-primary" onClick={() => {
                   setIsViewTeamModalOpen(false);
                   handleEditTeam(selectedTeam);

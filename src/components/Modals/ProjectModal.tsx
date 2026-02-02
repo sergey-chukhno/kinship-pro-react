@@ -42,7 +42,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     // responsible: '', // Removed as per request
     coResponsibles: [] as string[],
     isPartnership: false, // New field
-    partner: '',
+    partners: [] as string[],
     additionalImages: [] as string[],
     // School levels (organisations porteuses)
     schoolLevelIds: [] as string[]
@@ -178,6 +178,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       });
     }
     
+    // Filter out already selected partnerships (compare as string for number/string ids)
+    const selectedPartnerIds = new Set(formData.partners.map((id: string) => id?.toString()));
+    filtered = filtered.filter((partnership: any) =>
+      !selectedPartnerIds.has(partnership.id?.toString())
+    );
+
     if (!searchTerm.trim()) return filtered;
     const searchLower = searchTerm.toLowerCase();
     return filtered.filter(partnership =>
@@ -251,8 +257,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         image: project.image || '',
         // responsible: '',
         coResponsibles: [],
-        isPartnership: !!project.partner, // Infer from existing data
-        partner: project.partner?.id || '',
+        isPartnership: !!(project.partners?.length || project.partner), // Infer from existing data
+        partners: (project.partners?.length ? project.partners.map((p: { id: string }) => p.id) : (project.partner?.id ? [project.partner.id.toString()] : [])),
         additionalImages: [],
         schoolLevelIds: [] // Will be populated from API if project has school levels
       });
@@ -607,7 +613,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         setFormData(prev => ({
           ...prev,
           isPartnership: false,
-          partner: '',
+          partners: [],
           coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
         }));
         setPartnershipContactMembers([]);
@@ -615,7 +621,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         setFormData(prev => ({
           ...prev,
           isPartnership: true,
-          partner: prev.partner
+          partners: prev.partners
         }));
       }
     } else {
@@ -792,12 +798,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         ? getOrganizationId(state.user, state.showingPageType, teacherProjectContext === 'school' ? selectedSchoolId : undefined)
         : getOrganizationId(state.user, state.showingPageType);
 
-      // Map frontend data to backend format with effective status
+      // Map frontend data to backend format with effective status (partnership_ids: array)
       const payload = mapFrontendToBackend(
-        {
-          ...formData,
-          status: effectiveStatus
-        },
+        { ...formData, status: effectiveStatus },
         context,
         organizationId,
         state.tags,
@@ -878,7 +881,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
           email: state.user.email
         },
         coResponsibles: [],
-        partner: null
+        partner: formData.partners.length > 0 ? (() => {
+          const p = availablePartnerships.find((x: any) => x.id?.toString() === formData.partners[0]);
+          if (!p) return null;
+          const firstOrg = p.partners?.[0];
+          return { id: p.id.toString(), name: p.name || '', logo: firstOrg?.logo_url || '', organization: firstOrg?.name || '' };
+        })() : null
       };
 
       // Add project to local state
@@ -992,38 +1000,53 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     }
   };
 
-  const handlePartnerSelect = (partnerId: string) => {
-    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
+  const handlePartnerSelect = (partnerId: string | number) => {
+    const idStr = partnerId?.toString();
+    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === idStr || p.id === Number(partnerId));
     const contactUsers = partnership
       ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
           id: c.id,
           full_name: c.full_name || '',
           email: c.email || '',
-          role: c.role_in_organization || ''
+          role: c.role || '',
+          role_in_organization: c.role_in_organization || '',
+          organization: p.name || ''
         })))
       : [];
-    setPartnershipContactMembers(contactUsers);
-    const newContactIds = contactUsers.map((c: any) => c.id.toString());
+    const contactIds = contactUsers.map((c: any) => c.id.toString());
+
     setFormData(prev => {
-      const prevPartner = availablePartnerships.find((p: any) => p.id?.toString() === prev.partner || p.id === prev.partner);
-      const prevContactIds = prevPartner
-        ? (prevPartner.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => c.id.toString()))
-        : [];
-      const coResponsiblesWithoutPrev = prev.coResponsibles.filter(id => !prevContactIds.includes(id.toString()));
-      const combined = [...coResponsiblesWithoutPrev, ...newContactIds];
-      const unique = Array.from(new Set(combined));
-      return { ...prev, partner: partnerId, coResponsibles: unique };
+      const isAdding = !prev.partners.some((id) => id?.toString() === idStr);
+      const newPartners = isAdding
+        ? [...prev.partners, idStr]
+        : prev.partners.filter(id => id?.toString() !== idStr);
+      const newCoResponsibles = isAdding
+        ? Array.from(new Set([...prev.coResponsibles, ...contactIds]))
+        : prev.coResponsibles.filter(id => !contactIds.includes(id.toString()));
+      return { ...prev, partners: newPartners, coResponsibles: newCoResponsibles };
+    });
+
+    setPartnershipContactMembers(prev => {
+      const isAdding = !formData.partners.some((id) => id?.toString() === idStr);
+      if (isAdding) {
+        return [...prev, ...contactUsers];
+      }
+      const toRemoveIds = new Set(contactIds);
+      return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
     });
   };
 
-  const handlePartnerRemove = () => {
-    const contactIds = partnershipContactMembers.map((c: any) => c.id.toString());
+  const handlePartnerRemove = (partnerId: string) => {
+    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
+    const contactIds = partnership
+      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => c.id.toString()))
+      : [];
     setFormData(prev => ({
       ...prev,
-      partner: '',
+      partners: prev.partners.filter(id => id !== partnerId),
       coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
     }));
-    setPartnershipContactMembers([]);
+    setPartnershipContactMembers(prev => prev.filter((m: any) => !contactIds.includes(m.id?.toString())));
   };
 
   const getSelectedMember = (memberId: string) => {
@@ -1460,17 +1483,18 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       onChange={(e) => handleSearchChange('partner', e.target.value)}
                     />
                   </div>
-                  {formData.partner && (
-                    <div className="selected-item">
-                      {(() => {
-                        const selected = getSelectedPartner(formData.partner);
+                  {formData.partners.length > 0 && (
+                    <div className="selected-items">
+                      {formData.partners.map((partnerId) => {
+                        const selected = getSelectedPartner(partnerId);
                         if (!selected) return null;
                         
                         const partnerOrgs = selected.partners || [];
                         const firstPartner = partnerOrgs[0];
+                        const roleInPartnership = firstPartner?.role_in_partnership;
                         
                         return (
-                          <div className="selected-member">
+                          <div key={partnerId} className="selected-member">
                             <AvatarImage 
                               src={firstPartner?.logo_url || '/default-avatar.png'} 
                               alt={firstPartner?.name || 'Partnership'} 
@@ -1481,48 +1505,54 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                                 {partnerOrgs.map((p: any) => p.name).join(', ')}
                               </div>
                               <div className="selected-role">{selected.name || ''}</div>
+                              {roleInPartnership && (
+                                <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+                                  Rôle dans le partenariat : {roleInPartnership}
+                                </div>
+                              )}
                             </div>
                             <button
                               type="button"
                               className="remove-selection"
-                              onClick={handlePartnerRemove}
+                              onClick={() => handlePartnerRemove(partnerId)}
                             >
                               <i className="fas fa-times"></i>
                             </button>
                           </div>
                         );
-                      })()}
-                    </div>
-                  )}
-                  {!formData.partner && (
-                    <div className="selection-list">
-                      {getFilteredPartners(searchTerms.partner).map((partnership) => {
-                        // Get partner organizations (excluding current user's org, already filtered in getFilteredPartners)
-                        const partnerOrgs = partnership.partners || [];
-                        const firstPartner = partnerOrgs[0];
-                        
-                        return (
-                          <div
-                            key={partnership.id}
-                            className="selection-item"
-                            onClick={() => handlePartnerSelect(partnership.id)}
-                          >
-                            <AvatarImage 
-                              src={firstPartner?.logo_url || '/default-avatar.png'} 
-                              alt={firstPartner?.name || 'Partnership'} 
-                              className="item-avatar" 
-                            />
-                            <div className="item-info">
-                              <div className="item-name">
-                                {partnerOrgs.map((p: any) => p.name).join(', ')}
-                              </div>
-                              <div className="item-role">{partnership.name || ''}</div>
-                            </div>
-                          </div>
-                        );
                       })}
                     </div>
                   )}
+                  <div className="selection-list">
+                    {getFilteredPartners(searchTerms.partner).map((partnership) => {
+                      const partnerOrgs = partnership.partners || [];
+                      const firstPartner = partnerOrgs[0];
+                      const roleInPartnership = firstPartner?.role_in_partnership;
+                      
+                      return (
+                        <div
+                          key={partnership.id}
+                          className="selection-item"
+                          onClick={() => handlePartnerSelect(partnership.id)}
+                        >
+                          <AvatarImage 
+                            src={firstPartner?.logo_url || '/default-avatar.png'} 
+                            alt={firstPartner?.name || 'Partnership'} 
+                            className="item-avatar" 
+                          />
+                          <div className="item-info">
+                            <div className="item-name">
+                              {partnerOrgs.map((p: any) => p.name).join(', ')}
+                            </div>
+                            <div className="item-role">{partnership.name || ''}</div>
+                            {roleInPartnership && (
+                              <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Rôle dans le partenariat : {roleInPartnership}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -1554,12 +1584,17 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       <div className="selected-items">
                         {formData.coResponsibles.map((memberId) => {
                           const member = getSelectedMember(memberId);
+                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
                                 <div className="selected-role">{translateRole(member.role_in_system ?? member.role ?? '')}</div>
+                                
+                                {memberOrg && (
+                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -1590,6 +1625,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <div className="item-info">
                               <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
                               <div className="item-role">{translateRole(member.role_in_system ?? member.role)}</div>
+                              {(typeof member.organization === 'string' ? member.organization : member.organization?.name) && (
+                                <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {typeof member.organization === 'string' ? member.organization : member.organization?.name}</div>
+                              )}
                             </div>
                           </div>
                         ))
@@ -1628,12 +1666,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         {formData.participants.map((memberId) => {
                           const member = getSelectedMember(memberId);
                           const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
+                          const memberOrg = typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '') || schoolLabel || '';
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{schoolLabel || member.role}</div>
+                                <div className="selected-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                {memberOrg && (
+                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -1681,6 +1723,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                           <>
                             {available.map((member: any) => {
                               const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
+                              const memberOrg = typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '') || schoolLabel || '';
                               return (
                                 <div
                                   key={member.id}
@@ -1690,7 +1733,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                                   <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                                   <div className="item-info">
                                     <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                    <div className="item-role">{schoolLabel || member.role}</div>
+                                    <div className="item-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                    {memberOrg && (
+                                      <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {memberOrg}</div>
+                                    )}
                                   </div>
                                 </div>
                               );
@@ -1708,19 +1754,25 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                           <p>Aucun membre disponible</p>
                         </div>
                       ) : (
-                        getFilteredMembers(searchTerms.participants).map((member: any) => (
-                          <div
-                            key={member.id}
-                            className="selection-item"
-                            onClick={() => handleMemberSelect('participants', member.id)}
-                          >
-                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
-                            <div className="item-info">
-                              <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                              <div className="item-role">{member.role}</div>
+                        getFilteredMembers(searchTerms.participants).map((member: any) => {
+                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
+                          return (
+                            <div
+                              key={member.id}
+                              className="selection-item"
+                              onClick={() => handleMemberSelect('participants', member.id)}
+                            >
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                              <div className="item-info">
+                                <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                <div className="item-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                {memberOrg && (
+                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {memberOrg}</div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </>
