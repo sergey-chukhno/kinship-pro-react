@@ -88,6 +88,21 @@
   margin-bottom: 2rem;
 }
 
+/* Badges section: same grid, larger min width for 3 cards */
+.analytics-stats--badges {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.analytics-stats-message {
+  grid-column: 1 / -1;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-secondary, #6b7280);
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+}
+
 .stat-card {
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e5e7eb);

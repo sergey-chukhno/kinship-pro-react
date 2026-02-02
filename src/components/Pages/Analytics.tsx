@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges } from '../../api/Badges';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
+import { getSchoolMembersAccepted } from '../../api/SchoolDashboard/Members';
+import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Members';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import './Analytics.css';
@@ -45,7 +47,7 @@ function wrapRadarLabel(label: string, maxCharsPerLine = 22): string[] {
 
 const Analytics: React.FC = () => {
   const { state } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'projects' | 'badges'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'badges'>('badges');
 
   const organizationId = useMemo(() => {
     if (!state.user) return undefined;
@@ -56,13 +58,38 @@ const Analytics: React.FC = () => {
 
   // Badge series options (same list as "Attribuer un badge" modal)
   const [badgeSeriesOptions, setBadgeSeriesOptions] = useState<string[]>([]);
-  const [selectedSeries, setSelectedSeries] = useState<string>('Série TouKouLeur');
   const [projectOptions, setProjectOptions] = useState<Array<{ id: number; title: string }>>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [assignedBadgesRaw, setAssignedBadgesRaw] = useState<any[]>([]);
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
+
+  // Répartition par série: filter Par projet only
+  const [selectedProjectIdSeriesChart, setSelectedProjectIdSeriesChart] = useState<string>('');
+  const [assignedBadgesForSeriesChart, setAssignedBadgesForSeriesChart] = useState<any[]>([]);
+  const [loadingSeriesChart, setLoadingSeriesChart] = useState(false);
+
+  // Attributions mensuelles: filters Par série + Par projet
+  const [selectedSeriesMonthlyChart, setSelectedSeriesMonthlyChart] = useState<string>('Série TouKouLeur');
+  const [selectedProjectIdMonthlyChart, setSelectedProjectIdMonthlyChart] = useState<string>('');
+  const [assignedBadgesMonthlyChart, setAssignedBadgesMonthlyChart] = useState<any[]>([]);
+  const [loadingMonthlyChart, setLoadingMonthlyChart] = useState(false);
+
+  // Tendances d'attribution: filters Par série + Par projet
+  const [selectedSeriesTrendChart, setSelectedSeriesTrendChart] = useState<string>('Série TouKouLeur');
+  const [selectedProjectIdTrendChart, setSelectedProjectIdTrendChart] = useState<string>('');
+  const [assignedBadgesTrendChart, setAssignedBadgesTrendChart] = useState<any[]>([]);
+  const [loadingTrendChart, setLoadingTrendChart] = useState(false);
+
+  // Compétences par niveau: filters Par série + Par projet
+  const [selectedSeries, setSelectedSeries] = useState<string>('Série TouKouLeur');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [assignedBadgesRaw, setAssignedBadgesRaw] = useState<any[]>([]);
   const [loadingAssignedBadges, setLoadingAssignedBadges] = useState(false);
+
+  // Stats cards (org-wide): total badges, average per member, attributions this month
+  const [assignedBadgesForStats, setAssignedBadgesForStats] = useState<any[]>([]);
+  const [loadingStatsBadges, setLoadingStatsBadges] = useState(false);
+  const [memberCount, setMemberCount] = useState<number>(0);
+  const [loadingMemberCount, setLoadingMemberCount] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'badges' || !isEduOrPro) return;
@@ -109,6 +136,112 @@ const Analytics: React.FC = () => {
     fetchProjects();
   }, [activeTab, isEduOrPro, organizationId, state.showingPageType]);
 
+  // Répartition par série: fetch by project only (no series filter)
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro || !organizationId) return;
+    const fetchSeriesChart = async () => {
+      setLoadingSeriesChart(true);
+      setAssignedBadgesForSeriesChart([]);
+      try {
+        const perPage = 500;
+        const projectIdParam = selectedProjectIdSeriesChart ? Number(selectedProjectIdSeriesChart) : undefined;
+        let all: any[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          let res: any;
+          if (state.showingPageType === 'edu') {
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, undefined, projectIdParam);
+          } else {
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, undefined, projectIdParam);
+          }
+          const data = res.data?.data ?? res.data ?? [];
+          const list = Array.isArray(data) ? data : [];
+          all = all.concat(list);
+          totalPages = res.data?.meta?.total_pages ?? 1;
+          page += 1;
+        } while (page <= totalPages);
+        setAssignedBadgesForSeriesChart(all);
+      } catch (e) {
+        console.error('Error fetching badges for series chart', e);
+      } finally {
+        setLoadingSeriesChart(false);
+      }
+    };
+    fetchSeriesChart();
+  }, [activeTab, isEduOrPro, organizationId, selectedProjectIdSeriesChart, state.showingPageType]);
+
+  // Attributions mensuelles: fetch by series + project
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro || !organizationId || !selectedSeriesMonthlyChart) return;
+    const fetchMonthlyChart = async () => {
+      setLoadingMonthlyChart(true);
+      setAssignedBadgesMonthlyChart([]);
+      try {
+        const perPage = 500;
+        const projectIdParam = selectedProjectIdMonthlyChart ? Number(selectedProjectIdMonthlyChart) : undefined;
+        let all: any[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          let res: any;
+          if (state.showingPageType === 'edu') {
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart, projectIdParam);
+          } else {
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart, projectIdParam);
+          }
+          const data = res.data?.data ?? res.data ?? [];
+          const list = Array.isArray(data) ? data : [];
+          all = all.concat(list);
+          totalPages = res.data?.meta?.total_pages ?? 1;
+          page += 1;
+        } while (page <= totalPages);
+        setAssignedBadgesMonthlyChart(all);
+      } catch (e) {
+        console.error('Error fetching badges for monthly chart', e);
+      } finally {
+        setLoadingMonthlyChart(false);
+      }
+    };
+    fetchMonthlyChart();
+  }, [activeTab, isEduOrPro, organizationId, selectedSeriesMonthlyChart, selectedProjectIdMonthlyChart, state.showingPageType]);
+
+  // Tendances d'attribution: fetch by series + project
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro || !organizationId || !selectedSeriesTrendChart) return;
+    const fetchTrendChart = async () => {
+      setLoadingTrendChart(true);
+      setAssignedBadgesTrendChart([]);
+      try {
+        const perPage = 500;
+        const projectIdParam = selectedProjectIdTrendChart ? Number(selectedProjectIdTrendChart) : undefined;
+        let all: any[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          let res: any;
+          if (state.showingPageType === 'edu') {
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart, projectIdParam);
+          } else {
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart, projectIdParam);
+          }
+          const data = res.data?.data ?? res.data ?? [];
+          const list = Array.isArray(data) ? data : [];
+          all = all.concat(list);
+          totalPages = res.data?.meta?.total_pages ?? 1;
+          page += 1;
+        } while (page <= totalPages);
+        setAssignedBadgesTrendChart(all);
+      } catch (e) {
+        console.error('Error fetching badges for trend chart', e);
+      } finally {
+        setLoadingTrendChart(false);
+      }
+    };
+    fetchTrendChart();
+  }, [activeTab, isEduOrPro, organizationId, selectedSeriesTrendChart, selectedProjectIdTrendChart, state.showingPageType]);
+
+  // Compétences par niveau: fetch by series + project
   useEffect(() => {
     if (activeTab !== 'badges' || !isEduOrPro || !organizationId || !selectedSeries) return;
     const fetchAssignedBadges = async () => {
@@ -142,6 +275,130 @@ const Analytics: React.FC = () => {
     };
     fetchAssignedBadges();
   }, [activeTab, isEduOrPro, organizationId, selectedSeries, selectedProjectId, state.showingPageType]);
+
+  // Stats cards: org-wide assigned badges (no series, no project)
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro || !organizationId) return;
+    const fetchStatsBadges = async () => {
+      setLoadingStatsBadges(true);
+      setAssignedBadgesForStats([]);
+      try {
+        const perPage = 500;
+        let all: any[] = [];
+        let page = 1;
+        let totalPages = 1;
+        do {
+          let res: any;
+          if (state.showingPageType === 'edu') {
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, undefined, undefined);
+          } else {
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, undefined, undefined);
+          }
+          const data = res.data?.data ?? res.data ?? [];
+          const list = Array.isArray(data) ? data : [];
+          all = all.concat(list);
+          totalPages = res.data?.meta?.total_pages ?? 1;
+          page += 1;
+        } while (page <= totalPages);
+        setAssignedBadgesForStats(all);
+      } catch (e) {
+        console.error('Error fetching badges for stats', e);
+      } finally {
+        setLoadingStatsBadges(false);
+      }
+    };
+    fetchStatsBadges();
+  }, [activeTab, isEduOrPro, organizationId, state.showingPageType]);
+
+  // Stats cards: member count (confirmed) for average per member
+  useEffect(() => {
+    if (activeTab !== 'badges' || !isEduOrPro || !organizationId) return;
+    const fetchMemberCount = async () => {
+      setLoadingMemberCount(true);
+      setMemberCount(0);
+      try {
+        let res: any;
+        if (state.showingPageType === 'edu') {
+          res = await getSchoolMembersAccepted(Number(organizationId), 1000);
+        } else {
+          res = await getCompanyMembersAccepted(Number(organizationId), 1000);
+        }
+        const data = res.data?.data ?? res.data ?? [];
+        const list = Array.isArray(data) ? data : [];
+        const total = res.data?.meta?.total_count ?? list.length;
+        setMemberCount(typeof total === 'number' ? total : list.length);
+      } catch (e) {
+        console.error('Error fetching member count', e);
+      } finally {
+        setLoadingMemberCount(false);
+      }
+    };
+    fetchMemberCount();
+  }, [activeTab, isEduOrPro, organizationId, state.showingPageType]);
+
+  const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
+
+  function buildMonthlyAttributions(assignedBadges: any[]): Array<{ month: string; badges: number }> {
+    const now = new Date();
+    const order: string[] = [];
+    const byMonth: Record<string, number> = {};
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      order.push(key);
+      byMonth[key] = 0;
+    }
+    assignedBadges.forEach((ub: any) => {
+      const at = ub.assigned_at || ub.created_at;
+      if (!at) return;
+      const date = new Date(at);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (key in byMonth) byMonth[key] += 1;
+    });
+    return order.map((key) => {
+      const [y, m] = key.split('-');
+      const monthIndex = parseInt(m, 10) - 1;
+      const yearShort = String(y).slice(2);
+      return { month: `${MONTH_LABELS[monthIndex]} '${yearShort}`, badges: byMonth[key] };
+    });
+  }
+
+  const seriesDistribution = useMemo(() => {
+    const bySeries: Record<string, number> = {};
+    assignedBadgesForSeriesChart.forEach((ub: any) => {
+      const s = ub.badge?.series;
+      if (!s) return;
+      bySeries[s] = (bySeries[s] ?? 0) + 1;
+    });
+    const total = Object.values(bySeries).reduce((a, b) => a + b, 0);
+    return Object.entries(bySeries).map(([series, value]) => ({
+      name: displaySeries(series),
+      value,
+      percentage: total > 0 ? Math.round((value / total) * 100) : 0
+    }));
+  }, [assignedBadgesForSeriesChart]);
+
+  const monthlyAttributions = useMemo(() => buildMonthlyAttributions(assignedBadgesMonthlyChart), [assignedBadgesMonthlyChart]);
+
+  const trendAttributions = useMemo(() => buildMonthlyAttributions(assignedBadgesTrendChart), [assignedBadgesTrendChart]);
+
+  // Stats cards: derived from org-wide assigned badges + member count
+  const totalBadges = useMemo(() => assignedBadgesForStats.length, [assignedBadgesForStats]);
+  const badgesThisMonth = useMemo(() => {
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return assignedBadgesForStats.filter((ub: any) => {
+      const at = ub.assigned_at || ub.created_at;
+      if (!at) return false;
+      const date = new Date(at);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      return key === currentKey;
+    }).length;
+  }, [assignedBadgesForStats]);
+  const averagePerMember = useMemo(() => {
+    if (memberCount <= 0) return 0;
+    return Math.round((totalBadges / memberCount) * 10) / 10;
+  }, [totalBadges, memberCount]);
 
   const radarCompetenceData = useMemo(() => {
     const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
@@ -275,7 +532,7 @@ const Analytics: React.FC = () => {
     </div>
   );
 
-  const DonutChart = ({ data, colors }: { data: Array<{ name: string; value: number; percentage: number }>; colors: string[] }) => {
+  const DonutChart = ({ data, colors, valueLabel = 'projets' }: { data: Array<{ name: string; value: number; percentage: number }>; colors: string[]; valueLabel?: string }) => {
     const [hoveredItem, setHoveredItem] = useState<{ name: string; value: number; percentage: number } | null>(null);
     const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
@@ -351,7 +608,7 @@ const Analytics: React.FC = () => {
             }}
           >
             <div className="tooltip-title">{hoveredItem.name}</div>
-            <div className="tooltip-value">{hoveredItem.value} projets</div>
+            <div className="tooltip-value">{hoveredItem.value} {valueLabel}</div>
             <div className="tooltip-percentage">{hoveredItem.percentage}%</div>
           </div>
         )}
@@ -617,7 +874,7 @@ const Analytics: React.FC = () => {
             <img src="/icons_logo/Icon=Analytics.svg" alt="Statistiques et KPI" className="section-icon" />
             <h2>Statistiques et KPI</h2>
           </div>
-            <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
+            {activeTab === 'projects' && <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>}
             </div>
           <div className="analytics-actions">
             <button className="btn btn-outline" onClick={() => console.log('Export analytics')}>
@@ -628,16 +885,16 @@ const Analytics: React.FC = () => {
 
         <div className="analytics-tabs">
           <button
-            className={`tab-button ${activeTab === 'projects' ? 'active' : ''}`}
-            onClick={() => setActiveTab('projects')}
-          >
-            Projets
-          </button>
-          <button
             className={`tab-button ${activeTab === 'badges' ? 'active' : ''}`}
             onClick={() => setActiveTab('badges')}
           >
             Badges
+          </button>
+          <button
+            className={`tab-button ${activeTab === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveTab('projects')}
+          >
+            Projets
           </button>
         </div>
 
@@ -710,51 +967,165 @@ const Analytics: React.FC = () => {
 
         {activeTab === 'badges' && (
           <div className="analytics-content">
-            <div className="analytics-stats">
-              <StatCard
-                title="Badges totaux"
-                value={badgesData.totalBadges}
-                subtitle={`${badgesData.badgesAwarded} attribués`}
-                icon="/icons_logo/Icon=Badges.svg"
-                color="#5570F1"
-                iconType="image"
-              />
-              <StatCard
-                title="Moyenne par membre"
-                value={badgesData.averagePerMember}
-                subtitle="Badges par personne"
-                icon="fas fa-user-graduate"
-                color="#10B981"
-              />
-              <StatCard
-                title="Taux de complétion"
-                value={`${badgesData.completionRate}%`}
-                subtitle="Badges validés"
-                icon="fas fa-check-circle"
-                color="#F59E0B"
-              />
-              <StatCard
-                title="Attributions ce mois"
-                value="28"
-                subtitle="Nouveaux badges"
-                icon="fas fa-star"
-                color="#EF4444"
-              />
+            <div className="analytics-stats analytics-stats--badges">
+              {!isEduOrPro || !organizationId ? (
+                <div className="analytics-stats-message">Sélectionnez un contexte organisation pour voir les statistiques.</div>
+              ) : loadingStatsBadges || loadingMemberCount ? (
+                <div className="analytics-stats-message">Chargement…</div>
+              ) : (
+                <>
+                  <StatCard
+                    title="Badges totaux"
+                    value={totalBadges}
+                    subtitle={`${totalBadges} attribués`}
+                    icon="/icons_logo/Icon=Badges.svg"
+                    color="#5570F1"
+                    iconType="image"
+                  />
+                  <StatCard
+                    title="Moyenne par membre"
+                    value={averagePerMember}
+                    subtitle="Badges par personne"
+                    icon="fas fa-user-graduate"
+                    color="#10B981"
+                  />
+                  <StatCard
+                    title="Attributions ce mois"
+                    value={badgesThisMonth}
+                    subtitle="Nouveaux badges"
+                    icon="fas fa-star"
+                    color="#EF4444"
+                  />
+                </>
+              )}
             </div>
 
             <div className="analytics-charts">
               <ChartCard title="Répartition par série">
-                <DonutChart
-                  data={badgesData.seriesDistribution}
-                  colors={['#5570F1', '#10B981', '#F59E0B']}
-                />
+                {isEduOrPro && organizationId && (
+                  <div className="analytics-chart-filters">
+                    <div className="analytics-filter-group">
+                      <label htmlFor="analytics-series-chart-project">Par projet</label>
+                      <select
+                        id="analytics-series-chart-project"
+                        className="analytics-select"
+                        value={selectedProjectIdSeriesChart}
+                        onChange={(e) => setSelectedProjectIdSeriesChart(e.target.value)}
+                        disabled={loadingProjects}
+                      >
+                        <option value="">Tous les projets</option>
+                        {projectOptions.map((p) => (
+                          <option key={p.id} value={String(p.id)}>{p.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {!isEduOrPro || !organizationId ? (
+                  <div className="analytics-chart-empty">Sélectionnez un contexte organisation pour voir les données.</div>
+                ) : loadingSeriesChart ? (
+                  <div className="analytics-chart-loading">Chargement…</div>
+                ) : seriesDistribution.length === 0 ? (
+                  <div className="analytics-chart-empty">Aucune donnée pour les critères sélectionnés.</div>
+                ) : (
+                  <DonutChart
+                    data={seriesDistribution}
+                    colors={['#5570F1', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']}
+                    valueLabel="badges"
+                  />
+                )}
               </ChartCard>
 
               <ChartCard title="Attributions mensuelles">
-                <BarChart
-                  data={badgesData.monthlyAttributions}
-                  color="#10B981"
-                />
+                {isEduOrPro && organizationId && (
+                  <div className="analytics-chart-filters">
+                    <div className="analytics-filter-group">
+                      <label htmlFor="analytics-monthly-series">Par série des badges</label>
+                      <select
+                        id="analytics-monthly-series"
+                        className="analytics-select"
+                        value={selectedSeriesMonthlyChart}
+                        onChange={(e) => setSelectedSeriesMonthlyChart(e.target.value)}
+                        disabled={loadingSeries}
+                      >
+                        {badgeSeriesOptions.map((s) => (
+                          <option key={s} value={s}>{displaySeries(s)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="analytics-filter-group">
+                      <label htmlFor="analytics-monthly-project">Par projet</label>
+                      <select
+                        id="analytics-monthly-project"
+                        className="analytics-select"
+                        value={selectedProjectIdMonthlyChart}
+                        onChange={(e) => setSelectedProjectIdMonthlyChart(e.target.value)}
+                        disabled={loadingProjects}
+                      >
+                        <option value="">Tous les projets</option>
+                        {projectOptions.map((p) => (
+                          <option key={p.id} value={String(p.id)}>{p.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {!isEduOrPro || !organizationId ? (
+                  <div className="analytics-chart-empty">Sélectionnez un contexte organisation pour voir les données.</div>
+                ) : loadingMonthlyChart ? (
+                  <div className="analytics-chart-loading">Chargement…</div>
+                ) : (
+                  <BarChart
+                    data={monthlyAttributions}
+                    color="#10B981"
+                  />
+                )}
+              </ChartCard>
+
+              <ChartCard title="Tendances d'attribution">
+                {isEduOrPro && organizationId && (
+                  <div className="analytics-chart-filters">
+                    <div className="analytics-filter-group">
+                      <label htmlFor="analytics-trend-series">Par série des badges</label>
+                      <select
+                        id="analytics-trend-series"
+                        className="analytics-select"
+                        value={selectedSeriesTrendChart}
+                        onChange={(e) => setSelectedSeriesTrendChart(e.target.value)}
+                        disabled={loadingSeries}
+                      >
+                        {badgeSeriesOptions.map((s) => (
+                          <option key={s} value={s}>{displaySeries(s)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="analytics-filter-group">
+                      <label htmlFor="analytics-trend-project">Par projet</label>
+                      <select
+                        id="analytics-trend-project"
+                        className="analytics-select"
+                        value={selectedProjectIdTrendChart}
+                        onChange={(e) => setSelectedProjectIdTrendChart(e.target.value)}
+                        disabled={loadingProjects}
+                      >
+                        <option value="">Tous les projets</option>
+                        {projectOptions.map((p) => (
+                          <option key={p.id} value={String(p.id)}>{p.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {!isEduOrPro || !organizationId ? (
+                  <div className="analytics-chart-empty">Sélectionnez un contexte organisation pour voir les données.</div>
+                ) : loadingTrendChart ? (
+                  <div className="analytics-chart-loading">Chargement…</div>
+                ) : (
+                  <LineChart
+                    data={trendAttributions}
+                    color="#10B981"
+                  />
+                )}
               </ChartCard>
 
               <ChartCard title="Compétences par niveau">
@@ -800,13 +1171,6 @@ const Analytics: React.FC = () => {
                 ) : (
                   <RadarChartByCompetence axes={radarCompetenceData.axes} series={radarCompetenceData.series} />
                 )}
-              </ChartCard>
-
-              <ChartCard title="Tendance d'attribution">
-                <LineChart
-                  data={badgesData.monthlyAttributions}
-                  color="#10B981"
-                />
               </ChartCard>
             </div>
           </div>
