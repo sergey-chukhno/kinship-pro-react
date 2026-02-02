@@ -1070,15 +1070,9 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType]);
 
-  // Function to fetch personal user confirmed organizations (for activeCard display)
+  // Function to fetch user's organizations with status (for activeCard display and confirmed-membership gate)
+  // Called for all users on Network so edu/pro can gate "Membres de mon réseau" on confirmed membership
   const fetchMyOrganizations = useCallback(async () => {
-    const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-    
-    if (!isPersonalUser) {
-      setMyOrganizations({ schools: [], companies: [] });
-      return;
-    }
-
     setMyOrganizationsLoading(true);
 
     try {
@@ -1101,13 +1095,14 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType]);
 
-  // Fetch my requests and organizations on component mount if user is personal user
+  // Fetch my requests (personal only) and my organizations (all users) on Network page
+  // myOrganizations is needed for edu/pro to gate "Membres de mon réseau" on confirmed membership
   useEffect(() => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     if (isPersonalUser) {
       fetchMyRequests();
-      fetchMyOrganizations();
     }
+    fetchMyOrganizations();
   }, [state.showingPageType, fetchMyRequests, fetchMyOrganizations]);
 
   // Function to count all unique partners (confirmed only, excluding pending)
@@ -1151,12 +1146,22 @@ const Network: React.FC = () => {
   }, [subOrganizations, subOrgsIsParent]);
 
   // Function to fetch network members (from partners with share_members=true + all branch members)
+  // Only fetch when user has confirmed membership in the selected org (not pending request)
   const fetchNetworkMembers = useCallback(async () => {
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
     const organizationId = getOrganizationId(state.user, state.showingPageType);
     const organizationType = getOrganizationType(state.showingPageType);
 
     if (isPersonalUser || !organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
+      setNetworkMembers([]);
+      return;
+    }
+
+    // Only show network members when user has confirmed membership in this organization
+    const hasConfirmedMembership = organizationType === 'school'
+      ? myOrganizations.schools.some((s: any) => Number(s.id) === organizationId && s.my_status === 'confirmed')
+      : myOrganizations.companies.some((c: any) => Number(c.id) === organizationId && c.my_status === 'confirmed');
+    if (!hasConfirmedMembership) {
       setNetworkMembers([]);
       return;
     }
@@ -1237,7 +1242,7 @@ const Network: React.FC = () => {
     } finally {
       setNetworkMembersLoading(false);
     }
-  }, [state.user, state.showingPageType]);
+  }, [state.user, state.showingPageType, myOrganizations]);
 
   // Count network members
   const countNetworkMembers = useCallback((): number => {
@@ -1678,9 +1683,24 @@ const Network: React.FC = () => {
           })
       ];
 
+  // For personal users: only show network members from orgs where current user has confirmed membership
+  const confirmedOrgIds = useMemo(() => {
+    const ids = new Set<number>();
+    (myOrganizations.schools || []).filter((s: any) => s.my_status === 'confirmed').forEach((s: any) => ids.add(Number(s.id)));
+    (myOrganizations.companies || []).filter((c: any) => c.my_status === 'confirmed').forEach((c: any) => ids.add(Number(c.id)));
+    return ids;
+  }, [myOrganizations]);
+
   // Convert NetworkUser to Member format for MemberCard
   const networkUsersAsMembers: Member[] = isPersonalUser
-    ? (partners as NetworkUser[]).map((user: NetworkUser) => {
+    ? (partners as NetworkUser[]).filter((user: NetworkUser) => {
+        // Only include users who share at least one confirmed org with current user
+        const commonIds = (user.common_organizations || []).map((org: any) => Number(org.id));
+        const orgSchoolIds = (user.organizations?.schools || []).map((s: any) => Number(s.id));
+        const orgCompanyIds = (user.organizations?.companies || []).map((c: any) => Number(c.id));
+        const allUserOrgIds = new Set([...commonIds, ...orgSchoolIds, ...orgCompanyIds]);
+        return Array.from(allUserOrgIds).some(id => confirmedOrgIds.has(id));
+      }).map((user: NetworkUser) => {
         // Extract first and last name from full_name
         const nameParts = user.full_name.split(' ');
         const firstName = nameParts[0] || '';
@@ -1846,38 +1866,22 @@ const Network: React.FC = () => {
       })
     : [];
 
-  // Get unique organizations for filter dropdown from all organizations members belong to
+  // Organization filter dropdown: only user's own orgs (not partner orgs or all members' orgs)
   const organizationOptions = isPersonalUser
-    ? Array.from(new Set(
-        networkUsersAsMembers.flatMap(member => {
-          // Use allOrganizations if available (contains all orgs from user.organizations + common_organizations)
-          if ((member as any).allOrganizations && (member as any).allOrganizations.length > 0) {
-            return (member as any).allOrganizations;
-          }
-          // Fallback to old method if allOrganizations not available
-          const orgs: string[] = [];
-          if (member.organization) {
-            orgs.push(member.organization);
-          }
-          if (member.commonOrganizations) {
-            orgs.push(
-              ...member.commonOrganizations.schools.map(s => s.name),
-              ...member.commonOrganizations.companies.map(c => c.name)
-            );
-          }
-          return orgs;
-        }).filter((org): org is string => !!org)
-      )).sort()
+    ? Array.from(new Set([
+        ...(myOrganizations.schools || []).filter((s: any) => s.my_status === 'confirmed').map((s: any) => s.name),
+        ...(myOrganizations.companies || []).filter((c: any) => c.my_status === 'confirmed').map((c: any) => c.name)
+      ].filter(Boolean))).sort()
     : isOrgDashboard
-    ? Array.from(new Set(
-        networkMembers.flatMap(member => {
-          if (!member.commonOrganizations) return [];
-          return [
-            ...member.commonOrganizations.schools.map(s => s.name),
-            ...member.commonOrganizations.companies.map(c => c.name)
-          ];
-        }).filter((org): org is string => !!org)
-      )).sort()
+    ? (() => {
+        const organizationId = getOrganizationId(state.user, state.showingPageType);
+        const organizationType = getOrganizationType(state.showingPageType);
+        if (!organizationId || !organizationType) return [];
+        const org = organizationType === 'school'
+          ? state.user?.available_contexts?.schools?.find((s: any) => Number(s.id) === organizationId)
+          : state.user?.available_contexts?.companies?.find((c: any) => Number(c.id) === organizationId);
+        return org?.name ? [org.name] : [];
+      })()
     : [];
 
   // Filter personal user network by skills, availability, and organization

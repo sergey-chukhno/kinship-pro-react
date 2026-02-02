@@ -13,9 +13,11 @@ import {
   validateImages
 } from '../../utils/projectMapper';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
+import { translateRole } from '../../utils/roleTranslations';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
-import { translateRole } from '../../utils/roleTranslations';
+
+const STUDENT_SYSTEM_ROLES = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant'];
 
 interface ProjectModalProps {
   project?: Project | null;
@@ -1079,7 +1081,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       }
       return list;
     }
-    return getFilteredMembers(searchTerm);
+    const baseList = getFilteredMembers(searchTerm);
+    if (state.showingPageType === 'edu') {
+      return baseList.filter((m: any) => {
+        const role = (m.role_in_system || m.role || '').toString().toLowerCase();
+        return !STUDENT_SYSTEM_ROLES.includes(role);
+      });
+    }
+    return baseList;
   };
 
   const getSelectedPartner = (partnerId: string) => {

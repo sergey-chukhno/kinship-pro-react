@@ -36,6 +36,27 @@ function toDisplayString(value: unknown): string {
   if (typeof value === 'object' && value !== null) return '';
   return String(value);
 }
+/** Converts API availability (object or array) to an array of day labels for display. */
+function normalizeAvailabilityToLabels(availability: any): string[] {
+  if (Array.isArray(availability)) return availability;
+  if (!availability || typeof availability !== 'object') return [];
+  const mapping: Record<string, string> = {
+    monday: 'Lundi',
+    tuesday: 'Mardi',
+    wednesday: 'Mercredi',
+    thursday: 'Jeudi',
+    friday: 'Vendredi',
+    saturday: 'Samedi',
+    sunday: 'Dimanche',
+    other: 'Autre',
+  };
+  const labels = Object.entries(mapping).reduce<string[]>((acc, [key, label]) => {
+    if (availability[key]) acc.push(label);
+    return acc;
+  }, []);
+  if (availability.available && labels.length === 0) labels.push('Disponible');
+  return labels;
+}
 
 // Component for displaying skills with "Voir plus"/"Voir moins" functionality
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
@@ -381,7 +402,7 @@ const ProjectManagement: React.FC = () => {
             email: member.user?.email || '',
             avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
             skills: member.user?.skills?.map((s: any) => s.name || s) || [],
-            availability: member.user?.availability || [],
+            availability: normalizeAvailabilityToLabels(member.user?.availability),
             requestDate: member.created_at ? new Date(member.created_at).toLocaleDateString('fr-FR') : '',
             organization: typeof member.user?.organization === 'string' ? member.user.organization : (member.user?.organization?.name ?? '') || 'Non renseigné',
             userRole: member.user?.role ?? '',
@@ -1691,7 +1712,7 @@ const ProjectManagement: React.FC = () => {
       });
       
       showSuccess('Demande acceptée avec succès');
-      
+      console.log("Requests", requests)
       // Remove from requests
       setRequests(requests.filter(r => r.id !== requestId));
       
@@ -3712,7 +3733,7 @@ const ProjectManagement: React.FC = () => {
                       )}
                       {(participant as any).school_level_name && (
                         <div className="member-school-level" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                          Classe : {(participant as any).school_level_name}
+                          {(participant as any).school_level_name}
                         </div>
                       )}
                       {(translateRole((participant as any).userRole) || participant.profession) && (
@@ -3819,7 +3840,7 @@ const ProjectManagement: React.FC = () => {
                       <div className="request-availability">
                         <h4>Disponibilités</h4>
                         <div className="availability-list">
-                          {request.availability.map((day: string, index: number) => (
+                          {request !== null && request?.availability.length !== 0 && request?.availability?.map((day: string, index: number) => (
                             <span key={index} className="availability-pill">{day}</span>
                           ))}
                         </div>
@@ -3880,7 +3901,7 @@ const ProjectManagement: React.FC = () => {
                           <h4 className="request-name">{participant.name}</h4>
                           <p className="request-profession">{(participant as any).userRole ? translateRole((participant as any).userRole) : participant.profession}</p>
                           {(participant as any).school_level_name && (
-                            <p className="request-school-level">Classe : {(participant as any).school_level_name}</p>
+                            <p className="text-sm request-school-level bg-[--primary-light]">classe : {(participant as any).school_level_name}</p>
                           )}
                           <p className="request-email" title={participant.email}>{participant.email}</p>
                           <p className="request-date">{toDisplayString(participant.organization)}</p>

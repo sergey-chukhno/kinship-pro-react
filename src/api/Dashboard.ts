@@ -164,7 +164,7 @@ export const getTeacherActivityStats = () => {
   return axiosClient.get('/api/v1/teachers/activity_stats');
 };
 
-export const getSchoolAssignedBadges = (schoolId: number, perPage = 200, badgeId?: number, page?: number, badgeSeries?: string) => {
+export const getSchoolAssignedBadges = (schoolId: number, perPage = 200, badgeId?: number, page?: number, badgeSeries?: string, projectId?: number) => {
   const params: any = { per_page: perPage };
   if (badgeId) {
     params.badge_id = badgeId;
@@ -174,13 +174,16 @@ export const getSchoolAssignedBadges = (schoolId: number, perPage = 200, badgeId
   }
   if (badgeSeries) {
     params.badge_series = badgeSeries;
+  }
+  if (projectId != null && projectId !== undefined) {
+    params.project_id = projectId;
   }
   return axiosClient.get(`/api/v1/schools/${schoolId}/badges/assigned`, {
     params,
   });
 };
 
-export const getCompanyAssignedBadges = (companyId: number, perPage = 200, badgeId?: number, page?: number, badgeSeries?: string) => {
+export const getCompanyAssignedBadges = (companyId: number, perPage = 200, badgeId?: number, page?: number, badgeSeries?: string, projectId?: number) => {
   const params: any = { per_page: perPage };
   if (badgeId) {
     params.badge_id = badgeId;
@@ -190,6 +193,9 @@ export const getCompanyAssignedBadges = (companyId: number, perPage = 200, badge
   }
   if (badgeSeries) {
     params.badge_series = badgeSeries;
+  }
+  if (projectId != null && projectId !== undefined) {
+    params.project_id = projectId;
   }
   return axiosClient.get(`/api/v1/companies/${companyId}/badges/assigned`, {
     params,
@@ -264,4 +270,3 @@ export const getTeacherSchoolInfo = (schoolId: number) => {
 export const getTeacherAllStudents = (params?: { per_page?: number; page?: number; search?: string }) => {
   return axiosClient.get('/api/v1/teachers/all-students', { params });
 };
-
