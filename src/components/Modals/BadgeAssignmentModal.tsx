@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { BadgeAttribution, BadgeAPI } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import AvatarImage from '../UI/AvatarImage';
 import './Modal.css';
 import './BadgeAssignmentModal.css';
 import { useToast } from '../../hooks/useToast';
@@ -422,6 +423,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
   const [level, setLevel] = useState('1'); // Default to level 1, disabled for other levels
   const [title, setTitle] = useState('');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>(preselectedParticipant ? [preselectedParticipant] : []); // Multiple selection
+  const [participantsSearchTerm, setParticipantsSearchTerm] = useState('');
+  const [participantsDisplayCount, setParticipantsDisplayCount] = useState(20);
+  const participantsListRef = useRef<HTMLDivElement | null>(null);
   const [domaine, setDomaine] = useState('');
   const [selectedExpertises, setSelectedExpertises] = useState<number[]>([]); // Multiple selection
   const [commentaire, setCommentaire] = useState('');
@@ -557,6 +561,52 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
       }
     }
   }, [series, title, badgesForSeries]);
+
+  // Participants: filter by search, exclude selected, window for infinite scroll
+  const filteredParticipants = useMemo(() => {
+    const term = participantsSearchTerm.trim().toLowerCase();
+    if (!term) return participants;
+    return participants.filter(
+      (p) =>
+        (p.name || '').toLowerCase().includes(term) ||
+        (p.organization || '').toLowerCase().includes(term)
+    );
+  }, [participants, participantsSearchTerm]);
+
+  const availableParticipants = useMemo(
+    () => filteredParticipants.filter((p) => !selectedParticipants.includes(p.memberId)),
+    [filteredParticipants, selectedParticipants]
+  );
+
+  const visibleParticipants = useMemo(
+    () => availableParticipants.slice(0, participantsDisplayCount),
+    [availableParticipants, participantsDisplayCount]
+  );
+
+  const hasMoreParticipants = availableParticipants.length > participantsDisplayCount;
+
+  const handleParticipantSelect = useCallback(
+    (memberId: string) => {
+      if (preselectedParticipant) return;
+      setSelectedParticipants((prev) =>
+        prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
+      );
+    },
+    [preselectedParticipant]
+  );
+
+  const handleParticipantsScroll = useCallback(() => {
+    const el = participantsListRef.current;
+    if (!el || !hasMoreParticipants) return;
+    if (el.scrollHeight - el.scrollTop <= el.clientHeight + 100) {
+      setParticipantsDisplayCount((prev) => prev + 20);
+    }
+  }, [hasMoreParticipants]);
+
+  const handleParticipantsSearchChange = useCallback((value: string) => {
+    setParticipantsSearchTerm(value);
+    setParticipantsDisplayCount(20);
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -933,24 +983,111 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
 
             <div className="form-group">
               <label htmlFor="participants">Participants (sélection multiple)</label>
-              <select
-                id="participants"
-                className="form-select"
-                multiple
-                size={Math.min(participants.length, 5)}
-                value={selectedParticipants}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions, (option) => option.value);
-                  setSelectedParticipants(selected);
-                }}
-                disabled={!!preselectedParticipant}
-              >
-                {participants.map((p) => (
-                  <option key={p.id} value={p.memberId}>
-                    {p.name} {p.organization ? `(${p.organization})` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="compact-selection">
+                <div className="search-input-container">
+                  <i className="fas fa-search search-icon"></i>
+                  <input
+                    type="text"
+                    id="participants"
+                    className="form-input"
+                    placeholder="Rechercher des participants..."
+                    value={participantsSearchTerm}
+                    onChange={(e) => handleParticipantsSearchChange(e.target.value)}
+                    disabled={!!preselectedParticipant}
+                  />
+                </div>
+                {selectedParticipants.length > 0 && (
+                  <div className="selected-items">
+                    {selectedParticipants.map((memberId) => {
+                      const p = participants.find((x) => x.memberId === memberId);
+                      if (!p) return null;
+                      return (
+                        <div key={p.memberId} className="selected-member">
+                          <AvatarImage
+                            src={p.avatar || undefined}
+                            alt={p.name}
+                            className="selected-avatar"
+                          />
+                          <div className="selected-info">
+                            <div className="selected-name">{p.name}</div>
+                            {p.organization && (
+                              <div className="selected-role" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+                                Organisation : {p.organization}
+                              </div>
+                            )}
+                          </div>
+                          {!preselectedParticipant && (
+                            <button
+                              type="button"
+                              className="remove-selection"
+                              onClick={() => handleParticipantSelect(p.memberId)}
+                              aria-label={`Retirer ${p.name}`}
+                            >
+                              <i className="fas fa-times"></i>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div
+                  className="selection-list"
+                  ref={participantsListRef}
+                  onScroll={handleParticipantsScroll}
+                  style={{ maxHeight: 280, overflowY: 'auto' }}
+                >
+                  {visibleParticipants.length === 0 ? (
+                    <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                      <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                      <p>
+                        {availableParticipants.length === 0 && filteredParticipants.length > 0
+                          ? 'Tous les participants correspondants sont déjà sélectionnés'
+                          : participantsSearchTerm.trim()
+                            ? 'Aucun participant ne correspond à la recherche'
+                            : 'Aucun participant disponible'}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {visibleParticipants.map((p) => (
+                        <div
+                          key={p.memberId}
+                          className="selection-item"
+                          onClick={() => handleParticipantSelect(p.memberId)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleParticipantSelect(p.memberId);
+                            }
+                          }}
+                        >
+                          <AvatarImage
+                            src={p.avatar || undefined}
+                            alt={p.name}
+                            className="item-avatar"
+                          />
+                          <div className="item-info">
+                            <div className="item-name">{p.name}</div>
+                            {p.organization && (
+                              <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                Organisation : {p.organization}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {hasMoreParticipants && (
+                        <div style={{ padding: '0.5rem', textAlign: 'center', color: '#6b7280' }}>
+                          <span>Faites défiler pour charger plus</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
               {selectedParticipants.length > 0 && (
                 <small className="field-comment">
                   {selectedParticipants.length} participant(s) sélectionné(s)
