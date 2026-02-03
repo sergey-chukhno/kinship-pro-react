@@ -18,6 +18,7 @@ import {
 } from '../../api/Events';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
+import { useToast } from '../../hooks/useToast';
 
 interface EventModalProps {
   event?: Event | null;
@@ -38,6 +39,7 @@ interface NewParticipant {
 
 const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, onSave, forceCreate }) => {
   const { state } = useAppContext();
+  const { showError } = useToast();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -52,7 +54,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
   });
 
   const [imagePreview, setImagePreview] = useState<string>('');
-  const [selectedParticipant, setSelectedParticipant] = useState<string>('');
+  const [participantSearch, setParticipantSearch] = useState<string>('');
+  const [showParticipantDropdown, setShowParticipantDropdown] = useState(false);
   const [availableBadges, setAvailableBadges] = useState<BadgeAPI[]>([]);
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
@@ -109,6 +112,17 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
     if (!badgeToAdd) return null;
     return availableBadges.find((b) => b.id.toString() === badgeToAdd) || null;
   }, [badgeToAdd, availableBadges]);
+
+  // Filter organization members based on search query
+  const filteredMembers = useMemo(() => {
+    if (!participantSearch.trim()) return organizationMembers;
+    const searchLower = participantSearch.toLowerCase().trim();
+    return organizationMembers.filter(member => {
+      const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
+      const email = member.email?.toLowerCase() || '';
+      return fullName.includes(searchLower) || email.includes(searchLower);
+    });
+  }, [organizationMembers, participantSearch]);
 
   // Fetch available badges on component mount
   useEffect(() => {
@@ -451,17 +465,18 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
       console.error('Error creating event:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Erreur lors de la création de l\'événement';
       setCsvUploadError(errorMessage);
-      // You might want to show a toast notification here
+      showError(errorMessage);
     }
   };
 
-  const handleInviteParticipant = () => {
-    if (selectedParticipant && !formData.participants.includes(selectedParticipant)) {
+  const handleAddParticipant = (participantId: string) => {
+    if (participantId && !formData.participants.includes(participantId)) {
       setFormData(prev => ({
         ...prev,
-        participants: [...prev.participants, selectedParticipant]
+        participants: [...prev.participants, participantId]
       }));
-      setSelectedParticipant('');
+      setParticipantSearch('');
+      setShowParticipantDropdown(false);
     }
   };
 
@@ -544,9 +559,26 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         // If no header found, assume first line is header or data starts at line 0
         const dataStartIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 0;
 
+        // Check if required columns are present
+        if (headerRowIndex < 0) {
+          setCsvUploadError('En-tête non trouvé dans le fichier CSV. Le fichier doit contenir les colonnes : Prénom, Nom, Date de naissance. Veuillez utiliser le template fourni.');
+          return;
+        }
+
+        const missingColumns: string[] = [];
+        if (firstNameIndex < 0) missingColumns.push('Prénom');
+        if (lastNameIndex < 0) missingColumns.push('Nom');
+        if (birthdayIndex < 0) missingColumns.push('Date de naissance');
+
+        if (missingColumns.length > 0) {
+          setCsvUploadError(`Colonnes manquantes dans le fichier CSV : ${missingColumns.join(', ')}. Veuillez utiliser le template fourni.`);
+          return;
+        }
+
         // Parse CSV (handle both comma and semicolon separators)
         const participants: string[] = [];
         const newParticipantsToAdd: NewParticipant[] = [];
+        const rowsWithoutBirthday: number[] = [];
 
         for (let i = dataStartIndex; i < lines.length; i++) {
           const line = lines[i].trim();
@@ -563,29 +595,15 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           let lastName = '';
           let birthday = '';
 
-          if (headerRowIndex >= 0) {
-            // Use column indices from header
-            if (emailIndex >= 0 && emailIndex < parts.length) email = parts[emailIndex];
-            if (firstNameIndex >= 0 && firstNameIndex < parts.length) firstName = parts[firstNameIndex];
-            if (lastNameIndex >= 0 && lastNameIndex < parts.length) lastName = parts[lastNameIndex];
-            if (birthdayIndex >= 0 && birthdayIndex < parts.length) birthday = parts[birthdayIndex];
-          } else {
-            // Try to infer: first column might be email or name, etc.
-            if (parts.length > 0) {
-              const firstPart = parts[0];
-              if (firstPart.includes('@')) {
-                email = firstPart;
-                if (parts.length > 1) firstName = parts[1];
-                if (parts.length > 2) lastName = parts[2];
-                if (parts.length > 3) birthday = parts[3];
-              } else {
-                // Assume format: firstName, lastName, email, birthday
-                if (parts.length > 0) firstName = parts[0];
-                if (parts.length > 1) lastName = parts[1];
-                if (parts.length > 2 && parts[2].includes('@')) email = parts[2];
-                if (parts.length > 3) birthday = parts[3];
-              }
-            }
+          // Use column indices from header (header is required, checked above)
+          if (emailIndex >= 0 && emailIndex < parts.length) email = parts[emailIndex];
+          if (firstNameIndex >= 0 && firstNameIndex < parts.length) firstName = parts[firstNameIndex];
+          if (lastNameIndex >= 0 && lastNameIndex < parts.length) lastName = parts[lastNameIndex];
+          if (birthdayIndex >= 0 && birthdayIndex < parts.length) birthday = parts[birthdayIndex];
+
+          // Check if row has name but no birthday
+          if (firstName && lastName && !birthday.trim()) {
+            rowsWithoutBirthday.push(i + 1); // +1 for human-readable line number
           }
 
           // Normalize birthday format (handle various formats)
@@ -644,6 +662,15 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
             };
             newParticipantsToAdd.push(newParticipant);
           }
+        }
+
+        // Block import if any rows are missing birthday
+        if (rowsWithoutBirthday.length > 0) {
+          const rowsList = rowsWithoutBirthday.length <= 5
+            ? rowsWithoutBirthday.join(', ')
+            : `${rowsWithoutBirthday.slice(0, 5).join(', ')}... et ${rowsWithoutBirthday.length - 5} autre(s)`;
+          setCsvUploadError(`Date de naissance manquante pour ${rowsWithoutBirthday.length} ligne(s) : ${rowsList}. Chaque participant doit avoir une date de naissance.`);
+          return;
         }
 
         // Replace participants from CSV (keep manually added ones if needed)
@@ -896,24 +923,142 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           
           <div className="form-group">
             <label htmlFor="eventParticipants">Participants</label>
-            <div className="participants-selection">
-              <select 
-                id="eventParticipants" 
-                className="form-select"
-                value={selectedParticipant}
-                onChange={(e) => setSelectedParticipant(e.target.value)}
-                disabled={isLoadingMembers}
-              >
-                <option value="">{isLoadingMembers ? 'Chargement...' : 'Sélectionner un participant'}</option>
-                {organizationMembers.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.firstName} {member.lastName} - {member.profession}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="btn btn-primary btn-sm" onClick={handleInviteParticipant}>
-                <i className="fas fa-plus"></i> Inviter
-              </button>
+            <div className="participants-selection" style={{ position: 'relative' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <input
+                  type="text"
+                  id="eventParticipants"
+                  className="form-input"
+                  placeholder={isLoadingMembers ? 'Chargement...' : 'Rechercher un participant...'}
+                  value={participantSearch}
+                  onChange={(e) => {
+                    setParticipantSearch(e.target.value);
+                    setShowParticipantDropdown(true);
+                  }}
+                  onFocus={() => setShowParticipantDropdown(true)}
+                  disabled={isLoadingMembers}
+                  autoComplete="off"
+                />
+                <i
+                  className="fas fa-search"
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    pointerEvents: 'none'
+                  }}
+                />
+
+                {/* Dropdown with filtered members */}
+                {showParticipantDropdown && !isLoadingMembers && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      maxHeight: '250px',
+                      overflowY: 'auto',
+                      backgroundColor: 'white',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      zIndex: 100,
+                      marginTop: '4px'
+                    }}
+                  >
+                    {filteredMembers.length === 0 ? (
+                      <div style={{ padding: '12px 16px', color: '#666', textAlign: 'center' }}>
+                        <i className="fas fa-user-slash" style={{ marginRight: '8px' }}></i>
+                        Aucun participant trouvé
+                      </div>
+                    ) : (
+                      filteredMembers.map((member) => {
+                        const isAlreadySelected = formData.participants.includes(member.id);
+                        return (
+                          <div
+                            key={member.id}
+                            onClick={() => !isAlreadySelected && handleAddParticipant(member.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              padding: '10px 16px',
+                              cursor: isAlreadySelected ? 'not-allowed' : 'pointer',
+                              backgroundColor: isAlreadySelected ? '#f0f9ff' : 'transparent',
+                              opacity: isAlreadySelected ? 0.6 : 1,
+                              borderBottom: '1px solid #f0f0f0',
+                              transition: 'background-color 0.15s'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isAlreadySelected) {
+                                e.currentTarget.style.backgroundColor = '#f5f5f5';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = isAlreadySelected ? '#f0f9ff' : 'transparent';
+                            }}
+                          >
+                            <AvatarImage
+                              src={member.avatar}
+                              alt={`${member.firstName} ${member.lastName}`}
+                              className="participant-avatar"
+                              style={{ width: '36px', height: '36px', borderRadius: '50%' }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 500, fontSize: '14px', color: '#333' }}>
+                                {member.firstName} {member.lastName}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#666' }}>
+                                {member.profession}
+                                {member.email && <span> · {member.email}</span>}
+                              </div>
+                            </div>
+                            {isAlreadySelected ? (
+                              <span style={{
+                                fontSize: '11px',
+                                color: '#0ea5e9',
+                                backgroundColor: '#e0f2fe',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                fontWeight: 500
+                              }}>
+                                <i className="fas fa-check" style={{ marginRight: '4px' }}></i>
+                                Ajouté
+                              </span>
+                            ) : (
+                              <span style={{
+                                fontSize: '11px',
+                                color: '#666',
+                                opacity: 0
+                              }} className="add-hint">
+                                <i className="fas fa-plus"></i>
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Close dropdown when clicking outside */}
+              {showParticipantDropdown && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 99
+                  }}
+                  onClick={() => setShowParticipantDropdown(false)}
+                />
+              )}
             </div>
 
             {/* CSV Upload Section */}
