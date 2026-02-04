@@ -12,6 +12,7 @@ export interface AssignBadgeData {
   recipient_ids: number[];
   badge_skill_ids?: number[];
   comment?: string;
+  domaine_engagement?: string;
   organization_id?: number;
 }
 
@@ -150,7 +151,9 @@ export const assignBadge = async (
     if (badgeData.comment) {
       formData.append('comment', badgeData.comment);
     }
-    
+    if (badgeData.domaine_engagement) {
+      formData.append('domaine_engagement', badgeData.domaine_engagement);
+    }
     if (badgeData.organization_id) {
       formData.append('organization_id', badgeData.organization_id.toString());
     }

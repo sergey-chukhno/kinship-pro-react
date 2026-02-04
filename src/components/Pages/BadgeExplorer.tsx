@@ -3,6 +3,7 @@ import { getBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeValidationRules, getBadgeCompetencies, normalizeCompetencyName } from '../Modals/BadgeAssignmentModal';
 import './BadgeExplorer.css';
 
 interface BadgeExplorerProps {
@@ -17,13 +18,27 @@ interface SeriesEntry {
   description: string;
 }
 
-// Parcours: title, objectif, list of series
+// Parcours theme color key (dashboard colors in CSS)
+type ParcoursColorKey = 'green' | 'pink' | 'yellow' | 'blue';
+
+// Parcours: title, objectif, list of series, theme color, icon (Font Awesome class or path)
 interface Parcours {
   id: string;
   title: string;
   objectif: string;
   series: SeriesEntry[];
+  colorKey: ParcoursColorKey;
+  icon: string; // FA class e.g. 'fa-shapes', or image path
+  iconType: 'fa' | 'img';
 }
+
+// Representative badge (name, level) per series dbName for series icon on parcours-detail view
+const SERIES_REPRESENTATIVE_BADGE: Record<string, { name: string; level: string }> = {
+  'Série TouKouLeur': { name: 'Adaptabilité', level: '1' },
+  'Série Parcours des possibles': { name: 'Étape 1 : IMPLICATION INITIALE', level: '1' },
+  'Série Parcours professionnel': { name: 'PARCOURS DE DÉCOUVERTE - COLLÈGE', level: '1' },
+  'Série Audiovisuelle': { name: 'IMAGE', level: '1' }
+};
 
 // Single source of truth: Parcours and their series (display names, DB names, descriptions)
 const PARCOURS: Parcours[] = [
@@ -31,6 +46,9 @@ const PARCOURS: Parcours[] = [
     id: '1',
     title: 'Parcours 1 – Soft Skills & Compétences transversales',
     objectif: "Développer les compétences clés nécessaires à la vie collective, à l'autonomie et à toute insertion professionnelle.",
+    colorKey: 'green',
+    icon: 'fa-people-group',
+    iconType: 'fa',
     series: [
       {
         displayName: 'Série Soft Skills 4LAB',
@@ -44,6 +62,9 @@ const PARCOURS: Parcours[] = [
     id: '2',
     title: 'Parcours 2 – Parcours de développement personnel et relationnel',
     objectif: 'Renforcer les capacités émotionnelles, relationnelles et décisionnelles des jeunes.',
+    colorKey: 'pink',
+    icon: 'fa-heart-pulse',
+    iconType: 'fa',
     series: [
       {
         displayName: "Série CPS - Compétences Psychosociales (à venir)",
@@ -57,6 +78,9 @@ const PARCOURS: Parcours[] = [
     id: '3',
     title: "Parcours 3 – Parcours Avenir (Orientation & projection)",
     objectif: "Accompagner les jeunes dans la construction de leur projet personnel et professionnel.",
+    colorKey: 'yellow',
+    icon: 'fa-compass',
+    iconType: 'fa',
     series: [
       {
         displayName: 'Série Parcours des possibles',
@@ -82,6 +106,9 @@ const PARCOURS: Parcours[] = [
     id: '4',
     title: 'Parcours 4 – Parcours Métiers & compétences professionnelles',
     objectif: "Permettre aux jeunes d'acquérir des compétences techniques et de découvrir des secteurs professionnels.",
+    colorKey: 'blue',
+    icon: 'fa-briefcase',
+    iconType: 'fa',
     series: [
       {
         displayName: 'Série Parcours professionnel',
@@ -107,22 +134,25 @@ const PARCOURS: Parcours[] = [
 
 const INTRO_MESSAGE = "Explorez les parcours Kinship et les badges associés, qui permettent d'identifier et de valoriser les compétences développées par les jeunes à travers des projets, des expériences et des parcours métiers.";
 
+type ViewMode = 'cards' | 'parcours-detail' | 'badge-list';
+
 const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
-  // Step flow: 1 = intro + choose Parcours, 2 = objectif + choose series, 3 = badges
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [view, setView] = useState<ViewMode>('cards');
   const [selectedParcours, setSelectedParcours] = useState<Parcours | null>(null);
   const [selectedSeries, setSelectedSeries] = useState<SeriesEntry | null>(null);
-  // When user goes to step 3, we fetch by this DB name (only set for non–à venir series)
   const [selectedSeriesDbName, setSelectedSeriesDbName] = useState<string | null>(null);
 
   const [badges, setBadges] = useState<BadgeAPI[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<number, boolean>>({});
+  const [expandedCompetencies, setExpandedCompetencies] = useState<Record<number, boolean>>({});
+  // Filter on badge list: "Tous les badges" or specific badge id
+  const [badgeFilter, setBadgeFilter] = useState<string>('all');
 
-  // Fetch badges only when on step 3 with a valid series (not à venir)
+  // Fetch badges only when on badge-list view with a valid series
   useEffect(() => {
-    if (currentStep !== 3 || !selectedSeriesDbName) {
+    if (view !== 'badge-list' || !selectedSeriesDbName) {
       setBadges([]);
       return;
     }
@@ -141,7 +171,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       }
     };
     fetchBadges();
-  }, [currentStep, selectedSeriesDbName]);
+  }, [view, selectedSeriesDbName]);
 
   const toggleDescription = (badgeId: number) => {
     setExpandedDescriptions(prev => ({
@@ -150,60 +180,62 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     }));
   };
 
-  // Step 1: select Parcours (by id) then Suivant
-  const handleParcoursChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const id = e.target.value;
-    if (!id) {
-      setSelectedParcours(null);
-      return;
-    }
-    const parcours = PARCOURS.find(p => p.id === id) ?? null;
+  const toggleCompetencies = (badgeId: number) => {
+    setExpandedCompetencies(prev => ({
+      ...prev,
+      [badgeId]: !prev[badgeId]
+    }));
+  };
+
+  // Cards → Parcours detail
+  const handleExplorerCeParcours = (parcours: Parcours) => {
     setSelectedParcours(parcours);
-    setSelectedSeries(null);
+    setView('parcours-detail');
   };
 
-  const handleGoToStep2 = () => {
-    if (selectedParcours) {
-      setSelectedSeries(null);
-      setCurrentStep(2);
-    }
-  };
-
-  // Step 2: select series (by displayName within selected Parcours)
-  const handleSeriesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const displayName = e.target.value;
-    if (!selectedParcours || !displayName) {
-      setSelectedSeries(null);
-      return;
-    }
-    const series = selectedParcours.series.find(s => s.displayName === displayName) ?? null;
+  // Parcours detail → Badge list (for a series)
+  const handleExplorerSeries = (series: SeriesEntry) => {
+    if (series.comingSoon || !series.dbName) return;
     setSelectedSeries(series);
+    setSelectedSeriesDbName(series.dbName);
+    setBadgeFilter('all');
+    setExpandedDescriptions({});
+    setView('badge-list');
   };
 
-  const handleGoToStep3 = () => {
-    if (selectedSeries && !selectedSeries.comingSoon && selectedSeries.dbName) {
-      setSelectedSeriesDbName(selectedSeries.dbName);
-      setCurrentStep(3);
-      setExpandedDescriptions({});
-    }
-  };
-
-  // Back from step 3: stay on step 2, clear only series choice
-  const handleBackFromStep3 = () => {
-    setCurrentStep(2);
+  // Back from badge list → Parcours detail
+  const handleBackFromBadgeList = () => {
+    setView('parcours-detail');
     setSelectedSeries(null);
     setSelectedSeriesDbName(null);
     setBadges([]);
+    setBadgeFilter('all');
   };
 
-  // Back from step 2 to step 1
-  const handleBackFromStep2 = () => {
-    setCurrentStep(1);
+  // Back from Parcours detail → Cards
+  const handleBackFromParcoursDetail = () => {
+    setView('cards');
     setSelectedParcours(null);
-    setSelectedSeries(null);
   };
 
-  // Group badges by level (for step 3)
+  // Representative image for a series (for parcours-detail list)
+  const getSeriesIconUrl = (series: SeriesEntry): string | undefined => {
+    if (series.comingSoon || !series.dbName) return undefined;
+    const rep = SERIES_REPRESENTATIVE_BADGE[series.dbName];
+    if (!rep) return undefined;
+    const levelKey = rep.level.includes('level_') ? rep.level : `level_${rep.level}`;
+    return getLocalBadgeImage(rep.name, levelKey, series.dbName);
+  };
+
+  // Filter badges by "Tous les badges" selection (all or specific badge)
+  const filteredBadges = useMemo(() => {
+    if (badgeFilter === 'all') return badges;
+    const id = parseInt(badgeFilter, 10);
+    if (Number.isNaN(id)) return badges;
+    return badges.filter(b => b.id === id);
+  }, [badges, badgeFilter]);
+
+  // Group badges by level (for badge-list view)
   const badgesByLevel = useMemo(() => {
     const grouped: Record<string, BadgeAPI[]> = {
       level_1: [],
@@ -211,21 +243,31 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       level_3: [],
       level_4: []
     };
-    badges.forEach(badge => {
+    filteredBadges.forEach(badge => {
       if (badge.level && grouped[badge.level]) {
         grouped[badge.level].push(badge);
       }
     });
     return grouped;
-  }, [badges]);
+  }, [filteredBadges]);
 
   const renderBadgeCard = (badge: BadgeAPI, index: number) => {
     const imageUrl = getLocalBadgeImage(badge.name, badge.level, badge.series);
     const hasDescription = badge.description && badge.description.trim() !== '';
     const isExpanded = Boolean(expandedDescriptions[badge.id]);
+    const isSoftSkills4LabLevel1 = selectedSeriesDbName === 'Série TouKouLeur' && badge.level === 'level_1';
+    const competencies = isSoftSkills4LabLevel1 ? getBadgeCompetencies(badge) : [];
+    const rules = isSoftSkills4LabLevel1 ? getBadgeValidationRules(badge.name) : null;
+    const hasCompetencies = competencies.length > 0;
+    const isCompetenciesExpanded = Boolean(expandedCompetencies[badge.id]);
+    const normalizedMandatory = rules ? rules.mandatoryCompetencies.map(normalizeCompetencyName) : [];
 
+    const hasDoubleToggles = hasDescription && hasCompetencies;
     return (
-      <div key={badge.id} className={`badge-explorer-card ${isExpanded ? 'expanded' : ''}`}>
+      <div
+        key={badge.id}
+        className={`badge-explorer-card ${isExpanded || isCompetenciesExpanded ? 'expanded' : ''} ${hasDoubleToggles ? 'has-double-toggles' : ''}`}
+      >
         {imageUrl && (
           <div className="badge-icon">
             <img src={imageUrl} alt={badge.name} className="badge-image" />
@@ -236,6 +278,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           <div className={`badge-level level-${badge.level?.replace('level_', '') || '1'}`}>
             {badge.level ? getLevelLabel(badge.series, badge.level.replace('level_', '')) : 'Niveau 1'}
           </div>
+          {/* Description first: both "Voir description" and "Voir les compétences" visible at once */}
           {hasDescription && (
             <>
               {!isExpanded && (
@@ -250,13 +293,59 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               )}
               {isExpanded && (
                 <div className="badge-description">
-                  <p>{badge.description}</p>
+                  <p className="badge-description-title">Description :</p>
+                  <p className="badge-description-text">{badge.description}</p>
                   <button
                     className="view-description-btn"
                     type="button"
                     onClick={() => toggleDescription(badge.id)}
                   >
                     <span>Masquer description</span>
+                    <i className="fas fa-chevron-up"></i>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {hasCompetencies && (
+            <>
+              {!isCompetenciesExpanded && (
+                <button
+                  className="view-description-btn view-competencies-btn"
+                  type="button"
+                  onClick={() => toggleCompetencies(badge.id)}
+                >
+                  <span>Voir les compétences</span>
+                  <i className="fas fa-chevron-down"></i>
+                </button>
+              )}
+              {isCompetenciesExpanded && (
+                <div className="badge-competencies">
+                  {rules?.hintText && (
+                    <p className="badge-competencies-hint">{rules.hintText}</p>
+                  )}
+                  <div className="badge-competencies-list-container">
+                    {competencies.map((c) => {
+                      const isMandatory = normalizedMandatory.includes(normalizeCompetencyName(c.name));
+                      return (
+                        <div
+                          key={c.id}
+                          className={`badge-competency-item ${isMandatory ? 'badge-competency-item-mandatory' : ''}`}
+                        >
+                          <span className="badge-competency-item-text">
+                            {c.name}
+                            {isMandatory && <span className="badge-competency-mandatory-indicator"> (Obligatoire)</span>}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button
+                    className="view-description-btn"
+                    type="button"
+                    onClick={() => toggleCompetencies(badge.id)}
+                  >
+                    <span>Masquer les compétences</span>
                     <i className="fas fa-chevron-up"></i>
                   </button>
                 </div>
@@ -293,104 +382,131 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     );
   };
 
-  // —— Step 1: Intro + Choisir un Parcours ——
-  if (currentStep === 1) {
+  // —— Cards view (landing) ——
+  if (view === 'cards') {
     return (
       <div className="badge-explorer-page">
-        <div className="badge-explorer-step badge-explorer-step-1">
-          <div className="explorer-step-header">
-            <button
-              className="back-button"
-              onClick={onBack}
-              title="Revenir à la cartographie"
-              type="button"
-            >
-              <i className="fas fa-arrow-left"></i>
-            </button>
-          </div>
-          <p className="badge-explorer-intro">{INTRO_MESSAGE}</p>
-          <h2 className="badge-explorer-step-title">Choisir un Parcours</h2>
-          <div className="badge-explorer-select-wrap">
-            <select
-              className="series-select parcours-select"
-              value={selectedParcours?.id ?? ''}
-              onChange={handleParcoursChange}
-            >
-              <option value="">Sélectionnez un parcours</option>
-              {PARCOURS.map(p => (
-                <option key={p.id} value={p.id}>{p.title}</option>
-              ))}
-            </select>
-          </div>
-          <div className="badge-explorer-step-actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleGoToStep2}
-              disabled={!selectedParcours}
-            >
-              Suivant
-            </button>
-          </div>
+        <div className="explorer-step-header">
+          <button
+            className="back-button"
+            onClick={onBack}
+            title="Revenir à la cartographie"
+            type="button"
+          >
+            <i className="fas fa-arrow-left"></i>
+          </button>
+          <h1 className="badge-explorer-page-title">Explorer les parcours Kinship</h1>
         </div>
-      </div>
-    );
-  }
-
-  // —— Step 2: Objectif + Choisir une série (à venir message below if selected) ——
-  if (currentStep === 2 && selectedParcours) {
-    const showComingSoon = selectedSeries?.comingSoon ?? false;
-
-    return (
-      <div className="badge-explorer-page">
-        <div className="badge-explorer-step badge-explorer-step-2">
-          <div className="explorer-step-header">
-            <button
-              className="back-button"
-              onClick={handleBackFromStep2}
-              title="Retour au choix du parcours"
-              type="button"
-            >
-              <i className="fas fa-arrow-left"></i>
-            </button>
-            <h2 className="badge-explorer-step-title">{selectedParcours.title}</h2>
-          </div>
-          <p className="badge-explorer-objectif"><strong>Objectif :</strong> {selectedParcours.objectif}</p>
-          <h3 className="badge-explorer-step-subtitle">Choisir une série de badges</h3>
-          <div className="badge-explorer-select-wrap">
-            <select
-              className="series-select"
-              value={selectedSeries?.displayName ?? ''}
-              onChange={handleSeriesChange}
-            >
-              <option value="">Sélectionnez une série</option>
-              {selectedParcours.series.map(s => (
-                <option key={s.displayName} value={s.displayName}>{s.displayName}</option>
-              ))}
-            </select>
-          </div>
-          {showComingSoon && (
-            <div className="badge-explorer-coming-soon">
-              <p>Cette série n&apos;a pas encore de badges. À venir.</p>
-            </div>
-          )}
-          {selectedSeries && !selectedSeries.comingSoon && (
-            <div className="badge-explorer-step-actions">
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleGoToStep3}
+        <p className="badge-explorer-intro">{INTRO_MESSAGE}</p>
+        <div className="badge-explorer-cards-grid">
+          {PARCOURS.map((parcours) => {
+            const isAllComingSoon = parcours.series.every(s => s.comingSoon);
+            return (
+              <div
+                key={parcours.id}
+                className={`badge-explorer-parcours-card parcours-${parcours.colorKey}`}
               >
-                Suivant
-              </button>
-            </div>
-          )}
+                <div className="parcours-card-header">
+                  {parcours.iconType === 'fa' ? (
+                    <i className={`fas ${parcours.icon} parcours-card-icon`} aria-hidden />
+                  ) : (
+                    <img src={parcours.icon} alt="" className="parcours-card-icon-img" />
+                  )}
+                  <h2 className="parcours-card-title">{parcours.title}</h2>
+                </div>
+                <div className="parcours-card-body">
+                  <p className="parcours-card-objectif"><strong>Objectif :</strong> {parcours.objectif}</p>
+                  <ul className="parcours-card-series-list">
+                    {parcours.series.map((s) => {
+                      const seriesIconUrl = getSeriesIconUrl(s);
+                      return (
+                        <li key={s.displayName} className="parcours-card-series-item">
+                          <div className="parcours-card-series-item-row">
+                            {seriesIconUrl ? (
+                              <img src={seriesIconUrl} alt="" className="parcours-card-series-item-icon" />
+                            ) : (
+                              <i className="fas fa-medal parcours-card-series-item-icon-fa" aria-hidden />
+                            )}
+                            <span className="parcours-card-series-name">{s.displayName}</span>
+                          </div>
+                          {s.description && (
+                            <span className="parcours-card-series-desc">{s.description}</span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="parcours-card-actions">
+                    <button
+                      type="button"
+                      className={`btn parcours-card-btn ${isAllComingSoon ? 'parcours-card-btn-disabled' : ''}`}
+                      onClick={() => handleExplorerCeParcours(parcours)}
+                    >
+                      Explorer ce parcours
+                    </button>
+                    {isAllComingSoon && (
+                      <p className="parcours-card-construction">Parcours en construction</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
   }
 
-  // —— Step 3: Series name + description + badges (only when non–à venir series was chosen) ——
+  // —— Parcours detail view (list of series) ——
+  if (view === 'parcours-detail' && selectedParcours) {
+    return (
+      <div className="badge-explorer-page">
+        <div className="explorer-step-header">
+          <button
+            className="back-button"
+            onClick={handleBackFromParcoursDetail}
+            title="Retour aux parcours"
+            type="button"
+          >
+            <i className="fas fa-arrow-left"></i>
+          </button>
+          <h1 className="badge-explorer-page-title">{selectedParcours.title}</h1>
+        </div>
+        <div className="parcours-detail-series-list">
+          {selectedParcours.series.map((series) => {
+            const seriesIconUrl = getSeriesIconUrl(series);
+            return (
+              <div key={series.displayName} className="parcours-detail-series-item">
+                <div className="parcours-detail-series-icon">
+                  {seriesIconUrl ? (
+                    <img src={seriesIconUrl} alt="" className="parcours-detail-series-icon-img" />
+                  ) : (
+                    <i className="fas fa-medal parcours-detail-series-icon-placeholder" aria-hidden />
+                  )}
+                </div>
+                <div className="parcours-detail-series-content">
+                  <h3 className="parcours-detail-series-name">{series.displayName}</h3>
+                  {series.description && (
+                    <p className="parcours-detail-series-desc">{series.description}</p>
+                  )}
+                  <button
+                    type="button"
+                    className={`btn parcours-detail-series-btn ${series.comingSoon ? 'parcours-detail-series-btn-disabled' : ''}`}
+                    onClick={() => handleExplorerSeries(series)}
+                    disabled={series.comingSoon}
+                  >
+                    {series.comingSoon ? 'À venir' : 'Explorer les badges de la série'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // —— Badge list view (series badges + "Tous les badges" filter) ——
   return (
     <div className="badge-explorer-page">
       <div className="badge-explorer-header">
@@ -398,8 +514,8 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           <div className="explorer-header-left">
             <button
               className="back-button"
-              onClick={handleBackFromStep3}
-              title="Retour au choix de la série"
+              onClick={handleBackFromBadgeList}
+              title="Retour à la liste des séries"
               type="button"
             >
               <i className="fas fa-arrow-left"></i>
@@ -411,16 +527,32 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           <p className="series-description">{selectedSeries.description}</p>
         )}
         {!isLoading && !error && badges.length > 0 && (
-          <div className="series-stats">
-            <div className="stat-item">
-              <i className="fas fa-medal"></i>
-              <span>{badges.length} badge{badges.length > 1 ? 's' : ''}</span>
+          <>
+            <div className="series-stats">
+              <div className="stat-item">
+                <i className="fas fa-medal"></i>
+                <span>{badges.length} badge{badges.length > 1 ? 's' : ''}</span>
+              </div>
+              <div className="stat-item">
+                <i className="fas fa-chart-line"></i>
+                <span>{Object.keys(badgesByLevel).filter(k => (badgesByLevel[k]?.length ?? 0) > 0).length} niveau{(Object.keys(badgesByLevel).filter(k => (badgesByLevel[k]?.length ?? 0) > 0).length) > 1 ? 'x' : ''}</span>
+              </div>
             </div>
-            <div className="stat-item">
-              <i className="fas fa-chart-line"></i>
-              <span>{Object.keys(badgesByLevel).filter(k => (badgesByLevel[k]?.length ?? 0) > 0).length} niveau{(Object.keys(badgesByLevel).filter(k => (badgesByLevel[k]?.length ?? 0) > 0).length) > 1 ? 'x' : ''}</span>
+            <div className="badge-list-filter-wrap">
+              <label htmlFor="badgeFilter" className="badge-list-filter-label">Tous les badges</label>
+              <select
+                id="badgeFilter"
+                className="badge-list-filter-select"
+                value={badgeFilter}
+                onChange={(e) => setBadgeFilter(e.target.value)}
+              >
+                <option value="all">Tous les badges</option>
+                {badges.map((b) => (
+                  <option key={b.id} value={String(b.id)}>{b.name}</option>
+                ))}
+              </select>
             </div>
-          </div>
+          </>
         )}
       </div>
 

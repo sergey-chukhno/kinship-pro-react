@@ -1,4 +1,13 @@
 /* Badge Explorer – scoped to avoid leaking into other pages */
+
+/* Parcours dashboard colors: edu=green, user=pink, teacher=yellow, pro=blue (MainLayout) */
+.badge-explorer-page {
+  --parcours-green: #10b981;
+  --parcours-pink: #db087c;
+  --parcours-yellow: #ffa600;
+  --parcours-blue: #5570F1;
+}
+
 .badge-explorer-page {
   padding: 2rem;
   max-width: 1400px;
@@ -6,6 +15,353 @@
   width: 100%;
   box-sizing: border-box;
   overflow-x: hidden; /* prevent accidental horizontal scroll pushing content */
+}
+
+/* Cards view: page title (next to back button) */
+.badge-explorer-page .badge-explorer-page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-main, #111827);
+  margin: 0;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Cards grid */
+.badge-explorer-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+/* Parcours card */
+.badge-explorer-parcours-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.badge-explorer-parcours-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.10);
+}
+
+.badge-explorer-parcours-card .parcours-card-header {
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 56px;
+  border-bottom: 3px solid transparent;
+}
+
+/* Lighter header backgrounds (maquette-style), text in primary color */
+.badge-explorer-parcours-card.parcours-green .parcours-card-header {
+  background: rgba(16, 185, 129, 0.14);
+  border-bottom-color: var(--parcours-green);
+  color: #047857;
+}
+.badge-explorer-parcours-card.parcours-pink .parcours-card-header {
+  background: rgba(219, 8, 124, 0.12);
+  border-bottom-color: var(--parcours-pink);
+  color: #a3065a;
+}
+.badge-explorer-parcours-card.parcours-yellow .parcours-card-header {
+  background: rgba(255, 166, 0, 0.15);
+  border-bottom-color: var(--parcours-yellow);
+  color: #b45309;
+}
+.badge-explorer-parcours-card.parcours-blue .parcours-card-header {
+  background: rgba(85, 112, 241, 0.12);
+  border-bottom-color: var(--parcours-blue);
+  color: #4338ca;
+}
+
+.badge-explorer-parcours-card .parcours-card-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+.badge-explorer-parcours-card .parcours-card-icon-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.badge-explorer-parcours-card .parcours-card-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+
+.badge-explorer-parcours-card .parcours-card-body {
+  padding: 1.25rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Objectif block: stand out with light tint and left border */
+.badge-explorer-parcours-card .parcours-card-objectif {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.55;
+  border-radius: 10px;
+  border-left: 4px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.badge-explorer-parcours-card.parcours-green .parcours-card-objectif { border-left-color: var(--parcours-green); background: rgba(16, 185, 129, 0.06); }
+.badge-explorer-parcours-card.parcours-pink .parcours-card-objectif { border-left-color: var(--parcours-pink); background: rgba(219, 8, 124, 0.05); }
+.badge-explorer-parcours-card.parcours-yellow .parcours-card-objectif { border-left-color: var(--parcours-yellow); background: rgba(255, 166, 0, 0.06); }
+.badge-explorer-parcours-card.parcours-blue .parcours-card-objectif { border-left-color: var(--parcours-blue); background: rgba(85, 112, 241, 0.06); }
+
+/* Series list: stand out with subtle background */
+.badge-explorer-parcours-card .parcours-card-series-list {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.badge-explorer-parcours-card .parcours-card-series-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.badge-explorer-parcours-card .parcours-card-series-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge-explorer-parcours-card .parcours-card-series-item-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+
+.badge-explorer-parcours-card .parcours-card-series-item-icon-fa {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+}
+
+.badge-explorer-parcours-card .parcours-card-series-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-main, #111827);
+}
+
+.badge-explorer-parcours-card .parcours-card-series-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.4;
+  margin-left: 1.75rem;
+}
+
+.badge-explorer-parcours-card .parcours-card-actions {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.badge-explorer-parcours-card .parcours-card-btn {
+  min-width: 200px;
+  padding: 0.7rem 1.25rem;
+  border-radius: 10px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: center;
+}
+
+.badge-explorer-parcours-card.parcours-green .parcours-card-btn:not(.parcours-card-btn-disabled) {
+  background: var(--parcours-green);
+  color: #fff;
+}
+
+.badge-explorer-parcours-card.parcours-pink .parcours-card-btn:not(.parcours-card-btn-disabled) {
+  background: var(--parcours-pink);
+  color: #fff;
+}
+
+.badge-explorer-parcours-card.parcours-yellow .parcours-card-btn:not(.parcours-card-btn-disabled) {
+  background: var(--parcours-yellow);
+  color: #1f2937;
+}
+
+.badge-explorer-parcours-card.parcours-blue .parcours-card-btn:not(.parcours-card-btn-disabled) {
+  background: var(--parcours-blue);
+  color: #fff;
+}
+
+.badge-explorer-parcours-card .parcours-card-btn-disabled {
+  background: #9ca3af;
+  color: #fff;
+  cursor: pointer;
+}
+
+.badge-explorer-parcours-card .parcours-card-construction {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 500;
+  font-style: italic;
+  text-align: center;
+}
+
+/* Parcours detail view: series list */
+.parcours-detail-series-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.parcours-detail-series-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+
+.parcours-detail-series-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+  border: 2px solid var(--primary, #5570F1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.parcours-detail-series-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.parcours-detail-series-icon-placeholder {
+  font-size: 1.25rem;
+  color: var(--primary, #5570F1);
+}
+
+.parcours-detail-series-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.parcours-detail-series-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-main, #111827);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.parcours-detail-series-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.parcours-detail-series-btn {
+  align-self: flex-start;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--primary, #5570F1);
+  color: #fff;
+  margin-top: 0.25rem;
+}
+
+.parcours-detail-series-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.parcours-detail-series-btn-disabled,
+.parcours-detail-series-btn:disabled {
+  background: #9ca3af;
+  color: #fff;
+  cursor: not-allowed;
+}
+
+/* Badge list view: "Tous les badges" filter */
+.badge-list-filter-wrap {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.badge-list-filter-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-main, #111827);
+  margin: 0;
+}
+
+.badge-list-filter-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: #fff;
+  color: var(--text-main, #111827);
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.badge-list-filter-select:focus {
+  outline: none;
+  border-color: var(--primary, #5570F1);
 }
 
 /* Step 1 & 2: shared step layout */
@@ -307,6 +663,12 @@
   position: relative;
 }
 
+/* Option A: when both "Voir description" and "Voir les compétences" exist – overflow visible + higher min-height so both toggles are visible */
+.badge-explorer-page .badge-explorer-card.has-double-toggles {
+  overflow: visible !important;
+  min-height: 420px;
+}
+
 /* When card is expanded, allow overflow to show description */
 .badge-explorer-page .badge-explorer-card.expanded {
   overflow: visible !important;
@@ -315,6 +677,11 @@
   max-height: none !important; /* Remove any max-height constraints */
   padding-bottom: 2rem !important; /* Ensure enough space for expanded content and button */
   align-items: stretch !important; /* Allow content to use full width */
+}
+
+/* Keep badge icon centered when card is expanded (only badge-info should stretch) */
+.badge-explorer-page .badge-explorer-card.expanded .badge-icon {
+  align-self: center;
 }
 
 .badge-explorer-page .badge-explorer-card:hover {
@@ -347,11 +714,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.5rem; /* More compact */
   min-width: 0;
   flex: 1;
   min-height: 0; /* Allow flex item to shrink below content size */
-  padding-bottom: 0.5rem; /* Add padding to ensure button has space */
+  padding-bottom: 0.35rem; /* Compact: ensure button has space */
 }
 
 /* When card is expanded, ensure badge-info can grow fully */
@@ -377,8 +744,8 @@
 
 .badge-explorer-page .badge-explorer-card .badge-description {
   width: 100% !important;
-  margin-top: 0.75rem !important;
-  padding-top: 0.75rem !important;
+  margin-top: 0.5rem !important;
+  padding-top: 0.5rem !important;
   padding-bottom: 0 !important;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   display: block !important;
@@ -392,11 +759,20 @@
   overflow: visible !important;
 }
 
+.badge-explorer-page .badge-explorer-card .badge-description-title {
+  margin: 0 0 0.35rem 0 !important;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-main, #111827);
+  line-height: 1.3;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-description-text,
 .badge-explorer-page .badge-explorer-card .badge-description p {
-  margin: 0 0 1rem 0 !important; /* Ensure spacing before button */
+  margin: 0 0 0.65rem 0 !important; /* Ensure spacing before button */
   color: #6b7280;
-  font-size: 0.92rem;
-  line-height: 1.55;
+  font-size: 0.85rem;
+  line-height: 1.45;
   display: block !important;
   white-space: normal !important;
   overflow: visible !important;
@@ -412,15 +788,15 @@
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  margin-bottom: 1rem !important; /* Add bottom margin to prevent truncation */
-  padding: 0.5rem 0 !important;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem !important; /* Compact: less margin so both toggles fit */
+  padding: 0.35rem 0 !important;
   width: 100%;
   border: none;
   background: none;
   color: var(--primary, #5570F1);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -437,6 +813,89 @@
 
 .badge-explorer-page .badge-explorer-card .view-description-btn i {
   font-size: 0.75rem;
+}
+
+/* Competencies block (Soft Skills 4LAB level 1 only) – compact */
+.badge-explorer-page .badge-explorer-card .badge-competencies {
+  width: 100% !important;
+  margin-top: 0.5rem !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0 !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  display: block !important;
+  overflow: visible !important;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-hint {
+  margin: 0 0 0.35rem 0 !important;
+  color: #6b7280;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Competencies list – compact (1) */
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 6px;
+  margin: 0 0 0.5rem 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  background: var(--background-secondary, #f8f9fa);
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competency-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: var(--background-secondary, #f8f9fa);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-main, #111827);
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competency-item-mandatory {
+  border-left: 3px solid var(--warning, #f59e0b);
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competency-item-text {
+  flex: 1;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  text-align: left;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competency-mandatory-indicator {
+  color: var(--warning, #f59e0b);
+  font-weight: 600;
+  font-style: italic;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container::-webkit-scrollbar-track {
+  background: var(--background-secondary, #f3f4f6);
+  border-radius: 4px;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container::-webkit-scrollbar-thumb {
+  background: var(--border, #e5e7eb);
+  border-radius: 4px;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 /* Level pill always visible (and pushed to bottom for consistent layout) */
@@ -510,8 +969,30 @@
     padding: 1.25rem;
   }
 
+  .badge-explorer-page .badge-explorer-page-title {
+    font-size: 1.25rem;
+  }
+
   .badge-explorer-page .badge-explorer-header h1 {
     font-size: 1.6rem;
+  }
+
+  .badge-explorer-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .badge-explorer-parcours-card .parcours-card-title {
+    font-size: 1rem;
+  }
+
+  .parcours-detail-series-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .parcours-detail-series-icon {
+    align-self: flex-start;
   }
 
   .badge-explorer-page .badge-series-grid {
@@ -521,5 +1002,9 @@
 
   .badge-explorer-page .badge-explorer-card {
     min-height: 360px; /* Ensure button is fully visible on mobile */
+  }
+
+  .badge-explorer-page .badge-explorer-card.has-double-toggles {
+    min-height: 420px; /* Both toggles visible on mobile */
   }
 }
