@@ -1095,6 +1095,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     return availablePartnerships.find((p: any) => p.id === partnerId || p.id === parseInt(partnerId));
   };
 
+  /** Display partnership name in French (e.g. "Partnership" → "Partenariat"). */
+  const formatPartnershipDisplayName = (name: string | undefined): string => {
+    if (!name) return '';
+    return name.replace(/\bPartnership\b/gi, 'Partenariat');
+  };
+
   // Helper to determine if organization should be read-only
   const isOrgReadOnly = state.showingPageType === 'pro' || state.showingPageType === 'edu' || state.showingPageType === 'teacher';
 
@@ -1500,25 +1506,19 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         
                         const partnerOrgs = selected.partners || [];
                         const firstPartner = partnerOrgs[0];
-                        const roleInPartnership = firstPartner?.role_in_partnership;
                         
                         return (
                           <div key={partnerId} className="selected-member">
                             <AvatarImage 
                               src={firstPartner?.logo_url || '/default-avatar.png'} 
-                              alt={firstPartner?.name || 'Partnership'} 
+                              alt={firstPartner?.name || 'Partenariat'} 
                               className="selected-avatar" 
                             />
                             <div className="selected-info">
                               <div className="selected-name">
                                 {partnerOrgs.map((p: any) => p.name).join(', ')}
                               </div>
-                              <div className="selected-role">{selected.name || ''}</div>
-                              {roleInPartnership && (
-                                <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
-                                  Rôle dans le partenariat : {roleInPartnership}
-                                </div>
-                              )}
+                              <div className="selected-role">{formatPartnershipDisplayName(selected.name)}</div>
                             </div>
                             <button
                               type="button"
@@ -1536,7 +1536,6 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     {getFilteredPartners(searchTerms.partner).map((partnership) => {
                       const partnerOrgs = partnership.partners || [];
                       const firstPartner = partnerOrgs[0];
-                      const roleInPartnership = firstPartner?.role_in_partnership;
                       
                       return (
                         <div
@@ -1546,17 +1545,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         >
                           <AvatarImage 
                             src={firstPartner?.logo_url || '/default-avatar.png'} 
-                            alt={firstPartner?.name || 'Partnership'} 
+                            alt={firstPartner?.name || 'Partenariat'} 
                             className="item-avatar" 
                           />
                           <div className="item-info">
                             <div className="item-name">
                               {partnerOrgs.map((p: any) => p.name).join(', ')}
                             </div>
-                            <div className="item-role">{partnership.name || ''}</div>
-                            {roleInPartnership && (
-                              <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Rôle dans le partenariat : {roleInPartnership}</div>
-                            )}
+                            <div className="item-role">{formatPartnershipDisplayName(partnership.name)}</div>
                           </div>
                         </div>
                       );
