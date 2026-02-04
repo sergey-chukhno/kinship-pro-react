@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Badge } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
-import { exportToPDF, exportToCSV, generateShareableLink } from '../../utils/badgeExport';
+import { exportToPDF, exportToCSV, generateShareableLink, mapRawUserBadgeToAttributionForExport } from '../../utils/badgeExport';
 import './Modal.css';
 import './BadgeExportModal.css';
 
@@ -10,6 +10,7 @@ interface BadgeExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   badges: Badge[]; // Filtered badges to export
+  rawAttributions?: any[]; // Raw user_badge array for per-attribution PDF (same order as filtered badges)
   filters: {
     series: string;
     level: string;
@@ -26,6 +27,7 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
   isOpen,
   onClose,
   badges,
+  rawAttributions,
   filters,
   context
 }) => {
@@ -41,7 +43,11 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
   const handleExportPDF = async () => {
     setIsGeneratingPDF(true);
     try {
-      await exportToPDF(badges, filters, context);
+      const attributions =
+        rawAttributions?.length ?
+          rawAttributions.map(mapRawUserBadgeToAttributionForExport) :
+          null;
+      await exportToPDF(attributions?.length ? attributions : null, badges, filters, context);
       showSuccess('PDF exporté avec succès');
       onClose();
     } catch (error: any) {
@@ -121,7 +127,7 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
                 </div>
                 <div className="badge-export-option-info">
                   <h3>Export PDF</h3>
-                  <p>Liste des badges avec descriptions et représentation visuelle de la cartographie</p>
+                  <p>Liste des attributions avec badge, niveau, date, attribué par/à, domaine, compétences, projet, commentaire et preuves</p>
                 </div>
               </div>
               <button

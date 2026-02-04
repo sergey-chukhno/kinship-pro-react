@@ -68,7 +68,9 @@ const Badges: React.FC = () => {
         }
         
         response = await getUserBadges(page, perPage, filters);
-        const mapped = (response.data || []).map(mapBackendUserBadgeToBadge);
+        const payload = Array.isArray(response.data) ? response.data : [];
+        setRawBadgeData(payload); // Store raw for PDF export (same as orgs)
+        const mapped = payload.map(mapBackendUserBadgeToBadge);
         setBadges(mapped);
         setTotalPages(response.meta?.total_pages || 1);
         setTotalBadges(response.meta?.total_count || 0);
@@ -455,6 +457,7 @@ const Badges: React.FC = () => {
           isOpen={isExportModalOpen}
           onClose={() => setIsExportModalOpen(false)}
           badges={filteredBadges}
+          rawAttributions={filteredBadges.map((fb) => rawBadgeData.find((r: any) => String(r?.id) === String(fb.id))).filter(Boolean)}
           filters={{
             series: selectedSeries,
             level: selectedLevel,
