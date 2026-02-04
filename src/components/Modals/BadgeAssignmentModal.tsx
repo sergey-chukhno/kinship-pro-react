@@ -705,6 +705,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
           recipient_ids: recipientIds,
           badge_skill_ids: badgeSkillIds,
           comment: commentaire || undefined,
+          domaine_engagement: domaine || undefined,
           organization_id: selectedOrganizationId,
         },
         files

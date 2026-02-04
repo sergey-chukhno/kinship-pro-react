@@ -14,6 +14,20 @@ interface ExportContext {
   organizationName?: string;
 }
 
+/** Map stored "Domaine d'engagement" value to readable French label for PDF */
+const DOMAINE_ENGAGEMENT_LABELS: Record<string, string> = {
+  professionnel: "Activité professionnelle (CDI, CDD, contrat d'alternance, job d'été,...)",
+  scolaire: 'Cadre scolaire (projet, études,...)',
+  associatif: 'Cadre associatif ou sportif (Projet, séjours)',
+  experience: 'Expérience professionnelle (Formation, Stage en entreprise...)'
+};
+
+function getDomaineEngagementLabel(value: string | null | undefined): string {
+  if (!value || !value.trim()) return 'Non renseigné';
+  const label = DOMAINE_ENGAGEMENT_LABELS[value.trim().toLowerCase()];
+  return label ?? value;
+}
+
 /** One attribution block for PDF export (per-attribution layout) */
 export interface AttributionForExport {
   badgeImageUrl?: string;
@@ -39,10 +53,9 @@ export function mapRawUserBadgeToAttributionForExport(raw: any): AttributionForE
   const level = badge.level || 'level_1';
   const levelDisplay = level.replace('level_', '');
   const series = badge.series || '';
-  const domains = badge.domains;
-  const domaineList = Array.isArray(domains)
-    ? domains.map((d: any) => (typeof d === 'string' ? d : d?.name)).filter(Boolean)
-    : [];
+  // Use "Domaine d'engagement" (stored at attribution); show readable French label or "Non renseigné"
+  const domaineEngagementRaw = raw?.domaine_engagement ?? raw?.domaineEngagement;
+  const domaineDisplay = [getDomaineEngagementLabel(domaineEngagementRaw)];
   const skillsIndicated = raw?.skills_indicated ?? raw?.skillsIndicated ?? [];
   const project = raw?.project;
   const projectTitle = project?.title ?? raw?.project_title;
@@ -70,7 +83,7 @@ export function mapRawUserBadgeToAttributionForExport(raw: any): AttributionForE
     attributionDate: dateStr || '',
     attributedByName: sender?.full_name ?? '',
     attributedToName: receiver?.full_name ?? '',
-    domaine: domaineList,
+    domaine: domaineDisplay,
     competencesIndiquees: Array.isArray(skillsIndicated) ? skillsIndicated : [],
     projectTitle: projectTitle ?? undefined,
     projectDescription: projectDescription ?? undefined,
@@ -212,7 +225,7 @@ export const exportToPDF = async (
           pushLine('Date d\'attribution : ', a.attributionDate, false);
           pushLine('Attribué par : ', a.attributedByName, false);
           pushLine('Attribué à : ', a.attributedToName, false);
-          if (a.domaine.length) pushLine('Domaine : ', a.domaine.join(', '), true);
+          pushLine("Domaine d'engagement : ", a.domaine.join(', '), true);
           if (a.competencesIndiquees.length) pushLine('Compétences indiquées : ', a.competencesIndiquees.join(', '), true);
           if (a.projectTitle) pushLine('Projet : ', a.projectTitle, true);
           if (a.projectDescription) pushLine('Description projet : ', a.projectDescription, true);
