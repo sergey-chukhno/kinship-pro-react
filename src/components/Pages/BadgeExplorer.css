@@ -663,6 +663,12 @@
   position: relative;
 }
 
+/* Option A: when both "Voir description" and "Voir les compétences" exist – overflow visible + higher min-height so both toggles are visible */
+.badge-explorer-page .badge-explorer-card.has-double-toggles {
+  overflow: visible !important;
+  min-height: 420px;
+}
+
 /* When card is expanded, allow overflow to show description */
 .badge-explorer-page .badge-explorer-card.expanded {
   overflow: visible !important;
@@ -703,11 +709,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.5rem; /* More compact */
   min-width: 0;
   flex: 1;
   min-height: 0; /* Allow flex item to shrink below content size */
-  padding-bottom: 0.5rem; /* Add padding to ensure button has space */
+  padding-bottom: 0.35rem; /* Compact: ensure button has space */
 }
 
 /* When card is expanded, ensure badge-info can grow fully */
@@ -733,8 +739,8 @@
 
 .badge-explorer-page .badge-explorer-card .badge-description {
   width: 100% !important;
-  margin-top: 0.75rem !important;
-  padding-top: 0.75rem !important;
+  margin-top: 0.5rem !important;
+  padding-top: 0.5rem !important;
   padding-bottom: 0 !important;
   border-top: 1px solid rgba(0, 0, 0, 0.05);
   display: block !important;
@@ -748,11 +754,20 @@
   overflow: visible !important;
 }
 
+.badge-explorer-page .badge-explorer-card .badge-description-title {
+  margin: 0 0 0.35rem 0 !important;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-main, #111827);
+  line-height: 1.3;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-description-text,
 .badge-explorer-page .badge-explorer-card .badge-description p {
-  margin: 0 0 1rem 0 !important; /* Ensure spacing before button */
+  margin: 0 0 0.65rem 0 !important; /* Ensure spacing before button */
   color: #6b7280;
-  font-size: 0.92rem;
-  line-height: 1.55;
+  font-size: 0.85rem;
+  line-height: 1.45;
   display: block !important;
   white-space: normal !important;
   overflow: visible !important;
@@ -768,15 +783,15 @@
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  margin-bottom: 1rem !important; /* Add bottom margin to prevent truncation */
-  padding: 0.5rem 0 !important;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem !important; /* Compact: less margin so both toggles fit */
+  padding: 0.35rem 0 !important;
   width: 100%;
   border: none;
   background: none;
   color: var(--primary, #5570F1);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -793,6 +808,89 @@
 
 .badge-explorer-page .badge-explorer-card .view-description-btn i {
   font-size: 0.75rem;
+}
+
+/* Competencies block (Soft Skills 4LAB level 1 only) – compact */
+.badge-explorer-page .badge-explorer-card .badge-competencies {
+  width: 100% !important;
+  margin-top: 0.5rem !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0 !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  display: block !important;
+  overflow: visible !important;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-hint {
+  margin: 0 0 0.35rem 0 !important;
+  color: #6b7280;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Competencies list – compact (1) */
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 6px;
+  margin: 0 0 0.5rem 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  background: var(--background-secondary, #f8f9fa);
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competency-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: var(--background-secondary, #f8f9fa);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-main, #111827);
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competency-item-mandatory {
+  border-left: 3px solid var(--warning, #f59e0b);
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competency-item-text {
+  flex: 1;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  text-align: left;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competency-mandatory-indicator {
+  color: var(--warning, #f59e0b);
+  font-weight: 600;
+  font-style: italic;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container::-webkit-scrollbar-track {
+  background: var(--background-secondary, #f3f4f6);
+  border-radius: 4px;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container::-webkit-scrollbar-thumb {
+  background: var(--border, #e5e7eb);
+  border-radius: 4px;
+}
+
+.badge-explorer-page .badge-explorer-card .badge-competencies-list-container::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 /* Level pill always visible (and pushed to bottom for consistent layout) */
@@ -899,5 +997,9 @@
 
   .badge-explorer-page .badge-explorer-card {
     min-height: 360px; /* Ensure button is fully visible on mobile */
+  }
+
+  .badge-explorer-page .badge-explorer-card.has-double-toggles {
+    min-height: 420px; /* Both toggles visible on mobile */
   }
 }

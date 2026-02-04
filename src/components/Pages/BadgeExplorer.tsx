@@ -3,6 +3,7 @@ import { getBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeValidationRules, getBadgeCompetencies, normalizeCompetencyName } from '../Modals/BadgeAssignmentModal';
 import './BadgeExplorer.css';
 
 interface BadgeExplorerProps {
@@ -145,6 +146,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<number, boolean>>({});
+  const [expandedCompetencies, setExpandedCompetencies] = useState<Record<number, boolean>>({});
   // Filter on badge list: "Tous les badges" or specific badge id
   const [badgeFilter, setBadgeFilter] = useState<string>('all');
 
@@ -173,6 +175,13 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
 
   const toggleDescription = (badgeId: number) => {
     setExpandedDescriptions(prev => ({
+      ...prev,
+      [badgeId]: !prev[badgeId]
+    }));
+  };
+
+  const toggleCompetencies = (badgeId: number) => {
+    setExpandedCompetencies(prev => ({
       ...prev,
       [badgeId]: !prev[badgeId]
     }));
@@ -246,9 +255,19 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     const imageUrl = getLocalBadgeImage(badge.name, badge.level, badge.series);
     const hasDescription = badge.description && badge.description.trim() !== '';
     const isExpanded = Boolean(expandedDescriptions[badge.id]);
+    const isSoftSkills4LabLevel1 = selectedSeriesDbName === 'Série TouKouLeur' && badge.level === 'level_1';
+    const competencies = isSoftSkills4LabLevel1 ? getBadgeCompetencies(badge) : [];
+    const rules = isSoftSkills4LabLevel1 ? getBadgeValidationRules(badge.name) : null;
+    const hasCompetencies = competencies.length > 0;
+    const isCompetenciesExpanded = Boolean(expandedCompetencies[badge.id]);
+    const normalizedMandatory = rules ? rules.mandatoryCompetencies.map(normalizeCompetencyName) : [];
 
+    const hasDoubleToggles = hasDescription && hasCompetencies;
     return (
-      <div key={badge.id} className={`badge-explorer-card ${isExpanded ? 'expanded' : ''}`}>
+      <div
+        key={badge.id}
+        className={`badge-explorer-card ${isExpanded || isCompetenciesExpanded ? 'expanded' : ''} ${hasDoubleToggles ? 'has-double-toggles' : ''}`}
+      >
         {imageUrl && (
           <div className="badge-icon">
             <img src={imageUrl} alt={badge.name} className="badge-image" />
@@ -259,6 +278,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           <div className={`badge-level level-${badge.level?.replace('level_', '') || '1'}`}>
             {badge.level ? getLevelLabel(badge.series, badge.level.replace('level_', '')) : 'Niveau 1'}
           </div>
+          {/* Description first: both "Voir description" and "Voir les compétences" visible at once */}
           {hasDescription && (
             <>
               {!isExpanded && (
@@ -273,13 +293,59 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               )}
               {isExpanded && (
                 <div className="badge-description">
-                  <p>{badge.description}</p>
+                  <p className="badge-description-title">Description :</p>
+                  <p className="badge-description-text">{badge.description}</p>
                   <button
                     className="view-description-btn"
                     type="button"
                     onClick={() => toggleDescription(badge.id)}
                   >
                     <span>Masquer description</span>
+                    <i className="fas fa-chevron-up"></i>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          {hasCompetencies && (
+            <>
+              {!isCompetenciesExpanded && (
+                <button
+                  className="view-description-btn view-competencies-btn"
+                  type="button"
+                  onClick={() => toggleCompetencies(badge.id)}
+                >
+                  <span>Voir les compétences</span>
+                  <i className="fas fa-chevron-down"></i>
+                </button>
+              )}
+              {isCompetenciesExpanded && (
+                <div className="badge-competencies">
+                  {rules?.hintText && (
+                    <p className="badge-competencies-hint">{rules.hintText}</p>
+                  )}
+                  <div className="badge-competencies-list-container">
+                    {competencies.map((c) => {
+                      const isMandatory = normalizedMandatory.includes(normalizeCompetencyName(c.name));
+                      return (
+                        <div
+                          key={c.id}
+                          className={`badge-competency-item ${isMandatory ? 'badge-competency-item-mandatory' : ''}`}
+                        >
+                          <span className="badge-competency-item-text">
+                            {c.name}
+                            {isMandatory && <span className="badge-competency-mandatory-indicator"> (Obligatoire)</span>}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button
+                    className="view-description-btn"
+                    type="button"
+                    onClick={() => toggleCompetencies(badge.id)}
+                  >
+                    <span>Masquer les compétences</span>
                     <i className="fas fa-chevron-up"></i>
                   </button>
                 </div>

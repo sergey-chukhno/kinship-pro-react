@@ -33,8 +33,8 @@ interface Badge {
   image: string;
 }
 
-// Validation rules for level 1 badges
-interface BadgeValidationRule {
+// Validation rules for level 1 badges (exported for BadgeExplorer)
+export interface BadgeValidationRule {
   mandatoryCompetencies: string[]; // Exact names of mandatory competencies
   minRequired: number; // Minimum number of competencies to select
   hintText: string; // Text to display next to label
@@ -262,9 +262,9 @@ const normalizeBadgeNameForMatching = (name: string): string => {
     .trim();
 };
 
-// Helper function to get validation rules for a badge
+// Helper function to get validation rules for a badge (exported for BadgeExplorer)
 // Uses flexible matching to handle variations in badge names
-const getBadgeValidationRules = (badgeName: string): BadgeValidationRule | null => {
+export const getBadgeValidationRules = (badgeName: string): BadgeValidationRule | null => {
   // Try exact match first
   if (BADGE_VALIDATION_RULES[badgeName]) {
     return BADGE_VALIDATION_RULES[badgeName];
@@ -289,9 +289,9 @@ const getBadgeValidationRules = (badgeName: string): BadgeValidationRule | null 
   return matchingKey ? BADGE_VALIDATION_RULES[matchingKey] : null;
 };
 
-// Helper function to normalize competency names for comparison
+// Helper function to normalize competency names for comparison (exported for BadgeExplorer)
 // Removes leading/trailing whitespace and normalizes the string
-const normalizeCompetencyName = (name: string): string => {
+export const normalizeCompetencyName = (name: string): string => {
   return name.trim();
 };
 
@@ -305,8 +305,8 @@ const FALLBACK_COMPETENCIES: Record<string, Array<{ id: number; name: string }>>
   ]
 };
 
-// Helper function to get competencies for a badge (API data or fallback)
-const getBadgeCompetencies = (badge: BadgeAPI | null): Array<{ id: number; name: string }> => {
+// Helper function to get competencies for a badge (exported for BadgeExplorer; API data or fallback)
+export const getBadgeCompetencies = (badge: BadgeAPI | null): Array<{ id: number; name: string }> => {
   if (!badge) return [];
   
   // If badge has expertises from API, use them
