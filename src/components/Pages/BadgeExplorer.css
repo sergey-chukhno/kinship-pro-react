@@ -679,6 +679,11 @@
   align-items: stretch !important; /* Allow content to use full width */
 }
 
+/* Keep badge icon centered when card is expanded (only badge-info should stretch) */
+.badge-explorer-page .badge-explorer-card.expanded .badge-icon {
+  align-self: center;
+}
+
 .badge-explorer-page .badge-explorer-card:hover {
   transform: translateY(-2px);
   border-color: rgba(85, 112, 241, 0.6);
