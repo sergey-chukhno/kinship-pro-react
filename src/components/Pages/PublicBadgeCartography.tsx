@@ -38,7 +38,8 @@ const PublicBadgeCartography: React.FC = () => {
         setShareInfo({
           ...data.share,
           filters: data.filters,
-          context: data.context
+          context: data.context,
+          cartography_owner_name: data.cartography_owner_name
         });
         
         // Store raw attributions data for use in modal
@@ -165,8 +166,11 @@ const PublicBadgeCartography: React.FC = () => {
   return (
     <div className="public-cartography-container">
       <div className="public-cartography-header">
-        <h1>Cartographie des badges</h1>
-        
+        <h1>
+          {shareInfo?.cartography_owner_name
+            ? `Cartographie publique des badges – ${shareInfo.cartography_owner_name}`
+            : 'Cartographie publique des badges'}
+        </h1>
         {shareInfo && (() => {
           const expiresAt = shareInfo?.share?.expires_at || shareInfo?.expires_at;
           return expiresAt ? (
