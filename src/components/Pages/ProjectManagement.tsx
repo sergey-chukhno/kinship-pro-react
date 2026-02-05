@@ -358,11 +358,16 @@ const ProjectManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.selectedProject?.id, state.showingPageType]); // Retirer setSelectedProject des dépendances
 
-  // Fetch project statistics when project ID changes
+  // Fetch project statistics only when user can see management (owner/co-owner/admin).
+  // Participants with only "droit de badge" do not see stats; skip the request to avoid 403.
   useEffect(() => {
     const fetchStats = async () => {
       if (!project?.id) return;
-      
+      if (!shouldShowTabs()) {
+        setProjectStats(null);
+        setIsLoadingStats(false);
+        return;
+      }
       setIsLoadingStats(true);
       try {
         const projectId = parseInt(project.id);
@@ -377,10 +382,10 @@ const ProjectManagement: React.FC = () => {
         setIsLoadingStats(false);
       }
     };
-    
+
     fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id]); // project?.id est une valeur primitive, pas besoin d'autres dépendances
+  }, [project?.id, userProjectRole, state.showingPageType]);
 
   // Fetch pending requests when project ID changes or requests tab is active
   useEffect(() => {
@@ -535,63 +540,60 @@ const ProjectManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, project?.id]);
 
-  // Calculate badge assignment permissions
+  // Calculate badge assignment permissions from fresh API data (inside async callback
+  // so the button appears when can_assign_badges_in_project is true)
   useEffect(() => {
     if (!project || !state.user?.id || !userProjectRole) {
       setCanAssignBadges(false);
       return;
     }
 
-    // Find current user's project member record
     const findUserProjectMember = async () => {
       if (!project?.id) return;
-      
+
       try {
         const projectId = parseInt(project.id);
         if (isNaN(projectId)) return;
-        
+
         const members = await getProjectMembers(projectId);
         const currentUserMember = members.find((m: any) => {
           const userId = m.user?.id?.toString() || m.user_id?.toString();
           return userId === state.user?.id?.toString();
         });
-        
+
         if (currentUserMember) {
-          // Only update if the value actually changed to prevent loops
           const newUserProjectMember = {
             can_assign_badges_in_project: currentUserMember.can_assign_badges_in_project || false,
             user: {
               available_contexts: state.user.available_contexts
             }
           };
-          
-          // Check if we need to update (prevent unnecessary state updates)
-          const needsUpdate = !userProjectMember || 
+
+          const needsUpdate =
+            !userProjectMember ||
             userProjectMember.can_assign_badges_in_project !== newUserProjectMember.can_assign_badges_in_project ||
-            JSON.stringify(userProjectMember.user?.available_contexts) !== JSON.stringify(newUserProjectMember.user?.available_contexts);
-          
+            JSON.stringify(userProjectMember.user?.available_contexts) !==
+              JSON.stringify(newUserProjectMember.user?.available_contexts);
+
           if (needsUpdate) {
             setUserProjectMember(newUserProjectMember);
           }
+
+          // Compute permission from fresh API data so "Attribuer un badge" button updates
+          const hasPermission = canUserAssignBadges(project, state.user?.id ?? null, userProjectRole, newUserProjectMember);
+          setCanAssignBadges(hasPermission);
+        } else {
+          setCanAssignBadges(false);
         }
       } catch (error) {
         console.error('Error fetching user project member:', error);
+        setCanAssignBadges(false);
       }
     };
-    
+
     findUserProjectMember();
-    
-    // Calculate permissions (use current userProjectMember state, but don't depend on it)
-    const hasPermission = canUserAssignBadges(
-      project,
-      state.user.id,
-      userProjectRole,
-      userProjectMember
-    );
-    
-    setCanAssignBadges(hasPermission);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id, state.user?.id, userProjectRole]); // Removed userProjectMember from dependencies to prevent loop
+  }, [project?.id, state.user?.id, userProjectRole]);
 
   // Reset active tab if tabs become hidden (e.g., user role changes from admin to participant)
   useEffect(() => {
