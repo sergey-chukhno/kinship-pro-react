@@ -1005,7 +1005,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const handlePartnerSelect = (partnerId: string | number) => {
     const idStr = partnerId?.toString();
     const partnership = availablePartnerships.find((p: any) => p.id?.toString() === idStr || p.id === Number(partnerId));
-    const contactUsers = partnership
+    const ownerId = state.user?.id != null ? state.user.id.toString() : null;
+    const contactUsersRaw = partnership
       ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
           id: c.id,
           full_name: c.full_name || '',
@@ -1015,6 +1016,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
           organization: p.name || ''
         })))
       : [];
+    // Exclude current user (project creator) so they are not proposed as co-owner (creator can be staff in partner orgs)
+    const contactUsers = ownerId
+      ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
+      : contactUsersRaw;
     const contactIds = contactUsers.map((c: any) => c.id.toString());
 
     setFormData(prev => {

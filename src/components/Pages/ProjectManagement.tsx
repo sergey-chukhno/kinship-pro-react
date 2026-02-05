@@ -1324,7 +1324,8 @@ const ProjectManagement: React.FC = () => {
 
   const handleEditPartnerSelect = (partnerId: string) => {
     const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
-    const contactUsers = partnership
+    const ownerId = apiProjectData?.owner?.id != null ? apiProjectData.owner.id.toString() : null;
+    const contactUsersRaw = partnership
       ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
           id: c.id,
           full_name: c.full_name || '',
@@ -1333,6 +1334,10 @@ const ProjectManagement: React.FC = () => {
           organization: p.name || ''
         })))
       : [];
+    // Exclude project owner so they are not proposed as co-owner (owner can be staff in partner orgs)
+    const contactUsers = ownerId
+      ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
+      : contactUsersRaw;
     const contactIds = contactUsers.map((c: any) => c.id.toString());
 
     setEditForm(prev => {
