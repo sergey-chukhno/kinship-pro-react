@@ -56,6 +56,7 @@ export const getProjectBadges = async (
   filters?: {
     series?: string;
     level?: string;
+    sender_id?: number;
   }
 ): Promise<{ data: any[]; meta: any }> => {
   const params = new URLSearchParams();
@@ -67,6 +68,9 @@ export const getProjectBadges = async (
   }
   if (filters?.level) {
     params.append('level', filters.level);
+  }
+  if (filters?.sender_id != null) {
+    params.append('sender_id', filters.sender_id.toString());
   }
   
   const response = await apiClient.get(`/api/v1/projects/${projectId}/badges?${params.toString()}`);
