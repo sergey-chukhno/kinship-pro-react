@@ -85,7 +85,7 @@ const PartnershipModal: React.FC<PartnershipModalProps> = ({ onClose, onSave, in
                 onChange={handleInputChange}
                 required
                 className="form-textarea"
-                placeholder="Décrivez les objectifs du partenariat"
+                placeholder="Précisez le ou les projets concernés, ou le type de collaboration envisagée dans le cadre de Kinship."
                 rows={3}
               />
             </div>
