@@ -119,6 +119,7 @@ export const mapFrontendToBackend = (
         participants: string[];
         coResponsibles: string[];
         isPartnership: boolean;
+        createdBy?: string;
         /** Single partner (legacy) or use partners array */
         partner?: string;
         partners?: string[];
