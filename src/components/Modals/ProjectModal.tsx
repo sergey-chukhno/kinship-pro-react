@@ -35,7 +35,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     endDate: '',
     organization: '',
     status: 'draft' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
-    visibility: 'public' as 'public' | 'private',
+    visibility: 'private' as 'public' | 'private', // par défaut en brouillon : privé
     pathway: '',
     tags: '',
     links: '',
@@ -748,35 +748,51 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     });
   };
 
+  /** Calcule le statut (en cours / à venir) à partir de la date de début. */
+  const getStatusFromStartDate = (startDate: string): 'in_progress' | 'coming' => {
+    if (!startDate) return 'coming';
+    const start = new Date(startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
+    return start <= today ? 'in_progress' : 'coming';
+  };
+
   const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended') => {
     setSubmitError(null);
 
     const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
       desiredStatus ?? formData.status;
 
-    // Mettre à jour le formulaire avec le statut effectif (ex. brouillon) pour que le select s'affiche correctement
     if (desiredStatus !== undefined) {
       setFormData(prev => ({ ...prev, status: effectiveStatus }));
     }
 
-    // Validation: Pathway is required for all dashboards
+    // Champs obligatoires même en brouillon : Titre, Description, Dates, Organisation porteuse, Visibilité
+    const isOrganizationRequired = true;
+    const requiredForDraft =
+      !formData.title?.trim() ||
+      !formData.description?.trim() ||
+      !formData.startDate ||
+      !formData.endDate ||
+      (isOrganizationRequired && !formData.organization?.trim()) ||
+      !formData.visibility;
+
+    if (requiredForDraft) {
+      setSubmitError('Veuillez remplir les champs obligatoires : Titre, Description, Dates, Organisation porteuse, Visibilité.');
+      return;
+    }
+
+    // En création complète (non brouillon), exiger en plus : parcours et école (pour enseignant)
     const isPathwayRequired = true;
     const isPathwayValid = !isPathwayRequired || formData.pathway;
 
-    // For teachers, organization is always required (but pre-filled)
-    // For others, organization is required
-    const isOrganizationRequired = true; // Always required, but pre-filled for teachers
-
-    // Skip strict validation for draft status
     if (effectiveStatus !== 'draft') {
-      if (!formData.title || !formData.startDate || !formData.endDate || 
-          (isOrganizationRequired && !formData.organization) || 
-          !effectiveStatus || !isPathwayValid) {
+      if (!isPathwayValid || !effectiveStatus) {
         setSubmitError('Veuillez remplir tous les champs obligatoires');
         return;
       }
 
-      // Additional validation for teachers: if school context chosen, school must be selected
       if (state.showingPageType === 'teacher' && teacherProjectContext === 'school') {
         const availableSchools = state.user.available_contexts?.schools || [];
         if (availableSchools.length === 0) {
@@ -924,11 +940,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await submitProject();
+    // Création : statut déduit de la date de début (en cours / à venir). Édition : garder le statut du projet.
+    if (!project) {
+      const statusFromDate = getStatusFromStartDate(formData.startDate);
+      await submitProject(statusFromDate);
+    } else {
+      await submitProject();
+    }
   };
 
   const handleSaveDraft = async () => {
-    // Mettre à jour le formulaire tout de suite pour que le select Statut affiche "Brouillon"
     setFormData(prev => ({ ...prev, status: 'draft' }));
     await submitProject('draft');
   };
@@ -1312,49 +1333,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     </div>
                   );
                 })()}
-                {state.showingPageType !== 'teacher' && (
-                  <>
-                    <label htmlFor="projectStatus">Statut *</label>
-                    <select
-                      id="projectStatus"
-                      name="status"
-                      required
-                      value={formData.status}
-                      onChange={handleInputChange}
-                      className="form-select"
-                    >
-                      <option value="">Sélectionner un statut</option>
-                      <option value="draft">Brouillon</option>
-                      <option value="coming">À venir</option>
-                      <option value="in_progress">En cours</option>
-                      <option value="ended">Terminé</option>
-                    </select>
-                  </>
-                )}
               </div>
             </div>
-            {/* Statut pleine largeur pour teacher */}
-            {state.showingPageType === 'teacher' && (
-              <div className="form-row">
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label htmlFor="projectStatus">Statut *</label>
-                  <select
-                    id="projectStatus"
-                    name="status"
-                    required
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="form-select"
-                  >
-                    <option value="">Sélectionner un statut</option>
-                    <option value="draft">Brouillon</option>
-                    <option value="coming">À venir</option>
-                    <option value="in_progress">En cours</option>
-                    <option value="ended">Terminé</option>
-                  </select>
-                </div>
-              </div>
-            )}
 
             <div className="form-row">
               <div className="form-group">

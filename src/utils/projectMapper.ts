@@ -183,10 +183,8 @@ export const mapFrontendToBackend = (
         });
     }
 
-    // Map draft status to coming for backend (backend doesn't support draft).
-    // Keep 'to_process' as-is so it can be handled explicitly server-side.
-    const backendStatus: 'to_process' | 'coming' | 'in_progress' | 'ended' =
-        formData.status === 'draft' ? 'coming' : formData.status;
+    // Envoyer le statut tel quel (draft, coming, in_progress, etc.)
+    const backendStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' = formData.status;
 
     // Convert school level IDs from strings to numbers if provided
     const schoolLevelIds = formData.schoolLevelIds
