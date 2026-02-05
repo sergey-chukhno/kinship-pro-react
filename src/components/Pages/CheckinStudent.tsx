@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import './CheckinStudent.css';
 import {
@@ -9,6 +9,13 @@ import {
 import { useToast } from '../../hooks/useToast';
 
 type Step = 'verify' | 'credentials' | 'completed';
+
+interface PasswordCriteria {
+  minLength: boolean;
+  lowercase: boolean;
+  uppercase: boolean;
+  specialChar: boolean;
+}
 
 const CheckinStudent: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -35,6 +42,23 @@ const CheckinStudent: React.FC = () => {
     password: '',
     confirmPassword: '',
   });
+
+  const [passwordCriteria, setPasswordCriteria] = useState<PasswordCriteria>({
+    minLength: false,
+    lowercase: false,
+    uppercase: false,
+    specialChar: false,
+  });
+
+  useEffect(() => {
+    const password = credentialsForm.password;
+    setPasswordCriteria({
+      minLength: password.length >= 8,
+      lowercase: /[a-z]/.test(password),
+      uppercase: /[A-Z]/.test(password),
+      specialChar: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+    });
+  }, [credentialsForm.password]);
 
   const isTokenMissing = useMemo(() => !claimToken, [claimToken]);
 
@@ -251,6 +275,20 @@ const CheckinStudent: React.FC = () => {
                 minLength={8}
                 required
               />
+              <ul className="password-criteria-list">
+                <li className={passwordCriteria.minLength ? 'valid' : 'invalid'}>
+                  {passwordCriteria.minLength ? '✅' : '❌'} 8 caractères minimum
+                </li>
+                <li className={passwordCriteria.lowercase ? 'valid' : 'invalid'}>
+                  {passwordCriteria.lowercase ? '✅' : '❌'} Une lettre minuscule
+                </li>
+                <li className={passwordCriteria.uppercase ? 'valid' : 'invalid'}>
+                  {passwordCriteria.uppercase ? '✅' : '❌'} Une lettre majuscule
+                </li>
+                <li className={passwordCriteria.specialChar ? 'valid' : 'invalid'}>
+                  {passwordCriteria.specialChar ? '✅' : '❌'} Un caractère spécial (!@#...)
+                </li>
+              </ul>
             </div>
 
             <div className="form-group">
