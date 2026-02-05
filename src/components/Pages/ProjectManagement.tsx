@@ -583,7 +583,9 @@ const ProjectManagement: React.FC = () => {
           const hasPermission = canUserAssignBadges(project, state.user?.id ?? null, userProjectRole, newUserProjectMember);
           setCanAssignBadges(hasPermission);
         } else {
-          setCanAssignBadges(false);
+          // Owner/co-owner may not be in members list; compute from role so button still shows
+          const hasPermission = canUserAssignBadges(project, state.user?.id ?? null, userProjectRole, undefined);
+          setCanAssignBadges(hasPermission);
         }
       } catch (error) {
         console.error('Error fetching user project member:', error);
