@@ -111,7 +111,20 @@ const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>>
       "level_3": "/badges_audiovisuels/Badge_Stylisme_HMC_Level3.png",
       "level_4": "/badges_audiovisuels/Badge_Stylisme_HMC_Level4.png",
     },
-  }
+  },
+  "Série TouKouLeur": {
+    "Adaptabilité": { "level_2": "/badges_toutkouleur_niveau2/Adaptabilite.png", "level_3": "/badges_toukouleur_niveau3/Adaptabilite-.jpg", "level_4": "/badges_toukouleur_niveau4/Adaptabilite.jpg" },
+    "Communication": { "level_2": "/badges_toutkouleur_niveau2/Communication.png", "level_3": "/badges_toukouleur_niveau3/Communication.jpg", "level_4": "/badges_toukouleur_niveau4/Communication.jpg" },
+    "Coopération": { "level_2": "/badges_toutkouleur_niveau2/Cooperation.png", "level_3": "/badges_toukouleur_niveau3/Cooperation.jpg", "level_4": "/badges_toukouleur_niveau4/Cooperation.jpg" },
+    "Créativité": { "level_2": "/badges_toutkouleur_niveau2/Creativite8.png", "level_3": "/badges_toukouleur_niveau3/Creativite.png", "level_4": "/badges_toukouleur_niveau4/Creativite.jpg" },
+    "Engagement": { "level_2": "/badges_toutkouleur_niveau2/Engagement.png", "level_3": "/badges_toukouleur_niveau3/Engagement.jpg", "level_4": "/badges_toukouleur_niveau4/Engagement.jpg" },
+    "Esprit Critique": { "level_2": "/badges_toutkouleur_niveau2/EspritCritique8.png", "level_3": "/badges_toukouleur_niveau3/EspritCritique.jpg", "level_4": "/badges_toukouleur_niveau4/EspritCritique.jpg" },
+    "Formation": { "level_2": "/badges_toutkouleur_niveau2/Formation8.png", "level_3": "/badges_toukouleur_niveau3/Formation.jpg", "level_4": "/badges_toukouleur_niveau4/Formation.jpg" },
+    "Gestion de Projet": { "level_2": "/badges_toutkouleur_niveau2/GestionDePvrojet.png", "level_3": "/badges_toukouleur_niveau3/GestionDePvrojet.jpg", "level_4": "/badges_toukouleur_niveau4/GestionDePvrojet.jpg" },
+    "Information Numérique": { "level_2": "/badges_toutkouleur_niveau2/Informatique Numerique.png", "level_3": "/badges_toukouleur_niveau3/Informatique Numerique.jpg", "level_4": "/badges_toukouleur_niveau4/Informatique Numerique.jpg" },
+    "Organisation Opérationnelle": { "level_2": "/badges_toutkouleur_niveau2/OrganisationOperationnelle.png", "level_3": "/badges_toukouleur_niveau3/OrganisationOperationnelle.jpg", "level_4": "/badges_toukouleur_niveau4/OrganisationOperationnellejpg.jpg" },
+    "Sociabilité": { "level_2": "/badges_toutkouleur_niveau2/Sociabilite.png", "level_3": "/badges_toukouleur_niveau3/Sociabilite.jpg", "level_4": "/badges_toukouleur_niveau4/Sociabilite.jpg" },
+  },
 };
 
 export const getLocalBadgeImage = (badgeName?: string, badgeLevel?: string, badgeSeries?: string): string | undefined => {
