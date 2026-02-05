@@ -137,6 +137,26 @@
   outline: none;
 }
 
+.password-criteria-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 6px 0 0 0;
+  font-size: 0.85rem;
+}
+
+.password-criteria-list li {
+  margin-bottom: 4px;
+  transition: color 0.2s ease-in-out;
+}
+
+.password-criteria-list li.valid {
+  color: #28a745;
+}
+
+.password-criteria-list li.invalid {
+  color: #dc3545;
+}
+
 .checkin-button {
   margin-top: 8px;
   border: none;
