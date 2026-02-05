@@ -242,6 +242,17 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherProjectContext, selectedSchoolId, state.showingPageType, state.user.name, project]); // Utiliser state.user.name au lieu de state.user
 
+  // Quand l'enseignant change d'établissement, enlever les présélections (classes, participants, co-responsables)
+  useEffect(() => {
+    if (state.showingPageType !== 'teacher' || teacherProjectContext !== 'school') return;
+    setFormData(prev => ({
+      ...prev,
+      participants: [],
+      coResponsibles: [],
+      schoolLevelIds: []
+    }));
+  }, [selectedSchoolId]);
+
   useEffect(() => {
     if (project) {
       setFormData({
@@ -360,17 +371,28 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     fetchPathways();
   }, []);
 
-  // Fetch school levels (organisations porteuses) when modal opens
+  // Fetch school levels (classes) : en teacher selon l'école sélectionnée, en edu selon le contexte ; per_page=1000
   useEffect(() => {
     const fetchSchoolLevels = async () => {
       setIsLoadingSchoolLevels(true);
       try {
-        const organizationType = getOrganizationType(state.showingPageType);
-        const organizationId = getOrganizationId(state.user, state.showingPageType);
+        let schoolId: number | undefined;
 
-        // Only fetch classes for school context
-        if (organizationType === 'school' && organizationId) {
-          const response = await getSchoolLevels(organizationId, 1, 100);
+        if (state.showingPageType === 'teacher') {
+          // Enseignant : récupérer les classes de l'école sélectionnée dans le formulaire
+          if (teacherProjectContext === 'school' && selectedSchoolId) {
+            schoolId = selectedSchoolId;
+          }
+        } else {
+          const organizationType = getOrganizationType(state.showingPageType);
+          const organizationId = getOrganizationId(state.user, state.showingPageType);
+          if (organizationType === 'school' && organizationId) {
+            schoolId = organizationId;
+          }
+        }
+
+        if (schoolId) {
+          const response = await getSchoolLevels(schoolId, 1, 1000);
           setAvailableSchoolLevels(response.data?.data || []);
         } else {
           setAvailableSchoolLevels([]);
@@ -384,7 +406,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     };
 
     fetchSchoolLevels();
-  }, [state.showingPageType, state.user]);
+  }, [state.showingPageType, state.user, teacherProjectContext, selectedSchoolId]);
 
   // Fetch members and partnerships when modal opens
   useEffect(() => {
@@ -558,9 +580,15 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, state.user.id, formData.isPartnership, teacherProjectContext, selectedSchoolId]); // Add teacherProjectContext and selectedSchoolId to dependencies
 
-  // Participants for teacher: load all students from teacher's schools with infinite scroll
+  // Participants for teacher: si école sélectionnée → liste = members (déjà filtrés par école) ; sinon → getTeacherAllStudents avec scroll
   useEffect(() => {
     if (state.showingPageType !== 'teacher') {
+      setParticipantsOptions([]);
+      setHasMoreParticipants(false);
+      return;
+    }
+    // En contexte "école" avec établissement choisi, les participants viennent de members (chargé ailleurs), pas d'appel ici
+    if (teacherProjectContext === 'school' && selectedSchoolId) {
       setParticipantsOptions([]);
       setHasMoreParticipants(false);
       return;
@@ -586,7 +614,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     };
     fetchPage1();
     return () => { cancelled = true; };
-  }, [state.showingPageType, searchTerms.participants]);
+  }, [state.showingPageType, teacherProjectContext, selectedSchoolId, searchTerms.participants]);
 
   const loadMoreParticipants = React.useCallback(async () => {
     if (state.showingPageType !== 'teacher' || !hasMoreParticipants || isLoadingParticipants) return;
@@ -1394,7 +1422,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             {/* Organisation porteuse */}
             {availableSchoolLevels.length > 0 && (
               <div className="form-group">
-                <div className="form-label">Classes</div>
+                <div className="form-label">Ajouter une/des classe(s) au projet</div>
                 {isLoadingSchoolLevels ? (
                   <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
                     <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
@@ -1569,7 +1597,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       <div className="selected-items">
                         {formData.coResponsibles.map((memberId) => {
                           const member = getSelectedMember(memberId);
-                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
+                          const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '') || (member.classes?.[0]?.school?.name ?? '')) : '';
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()} className="selected-avatar" />
@@ -1610,8 +1638,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                             <div className="item-info">
                               <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
                               <div className="item-role">{translateRole(member.role_in_system ?? member.role)}</div>
-                              {(typeof member.organization === 'string' ? member.organization : member.organization?.name) && (
-                                <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {typeof member.organization === 'string' ? member.organization : member.organization?.name}</div>
+                              {(typeof member.organization === 'string' ? member.organization : member.organization?.name ?? member.classes?.[0]?.school?.name) && (
+                                <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? member.classes?.[0]?.school?.name ?? '')}</div>
                               )}
                             </div>
                           </div>
@@ -1635,11 +1663,13 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     placeholder="Rechercher des participants..."
                     value={searchTerms.participants}
                     onChange={(e) => handleSearchChange('participants', e.target.value)}
-                    disabled={state.showingPageType === 'teacher' ? isLoadingParticipants : isLoadingMembers}
+                    disabled={state.showingPageType === 'teacher' ? (teacherProjectContext === 'school' && selectedSchoolId ? isLoadingMembers : isLoadingParticipants) : isLoadingMembers}
                   />
                 </div>
                 
-                {(state.showingPageType === 'teacher' ? isLoadingParticipants && participantsOptions.length === 0 : isLoadingMembers) ? (
+                {(state.showingPageType === 'teacher'
+                  ? (teacherProjectContext === 'school' && selectedSchoolId ? isLoadingMembers : isLoadingParticipants && participantsOptions.length === 0)
+                  : isLoadingMembers) ? (
                   <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
                     <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
                     <span>Chargement des participants...</span>
@@ -1651,7 +1681,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         {formData.participants.map((memberId) => {
                           const member = getSelectedMember(memberId);
                           const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
-                          const memberOrg = typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '') || schoolLabel || '';
+                          const classSchoolNames = member?.classes?.length ? (member.classes as any[]).map((c: any) => c?.school?.name).filter(Boolean).join(', ') : '';
+                          const memberOrg = (typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '')) || schoolLabel || classSchoolNames || '';
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
@@ -1690,13 +1721,28 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                           ...formData.coResponsibles.map(id => id.toString())
                         ]);
                         const currentUserId = state.user?.id?.toString();
-                        const available = (participantsOptions || []).filter((m: any) => {
-                          const id = m?.id?.toString();
-                          if (currentUserId && id === currentUserId) return false;
-                          if (selectedIds.has(id)) return false;
-                          return true;
-                        });
-                        if (available.length === 0 && !isLoadingParticipants) {
+                        // En contexte école avec établissement choisi : liste = members (relée à l'établissement). Sinon : participantsOptions (all-students).
+                        const teacherParticipantSource =
+                          teacherProjectContext === 'school' && selectedSchoolId
+                            ? (members || [])
+                            : (participantsOptions || []);
+                        const searchLower = (searchTerms.participants || '').toLowerCase().trim();
+                        const available = teacherParticipantSource
+                          .filter((m: any) => {
+                            const id = m?.id?.toString();
+                            if (currentUserId && id === currentUserId) return false;
+                            if (selectedIds.has(id)) return false;
+                            if (searchLower) {
+                              const name = `${m?.first_name || ''} ${m?.last_name || ''}`.toLowerCase();
+                              const fullName = (m?.full_name || '').toLowerCase();
+                              const email = (m?.email || '').toLowerCase();
+                              const role = (m?.role || '').toLowerCase();
+                              return name.includes(searchLower) || fullName.includes(searchLower) || email.includes(searchLower) || role.includes(searchLower);
+                            }
+                            return true;
+                          });
+                        const isLoadingList = teacherProjectContext === 'school' && selectedSchoolId ? isLoadingMembers : isLoadingParticipants;
+                        if (available.length === 0 && !isLoadingList) {
                           return (
                             <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
                               <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
@@ -1708,7 +1754,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                           <>
                             {available.map((member: any) => {
                               const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
-                              const memberOrg = typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '') || schoolLabel || '';
+                              const classSchoolNames = member?.classes?.length ? (member.classes as any[]).map((c: any) => c?.school?.name).filter(Boolean).join(', ') : '';
+                              const memberOrg = (typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '')) || schoolLabel || classSchoolNames || '';
                               return (
                                 <div
                                   key={member.id}
@@ -1726,7 +1773,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                                 </div>
                               );
                             })}
-                            {hasMoreParticipants && (
+                            {(teacherProjectContext !== 'school' || !selectedSchoolId) && hasMoreParticipants && (
                               <div style={{ padding: '0.5rem', textAlign: 'center', color: '#6b7280' }}>
                                 {isLoadingParticipants ? <i className="fas fa-spinner fa-spin" /> : <span>Faites défiler pour charger plus</span>}
                               </div>
@@ -1740,7 +1787,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         </div>
                       ) : (
                         getFilteredMembers(searchTerms.participants).map((member: any) => {
-                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
+                          const memberOrg = member
+                            ? (typeof member.organization === 'string'
+                              ? member.organization
+                              : ((member.organization?.name ?? '') || ((member.classes as any[])?.[0]?.school?.name ?? '')))
+                            : '';
                           return (
                             <div
                               key={member.id}
