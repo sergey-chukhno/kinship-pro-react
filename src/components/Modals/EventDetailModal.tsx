@@ -43,7 +43,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [eventBadges, setEventBadges] = useState<BadgeAPI[]>([]);
   const eventDocuments = (event as any).documents || [];
-  const isSessionTrainingWorkshopEvent = event.type === 'session' || event.type === 'training' || event.type === 'workshop';
+  const eventHasBadges = Boolean(event.badges && event.badges.length > 0);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -175,7 +175,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
         {/* Header with action buttons */}
         <div className="event-detail-header-actions">
           {/* && event.status !== 'completed'  */}
-          {event.status !== 'completed'  && isSessionTrainingWorkshopEvent && state.showingPageType !== 'user' && (
+          {event.status !== 'completed' && eventHasBadges && state.showingPageType !== 'user' && (
             <button
               className="flex gap-2 items-center btn-primary btn-sm"
               onClick={() => setIsCompleteModalOpen(true)}
