@@ -978,6 +978,8 @@ const ProjectManagement: React.FC = () => {
       apiProjectData.co_owners.forEach((coOwner: any) => {
         // Skip soft-deleted co-owners
         if (coOwner.is_deleted) return;
+        // Skip owner (they are already added from apiProjectData.owner; owner can appear in co_owners for some projects)
+        if (apiProjectData.owner && coOwner.id === apiProjectData.owner.id) return;
         
         const coOwnerId = coOwner.id.toString();
         addedUserIds.add(coOwnerId);
@@ -1014,6 +1016,9 @@ const ProjectManagement: React.FC = () => {
       const confirmedMembers = projectMembers.filter((m: any) => {
         // Exclude pending members
         if (m.status !== 'confirmed') return false;
+        
+        // Exclude owner (already added from apiProjectData.owner; backend may return virtual owner in list_members)
+        if (m.project_role === 'owner') return false;
         
         const userId = m.user?.id?.toString() || m.user_id?.toString();
         
