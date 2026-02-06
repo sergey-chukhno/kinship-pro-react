@@ -9,11 +9,14 @@ import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import BadgeExportModal from '../Modals/BadgeExportModal';
 import BadgeExplorer from './BadgeExplorer';
-import { getUserBadges } from '../../api/Badges';
+import { getBadges, getUserBadges } from '../../api/Badges';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
+import { getAllUserProjects } from '../../api/Project';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
+import { displaySeries } from '../../utils/badgeMapper';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
+import './Analytics.css';
 import './Badges.css';
 
 const Badges: React.FC = () => {
@@ -32,6 +35,18 @@ const Badges: React.FC = () => {
   const [selectedSeries, setSelectedSeries] = useState('Série TouKouLeur');
   const [selectedLevel, setSelectedLevel] = useState('');
   const [activeTab, setActiveTab] = useState<'cartography' | 'explorer'>('cartography');
+
+  // Personal user: main tab "Ma cartographie" | "Mes statistiques" (default cartography)
+  const [userMainTab, setUserMainTab] = useState<'cartography' | 'statistics'>('cartography');
+  // Mes statistiques: Compétences par niveau
+  const [selectedSeriesStats, setSelectedSeriesStats] = useState<string>('Série TouKouLeur');
+  const [selectedProjectIdStats, setSelectedProjectIdStats] = useState<string>('');
+  const [userBadgesForChart, setUserBadgesForChart] = useState<any[]>([]);
+  const [loadingUserBadgesForChart, setLoadingUserBadgesForChart] = useState(false);
+  const [badgeSeriesOptionsStats, setBadgeSeriesOptionsStats] = useState<string[]>([]);
+  const [projectOptionsUser, setProjectOptionsUser] = useState<Array<{ id: number; title: string }>>([]);
+  const [loadingSeriesStats, setLoadingSeriesStats] = useState(false);
+  const [loadingProjectsUser, setLoadingProjectsUser] = useState(false);
 
   // API data states
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -126,6 +141,67 @@ const Badges: React.FC = () => {
     setCurrentPage(1);
     fetchBadges(1);
   }, [fetchBadges]);
+
+  // Mes statistiques (personal user): fetch badge series options
+  useEffect(() => {
+    if (state.showingPageType !== 'user') return;
+    const fetchSeries = async () => {
+      setLoadingSeriesStats(true);
+      try {
+        const list = await getBadges();
+        const seriesSet = new Set<string>();
+        (Array.isArray(list) ? list : []).forEach((b: any) => { if (b.series) seriesSet.add(b.series); });
+        setBadgeSeriesOptionsStats(Array.from(seriesSet));
+      } catch (e) {
+        console.error('Error fetching badge series', e);
+      } finally {
+        setLoadingSeriesStats(false);
+      }
+    };
+    fetchSeries();
+  }, [state.showingPageType]);
+
+  // Mes statistiques (personal user): fetch user's projects for "Par projet" filter
+  useEffect(() => {
+    if (state.showingPageType !== 'user') return;
+    const fetchProjects = async () => {
+      setLoadingProjectsUser(true);
+      try {
+        const res = await getAllUserProjects({ per_page: 200, page: 1 });
+        const data = res.data?.data ?? res.data ?? [];
+        const list = Array.isArray(data) ? data : [];
+        setProjectOptionsUser(list.map((p: any) => ({ id: p.id, title: p.title ?? p.name ?? String(p.id) })));
+      } catch (e) {
+        console.error('Error fetching user projects', e);
+      } finally {
+        setLoadingProjectsUser(false);
+      }
+    };
+    fetchProjects();
+  }, [state.showingPageType]);
+
+  // Mes statistiques (personal user): fetch user badges for chart (single call per_page=500), then filter by project client-side
+  useEffect(() => {
+    if (state.showingPageType !== 'user' || userMainTab !== 'statistics' || !selectedSeriesStats) return;
+    const fetchUserBadgesForChart = async () => {
+      setLoadingUserBadgesForChart(true);
+      setUserBadgesForChart([]);
+      try {
+        const response = await getUserBadges(1, 500, { series: selectedSeriesStats });
+        let list = Array.isArray(response.data) ? response.data : [];
+        if (selectedProjectIdStats) {
+          const projectIdNum = parseInt(selectedProjectIdStats, 10);
+          list = list.filter((ub: any) => (ub.project?.id ?? ub.project_id) === projectIdNum);
+        }
+        setUserBadgesForChart(list);
+      } catch (e) {
+        console.error('Error fetching user badges for chart', e);
+      } finally {
+        setLoadingUserBadgesForChart(false);
+      }
+    };
+    fetchUserBadgesForChart();
+  }, [state.showingPageType, userMainTab, selectedSeriesStats, selectedProjectIdStats]);
 
   const filteredBadges = badges.filter(badge => {
     const matchesSearch = badge.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -243,15 +319,233 @@ const Badges: React.FC = () => {
 
   const sections = getSections(selectedSeries || 'Série TouKouLeur');
 
+  // Mes statistiques: Compétences par niveau (same logic as Analytics)
+  const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
+  const LEVEL_LABELS_STATS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
+  function wrapRadarLabelStats(label: string, maxCharsPerLine = 22): string[] {
+    if (!label || label.length <= maxCharsPerLine) return [label];
+    const parts = label.split(/\s*-\s*/).filter(Boolean);
+    const lines: string[] = [];
+    let current = '';
+    for (const part of parts) {
+      const next = current ? `${current}-${part}` : part;
+      if (next.length <= maxCharsPerLine) {
+        current = next;
+      } else {
+        if (current) lines.push(current);
+        if (part.length > maxCharsPerLine) {
+          const words = part.split(/\s+/);
+          let line = '';
+          for (const w of words) {
+            const candidate = line ? `${line} ${w}` : w;
+            if (candidate.length <= maxCharsPerLine) {
+              line = candidate;
+            } else {
+              if (line) lines.push(line);
+              line = w;
+            }
+          }
+          current = line;
+        } else {
+          current = part;
+        }
+      }
+    }
+    if (current) lines.push(current);
+    return lines.length ? lines : [label];
+  }
+  const radarCompetenceData = useMemo(() => {
+    const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
+    userBadgesForChart.forEach((ub: any) => {
+      const name = ub.badge?.name;
+      const level = ub.badge?.level;
+      if (!name || !level) return;
+      if (!byCompetenceAndLevel[name]) byCompetenceAndLevel[name] = { level_1: 0, level_2: 0, level_3: 0, level_4: 0 };
+      const key = level as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+      if (key in byCompetenceAndLevel[name]) byCompetenceAndLevel[name][key] += 1;
+    });
+    const axes = Object.keys(byCompetenceAndLevel).sort();
+    if (axes.length === 0) return { axes: [], series: [] };
+    const series = LEVEL_LABELS_STATS.map((label, idx) => {
+      const levelKey = `level_${idx + 1}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+      const values = axes.map((comp) => (byCompetenceAndLevel[comp]?.[levelKey] ?? 0));
+      return { level: label, values, color: LEVEL_COLORS_STATS[idx] ?? '#5570F1' };
+    });
+    return { axes, series };
+  }, [userBadgesForChart]);
+
+  const ChartCardStats = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="analytics-chart-card badges-stats-chart-card">
+      <h3 className="chart-title">{title}</h3>
+      <div className="chart-content">{children}</div>
+    </div>
+  );
+
+  const RadarChartByCompetenceStats = ({ axes, series }: { axes: string[]; series: Array<{ level: string; values: number[]; color: string }> }) => {
+    const [hoveredSeries, setHoveredSeries] = useState<{ level: string; values: number[]; color: string } | null>(null);
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+    const centerX = 50;
+    const centerY = 50;
+    const maxRadius = 38;
+    const n = axes.length;
+    if (n === 0) return <div className="radar-chart-empty">Aucune compétence</div>;
+    const angleStep = (2 * Math.PI) / n;
+    const maxVal = Math.max(1, ...series.flatMap((s) => s.values));
+    return (
+      <div className="radar-chart">
+        <svg width="100%" height="100%" className="radar-svg" viewBox="0 0 100 110" preserveAspectRatio="xMidYMid meet">
+          {[0.25, 0.5, 0.75, 1.0].map((scale, i) => (
+            <circle key={i} cx={centerX} cy={centerY} r={maxRadius * scale} fill="none" stroke="#f0f0f0" strokeWidth="0.3" />
+          ))}
+          {axes.map((_, i) => {
+            const angle = i * angleStep - Math.PI / 2;
+            const x2 = centerX + maxRadius * Math.cos(angle);
+            const y2 = centerY + maxRadius * Math.sin(angle);
+            return <line key={i} x1={centerX} y1={centerY} x2={x2} y2={y2} stroke="#f0f0f0" strokeWidth="0.3" />;
+          })}
+          {series.map((s) => {
+            const points = s.values.map((val, i) => {
+              const angle = i * angleStep - Math.PI / 2;
+              const r = maxVal > 0 ? (val / maxVal) * maxRadius : 0;
+              return { x: centerX + r * Math.cos(angle), y: centerY + r * Math.sin(angle) };
+            });
+            const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
+            return (
+              <g key={s.level}>
+                <polygon points={points.map((p) => `${p.x},${p.y}`).join(' ')} fill={`${s.color}20`} stroke="none" />
+                <path
+                  d={pathD}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth="0.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  onMouseEnter={(e) => { setHoveredSeries(s); setMousePosition({ x: e.clientX, y: e.clientY }); }}
+                  onMouseMove={(e) => setMousePosition({ x: e.clientX, y: e.clientY })}
+                  onMouseLeave={() => setHoveredSeries(null)}
+                  style={{ cursor: 'pointer' }}
+                />
+              </g>
+            );
+          })}
+          {axes.map((label, i) => {
+            const angle = i * angleStep - Math.PI / 2;
+            const dist = maxRadius + 12;
+            const x = centerX + dist * Math.cos(angle);
+            const y = centerY + dist * Math.sin(angle);
+            const lines = wrapRadarLabelStats(label);
+            return (
+              <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="middle" className="radar-label" fontSize="2.9" fill="#6b7280">
+                {lines.map((line, j) => (
+                  <tspan key={j} x={x} dy={j === 0 ? `${(lines.length - 1) * -0.6}em` : '1.2em'}>{line}</tspan>
+                ))}
+              </text>
+            );
+          })}
+        </svg>
+        <div className="radar-legend">
+          {series.map((s, i) => (
+            <span key={i} className="radar-legend-item" style={{ color: s.color }}>
+              <span className="radar-legend-dot" style={{ backgroundColor: s.color }} /> {s.level}
+            </span>
+          ))}
+        </div>
+        {hoveredSeries && (
+          <div className="chart-tooltip" style={{ left: mousePosition.x + 10, top: mousePosition.y - 10 }}>
+            <div className="tooltip-title">{hoveredSeries.level}</div>
+            <div className="tooltip-value">{hoveredSeries.values.reduce((a, b) => a + b, 0)} badges</div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <section className="badges-container with-sidebar">
       <div className="badges-content">
-        {/* Section Title + Actions */}
-        {activeTab === 'cartography' && (
+        {/* User personal view: single title "Mes badges", Explorer/Exporter only on Ma cartographie, tabs below (pink underline style) */}
+        {state.showingPageType === 'user' && (
+          <>
+            <div className="section-title-row">
+              <div className="section-title-left">
+                <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
+                <h2>Mes badges</h2>
+              </div>
+              {userMainTab === 'cartography' && (
+                <div className="badges-actions">
+                  <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
+                    <i className="fas fa-search"></i> Explorer les badges
+                  </button>
+                  <button className="btn btn-outline" onClick={handleExportBadges}>
+                    <i className="fas fa-download"></i> Exporter
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="badges-user-tabs">
+              <button
+                type="button"
+                className={`badges-user-tab ${userMainTab === 'cartography' ? 'active' : ''}`}
+                onClick={() => setUserMainTab('cartography')}
+              >
+                Ma cartographie
+              </button>
+              <button
+                type="button"
+                className={`badges-user-tab ${userMainTab === 'statistics' ? 'active' : ''}`}
+                onClick={() => setUserMainTab('statistics')}
+              >
+                Mes statistiques
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Mes statistiques: Compétences par niveau (filters + radar chart) */}
+        {state.showingPageType === 'user' && userMainTab === 'statistics' && (
+          <ChartCardStats title="Compétences par niveau">
+            <div className="analytics-chart-filters">
+              <div className="analytics-filter-group">
+                <label>Par série des badges</label>
+                <select
+                  value={selectedSeriesStats}
+                  onChange={(e) => setSelectedSeriesStats(e.target.value)}
+                  disabled={loadingSeriesStats}
+                >
+                  {badgeSeriesOptionsStats.length === 0 && <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>}
+                  {badgeSeriesOptionsStats.map((s) => (
+                    <option key={s} value={s}>{displaySeries(s)}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="analytics-filter-group">
+                <label>Par projet</label>
+                <select
+                  value={selectedProjectIdStats}
+                  onChange={(e) => setSelectedProjectIdStats(e.target.value)}
+                  disabled={loadingProjectsUser}
+                >
+                  <option value="">Tous les projets</option>
+                  {projectOptionsUser.map((p) => (
+                    <option key={p.id} value={String(p.id)}>{p.title}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {loadingUserBadgesForChart ? (
+              <div className="badges-loading"><i className="fas fa-spinner fa-spin"></i> Chargement...</div>
+            ) : (
+              <RadarChartByCompetenceStats axes={radarCompetenceData.axes} series={radarCompetenceData.series} />
+            )}
+          </ChartCardStats>
+        )}
+
+        {/* Pro/edu only: Section Title + Actions (no second title for user) */}
+        {state.showingPageType !== 'user' && activeTab === 'cartography' && (
           <div className="section-title-row">
             <div className="section-title-left">
               <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
-              <h2>{state.showingPageType === 'user' ? 'Cartographie de mes badges' : 'Cartographie des badges attribués'}</h2>
+              <h2>Cartographie des badges attribués</h2>
             </div>
             <div className="badges-actions">
               <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
@@ -264,7 +558,7 @@ const Badges: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'cartography' && (
+        {(state.showingPageType !== 'user' || userMainTab === 'cartography') && activeTab === 'cartography' && (
           <>
             {/* Loading/Error States */}
             {isLoadingBadges && (
@@ -419,7 +713,7 @@ const Badges: React.FC = () => {
           </>
         )}
 
-        {activeTab === 'explorer' && (
+        {(state.showingPageType !== 'user' || userMainTab === 'cartography') && activeTab === 'explorer' && (
           <BadgeExplorer onBack={() => setActiveTab('cartography')} />
         )}
 

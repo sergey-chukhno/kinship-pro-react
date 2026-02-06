@@ -490,7 +490,8 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         pathways: pathwaysFromApi.length > 0 ? pathwaysFromApi : (pathway ? [pathway] : undefined),
         organization: projectOrganizationName, // Project's organization (can fallback to user's org)
         owner: owner?.name || owner?.email || 'Inconnu',
-        participants: apiProject.participants_number || apiProject.members_count || 0,
+        // Prefer members_count (owner + confirmed only) for display; fallback to participants_number for compatibility
+        participants: (apiProject.members_count != null && apiProject.members_count !== undefined) ? apiProject.members_count : (apiProject.participants_number ?? 0),
         badges: apiProject.badge_count || 0, // Use badge_count from API
         startDate: apiProject.start_date ? apiProject.start_date.split('T')[0] : '',
         endDate: apiProject.end_date ? apiProject.end_date.split('T')[0] : '',
