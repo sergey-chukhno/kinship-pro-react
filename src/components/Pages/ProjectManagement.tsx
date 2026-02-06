@@ -18,7 +18,7 @@ import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
-import { isUserAdminOfProjectOrg, isUserProjectParticipant, isUserSuperadmin } from '../../utils/projectPermissions';
+import { isUserAdminOfProjectOrg, isUserProjectParticipant, isUserSuperadmin, isUserSuperadminOfProjectOrg } from '../../utils/projectPermissions';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
@@ -861,12 +861,13 @@ const ProjectManagement: React.FC = () => {
   };
 
   /**
-   * Superadmin qui n'est pas dans le projet : voir tous les onglets et participants en lecture seule, boutons d'actions cachés
+   * Superadmin de l'organisation du projet qui n'est pas dans le projet : voir tous les onglets et participants en lecture seule, boutons d'actions cachés.
+   * Un superadmin d'une autre organisation ne bénéficie pas de cette vue.
    */
   const isSuperadminViewingReadOnly =
-    isUserSuperadmin(state.user) &&
     apiProjectData != null &&
     state.user?.id != null &&
+    isUserSuperadminOfProjectOrg(apiProjectData, state.user) &&
     !isUserProjectParticipant(apiProjectData, state.user.id.toString());
 
   /**
@@ -875,11 +876,13 @@ const ProjectManagement: React.FC = () => {
    * Organizational users (pro/edu) can see tabs if they are:
    * - Project owner/co-owner/admin, OR
    * - Organization admin/referent/superadmin of project's organization
-   * Superadmin: always show all tabs (in read-only if they don't manage the project)
+   * Superadmin: show tabs only if they are superadmin of the project's organization (read-only) or participant in the project
    */
   const shouldShowTabs = (): boolean => {
     if (isUserSuperadmin(state.user)) {
-      return true;
+      if (userProjectRole === 'owner' || userProjectRole === 'co-owner' || userProjectRole === 'admin') return true;
+      if (isUserSuperadminOfProjectOrg(apiProjectData, state.user)) return true;
+      return false;
     }
 
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
