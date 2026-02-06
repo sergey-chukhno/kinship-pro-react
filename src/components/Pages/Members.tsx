@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole, removeCompanyMember, importCompanyMembersCsv } from '../../api/CompanyDashboard/Members';
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel, addExistingStudentToLevel } from '../../api/SchoolDashboard/Levels';
-import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, updateSchoolMemberRole, removeSchoolMember, importSchoolMembersCsv } from '../../api/SchoolDashboard/Members';
+import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, getSchoolStaff, updateSchoolMemberRole, removeSchoolMember, importSchoolMembersCsv } from '../../api/SchoolDashboard/Members';
 import { getSkills } from '../../api/Skills';
 import { getTeacherClasses, createTeacherClass, deleteTeacherClass, updateTeacherClass, removeTeacherStudent, createTeacherLevelStudent } from '../../api/Dashboard';
 import { getTeacherClassStudents, getTeacherAllStudents } from '../../api/Dashboard';
@@ -92,6 +92,8 @@ const Members: React.FC = () => {
   // const classLists = mockClassLists;
   const [classLists, setClassLists] = useState<ClassList[]>([])
   const [members, setMembers] = useState<Member[]>([]);
+  const [schoolStaffList, setSchoolStaffList] = useState<Member[]>([]);
+  const [isStaffLoading, setIsStaffLoading] = useState(false);
   const [communityLists, setCommunityLists] = useState<Member[]>([]);
   // Removed unused pagination variables - replaced with classesPage/classesTotalPages
   // const [page, setPage] = useState(1);
@@ -304,6 +306,55 @@ const Members: React.FC = () => {
     } finally {
       setIsMembersLoading(false);
       setMembersInitialLoad(false);
+    }
+  };
+
+  const fetchSchoolStaff = async () => {
+    if (!isSchoolContext) return;
+    const currentUser = await getCurrentUser();
+    const contextId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
+    if (!contextId) return;
+    setIsStaffLoading(true);
+    try {
+      const staffRes = await getSchoolStaff(Number(contextId), 1000);
+      const staffData = staffRes.data?.data || staffRes.data || [];
+      const mapped: (Member & { systemRole?: string; membershipRole?: string; isSuperadmin?: boolean })[] = (staffData as any[]).map((m: any) => {
+        const systemRole = (m.role_in_system || m.role || '').toLowerCase();
+        const membershipRole = (m.role_in_school || m.role || 'member').toLowerCase();
+        const isSuperadmin = membershipRole === 'superadmin';
+        return {
+          id: String(m.id),
+          firstName: m.first_name || '',
+          lastName: m.last_name || '',
+          fullName: m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+          email: m.email || '',
+          profession: m.job || '',
+          roles: [m.role_in_school || m.role || 'member'],
+          rawRole: systemRole || membershipRole,
+          systemRole,
+          membershipRole,
+          skills: [],
+          availability: [],
+          avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
+          isTrusted: m.status === 'confirmed',
+          badges: [],
+          latestBadges: [],
+          organization: '',
+          canProposeStage: false,
+          canProposeAtelier: false,
+          claim_token: m.claim_token ?? null,
+          hasTemporaryEmail: m.has_temporary_email || false,
+          isSuperadmin,
+          classes: [],
+        } as Member & { systemRole?: string; membershipRole?: string; isSuperadmin?: boolean };
+      });
+      setSchoolStaffList(mapped);
+    } catch (err) {
+      console.error('Erreur récupération staff école:', err);
+      showError('Impossible de charger la liste du staff');
+      setSchoolStaffList([]);
+    } finally {
+      setIsStaffLoading(false);
     }
   };
 
@@ -546,7 +597,8 @@ const Members: React.FC = () => {
           fetchLevels(),
           fetchMembers(),
           fetchCommunityVolunteers(1),
-          fetchPendingRequestsCount()
+          fetchPendingRequestsCount(),
+          ...(state.showingPageType === 'edu' ? [fetchSchoolStaff()] : []),
         ]);
       } catch (error) {
         if (isMounted && !abortController.signal.aborted) {
@@ -662,39 +714,29 @@ const Members: React.FC = () => {
   ];
 
   // Filtrage générique (recherche / compétence / disponibilité)
-  const baseFilteredMembers = members.filter(member => {
+  const applyMemberFilters = (member: Member) => {
     const term = searchTerm.toLowerCase();
     const displayRoles = translateRoles(member.roles);
     const matchesSearch =
       member.fullName?.toLowerCase().includes(term) ||
-      member.email.toLowerCase().includes(term) ||
+      member.email?.toLowerCase().includes(term) ||
       member.skills.some(skill => skill.toLowerCase().includes(term));
     const matchesRole = !roleFilter || displayRoles.includes(roleFilter);
     const matchesCompetence = (() => {
       if (!competenceFilter) return true;
-      
-      // Check if member has the main skill
       const hasMainSkill = member.skills.includes(competenceFilter);
-      
-      // If sub-skill filter is selected, check for that specific sub-skill
-      if (subSkillFilter) {
-        return member.skills.includes(subSkillFilter);
-      }
-      
-      // If only main skill is selected, check if member has the main skill or any of its sub-skills
+      if (subSkillFilter) return member.skills.includes(subSkillFilter);
       if (hasMainSkill) return true;
-      
-      // Check if member has any sub-skill from the selected main skill category
       const selectedSkillData = skillsData.find(s => s.name === competenceFilter);
-      if (selectedSkillData) {
-        return selectedSkillData.sub_skills.some(sub => member.skills.includes(sub.name));
-      }
-      
+      if (selectedSkillData) return selectedSkillData.sub_skills.some(sub => member.skills.includes(sub.name));
       return false;
     })();
     const matchesAvailability = !availabilityFilter || member.availability.includes(availabilityFilter);
     return matchesSearch && matchesRole && matchesCompetence && matchesAvailability;
-  });
+  };
+
+  const baseFilteredMembers = members.filter(applyMemberFilters);
+  const filteredSchoolStaff = schoolStaffList.filter(applyMemberFilters);
 
   const teacherSchoolOptions = isTeacherContext
     ? (state.user.available_contexts?.schools || []).map((school: any) => ({
@@ -1061,6 +1103,7 @@ const Members: React.FC = () => {
 
   const handleMemberCreated = async () => {
     await fetchMembers();
+    if (state.showingPageType === 'edu') await fetchSchoolStaff();
   };
 
   const handleAddStudent = (studentData: Omit<Member, 'id'>) => {
@@ -1157,6 +1200,7 @@ const Members: React.FC = () => {
       
       // Refresh members list
       await fetchMembers();
+      if (isSchoolContext) await fetchSchoolStaff();
       
       return response.data;
     } catch (error: any) {
@@ -1203,6 +1247,7 @@ const Members: React.FC = () => {
 
       if (source === 'members') {
         await fetchMembers();
+        if (state.showingPageType === 'edu') await fetchSchoolStaff();
       }
 
       if (source === 'community' && (state.showingPageType === 'edu' || state.showingPageType === 'teacher')) {
@@ -1447,6 +1492,7 @@ const Members: React.FC = () => {
         
         // Refresh members list
         await fetchMembers();
+        if (isEdu) await fetchSchoolStaff();
         
         // Refresh community volunteers if applicable
         if (isEdu) {
@@ -1582,29 +1628,21 @@ const Members: React.FC = () => {
         <>
           {renderFilterBar()}
           <div className="min-h-[65vh]">
-            {/* Staff = tous les membres confirmés hors élèves (élèves visibles dans l'onglet Élèves) */}
+            {/* Staff = pro: from members; edu: from dedicated staff API (all teachers + admins) */}
             {(() => {
               const staffMembers: Member[] =
                 state.showingPageType === 'pro'
                   ? baseFilteredMembers
-                  : baseFilteredMembers.filter((member: Member) => {
-                      const systemRole = ((member as any).systemRole || '').toLowerCase();
-                      const membershipRole = ((member as any).membershipRole || '').toLowerCase();
-                      const primaryRoleRaw = ((member as any).rawRole || member.roles?.[0] || '').toLowerCase();
-                      const isSuperadmin = (member as any).isSuperadmin || false;
-
-                      // Exclure les élèves (uniquement école/teacher)
-                      if (studentRoles.includes(primaryRoleRaw) || studentRoles.includes(systemRole)) return false;
-
-                      if (isSuperadmin) return true;
-                      if (systemRole && staffRoles.includes(systemRole)) return true;
-                      if (membershipRole && ['admin', 'superadmin', 'referent', 'référent', 'other_school_admin'].includes(membershipRole)) return true;
-                      return false;
-                    });
+                  : filteredSchoolStaff;
+              const staffLoading = state.showingPageType === 'pro'
+                ? (isMembersLoading && membersInitialLoad)
+                : isStaffLoading;
 
               return (
                 <div className="members-grid">
-                  {staffMembers.length > 0 ? (
+                  {staffLoading ? (
+                    renderMembersLoading()
+                  ) : staffMembers.length > 0 ? (
                     staffMembers.map((member: Member) => {
                       // Handle both old format (array) and new format (object with data/meta)
                       const totalBadgeCount = Array.isArray(member.badges) 
@@ -1642,9 +1680,7 @@ const Members: React.FC = () => {
                       );
                     })
                   ) : (
-                    isMembersLoading && membersInitialLoad
-                      ? renderMembersLoading()
-                      : <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>
+                    <div className="w-full text-center text-gray-500">Aucun membre trouvé pour le moment</div>
                   )}
                 </div>
               );
