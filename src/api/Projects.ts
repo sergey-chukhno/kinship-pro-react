@@ -965,6 +965,18 @@ export const updateProject = async (
         });
     }
 
+    if (project.co_responsible_ids && project.co_responsible_ids.length > 0) {
+        project.co_responsible_ids.forEach(id => {
+            formData.append('project[co_responsible_ids][]', id.toString());
+        });
+    }
+
+    if (project.participant_ids && project.participant_ids.length > 0) {
+        project.participant_ids.forEach(id => {
+            formData.append('project[participant_ids][]', id.toString());
+        });
+    }
+
     // Add links (Rails nested attributes format for multipart/form-data)
     if (project.links_attributes && project.links_attributes.length > 0) {
         project.links_attributes.forEach((link, index) => {

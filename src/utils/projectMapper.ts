@@ -113,12 +113,14 @@ export const mapFrontendToBackend = (
         organization: string;
         status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
-        pathway: string;
+        pathway?: string;
+        pathways?: string[];
         tags: string;
         links: string;
         participants: string[];
         coResponsibles: string[];
         isPartnership: boolean;
+        createdBy?: string;
         /** Single partner (legacy) or use partners array */
         partner?: string;
         partners?: string[];
@@ -138,14 +140,15 @@ export const mapFrontendToBackend = (
     // Convert visibility: 'public' -> false, 'private' -> true
     const isPrivate = formData.visibility === 'private';
 
-    // Get tag ID from pathway
+    // Get tag IDs from pathway(s) — un ou plusieurs parcours
     const tagIds: number[] = [];
-    if (formData.pathway) {
-        const tagId = getTagIdByPathway(formData.pathway, normalizedTags);
-        if (tagId) {
-            tagIds.push(tagId);
-        }
-    }
+    const pathwayNames = (formData.pathways && formData.pathways.length > 0)
+        ? formData.pathways
+        : (formData.pathway ? [formData.pathway] : []);
+    pathwayNames.forEach((pathwayName: string) => {
+        const tagId = getTagIdByPathway(pathwayName, normalizedTags);
+        if (tagId && !tagIds.includes(tagId)) tagIds.push(tagId);
+    });
 
     // Parse keywords from tags field (comma-separated)
     const keywords = formData.tags
@@ -182,10 +185,8 @@ export const mapFrontendToBackend = (
         });
     }
 
-    // Map draft status to coming for backend (backend doesn't support draft).
-    // Keep 'to_process' as-is so it can be handled explicitly server-side.
-    const backendStatus: 'to_process' | 'coming' | 'in_progress' | 'ended' =
-        formData.status === 'draft' ? 'coming' : formData.status;
+    // Envoyer le statut tel quel (draft, coming, in_progress, etc.)
+    const backendStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' = formData.status;
 
     // Convert school level IDs from strings to numbers if provided
     const schoolLevelIds = formData.schoolLevelIds
@@ -233,7 +234,8 @@ export const mapEditFormToBackend = (
         tags: string[];
         startDate: string;
         endDate: string;
-        pathway: string;
+        pathway?: string;
+        pathways?: string[];
         status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
     },
@@ -249,14 +251,15 @@ export const mapEditFormToBackend = (
     // Convert visibility: 'public' -> false, 'private' -> true
     const isPrivate = editForm.visibility === 'private';
 
-    // Get tag ID from pathway
+    // Get tag IDs from pathway(s) — un ou plusieurs parcours
     const tagIds: number[] = [];
-    if (editForm.pathway) {
-        const tagId = getTagIdByPathway(editForm.pathway, normalizedTags);
-        if (tagId) {
-            tagIds.push(tagId);
-        }
-    }
+    const pathwayNames = (editForm.pathways && editForm.pathways.length > 0)
+        ? editForm.pathways
+        : (editForm.pathway ? [editForm.pathway] : []);
+    pathwayNames.forEach((pathwayName: string) => {
+        const tagId = getTagIdByPathway(pathwayName, normalizedTags);
+        if (tagId && !tagIds.includes(tagId)) tagIds.push(tagId);
+    });
 
     // Parse keywords from tags array
     const keywords = editForm.tags.filter(t => t.trim().length > 0);
@@ -385,6 +388,17 @@ const getPathwayFromTags = (tags: any[]): string | undefined => {
 };
 
 /**
+ * Return all pathway display names from API tags (for multi-pathway display)
+ */
+const getPathwaysFromTags = (tags: any[]): string[] => {
+    if (!tags || tags.length === 0) return [];
+    return tags.map((tag: any) => {
+        const name = tag?.name_fr || tag?.name || tag;
+        return typeof name === 'string' ? name.trim() : '';
+    }).filter((name: string) => name.length > 0);
+};
+
+/**
  * Map keywords (free-form tags) from API to frontend tags array
  * Keywords are the tags entered by users in the "Tags" field
  */
@@ -464,6 +478,8 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         is_deleted: coOwner.is_deleted || false // Preserve deleted status
     }));
     
+    const pathwaysFromApi = getPathwaysFromTags(apiProject.tags || []);
+
     return {
         id: apiProject.id.toString(),
         title: apiProject.title,
@@ -471,6 +487,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         status: apiProject.status,
         visibility: apiProject.private ? 'private' : 'public',
         pathway: pathway,
+        pathways: pathwaysFromApi.length > 0 ? pathwaysFromApi : (pathway ? [pathway] : undefined),
         organization: projectOrganizationName, // Project's organization (can fallback to user's org)
         owner: owner?.name || owner?.email || 'Inconnu',
         // Prefer members_count (owner + confirmed only) for display; fallback to participants_number for compatibility
@@ -539,10 +556,10 @@ export const getUserProjectRole = (
         return 'owner';
     }
     
-    // Check if co-owner
+    // Check if co-owner (support both co.id and co.user?.id for API structure)
     if (apiProject.co_owners && Array.isArray(apiProject.co_owners)) {
-        const isCoOwner = apiProject.co_owners.some((co: any) => 
-            co.id?.toString() === userIdStr
+        const isCoOwner = apiProject.co_owners.some((co: any) =>
+            co.id?.toString() === userIdStr || co.user?.id?.toString() === userIdStr
         );
         if (isCoOwner) {
             return 'co-owner';

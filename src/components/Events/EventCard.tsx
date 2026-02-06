@@ -7,8 +7,8 @@ interface EventCardProps {
   event: Event;
   members: Member[];
   onClick: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   onDuplicate: () => void;
 }
 
@@ -71,6 +71,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {onEdit && (
                   <button
                     className="event-menu-item"
                     style={{
@@ -92,6 +93,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
                     <i className="fas fa-edit"></i>
                     Modifier
                   </button>
+                  )}
                   <button
                     className="event-menu-item"
                     style={{
@@ -113,6 +115,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
                     <i className="fas fa-copy"></i>
                     Dupliquer
                   </button>
+                  {onDelete && (
                   <button
                     className="event-menu-item"
                     style={{
@@ -135,6 +138,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
                     <i className="fas fa-trash"></i>
                     Supprimer
                   </button>
+                  )}
                 </div>
               )}
             </div>
