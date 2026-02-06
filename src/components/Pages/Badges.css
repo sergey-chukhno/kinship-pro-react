@@ -46,6 +46,75 @@
   align-items: center;
 }
 
+/* User dashboard tabs: text + underline (tab style, not buttons) */
+.badges-user-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  padding-bottom: 1rem;
+}
+
+.badges-user-tab {
+  position: relative;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-light, #6b7280);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 0;
+  margin-bottom: -1rem;
+  padding-bottom: 1rem;
+  transition: color 0.2s ease;
+}
+
+.badges-user-tab:hover {
+  color: #db087c;
+}
+
+.badges-user-tab.active {
+  color: #db087c;
+  font-weight: 600;
+}
+
+/* Pill-shaped underline for active tab (tab look, not filled button) */
+.badges-user-tab.active::after {
+  content: '';
+  display: block;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  min-width: 80px;
+  height: 4px;
+  background: #db087c;
+  border-radius: 4px;
+}
+
+/* Compétences par niveau chart (Mes statistiques) */
+.badges-stats-chart-card .chart-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+.badges-stats-chart-card .radar-chart {
+  height: auto;
+  margin-top: 1rem;
+}
+
+.badges-stats-chart-card .radar-chart .radar-svg {
+  height: 352px;
+}
+
+.badges-stats-chart-card .radar-legend {
+  margin-top: 1rem;
+  padding-bottom: 1.5rem;
+}
+
 .badges-filters {
   display: flex;
   flex-direction: row;
