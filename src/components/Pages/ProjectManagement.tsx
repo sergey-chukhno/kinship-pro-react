@@ -2172,6 +2172,11 @@ const ProjectManagement: React.FC = () => {
   const handleUploadDocuments = async (files: File[]) => {
     if (!project?.id) return;
 
+    if (isProjectEnded) {
+      showError('Impossible d\'ajouter des documents à un projet terminé');
+      return;
+    }
+
     // Client-side validation (max 5 total, 1MB each)
     const currentCount = projectDocuments.length;
     if (currentCount + files.length > 5) {
@@ -4849,7 +4854,7 @@ const ProjectManagement: React.FC = () => {
                     <h3>Documents</h3>
                   </div>
 
-                  {!isSuperadminViewingReadOnly && (
+                  {!isSuperadminViewingReadOnly && !isProjectEnded && (
                     <div className="badge-filters">
                       <div className="filter-group" style={{ width: '100%' }}>
                         <input
