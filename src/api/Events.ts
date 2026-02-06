@@ -48,6 +48,7 @@ export interface EventResponse {
   participants?: EventParticipantResponse[];
   image?: string;
   created_at: string;
+  createdBy?: string;
   updated_at: string;
   documents?: any[];
 }

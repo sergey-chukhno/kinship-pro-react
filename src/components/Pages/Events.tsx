@@ -64,7 +64,7 @@ const Events: React.FC = () => {
       image: apiEvent.image || '',
       status: apiEvent.status as Event['status'],
       projectId: '',
-      createdBy: '',
+      createdBy: (apiEvent.createdBy ?? '').toString(),
       createdAt: apiEvent.created_at,
       documents: apiEvent.documents || [],
     };
@@ -428,17 +428,21 @@ const Events: React.FC = () => {
                   <p>Aucun événement trouvé</p>
                 </div>
               ) : (
-                filteredEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    members={state.members}
-                    onClick={() => handleEventClick(event)}
-                    onEdit={() => handleEditEvent(event)}
-                    onDelete={() => handleDeleteEvent(event.id)}
-                    onDuplicate={() => handleDuplicateEvent(event)}
-                  />
-                ))
+                filteredEvents.map((event) => {
+                  const currentUserId = state.user?.id == null ? '' : String(state.user.id);
+                  const isEventCreator = Boolean(currentUserId && event.createdBy && currentUserId === String(event.createdBy));
+                  return (
+                    <EventCard
+                      key={event.id}
+                      event={event}
+                      members={state.members}
+                      onClick={() => handleEventClick(event)}
+                      onEdit={isEventCreator ? () => handleEditEvent(event) : undefined}
+                      onDelete={isEventCreator ? () => handleDeleteEvent(event.id) : undefined}
+                      onDuplicate={() => handleDuplicateEvent(event)}
+                    />
+                  );
+                })
               )}
             </div>
           )}
@@ -455,7 +459,10 @@ const Events: React.FC = () => {
             </button>
           </div>
           <div className="events-overlay-content">
-            {filteredEvents.slice(0, 5).map((event) => (
+            {filteredEvents.slice(0, 5).map((event) => {
+              const currentUserId = state.user?.id == null ? '' : String(state.user.id);
+              const isEventCreator = Boolean(currentUserId && event.createdBy && currentUserId === String(event.createdBy));
+              return (
               <div key={event.id} className="notification-card">
                 <div className="notification-icon">
                   <img src="/icons_logo/Icon=Event.svg" alt="Event" />
@@ -481,6 +488,7 @@ const Events: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                {isEventCreator && (
                 <div className="notification-actions">
                   <button className="btn-icon" title="Modifier" onClick={() => handleEditEvent(event)}>
                     <i className="fas fa-edit"></i>
@@ -489,8 +497,10 @@ const Events: React.FC = () => {
                     <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
                   </button>
                 </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

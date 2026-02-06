@@ -38,6 +38,45 @@ export const isUserOrgAdmin = (
 };
 
 /**
+ * Check if user is superadmin of at least one of the project's organizations (school or company).
+ * Used to allow read-only project details only for superadmins of the project's org.
+ */
+export const isUserSuperadminOfProjectOrg = (
+  apiProject: any,
+  user: User | undefined
+): boolean => {
+  if (!apiProject || !user?.available_contexts) return false;
+
+  const isSuperadminInOrg = (orgId: number, type: 'company' | 'school') => {
+    if (type === 'company') {
+      const c = user.available_contexts?.companies?.find(
+        (x: any) => x.id === orgId && (x.role || '').toLowerCase() === 'superadmin'
+      );
+      return !!c;
+    }
+    const s = user.available_contexts?.schools?.find(
+      (x: any) => x.id === orgId && (x.role || '').toLowerCase() === 'superadmin'
+    );
+    return !!s;
+  };
+
+  if (apiProject.company_ids && Array.isArray(apiProject.company_ids)) {
+    for (const companyId of apiProject.company_ids) {
+      if (isSuperadminInOrg(companyId, 'company')) return true;
+    }
+  }
+
+  if (apiProject.school_levels && Array.isArray(apiProject.school_levels)) {
+    for (const schoolLevel of apiProject.school_levels) {
+      const schoolId = schoolLevel.school_id ?? schoolLevel.school?.id;
+      if (schoolId != null && isSuperadminInOrg(schoolId, 'school')) return true;
+    }
+  }
+
+  return false;
+};
+
+/**
  * Check if user is admin/referent/superadmin of any of the project's organizations
  */
 export const isUserAdminOfProjectOrg = (

@@ -43,8 +43,10 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [eventBadges, setEventBadges] = useState<BadgeAPI[]>([]);
   const eventDocuments = (event as any).documents || [];
-  const isSessionTrainingWorkshopEvent = event.type === 'session' || event.type === 'training' || event.type === 'workshop';
-
+  const eventHasBadges = Boolean(event.badges && event.badges.length > 0);
+  const currentUserId = state.user?.id == null ? '' : String(state.user.id);
+  const isEventCreator = Boolean(currentUserId && event.createdBy && currentUserId === String(event.createdBy));
+  
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -175,7 +177,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
         {/* Header with action buttons */}
         <div className="event-detail-header-actions">
           {/* && event.status !== 'completed'  */}
-          {event.status !== 'completed'  && isSessionTrainingWorkshopEvent && state.showingPageType !== 'user' && (
+          {event.status !== 'completed' && eventHasBadges && state.showingPageType !== 'user' && isEventCreator && (
             <button
               className="flex gap-2 items-center btn-primary btn-sm"
               onClick={() => setIsCompleteModalOpen(true)}
@@ -196,13 +198,13 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <span>Exporter</span>
             </button>
           )}
-          {onEdit && state.showingPageType !== 'user' && (
+          {onEdit && state.showingPageType !== 'user' && isEventCreator && (
             <button className="flex gap-2 items-center btn-primary btn-sm btn-outline" onClick={onEdit} title="Modifier">
               <i className="fas fa-edit"></i>
               <span>Modifier</span>
             </button>
           )}
-          {onDelete && state.showingPageType !== 'user' && (
+          {onDelete && state.showingPageType !== 'user' && isEventCreator && (
             <button
               className="flex gap-2 items-center btn-sm"
               onClick={onDelete}
@@ -491,7 +493,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
                             )}
                           </div>
                         </div>
-                        {state.showingPageType !== 'user' && (
+                        {state.showingPageType !== 'user' && isEventCreator && (
                         <button
                           className="participant-delete-btn"
                           onClick={(e) => {
