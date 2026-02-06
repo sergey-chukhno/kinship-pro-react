@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getTags, getPartnerships, getTeacherSchoolPartnerships, getTeacherSchoolMembers, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
-import { getTeacherAllStudents } from '../../api/Dashboard';
+import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import {
   mapFrontendToBackend,
@@ -36,7 +36,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     organization: '',
     status: 'draft' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
     visibility: 'private' as 'public' | 'private', // par défaut en brouillon : privé
-    pathway: '',
+    pathways: [] as string[], // plusieurs parcours possibles
     tags: '',
     links: '',
     participants: [] as string[],
@@ -73,9 +73,15 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [members, setMembers] = useState<any[]>([]);
   const [availablePartnerships, setAvailablePartnerships] = useState<any[]>([]);
   const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
+  /** Toutes les classes de l’enseignant (API teachers/classes), pour filtrer par école sélectionnée */
+  const [teacherClassesAll, setTeacherClassesAll] = useState<any[]>([]);
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
   const [availablePathways, setAvailablePathways] = useState<any[]>([]);
   const [isLoadingPathways, setIsLoadingPathways] = useState(false);
+  const [pathwaySearchTerm, setPathwaySearchTerm] = useState('');
+  const [pathwayDropdownOpen, setPathwayDropdownOpen] = useState(false);
+  const pathwayDropdownRef = React.useRef<HTMLDivElement | null>(null);
+  const pathwaySearchInputRef = React.useRef<HTMLInputElement | null>(null);
   // Contact users from selected partnership, pre-selected as co-responsibles (for display)
   const [partnershipContactMembers, setPartnershipContactMembers] = useState<any[]>([]);
 
@@ -93,6 +99,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [hasMoreParticipants, setHasMoreParticipants] = useState(false);
   const [isLoadingParticipants, setIsLoadingParticipants] = useState(false);
   const participantsListRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Par classe : mode "manual" (liste d'élèves) ou "all" (toute la classe) ; par défaut aucun choix = pas de participants
+  const [classSelectionMode, setClassSelectionMode] = useState<Record<string, 'manual' | 'all'>>({});
+  const [classManualParticipantIds, setClassManualParticipantIds] = useState<Record<string, string[]>>({});
+  const [classDetailPopup, setClassDetailPopup] = useState<{ classId: string; className: string; mode: 'choice' | 'view' | 'manual' } | null>(null);
 
   // Search functionality with exclusion of already selected members
   // Members are mutually exclusive: cannot be both co-responsible AND participant
@@ -242,7 +253,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherProjectContext, selectedSchoolId, state.showingPageType, state.user.name, project]); // Utiliser state.user.name au lieu de state.user
 
-  // Quand l'enseignant change d'établissement, enlever les présélections (classes, participants, co-responsables)
+  // Quand l'enseignant change d'établissement, enlever les présélections (classes, participants, co-responsables, modes classe)
   useEffect(() => {
     if (state.showingPageType !== 'teacher' || teacherProjectContext !== 'school') return;
     setFormData(prev => ({
@@ -251,6 +262,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
       coResponsibles: [],
       schoolLevelIds: []
     }));
+    setClassSelectionMode({});
+    setClassManualParticipantIds({});
+    setClassDetailPopup(null);
   }, [selectedSchoolId]);
 
   useEffect(() => {
@@ -263,7 +277,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         organization: project.organization,
         status: project.status,
         visibility: project.visibility || 'public',
-        pathway: project.pathway || '',
+        pathways: project.pathway ? [project.pathway] : [],
         tags: project.tags.join(', '),
         links: project.links || '',
         participants: project.members,
@@ -371,42 +385,83 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     fetchPathways();
   }, []);
 
-  // Fetch school levels (classes) : en teacher selon l'école sélectionnée, en edu selon le contexte ; per_page=1000
   useEffect(() => {
-    const fetchSchoolLevels = async () => {
-      setIsLoadingSchoolLevels(true);
-      try {
-        let schoolId: number | undefined;
-
-        if (state.showingPageType === 'teacher') {
-          // Enseignant : récupérer les classes de l'école sélectionnée dans le formulaire
-          if (teacherProjectContext === 'school' && selectedSchoolId) {
-            schoolId = selectedSchoolId;
-          }
-        } else {
-          const organizationType = getOrganizationType(state.showingPageType);
-          const organizationId = getOrganizationId(state.user, state.showingPageType);
-          if (organizationType === 'school' && organizationId) {
-            schoolId = organizationId;
-          }
-        }
-
-        if (schoolId) {
-          const response = await getSchoolLevels(schoolId, 1, 1000);
-          setAvailableSchoolLevels(response.data?.data || []);
-        } else {
-          setAvailableSchoolLevels([]);
-        }
-      } catch (err) {
-        console.error('Error fetching school levels:', err);
-        setAvailableSchoolLevels([]);
-      } finally {
-        setIsLoadingSchoolLevels(false);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (pathwayDropdownRef.current && !pathwayDropdownRef.current.contains(e.target as Node)) {
+        setPathwayDropdownOpen(false);
       }
     };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-    fetchSchoolLevels();
-  }, [state.showingPageType, state.user, teacherProjectContext, selectedSchoolId]);
+  // En tant qu’enseignant : charger toutes les classes via teachers/classes (une seule fois)
+  useEffect(() => {
+    if (state.showingPageType !== 'teacher') {
+      setTeacherClassesAll([]);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingSchoolLevels(true);
+    getTeacherClasses(1, 1000)
+      .then((response) => {
+        const data = response.data?.data ?? response.data;
+        const list = Array.isArray(data) ? data : [];
+        if (!cancelled) setTeacherClassesAll(list);
+      })
+      .catch((err) => {
+        console.error('Error fetching teacher classes:', err);
+        if (!cancelled) setTeacherClassesAll([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingSchoolLevels(false);
+      });
+    return () => { cancelled = true; };
+  }, [state.showingPageType]);
+
+  // Déduire les classes affichées : teacher = filtrer par école sélectionnée et trier ; sinon = fetch schools/:id/levels
+  useEffect(() => {
+    if (state.showingPageType === 'teacher') {
+      if (teacherProjectContext === 'school' && selectedSchoolId != null) {
+        const schoolIdStr = String(selectedSchoolId);
+        const filtered = teacherClassesAll.filter(
+          (c: any) => String(c.school_id ?? c.school?.id) === schoolIdStr
+        );
+        const sorted = [...filtered].sort((a: any, b: any) => {
+          const nameA = (a.name || '').localeCompare(b.name || '');
+          if (nameA !== 0) return nameA;
+          return (a.level || '').localeCompare(b.level || '');
+        });
+        setAvailableSchoolLevels(sorted);
+      } else {
+        setAvailableSchoolLevels([]);
+      }
+      return;
+    }
+
+    const organizationType = getOrganizationType(state.showingPageType);
+    const organizationId = getOrganizationId(state.user, state.showingPageType);
+    if (organizationType !== 'school' || !organizationId) {
+      setAvailableSchoolLevels([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingSchoolLevels(true);
+    getSchoolLevels(organizationId, 1, 1000)
+      .then((response) => {
+        const list = response.data?.data || [];
+        if (!cancelled) setAvailableSchoolLevels(list);
+      })
+      .catch((err) => {
+        console.error('Error fetching school levels:', err);
+        if (!cancelled) setAvailableSchoolLevels([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingSchoolLevels(false);
+      });
+    return () => { cancelled = true; };
+  }, [state.showingPageType, state.user, teacherProjectContext, selectedSchoolId, teacherClassesAll]);
 
   // Fetch members and partnerships when modal opens
   useEffect(() => {
@@ -678,103 +733,107 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     }
   };
 
-  const handleSchoolLevelToggle = (schoolLevelId: string) => {
+  const handlePathwayToggle = (pathwayName: string) => {
     setFormData(prev => {
-      const isAlreadySelected = prev.schoolLevelIds.includes(schoolLevelId);
-
-      // Toggle selection of the organization (school level)
-      const updatedSchoolLevelIds = isAlreadySelected
-        ? prev.schoolLevelIds.filter(id => id !== schoolLevelId)
-        : [...prev.schoolLevelIds, schoolLevelId];
-
-      // When selecting (not unselecting), pré‑sélectionner les enseignants responsables et les participants de la classe
-      if (!isAlreadySelected) {
-        const selectedLevel = availableSchoolLevels.find(
-          (level: any) => level.id?.toString() === schoolLevelId
-        );
-
-        const teacherIds =
-          selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
-
-        // Participants de la classe : membres dont classes ou level_school contient cette classe
-        const memberIdsInClass = Array.isArray(members)
-          ? members
-              .filter((member: any) => {
-                if (!member?.id) return false;
-                const inClasses =
-                  Array.isArray(member.classes) &&
-                  member.classes.some((c: any) => c?.id?.toString() === schoolLevelId);
-                const inLevelSchool =
-                  Array.isArray(member.level_school) &&
-                  member.level_school.some((l: any) => l?.id?.toString() === schoolLevelId);
-                return inClasses || inLevelSchool;
-              })
-              .map((m: any) => m.id?.toString())
-              .filter(Boolean)
-          : [];
-
-        const coResponsiblesSet = new Set(prev.coResponsibles);
-        teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
-
-        const participantsSet = new Set(prev.participants);
-        memberIdsInClass.forEach((id: string) => participantsSet.add(id));
-
-        return {
-          ...prev,
-          schoolLevelIds: updatedSchoolLevelIds,
-          coResponsibles: Array.from(coResponsiblesSet),
-          participants: Array.from(participantsSet)
-        };
-      }
-
-      // Quand la classe est désélectionnée, désélectionner les participants et co-responsables de cette classe
-      if (isAlreadySelected) {
-        const selectedLevel = availableSchoolLevels.find(
-          (level: any) => level.id?.toString() === schoolLevelId
-        );
-        const teacherIds =
-          selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
-
-        const memberIdsInClass = Array.isArray(members)
-          ? members
-              .filter((member: any) => {
-                if (!member?.id) return false;
-                const inClasses =
-                  Array.isArray(member.classes) &&
-                  member.classes.some((c: any) => c?.id?.toString() === schoolLevelId);
-                const inLevelSchool =
-                  Array.isArray(member.level_school) &&
-                  member.level_school.some((l: any) => l?.id?.toString() === schoolLevelId);
-                return inClasses || inLevelSchool;
-              })
-              .map((m: any) => m.id?.toString())
-              .filter(Boolean)
-          : [];
-
-        const coResponsiblesToRemove = new Set(teacherIds);
-        const participantsToRemove = new Set(memberIdsInClass);
-
-        const updatedCoResponsibles = prev.coResponsibles.filter(
-          (id) => !coResponsiblesToRemove.has(id.toString())
-        );
-        const updatedParticipants = prev.participants.filter(
-          (id) => !participantsToRemove.has(id.toString())
-        );
-
-        return {
-          ...prev,
-          schoolLevelIds: updatedSchoolLevelIds,
-          coResponsibles: updatedCoResponsibles,
-          participants: updatedParticipants
-        };
-      }
-
-      return {
-        ...prev,
-        schoolLevelIds: updatedSchoolLevelIds
-      };
+      const current = prev.pathways || [];
+      const isSelected = current.includes(pathwayName);
+      const next = isSelected ? current.filter(p => p !== pathwayName) : [...current, pathwayName];
+      return { ...prev, pathways: next };
     });
   };
+
+  /** Élèves appartenant à une classe (members dont classes ou level_school contient cette classe) */
+  const getStudentsInClass = (schoolLevelId: string): any[] => {
+    if (!Array.isArray(members)) return [];
+    return members.filter((member: any) => {
+      if (!member?.id) return false;
+      const inClasses =
+        Array.isArray(member.classes) &&
+        member.classes.some((c: any) => c?.id?.toString() === schoolLevelId);
+      const inLevelSchool =
+        Array.isArray(member.level_school) &&
+        member.level_school.some((l: any) => l?.id?.toString() === schoolLevelId);
+      return inClasses || inLevelSchool;
+    });
+  };
+
+  const handleSchoolLevelToggle = (schoolLevelId: string) => {
+    const isAlreadySelected = formData.schoolLevelIds.includes(schoolLevelId);
+
+    if (isAlreadySelected) {
+      setFormData(prev => {
+        const updatedSchoolLevelIds = prev.schoolLevelIds.filter(id => id !== schoolLevelId);
+        const memberIdsInClass = getStudentsInClass(schoolLevelId).map((m: any) => m.id?.toString()).filter(Boolean);
+        const participantsToRemove = new Set(memberIdsInClass);
+        const updatedParticipants = prev.participants.filter(id => !participantsToRemove.has(id.toString()));
+        return { ...prev, schoolLevelIds: updatedSchoolLevelIds, participants: updatedParticipants };
+      });
+      setClassSelectionMode(prev => {
+        const next = { ...prev };
+        delete next[schoolLevelId];
+        return next;
+      });
+      setClassManualParticipantIds(prev => {
+        const next = { ...prev };
+        delete next[schoolLevelId];
+        return next;
+      });
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      schoolLevelIds: [...prev.schoolLevelIds, schoolLevelId]
+    }));
+    // Ouvrir directement la popup au coche de la classe (une seule étape)
+    const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === schoolLevelId);
+    const className = classItem ? `${classItem.name}${classItem.level ? ` - ${classItem.level}` : ''}` : schoolLevelId;
+    setClassDetailPopup({ classId: schoolLevelId, className, mode: 'choice' });
+  };
+
+  const setClassMode = (classId: string, mode: 'manual' | 'all') => {
+    setClassSelectionMode(prev => ({ ...prev, [classId]: mode }));
+    if (mode === 'all') {
+      setClassManualParticipantIds(prev => {
+        const next = { ...prev };
+        delete next[classId];
+        return next;
+      });
+    } else {
+      setClassManualParticipantIds(prev => ({ ...prev, [classId]: [] }));
+    }
+  };
+
+  const toggleClassManualParticipant = (classId: string, memberId: string) => {
+    const idStr = memberId.toString();
+    setClassManualParticipantIds(prev => {
+      const current = prev[classId] || [];
+      return current.includes(idStr)
+        ? { ...prev, [classId]: current.filter(id => id !== idStr) }
+        : { ...prev, [classId]: [...current, idStr] };
+    });
+  };
+
+  // Synchroniser formData.participants à partir des classes (modes manual / all) — teacher (contexte école) ou school (edu)
+  const useClassBasedParticipants =
+    (state.showingPageType === 'teacher' && teacherProjectContext === 'school') || state.showingPageType === 'edu';
+  useEffect(() => {
+    if (!useClassBasedParticipants || formData.schoolLevelIds.length === 0) return;
+    const fromClasses: string[] = [];
+    formData.schoolLevelIds.forEach(classId => {
+      const mode = classSelectionMode[classId];
+      if (mode === 'all') {
+        getStudentsInClass(classId).forEach((m: any) => {
+          const id = m.id?.toString();
+          if (id) fromClasses.push(id);
+        });
+      } else if (mode === 'manual') {
+        (classManualParticipantIds[classId] || []).forEach(id => fromClasses.push(id));
+      }
+    });
+    setFormData(prev => ({ ...prev, participants: Array.from(new Set(fromClasses)) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classSelectionMode, classManualParticipantIds, formData.schoolLevelIds, useClassBasedParticipants, members]);
 
   /** Calcule le statut (en cours / à venir) à partir de la date de début. */
   const getStatusFromStartDate = (startDate: string): 'in_progress' | 'coming' => {
@@ -813,7 +872,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
     // En création complète (non brouillon), exiger en plus : parcours et école (pour enseignant)
     const isPathwayRequired = true;
-    const isPathwayValid = !isPathwayRequired || formData.pathway;
+    const isPathwayValid = !isPathwayRequired || (formData.pathways && formData.pathways.length > 0);
 
     if (effectiveStatus !== 'draft') {
       if (!isPathwayValid || !effectiveStatus) {
@@ -903,7 +962,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         description: createdProject.description,
         status: createdProject.status as 'to_process' | 'coming' | 'in_progress' | 'ended',
         visibility: payload.project.private ? 'private' : 'public' as 'public' | 'private',
-        pathway: formData.pathway || 'citoyen',
+        pathway: (formData.pathways && formData.pathways[0]) || 'citoyen',
         organization: formData.organization,
         owner: state.user.name,
         participants: createdProject.members_count,
@@ -1393,33 +1452,76 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="projectPathway">Parcours *</label>
+            <div className="form-group pathway-search-form" ref={pathwayDropdownRef}>
+              <label className="form-label">Parcours *</label>
               {isLoadingPathways ? (
-                <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
-                  <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                <div className="loading-message pathway-loading">
+                  <i className="fas fa-spinner fa-spin" />
                   <span>Chargement des parcours...</span>
                 </div>
               ) : (
-                <select
-                  id="projectPathway"
-                  name="pathway"
-                  required
-                  value={formData.pathway}
-                  onChange={handleInputChange}
-                  className="form-select"
-                >
-                  <option value="">Sélectionner un parcours</option>
-                  {availablePathways.map((pathway: any) => (
-                    <option key={pathway.id} value={pathway.name}>
-                      {pathway.name_fr || pathway.name}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  {(formData.pathways || []).length > 0 && (
+                    <div className="pathway-selected-pills">
+                      {(formData.pathways || []).map((name) => (
+                        <span key={name} className="pathway-pill-selected">
+                          {name}
+                          <button type="button" className="pathway-pill-remove" onClick={() => handlePathwayToggle(name)} aria-label="Retirer">
+                            <i className="fas fa-times" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="pathway-search-bar-wrap">
+                    <i className="fas fa-search pathway-search-icon" />
+                    <input
+                      ref={pathwaySearchInputRef}
+                      type="text"
+                      className="form-input pathway-search-input !px-8"
+                      placeholder="Rechercher un parcours..."
+                      value={pathwaySearchTerm}
+                      onChange={(e) => setPathwaySearchTerm(e.target.value)}
+                      onFocus={() => setPathwayDropdownOpen(true)}
+                      onBlur={(e) => {
+                        const next = e.relatedTarget as Node | null;
+                        if (pathwayDropdownRef.current && next && pathwayDropdownRef.current.contains(next)) return;
+                        setPathwayDropdownOpen(false);
+                      }}
+                    />
+                    {pathwayDropdownOpen && (
+                      <div className="pathway-dropdown">
+                        {availablePathways
+                          .filter((p: any) => !pathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(pathwaySearchTerm.toLowerCase()))
+                          .map((pathway: any) => {
+                            const pathwayName = pathway.name;
+                            const isSelected = (formData.pathways || []).includes(pathwayName);
+                            return (
+                              <button
+                                type="button"
+                                key={pathway.id}
+                                className={`pathway-dropdown-item ${isSelected ? 'selected' : ''}`}
+                                onClick={() => {
+                                  handlePathwayToggle(pathwayName);
+                                  pathwaySearchInputRef.current?.focus();
+                                }}
+                              >
+                                {isSelected && <i className="fas fa-check pathway-item-check" />}
+                                <span>{pathway.name_fr || pathway.name}</span>
+                              </button>
+                            );
+                          })}
+                        {availablePathways.filter((p: any) => !pathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(pathwaySearchTerm.toLowerCase())).length === 0 && (
+                          <div className="pathway-dropdown-empty">Aucun parcours trouvé</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
 
-            {/* Organisation porteuse */}
+            {/* Organisation porteuse / Classes */}
             {availableSchoolLevels.length > 0 && (
               <div className="form-group">
                 <div className="form-label">Ajouter une/des classe(s) au projet</div>
@@ -1429,25 +1531,190 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                     <span>Chargement des classes...</span>
                   </div>
                 ) : (
-                  <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                    {availableSchoolLevels.map(classItem => (
-                      <label 
-                        key={classItem.id} 
-                        className={`multi-select-item !flex items-center gap-2 ${formData.schoolLevelIds.includes(classItem.id.toString()) ? 'selected' : ''}`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.schoolLevelIds.includes(classItem.id.toString())}
-                          onChange={() => handleSchoolLevelToggle(classItem.id.toString())}
-                        />
-                        <div className="multi-select-checkmark">
-                          <i className="fas fa-check"></i>
+                  <>
+                    <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                      {availableSchoolLevels.map(classItem => (
+                        <label
+                          key={classItem.id}
+                          className={`multi-select-item !flex items-center gap-2 ${formData.schoolLevelIds.includes(classItem.id.toString()) ? 'selected' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.schoolLevelIds.includes(classItem.id.toString())}
+                            onChange={() => handleSchoolLevelToggle(classItem.id.toString())}
+                          />
+                          <div className="multi-select-checkmark">
+                            <i className="fas fa-check"></i>
+                          </div>
+                          <span className="multi-select-label">{classItem.name} {classItem.level ? `- ${classItem.level}` : ''} ({classItem.students_count} élève{classItem.students_count > 1 ? 's' : ''})</span>
+                        </label>
+                      ))}
+                    </div>
+                    {/* Pour chaque classe cochée : choix manuel / tout, puis liste ou label */}
+                    {formData.schoolLevelIds.map(classId => {
+                      const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === classId);
+                      const className = classItem ? `${classItem.name}${classItem.level ? ` - ${classItem.level}` : ''}` : classId;
+                      const mode = classSelectionMode[classId];
+                      const students = getStudentsInClass(classId);
+
+                      return (
+                        <div key={classId} className="form-group" style={{ marginTop: '12px', paddingLeft: '8px', borderLeft: '3px solid #e5e7eb' }}>
+                          <div className="form-label" style={{ fontSize: '0.9rem', marginBottom: '8px' }}>{className}</div>
+                          <div className="flex flex-wrap gap-2" style={{ marginBottom: '8px' }}>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              onClick={() => {
+                                if (mode !== 'manual') setClassMode(classId, 'manual');
+                                setClassDetailPopup({ classId, className, mode: mode === 'all' ? 'view' : 'manual' });
+                              }}
+                            >
+                              <i className="fas fa-user-check" />
+                              <span>{mode === 'manual' ? 'Modifier la sélection' : mode === 'all' ? `Voir les élèves (${students.length})` : 'Sélectionner manuellement'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              onClick={() => setClassMode(classId, 'all')}
+                            >
+                              <i className="fas fa-users" />
+                              <span>Tout sélectionner</span>
+                            </button>
+                          </div>
                         </div>
-                        <span className="multi-select-label">{classItem.name} {classItem.level ? `- ${classItem.level}` : ''}</span>
-                      </label>
-                    ))}
-                  </div>
+                      );
+                    })}
+                  </>
                 )}
+              </div>
+            )}
+
+            {/* Popup détail classe (tout sélectionner ou sélection manuelle) */}
+            {classDetailPopup && (
+              <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setClassDetailPopup(null)}>
+                <div className="modal-content" style={{ background: 'white', borderRadius: '8px', maxWidth: '400px', width: '90%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                  <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{classDetailPopup.className}</h3>
+                    <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100"  onClick={() => setClassDetailPopup(null)}>
+                      <i className="fas fa-times" />
+                    </button>
+                  </div>
+                  <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                    {(() => {
+                      const students = getStudentsInClass(classDetailPopup.classId);
+
+                      // Mode choix : deux boutons (ouvrir la popup au coche de la classe)
+                      if (classDetailPopup.mode === 'choice') {
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <p style={{ margin: '0 0 8px', color: '#6b7280', fontSize: '0.9rem' }}>Comment souhaitez-vous ajouter les élèves de cette classe ?</p>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                              onClick={() => {
+                                setClassMode(classDetailPopup.classId, 'manual');
+                                setClassDetailPopup(prev => prev ? { ...prev, mode: 'manual' as const } : null);
+                              }}
+                            >
+                              <i className="fas fa-user-check" />
+                              <span>Sélectionner manuellement</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                              onClick={() => {
+                                setClassMode(classDetailPopup.classId, 'all');
+                                setClassDetailPopup(null);
+                              }}
+                            >
+                              <i className="fas fa-users" />
+                              <span>Tout sélectionner</span>
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      if (students.length === 0) {
+                        return <p style={{ color: '#6b7280' }}>Aucun élève dans cette classe.</p>;
+                      }
+
+                      // Mode vue simple (tout sélectionner) : liste en lecture seule
+                      if (classDetailPopup.mode === 'view') {
+                        return (
+                          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                            {students.map((student: any) => (
+                              <li key={student.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                                {student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim()}
+                              </li>
+                            ))}
+                          </ul>
+                        );
+                      }
+
+                      // Mode sélection manuelle : liste interactive + bouton "Tout sélectionner" toujours accessible
+                      return (
+                        <div>
+                          <div style={{ marginBottom: '12px' }}>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              onClick={() => {
+                                setClassMode(classDetailPopup.classId, 'all');
+                                setClassDetailPopup(null);
+                              }}
+                            >
+                              <i className="fas fa-users" />
+                              <span>Tout sélectionner</span>
+                            </button>
+                          </div>
+                          {students.map((student: any) => {
+                            const sid = student.id?.toString();
+                            const checked = (classManualParticipantIds[classDetailPopup.classId] || []).includes(sid);
+                            const name = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim();
+                            return (
+                              <div
+                                key={student.id}
+                                className="selection-item"
+                                onClick={() => toggleClassManualParticipant(classDetailPopup.classId, sid)}
+                                style={{
+                                  cursor: 'pointer',
+                                  ...(checked
+                                    ? {
+                                        backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                        border: '1px solid #5570F1',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                      }
+                                    : {})
+                                }}
+                              >
+                                <AvatarImage
+                                  src={student.avatar_url || '/default-avatar.png'}
+                                  alt={name}
+                                  className="item-avatar"
+                                />
+                                <div className="item-info">
+                                  <div className="item-name">{name}</div>
+                                  <div className="item-role">{translateRole(student.role ?? student.role_in_system ?? '')}</div>
+                                </div>
+                                {checked && (
+                                  <div style={{ flexShrink: 0, color: '#5570F1' }} title="Sélectionné">
+                                    <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }} />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1487,7 +1754,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                   checked={formData.isPartnership}
                   onChange={handleInputChange}
                 />
-                <label htmlFor="isPartnership" className="pt-2 text-sm">Est-ce un partenariat ?</label>
+                <label htmlFor="isPartnership" className="pt-2 text-sm">Ajouter un partenaire</label>
               </div>
             </div>
 
@@ -1678,31 +1945,101 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                   <>
                     {formData.participants.length > 0 && (
                       <div className="selected-items">
-                        {formData.participants.map((memberId) => {
-                          const member = getSelectedMember(memberId);
-                          const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
-                          const classSchoolNames = member?.classes?.length ? (member.classes as any[]).map((c: any) => c?.school?.name).filter(Boolean).join(', ') : '';
-                          const memberOrg = (typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '')) || schoolLabel || classSchoolNames || '';
-                          return member ? (
-                            <div key={memberId} className="selected-member">
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
-                              <div className="selected-info">
-                                <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
-                                {memberOrg && (
-                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
-                                )}
+                        {(() => {
+                          // En contexte enseignant + école : afficher le niveau si toute la classe est sélectionnée, sinon les membres
+                          const showLevelSummary = useClassBasedParticipants && formData.schoolLevelIds.length > 0;
+                          if (showLevelSummary) {
+                            const levelEntries: { type: 'level'; classId: string; className: string }[] = [];
+                            const memberIdsFromAllClasses = new Set<string>();
+                            formData.schoolLevelIds.forEach(classId => {
+                              const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === classId);
+                              const className = classItem ? `${classItem.name}${classItem.level ? ` - ${classItem.level}` : ''}` : classId;
+                              if (classSelectionMode[classId] === 'all') {
+                                levelEntries.push({ type: 'level', classId, className });
+                                getStudentsInClass(classId).forEach((m: any) => {
+                                  const id = m.id?.toString();
+                                  if (id) memberIdsFromAllClasses.add(id);
+                                });
+                              }
+                            });
+                            const memberEntries = formData.participants
+                              .filter(id => !memberIdsFromAllClasses.has(id.toString()))
+                              .map(memberId => ({ type: 'member' as const, memberId }));
+                            return (
+                              <>
+                                {levelEntries.map(({ classId, className }) => (
+                                  <div key={`level-${classId}`} className="selected-member">
+                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(85, 112, 241, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                      <i className="fas fa-users" style={{ fontSize: '1rem', color: 'var(--primary, #5570F1)' }} />
+                                    </div>
+                                    <div className="w-full">
+                                      <div className="!whitespace-normal w-full selected-name">{className}</div>
+                                      <div className="selected-role" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Classe entière</div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="remove-selection"
+                                      onClick={() => handleSchoolLevelToggle(classId)}
+                                      title="Retirer la classe"
+                                    >
+                                      <i className="fas fa-times"></i>
+                                    </button>
+                                  </div>
+                                ))}
+                                {memberEntries.map(({ memberId }) => {
+                                  const member = getSelectedMember(memberId);
+                                  const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
+                                  const classSchoolNames = member?.classes?.length ? (member.classes as any[]).map((c: any) => c?.school?.name).filter(Boolean).join(', ') : '';
+                                  const memberOrg = (typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '')) || schoolLabel || classSchoolNames || '';
+                                  return member ? (
+                                    <div key={memberId} className="selected-member">
+                                      <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                                      <div className="selected-info">
+                                        <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                        <div className="selected-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                        {memberOrg && (
+                                          <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="remove-selection"
+                                        onClick={() => handleMemberSelect('participants', memberId)}
+                                      >
+                                        <i className="fas fa-times"></i>
+                                      </button>
+                                    </div>
+                                  ) : null;
+                                })}
+                              </>
+                            );
+                          }
+                          return formData.participants.map((memberId) => {
+                            const member = getSelectedMember(memberId);
+                            const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
+                            const classSchoolNames = member?.classes?.length ? (member.classes as any[]).map((c: any) => c?.school?.name).filter(Boolean).join(', ') : '';
+                            const memberOrg = (typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '')) || schoolLabel || classSchoolNames || '';
+                            return member ? (
+                              <div key={memberId} className="selected-member">
+                                <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                                <div className="selected-info">
+                                  <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                  <div className="selected-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
+                                  {memberOrg && (
+                                    <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="remove-selection"
+                                  onClick={() => handleMemberSelect('participants', memberId)}
+                                >
+                                  <i className="fas fa-times"></i>
+                                </button>
                               </div>
-                              <button
-                                type="button"
-                                className="remove-selection"
-                                onClick={() => handleMemberSelect('participants', memberId)}
-                              >
-                                <i className="fas fa-times"></i>
-                              </button>
-                            </div>
-                          ) : null;
-                        })}
+                            ) : null;
+                          });
+                        })()}
                       </div>
                     )}
                     <div

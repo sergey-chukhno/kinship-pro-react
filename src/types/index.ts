@@ -128,6 +128,7 @@ export interface Project {
   status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
   visibility?: 'public' | 'private';
   pathway?: string;
+  pathways?: string[];
   organization: string;
   owner: string;
   participants: number;

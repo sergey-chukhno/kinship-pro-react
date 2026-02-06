@@ -50,28 +50,16 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
     }
   };
 
-  const getPathwayColor = (pathway: string) => {
-    switch (pathway) {
-      case 'sante': return 'pathway-sante';
-      case 'citoyen': return 'pathway-citoyen';
-      case 'eac': return 'pathway-eac';
-      case 'creativite': return 'pathway-creativite';
-      case 'avenir': return 'pathway-avenir';
-      default: return 'pathway-other';
+  /** Slug pour la classe CSS pathway-pill (aligné sur ProjectManagement). */
+  const pathwaySlug = (name: string): string => {
+    const accented = 'àâäéèêëïîôùûüçæœ';
+    const plain = 'aaaeeeeiioouucaeoe';
+    let s = String(name ?? '').toLowerCase().trim();
+    for (let i = 0; i < accented.length; i++) {
+      s = s.replaceAll(accented[i], plain[i]);
     }
-  };
-
-  const getPathwayText = (pathway: string) => {
-    switch (pathway) {
-      case 'sante': return 'Santé';
-      case 'citoyen': return 'Citoyen';
-      case 'eac': return 'EAC';
-      case 'creativite': return 'Créativité';
-      case 'avenir': return 'Avenir';
-      case 'mlds': return 'MLDS';
-      case 'faj_co': return 'FAJ Co';
-      default: return 'Autre';
-    }
+    s = s.replace(/[^a-z0-9\s_]/g, '');
+    return s.replace(/\s+/g, '_') || 'other';
   };
 
   return (
@@ -88,7 +76,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
       </div>
 
       <div className="project-content">
-        <div className="project-header">
+        <div className="flex flex-col gap-2 project-header">
           {/* Display RS before title for MLDS projects with dates */}
           
           <h3 className="project-title">
@@ -96,11 +84,21 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
             {project.title}
             
             </h3>
-          {project.pathway && (
-            <span className={`pathway-pill ${getPathwayColor(project.pathway)}`}>
-              {getPathwayText(project.pathway)}
-            </span>
-          )}
+          {(() => {
+            const pathwayList = (project.pathways && project.pathways.length > 0)
+              ? project.pathways
+              : (project.pathway ? [project.pathway] : []);
+            if (pathwayList.length === 0) return null;
+            return (
+              <div className="project-card-pathways">
+                {pathwayList.map((p, index) => (
+                  <span key={`${p}-${index}`} className={`pathway-pill pathway-${pathwaySlug(p)}`}>
+                    {p}
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         <div className="project-description-section">

@@ -2835,6 +2835,147 @@ html[data-theme="dark"] .badge-explorer-card .badge-icon i {
   box-shadow: 0 0 0 3px rgba(85, 112, 241, 0.1);
 }
 
+/* Parcours : barre de recherche + dropdown compact */
+.pathway-search-form {
+  position: relative;
+}
+
+.pathway-search-form .pathway-loading {
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pathway-selected-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.pathway-pill-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--primary, #5570F1);
+  background: rgba(85, 112, 241, 0.1);
+  border-radius: 9999px;
+  border: 1px solid rgba(85, 112, 241, 0.25);
+}
+
+.pathway-pill-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  width: 1rem;
+  height: 1rem;
+  border: none;
+  background: transparent;
+  color: var(--primary, #5570F1);
+  cursor: pointer;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+.pathway-pill-remove:hover {
+  opacity: 1;
+  background: rgba(85, 112, 241, 0.2);
+}
+
+.pathway-search-bar-wrap {
+  position: relative;
+}
+
+.pathway-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+  pointer-events: none;
+}
+
+.pathway-search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--card-bg, #fff);
+  transition: border-color 0.2s;
+}
+
+.pathway-search-input:focus {
+  outline: none;
+  border-color: var(--primary, #5570F1);
+  box-shadow: 0 0 0 2px rgba(85, 112, 241, 0.15);
+}
+
+.pathway-search-input::placeholder {
+  color: var(--text-secondary, #9ca3af);
+}
+
+.pathway-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.pathway-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #374151);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pathway-dropdown-item:hover {
+  background: var(--primary-light, rgba(85, 112, 241, 0.08));
+}
+
+.pathway-dropdown-item.selected {
+  background: rgba(85, 112, 241, 0.1);
+  color: var(--primary, #5570F1);
+}
+
+.pathway-item-check {
+  width: 1rem;
+  font-size: 0.7rem;
+  color: var(--primary, #5570F1);
+}
+
+.pathway-dropdown-empty {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #6b7280);
+  text-align: center;
+}
+
 .project-modal .member-avatar {
   width: 50px;
   height: 50px;

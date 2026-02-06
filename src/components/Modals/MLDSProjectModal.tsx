@@ -938,7 +938,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 <div className="multi-select-checkmark">
                   <i className="fas fa-check"></i>
                 </div>
-                <span className="multi-select-label">Est-ce un partenariat ?</span>
+                <span className="multi-select-label">Ajouter un partenaire</span>
               </label>
             </div>
 
