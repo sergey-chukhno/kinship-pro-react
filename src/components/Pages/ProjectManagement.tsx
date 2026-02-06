@@ -18,6 +18,7 @@ import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
+import '../Modals/Modal.css';
 import { isUserAdminOfProjectOrg, isUserProjectParticipant, isUserSuperadmin, isUserSuperadminOfProjectOrg } from '../../utils/projectPermissions';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
@@ -170,6 +171,7 @@ const ProjectManagement: React.FC = () => {
     isPartnership: false,
     coResponsibles: [] as string[],
     partners: [] as string[],
+    participants: [] as string[],
     // MLDS fields
     mldsRequestedBy: 'departement',
     mldsDepartment: '',
@@ -200,6 +202,15 @@ const ProjectManagement: React.FC = () => {
     coResponsibles: '',
     partner: ''
   });
+  /** Pour l'édition : parcours (même input que ProjectModal) */
+  const [editPathwaySearchTerm, setEditPathwaySearchTerm] = useState('');
+  const [editPathwayDropdownOpen, setEditPathwayDropdownOpen] = useState(false);
+  const editPathwayDropdownRef = useRef<HTMLDivElement | null>(null);
+  const editPathwaySearchInputRef = useRef<HTMLInputElement | null>(null);
+  /** Pour l'édition : mode par classe (manual / all) et popup détail classe */
+  const [editClassSelectionMode, setEditClassSelectionMode] = useState<Record<string, 'manual' | 'all'>>({});
+  const [editClassManualParticipantIds, setEditClassManualParticipantIds] = useState<Record<string, string[]>>({});
+  const [editClassDetailPopup, setEditClassDetailPopup] = useState<{ classId: string; className: string; mode: 'choice' | 'view' | 'manual' } | null>(null);
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
@@ -933,9 +944,11 @@ const ProjectManagement: React.FC = () => {
   /**
    * Fetch all project members including owner, co-owners, and confirmed members
    * Returns members sorted by role: owner -> co-owners -> admins -> members
+   * @param overrideApiProject - when provided (e.g. after edit), use this instead of apiProjectData from state
    */
-  const fetchAllProjectMembers = async (): Promise<any[]> => {
-    if (!project?.id || !apiProjectData) return [];
+  const fetchAllProjectMembers = async (overrideApiProject?: any): Promise<any[]> => {
+    const projectData = overrideApiProject ?? apiProjectData;
+    if (!project?.id || !projectData) return [];
 
     const projectId = parseInt(project.id);
     const allMembers: any[] = [];
@@ -986,26 +999,26 @@ const ProjectManagement: React.FC = () => {
     };
 
     // Add owner (skip if soft-deleted - they shouldn't appear in badge assignment list)
-    if (apiProjectData.owner && !apiProjectData.owner.is_deleted) {
-      const ownerId = apiProjectData.owner.id.toString();
+    if (projectData.owner && !projectData.owner.is_deleted) {
+      const ownerId = projectData.owner.id.toString();
       addedUserIds.add(ownerId);
 
       const ownerParticipant = {
-        id: `owner-${apiProjectData.owner.id}`,
+        id: `owner-${projectData.owner.id}`,
         memberId: ownerId,
-        name: apiProjectData.owner.full_name || `${apiProjectData.owner.first_name || ''} ${apiProjectData.owner.last_name || ''}`.trim() || 'Inconnu',
-        profession: apiProjectData.owner.job || 'Propriétaire',
-        email: apiProjectData.owner.email || '',
-        avatar: apiProjectData.owner.avatar_url || DEFAULT_AVATAR_SRC,
-        skills: extractSkills(apiProjectData.owner.skills),
-        availability: availabilityToLabels(apiProjectData.owner.availability),
-        organization: apiProjectData.primary_organization_name || project.organization || '',
+        name: projectData.owner.full_name || `${projectData.owner.first_name || ''} ${projectData.owner.last_name || ''}`.trim() || 'Inconnu',
+        profession: projectData.owner.job || 'Propriétaire',
+        email: projectData.owner.email || '',
+        avatar: projectData.owner.avatar_url || DEFAULT_AVATAR_SRC,
+        skills: extractSkills(projectData.owner.skills),
+        availability: availabilityToLabels(projectData.owner.availability),
+        organization: projectData.primary_organization_name || project.organization || '',
         role: 'owner',
         projectRole: 'owner',
-        is_deleted: apiProjectData.owner.is_deleted || false,
-        userRole: apiProjectData.owner.role ?? '',
-        school_level_name: typeof apiProjectData.owner.school_level === 'object' && apiProjectData.owner.school_level?.name
-          ? apiProjectData.owner.school_level.name
+        is_deleted: projectData.owner.is_deleted || false,
+        userRole: projectData.owner.role ?? '',
+        school_level_name: typeof projectData.owner.school_level === 'object' && projectData.owner.school_level?.name
+          ? projectData.owner.school_level.name
           : ''
       };
       allMembers.push({
@@ -1015,12 +1028,12 @@ const ProjectManagement: React.FC = () => {
     }
 
     // Add co-owners (skip if soft-deleted - they shouldn't appear in badge assignment list)
-    if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
-      apiProjectData.co_owners.forEach((coOwner: any) => {
+    if (projectData.co_owners && Array.isArray(projectData.co_owners)) {
+      projectData.co_owners.forEach((coOwner: any) => {
         // Skip soft-deleted co-owners
         if (coOwner.is_deleted) return;
-        // Skip owner (they are already added from apiProjectData.owner; owner can appear in co_owners for some projects)
-        if (apiProjectData.owner && coOwner.id === apiProjectData.owner.id) return;
+        // Skip owner (they are already added from projectData.owner; owner can appear in co_owners for some projects)
+        if (projectData.owner && coOwner.id === projectData.owner.id) return;
         const coOwnerId = coOwner.id.toString();
         addedUserIds.add(coOwnerId);
 
@@ -1056,11 +1069,11 @@ const ProjectManagement: React.FC = () => {
       const confirmedMembers = projectMembers.filter((m: any) => {
         // Exclude pending members
         if (m.status !== 'confirmed') return false;
-        // Exclude owner (already added from apiProjectData.owner; backend may return virtual owner in list_members)
+        // Exclude owner (already added from projectData.owner; backend may return virtual owner in list_members)
         if (m.project_role === 'owner') return false;
         const userId = m.user?.id?.toString() || m.user_id?.toString();
 
-        // Exclude co-owners (already added from apiProjectData.co_owners)
+        // Exclude co-owners (already added from projectData.co_owners)
         if (addedUserIds.has(userId)) return false;
 
         // Exclude co-owners by role (safety check in case they weren't in co_owners array)
@@ -1335,6 +1348,52 @@ const ProjectManagement: React.FC = () => {
     });
   };
 
+  /** Élèves appartenant à une classe (editAvailableMembers dont classes ou level_school contient cette classe) */
+  const getEditStudentsInClass = (schoolLevelId: string): any[] => {
+    if (!Array.isArray(editAvailableMembers)) return [];
+    return editAvailableMembers.filter((member: any) => {
+      if (!member?.id) return false;
+      const inClasses =
+        Array.isArray(member.classes) &&
+        member.classes.some((c: any) => c?.id?.toString() === schoolLevelId);
+      const inLevelSchool =
+        Array.isArray(member.level_school) &&
+        member.level_school.some((l: any) => l?.id?.toString() === schoolLevelId);
+      return inClasses || inLevelSchool;
+    });
+  };
+
+  /** Résout un participant (id) vers le membre dans editAvailableMembers ou editPartnershipContactMembers */
+  const getEditSelectedParticipant = (memberId: string) => {
+    const id = memberId.toString();
+    const byId = (m: any) => m?.id?.toString() === id || m?.id === parseInt(memberId, 10);
+    return editAvailableMembers.find(byId) ?? editPartnershipContactMembers.find(byId) ?? null;
+  };
+
+  const handleEditParticipantRemove = (memberId: string) => {
+    setEditForm(prev => ({ ...prev, participants: prev.participants.filter(id => id !== memberId) }));
+    setEditClassManualParticipantIds(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(classId => {
+        next[classId] = (next[classId] || []).filter(id => id !== memberId);
+        if (next[classId].length === 0) delete next[classId];
+      });
+      return next;
+    });
+  };
+
+  const handleEditPathwayToggle = (pathwayName: string) => {
+    setEditForm(prev => {
+      const current = prev.pathways || [];
+      const isSelected = current.includes(pathwayName);
+      if (isSelected) {
+        return { ...prev, pathways: current.filter(p => p !== pathwayName) };
+      }
+      if (current.length >= 2) return prev;
+      return { ...prev, pathways: [...current, pathwayName] };
+    });
+  };
+
   const getEditFilteredPartnerships = (searchTerm: string) => {
     // Filter out already selected partnerships
     let available = editAvailablePartnerships.filter((partnership: any) =>
@@ -1383,10 +1442,7 @@ const ProjectManagement: React.FC = () => {
       const newPartners = isAdding
         ? [...prev.partners, partnerId]
         : prev.partners.filter(id => id !== partnerId);
-      const newCoResponsibles = isAdding
-        ? Array.from(new Set([...prev.coResponsibles, ...contactIds]))
-        : prev.coResponsibles.filter(id => !contactIds.includes(id.toString()));
-      return { ...prev, partners: newPartners, coResponsibles: newCoResponsibles };
+      return { ...prev, partners: newPartners };
     });
 
     setEditPartnershipContactMembers(prev => {
@@ -1432,6 +1488,11 @@ const ProjectManagement: React.FC = () => {
     const isPartnerProject = apiProjectData?.is_partner_project || false;
 
     setEditPartnershipContactMembers([]);
+    setEditClassSelectionMode({});
+    setEditClassManualParticipantIds({});
+    setEditClassDetailPopup(null);
+    setEditPathwaySearchTerm('');
+    setEditPathwayDropdownOpen(false);
     setEditForm({
       title: project.title,
       description: project.description,
@@ -1444,6 +1505,7 @@ const ProjectManagement: React.FC = () => {
       isPartnership: isPartnerProject,
       coResponsibles: currentCoResponsibles,
       partners: currentPartnerships,
+      participants: [], // Will be set below from project members
       // MLDS fields
       mldsRequestedBy: mldsInfo?.requested_by || 'departement',
       mldsDepartment: mldsInfo?.department_number || mldsInfo?.department_code || '',
@@ -1542,6 +1604,21 @@ const ProjectManagement: React.FC = () => {
     } finally {
       setIsLoadingSchoolLevels(false);
     }
+
+    // Load current project participants (member role) for edit form
+    const projectId = parseInt(project.id, 10);
+    if (!Number.isNaN(projectId)) {
+      try {
+        const projectMembers = await getProjectMembers(projectId);
+        const participantIds: string[] = (projectMembers || [])
+          .filter((m: any) => m.project_role !== 'owner' && m.project_role !== 'co_owner')
+          .map((m: any) => (m.user?.id ?? m.user_id)?.toString())
+          .filter(Boolean);
+        setEditForm(prev => ({ ...prev, participants: participantIds }));
+      } catch {
+        // Keep participants empty on error
+      }
+    }
   };
 
   const handleSaveEditInternal = async (
@@ -1560,11 +1637,14 @@ const ProjectManagement: React.FC = () => {
       const payload = mapEditFormToBackend(formDataWithVisibility, state.tags || [], project);
       payload.project.status = effectiveStatus;
 
-      // Add co-responsibles and partnership
+      // Add co-responsibles, partnership and participants
       payload.project.co_responsible_ids = editForm.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
       payload.project.partnership_ids = editForm.partners.length > 0
         ? editForm.partners.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
         : undefined;
+      if (editForm.participants.length > 0) {
+        payload.project.participant_ids = editForm.participants.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+      }
 
       // Add MLDS information if it's an MLDS project
       if (isMLDSProject) {
@@ -1644,6 +1724,17 @@ const ProjectManagement: React.FC = () => {
       // Update apiProjectData to reflect changes
       setApiProjectData(apiProject);
 
+      // Refetch project members when participants or co-responsibles were in the payload (GET /api/v1/projects/:id/members)
+      const hadMembersPayload = payload.project.co_responsible_ids !== undefined || payload.project.participant_ids !== undefined;
+      if (hadMembersPayload) {
+        try {
+          const members = await fetchAllProjectMembers(apiProject);
+          setParticipants(members);
+        } catch (err) {
+          console.error('Error refetching project members after edit:', err);
+        }
+      }
+
       setIsEditModalOpen(false);
       setEditImagePreview('');
       showSuccess('Projet mis à jour avec succès');
@@ -1677,47 +1768,96 @@ const ProjectManagement: React.FC = () => {
     await handleSaveEditInternal('draft');
   };
 
-  const handleEditOrganizationToggle = (schoolLevelId: string) => {
-    setEditForm(prev => {
-      const isAlreadySelected = prev.mldsSchoolLevelIds.includes(schoolLevelId);
+  const setEditClassMode = (classId: string, mode: 'manual' | 'all') => {
+    setEditClassSelectionMode(prev => ({ ...prev, [classId]: mode }));
+    if (mode === 'all') {
+      setEditClassManualParticipantIds(prev => {
+        const next = { ...prev };
+        delete next[classId];
+        return next;
+      });
+    } else {
+      setEditClassManualParticipantIds(prev => ({ ...prev, [classId]: [] }));
+    }
+  };
 
-      const updatedSchoolLevelIds = isAlreadySelected
-        ? prev.mldsSchoolLevelIds.filter(id => id !== schoolLevelId)
-        : [...prev.mldsSchoolLevelIds, schoolLevelId];
-
-      // Lorsqu'on sélectionne une organisation porteuse (classe),
-      // on pré‑sélectionne les enseignants responsables comme co‑responsables.
-      if (!isAlreadySelected) {
-        const selectedLevel = availableSchoolLevels.find(
-          (level: any) => level.id?.toString() === schoolLevelId
-        );
-
-        const teacherIds =
-          selectedLevel?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
-
-        if (teacherIds.length > 0) {
-          const coResponsiblesSet = new Set(prev.coResponsibles);
-          teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
-
-          return {
-            ...prev,
-            mldsSchoolLevelIds: updatedSchoolLevelIds,
-            coResponsibles: Array.from(coResponsiblesSet)
-          };
-        }
-      }
-
-      return {
-        ...prev,
-        mldsSchoolLevelIds: updatedSchoolLevelIds
-      };
+  const toggleEditClassManualParticipant = (classId: string, memberId: string) => {
+    const idStr = memberId.toString();
+    setEditClassManualParticipantIds(prev => {
+      const current = prev[classId] || [];
+      return current.includes(idStr)
+        ? { ...prev, [classId]: current.filter(id => id !== idStr) }
+        : { ...prev, [classId]: [...current, idStr] };
     });
+  };
+
+  const handleEditSchoolLevelToggle = (schoolLevelId: string) => {
+    const isAlreadySelected = editForm.mldsSchoolLevelIds.includes(schoolLevelId);
+    if (isAlreadySelected) {
+      setEditForm(prev => {
+        const updatedSchoolLevelIds = prev.mldsSchoolLevelIds.filter(id => id !== schoolLevelId);
+        const memberIdsInClass = getEditStudentsInClass(schoolLevelId).map((m: any) => m.id?.toString()).filter(Boolean);
+        const participantsToRemove = new Set(memberIdsInClass);
+        const updatedParticipants = prev.participants.filter(id => !participantsToRemove.has(id.toString()));
+        return { ...prev, mldsSchoolLevelIds: updatedSchoolLevelIds, participants: updatedParticipants };
+      });
+      setEditClassSelectionMode(prev => {
+        const next = { ...prev };
+        delete next[schoolLevelId];
+        return next;
+      });
+      setEditClassManualParticipantIds(prev => {
+        const next = { ...prev };
+        delete next[schoolLevelId];
+        return next;
+      });
+      setEditClassDetailPopup(null);
+      return;
+    }
+    setEditForm(prev => ({ ...prev, mldsSchoolLevelIds: [...prev.mldsSchoolLevelIds, schoolLevelId] }));
+    const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === schoolLevelId);
+    const className = classItem ? `${classItem.name}${classItem.level ? ` - ${classItem.level}` : ''}` : schoolLevelId;
+    setEditClassDetailPopup({ classId: schoolLevelId, className, mode: 'choice' });
   };
 
   const handleCancelEdit = () => {
     setIsEditModalOpen(false);
     setEditImagePreview('');
+    setEditPathwaySearchTerm('');
+    setEditPathwayDropdownOpen(false);
   };
+
+  // Sync editForm.participants from class selection (school context) — like ProjectModal. Only overwrite when at least one class has a mode set.
+  const editUseClassBasedParticipants = getOrganizationType(state.showingPageType) === 'school' && editForm.mldsSchoolLevelIds.length > 0;
+  useEffect(() => {
+    if (!editUseClassBasedParticipants || !isEditModalOpen) return;
+    const hasAnyMode = editForm.mldsSchoolLevelIds.some(cid => editClassSelectionMode[cid]);
+    if (!hasAnyMode) return;
+    const fromClasses: string[] = [];
+    editForm.mldsSchoolLevelIds.forEach(classId => {
+      const mode = editClassSelectionMode[classId];
+      if (mode === 'all') {
+        getEditStudentsInClass(classId).forEach((m: any) => {
+          const id = m.id?.toString();
+          if (id) fromClasses.push(id);
+        });
+      } else if (mode === 'manual') {
+        (editClassManualParticipantIds[classId] || []).forEach(id => fromClasses.push(id));
+      }
+    });
+    setEditForm(prev => ({ ...prev, participants: Array.from(new Set(fromClasses)) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editClassSelectionMode, editClassManualParticipantIds, editForm.mldsSchoolLevelIds, editUseClassBasedParticipants, isEditModalOpen, editAvailableMembers]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (editPathwayDropdownRef.current && !editPathwayDropdownRef.current.contains(e.target as Node)) {
+        setEditPathwayDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -5240,73 +5380,90 @@ const ProjectManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="form-row">
+              {/* Visibilité masquée pour les projets MLDS - toujours privé. Pas de champ Statut visible (comme ProjectModal) : brouillon via le bouton dédié. */}
+              {!isMLDSProject && (
                 <div className="form-group">
-                  <label htmlFor="project-status">Statut</label>
+                  <label htmlFor="project-visibility">Visibilité</label>
                   <select
-                    id="project-status"
-                    value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' })}
+                    id="project-visibility"
+                    value={editForm.visibility}
+                    onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
                     className="form-input"
                   >
-                    <option value="coming">À venir</option>
-                    <option value="in_progress">En cours</option>
-                    <option value="ended">Terminé</option>
+                    <option value="public">Projet public</option>
+                    <option value="private">Projet privé</option>
                   </select>
                 </div>
-                {/* Visibilité masquée pour les projets MLDS - toujours privé par défaut */}
-                {!isMLDSProject && (
-                  <div className="form-group">
-                    <label htmlFor="project-visibility">Visibilité</label>
-                    <select
-                      id="project-visibility"
-                      value={editForm.visibility}
-                      onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
-                      className="form-input"
-                    >
-                      <option value="public">Projet public</option>
-                      <option value="private">Projet privé</option>
-                    </select>
-                  </div>
-                )}
-              </div>
+              )}
 
-              {/* Parcours - Liste depuis /api/v1/tags (sélection multiple) */}
-              <div className="form-group">
-                <div className="form-label">Parcours</div>
-                <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                  {(state.tags || []).length === 0 ? (
-                    <div className="loading-message" style={{ padding: '8px', color: '#6b7280', fontSize: '0.875rem' }}>
-                      <i className="fas fa-spinner fa-spin" style={{ marginRight: '6px' }} /> Chargement des parcours...
+              {/* Parcours - même input que ProjectModal : pills + recherche + dropdown (max. 2) */}
+              <div className="form-group pathway-search-form" ref={editPathwayDropdownRef}>
+                <label className="form-label">Parcours * <span className="text-muted">(max. 2)</span></label>
+                {(state.tags || []).length === 0 ? (
+                  <div className="loading-message pathway-loading">
+                    <i className="fas fa-spinner fa-spin" />
+                    <span>Chargement des parcours...</span>
+                  </div>
+                ) : (
+                  <>
+                    {(editForm.pathways || []).length > 0 && (
+                      <div className="pathway-selected-pills">
+                        {(editForm.pathways || []).map((name) => (
+                          <span key={name} className="pathway-pill-selected">
+                            {name}
+                            <button type="button" className="pathway-pill-remove" onClick={() => handleEditPathwayToggle(name)} aria-label="Retirer">
+                              <i className="fas fa-times" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="pathway-search-bar-wrap">
+                      <i className="fas fa-search pathway-search-icon" />
+                      <input
+                        ref={editPathwaySearchInputRef}
+                        type="text"
+                        className="form-input pathway-search-input !px-8"
+                        placeholder={(editForm.pathways || []).length >= 2 ? 'Maximum 2 parcours sélectionnés' : 'Rechercher un parcours...'}
+                        value={editPathwaySearchTerm}
+                        onChange={(e) => setEditPathwaySearchTerm(e.target.value)}
+                        onFocus={() => (editForm.pathways || []).length < 2 && setEditPathwayDropdownOpen(true)}
+                        onBlur={(e) => {
+                          const next = e.relatedTarget as Node | null;
+                          if (editPathwayDropdownRef.current && next && editPathwayDropdownRef.current.contains(next)) return;
+                          setEditPathwayDropdownOpen(false);
+                        }}
+                      />
+                      {editPathwayDropdownOpen && (editForm.pathways || []).length < 2 && (
+                        <div className="pathway-dropdown">
+                          {(state.tags || [])
+                            .filter((p: any) => !editPathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(editPathwaySearchTerm.toLowerCase()))
+                            .map((pathway: any) => {
+                              const pathwayName = pathway.name;
+                              const isSelected = (editForm.pathways || []).includes(pathwayName);
+                              return (
+                                <button
+                                  type="button"
+                                  key={pathway.id}
+                                  className={`pathway-dropdown-item ${isSelected ? 'selected' : ''}`}
+                                  onClick={() => {
+                                    handleEditPathwayToggle(pathwayName);
+                                    editPathwaySearchInputRef.current?.focus();
+                                  }}
+                                >
+                                  {isSelected && <i className="fas fa-check pathway-item-check" />}
+                                  <span>{pathway.name_fr || pathway.name}</span>
+                                </button>
+                              );
+                            })}
+                          {(state.tags || []).filter((p: any) => !editPathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(editPathwaySearchTerm.toLowerCase())).length === 0 && (
+                            <div className="pathway-dropdown-empty">Aucun parcours trouvé</div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    (state.tags || []).map((tag: { id: number; name: string }) => {
-                      const tagName = tag.name;
-                      const selected = editForm.pathways || [];
-                      const isSelected = selected.includes(tagName) || selected.some(p => String(p).toLowerCase() === tagName.toLowerCase());
-                      return (
-                        <label
-                          key={tag.id}
-                          className={`multi-select-item !flex items-center gap-2 ${isSelected ? 'selected' : ''}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {
-                              const current = editForm.pathways || [];
-                              const next = isSelected ? current.filter(p => p !== tagName) : [...current, tagName];
-                              setEditForm({ ...editForm, pathways: next });
-                            }}
-                          />
-                          <div className="multi-select-checkmark">
-                            <i className="fas fa-check"></i>
-                          </div>
-                          <span className="multi-select-label">{tagName}</span>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
+                  </>
+                )}
               </div>
 
               {/* Tags - Masqué pour les projets MLDS */}
@@ -5345,31 +5502,68 @@ const ProjectManagement: React.FC = () => {
                 </div>
               )}
 
-              {/* Organisation porteuse - sous Parcours/Tags (projets école) */}
+              {/* Organisation porteuse - sous Parcours/Tags (projets école) + popup sélection participants par classe */}
               {getOrganizationType(state.showingPageType) === 'school' && (
                 <div className="form-group">
-                  <div className="form-label">Organisation porteuse</div>
+                  <div className="form-label">Ajouter une/des classe(s) au projet</div>
                   {availableSchoolLevels.length > 0 ? (
-                    <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                      {availableSchoolLevels.map(classItem => (
-                        <label
-                          key={classItem.id}
-                          className={`multi-select-item !flex items-center gap-2 ${editForm.mldsSchoolLevelIds.includes(classItem.id.toString()) ? 'selected' : ''}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={editForm.mldsSchoolLevelIds.includes(classItem.id.toString())}
-                            onChange={() => handleEditOrganizationToggle(classItem.id.toString())}
-                          />
-                          <div className="multi-select-checkmark">
-                            <i className="fas fa-check"></i>
+                    <>
+                      <div className="multi-select-container" style={{ maxHeight: '300px'}}>
+                        {availableSchoolLevels.map(classItem => (
+                          <label
+                            key={classItem.id}
+                            className={`multi-select-item !flex items-center gap-2 ${editForm.mldsSchoolLevelIds.includes(classItem.id.toString()) ? 'selected' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={editForm.mldsSchoolLevelIds.includes(classItem.id.toString())}
+                              onChange={() => handleEditSchoolLevelToggle(classItem.id.toString())}
+                            />
+                            <div className="multi-select-checkmark">
+                              <i className="fas fa-check"></i>
+                            </div>
+                            <span className="multi-select-label">
+                              {classItem.name} {classItem.level ? `- ${classItem.level}` : ''} {classItem.students_count != null ? `(${classItem.students_count} élève${classItem.students_count > 1 ? 's' : ''})` : ''}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      {/* Pour chaque classe cochée : choix manuel / tout, puis liste ou label */}
+                      {editForm.mldsSchoolLevelIds.map(classId => {
+                        const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === classId);
+                        const className = classItem ? `${classItem.name}${classItem.level ? ` - ${classItem.level}` : ''}` : classId;
+                        const mode = editClassSelectionMode[classId];
+                        const students = getEditStudentsInClass(classId);
+                        return (
+                          <div key={classId} className="form-group" style={{ marginTop: '12px', paddingLeft: '8px', borderLeft: '3px solid #e5e7eb' }}>
+                            <div className="form-label" style={{ fontSize: '0.9rem', marginBottom: '8px' }}>{className}</div>
+                            <div className="flex flex-wrap gap-2" style={{ marginBottom: '8px' }}>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => {
+                                  if (mode !== 'manual') setEditClassMode(classId, 'manual');
+                                  setEditClassDetailPopup({ classId, className, mode: mode === 'all' ? 'view' : 'manual' });
+                                }}
+                              >
+                                <i className="fas fa-user-check" />
+                                <span>{mode === 'manual' ? 'Modifier la sélection' : mode === 'all' ? `Voir les élèves (${students.length})` : 'Sélectionner manuellement'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => setEditClassMode(classId, 'all')}
+                              >
+                                <i className="fas fa-users" />
+                                <span>Tout sélectionner</span>
+                              </button>
+                            </div>
                           </div>
-                          <span className="multi-select-label">
-                            {classItem.name} {classItem.level ? `- ${classItem.level}` : ''}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                        );
+                      })}
+                    </>
                   ) : (
                     <div className={isLoadingSchoolLevels ? 'loading-message' : 'no-items-message'}>
                       {isLoadingSchoolLevels ? (
@@ -5385,7 +5579,246 @@ const ProjectManagement: React.FC = () => {
                 </div>
               )}
 
-              {/* Parcours - Masqué pour les projets MLDS */}
+              {/* Popup détail classe (sélection manuelle ou vue) */}
+              {editClassDetailPopup && (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setEditClassDetailPopup(null)}>
+                  <div className="modal-content" style={{ background: 'white', borderRadius: '8px', maxWidth: '400px', width: '90%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{editClassDetailPopup.className}</h3>
+                      <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setEditClassDetailPopup(null)}>
+                        <i className="fas fa-times" />
+                      </button>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                      {(() => {
+                        const students = getEditStudentsInClass(editClassDetailPopup.classId);
+                        if (editClassDetailPopup.mode === 'choice') {
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                              <p style={{ margin: '0 0 8px', color: '#6b7280', fontSize: '0.9rem' }}>Comment souhaitez-vous ajouter les élèves de cette classe ?</p>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                onClick={() => {
+                                  setEditClassMode(editClassDetailPopup.classId, 'manual');
+                                  setEditClassDetailPopup(prev => prev ? { ...prev, mode: 'manual' as const } : null);
+                                }}
+                              >
+                                <i className="fas fa-user-check" />
+                                <span>Sélectionner manuellement</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                onClick={() => {
+                                  setEditClassMode(editClassDetailPopup.classId, 'all');
+                                  setEditClassDetailPopup(null);
+                                }}
+                              >
+                                <i className="fas fa-users" />
+                                <span>Tout sélectionner</span>
+                              </button>
+                            </div>
+                          );
+                        }
+                        if (students.length === 0) {
+                          return <p style={{ color: '#6b7280' }}>Aucun élève dans cette classe.</p>;
+                        }
+                        if (editClassDetailPopup.mode === 'view') {
+                          return (
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                              {students.map((student: any) => (
+                                <li key={student.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                                  {student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim()}
+                                </li>
+                              ))}
+                            </ul>
+                          );
+                        }
+                        return (
+                          <div>
+                            <div style={{ marginBottom: '12px' }}>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                onClick={() => {
+                                  setEditClassMode(editClassDetailPopup.classId, 'all');
+                                  setEditClassDetailPopup(null);
+                                }}
+                              >
+                                <i className="fas fa-users" />
+                                <span>Tout sélectionner</span>
+                              </button>
+                            </div>
+                            {students.map((student: any) => {
+                              const sid = student.id?.toString();
+                              const checked = (editClassManualParticipantIds[editClassDetailPopup.classId] || []).includes(sid);
+                              const name = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim();
+                              return (
+                                <div
+                                  key={student.id}
+                                  className="selection-item"
+                                  onClick={() => toggleEditClassManualParticipant(editClassDetailPopup.classId, sid)}
+                                  style={{
+                                    cursor: 'pointer',
+                                    ...(checked
+                                      ? {
+                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                          border: '1px solid #5570F1',
+                                          borderRadius: '8px',
+                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                        }
+                                      : {})
+                                  }}
+                                >
+                                  <AvatarImage
+                                    src={student.avatar_url || '/default-avatar.png'}
+                                    alt={name}
+                                    className="item-avatar"
+                                  />
+                                  <div className="item-info">
+                                    <div className="item-name">{name}</div>
+                                    <div className="item-role">{translateRole(student.role ?? student.role_in_system ?? '')}</div>
+                                  </div>
+                                  {checked && (
+                                    <div style={{ flexShrink: 0, color: '#5570F1' }} title="Sélectionné">
+                                      <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }} />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Participants sélectionnés (membres des classes) — envoyés en participant_ids à la sauvegarde. Si toute la classe : afficher le nom de la classe (comme ProjectModal). */}
+              {getOrganizationType(state.showingPageType) === 'school' && (
+                <div className="form-group">
+                  <label className="form-label">Participants sélectionnés ({editForm.participants.length})</label>
+                  {editForm.participants.length === 0 ? (
+                    <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>
+                      Ajoutez des classes ci-dessus et choisissez « Sélectionner manuellement » ou « Tout sélectionner » pour ajouter des participants. Ils seront enregistrés avec le projet.
+                    </p>
+                  ) : (
+                    <div className="selected-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '300px'}}>
+                      {(() => {
+                        const showLevelSummary = editForm.mldsSchoolLevelIds.length > 0;
+                        if (showLevelSummary) {
+                          const levelEntries: { type: 'level'; classId: string; className: string }[] = [];
+                          const memberIdsFromAllClasses = new Set<string>();
+                          editForm.mldsSchoolLevelIds.forEach(classId => {
+                            const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === classId);
+                            const className = classItem ? `${classItem.name}${classItem.level ? ` - ${classItem.level}` : ''}` : classId;
+                            if (editClassSelectionMode[classId] === 'all') {
+                              levelEntries.push({ type: 'level', classId, className });
+                              getEditStudentsInClass(classId).forEach((m: any) => {
+                                const id = m.id?.toString();
+                                if (id) memberIdsFromAllClasses.add(id);
+                              });
+                            }
+                          });
+                          const memberEntries = editForm.participants
+                            .filter(id => !memberIdsFromAllClasses.has(id.toString()))
+                            .map(memberId => ({ type: 'member' as const, memberId }));
+                          return (
+                            <>
+                              {levelEntries.map(({ classId, className }) => (
+                                <div key={`level-${classId}`} className="selected-member" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(85, 112, 241, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <i className="fas fa-users" style={{ fontSize: '1rem', color: 'var(--primary, #5570F1)' }} />
+                                  </div>
+                                  <div className="selected-info" style={{ flex: 1, minWidth: 0 }}>
+                                    <div className="selected-name" style={{ fontWeight: 500 }}>{className}</div>
+                                    <div className="selected-role" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Classe entière</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="remove-selection"
+                                    onClick={() => handleEditSchoolLevelToggle(classId)}
+                                    title="Retirer la classe"
+                                  >
+                                    <i className="fas fa-times"></i>
+                                  </button>
+                                </div>
+                              ))}
+                              {memberEntries.map(({ memberId }) => {
+                                const member = getEditSelectedParticipant(memberId);
+                                const name = member ? (member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()) : `ID ${memberId}`;
+                                const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? member.classes?.[0]?.school?.name ?? '')) : '';
+                                return (
+                                  <div key={memberId} className="selected-member" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                                    <AvatarImage
+                                      src={member?.avatar_url || '/default-avatar.png'}
+                                      alt={name}
+                                      className="selected-avatar"
+                                    />
+                                    <div className="selected-info" style={{ flex: 1, minWidth: 0 }}>
+                                      <div className="selected-name" style={{ fontWeight: 500 }}>{name}</div>
+                                      {member && (
+                                        <div className="selected-role" style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                          {translateRole(member.role ?? member.role_in_system ?? '')}
+                                          {memberOrg ? ` · ${memberOrg}` : ''}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="remove-selection"
+                                      onClick={() => handleEditParticipantRemove(memberId)}
+                                      title="Retirer des participants"
+                                    >
+                                      <i className="fas fa-times"></i>
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </>
+                          );
+                        }
+                        return editForm.participants.map((memberId) => {
+                          const member = getEditSelectedParticipant(memberId);
+                          const name = member ? (member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()) : `ID ${memberId}`;
+                          const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? member.classes?.[0]?.school?.name ?? '')) : '';
+                          return (
+                            <div key={memberId} className="selected-member" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                              <AvatarImage
+                                src={member?.avatar_url || '/default-avatar.png'}
+                                alt={name}
+                                className="selected-avatar"
+                              />
+                              <div className="selected-info" style={{ flex: 1, minWidth: 0 }}>
+                                <div className="selected-name" style={{ fontWeight: 500 }}>{name}</div>
+                                {member && (
+                                  <div className="selected-role" style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                    {translateRole(member.role ?? member.role_in_system ?? '')}
+                                    {memberOrg ? ` · ${memberOrg}` : ''}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                className="remove-selection"
+                                onClick={() => handleEditParticipantRemove(memberId)}
+                                title="Retirer des participants"
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Partnership Section */}
               <div className="form-group">
@@ -5918,16 +6351,13 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={handleCancelEdit}>
                 Annuler
               </button>
-              {/* Afficher le bouton "Sauvegarder en brouillon" uniquement si le statut est "en cours" ou "à venir" */}
-              {(editForm.status !== 'in_progress' && editForm.status !== 'coming') && (
-                <button className="btn btn-outline" onClick={handleSaveEditDraft}>
-                  Sauvegarder en brouillon
-                </button>
-              )}
+              <button className="btn btn-outline" onClick={handleSaveEditDraft}>
+                Sauvegarder en brouillon
+              </button>
               <button className="btn btn-primary" onClick={handleSaveEdit}>
                 {isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher')
                   ? 'Soumettre le projet MLDS'
-                  : 'Sauvegarder'}
+                  : 'Publier'}
               </button>
             </div>
           </div>
