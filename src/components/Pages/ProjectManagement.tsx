@@ -2650,9 +2650,9 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleCopyLink = () => {
-    const projectUrl = `${window.location.origin}/projects/${project.id}`;
+    const projectUrl = `${window.location.origin}/p/${project.id}`;
     navigator.clipboard.writeText(projectUrl);
-    console.log('Link copied:', projectUrl);
+    showSuccess('Lien copié');
   };
 
   const handleReturnToProjects = () => {

@@ -1,4 +1,4 @@
-import axiosClient from "./config";
+import axiosClient, { axiosClientWithoutToken } from "./config";
 
 export function getAllProjects(params?: { organization_type?: string; page?: number; per_page?: number }) {
     return axiosClient.get('/api/v1/projects', { params });
@@ -6,6 +6,11 @@ export function getAllProjects(params?: { organization_type?: string; page?: num
 
 export function getProjectById(projectId: number) {
     return axiosClient.get(`/api/v1/projects/${projectId}`);
+}
+
+/** Fetch project by id without auth (for public share page). */
+export function getProjectByIdPublic(projectId: number) {
+    return axiosClientWithoutToken.get(`/api/v1/projects/${projectId}`);
 }
 
 export function createProject(projectData: { name: string; description: string; }) {
