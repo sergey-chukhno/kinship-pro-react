@@ -708,15 +708,15 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
-  // Calculate number of new members added this month
+  // Calculate number of new confirmed members added this month (exclude pending; aligns with participant count)
   const calculateNewMembersThisMonth = (apiProjectData: any): number => {
     if (!apiProjectData?.project_members) return 0;
     
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     
     return apiProjectData.project_members.filter((member: any) => {
       if (!member.created_at) return false;
+      if (member.status !== 'confirmed') return false;
       const memberCreatedAt = new Date(member.created_at);
       return memberCreatedAt >= startOfMonth;
     }).length;
@@ -2650,9 +2650,9 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleCopyLink = () => {
-    const projectUrl = `${window.location.origin}/projects/${project.id}`;
+    const projectUrl = `${window.location.origin}/p/${project.id}`;
     navigator.clipboard.writeText(projectUrl);
-    console.log('Link copied:', projectUrl);
+    showSuccess('Lien copié');
   };
 
   const handleReturnToProjects = () => {
