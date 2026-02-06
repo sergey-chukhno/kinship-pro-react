@@ -737,8 +737,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     setFormData(prev => {
       const current = prev.pathways || [];
       const isSelected = current.includes(pathwayName);
-      const next = isSelected ? current.filter(p => p !== pathwayName) : [...current, pathwayName];
-      return { ...prev, pathways: next };
+      if (isSelected) {
+        return { ...prev, pathways: current.filter(p => p !== pathwayName) };
+      }
+      // Maximum 2 parcours
+      if (current.length >= 2) return prev;
+      return { ...prev, pathways: [...current, pathwayName] };
     });
   };
 
@@ -1453,7 +1457,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
             </div>
 
             <div className="form-group pathway-search-form" ref={pathwayDropdownRef}>
-              <label className="form-label">Parcours *</label>
+              <label className="form-label">Parcours * <span className="text-muted">(max. 2)</span></label>
               {isLoadingPathways ? (
                 <div className="loading-message pathway-loading">
                   <i className="fas fa-spinner fa-spin" />
@@ -1479,17 +1483,17 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       ref={pathwaySearchInputRef}
                       type="text"
                       className="form-input pathway-search-input !px-8"
-                      placeholder="Rechercher un parcours..."
+                      placeholder={(formData.pathways || []).length >= 2 ? 'Maximum 2 parcours sélectionnés' : 'Rechercher un parcours...'}
                       value={pathwaySearchTerm}
                       onChange={(e) => setPathwaySearchTerm(e.target.value)}
-                      onFocus={() => setPathwayDropdownOpen(true)}
+                      onFocus={() => (formData.pathways || []).length < 2 && setPathwayDropdownOpen(true)}
                       onBlur={(e) => {
                         const next = e.relatedTarget as Node | null;
                         if (pathwayDropdownRef.current && next && pathwayDropdownRef.current.contains(next)) return;
                         setPathwayDropdownOpen(false);
                       }}
                     />
-                    {pathwayDropdownOpen && (
+                    {pathwayDropdownOpen && (formData.pathways || []).length < 2 && (
                       <div className="pathway-dropdown">
                         {availablePathways
                           .filter((p: any) => !pathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(pathwaySearchTerm.toLowerCase()))
