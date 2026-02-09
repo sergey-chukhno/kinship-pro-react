@@ -21,7 +21,8 @@ interface SeriesEntry {
 // Parcours theme color key (dashboard colors in CSS)
 type ParcoursColorKey = 'green' | 'pink' | 'yellow' | 'blue';
 
-// Parcours: title, objectif, list of series, theme color, icon (Font Awesome class or path)
+// Optional "Cadre et légitimité" block (paragraphs with **bold** convention)
+// Optional "Démarche reconnue" block (two lines)
 interface Parcours {
   id: string;
   title: string;
@@ -30,6 +31,19 @@ interface Parcours {
   colorKey: ParcoursColorKey;
   icon: string; // FA class e.g. 'fa-shapes', or image path
   iconType: 'fa' | 'img';
+  cadreLegitimite?: string[];
+  demarcheReconnue?: { line1: string; line2: string };
+}
+
+// Render text with **bold** segments as <strong>
+function formatBold(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*.+?\*\*)/g);
+  return parts.map((p, i) => {
+    if (p.startsWith('**') && p.endsWith('**')) {
+      return <strong key={i}>{p.slice(2, -2)}</strong>;
+    }
+    return p;
+  });
 }
 
 // Representative badge (name, level) per series dbName for series icon on parcours-detail view
@@ -44,8 +58,8 @@ const SERIES_REPRESENTATIVE_BADGE: Record<string, { name: string; level: string 
 const PARCOURS: Parcours[] = [
   {
     id: '1',
-    title: 'Parcours 1 – Soft Skills & Compétences transversales',
-    objectif: "Développer les compétences clés nécessaires à la vie collective, à l'autonomie et à toute insertion professionnelle.",
+    title: 'Parcours de créativité',
+    objectif: "Identifier, reconnaître et valoriser les compétences transversales mobilisées par les jeunes dans la vie collective, l'autonomie, les projets scolaires et extrascolaires, ainsi que dans la construction de leur insertion professionnelle.",
     colorKey: 'green',
     icon: 'fa-people-group',
     iconType: 'fa',
@@ -54,23 +68,32 @@ const PARCOURS: Parcours[] = [
         displayName: 'Série Soft Skills 4LAB',
         dbName: 'Série TouKouLeur',
         comingSoon: false,
-        description: "Les badges 4LAB reconnaissent et valorisent les soft skills mises en oeuvre dans le cadre d'un projet individuel ou collectif"
+        description: "Les badges de la série Soft Skills 4LAB reconnaissent et valorisent les compétences transversales mobilisées par les jeunes dans le cadre de projets individuels ou collectifs (coopération, communication, créativité, engagement, gestion de projet...)"
       }
-    ]
+    ],
+    cadreLegitimite: [
+      "Le Parcours de créativité est issu d'une expérimentation éducative de terrain conduite initialement au sein de l'Éducation nationale, puis reprise et structurée par l'association TouKouLeur.",
+      "Cette expérimentation s'appuie sur plus de **500 projets** menés auprès de plus de **12 000 élèves**, dans des contextes scolaires et extrascolaires variés.",
+      "Le parcours repose sur des compétences inspirées des référentiels du **LSU**, regroupées, testées et validées en situation réelle, dans le respect des cadres éducatifs existants."
+    ],
+    demarcheReconnue: {
+      line1: "Démarche éducative distinguée par plusieurs prix",
+      line2: "TOP 30 Éducation nationale 2020 • Prix JAP 2021"
+    }
   },
   {
     id: '2',
-    title: 'Parcours 2 – Parcours de développement personnel et relationnel',
-    objectif: 'Renforcer les capacités émotionnelles, relationnelles et décisionnelles des jeunes.',
+    title: 'Parcours — Compétences Psychosociales (CPS)',
+    objectif: 'Renforcer les capacités émotionnelles, relationnelles et décisionnelles des jeunes pour favoriser leur bien-être et leur autonomie.',
     colorKey: 'pink',
     icon: 'fa-heart-pulse',
     iconType: 'fa',
     series: [
       {
-        displayName: "Série CPS - Compétences Psychosociales (à venir)",
+        displayName: 'Série CPS – Compétences Psychosociales (à venir)',
         dbName: null,
         comingSoon: true,
-        description: ''
+        description: "Valorise les compétences liées à la gestion des émotions, aux relations sociales et à la prise de décision responsable, en cohérence avec le référentiel de l'Organisation Mondiale de la Santé (OMS)."
       }
     ]
   },
@@ -104,8 +127,8 @@ const PARCOURS: Parcours[] = [
   },
   {
     id: '4',
-    title: 'Parcours 4 – Parcours Métiers & compétences professionnelles',
-    objectif: "Permettre aux jeunes d'acquérir des compétences techniques et de découvrir des secteurs professionnels.",
+    title: 'Parcours – Métiers & compétences professionnelles',
+    objectif: "Permettre aux jeunes d'acquérir des compétences techniques et de découvrir des secteurs professionnels à travers des expériences concrètes.",
     colorKey: 'blue',
     icon: 'fa-briefcase',
     iconType: 'fa',
@@ -114,13 +137,13 @@ const PARCOURS: Parcours[] = [
         displayName: 'Série Parcours professionnel',
         dbName: 'Série Parcours professionnel',
         comingSoon: false,
-        description: "La Série Parcours professionnel vise à reconnaître et valoriser les expériences acquises tout au long du parcours professionnel, quels que soient le contexte ou le statut (emploi, stage, alternance, bénévolat, mission ponctuelle, etc.)."
+        description: "Valorise les compétences mobilisées dans des situations professionnelles réelles (stages, jobs, CDD, CDI, alternance...)"
       },
       {
-        displayName: 'Série Audiovisuelle',
+        displayName: 'Série Audiovisuelle & Cinéma',
         dbName: 'Série Audiovisuelle',
         comingSoon: false,
-        description: ''
+        description: "Reconnaît les compétences techniques et créatives liées aux métiers de l'audiovisuel."
       },
       {
         displayName: "Série Métiers de la mer (à venir)",
@@ -370,6 +393,22 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                 </div>
                 <div className="parcours-card-body">
                   <p className="parcours-card-objectif"><strong>Objectif :</strong> {parcours.objectif}</p>
+                  {parcours.cadreLegitimite && parcours.cadreLegitimite.length > 0 && (
+                    <details className="parcours-card-cadre">
+                      <summary className="parcours-card-cadre-summary">
+                        <i className="fas fa-info-circle parcours-card-cadre-icon" aria-hidden />
+                        <span>Cadre et légitimité du parcours</span>
+                      </summary>
+                      <div className="parcours-card-cadre-content">
+                        {parcours.cadreLegitimite.map((para, idx) => (
+                          <p key={idx} className="parcours-card-cadre-para">{formatBold(para)}</p>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                  <h3 className="parcours-card-series-heading">
+                    {parcours.series.length === 1 ? 'Série associée' : 'Séries associées'}
+                  </h3>
                   <ul className="parcours-card-series-list">
                     {parcours.series.map((s) => {
                       const seriesIconUrl = getSeriesIconUrl(s);
@@ -390,6 +429,22 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                       );
                     })}
                   </ul>
+                  {parcours.demarcheReconnue && (
+                    <div className="parcours-card-demarche">
+                      <h3 className="parcours-card-demarche-heading">
+                        <i className="fas fa-trophy parcours-card-demarche-icon" aria-hidden />
+                        <span>Démarche reconnue</span>
+                      </h3>
+                      <p className="parcours-card-demarche-line">
+                        <i className="fas fa-trophy parcours-card-demarche-line-icon" aria-hidden />
+                        {parcours.demarcheReconnue.line1}
+                      </p>
+                      <p className="parcours-card-demarche-line">
+                        <i className="fas fa-trophy parcours-card-demarche-line-icon" aria-hidden />
+                        {parcours.demarcheReconnue.line2}
+                      </p>
+                    </div>
+                  )}
                   <div className="parcours-card-actions">
                     <button
                       type="button"
@@ -399,7 +454,9 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                       Explorer ce parcours
                     </button>
                     {isAllComingSoon && (
-                      <p className="parcours-card-construction">Parcours en construction</p>
+                      <p className="parcours-card-construction">
+                        {parcours.id === '2' ? '👉 Parcours en cours de construction' : 'Parcours en construction'}
+                      </p>
                     )}
                   </div>
                 </div>

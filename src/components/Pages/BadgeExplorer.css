@@ -131,6 +131,76 @@
 .badge-explorer-parcours-card.parcours-yellow .parcours-card-objectif { border-left-color: var(--parcours-yellow); background: rgba(255, 166, 0, 0.06); }
 .badge-explorer-parcours-card.parcours-blue .parcours-card-objectif { border-left-color: var(--parcours-blue); background: rgba(85, 112, 241, 0.06); }
 
+/* Cadre et légitimité du parcours (collapsible) */
+.badge-explorer-parcours-card .parcours-card-cadre {
+  margin: 0.75rem 0 0 0;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: #f9fafb;
+  border-left: 4px solid #e5e7eb;
+}
+
+.badge-explorer-parcours-card.parcours-green .parcours-card-cadre { border-left-color: var(--parcours-green); }
+
+.badge-explorer-parcours-card .parcours-card-cadre-summary {
+  list-style: none;
+  padding: 0.6rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main, #111827);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge-explorer-parcours-card .parcours-card-cadre-summary::-webkit-details-marker,
+.badge-explorer-parcours-card .parcours-card-cadre-summary::marker {
+  display: none;
+}
+
+.badge-explorer-parcours-card .parcours-card-cadre-summary::after {
+  content: '\f078';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  font-size: 0.75rem;
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.badge-explorer-parcours-card .parcours-card-cadre[open] .parcours-card-cadre-summary::after {
+  transform: rotate(180deg);
+}
+
+.badge-explorer-parcours-card .parcours-card-cadre-icon {
+  color: var(--primary, #5570F1);
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.badge-explorer-parcours-card .parcours-card-cadre-content {
+  padding: 0 0.75rem 0.75rem 0.75rem;
+}
+
+.badge-explorer-parcours-card .parcours-card-cadre-para {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.55;
+}
+
+.badge-explorer-parcours-card .parcours-card-cadre-para:last-child {
+  margin-bottom: 0;
+}
+
+.badge-explorer-parcours-card .parcours-card-series-heading {
+  margin: 0.75rem 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main, #111827);
+}
+
 /* Series list: stand out with subtle background */
 .badge-explorer-parcours-card .parcours-card-series-list {
   margin: 0;
@@ -184,6 +254,52 @@
   color: var(--text-secondary, #6b7280);
   line-height: 1.4;
   margin-left: 1.75rem;
+}
+
+/* Démarche reconnue */
+.badge-explorer-parcours-card .parcours-card-demarche {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 4px solid var(--warning, #f59e0b);
+}
+
+.badge-explorer-parcours-card .parcours-card-demarche-heading {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main, #111827);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge-explorer-parcours-card .parcours-card-demarche-icon {
+  color: #d97706;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.badge-explorer-parcours-card .parcours-card-demarche-line {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.badge-explorer-parcours-card .parcours-card-demarche-line:last-child {
+  margin-bottom: 0;
+}
+
+.badge-explorer-parcours-card .parcours-card-demarche-line-icon {
+  color: #d97706;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  margin-top: 0.35em;
 }
 
 .badge-explorer-parcours-card .parcours-card-actions {
