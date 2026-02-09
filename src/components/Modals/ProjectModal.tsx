@@ -909,7 +909,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
       // Map frontend data to backend format with effective status (partnership_ids: array)
       const payload = mapFrontendToBackend(
-        { ...formData, status: effectiveStatus },
+        {
+          ...formData,
+          status: effectiveStatus,
+          pathway: (formData.pathways && formData.pathways[0]) || '',
+        },
         context,
         organizationId,
         state.tags,

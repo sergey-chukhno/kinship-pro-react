@@ -85,13 +85,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
             
             </h3>
           {(() => {
-            const pathwayList = (project.pathways && project.pathways.length > 0)
+            const pathwayList: string[] = (project.pathways && project.pathways.length > 0)
               ? project.pathways
               : (project.pathway ? [project.pathway] : []);
             if (pathwayList.length === 0) return null;
             return (
               <div className="project-card-pathways">
-                {pathwayList.map((p, index) => (
+                {pathwayList.map((p: string, index: number) => (
                   <span key={`${p}-${index}`} className={`pathway-pill pathway-${pathwaySlug(p)}`}>
                     {p}
                   </span>
