@@ -86,8 +86,18 @@
   margin-bottom: 0.35rem;
 }
 
+.badge-info-modal-description-wrap {
+  margin-top: 0.35rem;
+}
+
+.badge-info-modal-description-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+}
+
 .badge-info-modal-description {
-  margin: 0;
+  margin: 0.25rem 0 0 0;
   font-size: 0.875rem;
   color: var(--text-secondary, #6b7280);
   line-height: 1.5;

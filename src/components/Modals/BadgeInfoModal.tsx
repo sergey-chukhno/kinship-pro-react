@@ -59,7 +59,10 @@ const BadgeInfoModal: React.FC<BadgeInfoModalProps> = ({ badge, onClose }) => {
             <div className="badge-info-modal-meta">
               <span className="badge-info-modal-level">{levelLabel}</span>
               {badge.description?.trim() && (
-                <p className="badge-info-modal-description">{badge.description.trim()}</p>
+                <div className="badge-info-modal-description-wrap">
+                  <strong className="badge-info-modal-description-label">Description :</strong>
+                  <p className="badge-info-modal-description">{badge.description.trim()}</p>
+                </div>
               )}
             </div>
           </div>

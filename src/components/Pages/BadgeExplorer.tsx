@@ -217,16 +217,44 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
   // Filter badges by "Tous les badges" selection (all or specific badge by name)
   const filteredBadges = useMemo(() => {
     if (badgeFilter === 'all') return badges;
+    // Single-row series: filter by series when the selected option is the display title
+    if (selectedSeriesDbName === 'Série Parcours des possibles' && badgeFilter === 'Parcours des possibles') {
+      return badges.filter(b => b.series === 'Série Parcours des possibles');
+    }
+    if (selectedSeriesDbName === 'Série Parcours professionnel' && badgeFilter === 'Parcours professionnel') {
+      return badges.filter(b => b.series === 'Série Parcours professionnel');
+    }
     return badges.filter(b => b.name === badgeFilter);
-  }, [badges, badgeFilter]);
+  }, [badges, badgeFilter, selectedSeriesDbName]);
 
   // Group badges by title (name), one row per badge; description from level 1 only; levels sorted
+  // For "Série Parcours des possibles" and "Série Parcours professionnel": one row with display title, all levels
   interface BadgeGroup {
     name: string;
     description: string;
     levels: BadgeAPI[];
   }
   const badgesByName = useMemo(() => {
+    if (selectedSeriesDbName === 'Série Parcours des possibles') {
+      const seriesBadges = filteredBadges.filter(b => b.series === 'Série Parcours des possibles');
+      if (seriesBadges.length === 0) return [];
+      const sorted = [...seriesBadges].sort((a, b) =>
+        LEVEL_ORDER.indexOf(a.level as any) - LEVEL_ORDER.indexOf(b.level as any)
+      );
+      const level1 = sorted.find(b => b.level === 'level_1');
+      const description = (level1?.description?.trim() ?? '') || '';
+      return [{ name: 'Parcours des possibles', description, levels: sorted }];
+    }
+    if (selectedSeriesDbName === 'Série Parcours professionnel') {
+      const seriesBadges = filteredBadges.filter(b => b.series === 'Série Parcours professionnel');
+      if (seriesBadges.length === 0) return [];
+      const sorted = [...seriesBadges].sort((a, b) =>
+        LEVEL_ORDER.indexOf(a.level as any) - LEVEL_ORDER.indexOf(b.level as any)
+      );
+      const level1 = sorted.find(b => b.level === 'level_1');
+      const description = (level1?.description?.trim() ?? '') || '';
+      return [{ name: 'Parcours professionnel', description, levels: sorted }];
+    }
     const byName = new Map<string, BadgeAPI[]>();
     filteredBadges.forEach(badge => {
       const list = byName.get(badge.name) || [];
@@ -244,7 +272,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     });
     groups.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     return groups;
-  }, [filteredBadges]);
+  }, [filteredBadges, selectedSeriesDbName]);
 
   // For stats: unique badge count and level count (from full badges)
   const badgesByLevel = useMemo(() => {
@@ -264,8 +292,11 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
         <div className="badge-explorer-row-main">
           <div className="badge-explorer-row-left">
             <h3 className="badge-explorer-row-title">{group.name}</h3>
-            {group.description ? (
-              <p className="badge-explorer-row-description">{group.description}</p>
+            {group.description && series !== 'Série Parcours des possibles' && series !== 'Série Parcours professionnel' ? (
+              <div className="badge-explorer-row-description-wrap">
+                <strong className="badge-explorer-row-description-label">Description :</strong>
+                <p className="badge-explorer-row-description">{group.description}</p>
+              </div>
             ) : null}
           </div>
           <div className="badge-explorer-row-right">
@@ -273,7 +304,13 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               {group.levels.map((levelBadge) => {
                 const imageUrl = getLocalBadgeImage(levelBadge.name, levelBadge.level, levelBadge.series);
                 const levelNum = levelBadge.level?.replace('level_', '') || '1';
-                const levelLabel = getLevelLabel(series, levelNum);
+                let levelLabel = getLevelLabel(series, levelNum);
+                if (series === 'Série Parcours des possibles') {
+                  const suffix = levelBadge.name.replace(/^Étape\s*\d+\s*[:\s]*/i, '').trim() || `Étape ${levelNum}`;
+                  levelLabel = `Niveau ${levelNum} - ${suffix}`;
+                } else if (series === 'Série Parcours professionnel' && levelBadge.name.includes(' - ')) {
+                  levelLabel = `${levelLabel} - ${levelBadge.name.split(' - ')[1]}`;
+                }
                 return (
                   <div key={levelBadge.id} className="badge-explorer-level-image-item">
                     {imageUrl ? (
@@ -444,7 +481,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           <p className="series-description">{selectedSeries.description}</p>
         )}
         {!isLoading && !error && badges.length > 0 && (
-          <>
+          <div className="badge-explorer-header-row">
             <div className="series-stats">
               <div className="stat-item">
                 <i className="fas fa-medal"></i>
@@ -469,7 +506,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                 ))}
               </select>
             </div>
-          </>
+          </div>
         )}
       </div>
 
