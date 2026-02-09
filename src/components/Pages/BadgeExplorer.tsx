@@ -3,7 +3,7 @@ import { getBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
-import { getBadgeValidationRules, getBadgeCompetencies, normalizeCompetencyName } from '../Modals/BadgeAssignmentModal';
+import BadgeInfoModal from '../Modals/BadgeInfoModal';
 import './BadgeExplorer.css';
 
 interface BadgeExplorerProps {
@@ -134,6 +134,8 @@ const PARCOURS: Parcours[] = [
 
 const INTRO_MESSAGE = "Explorez les parcours Kinship et les badges associés, qui permettent d'identifier et de valoriser les compétences développées par les jeunes à travers des projets, des expériences et des parcours métiers.";
 
+const LEVEL_ORDER = ['level_1', 'level_2', 'level_3', 'level_4'] as const;
+
 type ViewMode = 'cards' | 'parcours-detail' | 'badge-list';
 
 const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
@@ -145,10 +147,10 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
   const [badges, setBadges] = useState<BadgeAPI[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedDescriptions, setExpandedDescriptions] = useState<Record<number, boolean>>({});
-  const [expandedCompetencies, setExpandedCompetencies] = useState<Record<number, boolean>>({});
   // Filter on badge list: "Tous les badges" or specific badge id
   const [badgeFilter, setBadgeFilter] = useState<string>('all');
+  // Badge shown in the "Voir les infos du badge" modal (single level badge)
+  const [badgeInfoModalBadge, setBadgeInfoModalBadge] = useState<BadgeAPI | null>(null);
 
   // Fetch badges only when on badge-list view with a valid series
   useEffect(() => {
@@ -173,20 +175,6 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     fetchBadges();
   }, [view, selectedSeriesDbName]);
 
-  const toggleDescription = (badgeId: number) => {
-    setExpandedDescriptions(prev => ({
-      ...prev,
-      [badgeId]: !prev[badgeId]
-    }));
-  };
-
-  const toggleCompetencies = (badgeId: number) => {
-    setExpandedCompetencies(prev => ({
-      ...prev,
-      [badgeId]: !prev[badgeId]
-    }));
-  };
-
   // Cards → Parcours detail
   const handleExplorerCeParcours = (parcours: Parcours) => {
     setSelectedParcours(parcours);
@@ -199,7 +187,6 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     setSelectedSeries(series);
     setSelectedSeriesDbName(series.dbName);
     setBadgeFilter('all');
-    setExpandedDescriptions({});
     setView('badge-list');
   };
 
@@ -227,156 +214,86 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     return getLocalBadgeImage(rep.name, levelKey, series.dbName);
   };
 
-  // Filter badges by "Tous les badges" selection (all or specific badge)
+  // Filter badges by "Tous les badges" selection (all or specific badge by name)
   const filteredBadges = useMemo(() => {
     if (badgeFilter === 'all') return badges;
-    const id = parseInt(badgeFilter, 10);
-    if (Number.isNaN(id)) return badges;
-    return badges.filter(b => b.id === id);
+    return badges.filter(b => b.name === badgeFilter);
   }, [badges, badgeFilter]);
 
-  // Group badges by level (for badge-list view)
-  const badgesByLevel = useMemo(() => {
-    const grouped: Record<string, BadgeAPI[]> = {
-      level_1: [],
-      level_2: [],
-      level_3: [],
-      level_4: []
-    };
+  // Group badges by title (name), one row per badge; description from level 1 only; levels sorted
+  interface BadgeGroup {
+    name: string;
+    description: string;
+    levels: BadgeAPI[];
+  }
+  const badgesByName = useMemo(() => {
+    const byName = new Map<string, BadgeAPI[]>();
     filteredBadges.forEach(badge => {
-      if (badge.level && grouped[badge.level]) {
-        grouped[badge.level].push(badge);
-      }
+      const list = byName.get(badge.name) || [];
+      list.push(badge);
+      byName.set(badge.name, list);
     });
-    return grouped;
+    const groups: BadgeGroup[] = [];
+    byName.forEach((levelBadges, name) => {
+      const sorted = [...levelBadges].sort((a, b) =>
+        LEVEL_ORDER.indexOf(a.level as any) - LEVEL_ORDER.indexOf(b.level as any)
+      );
+      const level1 = sorted.find(b => b.level === 'level_1');
+      const description = (level1?.description?.trim() ?? '') || '';
+      groups.push({ name, description, levels: sorted });
+    });
+    groups.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    return groups;
   }, [filteredBadges]);
 
-  const renderBadgeCard = (badge: BadgeAPI, index: number) => {
-    const imageUrl = getLocalBadgeImage(badge.name, badge.level, badge.series);
-    const hasDescription = badge.description && badge.description.trim() !== '';
-    const isExpanded = Boolean(expandedDescriptions[badge.id]);
-    const isSoftSkills4LabLevel1 = selectedSeriesDbName === 'Série TouKouLeur' && badge.level === 'level_1';
-    const competencies = isSoftSkills4LabLevel1 ? getBadgeCompetencies(badge) : [];
-    const rules = isSoftSkills4LabLevel1 ? getBadgeValidationRules(badge.name) : null;
-    const hasCompetencies = competencies.length > 0;
-    const isCompetenciesExpanded = Boolean(expandedCompetencies[badge.id]);
-    const normalizedMandatory = rules ? rules.mandatoryCompetencies.map(normalizeCompetencyName) : [];
+  // For stats: unique badge count and level count (from full badges)
+  const badgesByLevel = useMemo(() => {
+    const grouped: Record<string, BadgeAPI[]> = {
+      level_1: [], level_2: [], level_3: [], level_4: []
+    };
+    badges.forEach(badge => {
+      if (badge.level && grouped[badge.level]) grouped[badge.level].push(badge);
+    });
+    return grouped;
+  }, [badges]);
 
-    const hasDoubleToggles = hasDescription && hasCompetencies;
+  const renderBadgeRow = (group: BadgeGroup) => {
+    const series = group.levels[0]?.series ?? selectedSeriesDbName ?? '';
     return (
-      <div
-        key={badge.id}
-        className={`badge-explorer-card ${isExpanded || isCompetenciesExpanded ? 'expanded' : ''} ${hasDoubleToggles ? 'has-double-toggles' : ''}`}
-      >
-        {imageUrl && (
-          <div className="badge-icon">
-            <img src={imageUrl} alt={badge.name} className="badge-image" />
+      <div key={group.name} className="badge-explorer-by-title-row">
+        <div className="badge-explorer-row-main">
+          <div className="badge-explorer-row-left">
+            <h3 className="badge-explorer-row-title">{group.name}</h3>
+            {group.description ? (
+              <p className="badge-explorer-row-description">{group.description}</p>
+            ) : null}
           </div>
-        )}
-        <div className="badge-info">
-          <h4>{badge.name}</h4>
-          <div className={`badge-level level-${badge.level?.replace('level_', '') || '1'}`}>
-            {badge.level ? getLevelLabel(badge.series, badge.level.replace('level_', '')) : 'Niveau 1'}
-          </div>
-          {/* Description first: both "Voir description" and "Voir les compétences" visible at once */}
-          {hasDescription && (
-            <>
-              {!isExpanded && (
-                <button
-                  className="view-description-btn"
-                  type="button"
-                  onClick={() => toggleDescription(badge.id)}
-                >
-                  <span>Voir description</span>
-                  <i className="fas fa-chevron-down"></i>
-                </button>
-              )}
-              {isExpanded && (
-                <div className="badge-description">
-                  <p className="badge-description-title">Description :</p>
-                  <p className="badge-description-text">{badge.description}</p>
-                  <button
-                    className="view-description-btn"
-                    type="button"
-                    onClick={() => toggleDescription(badge.id)}
-                  >
-                    <span>Masquer description</span>
-                    <i className="fas fa-chevron-up"></i>
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-          {hasCompetencies && (
-            <>
-              {!isCompetenciesExpanded && (
-                <button
-                  className="view-description-btn view-competencies-btn"
-                  type="button"
-                  onClick={() => toggleCompetencies(badge.id)}
-                >
-                  <span>Voir les compétences</span>
-                  <i className="fas fa-chevron-down"></i>
-                </button>
-              )}
-              {isCompetenciesExpanded && (
-                <div className="badge-competencies">
-                  {rules?.hintText && (
-                    <p className="badge-competencies-hint">{rules.hintText}</p>
-                  )}
-                  <div className="badge-competencies-list-container">
-                    {competencies.map((c) => {
-                      const isMandatory = normalizedMandatory.includes(normalizeCompetencyName(c.name));
-                      return (
-                        <div
-                          key={c.id}
-                          className={`badge-competency-item ${isMandatory ? 'badge-competency-item-mandatory' : ''}`}
-                        >
-                          <span className="badge-competency-item-text">
-                            {c.name}
-                            {isMandatory && <span className="badge-competency-mandatory-indicator"> (Obligatoire)</span>}
-                          </span>
-                        </div>
-                      );
-                    })}
+          <div className="badge-explorer-row-right">
+            <div className="badge-explorer-level-images">
+              {group.levels.map((levelBadge) => {
+                const imageUrl = getLocalBadgeImage(levelBadge.name, levelBadge.level, levelBadge.series);
+                const levelNum = levelBadge.level?.replace('level_', '') || '1';
+                const levelLabel = getLevelLabel(series, levelNum);
+                return (
+                  <div key={levelBadge.id} className="badge-explorer-level-image-item">
+                    {imageUrl ? (
+                      <img src={imageUrl} alt={`${group.name} ${levelLabel}`} className="badge-explorer-level-img" />
+                    ) : (
+                      <div className="badge-explorer-level-img-placeholder" />
+                    )}
+                    <span className="badge-explorer-level-label">{levelLabel}</span>
+                    <button
+                      type="button"
+                      className="btn badge-explorer-info-btn"
+                      onClick={() => setBadgeInfoModalBadge(levelBadge)}
+                    >
+                      Voir les infos du badge
+                    </button>
                   </div>
-                  <button
-                    className="view-description-btn"
-                    type="button"
-                    onClick={() => toggleCompetencies(badge.id)}
-                  >
-                    <span>Masquer les compétences</span>
-                    <i className="fas fa-chevron-up"></i>
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderLevelSection = (level: string, levelNumber: string) => {
-    const levelBadges = badgesByLevel[level] || [];
-    const levelLabel = getLevelLabel(selectedSeriesDbName || '', levelNumber);
-    const levelClass = `level-${levelNumber}`;
-
-    return (
-      <div key={level} className={`badge-series level-series ${levelClass}-series`}>
-        <div className="series-header">
-          <h3 className="series-title">
-            {levelLabel} <span className={`level-color-indicator ${levelClass}`}></span>
-          </h3>
-        </div>
-        <div className="badge-series-grid">
-          {levelBadges.length > 0 ? (
-            levelBadges.map((badge, index) => renderBadgeCard(badge, index))
-          ) : (
-            <div className="empty-level-message">
-              <p>Aucun badge disponible pour ce niveau</p>
+                );
+              })}
             </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -531,7 +448,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
             <div className="series-stats">
               <div className="stat-item">
                 <i className="fas fa-medal"></i>
-                <span>{badges.length} badge{badges.length > 1 ? 's' : ''}</span>
+                <span>{badgesByName.length} badge{badgesByName.length > 1 ? 's' : ''}</span>
               </div>
               <div className="stat-item">
                 <i className="fas fa-chart-line"></i>
@@ -547,8 +464,8 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                 onChange={(e) => setBadgeFilter(e.target.value)}
               >
                 <option value="all">Tous les badges</option>
-                {badges.map((b) => (
-                  <option key={b.id} value={String(b.id)}>{b.name}</option>
+                {badgesByName.map((g) => (
+                  <option key={g.name} value={g.name}>{g.name}</option>
                 ))}
               </select>
             </div>
@@ -566,15 +483,22 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           <div className="error-container">
             <p className="error-text">{error}</p>
           </div>
+        ) : badgesByName.length === 0 ? (
+          <div className="empty-level-message">
+            <p>Aucun badge disponible pour cette série</p>
+          </div>
         ) : (
-          <>
-            {renderLevelSection('level_1', '1')}
-            {renderLevelSection('level_2', '2')}
-            {renderLevelSection('level_3', '3')}
-            {renderLevelSection('level_4', '4')}
-          </>
+          <div className="badge-explorer-by-title-list">
+            {badgesByName.map((group) => renderBadgeRow(group))}
+          </div>
         )}
       </div>
+      {badgeInfoModalBadge && (
+        <BadgeInfoModal
+          badge={badgeInfoModalBadge}
+          onClose={() => setBadgeInfoModalBadge(null)}
+        />
+      )}
     </div>
   );
 };
