@@ -247,8 +247,12 @@ const PublicProjectInfo: React.FC = () => {
                   <div className="manager-details">
                     <div className="manager-name">{project.responsible?.name || project.owner}</div>
                     <div className="manager-role">
-                      {translateRole(project.responsible?.role) || project.responsible?.profession || 'Membre'}
-                      {project.responsible?.city && ` • ${project.responsible.city}`}
+                      {(() => {
+                        const r = project.responsible;
+                        const systemLabel = r?.role_in_system ? translateRole(r.role_in_system) : '';
+                        const orgLabel = r?.role ? translateRole(r.role) : '';
+                        return [systemLabel, orgLabel].filter(Boolean).join(' • ');
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -280,8 +284,11 @@ const PublicProjectInfo: React.FC = () => {
                         <div className="manager-details">
                           <div className="manager-name">{coResponsible.name}</div>
                           <div className="manager-role">
-                            {coResponsible.role || coResponsible.profession || 'Membre'}
-                            {coResponsible.city && ` • ${coResponsible.city}`}
+                            {(() => {
+                              const systemLabel = coResponsible.role_in_system ? translateRole(coResponsible.role_in_system) : '';
+                              const orgLabel = coResponsible.role ? translateRole(coResponsible.role) : '';
+                              return [systemLabel, orgLabel].filter(Boolean).join(' • ');
+                            })()}
                           </div>
                         </div>
                       </div>

@@ -459,6 +459,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         organization: ownerOrganizationName, // Use owner's org, not project org or viewer's org
         email: owner.email || '',
         role: apiProject.owner_organization_role || undefined, // Role in organization
+        role_in_system: owner.role || undefined, // System role (directeur_ecole, principal, etc.)
         city: apiProject.owner_city || undefined, // City of organization
         is_deleted: owner.is_deleted || false // Preserve deleted status
     } : null;
@@ -474,6 +475,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
             : ownerOrganizationName,
         email: coOwner.email || '',
         role: coOwner.organization_role || undefined, // Role in organization
+        role_in_system: coOwner.role_in_system || undefined, // System role (directeur_ecole, principal, etc.)
         city: coOwner.city || undefined, // City of organization
         is_deleted: coOwner.is_deleted || false // Preserve deleted status
     }));

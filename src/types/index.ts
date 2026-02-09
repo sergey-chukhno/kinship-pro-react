@@ -152,6 +152,7 @@ export interface Project {
     organization: string;
     email: string;
     role?: string; // Role in organization (superadmin, admin, référant, intervenant, membre)
+    role_in_system?: string; // System role (directeur_ecole, principal, benevole, etc.)
     city?: string; // City of the organization
     is_deleted?: boolean; // Indicates if user is soft-deleted
   } | null;
@@ -163,6 +164,7 @@ export interface Project {
     organization: string;
     email: string;
     role?: string; // Role in organization (superadmin, admin, référant, intervenant, membre)
+    role_in_system?: string; // System role (directeur_ecole, principal, benevole, etc.)
     city?: string; // City of the organization
     is_deleted?: boolean; // Indicates if user is soft-deleted
   }[];

@@ -1633,8 +1633,12 @@ const ProjectManagement: React.FC = () => {
         ? { ...editForm, visibility: 'private' as const }
         : editForm;
 
-      // Map edit form to backend payload
-      const payload = mapEditFormToBackend(formDataWithVisibility, state.tags || [], project);
+      // Map edit form to backend payload (pathway from pathways[0] for mapper compatibility)
+      const editPayloadForm = {
+        ...formDataWithVisibility,
+        pathway: (formDataWithVisibility.pathways && formDataWithVisibility.pathways[0]) ?? '',
+      };
+      const payload = mapEditFormToBackend(editPayloadForm, state.tags || [], project);
       payload.project.status = effectiveStatus;
 
       // Add co-responsibles, partnership and participants
@@ -3609,7 +3613,7 @@ const ProjectManagement: React.FC = () => {
               </div>
               <div className="project-tags-row">
                 {(() => {
-                  const pathwayList = (project.pathways && project.pathways.length > 0)
+                  const pathwayList: string[] = (project.pathways && project.pathways.length > 0)
                     ? project.pathways
                     : (project.pathway ? [project.pathway] : []);
                   if (pathwayList.length === 0) return null;
@@ -3617,7 +3621,7 @@ const ProjectManagement: React.FC = () => {
                     <div className="pathway-section">
                       <div className="section-label">Parcours</div>
                       <div className="pathway-container">
-                        {pathwayList.map((p, index) => (
+                        {pathwayList.map((p: string, index: number) => (
                           <span key={`${p}-${index}`} className={`pathway-pill pathway-${pathwaySlug(p)}`}>{p}</span>
                         ))}
                       </div>
@@ -3673,8 +3677,12 @@ const ProjectManagement: React.FC = () => {
                     <div className="manager-details">
                       <div className="manager-name">{project.responsible?.name || project.owner}</div>
                       <div className="manager-role">
-                        {translateRole(project.responsible?.role) || project.responsible?.profession || 'Membre'}
-                        {project.responsible?.city && ` • ${project.responsible.city}`}
+                        {(() => {
+                          const r = project.responsible;
+                          const systemLabel = r?.role_in_system ? translateRole(r.role_in_system) : '';
+                          const orgLabel = r?.role ? translateRole(r.role) : '';
+                          return [systemLabel, orgLabel].filter(Boolean).join(' • ');
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -3707,8 +3715,11 @@ const ProjectManagement: React.FC = () => {
                           <div className="manager-details">
                             <div className="manager-name">{coResponsible.name}</div>
                             <div className="manager-role">
-                              {coResponsible.role || coResponsible.profession || 'Membre'}
-                              {coResponsible.city && ` • ${coResponsible.city}`}
+                              {(() => {
+                                const systemLabel = coResponsible.role_in_system ? translateRole(coResponsible.role_in_system) : '';
+                                const orgLabel = coResponsible.role ? translateRole(coResponsible.role) : '';
+                                return [systemLabel, orgLabel].filter(Boolean).join(' • ');
+                              })()}
                             </div>
                           </div>
                         </div>
