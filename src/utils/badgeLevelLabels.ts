@@ -50,6 +50,22 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
+  // Série Compétences à s'orienter - Collège
+  if (series === "Série Compétences à s'orienter - Collège") {
+    switch (levelNumber) {
+      case '1':
+        return 'Niveau 1 – Aperçu';
+      case '2':
+        return 'Niveau 2 - Appropriation';
+      case '3':
+        return 'Niveau 3- Application';
+      case '4':
+        return 'Niveau 4 - Autonomie';
+      default:
+        return `Niveau ${levelNumber}`;
+    }
+  }
+
   // Série Soft Skills 4LAB (TouKouLeur): Default labels
   // Also handles "Série TouKouLeur" and any other series as fallback
   return getTouKouLeurLabel(levelNumber);
