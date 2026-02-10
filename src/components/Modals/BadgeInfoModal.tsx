@@ -2,7 +2,7 @@ import React from 'react';
 import { BadgeAPI } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
-import { getBadgeValidationRules, getBadgeCompetencies, normalizeCompetencyName } from './BadgeAssignmentModal';
+import { getBadgeValidationRules, getBadgeCompetencies, normalizeCompetencyName, getCompetencyDisplayName, getBadgeDisplayName } from './BadgeAssignmentModal';
 import './Modal.css';
 import './BadgeAssignmentModal.css';
 import './BadgeInfoModal.css';
@@ -20,7 +20,7 @@ const BadgeInfoModal: React.FC<BadgeInfoModalProps> = ({ badge, onClose }) => {
   const levelLabel = getLevelLabel(series, levelNum);
   const imageUrl = getLocalBadgeImage(badge.name, badge.level, badge.series);
   const competencies = getBadgeCompetencies(badge);
-  const rules = getBadgeValidationRules(badge.name);
+  const rules = getBadgeValidationRules(badge.name, badge.level);
   const normalizedMandatory = rules ? rules.mandatoryCompetencies.map(normalizeCompetencyName) : [];
 
   return (
@@ -34,7 +34,7 @@ const BadgeInfoModal: React.FC<BadgeInfoModalProps> = ({ badge, onClose }) => {
       >
         <div className="badge-info-modal-header">
           <h2 id="badge-info-modal-title" className="badge-info-modal-title">
-            {badge.name}
+            {getBadgeDisplayName(badge.name)}
           </h2>
           <button
             type="button"
@@ -83,7 +83,7 @@ const BadgeInfoModal: React.FC<BadgeInfoModalProps> = ({ badge, onClose }) => {
                       className={`competency-item ${isMandatory ? 'competency-item-mandatory' : ''}`}
                     >
                       <span className="competency-item-text">
-                        {c.name}
+                        {getCompetencyDisplayName(c.name, isMandatory)}
                         {isMandatory && (
                           <span className="competency-mandatory-indicator"> (Obligatoire)</span>
                         )}

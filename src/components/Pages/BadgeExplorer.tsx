@@ -4,6 +4,7 @@ import { BadgeAPI, BadgeSkillAPI } from '../../types';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import BadgeInfoModal from '../Modals/BadgeInfoModal';
+import { getBadgeDisplayName } from '../Modals/BadgeAssignmentModal';
 import './BadgeExplorer.css';
 
 interface BadgeExplorerProps {
@@ -445,7 +446,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       <div key={group.name} className="badge-explorer-by-title-row">
         <div className="badge-explorer-row-main">
           <div className="badge-explorer-row-left">
-            <h3 className="badge-explorer-row-title">{group.name}</h3>
+            <h3 className="badge-explorer-row-title">{getBadgeDisplayName(group.name)}</h3>
             {group.description && series !== 'Série Parcours des possibles' && series !== 'Série Parcours professionnel' ? (
               <div className="badge-explorer-row-description-wrap">
                 <strong className="badge-explorer-row-description-label">Description :</strong>
@@ -466,9 +467,9 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                   levelLabel = `${levelLabel} - ${levelBadge.name.split(' - ')[1]}`;
                 }
                 return (
-                  <div key={levelBadge.id} className="badge-explorer-level-image-item">
+                  <div key={`${levelBadge.name}-${levelBadge.level}`} className="badge-explorer-level-image-item">
                     {imageUrl ? (
-                      <img src={imageUrl} alt={`${group.name} ${levelLabel}`} className="badge-explorer-level-img" />
+                      <img src={imageUrl} alt={`${getBadgeDisplayName(group.name)} ${levelLabel}`} className="badge-explorer-level-img" />
                     ) : (
                       <div className="badge-explorer-level-img-placeholder" />
                     )}
@@ -476,7 +477,11 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                     <button
                       type="button"
                       className="btn badge-explorer-info-btn"
-                      onClick={() => setBadgeInfoModalBadge(levelBadge)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setBadgeInfoModalBadge(levelBadge);
+                      }}
                     >
                       Voir les infos du badge
                     </button>

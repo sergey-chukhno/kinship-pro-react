@@ -239,15 +239,106 @@ const BADGE_VALIDATION_RULES: Record<string, BadgeValidationRule> = {
   }
 };
 
-// Helper function to get display name for badge
-// Maps incorrect names to correct display names
-const getBadgeDisplayName = (name: string): string => {
+// Level-specific validation rules (e.g. Série Soft Skills 4LAB / TouKouLeur level 2)
+const BADGE_VALIDATION_RULES_BY_LEVEL: Record<string, Record<string, BadgeValidationRule>> = {
+  'Adaptabilité': {
+    level_2: {
+      mandatoryCompetencies: ["Identifie un problème (ses caractéristiques, ses conséquences) dans un projet ou une situation."],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 4 compétences ci-dessous dont la compétence obligatoire"
+    }
+  },
+  'Communication': {
+    level_2: {
+      mandatoryCompetencies: [],
+      minRequired: 3,
+      hintText: "Validation minimum de 3 des 4 compétences ci-dessous :"
+    }
+  },
+  'Coopération': {
+    level_2: {
+      mandatoryCompetencies: ["Travaille en équipe en variant sa place et son rôle dans le groupe en tant que porteur de projet, responsable équipe. (Obligatoire)"],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 3 compétences ci-dessous :"
+    }
+  },
+  'Créativité': {
+    level_2: {
+      mandatoryCompetencies: ["Mobilise son imagination et sa créativité au service d'un projet personnel ou collectif. (obligatoire)"],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 3 compétences ci-dessous :"
+    }
+  },
+  'Engagement': {
+    level_2: {
+      mandatoryCompetencies: ["Aller au bout de son projet, de son engagement. (Obligatoire)"],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 3 compétences ci-dessous dont la compétence obligatoire :"
+    }
+  },
+  'Esprit critique': {
+    level_2: {
+      mandatoryCompetencies: ["Vérifie la validité d'une information (obligatoire)"],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 4 compétences ci-dessous dont la compétence obligatoire :"
+    }
+  },
+  'Formation': {
+    level_2: {
+      mandatoryCompetencies: [],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 4 compétences ci-dessous :"
+    }
+  },
+  'Gestion de projet': {
+    level_2: {
+      mandatoryCompetencies: ["Apprend à gérer un projet et évalue l'atteinte des objectifs. (Obligatoire)"],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 4 compétences ci-dessous :"
+    }
+  },
+  'Informatique & Numérique': {
+    level_2: {
+      mandatoryCompetencies: [],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 4 compétences ci-dessous :"
+    }
+  },
+  'Organisation Opérationnelle': {
+    level_2: {
+      mandatoryCompetencies: ["Anticipe et planifie ses tâches. (Obligatoire)"],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 4 compétences ci-dessous :"
+    }
+  },
+  'Sociabilité': {
+    level_2: {
+      mandatoryCompetencies: ["Distingue son intérêt particulier de l'intérêt général. (Obligatoire)"],
+      minRequired: 2,
+      hintText: "Validation minimum de 2 des 4 compétences ci-dessous :"
+    }
+  }
+};
+
+// Canonical badge name for lookups (API may send "Information & Numérique" or "Information Numérique")
+const BADGE_NAME_ALIASES: Record<string, string> = {
+  'Information & Numérique': 'Informatique & Numérique',
+  'Information Numérique': 'Informatique & Numérique',
+};
+
+// Helper function to get display name for badge (exported for BadgeExplorer)
+// Display title should be "Information & Numérique" for this badge; match case-insensitively and with/without "&"
+export const getBadgeDisplayName = (name: string): string => {
+  const trimmed = name?.trim() ?? '';
+  // Same normalization as normalizeBadgeNameForMatching so "INFORMATION NUMÉRIQUE" / "Informatique & Numérique" match
+  const normalized = trimmed.toLowerCase().replace(/\s*&\s*/g, ' ').replace(/\s+/g, ' ').replace(/informatique/g, 'information').trim();
+  if (normalized === 'information numérique') return 'Information & Numérique';
   const displayNameMap: Record<string, string> = {
-    'Information Numérique': 'Informatique & Numérique',
-    'Information & Numérique': 'Informatique & Numérique',
+    'Informatique & Numérique': 'Information & Numérique',
+    'Information Numérique': 'Information & Numérique',
+    'Information & Numérique': 'Information & Numérique',
   };
-  
-  return displayNameMap[name] || name;
+  return displayNameMap[trimmed] ?? trimmed;
 };
 
 // Helper function to normalize badge names for matching
@@ -262,9 +353,31 @@ const normalizeBadgeNameForMatching = (name: string): string => {
     .trim();
 };
 
+// Helper to find badge key in level-specific map (case-insensitive; resolves "Information & Numérique" / "INFORMATION NUMÉRIQUE" -> "Informatique & Numérique")
+const findBadgeKey = (badgeName: string, map: Record<string, unknown>): string | undefined => {
+  const trimmed = badgeName.trim();
+  const nameToUse = BADGE_NAME_ALIASES[trimmed] ?? trimmed;
+  if (map[nameToUse] !== undefined) return nameToUse;
+  const lower = nameToUse.toLowerCase();
+  let key = Object.keys(map).find(k => k.toLowerCase() === lower);
+  if (key) return key;
+  // Flexible match: "INFORMATION NUMÉRIQUE" vs "Informatique & Numérique"
+  const flexible = normalizeBadgeNameForMatching(trimmed);
+  key = Object.keys(map).find(k => normalizeBadgeNameForMatching(k) === flexible);
+  return key;
+};
+
 // Helper function to get validation rules for a badge (exported for BadgeExplorer)
-// Uses flexible matching to handle variations in badge names
-export const getBadgeValidationRules = (badgeName: string): BadgeValidationRule | null => {
+// When level is provided, level-specific rules take precedence (e.g. Adaptabilité Niveau 2)
+export const getBadgeValidationRules = (badgeName: string, level?: string): BadgeValidationRule | null => {
+  // Level-specific rules first (e.g. Adaptabilité level_2); match badge name case-insensitively
+  if (level) {
+    const key = findBadgeKey(badgeName, BADGE_VALIDATION_RULES_BY_LEVEL);
+    if (key && BADGE_VALIDATION_RULES_BY_LEVEL[key]?.[level]) {
+      return BADGE_VALIDATION_RULES_BY_LEVEL[key][level];
+    }
+  }
+  
   // Try exact match first
   if (BADGE_VALIDATION_RULES[badgeName]) {
     return BADGE_VALIDATION_RULES[badgeName];
@@ -295,6 +408,12 @@ export const normalizeCompetencyName = (name: string): string => {
   return name.trim();
 };
 
+// When showing the mandatory "(Obligatoire)" indicator, strip it from the name to avoid duplication
+export const getCompetencyDisplayName = (name: string, isMandatory: boolean): string => {
+  if (!isMandatory) return name;
+  return name.replace(/\s*\([oO]bligatoire\)\s*$/, '').trim();
+};
+
 // Fallback competencies for badges that don't have them in the API
 // This is a temporary solution until the backend is updated
 const FALLBACK_COMPETENCIES: Record<string, Array<{ id: number; name: string }>> = {
@@ -305,9 +424,105 @@ const FALLBACK_COMPETENCIES: Record<string, Array<{ id: number; name: string }>>
   ]
 };
 
+// Level-specific fallback competencies (e.g. Série Soft Skills 4LAB / TouKouLeur level 2)
+const FALLBACK_COMPETENCIES_BY_LEVEL: Record<string, Record<string, Array<{ id: number; name: string }>>> = {
+  'Adaptabilité': {
+    level_2: [
+      { id: -101, name: "Identifie un problème (ses caractéristiques, ses conséquences) dans un projet ou une situation." },
+      { id: -102, name: "S'engage dans une démarche de résolution." },
+      { id: -103, name: "Améliore sa performance personnelle ou collective en fonction des contraintes pour progresser et se perfectionner" },
+      { id: -104, name: "Tient compte des contraintes, des matériaux et des process de production." }
+    ]
+  },
+  'Communication': {
+    level_2: [
+      { id: -201, name: "Argumente à l'oral de façon claire et organisé." },
+      { id: -202, name: "Adapte son niveau de langue et son discours en fonction de ses interlocuteurs (professeurs, partenaires, jeunes...)" },
+      { id: -203, name: "S'exprime à l'écrit pour raconter, décrire, expliquer ou argumenter de façon claire et précise" },
+      { id: -204, name: "Lit, interprète ou produit des schémas, tableaux, diagrammes, graphiques, fiches ..." }
+    ]
+  },
+  'Coopération': {
+    level_2: [
+      { id: -301, name: "Travaille en équipe en variant sa place et son rôle dans le groupe en tant que porteur de projet, responsable équipe. (Obligatoire)" },
+      { id: -302, name: "Négocie et recherche un accord, un compromis si besoin." },
+      { id: -303, name: "S'engage dans un dialogue constructif." }
+    ]
+  },
+  'Créativité': {
+    level_2: [
+      { id: -401, name: "Mobilise son imagination et sa créativité au service d'un projet personnel ou collectif. (obligatoire)" },
+      { id: -402, name: "Met en œuvre des démarches et des techniques de création pour ses productions de natures diverses." },
+      { id: -403, name: "Imagine, conçoit ou réalise des productions diverses de natures diverses y compris littéraires et artistiques." }
+    ]
+  },
+  'Engagement': {
+    level_2: [
+      { id: -501, name: "Aller au bout de son projet, de son engagement. (Obligatoire)" },
+      { id: -502, name: "Connait l'importance d'un comportement responsable vis-à-vis de l'environnement." },
+      { id: -503, name: "Comprend ses responsabilités individuelles et collectives." }
+    ]
+  },
+  'Esprit critique': {
+    level_2: [
+      { id: -601, name: "Analyse et exploite les erreurs." },
+      { id: -602, name: "Met à l'essai plusieurs solutions." },
+      { id: -603, name: "Vérifie la validité d'une information (obligatoire)" },
+      { id: -604, name: "Remet en cause ses jugements initiaux après un débat argumenté." }
+    ]
+  },
+  'Formation': {
+    level_2: [
+      { id: -701, name: "Met en œuvre l'attention, la mémorisation, la mobilisation des ressources pour acquérir des connaissances." },
+      { id: -702, name: "Demande de l'aide pour apprendre de ses pairs." },
+      { id: -703, name: "Cherche ou expérimente une ou des nouvelles techniques pertinentes." },
+      { id: -704, name: "Sollicite les connaissances scientifiques, technologiques et artistiques pertinentes." }
+    ]
+  },
+  'Gestion de projet': {
+    level_2: [
+      { id: -801, name: "Apprend à gérer un projet et évalue l'atteinte des objectifs. (Obligatoire)" },
+      { id: -802, name: "Négocie et recherche un consensus." },
+      { id: -803, name: "Tient compte des contraintes." },
+      { id: -804, name: "Met en œuvre son projet après avoir évalué les conséquences de son action." }
+    ]
+  },
+  'Informatique & Numérique': {
+    level_2: [
+      { id: -901, name: "Mobilise différents outils numériques pour créer des documents intégrant divers médias." },
+      { id: -902, name: "Met en forme ses recherches avec des logiciels de mise en page." },
+      { id: -903, name: "Utilise des outils numériques pour s'organiser, échanger et collaborer (tableur, mails, application...)." },
+      { id: -904, name: "Utilise les outils (imprimantes 3D, logiciels numériques, parc informatique...) des espaces collaboratifs (tiers-lieu, FabLab...)" }
+    ]
+  },
+  'Organisation Opérationnelle': {
+    level_2: [
+      { id: -1001, name: "Partage les tâches pour la mise en place d'une action." },
+      { id: -1002, name: "Met en place des règles communes (en fonction du lieu et/ou de fonctionnement de l'équipe...)" },
+      { id: -1003, name: "Anticipe et planifie ses tâches. (Obligatoire)" },
+      { id: -1004, name: "Recherche et utilise des techniques pertinentes en fonction de son projet ou de son rôle dans celui-ci." }
+    ]
+  },
+  'Sociabilité': {
+    level_2: [
+      { id: -1101, name: "Distingue son intérêt particulier de l'intérêt général. (Obligatoire)" },
+      { id: -1102, name: "Sait s'engager dans un dialogue constructif." },
+      { id: -1103, name: "Met à distance préjugés et stéréotypes." },
+      { id: -1104, name: "Fais preuve de diplomatie dans ces propositions (accepte de les négocier si besoin)." }
+    ]
+  }
+};
+
 // Helper function to get competencies for a badge (exported for BadgeExplorer; API data or fallback)
 export const getBadgeCompetencies = (badge: BadgeAPI | null): Array<{ id: number; name: string }> => {
   if (!badge) return [];
+  
+  // Level-specific fallback takes precedence (e.g. Adaptabilité Niveau 2 – corrected list); match badge name case-insensitively
+  if (badge.level) {
+    const key = findBadgeKey(badge.name, FALLBACK_COMPETENCIES_BY_LEVEL);
+    const byLevel = key && FALLBACK_COMPETENCIES_BY_LEVEL[key][badge.level];
+    if (byLevel) return byLevel;
+  }
   
   // If badge has expertises from API, use them
   if (badge.expertises && badge.expertises.length > 0) {
@@ -336,15 +551,17 @@ const validateCompetencies = (
   }
   
   const isParcoursProfessionnel = badge.series === 'Série Parcours professionnel';
+  const isTouKouLeurLevel2 = badge.series === 'Série TouKouLeur' && badge.level === 'level_2';
   const shouldValidate = badge.level === 'level_1' || 
                          (badge.level === 'level_2' && (badge.series === 'Série Parcours des possibles' || badge.series === 'Série Audiovisuelle')) ||
-                         isParcoursProfessionnel;
+                         isParcoursProfessionnel ||
+                         isTouKouLeurLevel2;
   
   if (!shouldValidate) {
     return { isValid: true, errorMessage: null }; // No validation for other badges
   }
 
-  const rules = getBadgeValidationRules(badge.name);
+  const rules = getBadgeValidationRules(badge.name, badge.level);
   console.log('=== Validation Check ===');
   console.log('Badge name:', badge.name);
   console.log('Found rules:', rules ? 'YES' : 'NO');
@@ -642,8 +859,9 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
     // Validate competencies for level 1 and level 2 badges (for "Série Parcours des possibles" and "Série Audiovisuelle")
     // Also validate all levels for "Série Parcours professionnel"
     const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
+    const isTouKouLeurLevel2 = selectedBadge.series === 'Série TouKouLeur' && selectedBadge.level === 'level_2';
     if (selectedBadge.level === 'level_1' || 
-        (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle')) ||
+        (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
         isParcoursProfessionnel) {
       const competencies = getBadgeCompetencies(selectedBadge);
       if (competencies.length > 0) {
@@ -1115,13 +1333,13 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
 
             {/* Compétences (sélection multiple) */}
             {selectedBadge && (selectedBadge.level === 'level_1' || 
-              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle')) ||
+              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
               selectedBadge.series === 'Série Parcours professionnel') && (
               <div className="form-group">
                 <div className="competencies-label-container">
                   <label htmlFor="expertises">Compétences (sélection multiple)</label>
                   {(() => {
-                    const rules = getBadgeValidationRules(selectedBadge.name);
+                    const rules = getBadgeValidationRules(selectedBadge.name, selectedBadge.level);
                     if (rules) {
                       return (
                         <span className="competencies-hint-text">{rules.hintText}</span>
@@ -1154,17 +1372,17 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                             const expertise = competencies.find((e: any) => e.id === expertiseId);
                             if (!expertise) return null;
                             const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
-                            const rules = (selectedBadge.level === 'level_1' || 
-                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle')) ||
+                            const rulesForChips = (selectedBadge.level === 'level_1' || 
+                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
                               isParcoursProfessionnel) 
-                              ? getBadgeValidationRules(selectedBadge.name) : null;
+                              ? getBadgeValidationRules(selectedBadge.name, selectedBadge.level) : null;
                             // Use normalized comparison to check if competency is mandatory
                             const normalizedExpertiseName = normalizeCompetencyName(expertise.name);
-                            const normalizedMandatory = rules?.mandatoryCompetencies.map(normalizeCompetencyName) || [];
+                            const normalizedMandatory = rulesForChips?.mandatoryCompetencies.map(normalizeCompetencyName) || [];
                             const isMandatory = normalizedMandatory.includes(normalizedExpertiseName);
                             return (
                               <div key={expertiseId} className={`competency-chip ${isMandatory ? 'competency-chip-mandatory' : ''}`}>
-                                <span className="competency-chip-text">{expertise.name}</span>
+                                <span className="competency-chip-text">{getCompetencyDisplayName(expertise.name, isMandatory)}</span>
                                 {isMandatory && <span className="competency-chip-mandatory-badge">(Obligatoire)</span>}
                                 <button
                                   type="button"
@@ -1199,15 +1417,15 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                           }
                           
                             const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
-                            const rules = (selectedBadge.level === 'level_1' || 
-                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle')) ||
+                            const rulesForList = (selectedBadge.level === 'level_1' || 
+                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
                               isParcoursProfessionnel) 
-                              ? getBadgeValidationRules(selectedBadge.name) : null;
+                              ? getBadgeValidationRules(selectedBadge.name, selectedBadge.level) : null;
                           
                           return availableExpertises.map((expertise: any) => {
                             // Use normalized comparison to check if competency is mandatory
                             const normalizedExpertiseName = normalizeCompetencyName(expertise.name);
-                            const normalizedMandatory = rules?.mandatoryCompetencies.map(normalizeCompetencyName) || [];
+                            const normalizedMandatory = rulesForList?.mandatoryCompetencies.map(normalizeCompetencyName) || [];
                             const isMandatory = normalizedMandatory.includes(normalizedExpertiseName);
                             return (
                               <button
@@ -1219,7 +1437,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                                 }}
                               >
                                 <span className="competency-item-text">
-                                  {expertise.name}
+                                  {getCompetencyDisplayName(expertise.name, isMandatory)}
                                   {isMandatory && <span className="competency-mandatory-indicator"> (Obligatoire)</span>}
                                 </span>
                                 <i className="fas fa-plus competency-item-icon"></i>
