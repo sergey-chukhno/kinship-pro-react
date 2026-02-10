@@ -3,6 +3,8 @@ const ROLE_TRANSLATIONS: Record<string, string> = {
   admins: 'Admin',
   superadmin: 'Superadmin',
   referent: 'Référent',
+  referants: 'Référent',
+  referant: 'Référent',
   referents: 'Référent',
   member: 'Membre',
   members: 'Membre',
