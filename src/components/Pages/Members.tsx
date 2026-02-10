@@ -261,6 +261,12 @@ const Members: React.FC = () => {
           m.role_in_school === 'superadmin' || 
           m.role_in_company === 'superadmin';
 
+        // Handle badges like teacher path: keep object form so meta.total_count is available for totalBadgeCount
+        let badges: any = m.badges?.data?.map((b: any) => b.id?.toString()) || [];
+        if (m.badges && typeof m.badges === 'object' && !Array.isArray(m.badges)) {
+          badges = m.badges; // { data: [...], meta: { total_count: ... } }
+        }
+
         return {
           id: (m.id).toString(),
           firstName: m.first_name,
@@ -287,7 +293,7 @@ const Members: React.FC = () => {
           availability: availabilityList,
           avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
           isTrusted: m.status === 'confirmed',
-          badges: m.badges?.data?.map((b: any) => b.id?.toString()) || [],
+          badges: badges,
           latestBadges: m.latest_badges || [],
           organization: '',
           canProposeStage: m.take_trainee || false,
@@ -851,6 +857,23 @@ const Members: React.FC = () => {
     }
     return undefined;
   }, [selectedMember, cartographyTokens, loadingCartographyTokens, isSchoolContext, isTeacherContext, currentSchoolId, getCartographyToken]);
+
+  // For Élèves tab: show Cartographie in modal when student has badges (even while URL loads)
+  // Use latestBadges as fallback so school dashboard shows link when API omits/undercounts badges
+  const selectedMemberHasBadges = useMemo(() => {
+    if (!selectedMember) return false;
+    const count = Array.isArray(selectedMember.badges)
+      ? selectedMember.badges.length
+      : (selectedMember.badges as any)?.meta?.total_count ?? (selectedMember.badges as any)?.data?.length ?? 0;
+    if (Number(count) > 0) return true;
+    const latestCount = (selectedMember as any).latestBadges?.length ?? 0;
+    return latestCount > 0;
+  }, [selectedMember]);
+
+  const isCartographyLoadingForSelected =
+    !!selectedMember &&
+    !badgeCartographyUrlForSelectedMember &&
+    !!loadingCartographyTokens[selectedMember.id];
 
   // Compute cartography URLs for all filtered students reactively
   const studentCartographyUrls = useMemo(() => {
@@ -1721,10 +1744,11 @@ const Members: React.FC = () => {
           </div>
           <div className="members-grid">
                 {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
-              // Handle both old format (array) and new format (object with data/meta)
-              const totalBadgeCount = Array.isArray(member.badges) 
-                ? member.badges.length 
-                : (member.badges as any)?.meta?.total_count || (member.badges as any)?.data?.length || 0;
+              // Handle both old format (array) and new format (object with data/meta); fallback to latestBadges for school API
+              const fromBadges = Array.isArray(member.badges)
+                ? member.badges.length
+                : (member.badges as any)?.meta?.total_count ?? (member.badges as any)?.data?.length ?? 0;
+              const totalBadgeCount = Number(fromBadges) > 0 ? fromBadges : ((member as any).latestBadges?.length ?? 0);
               const memberForDisplay = {
                 ...member,
                 roles: translateRoles(member.roles),
@@ -1773,6 +1797,7 @@ const Members: React.FC = () => {
                     }
                   ] : []}
                   badgeCartographyUrl={studentCartographyUrls[member.id]}
+                  showCartographyLinkWhenHasBadges={true}
                 />
               );
             })
@@ -2042,6 +2067,8 @@ const Members: React.FC = () => {
           isSuperadmin={(selectedMember as any).isSuperadmin || 
             ((selectedMember as any).membershipRole || '').toLowerCase() === 'superadmin'}
           badgeCartographyUrl={badgeCartographyUrlForSelectedMember}
+          hasBadges={selectedMemberHasBadges}
+          isCartographyLoading={isCartographyLoadingForSelected}
         />
       )}
 

@@ -20,6 +20,8 @@ interface MemberModalProps {
   hideEditButton?: boolean; // Option to hide edit button (for network members)
   isSuperadmin?: boolean; // Hide delete button for superadmins
   badgeCartographyUrl?: string; // Optional URL for badge cartography
+  hasBadges?: boolean; // When true, show Cartographie entry even while URL is loading (Élèves tab)
+  isCartographyLoading?: boolean; // When true, show "Cartographie (chargement…)" instead of link
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
@@ -31,7 +33,9 @@ const MemberModal: React.FC<MemberModalProps> = ({
   hideDeleteButton = false,
   hideEditButton = false,
   isSuperadmin = false,
-  badgeCartographyUrl
+  badgeCartographyUrl,
+  hasBadges = false,
+  isCartographyLoading = false
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
@@ -153,7 +157,9 @@ const MemberModal: React.FC<MemberModalProps> = ({
   const isStudent = () => {
     const roleCandidates = [
       ...(member.roles || []),
-      member.role
+      member.role,
+      (member as any).systemRole,
+      (member as any).rawRole
     ].filter(Boolean) as string[];
 
     const isRoleStudent = roleCandidates.some(role => {
@@ -305,20 +311,31 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 QR Code
               </button>
             )}
-            {isStudent() && badgeCartographyUrl && (
-              <a
-                href={badgeCartographyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-outline btn-sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-                title="Voir la cartographie des badges"
-              >
-                <i className="fas fa-map"></i>
-                Cartographie
-              </a>
+            {isStudent() && (badgeCartographyUrl || hasBadges) && (
+              badgeCartographyUrl ? (
+                <a
+                  href={badgeCartographyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-outline btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                  title="Voir la cartographie des badges"
+                >
+                  <i className="fas fa-map"></i>
+                  Cartographie
+                </a>
+              ) : (
+                <span
+                  className="btn btn-outline btn-sm"
+                  title="Voir la cartographie des badges"
+                  style={{ opacity: 0.8, cursor: 'default' }}
+                >
+                  <i className="fas fa-map"></i>
+                  Cartographie (chargement…)
+                </span>
+              )
             )}
             {hideDeleteButton ? (
               <button 
