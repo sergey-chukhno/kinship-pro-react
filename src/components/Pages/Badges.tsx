@@ -463,8 +463,8 @@ const Badges: React.FC = () => {
   return (
     <section className="badges-container with-sidebar">
       <div className="badges-content">
-        {/* User personal view: single title "Mes badges", Explorer/Exporter only on Ma cartographie, tabs below (pink underline style) */}
-        {state.showingPageType === 'user' && (
+        {/* User personal view: single title "Mes badges", Explorer/Exporter only on Ma cartographie, tabs below (pink underline style). Hidden when Explorer is active so Explorer appears as separate page. */}
+        {state.showingPageType === 'user' && activeTab === 'cartography' && (
           <>
             <div className="section-title-row">
               <div className="section-title-left">
