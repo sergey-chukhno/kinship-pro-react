@@ -19,6 +19,7 @@ interface MemberCardProps {
   onViewProfile?: () => void; // Optional prop for viewing profile
   extraActions?: Array<{ label: string; onClick: () => void }>;
   badgeCartographyUrl?: string; // Optional URL for badge cartography
+  showCartographyLinkWhenHasBadges?: boolean; // Élèves tab: show link-style when badgeCount > 0 even if URL not ready
 }
 
 const MemberCard: React.FC<MemberCardProps> = ({
@@ -33,7 +34,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
   onViewProfile,
   categoryTag,
   extraActions = [],
-  badgeCartographyUrl
+  badgeCartographyUrl,
+  showCartographyLinkWhenHasBadges = false
 }) => {
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [showAllClasses, setShowAllClasses] = useState(false);
@@ -428,16 +430,18 @@ const MemberCard: React.FC<MemberCardProps> = ({
         </div>
       </div>
       
-      {badgeCartographyUrl ? (
+      {(showCartographyLinkWhenHasBadges && badgeCount > 0) || badgeCartographyUrl ? (
         <a
-          href={badgeCartographyUrl}
+          href={badgeCartographyUrl || '#'}
           className="badge-counter"
-          target="_blank"
+          target={badgeCartographyUrl ? '_blank' : undefined}
+          rel={badgeCartographyUrl ? 'noopener noreferrer' : undefined}
           onClick={(e) => {
             e.stopPropagation();
+            if (!badgeCartographyUrl) e.preventDefault();
           }}
           style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-          aria-label={`Voir la cartographie des badges de ${member.firstName} ${member.lastName}`}
+          aria-label={badgeCartographyUrl ? `Voir la cartographie des badges de ${member.firstName} ${member.lastName}` : undefined}
         >
           <img src="/icons_logo/Icon=Badges.svg" alt="Badge" className="badge-icon" />
           <span>{badgeCount}</span>
