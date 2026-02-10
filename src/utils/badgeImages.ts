@@ -125,6 +125,26 @@ const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>>
     "Organisation Opérationnelle": { "level_2": "/badges_toutkouleur_niveau2/OrganisationOperationnelle.png", "level_3": "/badges_toukouleur_niveau3/OrganisationOperationnelle.jpg", "level_4": "/badges_toukouleur_niveau4/OrganisationOperationnellejpg.jpg" },
     "Sociabilité": { "level_2": "/badges_toutkouleur_niveau2/Sociabilite.png", "level_3": "/badges_toukouleur_niveau3/Sociabilite.jpg", "level_4": "/badges_toukouleur_niveau4/Sociabilite.jpg" },
   },
+  "Série Compétences à s'orienter - Collège": {
+    "Compétence 1 – Chercher et trier l'information": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/chercher_et_trier_linformation.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/chercher_et_trier_linformation.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/chercher_et_trier_linformation.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/chercher_et_trier_linformation.png",
+    },
+    "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/connaitre_personnes_qui_peuvent_aider.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/connaitre_personnes_qui_peuvent_aider.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/connaitre_personnes_qui_peuvent_aider.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/connaitre_personnes_qui_peuvent_aider.png",
+    },
+    "Compétence 3 – Apprendre à découvrir les parcours de formation": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/apprendre_a_decovrir_les_parcours.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/apprendre_a_decovrir_les_parcours.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/apprendre_a_decovrir_les_parcours.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/apprendre_a_decovrir_les_parcours.png",
+    },
+  },
 };
 
 export const getLocalBadgeImage = (badgeName?: string, badgeLevel?: string, badgeSeries?: string): string | undefined => {
