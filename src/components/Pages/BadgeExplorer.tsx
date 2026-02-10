@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getBadges } from '../../api/Badges';
-import { BadgeAPI } from '../../types';
+import { BadgeAPI, BadgeSkillAPI } from '../../types';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import BadgeInfoModal from '../Modals/BadgeInfoModal';
@@ -11,11 +11,15 @@ interface BadgeExplorerProps {
 }
 
 // Series entry: display name, optional DB name (null if à venir), comingSoon flag, description
+// staticSeriesId: when set, badge list uses local static data (no API)
+// axes: optional list of axes to show on parcours-detail instead of description (exact titles/descriptions)
 interface SeriesEntry {
   displayName: string;
   dbName: string | null;
   comingSoon: boolean;
   description: string;
+  staticSeriesId?: string;
+  axes?: { title: string; description: string }[];
 }
 
 // Parcours theme color key (dashboard colors in CSS)
@@ -46,12 +50,16 @@ function formatBold(text: string): React.ReactNode {
   });
 }
 
+// Series name used for static "Compétences à s'orienter - Collège" (local-only until API supports it)
+export const COMPETENCES_ORIENTER_COLLEGE_SERIES = "Série Compétences à s'orienter - Collège";
+
 // Representative badge (name, level) per series dbName for series icon on parcours-detail view
 const SERIES_REPRESENTATIVE_BADGE: Record<string, { name: string; level: string }> = {
   'Série TouKouLeur': { name: 'Adaptabilité', level: '1' },
   'Série Parcours des possibles': { name: 'Étape 1 : IMPLICATION INITIALE', level: '1' },
   'Série Parcours professionnel': { name: 'PARCOURS DE DÉCOUVERTE - COLLÈGE', level: '1' },
-  'Série Audiovisuelle': { name: 'IMAGE', level: '1' }
+  'Série Audiovisuelle': { name: 'IMAGE', level: '1' },
+  [COMPETENCES_ORIENTER_COLLEGE_SERIES]: { name: "Compétence 1 – Chercher et trier l'information", level: '1' }
 };
 
 // Single source of truth: Parcours and their series (display names, DB names, descriptions)
@@ -112,10 +120,16 @@ const PARCOURS: Parcours[] = [
         description: "La série du Centre des possibles permet de valoriser les compétences et talents des jeunes, pour les guider au mieux dans leur choix de développement de soi, de leurs compétences et de leur connaissance des métiers"
       },
       {
-        displayName: "Série Compétences à s'orienter - Collège (à venir)",
+        displayName: "Série Compétences à s'orienter - Collège",
         dbName: null,
-        comingSoon: true,
-        description: ''
+        comingSoon: false,
+        description: "Les **compétences à s'orienter** permettent aux élèves de mieux se connaître, de comprendre le monde qui les entoure et de se projeter dans des parcours possibles.\n\nCe parcours s'appuie sur le **référentiel officiel « Compétences à s'orienter »** et valorise les compétences mobilisées dans des situations concrètes tout au long de la scolarité.",
+        staticSeriesId: 'competences_orienter_college',
+        axes: [
+          { title: "Axe 1 — Connaître et s'informer sur le monde", description: "Découverte des environnements scolaires, professionnels, économiques et sociaux." },
+          { title: "Axe 2 — Se découvrir et s'affirmer", description: "Identification de soi, de ses intérêts, de ses compétences, de ses valeurs." },
+          { title: "Axe 3 — Se construire et se projeter", description: "Élaboration progressive de choix, projection dans des parcours possibles." }
+        ]
       },
       {
         displayName: "Série Compétences à s'orienter - Lycée (à venir)",
@@ -155,6 +169,93 @@ const PARCOURS: Parcours[] = [
   }
 ];
 
+// Static badges for "Série Compétences à s'orienter - Collège" (local-only; images in public/badges_competences_a_sorienter_au_college)
+const STATIC_COMPETENCES_ORIENTER_BADGES: { name: string; imageFileBase: string }[] = [
+  { name: "Compétence 1 – Chercher et trier l'information", imageFileBase: 'chercher_et_trier_linformation' },
+  { name: "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider", imageFileBase: 'connaitre_personnes_qui_peuvent_aider' },
+  { name: "Compétence 3 – Apprendre à découvrir les parcours de formation", imageFileBase: 'apprendre_a_decovrir_les_parcours' }
+];
+
+// Competencies for "Compétence 1 – Chercher et trier l'information" by level (for BadgeInfoModal)
+const COMPETENCE_1_CHERCHER_TRIER_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -101, name: "Découvrir les différentes sources que peut avoir une information", category: 'expertise' },
+    { id: -102, name: "Découvrir les informations essentielles d'une information (par exemple : source, titre, auteur, résumé, date…)", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -201, name: "Identifier les différentes sources d'information consultables ou mobilisables (par exemple : sites Internet, lieux, personnes…) pour effectuer ma recherche", category: 'expertise' },
+    { id: -202, name: "Identifier les sources d'information les plus fiables pour m'informer (par exemple le site de l'Onisep)", category: 'expertise' },
+    { id: -203, name: "Comprendre comment extraire, décoder, assimiler, trier, classer et synthétiser l'information", category: 'expertise' },
+    { id: -204, name: "Comprendre les différentes étapes pour rechercher de l'information", category: 'expertise' },
+    { id: -205, name: "Identifier plusieurs méthodes pour rassembler et organiser des informations (par exemple : recherche suivant des critères, organisation des informations sous la forme d'un tableau…)", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -301, name: "Planifier les étapes à suivre dans une recherche d'information", category: 'expertise' },
+    { id: -302, name: "Utiliser les différentes sources d'information", category: 'expertise' },
+    { id: -303, name: "Utiliser plusieurs méthodes pour rechercher de l'information (par exemple : sites Internet, lieux, personnes…)", category: 'expertise' },
+    { id: -304, name: "Analyser les différents paramètres d'une information (par exemple : émetteur, contenu, fiabilité, structure…)", category: 'expertise' },
+    { id: -305, name: "Croiser, mettre en lien et confronter les différentes sources d'information (par exemple comparer deux informations provenant de sites différents)", category: 'expertise' },
+    { id: -306, name: "Évaluer la fiabilité d'une information (par exemple : date, source, cohérence…)", category: 'expertise' },
+    { id: -307, name: "Présenter sous une forme adaptée la synthèse des informations recueillies (par exemple : tableau, schéma, carte mentale…)", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -401, name: "Utiliser les sources d'information les plus adaptées à ce que je recherche", category: 'expertise' },
+    { id: -402, name: "Demander de l'aide dans mes recherches d'information quand c'est nécessaire", category: 'expertise' },
+    { id: -403, name: "Développer un sens critique vis-à-vis des informations recueillies", category: 'expertise' },
+    { id: -404, name: "Conduire des recherches d'information de manière autonome", category: 'expertise' },
+    { id: -405, name: "Comprendre si les informations recueillies ont un intérêt pour moi", category: 'expertise' },
+    { id: -406, name: "Évaluer ce que je sais déjà sur un sujet et si l'information dont je dispose est suffisante", category: 'expertise' },
+    { id: -407, name: "Actualiser les informations dont je dispose", category: 'expertise' },
+    { id: -408, name: "Évaluer le temps dont j'ai besoin pour mener une recherche d'information", category: 'expertise' },
+    { id: -409, name: "Conserver et réutiliser les informations extraites lors de mes démarches", category: 'expertise' },
+    { id: -410, name: "Expliciter les résultats de mes recherches et les partager avec autrui", category: 'expertise' },
+    { id: -411, name: "Réutiliser les informations extraites dans ses démarches", category: 'expertise' },
+    { id: -412, name: "Savoir rassembler et organiser l'information dans un espace personnel dynamique", category: 'expertise' },
+    { id: -413, name: "Savoir expliciter les résultats de mes recherches et les partager avec autrui", category: 'expertise' },
+    { id: -414, name: "Réfléchir sur les démarches possibles pour optimiser davantage mes recherches d'information", category: 'expertise' }
+  ]
+};
+
+const COMPETENCE_1_NAME = "Compétence 1 – Chercher et trier l'information";
+
+function buildStaticBadgesCompetencesOrienterCollege(): BadgeAPI[] {
+  const levels: BadgeAPI['level'][] = ['level_1', 'level_2', 'level_3', 'level_4'];
+  const badges: BadgeAPI[] = [];
+  let id = 1;
+  STATIC_COMPETENCES_ORIENTER_BADGES.forEach(({ name }) => {
+    levels.forEach((level) => {
+      const expertises = name === COMPETENCE_1_NAME && COMPETENCE_1_CHERCHER_TRIER_EXPERTISES[level]
+        ? COMPETENCE_1_CHERCHER_TRIER_EXPERTISES[level]
+        : [];
+      badges.push({
+        id: id++,
+        name,
+        description: '',
+        level,
+        series: COMPETENCES_ORIENTER_COLLEGE_SERIES,
+        domains: [],
+        expertises
+      });
+    });
+  });
+  return badges;
+}
+
+// Axe 1 section for badge list view (3 badges under this axis; 2 more to be added later)
+const STATIC_COMPETENCES_ORIENTER_AXE1_TITLE = "Axe 1 – CONNAITRE ET SAVOIR S'INFORMER SUR LE MONDE : Découverte des environnements scolaires, professionnels, économiques et sociaux";
+
+function getStaticBadgesByAxis(): { title: string; groups: { name: string; description: string; levels: BadgeAPI[] }[] }[] {
+  const allBadges = buildStaticBadgesCompetencesOrienterCollege();
+  const groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
+  STATIC_COMPETENCES_ORIENTER_BADGES.forEach(({ name }) => {
+    const levelBadges = allBadges.filter((b) => b.name === name).sort(
+      (a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level)
+    );
+    groups.push({ name, description: '', levels: levelBadges });
+  });
+  return [{ title: STATIC_COMPETENCES_ORIENTER_AXE1_TITLE, groups }];
+}
+
 const INTRO_MESSAGE = "Explorez les parcours Kinship et les badges associés, qui permettent d'identifier et de valoriser les compétences développées par les jeunes à travers des projets, des expériences et des parcours métiers.";
 
 const LEVEL_ORDER = ['level_1', 'level_2', 'level_3', 'level_4'] as const;
@@ -175,10 +276,16 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
   // Badge shown in the "Voir les infos du badge" modal (single level badge)
   const [badgeInfoModalBadge, setBadgeInfoModalBadge] = useState<BadgeAPI | null>(null);
 
-  // Fetch badges only when on badge-list view with a valid series
+  // Fetch badges only when on badge-list view with a valid series (or use static data for local-only series)
   useEffect(() => {
     if (view !== 'badge-list' || !selectedSeriesDbName) {
       setBadges([]);
+      return;
+    }
+    if (selectedSeriesDbName === COMPETENCES_ORIENTER_COLLEGE_SERIES) {
+      setBadges(buildStaticBadgesCompetencesOrienterCollege());
+      setError(null);
+      setIsLoading(false);
       return;
     }
     const fetchBadges = async () => {
@@ -206,7 +313,15 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
 
   // Parcours detail → Badge list (for a series)
   const handleExplorerSeries = (series: SeriesEntry) => {
-    if (series.comingSoon || !series.dbName) return;
+    if (series.comingSoon) return;
+    if (series.staticSeriesId) {
+      setSelectedSeries(series);
+      setSelectedSeriesDbName(COMPETENCES_ORIENTER_COLLEGE_SERIES);
+      setBadgeFilter('all');
+      setView('badge-list');
+      return;
+    }
+    if (!series.dbName) return;
     setSelectedSeries(series);
     setSelectedSeriesDbName(series.dbName);
     setBadgeFilter('all');
@@ -230,7 +345,14 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
 
   // Representative image for a series (for parcours-detail list)
   const getSeriesIconUrl = (series: SeriesEntry): string | undefined => {
-    if (series.comingSoon || !series.dbName) return undefined;
+    if (series.comingSoon) return undefined;
+    if (series.staticSeriesId === 'competences_orienter_college') {
+      const rep = SERIES_REPRESENTATIVE_BADGE[COMPETENCES_ORIENTER_COLLEGE_SERIES];
+      if (!rep) return undefined;
+      const levelKey = rep.level.includes('level_') ? rep.level : `level_${rep.level}`;
+      return getLocalBadgeImage(rep.name, levelKey, COMPETENCES_ORIENTER_COLLEGE_SERIES);
+    }
+    if (!series.dbName) return undefined;
     const rep = SERIES_REPRESENTATIVE_BADGE[series.dbName];
     if (!rep) return undefined;
     const levelKey = rep.level.includes('level_') ? rep.level : `level_${rep.level}`;
@@ -258,6 +380,9 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     levels: BadgeAPI[];
   }
   const badgesByName = useMemo(() => {
+    if (selectedSeriesDbName === COMPETENCES_ORIENTER_COLLEGE_SERIES) {
+      return getStaticBadgesByAxis()[0]?.groups ?? [];
+    }
     if (selectedSeriesDbName === 'Série Parcours des possibles') {
       const seriesBadges = filteredBadges.filter(b => b.series === 'Série Parcours des possibles');
       if (seriesBadges.length === 0) return [];
@@ -296,6 +421,12 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     groups.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     return groups;
   }, [filteredBadges, selectedSeriesDbName]);
+
+  // For static series (Compétences à s'orienter): render by axes (section title + groups)
+  const contentAxes = useMemo(() => {
+    if (selectedSeriesDbName === COMPETENCES_ORIENTER_COLLEGE_SERIES) return getStaticBadgesByAxis();
+    return null;
+  }, [selectedSeriesDbName]);
 
   // For stats: unique badge count and level count (from full badges)
   const badgesByLevel = useMemo(() => {
@@ -423,7 +554,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                             <span className="parcours-card-series-name">{s.displayName}</span>
                           </div>
                           {s.description && (
-                            <span className="parcours-card-series-desc">{s.description}</span>
+                            <span className="parcours-card-series-desc">{formatBold(s.description)}</span>
                           )}
                         </li>
                       );
@@ -497,9 +628,18 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                 </div>
                 <div className="parcours-detail-series-content">
                   <h3 className="parcours-detail-series-name">{series.displayName}</h3>
-                  {series.description && (
+                  {series.axes && series.axes.length > 0 ? (
+                    <div className="parcours-detail-series-axes">
+                      {series.axes.map((axis, idx) => (
+                        <div key={idx} className="parcours-detail-series-axis">
+                          <strong className="parcours-detail-series-axis-title">{axis.title}</strong>
+                          <p className="parcours-detail-series-axis-desc">👉 {axis.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : series.description ? (
                     <p className="parcours-detail-series-desc">{series.description}</p>
-                  )}
+                  ) : null}
                   <button
                     type="button"
                     className={`btn parcours-detail-series-btn ${series.comingSoon ? 'parcours-detail-series-btn-disabled' : ''}`}
@@ -580,6 +720,15 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
         ) : badgesByName.length === 0 ? (
           <div className="empty-level-message">
             <p>Aucun badge disponible pour cette série</p>
+          </div>
+        ) : contentAxes ? (
+          <div className="badge-explorer-by-title-list">
+            {contentAxes.map((axis, idx) => (
+              <section key={idx} className="badge-explorer-axis-section">
+                <h3 className="badge-explorer-axis-title">{axis.title}</h3>
+                {axis.groups.map((group) => renderBadgeRow(group))}
+              </section>
+            ))}
           </div>
         ) : (
           <div className="badge-explorer-by-title-list">
