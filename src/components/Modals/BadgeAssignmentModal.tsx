@@ -1138,7 +1138,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                       </option>
                       <option 
                         value="2" 
-                        disabled={series !== 'Série Parcours des possibles' && series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel'}
+                        disabled={series !== 'Série Parcours des possibles' && series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel' && series !== 'Série TouKouLeur'}
                       >
                         {series === 'Série Parcours des possibles' 
                           ? 'Niveau 2' 
@@ -1146,6 +1146,8 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                           ? 'Niveau 2: Preuve'
                           : series === 'Série Parcours professionnel'
                           ? 'Niveau 2: Formation'
+                          : series === 'Série TouKouLeur'
+                          ? 'Niveau 2: Application'
                           : 'Niveau 2: Application (non disponible)'}
                       </option>
                       <option 
