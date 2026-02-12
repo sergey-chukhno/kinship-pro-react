@@ -174,84 +174,75 @@ const MemberCard: React.FC<MemberCardProps> = ({
             ) : null;
           })()}
           {(() => {
-            // Display schools for students (from teacher dashboard)
-            const schools = (member as any).schools || [];
-            if (schools && schools.length > 0) {
-              const memberId = member.id.toString();
-              const isExpanded = showAllSchools[memberId] || false;
-              const displaySchools = isExpanded || schools.length <= 2 
-                ? schools 
-                : schools.slice(0, 2);
-              const hasMoreSchools = schools.length > 2;
-              
-              return (
-                <div className="member-schools" style={{ marginTop: 4 }}>
-                  {displaySchools.map((school: any, index: number) => (
-                    <span
-                      key={school.id || index}
-                      className="organization-type"
-                      style={{ background: "#dcfce71a", color: "#10b981", marginRight: '4px', marginBottom: '4px', display: 'inline-block' }}
-                      title="École"
-                    >
-                      <i className="fas fa-school" style={{ marginRight: '4px', fontSize: '0.75rem' }}></i>
-                      {school.name}
-                    </span>
-                  ))}
-                  {hasMoreSchools && (
-                    <button
-                      type="button"
-                      className="class-toggle-button"
-                      style={{ marginLeft: '4px' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowAllSchools(prev => ({ ...prev, [memberId]: !prev[memberId] }));
-                      }}
-                    >
-                      {isExpanded ? 'Voir moins' : 'Voir plus'}
-                    </button>
-                  )}
-                </div>
-              );
-            }
-            
-            // Display classes for students (fallback to existing behavior)
             const systemRole = (member as any).systemRole || '';
             const studentRoles = ['eleve_primaire', 'collegien', 'collégien', 'lyceen', 'lycéen', 'etudiant', 'étudiant', 'student', 'eleve', 'élève'];
             const isStudent = studentRoles.includes(systemRole.toLowerCase());
+            const schools = (member as any).schools || [];
             const classes = member.classes || [];
-            
-            if (!isStudent || !classes || classes.length === 0) {
-              return null;
-            }
-            
-            const displayClasses = showAllClasses || classes.length <= 2 
-              ? classes 
-              : classes.slice(0, 2);
+            const hasSchools = schools.length > 0;
+            const hasClasses = isStudent && classes.length > 0;
+
+            if (!hasSchools && !hasClasses) return null;
+
+            const memberId = member.id.toString();
+            const isSchoolsExpanded = showAllSchools[memberId] || false;
+            const displaySchools = isSchoolsExpanded || schools.length <= 2 ? schools : schools.slice(0, 2);
+            const hasMoreSchools = schools.length > 2;
+            const displayClasses = showAllClasses || classes.length <= 2 ? classes : classes.slice(0, 2);
             const hasMoreClasses = classes.length > 2;
-            
+
             return (
-              <div className="member-classes">
-                {displayClasses.map((cls: any, index: number) => (
-                  <span
-                    key={cls.id || index}
-                    className="class-tag "
-                  >
-                    {cls.name}
-                  </span>
-                ))}
-                {hasMoreClasses && (
-                  <button
-                    type="button"
-                    className="class-toggle-button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowAllClasses(!showAllClasses);
-                    }}
-                  >
-                    {showAllClasses ? 'Voir moins' : 'Voir plus'}
-                  </button>
+              <>
+                {hasSchools && (
+                  <div className="member-schools" style={{ marginTop: 4 }}>
+                    {displaySchools.map((school: any, index: number) => (
+                      <span
+                        key={school.id || index}
+                        className="organization-type"
+                        style={{ background: "#dcfce71a", color: "#10b981", marginRight: '4px', marginBottom: '4px', display: 'inline-block' }}
+                        title="École"
+                      >
+                        <i className="fas fa-school" style={{ marginRight: '4px', fontSize: '0.75rem' }}></i>
+                        {school.name}
+                      </span>
+                    ))}
+                    {hasMoreSchools && (
+                      <button
+                        type="button"
+                        className="class-toggle-button"
+                        style={{ marginLeft: '4px' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowAllSchools(prev => ({ ...prev, [memberId]: !prev[memberId] }));
+                        }}
+                      >
+                        {isSchoolsExpanded ? 'Voir moins' : 'Voir plus'}
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
+                {hasClasses && (
+                  <div className="member-classes" style={{ marginTop: hasSchools ? 4 : 0 }}>
+                    {displayClasses.map((cls: any, index: number) => (
+                      <span key={cls.id || index} className="class-tag ">
+                        {cls.name}
+                      </span>
+                    ))}
+                    {hasMoreClasses && (
+                      <button
+                        type="button"
+                        className="class-toggle-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowAllClasses(!showAllClasses);
+                        }}
+                      >
+                        {showAllClasses ? 'Voir moins' : 'Voir plus'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
             );
           })()}
         </div>
