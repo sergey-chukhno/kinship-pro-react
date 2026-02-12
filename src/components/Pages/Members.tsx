@@ -216,6 +216,7 @@ const Members: React.FC = () => {
             avatar: s.avatar_url || s.avatar || DEFAULT_AVATAR_SRC,
             isTrusted: Boolean(s.isTrusted),
             schools: s.schools || [], // Include school information from API
+            classes: s.classes || [], // Include class information from API
             claim_token: s.claim_token || null,
             hasTemporaryEmail: s.has_temporary_email || false
           } as Member;
