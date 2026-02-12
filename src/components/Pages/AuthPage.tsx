@@ -138,8 +138,8 @@ const AuthPage: React.FC = () => {
             localStorage.setItem('selectedContextId', 'user-dashboard');
             localStorage.setItem('selectedContextType', 'user');
             setShowingPageType("user")
-            setCurrentPage("projects")
-            navigate("/projects")
+            setCurrentPage("dashboard")
+            navigate("/dashboard")
           }
           // Priority 2: Teacher dashboard (vérifié avant les accès admin)
           else if (

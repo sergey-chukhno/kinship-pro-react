@@ -437,3 +437,24 @@
     justify-content: center;
   }
 }
+
+.dashboard-back-link-wrap {
+  margin-bottom: 12px;
+}
+
+.dashboard-back-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.95rem;
+  color: var(--primary, #db087c);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dashboard-back-link:hover {
+  text-decoration: underline;
+}

@@ -96,12 +96,16 @@ export const getUserBadges = async (
     organization_type?: string;
     organization_id?: number;
     badge_id?: number;
+    all_statuses?: boolean;
   }
 ): Promise<{ data: any[]; meta: any }> => {
   const params = new URLSearchParams();
   params.append('page', page.toString());
   params.append('per_page', perPage.toString());
-  
+
+  if (filters?.all_statuses) {
+    params.append('all_statuses', 'true');
+  }
   if (filters?.series) {
     params.append('series', filters.series);
   }
