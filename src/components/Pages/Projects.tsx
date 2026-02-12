@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { Project } from '../../types';
 import ProjectModal from '../Modals/ProjectModal';
@@ -18,6 +19,7 @@ import { canUserManageProject, canUserDeleteProject } from '../../utils/projectP
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
+  const navigate = useNavigate();
   const { selectedProject } = state;
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isMLDSProjectModalOpen, setIsMLDSProjectModalOpen] = useState(false);
@@ -952,6 +954,13 @@ const Projects: React.FC = () => {
 
   return (
     <section className="flex flex-col gap-12 p-8 with-sidebar">
+      {state.showingPageType === 'user' && (
+        <div className="dashboard-back-link-wrap">
+          <button type="button" className="dashboard-back-link" onClick={() => { setCurrentPage('dashboard'); navigate('/dashboard'); }}>
+            ← Vers mon tableau de bord
+          </button>
+        </div>
+      )}
       {/* Section Title + Actions */}
       <div className="flex justify-between items-start">
         <div className="flex gap-2 items-center w-full section-title-left">

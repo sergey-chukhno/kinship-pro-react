@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { mockMembers } from '../../data/mockData';
 import { Badge } from '../../types';
@@ -10,6 +11,7 @@ import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import BadgeExportModal from '../Modals/BadgeExportModal';
 import BadgeExplorer from './BadgeExplorer';
 import { getBadges, getUserBadges } from '../../api/Badges';
+import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
 import { getAllUserProjects } from '../../api/Project';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
@@ -20,7 +22,9 @@ import './Analytics.css';
 import './Badges.css';
 
 const Badges: React.FC = () => {
-  const { state } = useAppContext();
+  const { state, setCurrentPage: setAppCurrentPage } = useAppContext();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
@@ -62,6 +66,19 @@ const Badges: React.FC = () => {
     if (!state.user) return undefined;
     return getOrganizationId(state.user, state.showingPageType);
   }, [state.showingPageType, state.user]);
+
+  // Read tab query parameter from URL to open statistics tab directly
+  useEffect(() => {
+    if (state.showingPageType === 'user') {
+      const searchParams = new URLSearchParams(location.search);
+      const tabParam = searchParams.get('tab');
+      if (tabParam === 'statistics') {
+        setUserMainTab('statistics');
+        // Clean up URL by removing the query parameter after applying
+        navigate('/badges', { replace: true });
+      }
+    }
+  }, [location.search, state.showingPageType, navigate]);
 
   // Fetch badges based on context
   const fetchBadges = useCallback(async (page: number = 1) => {
@@ -322,38 +339,6 @@ const Badges: React.FC = () => {
   // Mes statistiques: Compétences par niveau (same logic as Analytics)
   const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
   const LEVEL_LABELS_STATS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
-  function wrapRadarLabelStats(label: string, maxCharsPerLine = 22): string[] {
-    if (!label || label.length <= maxCharsPerLine) return [label];
-    const parts = label.split(/\s*-\s*/).filter(Boolean);
-    const lines: string[] = [];
-    let current = '';
-    for (const part of parts) {
-      const next = current ? `${current}-${part}` : part;
-      if (next.length <= maxCharsPerLine) {
-        current = next;
-      } else {
-        if (current) lines.push(current);
-        if (part.length > maxCharsPerLine) {
-          const words = part.split(/\s+/);
-          let line = '';
-          for (const w of words) {
-            const candidate = line ? `${line} ${w}` : w;
-            if (candidate.length <= maxCharsPerLine) {
-              line = candidate;
-            } else {
-              if (line) lines.push(line);
-              line = w;
-            }
-          }
-          current = line;
-        } else {
-          current = part;
-        }
-      }
-    }
-    if (current) lines.push(current);
-    return lines.length ? lines : [label];
-  }
   const radarCompetenceData = useMemo(() => {
     const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
     userBadgesForChart.forEach((ub: any) => {
@@ -381,89 +366,17 @@ const Badges: React.FC = () => {
     </div>
   );
 
-  const RadarChartByCompetenceStats = ({ axes, series }: { axes: string[]; series: Array<{ level: string; values: number[]; color: string }> }) => {
-    const [hoveredSeries, setHoveredSeries] = useState<{ level: string; values: number[]; color: string } | null>(null);
-    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-    const centerX = 50;
-    const centerY = 50;
-    const maxRadius = 38;
-    const n = axes.length;
-    if (n === 0) return <div className="radar-chart-empty">Aucune compétence</div>;
-    const angleStep = (2 * Math.PI) / n;
-    const maxVal = Math.max(1, ...series.flatMap((s) => s.values));
-    return (
-      <div className="radar-chart">
-        <svg width="100%" height="100%" className="radar-svg" viewBox="0 0 100 110" preserveAspectRatio="xMidYMid meet">
-          {[0.25, 0.5, 0.75, 1.0].map((scale, i) => (
-            <circle key={i} cx={centerX} cy={centerY} r={maxRadius * scale} fill="none" stroke="#f0f0f0" strokeWidth="0.3" />
-          ))}
-          {axes.map((_, i) => {
-            const angle = i * angleStep - Math.PI / 2;
-            const x2 = centerX + maxRadius * Math.cos(angle);
-            const y2 = centerY + maxRadius * Math.sin(angle);
-            return <line key={i} x1={centerX} y1={centerY} x2={x2} y2={y2} stroke="#f0f0f0" strokeWidth="0.3" />;
-          })}
-          {series.map((s) => {
-            const points = s.values.map((val, i) => {
-              const angle = i * angleStep - Math.PI / 2;
-              const r = maxVal > 0 ? (val / maxVal) * maxRadius : 0;
-              return { x: centerX + r * Math.cos(angle), y: centerY + r * Math.sin(angle) };
-            });
-            const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
-            return (
-              <g key={s.level}>
-                <polygon points={points.map((p) => `${p.x},${p.y}`).join(' ')} fill={`${s.color}20`} stroke="none" />
-                <path
-                  d={pathD}
-                  fill="none"
-                  stroke={s.color}
-                  strokeWidth="0.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  onMouseEnter={(e) => { setHoveredSeries(s); setMousePosition({ x: e.clientX, y: e.clientY }); }}
-                  onMouseMove={(e) => setMousePosition({ x: e.clientX, y: e.clientY })}
-                  onMouseLeave={() => setHoveredSeries(null)}
-                  style={{ cursor: 'pointer' }}
-                />
-              </g>
-            );
-          })}
-          {axes.map((label, i) => {
-            const angle = i * angleStep - Math.PI / 2;
-            const dist = maxRadius + 12;
-            const x = centerX + dist * Math.cos(angle);
-            const y = centerY + dist * Math.sin(angle);
-            const lines = wrapRadarLabelStats(label);
-            return (
-              <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="middle" className="radar-label" fontSize="2.9" fill="#6b7280">
-                {lines.map((line, j) => (
-                  <tspan key={j} x={x} dy={j === 0 ? `${(lines.length - 1) * -0.6}em` : '1.2em'}>{line}</tspan>
-                ))}
-              </text>
-            );
-          })}
-        </svg>
-        <div className="radar-legend">
-          {series.map((s, i) => (
-            <span key={i} className="radar-legend-item" style={{ color: s.color }}>
-              <span className="radar-legend-dot" style={{ backgroundColor: s.color }} /> {s.level}
-            </span>
-          ))}
-        </div>
-        {hoveredSeries && (
-          <div className="chart-tooltip" style={{ left: mousePosition.x + 10, top: mousePosition.y - 10 }}>
-            <div className="tooltip-title">{hoveredSeries.level}</div>
-            <div className="tooltip-value">{hoveredSeries.values.reduce((a, b) => a + b, 0)} badges</div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <section className="badges-container with-sidebar">
       <div className="badges-content">
         {/* User personal view: single title "Mes badges", Explorer/Exporter only on Ma cartographie, tabs below (pink underline style). Hidden when Explorer is active so Explorer appears as separate page. */}
+        {state.showingPageType === 'user' && (
+          <div className="dashboard-back-link-wrap">
+            <button type="button" className="dashboard-back-link" onClick={() => { setAppCurrentPage('dashboard'); navigate('/dashboard'); }}>
+              ← Vers mon tableau de bord
+            </button>
+          </div>
+        )}
         {state.showingPageType === 'user' && activeTab === 'cartography' && (
           <>
             <div className="section-title-row">

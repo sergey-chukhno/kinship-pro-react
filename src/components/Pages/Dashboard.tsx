@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import {
@@ -27,12 +28,16 @@ import {
   deleteCompanyLogo,
   deleteSchoolLogo,
   uploadTeacherLogo,
-  deleteTeacherLogo
+  deleteTeacherLogo,
+  getUserDashboardStats
 } from '../../api/Dashboard';
-import { OrganizationStatsResponse } from '../../types';
+import { getUserBadges } from '../../api/Badges';
+import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
+import { OrganizationStatsResponse, PageType } from '../../types';
 import { getOrganizationId, validateImageSize } from '../../utils/projectMapper';
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { getTeacherProjects } from '../../api/Projects';
+import { getLocalBadgeImage } from '../../utils/badgeImages';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -395,9 +400,27 @@ const buildBadgePieBackground = (segments: BadgeDistributionSegment[], total: nu
   return `conic-gradient(${gradientStops.join(', ')})`;
 };
 
+type UserDashboardStats = {
+  projects_count: number;
+  events_count: number;
+  badges_count: number;
+  network_count: number;
+  projects_last_30_days: number;
+  events_last_30_days: number;
+  badges_last_30_days: number;
+  network_last_30_days: number;
+};
+
 const Dashboard: React.FC = () => {
-  const { state } = useAppContext();
+  const { state, setCurrentPage } = useAppContext();
+  const navigate = useNavigate();
   const [statsData, setStatsData] = useState<OrganizationStatsResponse | null>(null);
+  const [userDashboardStats, setUserDashboardStats] = useState<UserDashboardStats | null>(null);
+  const [userDashboardStatsLoading, setUserDashboardStatsLoading] = useState(false);
+  const [userLast3Badges, setUserLast3Badges] = useState<any[]>([]);
+  const [userLast3BadgesLoading, setUserLast3BadgesLoading] = useState(false);
+  const [userBadgesForChart, setUserBadgesForChart] = useState<any[]>([]);
+  const [userBadgesForChartLoading, setUserBadgesForChartLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<ActivityPeriodKey>('1m');
@@ -465,6 +488,41 @@ const Dashboard: React.FC = () => {
       }
     });
   }, [state.showingPageType, organizationId, state.user.available_contexts]);
+
+  // Personal user dashboard: fetch stats, last 3 badges, and badges for chart (Tous les projets)
+  useEffect(() => {
+    if (state.showingPageType !== 'user') return;
+    let cancelled = false;
+    setUserDashboardStatsLoading(true);
+    getUserDashboardStats()
+      .then((data) => { if (!cancelled) setUserDashboardStats(data); })
+      .catch(() => { if (!cancelled) setUserDashboardStats(null); })
+      .finally(() => { if (!cancelled) setUserDashboardStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, [state.showingPageType]);
+
+  useEffect(() => {
+    if (state.showingPageType !== 'user') return;
+    let cancelled = false;
+    setUserLast3BadgesLoading(true);
+    getUserBadges(1, 3, { all_statuses: true })
+      .then((res) => { if (!cancelled) setUserLast3Badges(Array.isArray(res.data) ? res.data : []); })
+      .catch(() => { if (!cancelled) setUserLast3Badges([]); })
+      .finally(() => { if (!cancelled) setUserLast3BadgesLoading(false); });
+    return () => { cancelled = true; };
+  }, [state.showingPageType]);
+
+  useEffect(() => {
+    if (state.showingPageType !== 'user') return;
+    let cancelled = false;
+    setUserBadgesForChartLoading(true);
+    getUserBadges(1, 500, { series: 'Série TouKouLeur' })
+      .then((res) => { if (!cancelled) setUserBadgesForChart(Array.isArray(res.data) ? res.data : []); })
+      .catch(() => { if (!cancelled) setUserBadgesForChart([]); })
+      .finally(() => { if (!cancelled) setUserBadgesForChartLoading(false); });
+    return () => { cancelled = true; };
+  }, [state.showingPageType]);
+
   const logoFileInputRef = useRef<HTMLInputElement | null>(null);
   const logoObjectUrlRef = useRef<string | null>(null);
   const { showError } = useToast();
@@ -1317,6 +1375,28 @@ const Dashboard: React.FC = () => {
       .slice(0, 3);
   }, [projects]);
 
+  const LEVEL_LABELS_STATS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
+  const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
+  const userRadarCompetenceData = useMemo(() => {
+    const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
+    userBadgesForChart.forEach((ub: any) => {
+      const name = ub.badge?.name;
+      const level = ub.badge?.level;
+      if (!name || !level) return;
+      if (!byCompetenceAndLevel[name]) byCompetenceAndLevel[name] = { level_1: 0, level_2: 0, level_3: 0, level_4: 0 };
+      const key = level as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+      if (key in byCompetenceAndLevel[name]) byCompetenceAndLevel[name][key] += 1;
+    });
+    const axes = Object.keys(byCompetenceAndLevel).sort();
+    if (axes.length === 0) return { axes: [] as string[], series: [] as Array<{ level: string; values: number[]; color: string }> };
+    const series = LEVEL_LABELS_STATS.map((label, idx) => {
+      const levelKey = `level_${idx + 1}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+      const values = axes.map((comp) => (byCompetenceAndLevel[comp]?.[levelKey] ?? 0));
+      return { level: label, values, color: LEVEL_COLORS_STATS[idx] ?? '#5570F1' };
+    });
+    return { axes, series };
+  }, [userBadgesForChart]);
+
   const formatRelativeTime = (date?: string) => {
     if (!date) return 'Récemment';
     const timestamp = new Date(date).getTime();
@@ -1334,6 +1414,114 @@ const Dashboard: React.FC = () => {
     const years = Math.floor(months / 12);
     return `Il y a ${years} an${years > 1 ? 's' : ''}`;
   };
+
+  if (state.showingPageType === 'user') {
+    const s = userDashboardStats;
+    const formatUserStat = (value?: number | null) => (value === undefined || value === null ? '—' : numberFormatter.format(value));
+    const userStatCards = [
+      { key: 'projects', label: 'Mes projets', sub: 'projets', count: s?.projects_count ?? 0, last30: s?.projects_last_30_days ?? 0, path: '/projects', icon: '/icons_logo/Icon=Projet grand.svg' },
+      { key: 'events', label: 'Mes événements', sub: 'événements', count: s?.events_count ?? 0, last30: s?.events_last_30_days ?? 0, path: '/events', icon: '/icons_logo/Icon=Event grand.svg' },
+      { key: 'badges', label: 'Mes badges', sub: 'badges', count: s?.badges_count ?? 0, last30: s?.badges_last_30_days ?? 0, path: '/badges', icon: '/icons_logo/Icon=Badges.svg' },
+      { key: 'network', label: 'Mon réseau', sub: 'contacts', count: s?.network_count ?? 0, last30: s?.network_last_30_days ?? 0, path: '/network', icon: '/icons_logo/Icon=Reseau.svg' },
+    ];
+    return (
+      <section className="dashboard-main-layout active personal-user-dashboard">
+        <div className="dashboard-header">
+          <div className="welcome-header">
+            <div className="section-title">
+              <h1 className="welcome-title">Bonjour {state.user.name.split(' ')[0]} !</h1>
+              <div className="flex gap-2 items-center">
+                <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+                <span>Mon tableau de bord</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="dashboard-main-content personal-dashboard-content">
+          <div className="personal-dashboard-stats-row">
+            {userDashboardStatsLoading ? (
+              <p className="stats-loading-text">Chargement…</p>
+            ) : (
+              userStatCards.map((card) => (
+                <button
+                  key={card.key}
+                  type="button"
+                  className="personal-stat-card"
+                  onClick={() => { setCurrentPage(card.path.slice(1) as PageType); navigate(card.path); }}
+                >
+                  <div className="personal-stat-icon">
+                    <img src={card.icon} alt={card.label} />
+                  </div>
+                  <div className="personal-stat-content">
+                    <div className="personal-stat-value">{formatUserStat(card.count)}</div>
+                    <div className="personal-stat-label">{card.label}</div>
+                    <div className="personal-stat-delta">
+                      +{formatUserStat(card.last30)} {card.sub} (30 derniers jours)
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+          <div className="personal-dashboard-second-row">
+            <div className="personal-dashboard-card personal-dashboard-badges-card">
+              <h3 className="personal-dashboard-card-title">3 derniers badges</h3>
+              <div className="personal-dashboard-card-content">
+                {userLast3BadgesLoading ? (
+                  <p className="personal-dashboard-loading">Chargement…</p>
+                ) : userLast3Badges.length === 0 ? (
+                  <p className="personal-dashboard-empty">Aucun badge reçu</p>
+                ) : (
+                  <ul className="personal-dashboard-badges-list">
+                    {userLast3Badges.map((ub: any) => {
+                      const badgeImage = ub.badge?.image_url ||
+                        getLocalBadgeImage(ub.badge?.name, ub.badge?.level, ub.badge?.series) ||
+                        '/TouKouLeur-Jaune.png';
+                      return (
+                        <li key={ub.id} className="personal-dashboard-badge-item">
+                          <div className="personal-dashboard-badge-item-icon">
+                            <img src={badgeImage} alt={ub.badge?.name ?? 'Badge'} />
+                          </div>
+                          <div className="personal-dashboard-badge-item-text">
+                            <span className="personal-dashboard-badge-name">{ub.badge?.name ?? 'Badge'}</span>
+                            <span className="personal-dashboard-badge-level">{ub.badge?.level?.replace('level_', 'Niveau ') ?? ''}</span>
+                            {ub.created_at && (
+                              <span className="personal-dashboard-badge-date">
+                                {new Date(ub.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+              <button type="button" className="btn btn-text personal-dashboard-link" onClick={() => { setCurrentPage('badges'); navigate('/badges'); }}>
+                Voir tous mes badges →
+              </button>
+            </div>
+            <div className="personal-dashboard-card personal-dashboard-stats-card">
+              <h3 className="personal-dashboard-card-title">Mes statistiques</h3>
+              <div className="personal-dashboard-card-content">
+                <p className="personal-dashboard-chart-caption">Compétences par niveau (Tous les projets)</p>
+                {userBadgesForChartLoading ? (
+                  <p className="personal-dashboard-loading">Chargement…</p>
+                ) : (
+                  <div className="personal-dashboard-radar-wrap">
+                    <RadarChartByCompetenceStats axes={userRadarCompetenceData.axes} series={userRadarCompetenceData.series} />
+                  </div>
+                )}
+              </div>
+              <button type="button" className="btn btn-text personal-dashboard-link" onClick={() => { setCurrentPage('badges'); navigate('/badges?tab=statistics'); }}>
+                Voir mes statistiques →
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="dashboard-main-layout active">

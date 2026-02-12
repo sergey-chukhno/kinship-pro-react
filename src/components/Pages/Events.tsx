@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { Event } from '../../types';
 import EventModal from '../Modals/EventModal';
@@ -20,7 +21,8 @@ import { getOrganizationId } from '../../utils/projectMapper';
 import './Events.css';
 
 const Events: React.FC = () => {
-  const { state, addEvent, updateEvent, deleteEvent } = useAppContext();
+  const { state, addEvent, updateEvent, deleteEvent, setCurrentPage } = useAppContext();
+  const navigate = useNavigate();
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isEventDetailModalOpen, setIsEventDetailModalOpen] = useState(false);
@@ -309,6 +311,13 @@ const Events: React.FC = () => {
 
   return (
     <section className="events-container with-sidebar">
+      {state.showingPageType === 'user' && (
+        <div className="dashboard-back-link-wrap">
+          <button type="button" className="dashboard-back-link" onClick={() => { setCurrentPage('dashboard'); navigate('/dashboard'); }}>
+            ← Vers mon tableau de bord
+          </button>
+        </div>
+      )}
       {/* Section Title + Actions */}
       <div className="section-title-row">
         <div className="section-title-left">

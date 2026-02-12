@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
 import PartnershipModal from '../Modals/PartnershipModal';
 import OrganizationDetailsModal from '../Modals/OrganizationDetailsModal';
@@ -124,7 +125,8 @@ const getPartnershipKindLabel = (kind: string | null | undefined): string => {
 };
 
 const Network: React.FC = () => {
-  const { state } = useAppContext();
+  const { state, setCurrentPage } = useAppContext();
+  const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
@@ -2178,6 +2180,13 @@ const Network: React.FC = () => {
 
   return (
     <section className="network-container with-sidebar">
+      {state.showingPageType === 'user' && (
+        <div className="dashboard-back-link-wrap">
+          <button type="button" className="dashboard-back-link" onClick={() => { setCurrentPage('dashboard'); navigate('/dashboard'); }}>
+            ← Vers mon tableau de bord
+          </button>
+        </div>
+      )}
       {/* Section Title + Actions */}
       <div className="section-title-row">
         <div className="section-title-left">

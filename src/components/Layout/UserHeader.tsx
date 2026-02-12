@@ -141,8 +141,8 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
 
     // Navigate to appropriate page
     if (orgType === 'user') {
-      onPageChange('projects');
-      navigate('/projects');
+      onPageChange('dashboard');
+      navigate('/dashboard');
     } else {
       onPageChange('dashboard');
       navigate('/dashboard');

@@ -270,3 +270,30 @@ export const getTeacherSchoolInfo = (schoolId: number) => {
 export const getTeacherAllStudents = (params?: { per_page?: number; page?: number; search?: string }) => {
   return axiosClient.get('/api/v1/teachers/all-students', { params });
 };
+
+/** Personal user dashboard: counts and last-30-days deltas */
+export const getUserDashboardStats = async (): Promise<{
+  projects_count: number;
+  events_count: number;
+  badges_count: number;
+  network_count: number;
+  projects_last_30_days: number;
+  events_last_30_days: number;
+  badges_last_30_days: number;
+  network_last_30_days: number;
+}> => {
+  const response = await axiosClient.get<{ data: {
+    projects_count: number;
+    events_count: number;
+    badges_count: number;
+    network_count: number;
+    projects_last_30_days: number;
+    events_last_30_days: number;
+    badges_last_30_days: number;
+    network_last_30_days: number;
+  } }>('/api/v1/users/me/dashboard_stats');
+  return response.data?.data ?? {
+    projects_count: 0, events_count: 0, badges_count: 0, network_count: 0,
+    projects_last_30_days: 0, events_last_30_days: 0, badges_last_30_days: 0, network_last_30_days: 0
+  };
+};
