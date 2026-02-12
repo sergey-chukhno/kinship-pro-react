@@ -2088,9 +2088,9 @@ const Members: React.FC = () => {
           onContactClick={() => setIsContactModalOpen(true)}
           isSuperadmin={(selectedMember as any).isSuperadmin || 
             ((selectedMember as any).membershipRole || '').toLowerCase() === 'superadmin'}
-          badgeCartographyUrl={badgeCartographyUrlForSelectedMember}
-          hasBadges={selectedMemberHasBadges}
-          isCartographyLoading={isCartographyLoadingForSelected}
+          badgeCartographyUrl={isSchoolContext ? badgeCartographyUrlForSelectedMember : undefined}
+          hasBadges={isSchoolContext ? selectedMemberHasBadges : false}
+          isCartographyLoading={isSchoolContext ? isCartographyLoadingForSelected : false}
         />
       )}
 
