@@ -6408,14 +6408,14 @@ const ProjectManagement: React.FC = () => {
           projectId={project?.id}
           projectTitle={project?.title}
           availableOrganizations={userProjectMember?.user?.available_contexts ? (() => {
-            const orgs: Array<{ id: number; name: string; type: 'School' | 'Company' }> = [];
+            const orgs: Array<{ id: number; name: string; type: 'School' | 'Company'; role?: string }> = [];
             const contexts = userProjectMember.user.available_contexts;
             const badgeRoles = ['superadmin', 'admin', 'referent', 'référent', 'intervenant'];
 
             if (contexts.schools) {
               contexts.schools.forEach((school: any) => {
                 if (badgeRoles.includes(school.role?.toLowerCase() || '')) {
-                  orgs.push({ id: school.id, name: school.name || 'École', type: 'School' });
+                  orgs.push({ id: school.id, name: school.name || 'École', type: 'School', role: school.role });
                 }
               });
             }
@@ -6423,7 +6423,7 @@ const ProjectManagement: React.FC = () => {
             if (contexts.companies) {
               contexts.companies.forEach((company: any) => {
                 if (badgeRoles.includes(company.role?.toLowerCase() || '')) {
-                  orgs.push({ id: company.id, name: company.name || 'Organisation', type: 'Company' });
+                  orgs.push({ id: company.id, name: company.name || 'Organisation', type: 'Company', role: company.role });
                 }
               });
             }

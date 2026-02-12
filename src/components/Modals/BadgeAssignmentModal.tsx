@@ -25,6 +25,7 @@ interface BadgeAssignmentModalProps {
     id: number;
     name: string;
     type: 'School' | 'Company';
+    role?: string;
   }>;
 }
 
@@ -702,14 +703,14 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
     if (!availableOrganizations || availableOrganizations.length === 0) {
       // Extract from user's available_contexts
       const contexts = state.user?.available_contexts;
-      const orgs: Array<{ id: number; name: string; type: 'School' | 'Company' }> = [];
+      const orgs: Array<{ id: number; name: string; type: 'School' | 'Company'; role?: string }> = [];
       
       if (contexts?.schools) {
         contexts.schools.forEach((school: any) => {
           // Only include schools where user has badge permissions
           const badgeRoles = ['superadmin', 'admin', 'referent', 'référent', 'intervenant'];
           if (badgeRoles.includes(school.role?.toLowerCase() || '')) {
-            orgs.push({ id: school.id, name: school.name || 'École', type: 'School' });
+            orgs.push({ id: school.id, name: school.name || 'École', type: 'School', role: school.role });
           }
         });
       }
@@ -719,7 +720,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
           // Only include companies where user has badge permissions
           const badgeRoles = ['superadmin', 'admin', 'referent', 'référent', 'intervenant'];
           if (badgeRoles.includes(company.role?.toLowerCase() || '')) {
-            orgs.push({ id: company.id, name: company.name || 'Organisation', type: 'Company' });
+            orgs.push({ id: company.id, name: company.name || 'Organisation', type: 'Company', role: company.role });
           }
         });
       }
@@ -729,6 +730,37 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
     
     return availableOrganizations;
   }, [availableOrganizations, state.user?.available_contexts]);
+
+  // Check if user has permission to assign TouKouLeur level 3 badges for selected organization
+  const canAssignTouKouLeurLevel3 = useMemo(() => {
+    if (selectedBadge?.series !== 'Série TouKouLeur' || selectedBadge?.level !== 'level_3') {
+      return true; // Not applicable
+    }
+    
+    if (!selectedOrganizationId) {
+      return true; // Will be validated on submit
+    }
+    
+    const selectedOrg = organizationsForSelection.find(org => org.id === selectedOrganizationId);
+    if (!selectedOrg) {
+      return true; // Will be validated on submit
+    }
+    
+    // Role may be present when orgs come from available_contexts; optional when from availableOrganizations prop
+    const orgWithRole = selectedOrg as { id: number; name: string; type: 'School' | 'Company'; role?: string };
+    const role = orgWithRole.role?.toLowerCase() || '';
+    
+    // Check role for the selected organization
+    if (selectedOrg.type === 'School') {
+      // Must be superadmin or admin
+      return role === 'superadmin' || role === 'admin';
+    } else if (selectedOrg.type === 'Company') {
+      // Must be superadmin
+      return role === 'superadmin';
+    }
+    
+    return true; // Default to true if unknown type
+  }, [selectedBadge, selectedOrganizationId, organizationsForSelection]);
 
   // Set default organization if only one available
   useEffect(() => {
@@ -890,6 +922,22 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
       }
     }
 
+    // Validate documents and comment for level 3 badges in "Série TouKouLeur"
+    if (selectedBadge.series === 'Série TouKouLeur' && selectedBadge.level === 'level_3') {
+      if (!fichier) {
+        showWarningToast('Vous devez joindre au moins un document (preuve) pour les badges niveau 3 de la Série Soft Skills 4LAB');
+        return;
+      }
+      if (!commentaire || commentaire.trim() === '') {
+        showWarningToast('Le commentaire est obligatoire pour les badges niveau 3 de la Série Soft Skills 4LAB');
+        return;
+      }
+      if (commentaire.trim().length < 100) {
+        showWarningToast('Le commentaire doit contenir au moins 100 caractères pour les badges niveau 3 de la Série Soft Skills 4LAB');
+        return;
+      }
+    }
+
     // Level 1 only - file is optional
     // Comment is optional for level 1
 
@@ -986,6 +1034,10 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                  apiMessage?.includes('joindre une preuve')) {
         // Use the specific message from backend for Level 2 Série Audiovisuelle document requirement
         friendlyMessage = apiMessage;
+      } else if (apiMessage?.includes('Série Soft Skills 4LAB') || 
+                 apiMessage?.includes('superadmin ou admin')) {
+        // Use the specific message from backend for TouKouLeur level 3 role check
+        friendlyMessage = apiMessage;
       }
 
       showErrorToast(friendlyMessage);
@@ -1080,6 +1132,20 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                     </option>
                   ))}
                 </select>
+                {selectedBadge?.series === 'Série TouKouLeur' && selectedBadge?.level === 'level_3' && selectedOrganizationId && !canAssignTouKouLeurLevel3 && (
+                  <div style={{ 
+                    marginTop: '0.5rem', 
+                    padding: '0.75rem',
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '0.375rem',
+                    color: '#991b1b',
+                    fontSize: '0.875rem'
+                  }}>
+                    <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
+                    Vous devez être superadmin ou admin d'école, ou superadmin d'organisation pour attribuer un badge niveau 3 de la Série Soft Skills 4LAB.
+                  </div>
+                )}
               </div>
             )}
 
@@ -1152,7 +1218,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                       </option>
                       <option 
                         value="3" 
-                        disabled={series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel'}
+                        disabled={series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel' && series !== 'Série TouKouLeur'}
                       >
                         {series === 'Série Parcours des possibles' 
                           ? 'Niveau 3 (non disponible)' 
@@ -1160,6 +1226,8 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                           ? 'Niveau 3: Universitaire ou Associatif'
                           : series === 'Série Parcours professionnel'
                           ? 'Niveau 3: Professionnalisation'
+                          : series === 'Série TouKouLeur'
+                          ? 'Niveau 3: Maîtrise'
                           : 'Niveau 3: Maîtrise (non disponible)'}
                       </option>
                       <option 
@@ -1460,11 +1528,13 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
               </div>
             )}
 
-            {/* Commentaire - required for level 3 and 4 in Série Audiovisuelle */}
+            {/* Commentaire - required for level 3 and 4 in Série Audiovisuelle, and level 3 in Série TouKouLeur */}
             <div className="form-group">
               <label htmlFor="commentaire">
                 Commentaire
-                {selectedBadge?.series === 'Série Audiovisuelle' && (selectedBadge?.level === 'level_3' || selectedBadge?.level === 'level_4')
+                {selectedBadge?.series === 'Série TouKouLeur' && selectedBadge?.level === 'level_3'
+                  ? ' (obligatoire, minimum 100 caractères)'
+                  : selectedBadge?.series === 'Série Audiovisuelle' && (selectedBadge?.level === 'level_3' || selectedBadge?.level === 'level_4')
                   ? ' (obligatoire pour niveau 3 et 4)'
                   : ' (optionnel)'}
               </label>
@@ -1476,13 +1546,25 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                 value={commentaire}
                 onChange={(e) => setCommentaire(e.target.value)}
               />
+              {selectedBadge?.series === 'Série TouKouLeur' && selectedBadge?.level === 'level_3' && (
+                <div style={{ 
+                  marginTop: '0.5rem', 
+                  fontSize: '0.875rem',
+                  color: commentaire.trim().length >= 100 ? '#10b981' : '#ef4444',
+                  fontWeight: commentaire.trim().length >= 100 ? 'normal' : '500'
+                }}>
+                  {commentaire.trim().length}/100 caractères
+                </div>
+              )}
             </div>
 
-            {/* Fichier - required for level 3 and 4 in Série Audiovisuelle */}
+            {/* Fichier - required for level 3 and 4 in Série Audiovisuelle, and level 3 in Série TouKouLeur */}
             <div className="form-group">
               <label htmlFor="badgeFile">
                 Fichier (preuve)
-                {selectedBadge?.series === 'Série Audiovisuelle' && (selectedBadge?.level === 'level_3' || selectedBadge?.level === 'level_4')
+                {selectedBadge?.series === 'Série TouKouLeur' && selectedBadge?.level === 'level_3'
+                  ? ' (obligatoire)'
+                  : selectedBadge?.series === 'Série Audiovisuelle' && (selectedBadge?.level === 'level_3' || selectedBadge?.level === 'level_4')
                   ? ' (obligatoire pour niveau 3 et 4)'
                   : selectedBadge?.level === 'level_1'
                   ? ' (optionnel pour le niveau 1)'
