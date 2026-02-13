@@ -1877,7 +1877,7 @@ const Network: React.FC = () => {
       })
     : [];
 
-  // Organization filter dropdown: only user's own orgs (not partner orgs or all members' orgs)
+  // Organization filter dropdown: user's own orgs (personal) or current org + partner orgs (school/company dashboard)
   const organizationOptions = isPersonalUser
     ? Array.from(new Set([
         ...(myOrganizations.schools || []).filter((s: any) => s.my_status === 'confirmed').map((s: any) => s.name),
@@ -1891,7 +1891,20 @@ const Network: React.FC = () => {
         const org = organizationType === 'school'
           ? state.user?.available_contexts?.schools?.find((s: any) => Number(s.id) === organizationId)
           : state.user?.available_contexts?.companies?.find((c: any) => Number(c.id) === organizationId);
-        return org?.name ? [org.name] : [];
+        const currentOrgName = org?.name;
+        // Include partner organizations from confirmed partnerships
+        const partnershipList = Array.isArray(partners) && partners.length > 0 && partners[0] && 'partners' in partners[0]
+          ? (partners as Partnership[])
+          : [];
+        const partnerOrgs = partnershipList
+          .filter((p: Partnership) => p.status === 'confirmed')
+          .flatMap((p: Partnership) => (p.partners || []).filter((partner: any) => partner.id !== organizationId))
+          .filter((p: any) => p && p.name);
+        const uniqueById = new Map<number, string>();
+        partnerOrgs.forEach((p: any) => { if (p.id != null && !uniqueById.has(p.id)) uniqueById.set(p.id, p.name); });
+        const partnerNames = Array.from(uniqueById.values()).sort((a, b) => (a || '').localeCompare(b || ''));
+        const names = currentOrgName ? [currentOrgName, ...partnerNames] : partnerNames;
+        return names;
       })()
     : [];
 
