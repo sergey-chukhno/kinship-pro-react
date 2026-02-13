@@ -335,6 +335,17 @@ const AuthPage: React.FC = () => {
           Pas encore de compte ? S'inscrire
         </button>
       </form>
+      <div className="auth-sponsor">
+        <img
+          src="/fondation_de_france.png"
+          alt="Fondation de France"
+          className="auth-sponsor-logo"
+          loading="lazy"
+        />
+        <p className="auth-sponsor-text">
+          Kinship Edu est soutenu par la Fondation de France dans le cadre de son développement.
+        </p>
+      </div>
     </div>
   )
 
