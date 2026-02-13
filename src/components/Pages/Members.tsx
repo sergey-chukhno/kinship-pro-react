@@ -75,6 +75,7 @@ const Members: React.FC = () => {
   const [contactEmail, setContactEmail] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [teacherSchoolFilter, setTeacherSchoolFilter] = useState<string>('');
+  const [studentClassFilter, setStudentClassFilter] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState('');
   const [competenceFilter, setCompetenceFilter] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState('');
@@ -216,6 +217,7 @@ const Members: React.FC = () => {
             avatar: s.avatar_url || s.avatar || DEFAULT_AVATAR_SRC,
             isTrusted: Boolean(s.isTrusted),
             schools: s.schools || [], // Include school information from API
+            classes: s.classes || [], // Include class information from API
             claim_token: s.claim_token || null,
             hasTemporaryEmail: s.has_temporary_email || false
           } as Member;
@@ -756,15 +758,21 @@ const Members: React.FC = () => {
     if (!studentRoles.includes(primaryRoleRaw)) {
       return false;
     }
-    if (!isTeacherContext || teacherSchoolFilter === '') {
-      return true;
+    if (isTeacherContext && teacherSchoolFilter !== '') {
+      const studentSchools = (member as any).schools || [];
+      if (teacherSchoolFilter === 'none') {
+        if (!(!studentSchools || studentSchools.length === 0)) return false;
+      } else {
+        const selectedId = Number(teacherSchoolFilter);
+        if (!studentSchools.some((school: any) => Number(school.id) === selectedId)) return false;
+      }
     }
-    const studentSchools = (member as any).schools || [];
-    if (teacherSchoolFilter === 'none') {
-      return !studentSchools || studentSchools.length === 0;
+    if (studentClassFilter === '') return true;
+    const memberClasses = (member as any).classes || [];
+    if (studentClassFilter === 'none') {
+      return !memberClasses || memberClasses.length === 0;
     }
-    const selectedId = Number(teacherSchoolFilter);
-    return studentSchools.some((school: any) => Number(school.id) === selectedId);
+    return memberClasses.some((c: any) => String(c.id) === studentClassFilter);
   });
 
   // Filter classes for student assignment based on student's schools (only for teacher context)
@@ -1741,6 +1749,20 @@ const Members: React.FC = () => {
                 ))}
               </select>
             )}
+            <select
+              className="form-select"
+              value={studentClassFilter}
+              onChange={(e) => setStudentClassFilter(e.target.value)}
+              style={{ minWidth: '220px', width: 'auto', flex: '0 0 auto' }}
+            >
+              <option value="">Toutes les classes</option>
+              <option value="none">Aucune</option>
+              {classLists.map((cl) => (
+                <option key={cl.id} value={cl.id}>
+                  {isTeacherContext && cl.school?.name ? `${cl.name} (${cl.school.name})` : cl.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="members-grid">
                 {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
@@ -2066,9 +2088,9 @@ const Members: React.FC = () => {
           onContactClick={() => setIsContactModalOpen(true)}
           isSuperadmin={(selectedMember as any).isSuperadmin || 
             ((selectedMember as any).membershipRole || '').toLowerCase() === 'superadmin'}
-          badgeCartographyUrl={badgeCartographyUrlForSelectedMember}
-          hasBadges={selectedMemberHasBadges}
-          isCartographyLoading={isCartographyLoadingForSelected}
+          badgeCartographyUrl={isSchoolContext ? badgeCartographyUrlForSelectedMember : undefined}
+          hasBadges={isSchoolContext ? selectedMemberHasBadges : false}
+          isCartographyLoading={isSchoolContext ? isCartographyLoadingForSelected : false}
         />
       )}
 

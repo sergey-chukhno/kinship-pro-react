@@ -110,7 +110,7 @@ export const useAuthInit = () => {
           if (isSavedContextValid() && savedPageType) {
             pageType = savedPageType;
             if (savedContextType === 'user') {
-              defaultPage = "projects";
+              defaultPage = "dashboard";
             } else {
               defaultPage = "dashboard";
             }
@@ -129,7 +129,7 @@ export const useAuthInit = () => {
             // Priority 1: Personal dashboard
             if (user.available_contexts?.user_dashboard) {
               pageType = "user";
-              defaultPage = "projects";
+              defaultPage = "dashboard";
               localStorage.setItem('selectedPageType', 'user');
               localStorage.setItem('selectedContextId', 'user-dashboard');
               localStorage.setItem('selectedContextType', 'user');
