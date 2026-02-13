@@ -53,6 +53,11 @@ interface BadgeAttribution {
     title: string;
     description?: string | null;
   } | null;
+  organization?: {
+    id: number;
+    name: string;
+    type?: string;
+  } | null;
   assigned_at: string;
   comment: string | null;
   documents: Array<{
@@ -201,6 +206,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
         
         const project = item.project || (item.project_id ? { id: item.project_id, title: item.project?.title || 'Unknown', description: item.project?.description || null } : null);
         const event = item.event || (item.event_id ? { id: item.event_id, title: item.event?.title || 'Événement', description: item.event?.description || null } : null);
+        const organization = item.organization || null;
         
         return {
           id: item.id,
@@ -209,6 +215,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           sender: sender,
           project: project,
           event: event,
+          organization: organization,
           assigned_at: item.assigned_at || item.created_at,
           comment: item.comment || null,
           documents: item.documents || []
@@ -423,20 +430,32 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                       <td>
                         <div className="person-cell">
                           {attribution.sender.is_deleted ? (
-                            <DeletedUserDisplay 
-                              user={{
-                                full_name: attribution.sender.full_name,
-                                email: attribution.sender.email,
-                                is_deleted: true
-                              }}
-                              showEmail={false}
-                            />
+                            <>
+                              <DeletedUserDisplay 
+                                user={{
+                                  full_name: attribution.sender.full_name,
+                                  email: attribution.sender.email,
+                                  is_deleted: true
+                                }}
+                                showEmail={false}
+                              />
+                              {attribution.organization?.name && (
+                                <span className="person-email" style={{ display: 'block', marginTop: '2px' }}>
+                                  {attribution.organization.name}
+                                </span>
+                              )}
+                            </>
                           ) : (
                             <>
                               <span className="whitespace-nowrap person-name">{attribution.sender.full_name}</span>
                               {(attribution.sender.job || attribution.sender.role) && (
                                 <span className="person-email" style={{ display: 'block', marginTop: '2px' }}>
                                   {[attribution.sender.job, attribution.sender.role ? translateRole(attribution.sender.role) : ''].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                              {attribution.organization?.name && (
+                                <span className="person-email" style={{ display: 'block', marginTop: '2px' }}>
+                                  {attribution.organization.name}
                                 </span>
                               )}
                             </>
