@@ -82,6 +82,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [pathwayDropdownOpen, setPathwayDropdownOpen] = useState(false);
   const pathwayDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const pathwaySearchInputRef = React.useRef<HTMLInputElement | null>(null);
+  const pathwayDropdownClickInProgress = React.useRef<boolean>(false);
   // Contact users from selected partnership, pre-selected as co-responsibles (for display)
   const [partnershipContactMembers, setPartnershipContactMembers] = useState<any[]>([]);
 
@@ -1497,9 +1498,19 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       onChange={(e) => setPathwaySearchTerm(e.target.value)}
                       onFocus={() => (formData.pathways || []).length < 2 && setPathwayDropdownOpen(true)}
                       onBlur={(e) => {
-                        const next = e.relatedTarget as Node | null;
-                        if (pathwayDropdownRef.current && next && pathwayDropdownRef.current.contains(next)) return;
-                        setPathwayDropdownOpen(false);
+                        // Sur Safari, relatedTarget peut être null même lors d'un clic dans le dropdown
+                        // Vérifier si un clic est en cours dans le dropdown avant de fermer
+                        setTimeout(() => {
+                          if (pathwayDropdownClickInProgress.current) {
+                            pathwayDropdownClickInProgress.current = false;
+                            return;
+                          }
+                          const activeElement = document.activeElement;
+                          if (pathwayDropdownRef.current && activeElement && pathwayDropdownRef.current.contains(activeElement)) {
+                            return;
+                          }
+                          setPathwayDropdownOpen(false);
+                        }, 150);
                       }}
                     />
                     {pathwayDropdownOpen && (formData.pathways || []).length < 2 && (
@@ -1514,8 +1525,13 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                                 type="button"
                                 key={pathway.id}
                                 className={`pathway-dropdown-item ${isSelected ? 'selected' : ''}`}
+                                onMouseDown={(e) => {
+                                  // Marquer qu'un clic est en cours pour empêcher le blur sur Safari
+                                  pathwayDropdownClickInProgress.current = true;
+                                }}
                                 onClick={() => {
                                   handlePathwayToggle(pathwayName);
+                                  pathwayDropdownClickInProgress.current = false;
                                   pathwaySearchInputRef.current?.focus();
                                 }}
                               >

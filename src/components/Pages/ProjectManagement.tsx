@@ -154,6 +154,30 @@ const ProjectManagement: React.FC = () => {
       })
       .catch(() => setTags([]));
   }, [state.tags?.length, setTags]);
+
+  // Charger tous les parcours disponibles pour la modal d'édition (indépendamment de state.tags)
+  useEffect(() => {
+    const fetchEditPathways = async () => {
+      setIsLoadingEditPathways(true);
+      try {
+        const tagsData = await getTags();
+        // Ensure tagsData is an array before setting
+        if (Array.isArray(tagsData)) {
+          setEditAvailablePathways(tagsData);
+        } else {
+          console.error('getTags returned non-array:', tagsData);
+          setEditAvailablePathways([]);
+        }
+      } catch (error) {
+        console.error('Error fetching pathways for edit modal:', error);
+        setEditAvailablePathways([]);
+      } finally {
+        setIsLoadingEditPathways(false);
+      }
+    };
+
+    fetchEditPathways();
+  }, []);
   const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -207,6 +231,9 @@ const ProjectManagement: React.FC = () => {
   const [editPathwayDropdownOpen, setEditPathwayDropdownOpen] = useState(false);
   const editPathwayDropdownRef = useRef<HTMLDivElement | null>(null);
   const editPathwaySearchInputRef = useRef<HTMLInputElement | null>(null);
+  const editPathwayDropdownClickInProgress = useRef<boolean>(false);
+  const [editAvailablePathways, setEditAvailablePathways] = useState<any[]>([]);
+  const [isLoadingEditPathways, setIsLoadingEditPathways] = useState(false);
   /** Pour l'édition : mode par classe (manual / all) et popup détail classe */
   const [editClassSelectionMode, setEditClassSelectionMode] = useState<Record<string, 'manual' | 'all'>>({});
   const [editClassManualParticipantIds, setEditClassManualParticipantIds] = useState<Record<string, string[]>>({});
@@ -1499,7 +1526,9 @@ const ProjectManagement: React.FC = () => {
       tags: [...(project.tags || [])],
       startDate: project.startDate,
       endDate: project.endDate,
-      pathways: project.pathway ? [project.pathway] : [],
+      pathways: (project.pathways && project.pathways.length > 0)
+        ? [...project.pathways]
+        : (project.pathway ? [project.pathway] : []),
       status: project.status || 'coming',
       visibility: isMLDSProject ? 'private' : (project.visibility || 'public'), // MLDS projects are always private
       isPartnership: isPartnerProject,
@@ -5415,7 +5444,7 @@ const ProjectManagement: React.FC = () => {
               {/* Parcours - même input que ProjectModal : pills + recherche + dropdown (max. 2) */}
               <div className="form-group pathway-search-form" ref={editPathwayDropdownRef}>
                 <label className="form-label">Parcours * <span className="text-muted">(max. 2)</span></label>
-                {(state.tags || []).length === 0 ? (
+                {isLoadingEditPathways ? (
                   <div className="loading-message pathway-loading">
                     <i className="fas fa-spinner fa-spin" />
                     <span>Chargement des parcours...</span>
@@ -5445,14 +5474,24 @@ const ProjectManagement: React.FC = () => {
                         onChange={(e) => setEditPathwaySearchTerm(e.target.value)}
                         onFocus={() => (editForm.pathways || []).length < 2 && setEditPathwayDropdownOpen(true)}
                         onBlur={(e) => {
-                          const next = e.relatedTarget as Node | null;
-                          if (editPathwayDropdownRef.current && next && editPathwayDropdownRef.current.contains(next)) return;
-                          setEditPathwayDropdownOpen(false);
+                          // Sur Safari, relatedTarget peut être null même lors d'un clic dans le dropdown
+                          // Vérifier si un clic est en cours dans le dropdown avant de fermer
+                          setTimeout(() => {
+                            if (editPathwayDropdownClickInProgress.current) {
+                              editPathwayDropdownClickInProgress.current = false;
+                              return;
+                            }
+                            const activeElement = document.activeElement;
+                            if (editPathwayDropdownRef.current && activeElement && editPathwayDropdownRef.current.contains(activeElement)) {
+                              return;
+                            }
+                            setEditPathwayDropdownOpen(false);
+                          }, 150);
                         }}
                       />
                       {editPathwayDropdownOpen && (editForm.pathways || []).length < 2 && (
                         <div className="pathway-dropdown">
-                          {(state.tags || [])
+                          {editAvailablePathways
                             .filter((p: any) => !editPathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(editPathwaySearchTerm.toLowerCase()))
                             .map((pathway: any) => {
                               const pathwayName = pathway.name;
@@ -5462,8 +5501,13 @@ const ProjectManagement: React.FC = () => {
                                   type="button"
                                   key={pathway.id}
                                   className={`pathway-dropdown-item ${isSelected ? 'selected' : ''}`}
+                                  onMouseDown={(e) => {
+                                    // Marquer qu'un clic est en cours pour empêcher le blur sur Safari
+                                    editPathwayDropdownClickInProgress.current = true;
+                                  }}
                                   onClick={() => {
                                     handleEditPathwayToggle(pathwayName);
+                                    editPathwayDropdownClickInProgress.current = false;
                                     editPathwaySearchInputRef.current?.focus();
                                   }}
                                 >
@@ -5472,7 +5516,7 @@ const ProjectManagement: React.FC = () => {
                                 </button>
                               );
                             })}
-                          {(state.tags || []).filter((p: any) => !editPathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(editPathwaySearchTerm.toLowerCase())).length === 0 && (
+                          {editAvailablePathways.filter((p: any) => !editPathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(editPathwaySearchTerm.toLowerCase())).length === 0 && (
                             <div className="pathway-dropdown-empty">Aucun parcours trouvé</div>
                           )}
                         </div>
@@ -5524,7 +5568,7 @@ const ProjectManagement: React.FC = () => {
                   <div className="form-label">Ajouter une/des classe(s) au projet</div>
                   {availableSchoolLevels.length > 0 ? (
                     <>
-                      <div className="multi-select-container" style={{ maxHeight: '300px'}}>
+                      <div className="multi-select-container" style={{ }}>
                         {availableSchoolLevels.map(classItem => (
                           <label
                             key={classItem.id}
@@ -5724,7 +5768,7 @@ const ProjectManagement: React.FC = () => {
                       Ajoutez des classes ci-dessus et choisissez « Sélectionner manuellement » ou « Tout sélectionner » pour ajouter des participants. Ils seront enregistrés avec le projet.
                     </p>
                   ) : (
-                    <div className="selected-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '300px'}}>
+                    <div className="selected-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
                       {(() => {
                         const showLevelSummary = editForm.mldsSchoolLevelIds.length > 0;
                         if (showLevelSummary) {
