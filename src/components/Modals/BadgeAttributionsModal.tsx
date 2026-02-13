@@ -4,6 +4,7 @@ import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBa
 import { getUserBadges } from '../../api/Badges';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { translateRole } from '../../utils/roleTranslations';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './Modal.css';
 import './BadgeAttributionsModal.css';
@@ -39,6 +40,7 @@ interface BadgeAttribution {
     full_name: string;
     email?: string;
     role?: string;
+    job?: string;
     is_deleted?: boolean;
   };
   project: {
@@ -187,12 +189,13 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           email: item.receiver?.email || '' 
         };
         
-        // Always construct sender object to ensure all fields are present
+        // Always construct sender object to ensure all fields are present (role = system role, job = profession)
         const sender = {
           id: item.sender?.id || item.sender_id || 0,
           full_name: item.sender?.full_name || 'Unknown',
           email: item.sender?.email || '',
           role: item.sender?.role || '',
+          job: item.sender?.job ?? '',
           is_deleted: item.sender?.is_deleted || false
         };
         
@@ -410,15 +413,10 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                                 email: attribution.receiver.email,
                                 is_deleted: true
                               }}
-                              showEmail={true}
+                              showEmail={false}
                             />
                           ) : (
-                            <>
-                              <span className="person-name">{attribution.receiver.full_name}</span>
-                              {attribution.receiver.email && (
-                                <span className="person-email">{attribution.receiver.email}</span>
-                              )}
-                            </>
+                            <span className="person-name">{attribution.receiver.full_name}</span>
                           )}
                         </div>
                       </td>
@@ -431,13 +429,15 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                                 email: attribution.sender.email,
                                 is_deleted: true
                               }}
-                              showEmail={true}
+                              showEmail={false}
                             />
                           ) : (
                             <>
                               <span className="whitespace-nowrap person-name">{attribution.sender.full_name}</span>
-                              {attribution.sender.role && (
-                                <span className="whitespace-nowrap person-email">{attribution.sender.role}</span>
+                              {(attribution.sender.job || attribution.sender.role) && (
+                                <span className="person-email" style={{ display: 'block', marginTop: '2px' }}>
+                                  {[attribution.sender.job, attribution.sender.role ? translateRole(attribution.sender.role) : ''].filter(Boolean).join(' · ')}
+                                </span>
                               )}
                             </>
                           )}
