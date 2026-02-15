@@ -2113,6 +2113,8 @@ const ProjectManagement: React.FC = () => {
       attributedBy: sender.id?.toString() || '',
       attributedByName: sender.full_name || sender.name || 'Inconnu',
       attributedByAvatar: sender.avatar_url || DEFAULT_AVATAR_SRC,
+      attributedByJob: sender.job,
+      attributedByRole: sender.role,
       attributedByOrganization: sender.organization || organization.name || 'Non spécifiée',
       attributedByIsDeleted: sender.is_deleted || false,
       projectId: project?.id || '',
@@ -2121,7 +2123,7 @@ const ProjectManagement: React.FC = () => {
       commentaire: item.comment || '',
       preuveFiles: documents,
       preuve,
-      dateAttribution: item.created_at || new Date().toISOString(),
+      dateAttribution: item.assigned_at || item.created_at || new Date().toISOString(),
     };
   };
 
@@ -3863,7 +3865,6 @@ const ProjectManagement: React.FC = () => {
                                 <span className="person-name">{attribution.participantName}</span>
                               )}
                             </div>
-                            <span className="person-organization">{attribution.participantOrganization}</span>
                           </div>
                         </div>
                         <div className="attributed-by">
@@ -3881,7 +3882,14 @@ const ProjectManagement: React.FC = () => {
                                 <span className="person-name">{attribution.attributedByName}</span>
                               )}
                             </div>
-                            <span className="person-organization">{attribution.attributedByOrganization}</span>
+                            {(attribution.attributedByJob || attribution.attributedByRole) && (
+                              <span className="person-email" style={{ display: 'block', marginTop: '2px' }}>
+                                {[attribution.attributedByJob, attribution.attributedByRole ? translateRole(attribution.attributedByRole) : ''].filter(Boolean).join(' · ')}
+                              </span>
+                            )}
+                            {attribution.attributedByOrganization && (
+                              <span className="person-organization">{attribution.attributedByOrganization}</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -4688,7 +4696,6 @@ const ProjectManagement: React.FC = () => {
                                     <span className="person-name">{attribution.participantName}</span>
                                   )}
                                 </div>
-                                <span className="person-organization">{attribution.participantOrganization}</span>
                               </div>
                             </div>
                             <div className="attributed-by">
@@ -4709,7 +4716,14 @@ const ProjectManagement: React.FC = () => {
                                     <span className="person-name">{attribution.attributedByName}</span>
                                   )}
                                 </div>
-                                <span className="person-organization">{attribution.attributedByOrganization}</span>
+                                {(attribution.attributedByJob || attribution.attributedByRole) && (
+                                  <span className="person-email" style={{ display: 'block', marginTop: '2px' }}>
+                                    {[attribution.attributedByJob, attribution.attributedByRole ? translateRole(attribution.attributedByRole) : ''].filter(Boolean).join(' · ')}
+                                  </span>
+                                )}
+                                {attribution.attributedByOrganization && (
+                                  <span className="person-organization">{attribution.attributedByOrganization}</span>
+                                )}
                               </div>
                             </div>
                           </div>

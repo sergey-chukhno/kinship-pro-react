@@ -1,6 +1,28 @@
 import React from 'react';
 import './ClassCard.css';
 
+/** Map API level values to French labels (matches AddClassModal options) */
+const LEVEL_LABEL_MAP: Record<string, string> = {
+  petite_section: 'Petite section',
+  moyenne_section: 'Moyenne section',
+  grande_section: 'Grande section',
+  cp: 'CP',
+  ce1: 'CE1',
+  ce2: 'CE2',
+  cm1: 'CM1',
+  cm2: 'CM2',
+  sixieme: 'Sixième',
+  cinquieme: 'Cinquième',
+  quatrieme: 'Quatrième',
+  troisieme: 'Troisième',
+  seconde: 'Seconde',
+  premiere: 'Première',
+  terminale: 'Terminale',
+  cap: 'CAP',
+  bts: 'BTS',
+  other: 'Autre'
+};
+
 interface ClassCardProps {
   name: string;
   teacher: string;
@@ -16,6 +38,9 @@ interface ClassCardProps {
 }
 
 const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, level, schoolName, showSchoolName = false, teachers, pedagogical_team_members, onClick, onDelete, onEdit }) => {
+  const levelDisplay = level && LEVEL_LABEL_MAP[level.toLowerCase().trim()]
+    ? LEVEL_LABEL_MAP[level.toLowerCase().trim()]
+    : (level || '');
   const handleCardClick = (e: React.MouseEvent) => {
     // Ne pas déclencher onClick si on clique sur les boutons d'action
     if ((e.target as HTMLElement).closest('.class-card-action-btn')) {
@@ -102,7 +127,7 @@ const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, leve
         {showSchoolName && (
           <p><strong>Établissement :</strong> {schoolName || 'Aucun'}</p>
         )}
-        <p><strong>Niveau :</strong> {level}</p>
+        <p><strong>Niveau :</strong> {levelDisplay}</p>
         {teachers && teachers.length > 0 && (
           <p><strong>Responsable{teachers.length > 1 ? 's' : ''} :</strong> {teachers.map(t => t.full_name).join(', ')}</p>
         )}

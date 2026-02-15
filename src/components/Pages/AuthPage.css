@@ -208,6 +208,46 @@
   background: #f0f4ff;
 }
 
+/* Sponsor block below login buttons */
+.auth-sponsor {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-top: 32px;
+  padding: 16px 18px;
+  width: 100%;
+  max-width: 500px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+
+.auth-sponsor-logo {
+  height: 48px;
+  width: auto;
+  max-width: 96px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+
+.auth-sponsor-text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+@media (max-width: 540px) {
+  .auth-sponsor {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
 /* Nouvelle grille 2x2 pour les types d'inscription avec style de l'image */
 .register-type-grid {
   width: 100%;
