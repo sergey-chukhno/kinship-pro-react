@@ -240,6 +240,14 @@ const ProjectManagement: React.FC = () => {
   const [editClassSelectionMode, setEditClassSelectionMode] = useState<Record<string, 'manual' | 'all'>>({});
   const [editClassManualParticipantIds, setEditClassManualParticipantIds] = useState<Record<string, string[]>>({});
   const [editClassDetailPopup, setEditClassDetailPopup] = useState<{ classId: string; className: string; mode: 'choice' | 'view' | 'manual' } | null>(null);
+  // Co-responsables par classe : après sélection d'une classe, popup pour choisir les co-responsables liés à cette classe
+  const [editClassCoResponsiblesPopup, setEditClassCoResponsiblesPopup] = useState<{ classId: string; className: string } | null>(null);
+  const [editClassCoResponsibles, setEditClassCoResponsibles] = useState<Record<string, string[]>>({});
+  const [editClassCoResponsiblesSearchTerm, setEditClassCoResponsiblesSearchTerm] = useState<string>('');
+  // Co-responsables par partenariat : après sélection d'un partenariat, popup pour choisir les co-responsables liés à ce partenariat
+  const [editPartnershipCoResponsiblesPopup, setEditPartnershipCoResponsiblesPopup] = useState<{ partnershipId: string; partnershipName: string; contactUsers: any[] } | null>(null);
+  const [editPartnershipCoResponsibles, setEditPartnershipCoResponsibles] = useState<Record<string, string[]>>({});
+  const [editPartnershipCoResponsiblesSearchTerm, setEditPartnershipCoResponsiblesSearchTerm] = useState<string>('');
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
@@ -1445,6 +1453,85 @@ const ProjectManagement: React.FC = () => {
     return editAvailableMembers.find(byId) ?? editPartnershipContactMembers.find(byId) ?? null;
   };
 
+  /** Enseignants d'une classe (depuis availableSchoolLevels ou editCoResponsibleOptions) */
+  const getEditTeachersInClass = (schoolLevelId: string): any[] => {
+    const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === schoolLevelId);
+    if (!classItem) return [];
+    
+    // Récupérer les IDs des enseignants de la classe
+    const teacherIds = classItem.teacher_ids || (classItem.teachers || []).map((t: any) => t.id || t);
+    if (!teacherIds || teacherIds.length === 0) return [];
+    
+    // Filtrer les membres disponibles (editCoResponsibleOptions pour teacher/school, ou editAvailableMembers pour autres contextes)
+    const availableMembers = editCoResponsibleOptions.length > 0 ? editCoResponsibleOptions : editAvailableMembers;
+    
+    // Exclure le propriétaire du projet
+    const ownerId = apiProjectData?.owner?.id?.toString();
+    
+    return availableMembers.filter((member: any) => {
+      if (!member?.id) return false;
+      if (ownerId && member.id?.toString() === ownerId) return false;
+      return teacherIds.includes(member.id) || teacherIds.includes(Number(member.id));
+    });
+  };
+
+  /** Ouvrir la popup de sélection des co-responsables après sélection de classe */
+  const openEditClassCoResponsiblesPopup = (classId: string, className: string) => {
+    setEditClassDetailPopup(null);
+    setEditClassCoResponsiblesPopup({ classId, className });
+    setEditClassCoResponsiblesSearchTerm('');
+  };
+
+  /** Toggle co-responsable pour une classe */
+  const toggleEditClassCoResponsible = (classId: string, memberId: string) => {
+    const idStr = memberId.toString();
+    setEditClassCoResponsibles(prev => {
+      const current = prev[classId] || [];
+      const newList = current.includes(idStr)
+        ? current.filter(id => id !== idStr)
+        : [...current, idStr];
+      return { ...prev, [classId]: newList };
+    });
+  };
+
+  /** Filtrer les enseignants de la classe pour la popup de co-responsables */
+  const getFilteredEditClassCoResponsibles = (classId: string, searchTerm: string) => {
+    const teachers = getEditTeachersInClass(classId);
+    if (!searchTerm.trim()) return teachers;
+    const term = searchTerm.toLowerCase();
+    return teachers.filter((teacher: any) => {
+      const name = (teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim()).toLowerCase();
+      const email = (teacher.email || '').toLowerCase();
+      const role = (translateRole(teacher.role_in_system ?? teacher.role ?? '') || '').toLowerCase();
+      return name.includes(term) || email.includes(term) || role.includes(term);
+    });
+  };
+
+  /** Toggle co-responsable pour un partenariat */
+  const toggleEditPartnershipCoResponsible = (partnershipId: string, memberId: string) => {
+    const idStr = memberId.toString();
+    setEditPartnershipCoResponsibles(prev => {
+      const current = prev[partnershipId] || [];
+      const newList = current.includes(idStr)
+        ? current.filter(id => id !== idStr)
+        : [...current, idStr];
+      return { ...prev, [partnershipId]: newList };
+    });
+  };
+
+  /** Filtrer les contact users du partenariat pour la popup de co-responsables */
+  const getFilteredEditPartnershipCoResponsibles = (contactUsers: any[], searchTerm: string) => {
+    if (!searchTerm.trim()) return contactUsers;
+    const term = searchTerm.toLowerCase();
+    return contactUsers.filter((user: any) => {
+      const name = (user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim()).toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      const role = (user.role_in_organization || user.role || '').toLowerCase();
+      const org = (user.organization || '').toLowerCase();
+      return name.includes(term) || email.includes(term) || role.includes(term) || org.includes(term);
+    });
+  };
+
   const handleEditParticipantRemove = (memberId: string) => {
     setEditForm(prev => ({ ...prev, participants: prev.participants.filter(id => id !== memberId) }));
     setEditClassManualParticipantIds(prev => {
@@ -1496,38 +1583,64 @@ const ProjectManagement: React.FC = () => {
 
   const handleEditPartnerSelect = (partnerId: string) => {
     const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
+    
+    if (!partnership) return;
+    
     const ownerId = apiProjectData?.owner?.id != null ? apiProjectData.owner.id.toString() : null;
-    const contactUsersRaw = partnership
-      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
-        id: c.id,
-        full_name: c.full_name || '',
-        email: c.email || '',
-        role: c.role_in_organization || '',
-        organization: p.name || ''
-      })))
-      : [];
+    const contactUsersRaw = (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
+      id: c.id,
+      full_name: c.full_name || '',
+      email: c.email || '',
+      role: c.role_in_organization || '',
+      organization: p.name || ''
+    })));
     // Exclude project owner so they are not proposed as co-owner (owner can be staff in partner orgs)
     const contactUsers = ownerId
       ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
       : contactUsersRaw;
-    const contactIds = contactUsers.map((c: any) => c.id.toString());
-
-    setEditForm(prev => {
-      const isAdding = !prev.partners.includes(partnerId);
-      const newPartners = isAdding
-        ? [...prev.partners, partnerId]
-        : prev.partners.filter(id => id !== partnerId);
-      return { ...prev, partners: newPartners };
-    });
-
-    setEditPartnershipContactMembers(prev => {
-      const isAdding = !editForm.partners.includes(partnerId);
-      if (isAdding) {
-        return [...prev, ...contactUsers];
-      }
-      const toRemoveIds = new Set(contactIds);
-      return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
-    });
+    
+    const isAlreadySelected = editForm.partners.includes(partnerId);
+    
+    if (isAlreadySelected) {
+      // Désélectionner le partenariat
+      const contactIds = contactUsers.map((c: any) => c.id.toString());
+      setEditForm(prev => ({
+        ...prev,
+        partners: prev.partners.filter(id => id !== partnerId),
+        coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+      }));
+      setEditPartnershipContactMembers(prev => {
+        const toRemoveIds = new Set(contactIds);
+        return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
+      });
+      // Nettoyer les co-responsables de ce partenariat
+      setEditPartnershipCoResponsibles(prev => {
+        const next = { ...prev };
+        delete next[partnerId];
+        return next;
+      });
+    } else {
+      // Ajouter le partenariat et ouvrir la popup de sélection des co-responsables
+      setEditForm(prev => ({
+        ...prev,
+        partners: [...prev.partners, partnerId]
+      }));
+      
+      // Construire le nom du partenariat pour l'affichage
+      const partnerOrgs = partnership.partners || [];
+      const partnershipName = partnerOrgs.map((p: any) => p.name).join(', ') || partnership.name || '';
+      
+      // Ouvrir la popup de sélection des co-responsables
+      setEditPartnershipCoResponsiblesPopup({
+        partnershipId: partnerId,
+        partnershipName,
+        contactUsers
+      });
+      setEditPartnershipCoResponsiblesSearchTerm('');
+      
+      // Ajouter les contact users à editPartnershipContactMembers pour l'affichage
+      setEditPartnershipContactMembers(prev => [...prev, ...contactUsers]);
+    }
   };
 
   const handleEdit = async () => {
@@ -1566,6 +1679,12 @@ const ProjectManagement: React.FC = () => {
     setEditClassSelectionMode({});
     setEditClassManualParticipantIds({});
     setEditClassDetailPopup(null);
+    setEditClassCoResponsiblesPopup(null);
+    setEditClassCoResponsibles({});
+    setEditClassCoResponsiblesSearchTerm('');
+    setEditPartnershipCoResponsiblesPopup(null);
+    setEditPartnershipCoResponsibles({});
+    setEditPartnershipCoResponsiblesSearchTerm('');
     setEditPathwaySearchTerm('');
     setEditPathwayDropdownOpen(false);
     setEditForm({
@@ -1921,12 +2040,25 @@ const ProjectManagement: React.FC = () => {
   const handleEditSchoolLevelToggle = (schoolLevelId: string) => {
     const isAlreadySelected = editForm.mldsSchoolLevelIds.includes(schoolLevelId);
     if (isAlreadySelected) {
+      // Récupérer les co-responsables de cette classe avant de la supprimer
+      const coResponsiblesToRemove = editClassCoResponsibles[schoolLevelId] || [];
+      
       setEditForm(prev => {
         const updatedSchoolLevelIds = prev.mldsSchoolLevelIds.filter(id => id !== schoolLevelId);
         const memberIdsInClass = getEditStudentsInClass(schoolLevelId).map((m: any) => m.id?.toString()).filter(Boolean);
         const participantsToRemove = new Set(memberIdsInClass);
         const updatedParticipants = prev.participants.filter(id => !participantsToRemove.has(id.toString()));
-        return { ...prev, mldsSchoolLevelIds: updatedSchoolLevelIds, participants: updatedParticipants };
+        
+        // Retirer les co-responsables de cette classe
+        const coResponsiblesToRemoveSet = new Set(coResponsiblesToRemove);
+        const updatedCoResponsibles = prev.coResponsibles.filter(id => !coResponsiblesToRemoveSet.has(id));
+        
+        return { 
+          ...prev, 
+          mldsSchoolLevelIds: updatedSchoolLevelIds, 
+          participants: updatedParticipants,
+          coResponsibles: updatedCoResponsibles
+        };
       });
       setEditClassSelectionMode(prev => {
         const next = { ...prev };
@@ -1934,6 +2066,12 @@ const ProjectManagement: React.FC = () => {
         return next;
       });
       setEditClassManualParticipantIds(prev => {
+        const next = { ...prev };
+        delete next[schoolLevelId];
+        return next;
+      });
+      // Nettoyer les co-responsables de cette classe
+      setEditClassCoResponsibles(prev => {
         const next = { ...prev };
         delete next[schoolLevelId];
         return next;
@@ -1975,6 +2113,41 @@ const ProjectManagement: React.FC = () => {
     setEditForm(prev => ({ ...prev, participants: Array.from(new Set(fromClasses)) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editClassSelectionMode, editClassManualParticipantIds, editForm.mldsSchoolLevelIds, editUseClassBasedParticipants, isEditModalOpen, editAvailableMembers]);
+
+  // Synchroniser editForm.coResponsibles à partir des co-responsables sélectionnés par classe et par partenariat
+  useEffect(() => {
+    if (!isEditModalOpen) return;
+    
+    // Récupérer tous les co-responsables des classes actuellement sélectionnées uniquement
+    const fromClasses: string[] = [];
+    editForm.mldsSchoolLevelIds.forEach(classId => {
+      (editClassCoResponsibles[classId] || []).forEach(id => {
+        if (!fromClasses.includes(id)) fromClasses.push(id);
+      });
+    });
+    
+    // Récupérer tous les co-responsables des partenariats actuellement sélectionnés uniquement
+    const fromPartnerships: string[] = [];
+    editForm.partners.forEach(partnershipId => {
+      (editPartnershipCoResponsibles[partnershipId] || []).forEach(id => {
+        if (!fromPartnerships.includes(id)) fromPartnerships.push(id);
+      });
+    });
+    
+    // Récupérer les IDs de tous les co-responsables qui viennent des classes et partenariats sélectionnés
+    const allSelectedIds = new Set([...fromClasses, ...fromPartnerships]);
+    
+    // Récupérer les co-responsables qui ne viennent pas des classes ni des partenariats (sélection manuelle globale)
+    setEditForm(prev => {
+      // Garder uniquement les co-responsables qui ne viennent pas des classes ni des partenariats sélectionnés
+      const nonClassOrPartnershipCoResponsibles = prev.coResponsibles.filter(id => !allSelectedIds.has(id));
+      
+      // Fusionner avec les co-responsables des classes et partenariats sélectionnés
+      const allCoResponsibles = Array.from(new Set([...nonClassOrPartnershipCoResponsibles, ...fromClasses, ...fromPartnerships]));
+      return { ...prev, coResponsibles: allCoResponsibles };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editClassCoResponsibles, editPartnershipCoResponsibles, editForm.mldsSchoolLevelIds, editForm.partners, isEditModalOpen]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -5783,7 +5956,7 @@ const ProjectManagement: React.FC = () => {
                                 style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                                 onClick={() => {
                                   setEditClassMode(editClassDetailPopup.classId, 'all');
-                                  setEditClassDetailPopup(null);
+                                  openEditClassCoResponsiblesPopup(editClassDetailPopup.classId, editClassDetailPopup.className);
                                 }}
                               >
                                 <i className="fas fa-users" />
@@ -5809,18 +5982,31 @@ const ProjectManagement: React.FC = () => {
                         return (
                           <div>
                             <div style={{ marginBottom: '12px' }}>
-                              <button
-                                type="button"
-                                className="btn btn-outline"
-                                style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => {
-                                  setEditClassMode(editClassDetailPopup.classId, 'all');
-                                  setEditClassDetailPopup(null);
-                                }}
-                              >
-                                <i className="fas fa-users" />
-                                <span>Tout sélectionner</span>
-                              </button>
+                              <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline"
+                                  style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                  onClick={() => {
+                                    setEditClassMode(editClassDetailPopup.classId, 'all');
+                                    openEditClassCoResponsiblesPopup(editClassDetailPopup.classId, editClassDetailPopup.className);
+                                  }}
+                                >
+                                  <i className="fas fa-users" />
+                                  <span>Tout sélectionner</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                  onClick={() => {
+                                    openEditClassCoResponsiblesPopup(editClassDetailPopup.classId, editClassDetailPopup.className);
+                                  }}
+                                >
+                                  <i className="fas fa-check" />
+                                  <span>Valider et continuer</span>
+                                </button>
+                              </div>
                             </div>
                             {students.map((student: any) => {
                               const sid = student.id?.toString();
@@ -5863,6 +6049,203 @@ const ProjectManagement: React.FC = () => {
                           </div>
                         );
                       })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Popup sélection co-responsables de classe */}
+              {editClassCoResponsiblesPopup && (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setEditClassCoResponsiblesPopup(null)}>
+                  <div className="modal-content" style={{ background: 'white', borderRadius: '8px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', marginBottom: '4px' }}>Sélectionner les co-responsables</h3>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>{editClassCoResponsiblesPopup.className}</p>
+                      </div>
+                      <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setEditClassCoResponsiblesPopup(null)}>
+                        <i className="fas fa-times" />
+                      </button>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                      <div className="search-input-container" style={{ marginBottom: '16px' }}>
+                        <i className="fas fa-search search-icon"></i>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Rechercher un co-responsable..."
+                          value={editClassCoResponsiblesSearchTerm}
+                          onChange={(e) => setEditClassCoResponsiblesSearchTerm(e.target.value)}
+                        />
+                      </div>
+                      {(() => {
+                        const teachers = getFilteredEditClassCoResponsibles(editClassCoResponsiblesPopup.classId, editClassCoResponsiblesSearchTerm);
+                        const selectedIds = editClassCoResponsibles[editClassCoResponsiblesPopup.classId] || [];
+                        
+                        if (teachers.length === 0) {
+                          return (
+                            <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                              <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                              <p>{editClassCoResponsiblesSearchTerm ? 'Aucun enseignant trouvé' : 'Aucun enseignant disponible pour cette classe'}</p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="selection-list">
+                            {teachers.map((teacher: any) => {
+                              const teacherId = teacher.id?.toString();
+                              const isSelected = selectedIds.includes(teacherId);
+                              const name = teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim();
+                              return (
+                                <div
+                                  key={teacher.id}
+                                  className="selection-item"
+                                  onClick={() => toggleEditClassCoResponsible(editClassCoResponsiblesPopup.classId, teacherId)}
+                                  style={{
+                                    cursor: 'pointer',
+                                    ...(isSelected
+                                      ? {
+                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                          border: '1px solid #5570F1',
+                                          borderRadius: '8px',
+                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                        }
+                                      : {})
+                                  }}
+                                >
+                                  <AvatarImage
+                                    src={teacher.avatar_url || '/default-avatar.png'}
+                                    alt={name}
+                                    className="item-avatar"
+                                  />
+                                  <div className="item-info">
+                                    <div className="item-name">{name}</div>
+                                    <div className="item-role">{translateRole(teacher.role_in_system ?? teacher.role ?? '')}</div>
+                                    {teacher.email && (
+                                      <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>{teacher.email}</div>
+                                    )}
+                                  </div>
+                                  {isSelected && (
+                                    <div style={{ flexShrink: 0, color: '#5570F1' }} title="Sélectionné">
+                                      <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }} />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => setEditClassCoResponsiblesPopup(null)}
+                      >
+                        Terminer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Popup sélection co-responsables de partenariat */}
+              {editPartnershipCoResponsiblesPopup && (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setEditPartnershipCoResponsiblesPopup(null)}>
+                  <div className="modal-content" style={{ background: 'white', borderRadius: '8px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', marginBottom: '4px' }}>Sélectionner les co-responsables</h3>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>{editPartnershipCoResponsiblesPopup.partnershipName}</p>
+                      </div>
+                      <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setEditPartnershipCoResponsiblesPopup(null)}>
+                        <i className="fas fa-times" />
+                      </button>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                      <div className="search-input-container" style={{ marginBottom: '16px' }}>
+                        <i className="fas fa-search search-icon"></i>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Rechercher un co-responsable..."
+                          value={editPartnershipCoResponsiblesSearchTerm}
+                          onChange={(e) => setEditPartnershipCoResponsiblesSearchTerm(e.target.value)}
+                        />
+                      </div>
+                      {(() => {
+                        const contactUsers = getFilteredEditPartnershipCoResponsibles(editPartnershipCoResponsiblesPopup.contactUsers, editPartnershipCoResponsiblesSearchTerm);
+                        const selectedIds = editPartnershipCoResponsibles[editPartnershipCoResponsiblesPopup.partnershipId] || [];
+                        
+                        if (contactUsers.length === 0) {
+                          return (
+                            <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                              <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                              <p>{editPartnershipCoResponsiblesSearchTerm ? 'Aucun contact trouvé' : 'Aucun contact disponible pour ce partenariat'}</p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="selection-list">
+                            {contactUsers.map((user: any) => {
+                              const userId = user.id?.toString();
+                              const isSelected = selectedIds.includes(userId);
+                              const name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                              return (
+                                <div
+                                  key={user.id}
+                                  className="selection-item"
+                                  onClick={() => toggleEditPartnershipCoResponsible(editPartnershipCoResponsiblesPopup.partnershipId, userId)}
+                                  style={{
+                                    cursor: 'pointer',
+                                    ...(isSelected
+                                      ? {
+                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                          border: '1px solid #5570F1',
+                                          borderRadius: '8px',
+                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                        }
+                                      : {})
+                                  }}
+                                >
+                                  <AvatarImage
+                                    src={user.avatar_url || '/default-avatar.png'}
+                                    alt={name}
+                                    className="item-avatar"
+                                  />
+                                  <div className="item-info">
+                                    <div className="item-name">{name}</div>
+                                    <div className="item-role">{user.role_in_organization || user.role || ''}</div>
+                                    {user.email && (
+                                      <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>{user.email}</div>
+                                    )}
+                                    {user.organization && (
+                                      <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {user.organization}</div>
+                                    )}
+                                  </div>
+                                  {isSelected && (
+                                    <div style={{ flexShrink: 0, color: '#5570F1' }} title="Sélectionné">
+                                      <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }} />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => setEditPartnershipCoResponsiblesPopup(null)}
+                      >
+                        Terminer
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -6013,7 +6396,7 @@ const ProjectManagement: React.FC = () => {
               {/* Partenaires - Only visible if En partenariat is checked */}
               {editForm.isPartnership && (
                 <div className="form-group">
-                  <label htmlFor="projectPartners">Partenaire(s)</label>
+                  <label htmlFor="projectPartners">Ajouter un partenaire</label>
                   <div className="compact-selection">
                     <div className="search-input-container">
                       <i className="fas fa-search search-icon"></i>
