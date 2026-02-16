@@ -1755,10 +1755,29 @@ const ProjectManagement: React.FC = () => {
     // Get school ID from project's school_levels or user context
     let projectSchoolId: number | null = null;
     if (state.showingPageType === 'teacher') {
-      if (apiProjectData?.school_levels && apiProjectData.school_levels.length > 0) {
-        projectSchoolId = apiProjectData.school_levels[0]?.school?.id;
-      } else {
-        // Fallback to user's selected school
+      // Priorité 1: school_id direct dans apiProjectData
+      if (apiProjectData?.school_id) {
+        projectSchoolId = apiProjectData.school_id;
+      }
+      // Priorité 2: depuis school_levels
+      else if (apiProjectData?.school_levels && apiProjectData.school_levels.length > 0) {
+        // Essayer d'abord school.id, puis school_id dans le level
+        const firstLevel = apiProjectData.school_levels[0];
+        projectSchoolId = firstLevel?.school?.id || firstLevel?.school_id || null;
+        
+        // Si toujours null, chercher dans tous les levels
+        if (!projectSchoolId) {
+          for (const level of apiProjectData.school_levels) {
+            const schoolId = level?.school?.id || level?.school_id;
+            if (schoolId) {
+              projectSchoolId = schoolId;
+              break;
+            }
+          }
+        }
+      }
+      // Priorité 3: fallback à l'école sélectionnée par l'utilisateur
+      else {
         const selectedOrgId = getSelectedOrganizationId(state.user, state.showingPageType);
         const selectedSchool = state.user?.available_contexts?.schools?.find((s: any) => s.id === selectedOrgId);
         projectSchoolId = selectedSchool?.id || null;
@@ -1768,7 +1787,9 @@ const ProjectManagement: React.FC = () => {
     if (state.showingPageType === 'teacher' && projectSchoolId) {
       setIsLoadingEditCoResponsibles(true);
       try {
+        console.log('🔍 [handleEdit] Fetching co-responsables for school:', projectSchoolId);
         const membersResponse = await getTeacherSchoolMembers(projectSchoolId, { per_page: 500, exclude_me: true });
+        console.log('🔍 [handleEdit] Co-responsables fetched:', membersResponse.data?.length || 0);
         setEditCoResponsibleOptions(membersResponse.data || []);
       } catch (error) {
         console.error('Error fetching teacher school members for co-responsibles:', error);
