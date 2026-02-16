@@ -32,6 +32,7 @@ export function createLevelStudent(schoolId: number, levelId: number, studentDat
         birthday: string;
         role: string;
         role_additional_information?: string;
+        ine?: string;
     }
 }) {
     return axiosClient.post(`/api/v1/schools/${schoolId}/levels/${levelId}/students`, studentData);
