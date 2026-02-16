@@ -159,6 +159,17 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     }
   };
 
+  const computeAge = (birthdayStr: string): number => {
+    const birth = new Date(birthdayStr);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age -= 1;
+    }
+    return age;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -168,8 +179,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       return;
     }
 
-    if (!formData.email && !formData.birthday) {
-      showError('Email ou date de naissance est obligatoire');
+    if (!formData.birthday) {
+      showError('La date de naissance est obligatoire');
+      return;
+    }
+
+    if (computeAge(formData.birthday) < 15) {
+      showError("Une organisation ne peut pas créer un membre dont l'âge est inférieur à 15 ans.");
       return;
     }
 
@@ -183,18 +199,17 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         return;
       }
 
-      // Build payload
+      // Build payload (birthday always required and sent for new company members)
       const payload: any = {
         first_name: formData.firstName,
         last_name: formData.lastName,
+        birthday: formData.birthday,
         role: 'member',  // Default company role
         user_role: formData.role  // System role
       };
 
       if (formData.email) {
         payload.email = formData.email;
-      } else {
-        payload.birthday = formData.birthday;
       }
 
       // Call API
@@ -369,9 +384,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             </div>
 
             <div className="form-group">
-              <label htmlFor="birthday">
-                Date de naissance {!formData.email && '*'}
-              </label>
+              <label htmlFor="birthday">Date de naissance *</label>
               <input
                 type="date"
                 id="birthday"
@@ -379,12 +392,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 max={new Date().toISOString().split('T')[0]}
                 value={formData.birthday}
                 onChange={handleInputChange}
-                required={!formData.email}
+                required
                 className="form-input"
               />
-              {!formData.email && (
-                <p className="form-hint">Requis si aucun email n'est fourni</p>
-              )}
+              <p className="form-hint">Obligatoire pour tous les membres (âge minimum 15 ans)</p>
             </div>
 
             <div className="form-group">
