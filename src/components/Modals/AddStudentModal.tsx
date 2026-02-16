@@ -43,11 +43,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     lastName: '',
     email: '',
     birthday: '',
+    ine: '',
     role: 'member',
     roleAdditionalInfo: '',
     levelId: '',
     avatar: ''
   });
+  const [ineError, setIneError] = useState<string | null>(null);
 
   const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [isUsingDefaultAvatar, setIsUsingDefaultAvatar] = useState<boolean>(true);
@@ -333,8 +335,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     }
   };
 
+  const INE_FORMAT_REGEX = /^(\d{10}[A-Za-z]|\d{9}[A-Za-z]{2})$/;
+  const INE_ERROR_FORMAT = "L'INE doit comporter exactement 11 caractères : soit 10 chiffres et 1 lettre, soit 9 chiffres et 2 lettres.";
+  const INE_ERROR_UNIQUE = "Cet identifiant national élève (INE) est déjà utilisé par un autre compte.";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIneError(null);
     console.log('Form data:', formData);
     console.log('LevelId:', formData.levelId);
     console.log('levels:', levels);
@@ -346,6 +353,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     if (!formData.email && !formData.birthday) {
       showError('Email ou date de naissance est obligatoire');
       return;
+    }
+
+    if (formData.ine.trim()) {
+      if (formData.ine.length !== 11 || !INE_FORMAT_REGEX.test(formData.ine.trim())) {
+        setIneError(INE_ERROR_FORMAT);
+        return;
+      }
     }
 
     // Teacher : un établissement est obligatoire ; bloquer si aucun disponible ou non sélectionné
@@ -403,7 +417,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             email: formData.email || undefined,
             birthday: formData.birthday,
             role: formData.role,
-            role_additional_information: formData.roleAdditionalInfo || undefined
+            role_additional_information: formData.roleAdditionalInfo || undefined,
+            ine: formData.ine || undefined
           }
         };
 
@@ -480,7 +495,21 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     } catch (error: any) {
       console.error("Erreur lors de l'ajout de l'étudiant", error);
       console.error("Erreur détails:", error.response?.data);
-      showError(error.response?.data?.message || "Erreur lors de l'enregistrement de l'étudiant.");
+      const details = error.response?.data?.details;
+      const message = error.response?.data?.message;
+      const detailStr = Array.isArray(details) ? details.join(' ') : '';
+      const isIneUniqueError = typeof detailStr === 'string' && detailStr.toLowerCase().includes('ine') && detailStr.includes('déjà utilisé');
+      const isIneFormatError = typeof detailStr === 'string' && detailStr.toLowerCase().includes('ine') && detailStr.includes('11 caractères');
+      if (isIneUniqueError) {
+        setIneError(INE_ERROR_UNIQUE);
+        showError(INE_ERROR_UNIQUE);
+      } else if (isIneFormatError) {
+        setIneError(INE_ERROR_FORMAT);
+        showError(INE_ERROR_FORMAT);
+      } else {
+        setIneError(null);
+        showError(message || "Erreur lors de l'enregistrement de l'étudiant.");
+      }
     }
   };
 
@@ -638,6 +667,28 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
               )}
             </div>
 
+            <div className="form-group">
+              <label htmlFor="ine">INE (Identifiant National Élève)</label>
+              <input
+                type="text"
+                id="ine"
+                name="ine"
+                value={formData.ine}
+                onChange={(e) => {
+                  handleInputChange(e);
+                  setIneError(null);
+                }}
+                className="form-input"
+                placeholder="11 caractères (optionnel)"
+                maxLength={11}
+              />
+              <p className="form-hint">Optionnel. 10 chiffres + 1 lettre, ou 9 chiffres + 2 lettres.</p>
+              {ineError && (
+                <p className="form-error" role="alert">
+                  {ineError}
+                </p>
+              )}
+            </div>
 
             <div className="form-group">
               <label htmlFor="levelId">Classe *</label>

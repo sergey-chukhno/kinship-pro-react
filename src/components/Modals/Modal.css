@@ -120,6 +120,23 @@
   color: #ef4444;
 }
 
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted, #6b7280);
+  margin-top: 0.25rem;
+}
+
+.form-error {
+  font-size: 0.85rem;
+  color: #dc2626 !important;
+  margin-top: 0.35rem;
+  font-weight: 600;
+}
+
+.modal-content .form-error {
+  color: #b91c1c !important;
+}
+
 .form-input,
 .form-select,
 .form-textarea {
