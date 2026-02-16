@@ -108,6 +108,45 @@ export const isUserAdminOfProjectOrg = (
 };
 
 /**
+ * Check if user is admin/referent (but not superadmin) of any of the project's organizations
+ * Used to allow read-only project details for admins/referents of the project's org
+ */
+export const isUserAdminOrReferentOfProjectOrg = (
+  apiProject: any,
+  user: User | undefined
+): boolean => {
+  if (!apiProject || !user?.available_contexts) return false;
+
+  const isAdminOrReferentInOrg = (orgId: number, type: 'company' | 'school') => {
+    if (type === 'company') {
+      const c = user.available_contexts?.companies?.find(
+        (x: any) => x.id === orgId && ((x.role || '').toLowerCase() === 'admin' || (x.role || '').toLowerCase() === 'referent')
+      );
+      return !!c;
+    }
+    const s = user.available_contexts?.schools?.find(
+      (x: any) => x.id === orgId && ((x.role || '').toLowerCase() === 'admin' || (x.role || '').toLowerCase() === 'referent')
+    );
+    return !!s;
+  };
+
+  if (apiProject.company_ids && Array.isArray(apiProject.company_ids)) {
+    for (const companyId of apiProject.company_ids) {
+      if (isAdminOrReferentInOrg(companyId, 'company')) return true;
+    }
+  }
+
+  if (apiProject.school_levels && Array.isArray(apiProject.school_levels)) {
+    for (const schoolLevel of apiProject.school_levels) {
+      const schoolId = schoolLevel.school_id ?? schoolLevel.school?.id;
+      if (schoolId != null && isAdminOrReferentInOrg(schoolId, 'school')) return true;
+    }
+  }
+
+  return false;
+};
+
+/**
  * Check if user is project owner
  */
 export const isUserProjectOwner = (

@@ -19,7 +19,7 @@ import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
 import '../Modals/Modal.css';
-import { isUserAdminOfProjectOrg, isUserProjectParticipant, isUserSuperadmin, isUserSuperadminOfProjectOrg } from '../../utils/projectPermissions';
+import { isUserAdminOfProjectOrg, isUserAdminOrReferentOfProjectOrg, isUserProjectParticipant, isUserSuperadmin, isUserSuperadminOfProjectOrg } from '../../utils/projectPermissions';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
@@ -884,7 +884,8 @@ const ProjectManagement: React.FC = () => {
 
   /**
    * Check if user can join the project
-   * Returns true if user is not a participant and doesn't have admin access
+   * Returns true if user is not a participant
+   * In read-only mode (superadmin/admin/referent viewing), user can still join to become a participant
    */
   const canUserJoinProject = (): boolean => {
     if (!apiProjectData || !state.user?.id) return false;
@@ -894,7 +895,12 @@ const ProjectManagement: React.FC = () => {
       return false;
     }
 
-    // Check if user has admin access (owner/co-owner/admin or org admin)
+    // If user is in read-only mode (superadmin/admin/referent viewing but not participant), they can join
+    if (isReadOnlyMode) {
+      return true;
+    }
+
+    // Check if user has admin access (owner/co-owner/admin or org admin) - they don't need to join
     if (shouldShowTabs()) {
       return false;
     }
@@ -912,6 +918,21 @@ const ProjectManagement: React.FC = () => {
     state.user?.id != null &&
     isUserSuperadminOfProjectOrg(apiProjectData, state.user) &&
     !isUserProjectParticipant(apiProjectData, state.user.id.toString());
+
+  /**
+   * Admin/referent de l'organisation du projet qui n'est pas dans le projet : voir tous les onglets et participants en lecture seule, boutons d'actions cachés.
+   * Un admin/referent d'une autre organisation ne bénéficie pas de cette vue.
+   */
+  const isAdminViewingReadOnly =
+    apiProjectData != null &&
+    state.user?.id != null &&
+    isUserAdminOrReferentOfProjectOrg(apiProjectData, state.user) &&
+    !isUserProjectParticipant(apiProjectData, state.user.id.toString());
+
+  /**
+   * Mode lecture seule : superadmin ou admin/referent de l'organisation du projet qui n'est pas dans le projet
+   */
+  const isReadOnlyMode = isSuperadminViewingReadOnly || isAdminViewingReadOnly;
 
   /**
    * Determine if tabs should be shown based on user type and role
@@ -3554,7 +3575,7 @@ const ProjectManagement: React.FC = () => {
             <i className="fas fa-link"></i> Copier le lien
           </button>
           {/* Close project button: only for owner, when project is in progress */}
-          {!isProjectEnded && project.status === 'in_progress' && userProjectRole === 'owner' && !isSuperadminViewingReadOnly && (
+          {!isProjectEnded && project.status === 'in_progress' && userProjectRole === 'owner' && !isReadOnlyMode && (
             <button
               type="button"
               className="btn btn-secondary"
@@ -3571,7 +3592,7 @@ const ProjectManagement: React.FC = () => {
               <i className="fas fa-file-pdf"></i> Exporter en PDF
             </button>
           )}
-          {canAssignBadges && !isProjectEnded && !isSuperadminViewingReadOnly && (
+          {canAssignBadges && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
             <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
               <i className="fas fa-award"></i> Attribuer un badge
             </button>
@@ -3664,7 +3685,7 @@ const ProjectManagement: React.FC = () => {
                   </span>
                 ) : null}
                 {/* Edit button for owner only (hidden for superadmin in read-only view) */}
-                {apiProjectData && userProjectRole === 'owner' && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                {apiProjectData && userProjectRole === 'owner' && !isProjectEnded && !isReadOnlyMode && (
                   <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
                     <i className="fas fa-edit"></i>
                   </button>
@@ -4178,7 +4199,7 @@ const ProjectManagement: React.FC = () => {
         )}
 
         {/* Bannière vue lecture seule pour superadmin */}
-        {isSuperadminViewingReadOnly && (
+        {(isSuperadminViewingReadOnly || isAdminViewingReadOnly) && (
           <div className="project-readonly-banner" style={{
             padding: '0.75rem 1rem',
             backgroundColor: '#fef3c7',
@@ -4355,7 +4376,7 @@ const ProjectManagement: React.FC = () => {
                           ))}
                         </div>
                         <div className="member-actions">
-                          {canAssignBadges && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                          {canAssignBadges && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
                             <button
                               type="button"
                               className="btn-icon badge-btn"
@@ -4369,7 +4390,7 @@ const ProjectManagement: React.FC = () => {
                             </button>
                           )}
                           {/* Show remove button if user can see it and participant can be removed */}
-                          {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                          {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && !isProjectEnded && !isReadOnlyMode && (
                             <button
                               type="button"
                               className="btn-icon"
@@ -4440,7 +4461,7 @@ const ProjectManagement: React.FC = () => {
                             </div>
                           </div>
 
-                          {!isSuperadminViewingReadOnly && (
+                          {!isReadOnlyMode && (
                             <div className="request-actions">
                               <div className="action-buttons">
                                 <button
@@ -4473,7 +4494,7 @@ const ProjectManagement: React.FC = () => {
                 <div className="participants-section">
                   <div className="section-header">
                     <h3>Participants du projet</h3>
-                    {!isProjectEnded && !isSuperadminViewingReadOnly && (
+                    {!isProjectEnded && !isReadOnlyMode && (
                       <button
                         className="btn btn-primary btn-sm"
                         onClick={handleAddParticipant}
@@ -4554,7 +4575,7 @@ const ProjectManagement: React.FC = () => {
                                   Retirer
                                 </button>
                               )}
-                              {canAssignBadges && (
+                              {canAssignBadges && !isProjectEnded && project.status !== 'draft' && (
                                 <button
                                   className="btn-accept"
                                   onClick={() => handleAwardBadge(participant.memberId)}
@@ -4584,7 +4605,7 @@ const ProjectManagement: React.FC = () => {
                     </div>
                     <div className="section-actions">
                       <span className="team-count">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
-                      {shouldShowTabs() && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                      {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
                         <button className="btn btn-primary" onClick={handleCreateTeam}>
                           <i className="fas fa-plus"></i>
                           Créer une équipe
@@ -4604,7 +4625,7 @@ const ProjectManagement: React.FC = () => {
                       </div>
                       <h4>Aucune équipe créée</h4>
                       <p>Créez votre première équipe pour organiser vos participants et améliorer la collaboration.</p>
-                      {shouldShowTabs() && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                      {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
                         <button className="btn btn-primary" onClick={handleCreateTeam}>
                           <i className="fas fa-plus"></i>
                           Créer une équipe
@@ -4672,7 +4693,7 @@ const ProjectManagement: React.FC = () => {
                                     >
                                       <i className="fas fa-eye"></i>
                                     </button>
-                                    {shouldShowTabs() && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                                    {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
                                       <>
                                         <button
                                           className="btn-icon edit-btn"
@@ -4982,7 +5003,7 @@ const ProjectManagement: React.FC = () => {
                     <h3>Documents</h3>
                   </div>
 
-                  {!isSuperadminViewingReadOnly && !isProjectEnded && (
+                  {!isReadOnlyMode && !isProjectEnded && (
                     <div className="badge-filters">
                       <div className="filter-group" style={{ width: '100%' }}>
                         <input
@@ -5058,7 +5079,7 @@ const ProjectManagement: React.FC = () => {
                                       Télécharger
                                     </a>
                                   )}
-                                  {!isProjectEnded && !isSuperadminViewingReadOnly && (
+                                  {!isProjectEnded && !isReadOnlyMode && (
                                     <button
                                       type="button"
                                       className="btn btn-outline btn-sm btn-danger"
@@ -6833,7 +6854,7 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={() => setIsViewTeamModalOpen(false)}>
                 Fermer
               </button>
-              {!isProjectEnded && !isSuperadminViewingReadOnly && (
+                  {!isProjectEnded && !isReadOnlyMode && (
                 <button className="btn btn-primary" onClick={() => {
                   setIsViewTeamModalOpen(false);
                   handleEditTeam(selectedTeam);

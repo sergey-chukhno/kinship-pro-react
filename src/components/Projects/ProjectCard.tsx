@@ -187,7 +187,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
           <span>{project.badges}</span>
         </div>
         {isOwnerOrCoOwner && (project.pendingRequests !== undefined && project.pendingRequests > 0) && (
-          <div className="project-counter">
+          <div className="!bg-red-500 project-counter project-counter-pending" title="Demandes en attente">
             <i className="fas fa-user-clock counter-icon" style={{ fontSize: '16px' }} title="Demandes en attente"></i>
             <span>{project.pendingRequests}</span>
           </div>
