@@ -48,6 +48,9 @@ const RoleSection: React.FC = () => {
         filteredRoles = roles.filter((r: any) => !SCHOOL_PUPIL_ROLES.includes(r.value));
       }
 
+      // Filter out legacy 'other' role - only show 'other_personal_user' as "Autre" to avoid duplicate
+      filteredRoles = filteredRoles.filter((r: any) => r.value !== 'other');
+
       // Sort by ROLE_ORDER
       const sortedRoles = filteredRoles.sort((a: any, b: any) => {
         const indexA = ROLE_ORDER.indexOf(a.value);
