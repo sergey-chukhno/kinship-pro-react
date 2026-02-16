@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getPartnerships, getTags } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -217,6 +217,8 @@ const ProjectManagement: React.FC = () => {
   const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
   const [editAvailableMembers, setEditAvailableMembers] = useState<any[]>([]);
+  const [editCoResponsibleOptions, setEditCoResponsibleOptions] = useState<any[]>([]);
+  const [isLoadingEditCoResponsibles, setIsLoadingEditCoResponsibles] = useState(false);
   const [editAvailablePartnerships, setEditAvailablePartnerships] = useState<any[]>([]);
   const [editPartnershipContactMembers, setEditPartnershipContactMembers] = useState<any[]>([]);
   const [isLoadingEditMembers, setIsLoadingEditMembers] = useState(false);
@@ -1361,11 +1363,36 @@ const ProjectManagement: React.FC = () => {
     setEditSearchTerms(prev => ({ ...prev, [field]: value }));
   };
 
+  // Filter members for participants (includes all members: staff + students)
   const getEditFilteredMembers = (searchTerm: string) => {
     // Filter out already selected co-responsibles
     let available = editAvailableMembers.filter((member: any) =>
       !editForm.coResponsibles.includes(member.id.toString())
     );
+
+    if (!searchTerm) return available;
+    const lowerSearch = searchTerm.toLowerCase();
+    return available.filter((member: any) => {
+      const fullName = member.full_name || `${member.first_name} ${member.last_name}`;
+      return fullName.toLowerCase().includes(lowerSearch) || member.email?.toLowerCase().includes(lowerSearch);
+    });
+  };
+
+  const getEditFilteredCoResponsibles = (searchTerm: string) => {
+    // Use co-responsible options (from teacher school API) if available, otherwise use regular members
+    const sourceMembers = (editCoResponsibleOptions.length > 0) ? editCoResponsibleOptions : editAvailableMembers;
+    
+    // Filter out already selected co-responsibles
+    let available = sourceMembers.filter((member: any) =>
+      !editForm.coResponsibles.includes(member.id.toString())
+    );
+
+    // Filter out students - only show staff members for co-responsibles
+    const STUDENT_SYSTEM_ROLES = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant'];
+    available = available.filter((member: any) => {
+      const role = (member.role_in_system || member.role || '').toString().toLowerCase();
+      return !STUDENT_SYSTEM_ROLES.includes(role);
+    });
 
     if (!searchTerm) return available;
     const lowerSearch = searchTerm.toLowerCase();
@@ -1584,6 +1611,35 @@ const ProjectManagement: React.FC = () => {
       setIsLoadingEditMembers(false);
     }
 
+    // Load co-responsibles options (school staff + community) when teacher and project has a school
+    // Get school ID from project's school_levels or user context
+    let projectSchoolId: number | null = null;
+    if (state.showingPageType === 'teacher') {
+      if (apiProjectData?.school_levels && apiProjectData.school_levels.length > 0) {
+        projectSchoolId = apiProjectData.school_levels[0]?.school?.id;
+      } else {
+        // Fallback to user's selected school
+        const selectedOrgId = getSelectedOrganizationId(state.user, state.showingPageType);
+        const selectedSchool = state.user?.available_contexts?.schools?.find((s: any) => s.id === selectedOrgId);
+        projectSchoolId = selectedSchool?.id || null;
+      }
+    }
+
+    if (state.showingPageType === 'teacher' && projectSchoolId) {
+      setIsLoadingEditCoResponsibles(true);
+      try {
+        const membersResponse = await getTeacherSchoolMembers(projectSchoolId, { per_page: 500, exclude_me: true });
+        setEditCoResponsibleOptions(membersResponse.data || []);
+      } catch (error) {
+        console.error('Error fetching teacher school members for co-responsibles:', error);
+        setEditCoResponsibleOptions([]);
+      } finally {
+        setIsLoadingEditCoResponsibles(false);
+      }
+    } else {
+      setEditCoResponsibleOptions([]);
+    }
+
     // Load partnerships
     try {
       const organizationType = getOrganizationType(state.showingPageType);
@@ -1789,8 +1845,25 @@ const ProjectManagement: React.FC = () => {
       // Cas spécial : enseignants avec projets MLDS → "À traiter"
       statusForSubmit = 'to_process';
     } else {
-      // Utiliser le statut sélectionné dans le formulaire
-      statusForSubmit = editForm.status || 'coming';
+      // Déterminer le statut automatiquement en fonction de la date de début
+      if (editForm.startDate) {
+        const startDate = new Date(editForm.startDate);
+        const today = new Date();
+        // Réinitialiser les heures pour comparer uniquement les dates
+        today.setHours(0, 0, 0, 0);
+        startDate.setHours(0, 0, 0, 0);
+        
+        // Si la date de début est dans le passé, le projet est "en cours"
+        // Sinon, il est "à venir"
+        if (startDate <= today) {
+          statusForSubmit = 'in_progress';
+        } else {
+          statusForSubmit = 'coming';
+        }
+      } else {
+        // Si pas de date de début, utiliser le statut du formulaire ou "à venir" par défaut
+        statusForSubmit = editForm.status || 'coming';
+      }
     }
 
     await handleSaveEditInternal(statusForSubmit);
@@ -3732,7 +3805,22 @@ const ProjectManagement: React.FC = () => {
               {project.coResponsibles && project.coResponsibles.length > 0 && (
                 <div className="project-co-responsibles-section">
                   <div className="project-manager-header">
-                    <h4>Co-responsables</h4>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      Co-responsables
+                      <span className="info-tooltip-wrapper">
+                        <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                        <div className="info-tooltip">
+                          <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+                          <ul>
+                            <li>voir le projet dans leur profil</li>
+                            <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+                            <li>attribuer des badges</li>
+                            <li>faire des équipes et donner des rôles dans équipe</li>
+                            <li>plus tard attribuer des tâches (Kanban)</li>
+                          </ul>
+                        </div>
+                      </span>
+                    </h4>
                   </div>
                   <div className="co-responsibles-list">
                     {project.coResponsibles.map((coResponsible, index) => (
@@ -6000,7 +6088,22 @@ const ProjectManagement: React.FC = () => {
 
               {/* Co-responsables */}
               <div className="form-group">
-                <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+                <label htmlFor="projectCoResponsibles" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  Co-responsable(s)
+                  <span className="info-tooltip-wrapper">
+                    <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                    <div className="info-tooltip">
+                      <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+                      <ul>
+                        <li>voir le projet dans leur profil</li>
+                        <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+                        <li>attribuer des badges</li>
+                        <li>faire des équipes et donner des rôles dans équipe</li>
+                        <li>plus tard attribuer des tâches (Kanban)</li>
+                      </ul>
+                    </div>
+                  </span>
+                </label>
                 <div className="compact-selection">
                   <div className="search-input-container">
                     <i className="fas fa-search search-icon"></i>
@@ -6010,7 +6113,7 @@ const ProjectManagement: React.FC = () => {
                       placeholder="Rechercher des co-responsables..."
                       value={editSearchTerms.coResponsibles}
                       onChange={(e) => handleEditSearchChange('coResponsibles', e.target.value)}
-                      disabled={isLoadingEditMembers}
+                      disabled={isLoadingEditMembers || isLoadingEditCoResponsibles}
                     />
                   </div>
 
@@ -6018,7 +6121,8 @@ const ProjectManagement: React.FC = () => {
                   {editForm.coResponsibles.length > 0 && (
                     <div className="selected-items">
                       {editForm.coResponsibles.map((memberId) => {
-                        const member = editAvailableMembers.find((m: any) => m.id.toString() === memberId)
+                        const member = editCoResponsibleOptions.find((m: any) => m.id.toString() === memberId)
+                          ?? editAvailableMembers.find((m: any) => m.id.toString() === memberId)
                           ?? editPartnershipContactMembers.find((m: any) => m.id?.toString() === memberId);
                         const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '')) : '';
                         return member ? (
@@ -6048,20 +6152,20 @@ const ProjectManagement: React.FC = () => {
                     </div>
                   )}
 
-                  {isLoadingEditMembers ? (
+                  {(isLoadingEditMembers || isLoadingEditCoResponsibles) ? (
                     <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
                       <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
                       <span>Chargement des membres...</span>
                     </div>
                   ) : (
                     <div className="selection-list">
-                      {getEditFilteredMembers(editSearchTerms.coResponsibles).length === 0 ? (
+                      {getEditFilteredCoResponsibles(editSearchTerms.coResponsibles).length === 0 ? (
                         <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
                           <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
                           <p>Aucun membre disponible</p>
                         </div>
                       ) : (
-                        getEditFilteredMembers(editSearchTerms.coResponsibles).map((member: any) => {
+                        getEditFilteredCoResponsibles(editSearchTerms.coResponsibles).map((member: any) => {
                           const isSelected = editForm.coResponsibles.includes(member.id.toString());
                           const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
                           return (
@@ -6411,9 +6515,11 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={handleCancelEdit}>
                 Annuler
               </button>
-              <button className="btn btn-outline" onClick={handleSaveEditDraft}>
-                Sauvegarder en brouillon
-              </button>
+              {editForm.status === 'draft' && (
+                <button className="btn btn-outline" onClick={handleSaveEditDraft}>
+                  Sauvegarder en brouillon
+                </button>
+              )}
               <button className="btn btn-primary" onClick={handleSaveEdit}>
                 {isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher')
                   ? 'Soumettre le projet MLDS'

@@ -325,8 +325,9 @@
 
 .project-actions {
   display: flex;
-  gap: 12px;
+  gap: 6px;
   margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .project-actions .btn {

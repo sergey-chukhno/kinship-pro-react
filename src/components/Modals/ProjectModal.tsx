@@ -1868,7 +1868,22 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             {/* Co-responsables */}
             <div className="form-group">
-              <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+              <label htmlFor="projectCoResponsibles" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Co-responsable(s)
+                <span className="info-tooltip-wrapper">
+                  <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                  <div className="info-tooltip">
+                    <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+                    <ul>
+                      <li>voir le projet dans leur profil</li>
+                      <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+                      <li>attribuer des badges</li>
+                      <li>faire des équipes et donner des rôles dans équipe</li>
+                      <li>plus tard attribuer des tâches (Kanban)</li>
+                    </ul>
+                  </div>
+                </span>
+              </label>
               <div className="compact-selection">
                 <div className="search-input-container">
                   <i className="fas fa-search search-icon"></i>

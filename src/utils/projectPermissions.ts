@@ -129,10 +129,10 @@ export const isUserProjectCoOwnerOrAdmin = (
   if (!apiProject || !userId) return false;
   const userIdStr = userId.toString();
 
-  // Check if user is a co-owner
+  // Check if user is a co-owner (support both co.id and co.user?.id for API structure)
   if (apiProject.co_owners && Array.isArray(apiProject.co_owners)) {
     const isCoOwner = apiProject.co_owners.some((co: any) => 
-      co.id?.toString() === userIdStr
+      co.id?.toString() === userIdStr || co.user?.id?.toString() === userIdStr
     );
     if (isCoOwner) return true;
   }
@@ -145,6 +145,38 @@ export const isUserProjectCoOwnerOrAdmin = (
       member.status === 'confirmed'
     );
     if (isAdmin) return true;
+  }
+
+  return false;
+};
+
+/**
+ * Check if user is specifically a project co-owner (co-responsible)
+ * Does not include admins, only co-owners from co_owners array or project_members with co_owner role
+ */
+export const isUserProjectCoOwner = (
+  apiProject: any,
+  userId: string | undefined
+): boolean => {
+  if (!apiProject || !userId) return false;
+  const userIdStr = userId.toString();
+
+  // Check if user is a co-owner in co_owners array (support both co.id and co.user?.id for API structure)
+  if (apiProject.co_owners && Array.isArray(apiProject.co_owners)) {
+    const isCoOwner = apiProject.co_owners.some((co: any) => 
+      co.id?.toString() === userIdStr || co.user?.id?.toString() === userIdStr
+    );
+    if (isCoOwner) return true;
+  }
+
+  // Also check in project_members with role 'co_owner' (some APIs store co-owners here)
+  if (apiProject.project_members && Array.isArray(apiProject.project_members)) {
+    const isCoOwnerMember = apiProject.project_members.some((member: any) => 
+      (member.user?.id?.toString() === userIdStr || member.id?.toString() === userIdStr) &&
+      member.role === 'co_owner' &&
+      member.status === 'confirmed'
+    );
+    if (isCoOwnerMember) return true;
   }
 
   return false;
