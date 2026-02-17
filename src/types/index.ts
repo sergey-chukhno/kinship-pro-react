@@ -133,6 +133,7 @@ export interface Project {
   owner: string;
   participants: number;
   badges: number;
+  pendingRequests?: number; // Number of pending participation requests
   startDate: string;
   endDate: string;
   image?: string;

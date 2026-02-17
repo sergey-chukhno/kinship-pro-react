@@ -495,6 +495,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         // Prefer members_count (owner + confirmed only) for display; fallback to participants_number for compatibility
         participants: (apiProject.members_count != null && apiProject.members_count !== undefined) ? apiProject.members_count : (apiProject.participants_number ?? 0),
         badges: apiProject.badge_count || 0, // Use badge_count from API
+        pendingRequests: apiProject.pending_participation_requests_count || 0, // Number of pending participation requests
         startDate: apiProject.start_date ? apiProject.start_date.split('T')[0] : '',
         endDate: apiProject.end_date ? apiProject.end_date.split('T')[0] : '',
         image: apiProject.main_picture_url || '',

@@ -320,6 +320,96 @@ export const rejectPartnership = async (
     return response.data;
 };
 
+// --- Teacher partnership requests (teacher → school) ---
+
+export interface TeacherPartnershipRequest {
+    id: number;
+    school_id: number;
+    status: 'pending' | 'approved' | 'rejected';
+    partner_school_ids: number[];
+    partner_company_ids: number[];
+    partnership_type: string;
+    name: string;
+    description?: string;
+    share_projects: boolean;
+    share_members: boolean;
+    rejection_reason?: string | null;
+    created_at: string;
+    updated_at: string;
+    school?: { id: number; name: string };
+    teacher?: { id: number; full_name?: string };
+}
+
+export interface CreateTeacherPartnershipRequestPayload {
+    school_id: number;
+    partner_school_ids: number[];
+    partner_company_ids: number[];
+    partnership_type: string;
+    name: string;
+    description?: string;
+    share_projects: boolean;
+    share_members: boolean;
+}
+
+export const getTeacherPartnershipRequests = async (): Promise<TeacherPartnershipRequest[]> => {
+    const response = await apiClient.get('/api/v1/teachers/partnership_requests');
+    return response.data.data ?? response.data ?? [];
+};
+
+export const getTeacherPartnershipRequest = async (id: number): Promise<TeacherPartnershipRequest> => {
+    const response = await apiClient.get(`/api/v1/teachers/partnership_requests/${id}`);
+    return response.data.data ?? response.data;
+};
+
+export const createTeacherPartnershipRequest = async (
+    payload: CreateTeacherPartnershipRequestPayload
+): Promise<{ data: TeacherPartnershipRequest; message?: string }> => {
+    const response = await apiClient.post('/api/v1/teachers/partnership_requests', payload);
+    return response.data;
+};
+
+export const deleteTeacherPartnershipRequest = async (id: number): Promise<void> => {
+    await apiClient.delete(`/api/v1/teachers/partnership_requests/${id}`);
+};
+
+// --- School: teacher partnership requests (demandes reçues des enseignants) ---
+
+export const getSchoolTeacherPartnershipRequests = async (
+    schoolId: number
+): Promise<TeacherPartnershipRequest[]> => {
+    const response = await apiClient.get(`/api/v1/schools/${schoolId}/teacher_partnership_requests`);
+    return response.data.data ?? response.data ?? [];
+};
+
+export const getSchoolTeacherPartnershipRequest = async (
+    schoolId: number,
+    id: number
+): Promise<TeacherPartnershipRequest> => {
+    const response = await apiClient.get(`/api/v1/schools/${schoolId}/teacher_partnership_requests/${id}`);
+    return response.data.data ?? response.data;
+};
+
+export const approveSchoolTeacherPartnershipRequest = async (
+    schoolId: number,
+    id: number
+): Promise<{ data?: TeacherPartnershipRequest; message?: string }> => {
+    const response = await apiClient.patch(
+        `/api/v1/schools/${schoolId}/teacher_partnership_requests/${id}/approve`
+    );
+    return response.data;
+};
+
+export const rejectSchoolTeacherPartnershipRequest = async (
+    schoolId: number,
+    id: number,
+    body?: { rejection_reason?: string }
+): Promise<void> => {
+    await apiClient.patch(
+        `/api/v1/schools/${schoolId}/teacher_partnership_requests/${id}/reject`,
+        body ?? {}
+    );
+};
+
 /**
  * Create a partnership request
  */

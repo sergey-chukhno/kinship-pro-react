@@ -12,10 +12,10 @@ import './Projects.css';
 import { getCurrentUser } from '../../api/Authentication';
 import { deleteProject, getAllProjects, getAllUserProjects} from '../../api/Project';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
-import { getTeacherProjects } from '../../api/Projects';
+import { getTeacherProjects, updateProject as updateProjectAPI } from '../../api/Projects';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
-import { canUserManageProject, canUserDeleteProject } from '../../utils/projectPermissions';
+import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
@@ -27,6 +27,9 @@ const Projects: React.FC = () => {
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isCloseProjectModalOpen, setIsCloseProjectModalOpen] = useState(false);
+  const [projectToClose, setProjectToClose] = useState<Project | null>(null);
+  const [isClosingProject, setIsClosingProject] = useState(false);
   
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
@@ -36,7 +39,11 @@ const Projects: React.FC = () => {
   const [rawProjectsMap, setRawProjectsMap] = useState<Map<string, any>>(new Map());
   // Store all filtered projects for client-side pagination (for filters that need client-side filtering)
   const [allFilteredProjects, setAllFilteredProjects] = useState<any[]>([]);
-  
+  // Skip fetch in filter effect on initial mount (avoid duplicate with projectPage effect)
+  const filtersEffectInitialMount = React.useRef(true);
+  // Track if initial fetchProjects has been called to avoid duplicate in projectPage effect
+  const initialProjectsFetched = React.useRef(false);
+
   // Pagination state for "Nouveautés" tab (public projects for user dashboard, org projects for pro/edu)
   const [projectPage, setProjectPage] = useState(1);
   const [projectTotalPages, setProjectTotalPages] = useState(1);
@@ -58,7 +65,7 @@ const Projects: React.FC = () => {
   const isTeacher = state.showingPageType === 'teacher';
   // For teachers, default to 'mes-projets' since they shouldn't see public projects
   // For regular users and pro/edu, default to 'nouveautes' to show public/org projects
-  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects'>(isTeacher ? 'mes-projets' : 'nouveautes');
+  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects' | 'brouillons'>(isTeacher ? 'mes-projets' : 'nouveautes');
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -79,6 +86,10 @@ const Projects: React.FC = () => {
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   // const [isLoadingBadges, setIsLoadingBadges] = useState(false); // Unused
   const [initialLoad, setInitialLoad] = useState(true);
+
+  // Draft projects (teacher / pro / edu): loaded when "Brouillons" tab is active
+  const [draftProjects, setDraftProjects] = useState<Project[]>([]);
+  const [isLoadingDraftProjects, setIsLoadingDraftProjects] = useState(false);
 
   // Fonction pour obtenir l'organizationId sélectionné (comme dans Dashboard)
   const getSelectedOrganizationId = (): number | undefined => {
@@ -293,6 +304,59 @@ const Projects: React.FC = () => {
       setInitialLoad(false);
     } finally {
       setIsLoadingProjects(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType]);
+
+  // Fetch draft projects for "Brouillons" tab (teacher and pro/edu)
+  const fetchDraftProjects = React.useCallback(async () => {
+    setIsLoadingDraftProjects(true);
+    try {
+      const currentUser = await getCurrentUser();
+      let rawProjects: any[] = [];
+
+      if (state.showingPageType === 'teacher') {
+        const response = await getTeacherProjects({ status: 'draft', per_page: 100 });
+        rawProjects = (response.data || []).filter(
+          (p: any) => p.mlds_information == null && p.status === 'draft'
+        );
+      } else if (state.showingPageType === 'edu' || state.showingPageType === 'pro') {
+        const contextId = getSelectedOrganizationId();
+        if (!contextId) {
+          setDraftProjects([]);
+          return;
+        }
+        const isEdu = state.showingPageType === 'edu';
+        const response = isEdu
+          ? await getSchoolProjects(contextId, true, 200, 1)
+          : await getCompanyProjects(contextId, true, 200, 1);
+        rawProjects = (response.data?.data || response.data || []).filter(
+          (p: any) => p.mlds_information == null && p.status === 'draft'
+        );
+      } else {
+        setDraftProjects([]);
+        return;
+      }
+
+      const formatted: Project[] = rawProjects.map((p: any) =>
+        mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data)
+      );
+      setDraftProjects(formatted);
+
+      const newRawMap = new Map<string, any>();
+      rawProjects.forEach((p: any) => {
+        if (p.id) newRawMap.set(p.id.toString(), p);
+      });
+      setRawProjectsMap(prev => {
+        const merged = new Map(prev);
+        newRawMap.forEach((v, k) => merged.set(k, v));
+        return merged;
+      });
+    } catch (err) {
+      console.error('Erreur lors de la récupération des brouillons:', err);
+      setDraftProjects([]);
+    } finally {
+      setIsLoadingDraftProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]);
@@ -597,16 +661,23 @@ const Projects: React.FC = () => {
     setMyProjectsPage(1);
     setMldsProjectsPage(1);
     setInitialLoad(true);
+    setDraftProjects([]);
+    filtersEffectInitialMount.current = true;
+    initialProjectsFetched.current = false;
     if (isTeacher) {
       fetchMyProjects(1);
       fetchMLDSProjects(1);
+      fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
     } else if (state.showingPageType === 'user') {
       fetchPublicProjects(1);
       fetchMyProjects(1);
       fetchMLDSProjects(1);
     } else {
+      // Pro / Edu: charger les projets au chargement initial
       fetchProjects(1);
+      initialProjectsFetched.current = true;
       fetchMLDSProjects(1);
+      fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]); // Retirer state.user.available_contexts pour éviter les re-renders, le contexte est lu depuis localStorage
@@ -658,7 +729,12 @@ const Projects: React.FC = () => {
       fetchPublicProjects(projectPage);
     } else if (!isPersonalUser) {
       // Pour les rôles pro et edu, recharger les projets avec la page
-      fetchProjects(projectPage);
+      // Éviter le doublon au premier rendu : skip si on est sur page 1 avec filtre 'my-org' et que le fetch initial n'a pas encore été fait
+      // (le fetch initial se charge du premier appel)
+      const isInitialLoad = projectPage === 1 && organizationFilter === 'my-org' && !initialProjectsFetched.current;
+      if (!isInitialLoad) {
+        fetchProjects(projectPage);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectPage, organizationFilter, allFilteredProjects]);
@@ -702,25 +778,46 @@ const Projects: React.FC = () => {
     }
   }, [mldsProjects.length, activeTab, isTeacher]);
 
+  // Charger les brouillons quand state.user est dispo pour pro/edu (contextId peut être résolu)
+  // Corrige le cas où l'effet initial a tourné avant que user soit chargé → compteur à 0
+  useEffect(() => {
+    if (state.showingPageType !== 'pro' && state.showingPageType !== 'edu') return;
+    if (!state.user?.id || !state.user?.available_contexts) return;
+    if (draftProjects.length > 0) return;
+    fetchDraftProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.user?.id, state.showingPageType, state.user?.available_contexts]);
+
+  // Recharger les brouillons à l'ouverture de l'onglet (données à jour)
+  useEffect(() => {
+    if (activeTab === 'brouillons' && (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu')) {
+      fetchDraftProjects();
+    }
+  }, [activeTab, isTeacher, state.showingPageType, fetchDraftProjects]);
+
   // Reset pagination and re-fetch when filters change
   useEffect(() => {
     // Reset to page 1 when filters change
     setProjectPage(1);
     setMyProjectsPage(1);
     setMldsProjectsPage(1);
-    
+
+    // Éviter un doublon au montage : l'effet [projectPage, ...] fait déjà le premier fetch pour pro/edu
+    if (filtersEffectInitialMount.current) {
+      filtersEffectInitialMount.current = false;
+      return;
+    }
+
     if (isTeacher) {
-      // Teachers only see their own projects, no public projects
       fetchMyProjects(1);
       fetchMLDSProjects(1);
     } else if (state.showingPageType === 'user') {
       if (activeTab === 'nouveautes') {
-      fetchPublicProjects(1);
+        fetchPublicProjects(1);
       } else if (activeTab === 'mlds-projects') {
         fetchMLDSProjects(1);
       }
     } else if (!isPersonalUser) {
-      // Pour les rôles pro et edu, recharger les projets avec le nouveau filtre
       fetchProjects(1);
       fetchMLDSProjects(1);
     }
@@ -775,6 +872,7 @@ const Projects: React.FC = () => {
     if (isTeacher) {
       await fetchMyProjects();
       await fetchMLDSProjects();
+      await fetchDraftProjects();
     } else if (isPersonalUser) {
       if (activeTab === 'nouveautes') {
         await fetchPublicProjects();
@@ -786,6 +884,7 @@ const Projects: React.FC = () => {
     } else {
       await fetchProjects();
       await fetchMLDSProjects();
+      await fetchDraftProjects();
     }
   };
 
@@ -793,6 +892,50 @@ const Projects: React.FC = () => {
     // Always allow viewing/managing (even if ended, user can still view)
     setSelectedProject(project);
     setCurrentPage('project-management');
+  };
+
+  const handleCloseProject = (project: Project) => {
+    setProjectToClose(project);
+    setIsCloseProjectModalOpen(true);
+  };
+
+  const cancelCloseProject = () => {
+    setIsCloseProjectModalOpen(false);
+    setProjectToClose(null);
+  };
+
+  const confirmCloseProject = async () => {
+    if (!projectToClose) return;
+
+    setIsClosingProject(true);
+    try {
+      const projectId = Number.parseInt(projectToClose.id, 10);
+      if (Number.isNaN(projectId)) {
+        console.error('Invalid project ID:', projectToClose.id);
+        setIsClosingProject(false);
+        return;
+      }
+
+      // Update project status to 'ended'
+      await updateProjectAPI(projectId, {
+        project: {
+          status: 'ended'
+        }
+      });
+
+      // Update local state
+      setProjects(prev => prev.map(p => p.id === projectToClose.id ? { ...p, status: 'ended' } : p));
+      setMyProjects(prev => prev.map(p => p.id === projectToClose.id ? { ...p, status: 'ended' } : p));
+      setMldsProjects(prev => prev.map(p => p.id === projectToClose.id ? { ...p, status: 'ended' } : p));
+
+      setIsCloseProjectModalOpen(false);
+      setProjectToClose(null);
+    } catch (error) {
+      console.error('Error closing project:', error);
+      alert('Erreur lors de la clôture du projet');
+    } finally {
+      setIsClosingProject(false);
+    }
   };
 
   const handleDeleteProject = (projectId: string) => {
@@ -855,6 +998,15 @@ const Projects: React.FC = () => {
   
   if (activeTab === 'mlds-projects') {
     projectsToDisplay = mldsProjects;
+  } else if (activeTab === 'brouillons') {
+    // Teacher and pro/edu: use dedicated draft list (loaded when tab is active)
+    if (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu') {
+      projectsToDisplay = draftProjects;
+    } else {
+      // User (personal): draft projects from projects + myProjects
+      const allProjects = [...projects, ...myProjects];
+      projectsToDisplay = allProjects.filter(p => p.status === 'draft');
+    }
   } else if (isTeacher) {
     projectsToDisplay = myProjects;
   } else if (isPersonalUser) {
@@ -874,10 +1026,44 @@ const Projects: React.FC = () => {
     return Array.from(orgSet).sort((a, b) => a.localeCompare(b));
   }, [mldsProjects]);
 
+  // Calculate draft projects count (teacher/pro/edu: use draftProjects when loaded; else count from current lists)
+  const draftProjectsCount = React.useMemo(() => {
+    if (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu') {
+      return draftProjects.length;
+    }
+    const allProjects = [...projects, ...myProjects];
+    return allProjects.filter(p => p.status === 'draft').length;
+  }, [isTeacher, state.showingPageType, draftProjects, projects, myProjects]);
+
+  // Calculate projects count excluding drafts for "Nouveautés" tab (users)
+  const nouveautesProjectsCount = React.useMemo(() => {
+    return projects.filter(p => p.status !== 'draft').length;
+  }, [projects]);
+
+  // Calculate projects count excluding drafts for "Projets" tab (pro/edu)
+  const projetsCount = React.useMemo(() => {
+    return projects.filter(p => p.status !== 'draft').length;
+  }, [projects]);
+
+  // Calculate "Mes projets" count excluding drafts (teacher and user)
+  const mesProjetsCount = React.useMemo(() => {
+    return myProjects.filter(p => p.status !== 'draft').length;
+  }, [myProjects]);
+
 
   // Filter projects based on search and filter criteria
   // Note: On filtre maintenant sur 'projectsToDisplay' (local state) et non 'state.projects'
+  // For brouillons tab, only show draft projects
+  // For Projets tab (nouveautes) and mes-projets, exclude draft projects (they have their own tab)
   const filteredProjects = projectsToDisplay.filter(project => {
+    // For brouillons tab, only show draft projects
+    if (activeTab === 'brouillons' && project.status !== 'draft') {
+      return false;
+    }
+    // For Projets tab (nouveautes) and Mes projets (mes-projets), exclude draft projects (they have their own tab)
+    if ((activeTab === 'nouveautes' || activeTab === 'mes-projets') && project.status === 'draft') {
+      return false;
+    }
     // Search filter
     const matchesSearch = searchTerm === '' ||
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -886,11 +1072,11 @@ const Projects: React.FC = () => {
       (project.pathway && project.pathway.toLowerCase().includes(searchTerm.toLowerCase())) ||
       project.status.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Pathway filter (skip for MLDS projects)
-    const matchesPathway = activeTab === 'mlds-projects' || pathwayFilter === 'all' || project.pathway === pathwayFilter;
+    // Pathway filter (skip for MLDS projects and brouillons)
+    const matchesPathway = activeTab === 'mlds-projects' || activeTab === 'brouillons' || pathwayFilter === 'all' || project.pathway === pathwayFilter;
 
-    // Status filter
-    const matchesStatus = statusFilter === 'all' ||
+    // Status filter (skip for brouillons tab - all shown are drafts)
+    const matchesStatus = activeTab === 'brouillons' || statusFilter === 'all' ||
       project.status === statusFilter ||
       (statusFilter === 'draft' && project.status === 'draft') ||
       (statusFilter === 'À venir' && project.status === 'coming') ||
@@ -900,8 +1086,8 @@ const Projects: React.FC = () => {
     // Organization filter is now handled by API, no client-side filtering needed
     const matchesOrganization = true;
 
-    // Visibility filter (skip for MLDS projects)
-    const matchesVisibility = activeTab === 'mlds-projects' || visibilityFilter === 'all' ||
+    // Visibility filter (skip for MLDS projects and brouillons)
+    const matchesVisibility = activeTab === 'mlds-projects' || activeTab === 'brouillons' || visibilityFilter === 'all' ||
       (visibilityFilter === 'public' && (!project.visibility || project.visibility === 'public')) ||
       (visibilityFilter === 'private' && project.visibility === 'private');
 
@@ -1052,7 +1238,7 @@ const Projects: React.FC = () => {
 
       {/* Tabs for all users */}
         <div className="filter-tabs" style={{ marginBottom: '24px' }}>
-        {/* For users: show Nouveautés, Mes projets, and MLDS tabs */}
+        {/* For users: show Nouveautés, Mes projets, Brouillons, and MLDS tabs */}
         {state.showingPageType === 'user' && (
           <>
           <button 
@@ -1062,7 +1248,7 @@ const Projects: React.FC = () => {
               setProjectPage(1); // Reset pagination when switching tabs
             }}
           >
-              Nouveautés ({projects.length})
+              Nouveautés ({nouveautesProjectsCount})
           </button>
             <button 
               className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}
@@ -1071,7 +1257,15 @@ const Projects: React.FC = () => {
                 setMyProjectsPage(1); // Reset pagination when switching tabs
               }}
             >
-              Mes projets ({myProjects.length})
+              Mes projets ({mesProjetsCount})
+            </button>
+            <button 
+              className={`filter-tab ${activeTab === 'brouillons' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('brouillons');
+              }}
+            >
+              Brouillons ({draftProjectsCount})
             </button>
             {mldsProjects.length > 0 && (
               <button 
@@ -1087,7 +1281,7 @@ const Projects: React.FC = () => {
           </>
         )}
         
-        {/* For teachers: show Mes projets and MLDS tabs */}
+        {/* For teachers: show Mes projets, Brouillons, and MLDS tabs */}
         {state.showingPageType === 'teacher' && (
           <>
             <button 
@@ -1097,7 +1291,15 @@ const Projects: React.FC = () => {
                 setMyProjectsPage(1); // Reset pagination when switching tabs
               }}
             >
-              Mes projets ({myProjects.length})
+              Mes projets ({mesProjetsCount})
+            </button>
+            <button 
+              className={`filter-tab ${activeTab === 'brouillons' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('brouillons');
+              }}
+            >
+              Brouillons ({draftProjectsCount})
             </button>
             {mldsProjects.length > 0 && (
               <button 
@@ -1113,7 +1315,7 @@ const Projects: React.FC = () => {
           </>
         )}
         
-        {/* For pro/edu: show Projets and MLDS tabs */}
+        {/* For pro/edu: show Projets, Brouillons, and MLDS tabs */}
         {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
           <>
             <button 
@@ -1123,7 +1325,15 @@ const Projects: React.FC = () => {
                 setProjectPage(1); // Reset pagination when switching tabs
               }}
             >
-              Projets ({projects.length})
+              Projets ({projetsCount})
+            </button>
+            <button 
+              className={`filter-tab ${activeTab === 'brouillons' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('brouillons');
+              }}
+            >
+              Brouillons ({draftProjectsCount})
             </button>
             {mldsProjects.length > 0 && (
               <button 
@@ -1153,109 +1363,110 @@ const Projects: React.FC = () => {
           />
         </div>
         <div className="filters-container">
-          {/* Show MLDS-specific filters for MLDS tab */}
-          {activeTab === 'mlds-projects' ? (
-            <>
-              <div className="filter-group">
-                <label htmlFor="mlds-requested-by-filter">Demande faite par</label>
-                <select
-                  id="mlds-requested-by-filter"
-                  className="filter-select"
-                  value={mldsRequestedByFilter}
-                  onChange={(e) => setMldsRequestedByFilter(e.target.value)}
-                >
-                  <option value="all">Tous</option>
-                  <option value="departement">Département</option>
-                  <option value="reseau_foquale">Réseau foquale</option>
-                </select>
-              </div>
-              <div className="filter-group">
-                <label htmlFor="mlds-target-audience-filter">Public ciblé</label>
-                <select
-                  id="mlds-target-audience-filter"
-                  className="filter-select"
-                  value={mldsTargetAudienceFilter}
-                  onChange={(e) => setMldsTargetAudienceFilter(e.target.value)}
-                >
-                  <option value="all">Tous</option>
-                  <option value="students_without_solution">Élèves sans solution à la rentrée</option>
-                  <option value="students_at_risk">Élèves en situation de décrochage</option>
-                  <option value="school_teams">Équipes des établissements</option>
-                </select>
-              </div>
-              <div className="filter-group">
-                <label htmlFor="mlds-action-objectives-filter">Objectifs de l&apos;action</label>
-                <select
-                  id="mlds-action-objectives-filter"
-                  className="filter-select"
-                  value={mldsActionObjectivesFilter}
-                  onChange={(e) => setMldsActionObjectivesFilter(e.target.value)}
-                >
-                  <option value="all">Tous</option>
-                  <option value="path_security">Sécurisation des parcours</option>
-                  <option value="professional_discovery">Découverte professionnelle</option>
-                  <option value="orientation_support">Accompagnement à l&apos;orientation</option>
-                  <option value="training_support">Accompagnement à la formation</option>
-                  <option value="citizenship">Citoyenneté</option>
-                  <option value="family_links">Liens avec les familles</option>
-                  <option value="professional_development">Développement professionnel</option>
-                  <option value="other">Autre</option>
-                </select>
-              </div>
-              <div className="filter-group">
-                <label htmlFor="mlds-organization-filter">Organisations porteuses</label>
-                <select
-                  id="mlds-organization-filter"
-                  className="filter-select"
-                  value={mldsOrganizationFilter}
-                  onChange={(e) => setMldsOrganizationFilter(e.target.value)}
-                >
-                  <option value="all">Toutes</option>
-                  {uniqueOrganizations.map(org => (
-                    <option key={org} value={org}>{org}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="filter-group">
-                <label htmlFor="status-filter">Statut</label>
-                <select
-                  id="status-filter"
-                  className="filter-select"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="all">Tous les statuts</option>
-                  <option value="draft">Brouillon</option>
-                  <option value="À venir">À venir</option>
-                  <option value="En cours">En cours</option>
-                  <option value="Terminée">Terminée</option>
-                </select>
-              </div>
-              <div className="filter-group">
-                <label htmlFor="start-date-filter">Date de début</label>
-                <input
-                  id="start-date-filter"
-                  type="date"
-                  className="filter-select"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </div>
-              <div className="filter-group">
-                <label htmlFor="end-date-filter">Date de fin</label>
-                <input
-                  id="end-date-filter"
-                  type="date"
-                  className="filter-select"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Organization filter only for pro and edu dashboards */}
-              {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
+          {/* Show MLDS-specific filters for MLDS tab, hide for brouillons */}
+          {activeTab !== 'brouillons' && (
+            activeTab === 'mlds-projects' ? (
+              <>
+                <div className="filter-group">
+                  <label htmlFor="mlds-requested-by-filter">Demande faite par</label>
+                  <select
+                    id="mlds-requested-by-filter"
+                    className="filter-select"
+                    value={mldsRequestedByFilter}
+                    onChange={(e) => setMldsRequestedByFilter(e.target.value)}
+                  >
+                    <option value="all">Tous</option>
+                    <option value="departement">Département</option>
+                    <option value="reseau_foquale">Réseau foquale</option>
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label htmlFor="mlds-target-audience-filter">Public ciblé</label>
+                  <select
+                    id="mlds-target-audience-filter"
+                    className="filter-select"
+                    value={mldsTargetAudienceFilter}
+                    onChange={(e) => setMldsTargetAudienceFilter(e.target.value)}
+                  >
+                    <option value="all">Tous</option>
+                    <option value="students_without_solution">Élèves sans solution à la rentrée</option>
+                    <option value="students_at_risk">Élèves en situation de décrochage</option>
+                    <option value="school_teams">Équipes des établissements</option>
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label htmlFor="mlds-action-objectives-filter">Objectifs de l&apos;action</label>
+                  <select
+                    id="mlds-action-objectives-filter"
+                    className="filter-select"
+                    value={mldsActionObjectivesFilter}
+                    onChange={(e) => setMldsActionObjectivesFilter(e.target.value)}
+                  >
+                    <option value="all">Tous</option>
+                    <option value="path_security">Sécurisation des parcours</option>
+                    <option value="professional_discovery">Découverte professionnelle</option>
+                    <option value="orientation_support">Accompagnement à l&apos;orientation</option>
+                    <option value="training_support">Accompagnement à la formation</option>
+                    <option value="citizenship">Citoyenneté</option>
+                    <option value="family_links">Liens avec les familles</option>
+                    <option value="professional_development">Développement professionnel</option>
+                    <option value="other">Autre</option>
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label htmlFor="mlds-organization-filter">Organisations porteuses</label>
+                  <select
+                    id="mlds-organization-filter"
+                    className="filter-select"
+                    value={mldsOrganizationFilter}
+                    onChange={(e) => setMldsOrganizationFilter(e.target.value)}
+                  >
+                    <option value="all">Toutes</option>
+                    {uniqueOrganizations.map(org => (
+                      <option key={org} value={org}>{org}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label htmlFor="status-filter">Statut</label>
+                  <select
+                    id="status-filter"
+                    className="filter-select"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">Tous les statuts</option>
+                    <option value="draft">Brouillon</option>
+                    <option value="À venir">À venir</option>
+                    <option value="En cours">En cours</option>
+                    <option value="Terminée">Terminée</option>
+                  </select>
+                </div>
+                <div className="filter-group">
+                  <label htmlFor="start-date-filter">Date de début</label>
+                  <input
+                    id="start-date-filter"
+                    type="date"
+                    className="filter-select"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="filter-group">
+                  <label htmlFor="end-date-filter">Date de fin</label>
+                  <input
+                    id="end-date-filter"
+                    type="date"
+                    className="filter-select"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Organization filter only for pro and edu dashboards */}
+                {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
                 <div className="filter-group">
                   <label htmlFor="organization-filter">Par Organisation</label>
                   <select
@@ -1351,15 +1562,16 @@ const Projects: React.FC = () => {
                   <option value="private">Privés</option>
                 </select>
               </div>
-            </>
+              </>
+            )
           )}
         </div>
       </div>
 
-      {isLoadingProjects && initialLoad ? (
+      {(isLoadingProjects && initialLoad) || (activeTab === 'brouillons' && isLoadingDraftProjects && (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu')) ? (
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p className="loading-text">Chargement des projets...</p>
+          <p className="loading-text">{activeTab === 'brouillons' ? 'Chargement des brouillons...' : 'Chargement des projets...'}</p>
         </div>
       ) : filteredProjects.length > 0 ? (
         <>
@@ -1373,9 +1585,40 @@ const Projects: React.FC = () => {
               // Calculate permissions
               const canManage = rawApiProject ? canUserManageProject(rawApiProject, state.user) : false;
               const canDelete = rawApiProject ? canUserDeleteProject(rawApiProject, state.user?.id?.toString()) : false;
+              const isOwner = rawApiProject ? isUserProjectOwner(rawApiProject, state.user?.id?.toString()) : false;
+              // Check co-owner status: first try rawApiProject, then fallback to project.coResponsibles
+              let isCoOwner = false;
+              const userIdStr = state.user?.id?.toString();
+              
+              if (rawApiProject && userIdStr) {
+                isCoOwner = isUserProjectCoOwner(rawApiProject, userIdStr);
+              }
+              
+              // Fallback: also check if user is in project.coResponsibles array (mapped from API)
+              // This is important for teachers where rawApiProject might not always be available
+              if (!isCoOwner && userIdStr) {
+                // Check coResponsibles array
+                if (project.coResponsibles && Array.isArray(project.coResponsibles) && project.coResponsibles.length > 0) {
+                  isCoOwner = project.coResponsibles.some((co: any) => {
+                    // Support both co.id (string) and co.id (number) comparisons
+                    const coId = co?.id?.toString();
+                    return coId && coId === userIdStr;
+                  });
+                }
+                // Also check rawApiProject.project_members if available (for teachers)
+                if (!isCoOwner && rawApiProject?.project_members && Array.isArray(rawApiProject.project_members)) {
+                  isCoOwner = rawApiProject.project_members.some((member: any) => {
+                    const memberUserId = member.user?.id?.toString() || member.id?.toString();
+                    return memberUserId === userIdStr && member.role === 'co_owner' && member.status === 'confirmed';
+                  });
+                }
+              }
+              
+              const isOwnerOrCoOwner = isOwner || isCoOwner;
               
               // Check if project is ended - disable edit/delete actions if true, but allow viewing
               const isProjectEnded = project.status === 'ended';
+              const canClose = (project.status === 'in_progress' || project.status === 'coming') && isOwner;
               
               return (
                 <ProjectCard
@@ -1384,9 +1627,11 @@ const Projects: React.FC = () => {
                   onEdit={!isProjectEnded ? () => handleEditProject(project) : undefined}
                   onManage={() => handleManageProject(project)} // Always allow viewing/managing
                   onDelete={canDelete && !isProjectEnded ? () => handleDeleteProject(project.id) : undefined}
+                  onClose={canClose ? () => handleCloseProject(project) : undefined}
                   isPersonalUser={isPersonalUser}
                   canManage={canManage && !isProjectEnded} // Can't manage if ended, but can view
                   canDelete={canDelete && !isProjectEnded}
+                  isOwnerOrCoOwner={isOwnerOrCoOwner}
                 />
               );
             })}
@@ -1410,6 +1655,9 @@ const Projects: React.FC = () => {
               totalPages = myProjectsTotalPages;
               totalCount = myProjectsTotalCount;
               setCurrentPage = setMyProjectsPage;
+            } else if (activeTab === 'brouillons') {
+              // No pagination for brouillons - show all draft projects
+              return null;
             } else {
               currentPage = projectPage;
               totalPages = projectTotalPages;
@@ -1579,6 +1827,73 @@ const Projects: React.FC = () => {
               >
                 <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
                 Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Close project confirmation modal */}
+      {isCloseProjectModalOpen && projectToClose && (
+        <div className="modal-overlay" onClick={() => !isClosingProject && cancelCloseProject()}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>Confirmer la clôture du projet</h3>
+              <button className="modal-close" onClick={() => !isClosingProject && cancelCloseProject()} disabled={isClosingProject}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body">
+              <div style={{
+                padding: '1.5rem',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '1rem'
+              }}>
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  backgroundColor: '#fef3c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '0.5rem'
+                }}>
+                  <i className="fas fa-lock" style={{ fontSize: '2rem', color: '#d97706' }}></i>
+                </div>
+                <div>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
+                    Êtes-vous sûr de vouloir clôturer ce projet ?
+                  </h4>
+                  <p style={{ fontSize: '0.95rem', color: '#6b7280', marginBottom: '1rem' }}>
+                    Le projet <strong>"{projectToClose.title}"</strong> sera marqué comme <strong>terminé</strong>. Toutes les actions seront figées : plus d&apos;ajout ni de modification de participants, équipes, documents ou badges.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-outline"
+                onClick={cancelCloseProject}
+                disabled={isClosingProject}
+                style={{ minWidth: '100px' }}
+              >
+                Annuler
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={confirmCloseProject}
+                disabled={isClosingProject}
+                style={{
+                  minWidth: '100px',
+                  backgroundColor: '#d97706',
+                  borderColor: '#d97706'
+                }}
+              >
+                {isClosingProject ? 'Clôture...' : 'Clôturer le projet'}
               </button>
             </div>
           </div>

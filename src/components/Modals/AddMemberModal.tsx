@@ -8,7 +8,20 @@ import { useAppContext } from '../../context/AppContext';
 import AvatarImage from '../UI/AvatarImage';
 import { getSelectedCompanyId } from '../../utils/contextUtils';
 import { useToast } from '../../hooks/useToast';
+import { translateRole } from '../../utils/roleTranslations';
 import QRCodePrintModal from './QRCodePrintModal';
+
+// Same order as Personal settings (RoleSection) / registration; eleve_primaire excluded for company (min age 15)
+const ROLE_ORDER = [
+  'collegien',
+  'lyceen',
+  'etudiant',
+  'parent',
+  'benevole',
+  'charge_de_mission',
+  'employee',
+  'other_personal_user',
+];
 
 interface AddMemberModalProps {
   onClose: () => void;
@@ -16,24 +29,9 @@ interface AddMemberModalProps {
   onSuccess?: () => void;
 }
 
-// Traduction identique à celle de PersonalUserRegisterForm.tsx pour l'affichage
-const tradFR: Record<string, string> = {
-  parent: "Parent",
-  grand_parent: "Grand-parent",
-  children: "Enfant",
-  voluntary: "Volontaire",
-  tutor: "Tuteur",
-  employee: "Salarié",
-  other: "Autre",
-  // Garder des fallbacks pour l'ancien système au cas où
-  admin: "Admin",
-  referent: "Référent",
-  member: "Membre"
-};
-
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess }) => {
   const { state } = useAppContext();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -55,17 +53,25 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Chargement des Roles au montage
+  // Chargement des Roles au montage (filtrés et triés comme en paramètres personnels)
   useEffect(() => {
     const fetchRoles = async () => {
       try {
         const rolesRes = await getPersonalUserRoles();
         const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
         if (Array.isArray(rolesData)) {
-          setApiRoles(rolesData);
-          // Sélectionner le premier rôle par défaut si disponible
-          if (rolesData.length > 0) {
-            setFormData(prev => ({ ...prev, role: rolesData[0].value }));
+          // Exclure legacy "other" (garder only other_personal_user → "Autre") et élève primaire (âge < 15)
+          const filtered = rolesData.filter(
+            (r: { value: string }) => r.value !== 'other' && r.value !== 'eleve_primaire'
+          );
+          const sorted = filtered.sort((a: { value: string }, b: { value: string }) => {
+            const indexA = ROLE_ORDER.indexOf(a.value);
+            const indexB = ROLE_ORDER.indexOf(b.value);
+            return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+          });
+          setApiRoles(sorted);
+          if (sorted.length > 0) {
+            setFormData(prev => ({ ...prev, role: sorted[0].value }));
           }
         }
       } catch (error) {
@@ -159,6 +165,17 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     }
   };
 
+  const computeAge = (birthdayStr: string): number => {
+    const birth = new Date(birthdayStr);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age -= 1;
+    }
+    return age;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -168,8 +185,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       return;
     }
 
-    if (!formData.email && !formData.birthday) {
-      showError('Email ou date de naissance est obligatoire');
+    if (!formData.birthday) {
+      showError('La date de naissance est obligatoire');
+      return;
+    }
+
+    if (computeAge(formData.birthday) < 15) {
+      showError("Une organisation ne peut pas créer un membre dont l'âge est inférieur à 15 ans.");
       return;
     }
 
@@ -183,18 +205,17 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         return;
       }
 
-      // Build payload
+      // Build payload (birthday always required and sent for new company members)
       const payload: any = {
         first_name: formData.firstName,
         last_name: formData.lastName,
+        birthday: formData.birthday,
         role: 'member',  // Default company role
         user_role: formData.role  // System role
       };
 
       if (formData.email) {
         payload.email = formData.email;
-      } else {
-        payload.birthday = formData.birthday;
       }
 
       // Call API
@@ -222,7 +243,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         lastName: formData.lastName,
         email: response.data?.data?.email || formData.email || '',
         avatar: finalAvatar,
-        profession: tradFR[formData.role] || formData.role, // Translate role to profession
+        profession: translateRole(formData.role),
         roles: [formData.role],
         claim_token: claimToken,
         hasTemporaryEmail: response.data?.data?.has_temporary_email || false,
@@ -238,7 +259,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
       onAdd(memberDataForCallback);
 
-      // Show success message
+      if (response.data?.existing_user_linked) {
+        showInfo('Cette personne existait déjà dans le système.');
+      }
       showSuccess(`Membre ${fullName} ajouté avec succès !`);
 
       // Refetch data if callback provided
@@ -369,9 +392,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             </div>
 
             <div className="form-group">
-              <label htmlFor="birthday">
-                Date de naissance {!formData.email && '*'}
-              </label>
+              <label htmlFor="birthday">Date de naissance *</label>
               <input
                 type="date"
                 id="birthday"
@@ -379,12 +400,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 max={new Date().toISOString().split('T')[0]}
                 value={formData.birthday}
                 onChange={handleInputChange}
-                required={!formData.email}
+                required
                 className="form-input"
               />
-              {!formData.email && (
-                <p className="form-hint">Requis si aucun email n'est fourni</p>
-              )}
+              <p className="form-hint">Obligatoire pour tous les membres (âge minimum 15 ans)</p>
             </div>
 
             <div className="form-group">
@@ -400,7 +419,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 {apiRoles.length > 0 ? (
                   apiRoles.map((role) => (
                     <option key={role.value} value={role.value}>
-                      {tradFR[role.value] || role.value}
+                      {translateRole(role.value)}
                     </option>
                   ))
                 ) : (

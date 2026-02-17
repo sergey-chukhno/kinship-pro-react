@@ -126,6 +126,10 @@
   max-height: 16px !important;
 }
 
+.project-counter-pending {
+  background: linear-gradient(135deg, #fc8c0b 0%, #dc2626 100%) !important;
+}
+
 .project-counter span {
   font-weight: 700;
   font-size: 0.85rem;
@@ -325,8 +329,9 @@
 
 .project-actions {
   display: flex;
-  gap: 12px;
+  gap: 6px;
   margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .project-actions .btn {
