@@ -8,7 +8,20 @@ import { useAppContext } from '../../context/AppContext';
 import AvatarImage from '../UI/AvatarImage';
 import { getSelectedCompanyId } from '../../utils/contextUtils';
 import { useToast } from '../../hooks/useToast';
+import { translateRole } from '../../utils/roleTranslations';
 import QRCodePrintModal from './QRCodePrintModal';
+
+// Same order as Personal settings (RoleSection) / registration; eleve_primaire excluded for company (min age 15)
+const ROLE_ORDER = [
+  'collegien',
+  'lyceen',
+  'etudiant',
+  'parent',
+  'benevole',
+  'charge_de_mission',
+  'employee',
+  'other_personal_user',
+];
 
 interface AddMemberModalProps {
   onClose: () => void;
@@ -16,24 +29,9 @@ interface AddMemberModalProps {
   onSuccess?: () => void;
 }
 
-// Traduction identique à celle de PersonalUserRegisterForm.tsx pour l'affichage
-const tradFR: Record<string, string> = {
-  parent: "Parent",
-  grand_parent: "Grand-parent",
-  children: "Enfant",
-  voluntary: "Volontaire",
-  tutor: "Tuteur",
-  employee: "Salarié",
-  other: "Autre",
-  // Garder des fallbacks pour l'ancien système au cas où
-  admin: "Admin",
-  referent: "Référent",
-  member: "Membre"
-};
-
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess }) => {
   const { state } = useAppContext();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -55,17 +53,25 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Chargement des Roles au montage
+  // Chargement des Roles au montage (filtrés et triés comme en paramètres personnels)
   useEffect(() => {
     const fetchRoles = async () => {
       try {
         const rolesRes = await getPersonalUserRoles();
         const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
         if (Array.isArray(rolesData)) {
-          setApiRoles(rolesData);
-          // Sélectionner le premier rôle par défaut si disponible
-          if (rolesData.length > 0) {
-            setFormData(prev => ({ ...prev, role: rolesData[0].value }));
+          // Exclure legacy "other" (garder only other_personal_user → "Autre") et élève primaire (âge < 15)
+          const filtered = rolesData.filter(
+            (r: { value: string }) => r.value !== 'other' && r.value !== 'eleve_primaire'
+          );
+          const sorted = filtered.sort((a: { value: string }, b: { value: string }) => {
+            const indexA = ROLE_ORDER.indexOf(a.value);
+            const indexB = ROLE_ORDER.indexOf(b.value);
+            return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+          });
+          setApiRoles(sorted);
+          if (sorted.length > 0) {
+            setFormData(prev => ({ ...prev, role: sorted[0].value }));
           }
         }
       } catch (error) {
@@ -237,7 +243,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         lastName: formData.lastName,
         email: response.data?.data?.email || formData.email || '',
         avatar: finalAvatar,
-        profession: tradFR[formData.role] || formData.role, // Translate role to profession
+        profession: translateRole(formData.role),
         roles: [formData.role],
         claim_token: claimToken,
         hasTemporaryEmail: response.data?.data?.has_temporary_email || false,
@@ -253,7 +259,9 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
       onAdd(memberDataForCallback);
 
-      // Show success message
+      if (response.data?.existing_user_linked) {
+        showInfo('Cette personne existait déjà dans le système.');
+      }
       showSuccess(`Membre ${fullName} ajouté avec succès !`);
 
       // Refetch data if callback provided
@@ -411,7 +419,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 {apiRoles.length > 0 ? (
                   apiRoles.map((role) => (
                     <option key={role.value} value={role.value}>
-                      {tradFR[role.value] || role.value}
+                      {translateRole(role.value)}
                     </option>
                   ))
                 ) : (

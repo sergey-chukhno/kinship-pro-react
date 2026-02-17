@@ -35,7 +35,7 @@ const tradFR: Record<string, string> = {
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess }) => {
   const { state } = useAppContext();
   const isTeacherContext = state.showingPageType === 'teacher';
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
   const [availableSchools, setAvailableSchools] = useState<Array<{ id: number; name: string }>>([]);
   const [formData, setFormData] = useState({
@@ -474,8 +474,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
       onAdd(memberData);
 
-      // 6. Afficher le toast de succès
-      showSuccess(`Étudiant ${fullName} ajouté avec succès !`);
+      if (response.data?.existing_user_linked) {
+        showInfo('Cet élève existait déjà dans le système.');
+      }
+      showSuccess(`Élève ${fullName} ajouté avec succès !`);
 
       // 7. Refetch des données
       if (onSuccess) {
