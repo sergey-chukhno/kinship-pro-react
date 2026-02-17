@@ -21,12 +21,6 @@ interface TeacherPartnershipRequestModalProps {
   initialPartnerOrganization?: InitialPartnerOrganization | null;
 }
 
-const PARTNERSHIP_TYPES = [
-  { value: 'bilateral', label: 'Bilatéral' },
-  { value: 'educational', label: 'Éducatif' },
-  { value: 'administratif', label: 'Administratif' },
-];
-
 const TeacherPartnershipRequestModal: React.FC<TeacherPartnershipRequestModalProps> = ({
   onClose,
   onSuccess,
@@ -74,7 +68,7 @@ const TeacherPartnershipRequestModal: React.FC<TeacherPartnershipRequestModalPro
       ...prev,
       name: prev.name.trim() ? prev.name : `Partenariat ${schoolName} - ${initialPartnerOrganization.name}`,
     }));
-  }, [initialPartnerOrganization?.id, initialPartnerOrganization?.name, initialPartnerOrganization?.type, schoolName]);
+  }, [initialPartnerOrganization, schoolName]);
 
   useEffect(() => {
     if (schoolSearchQuery.length < 2) {
@@ -248,7 +242,7 @@ const TeacherPartnershipRequestModal: React.FC<TeacherPartnershipRequestModalPro
                     {selectedPartnerSchools.map((s) => (
                       <span key={s.id} className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         {s.name}
-                        <button type="button" className="btn-link p-0" style={{ fontSize: '1rem' }} onClick={() => removePartnerSchool(s.id)} aria-label="Retirer">
+                        <button type="button" className="p-0 btn-link" style={{ fontSize: '1rem' }} onClick={() => removePartnerSchool(s.id)} aria-label="Retirer">
                           ×
                         </button>
                       </span>
@@ -283,7 +277,7 @@ const TeacherPartnershipRequestModal: React.FC<TeacherPartnershipRequestModalPro
                     {selectedPartnerCompanies.map((c) => (
                       <span key={c.id} className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         {c.name}
-                        <button type="button" className="btn-link p-0" style={{ fontSize: '1rem' }} onClick={() => removePartnerCompany(c.id)} aria-label="Retirer">
+                        <button type="button" className="p-0 btn-link" style={{ fontSize: '1rem' }} onClick={() => removePartnerCompany(c.id)} aria-label="Retirer">
                           ×
                         </button>
                       </span>
@@ -294,32 +288,8 @@ const TeacherPartnershipRequestModal: React.FC<TeacherPartnershipRequestModalPro
             </>
           )}
 
-          <div className="form-group">
-            <label htmlFor="partnership_type">Type de partenariat *</label>
-            <select
-              id="partnership_type"
-              value={formData.partnership_type}
-              onChange={(e) => setFormData((prev) => ({ ...prev, partnership_type: e.target.value }))}
-              className="form-select"
-            >
-              {PARTNERSHIP_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="name">Nom du partenariat *</label>
-            <input
-              id="name"
-              type="text"
-              className="form-input"
-              value={formData.name}
-              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="ex. Partenariat École A - École B"
-              required
-            />
-          </div>
+          {/* Type fixé à "bilateral" pour le moment — champ masqué */}
+          {/* Nom du partenariat pré-rempli dans le payload — champ masqué */}
 
           <div className="form-group">
             <label htmlFor="description">Description *</label>
@@ -335,7 +305,7 @@ const TeacherPartnershipRequestModal: React.FC<TeacherPartnershipRequestModalPro
           </div>
 
           <div className="form-group">
-            <label className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
+            <label className="flex gap-2 items-center" style={{ cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={formData.share_projects}
@@ -345,7 +315,7 @@ const TeacherPartnershipRequestModal: React.FC<TeacherPartnershipRequestModalPro
             </label>
           </div>
           <div className="form-group">
-            <label className="flex items-center gap-2" style={{ cursor: 'pointer' }}>
+            <label className="flex gap-2 items-center" style={{ cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={formData.share_members}

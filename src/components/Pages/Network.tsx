@@ -2287,16 +2287,17 @@ const Network: React.FC = () => {
     );
   };
   
-  const displayItems = selectedType === 'search' || selectedType === 'join-organization'
+  // Onglets « demandes » en premier : n'afficher que les demandes, jamais les résultats de recherche
+  const displayItems = selectedType === 'teacher-partnership-requests'
+    ? teacherPartnershipRequestsAsDisplay
+    : selectedType === 'school-teacher-partnership-requests'
+    ? schoolTeacherPartnershipRequestsAsDisplay
+    : selectedType === 'search' || selectedType === 'join-organization'
     ? filteredSearchResults
     : selectedType === 'branch-requests'
     ? filteredBranchRequests
     : selectedType === 'partnership-requests'
     ? filteredRequests
-    : selectedType === 'teacher-partnership-requests'
-    ? teacherPartnershipRequestsAsDisplay
-    : selectedType === 'school-teacher-partnership-requests'
-    ? schoolTeacherPartnershipRequestsAsDisplay
     : selectedType === 'schools' 
     ? schoolsAsOrganizations 
     : selectedType === 'companies'
@@ -2581,21 +2582,22 @@ const Network: React.FC = () => {
             </button>
           )}
           {/* Teacher: demandes de partenariat pour mon établissement */}
-          {state.showingPageType === 'teacher' && (
+          {/* Teacher: demandes de partenariat pour mon établissement — visible uniquement s'il y a au moins une demande */}
+          {state.showingPageType === 'teacher' && teacherPartnershipRequests.length > 0 && (
             <button 
               className={`filter-tab ${selectedType === 'teacher-partnership-requests' ? 'active' : ''}`}
               onClick={() => { setActiveCard(null); setSelectedType('teacher-partnership-requests'); }}
             >
-              Demandes de partenariat (mon établissement){teacherPartnershipRequests.length > 0 ? ` (${teacherPartnershipRequests.length})` : ''}
+              Demandes de partenariat à mon établissement ({teacherPartnershipRequests.length})
             </button>
           )}
-          {/* School (edu): demandes de partenariat envoyées par les enseignants */}
-          {state.showingPageType === 'edu' && (
+          {/* School (edu): demandes de partenariat envoyées par les enseignants — visible uniquement s'il y a au moins une demande */}
+          {state.showingPageType === 'edu' && schoolTeacherPartnershipRequests.length > 0 && (
             <button 
               className={`filter-tab ${selectedType === 'school-teacher-partnership-requests' ? 'active' : ''}`}
               onClick={() => { setActiveCard(null); setSelectedType('school-teacher-partnership-requests'); }}
             >
-              Demandes partenariat (enseignants){schoolTeacherPartnershipRequests.length > 0 ? ` (${schoolTeacherPartnershipRequests.length})` : ''}
+              Demandes partenariat par les enseignants ({schoolTeacherPartnershipRequests.length})
             </button>
           )}
         </div>
@@ -3177,7 +3179,18 @@ const Network: React.FC = () => {
           (!(isOrgDashboard && activeCard) && !(isPersonalUserDashboard && activeCard))) && (
           <div className="grid !grid-cols-3">
             {displayItems.length > 0 ? (
-              displayItems.map((organization) => {
+              displayItems
+                // Pour l'onglet teacher-partnership-requests, filtrer pour n'afficher QUE les demandes
+                .filter((org) => {
+                  if (selectedType === 'teacher-partnership-requests') {
+                    return 'teacherPartnershipRequest' in org;
+                  }
+                  if (selectedType === 'school-teacher-partnership-requests') {
+                    return 'schoolTeacherPartnershipRequest' in org;
+                  }
+                  return true;
+                })
+                .map((organization) => {
             // Teacher partnership request card (teacher view)
             if ('teacherPartnershipRequest' in organization) {
               const req = (organization as Organization & { teacherPartnershipRequest: TeacherPartnershipRequest }).teacherPartnershipRequest;
