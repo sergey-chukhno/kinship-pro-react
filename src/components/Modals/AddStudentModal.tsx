@@ -32,6 +32,9 @@ const tradFR: Record<string, string> = {
   member: "Membre"
 };
 
+/** Set to true to show the INE (Identifiant National Élève) field again. */
+const SHOW_INE_FIELD = false;
+
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess }) => {
   const { state } = useAppContext();
   const isTeacherContext = state.showingPageType === 'teacher';
@@ -665,32 +668,34 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 className="form-input"
               />
               {!formData.email && (
-                <p className="form-hint">Requis si aucun email n'est fourni</p>
+                <p className="form-hint">La date de naissance est obligatoire.</p>
               )}
             </div>
 
-            <div className="form-group">
-              <label htmlFor="ine">INE (Identifiant National Élève)</label>
-              <input
-                type="text"
-                id="ine"
-                name="ine"
-                value={formData.ine}
-                onChange={(e) => {
-                  handleInputChange(e);
-                  setIneError(null);
-                }}
-                className="form-input"
-                placeholder="11 caractères (optionnel)"
-                maxLength={11}
-              />
-              <p className="form-hint">Optionnel. 10 chiffres + 1 lettre, ou 9 chiffres + 2 lettres.</p>
-              {ineError && (
-                <p className="form-error" role="alert">
-                  {ineError}
-                </p>
-              )}
-            </div>
+            {SHOW_INE_FIELD && (
+              <div className="form-group">
+                <label htmlFor="ine">INE (Identifiant National Élève)</label>
+                <input
+                  type="text"
+                  id="ine"
+                  name="ine"
+                  value={formData.ine}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    setIneError(null);
+                  }}
+                  className="form-input"
+                  placeholder="11 caractères (optionnel)"
+                  maxLength={11}
+                />
+                <p className="form-hint">Optionnel. 10 chiffres + 1 lettre, ou 9 chiffres + 2 lettres.</p>
+                {ineError && (
+                  <p className="form-error" role="alert">
+                    {ineError}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="levelId">Classe *</label>
