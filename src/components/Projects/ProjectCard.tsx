@@ -8,12 +8,14 @@ interface ProjectCardProps {
   onEdit?: (project: Project) => void;
   onManage?: (project: Project) => void;
   onDelete?: (project: Project) => void;
+  onClose?: (project: Project) => void;
   isPersonalUser?: boolean;
   canManage?: boolean;
   canDelete?: boolean;
+  isOwnerOrCoOwner?: boolean;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, onDelete, isPersonalUser = false, canManage = false, canDelete = false }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, onDelete, onClose, isPersonalUser = false, canManage = false, canDelete = false, isOwnerOrCoOwner = false }) => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   // Check if project is ended - disable all actions if true
@@ -148,6 +150,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
         </div>
 
         <div className="project-actions">
+          {onClose && (project.status === 'in_progress' || project.status === 'coming') && (
+            <button className="btn btn-outline btn-sm" onClick={() => onClose(project)}>
+              <i className="fas fa-check-circle"></i>
+              Clôturer
+            </button>
+          )}
           {canDelete && onDelete && !isProjectEnded && (
             <button className="btn btn-outline btn-sm btn-danger" onClick={() => onDelete(project)}>
               <i className="fas fa-trash"></i>
@@ -168,16 +176,22 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
         </div>
       </div>
 
-      {/* Green counters for participants and badges - positioned at bottom right with overflow */}
+      {/* Green counters for participants, badges, and pending requests - positioned at bottom right with overflow */}
       <div className="project-counters">
-        <div className="project-counter">
+        <div className="project-counter" title="Participants">
           <img src="/icons_logo/Icon=Membres.svg" alt="Participants" className="counter-icon" />
           <span>{project.participants}</span>
         </div>
-        <div className="project-counter">
+        <div className="project-counter" title="Badges attribués">
           <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="counter-icon" />
           <span>{project.badges}</span>
         </div>
+        {isOwnerOrCoOwner && (project.pendingRequests !== undefined && project.pendingRequests > 0) && (
+          <div className="!bg-red-500 project-counter project-counter-pending" title="Demandes en attente">
+            <i className="fas fa-user-clock counter-icon" style={{ fontSize: '16px' }} title="Demandes en attente"></i>
+            <span>{project.pendingRequests}</span>
+          </div>
+        )}
       </div>
     </div>
   );

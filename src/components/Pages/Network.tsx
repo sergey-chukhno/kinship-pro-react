@@ -12,10 +12,14 @@ import MemberCard from '../Members/MemberCard';
 import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork } from '../../api/Projects';
+import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest } from '../../api/Projects';
 import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
+import { getSelectedOrganizationId } from '../../utils/contextUtils';
+import TeacherPartnershipRequestModal from '../Modals/TeacherPartnershipRequestModal';
+import SelectSchoolForPartnershipModal from '../Modals/SelectSchoolForPartnershipModal';
+import SchoolTeacherPartnershipRequestDetailsModal from '../Modals/SchoolTeacherPartnershipRequestDetailsModal';
 import { useToast } from '../../hooks/useToast';
 import { translateSkill } from '../../translations/skills';
 import './Network.css';
@@ -142,7 +146,7 @@ const Network: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const isOrgDashboardInitial = state.showingPageType === 'edu' || state.showingPageType === 'pro';
   const isPersonalUserForType = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | 'join-organization' | null>(
+  const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | 'join-organization' | 'teacher-partnership-requests' | 'school-teacher-partnership-requests' | null>(
     isOrgDashboardInitial || isPersonalUserForType ? null : 'schools'
   );
   const [schools, setSchools] = useState<School[]>([]);
@@ -203,6 +207,21 @@ const Network: React.FC = () => {
   const [branchRequests, setBranchRequests] = useState<BranchRequest[]>([]);
   const [branchRequestsLoading, setBranchRequestsLoading] = useState(false);
   const [branchRequestsError, setBranchRequestsError] = useState<string | null>(null);
+
+  // Teacher partnership requests (teacher → school)
+  const [teacherPartnershipRequests, setTeacherPartnershipRequests] = useState<TeacherPartnershipRequest[]>([]);
+  const [teacherPartnershipRequestsLoading, setTeacherPartnershipRequestsLoading] = useState(false);
+  const [teacherPartnershipRequestsError, setTeacherPartnershipRequestsError] = useState<string | null>(null);
+  const [isTeacherPartnershipRequestModalOpen, setIsTeacherPartnershipRequestModalOpen] = useState(false);
+  const [isSelectSchoolModalOpen, setIsSelectSchoolModalOpen] = useState(false);
+  const [selectedOrganizationForPartnership, setSelectedOrganizationForPartnership] = useState<Organization | null>(null);
+  const [selectedSchoolForPartnership, setSelectedSchoolForPartnership] = useState<{ id: number; name: string } | null>(null);
+
+  // School: teacher partnership requests (demandes reçues des enseignants)
+  const [schoolTeacherPartnershipRequests, setSchoolTeacherPartnershipRequests] = useState<TeacherPartnershipRequest[]>([]);
+  const [schoolTeacherPartnershipRequestsLoading, setSchoolTeacherPartnershipRequestsLoading] = useState(false);
+  const [schoolTeacherPartnershipRequestsError, setSchoolTeacherPartnershipRequestsError] = useState<string | null>(null);
+  const [selectedSchoolTeacherPartnershipRequest, setSelectedSchoolTeacherPartnershipRequest] = useState<TeacherPartnershipRequest | null>(null);
 
   // Personal user requests state (for "Mes demandes" tab - pending/accepted/rejected)
   const [myRequests, setMyRequests] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
@@ -1079,6 +1098,65 @@ const Network: React.FC = () => {
     }
   }, [state.showingPageType]);
 
+  // Fetch teacher partnership requests (for teacher view)
+  const fetchTeacherPartnershipRequests = useCallback(async () => {
+    if (state.showingPageType !== 'teacher') {
+      setTeacherPartnershipRequests([]);
+      return;
+    }
+    setTeacherPartnershipRequestsLoading(true);
+    setTeacherPartnershipRequestsError(null);
+    try {
+      const data = await getTeacherPartnershipRequests();
+      setTeacherPartnershipRequests(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching teacher partnership requests:', err);
+      setTeacherPartnershipRequestsError('Erreur lors du chargement de vos demandes de partenariat');
+      setTeacherPartnershipRequests([]);
+    } finally {
+      setTeacherPartnershipRequestsLoading(false);
+    }
+  }, [state.showingPageType]);
+
+  // Fetch school teacher partnership requests (for school / edu view)
+  const fetchSchoolTeacherPartnershipRequests = useCallback(async () => {
+    if (state.showingPageType !== 'edu') {
+      setSchoolTeacherPartnershipRequests([]);
+      return;
+    }
+    const schoolId = getSelectedOrganizationId(state.user, state.showingPageType);
+    if (!schoolId) {
+      setSchoolTeacherPartnershipRequests([]);
+      return;
+    }
+    setSchoolTeacherPartnershipRequestsLoading(true);
+    setSchoolTeacherPartnershipRequestsError(null);
+    try {
+      const data = await getSchoolTeacherPartnershipRequests(schoolId);
+      setSchoolTeacherPartnershipRequests(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching school teacher partnership requests:', err);
+      setSchoolTeacherPartnershipRequestsError('Erreur lors du chargement des demandes des enseignants');
+      setSchoolTeacherPartnershipRequests([]);
+    } finally {
+      setSchoolTeacherPartnershipRequestsLoading(false);
+    }
+  }, [state.showingPageType, state.user]);
+
+  // Fetch teacher partnership requests when teacher (for tab count)
+  useEffect(() => {
+    if (state.showingPageType === 'teacher') {
+      fetchTeacherPartnershipRequests();
+    }
+  }, [state.showingPageType, fetchTeacherPartnershipRequests]);
+
+  // Fetch school teacher partnership requests when edu (for tab count)
+  useEffect(() => {
+    if (state.showingPageType === 'edu') {
+      fetchSchoolTeacherPartnershipRequests();
+    }
+  }, [state.showingPageType, fetchSchoolTeacherPartnershipRequests]);
+
   // Function to fetch user's organizations with status (for activeCard display and confirmed-membership gate)
   // Called for all users on Network so edu/pro can gate "Membres de mon réseau" on confirmed membership
   const fetchMyOrganizations = useCallback(async () => {
@@ -1102,7 +1180,7 @@ const Network: React.FC = () => {
     } finally {
       setMyOrganizationsLoading(false);
     }
-  }, [state.showingPageType]);
+  }, []);
 
   // Fetch my requests (personal only) and my organizations (all users) on Network page
   // myOrganizations is needed for edu/pro to gate "Membres de mon réseau" on confirmed membership
@@ -1558,6 +1636,50 @@ const Network: React.FC = () => {
     } catch (err) {
       console.error('Error rejecting partnership:', err);
       setRequestsError('Erreur lors du rejet du partenariat');
+    }
+  };
+
+  // Cancel teacher partnership request (teacher only, pending only)
+  const handleCancelTeacherPartnershipRequest = async (id: number) => {
+    try {
+      await deleteTeacherPartnershipRequest(id);
+      showSuccess('Demande annulée');
+      setTeacherPartnershipRequests((prev) => prev.filter((r) => r.id !== id));
+    } catch (err: any) {
+      console.error('Error cancelling teacher partnership request:', err);
+      showError(err?.response?.data?.message || 'Erreur lors de l\'annulation de la demande');
+    }
+  };
+
+  // Approve school teacher partnership request (school only)
+  const handleApproveSchoolTeacherPartnershipRequest = async (id: number) => {
+    const schoolId = getSelectedOrganizationId(state.user, state.showingPageType);
+    if (!schoolId) return;
+    try {
+      await approveSchoolTeacherPartnershipRequest(schoolId, id);
+      showSuccess('Demande validée. Le partenariat a été créé.');
+      setSchoolTeacherPartnershipRequests((prev) => prev.filter((r) => r.id !== id));
+      setSelectedSchoolTeacherPartnershipRequest(null);
+      await fetchPartnersCount();
+      await fetchPartners();
+    } catch (err: any) {
+      console.error('Error approving teacher partnership request:', err);
+      showError(err?.response?.data?.message || 'Erreur lors de la validation');
+    }
+  };
+
+  // Reject school teacher partnership request (school only, optional reason)
+  const handleRejectSchoolTeacherPartnershipRequest = async (id: number, reason?: string) => {
+    const schoolId = getSelectedOrganizationId(state.user, state.showingPageType);
+    if (!schoolId) return;
+    try {
+      await rejectSchoolTeacherPartnershipRequest(schoolId, id, reason ? { rejection_reason: reason } : undefined);
+      showSuccess('Demande rejetée');
+      setSchoolTeacherPartnershipRequests((prev) => prev.filter((r) => r.id !== id));
+      setSelectedSchoolTeacherPartnershipRequest(null);
+    } catch (err: any) {
+      console.error('Error rejecting teacher partnership request:', err);
+      showError(err?.response?.data?.message || 'Erreur lors du rejet');
     }
   };
 
@@ -2119,6 +2241,36 @@ const Network: React.FC = () => {
     }
   );
 
+  // Teacher partnership requests as display items (teacher view)
+  const teacherPartnershipRequestsAsDisplay: (Organization & { teacherPartnershipRequest: TeacherPartnershipRequest })[] = teacherPartnershipRequests.map((r) => ({
+    id: String(r.id),
+    name: r.name || 'Demande de partenariat',
+    type: 'partner' as const,
+    description: r.description || '',
+    members_count: 0,
+    location: r.school?.name || '',
+    status: r.status === 'approved' ? 'active' : r.status === 'rejected' ? 'inactive' : 'pending',
+    joinedDate: r.created_at || '',
+    contactPerson: '',
+    email: '',
+    teacherPartnershipRequest: r,
+  }));
+
+  // School teacher partnership requests as display items (school view)
+  const schoolTeacherPartnershipRequestsAsDisplay: (Organization & { schoolTeacherPartnershipRequest: TeacherPartnershipRequest })[] = schoolTeacherPartnershipRequests.map((r) => ({
+    id: String(r.id),
+    name: r.name || 'Demande de partenariat',
+    type: 'partner' as const,
+    description: r.description || '',
+    members_count: 0,
+    location: r.teacher?.full_name || 'Enseignant',
+    status: 'pending' as const,
+    joinedDate: r.created_at || '',
+    contactPerson: '',
+    email: '',
+    schoolTeacherPartnershipRequest: r,
+  }));
+
   // Combine schools, companies and partners based on selected type or activeCard
   // For school/company dashboards, use activeCard; for personal users, use selectedType
   
@@ -2135,7 +2287,12 @@ const Network: React.FC = () => {
     );
   };
   
-  const displayItems = selectedType === 'search' || selectedType === 'join-organization'
+  // Onglets « demandes » en premier : n'afficher que les demandes, jamais les résultats de recherche
+  const displayItems = selectedType === 'teacher-partnership-requests'
+    ? teacherPartnershipRequestsAsDisplay
+    : selectedType === 'school-teacher-partnership-requests'
+    ? schoolTeacherPartnershipRequestsAsDisplay
+    : selectedType === 'search' || selectedType === 'join-organization'
     ? filteredSearchResults
     : selectedType === 'branch-requests'
     ? filteredBranchRequests
@@ -2422,6 +2579,25 @@ const Network: React.FC = () => {
               onClick={() => { setActiveCard(null); setSelectedType('my-requests'); }}
             >
               Mes demandes ({filteredMyRequests.length})
+            </button>
+          )}
+          {/* Teacher: demandes de partenariat pour mon établissement */}
+          {/* Teacher: demandes de partenariat pour mon établissement — visible uniquement s'il y a au moins une demande */}
+          {state.showingPageType === 'teacher' && teacherPartnershipRequests.length > 0 && (
+            <button 
+              className={`filter-tab ${selectedType === 'teacher-partnership-requests' ? 'active' : ''}`}
+              onClick={() => { setActiveCard(null); setSelectedType('teacher-partnership-requests'); }}
+            >
+              Demandes de partenariat à mon établissement ({teacherPartnershipRequests.length})
+            </button>
+          )}
+          {/* School (edu): demandes de partenariat envoyées par les enseignants — visible uniquement s'il y a au moins une demande */}
+          {state.showingPageType === 'edu' && schoolTeacherPartnershipRequests.length > 0 && (
+            <button 
+              className={`filter-tab ${selectedType === 'school-teacher-partnership-requests' ? 'active' : ''}`}
+              onClick={() => { setActiveCard(null); setSelectedType('school-teacher-partnership-requests'); }}
+            >
+              Demandes partenariat par les enseignants ({schoolTeacherPartnershipRequests.length})
             </button>
           )}
         </div>
@@ -2840,6 +3016,18 @@ const Network: React.FC = () => {
         {myRequestsError && selectedType === 'my-requests' && (
           <div className="error-message">{myRequestsError}</div>
         )}
+        {teacherPartnershipRequestsLoading && selectedType === 'teacher-partnership-requests' && (
+          <div className="loading-message">Chargement de vos demandes de partenariat...</div>
+        )}
+        {teacherPartnershipRequestsError && selectedType === 'teacher-partnership-requests' && (
+          <div className="error-message">{teacherPartnershipRequestsError}</div>
+        )}
+        {schoolTeacherPartnershipRequestsLoading && selectedType === 'school-teacher-partnership-requests' && (
+          <div className="loading-message">Chargement des demandes des enseignants...</div>
+        )}
+        {schoolTeacherPartnershipRequestsError && selectedType === 'school-teacher-partnership-requests' && (
+          <div className="error-message">{schoolTeacherPartnershipRequestsError}</div>
+        )}
         {/* Search Results Header - Only show in join-organization tab when there are results */}
         {selectedType === 'join-organization' && 
          filteredSearchResults.length > 0 && 
@@ -2856,10 +3044,10 @@ const Network: React.FC = () => {
         {searchError && (selectedType === 'search' || selectedType === 'join-organization') && (
           <div className="error-message">{searchError}</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !teacherPartnershipRequestsLoading && !schoolTeacherPartnershipRequestsLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && !(isPersonalUserDashboard && activeCard === 'network-members') && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !teacherPartnershipRequestsLoading && !schoolTeacherPartnershipRequestsLoading && !(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && !(isPersonalUserDashboard && activeCard === 'network-members') && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
         
@@ -2983,13 +3171,125 @@ const Network: React.FC = () => {
          (selectedType === 'search' || 
           selectedType === 'join-organization' ||
           selectedType === 'partnership-requests' || 
-          selectedType === 'branch-requests' || 
+          selectedType === 'branch-requests' ||
+          selectedType === 'teacher-partnership-requests' ||
+          selectedType === 'school-teacher-partnership-requests' ||
           (isOrgDashboard && (activeCard === 'partners' || activeCard === 'branches')) || 
           (isPersonalUserDashboard && (activeCard === 'schools' || activeCard === 'companies')) ||
           (!(isOrgDashboard && activeCard) && !(isPersonalUserDashboard && activeCard))) && (
           <div className="grid !grid-cols-3">
             {displayItems.length > 0 ? (
-              displayItems.map((organization) => {
+              displayItems
+                // Pour l'onglet teacher-partnership-requests, filtrer pour n'afficher QUE les demandes
+                .filter((org) => {
+                  if (selectedType === 'teacher-partnership-requests') {
+                    return 'teacherPartnershipRequest' in org;
+                  }
+                  if (selectedType === 'school-teacher-partnership-requests') {
+                    return 'schoolTeacherPartnershipRequest' in org;
+                  }
+                  return true;
+                })
+                .map((organization) => {
+            // Teacher partnership request card (teacher view)
+            if ('teacherPartnershipRequest' in organization) {
+              const req = (organization as Organization & { teacherPartnershipRequest: TeacherPartnershipRequest }).teacherPartnershipRequest;
+              const statusLabel = req.status === 'pending' ? 'En attente' : req.status === 'approved' ? 'Validée' : 'Rejetée';
+              const statusColor = req.status === 'pending' ? '#f59e0b' : req.status === 'approved' ? '#10b981' : '#ef4444';
+              return (
+                <div key={organization.id} className="organization-card">
+                  <div className="organization-header">
+                    <div className="organization-logo">
+                      <div className="logo-placeholder"><i className="fas fa-handshake"></i></div>
+                    </div>
+                    <div className="organization-info">
+                      <h3 className="organization-name">{organization.name}</h3>
+                      <div className="organization-meta">
+                        <span className="organization-type" style={{ background: '#e0e7ff', color: '#4f46e5' }}>
+                          {organization.location || 'Mon établissement'}
+                        </span>
+                        <span className="whitespace-nowrap organization-status" style={{ color: statusColor }}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {organization.description && (
+                    <div className="organization-content">
+                      <p className="organization-description" style={{ margin: 0 }}>{organization.description}</p>
+                    </div>
+                  )}
+                  {req.status === 'pending' && (
+                    <div className="organization-actions" style={{ marginTop: '12px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => handleCancelTeacherPartnershipRequest(req.id)}
+                      >
+                        Annuler la demande
+                      </button>
+                    </div>
+                  )}
+                  {req.status === 'rejected' && req.rejection_reason && (
+                    <div className="organization-content" style={{ marginTop: '8px', fontSize: '0.875rem', color: '#6b7280' }}>
+                      Raison : {req.rejection_reason}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            // School teacher partnership request card (school view) — clic ouvre la modal détail
+            if ('schoolTeacherPartnershipRequest' in organization) {
+              const req = (organization as Organization & { schoolTeacherPartnershipRequest: TeacherPartnershipRequest }).schoolTeacherPartnershipRequest;
+              const descriptionPreview = organization.description
+                ? organization.description.length > 120
+                  ? `${organization.description.slice(0, 120)}…`
+                  : organization.description
+                : '';
+              return (
+                <div
+                  key={organization.id}
+                  className="organization-card"
+                  onClick={() => {
+                    setSelectedSchoolTeacherPartnershipRequest(req);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedSchoolTeacherPartnershipRequest(req);
+                    }
+                  }}
+                >
+                  <div className="organization-header">
+                    <div className="organization-logo">
+                      <div className="logo-placeholder"><i className="fas fa-user-graduate"></i></div>
+                    </div>
+                    <div className="organization-info">
+                      <h3 className="organization-name">{organization.name}</h3>
+                      <div className="organization-meta">
+                        <span className="organization-type" style={{ background: '#dbeafe', color: '#2563eb' }}>
+                          Demande de {organization.location || 'un enseignant'}
+                        </span>
+                        <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
+                          En attente
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="organization-content">
+                    {descriptionPreview ? (
+                      <p className="organization-description" style={{ margin: 0 }}>{descriptionPreview}</p>
+                    ) : null}
+                    <span style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '4px', display: 'block' }}>
+                      Cliquer pour voir les détails et valider / rejeter
+                    </span>
+                  </div>
+                </div>
+              );
+            }
             // Check if this is a partnership request
             const isPartnershipRequest = selectedType === 'partnership-requests' && 
               'partnershipId' in organization;
@@ -3549,16 +3849,39 @@ const Network: React.FC = () => {
             // 1. User is viewing their own organizations (activeCard === 'schools' or 'companies')
             // 2. User is already a confirmed member of this organization
             // 3. User has already made a join request (pending) for this organization
+            // For teachers: only show "Rejoindre" on schools (établissements), not on companies (organisations)
+            const canShowJoin = (organization.type === 'schools' || (organization.type === 'companies' && state.showingPageType !== 'teacher'));
             const joinAction = isPersonalUser && 
-                              (organization.type === 'schools' || organization.type === 'companies') && 
+                              canShowJoin && 
                               selectedType !== 'my-requests' && 
                               activeCard !== 'schools' && 
                               activeCard !== 'companies' &&
                               !isAlreadyConfirmedMember &&
                               !hasPendingJoinRequest ? () => handleJoinOrganizationRequest(organization) : undefined;
             
+            // Teacher partnership request action: show "Soumettre une demande" for teachers in join-organization tab
+            // Check if teacher has any existing teacher partnership request for this organization
+            const hasExistingTeacherPartnershipRequest = state.showingPageType === 'teacher' && 
+              teacherPartnershipRequests.some(req => {
+                const partnerIds = [...(req.partner_school_ids || []), ...(req.partner_company_ids || [])];
+                return partnerIds.includes(parseInt(organization.id));
+              });
+            
+            const teacherPartnershipRequestAction = 
+              state.showingPageType === 'teacher' && 
+              selectedType === 'join-organization' &&
+              (organization.type === 'schools' || organization.type === 'companies') &&
+              !hasExistingTeacherPartnershipRequest &&
+              !isAlreadyConfirmedMember &&
+              !hasPendingJoinRequest
+                ? () => {
+                    setSelectedOrganizationForPartnership(organization);
+                    setIsSelectSchoolModalOpen(true);
+                  }
+                : undefined;
+            
             // Check if there are any hover actions
-            const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction;
+            const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction || !!teacherPartnershipRequestAction;
             
             return (
           <OrganizationCard
@@ -3569,6 +3892,7 @@ const Network: React.FC = () => {
             onAttach={attachActionForSearch}
             onPartnership={partnershipAction}
             onJoin={joinAction}
+            onTeacherPartnershipRequest={teacherPartnershipRequestAction}
             isPersonalUser={isPersonalUser}
             onClick={hasHoverActions ? undefined : () => handleViewDetails(organization)}
             hideJoinButton={selectedType === 'my-requests'}
@@ -3857,6 +4181,53 @@ const Network: React.FC = () => {
         />
       )}
 
+      {/* Select school modal (for teacher partnership request from join-organization) */}
+      {isSelectSchoolModalOpen && selectedOrganizationForPartnership && (
+        <SelectSchoolForPartnershipModal
+          onClose={() => {
+            setIsSelectSchoolModalOpen(false);
+            setSelectedOrganizationForPartnership(null);
+          }}
+          onSelectSchool={(schoolId, schoolName) => {
+            setIsSelectSchoolModalOpen(false);
+            setSelectedSchoolForPartnership({ id: schoolId, name: schoolName });
+            setIsTeacherPartnershipRequestModalOpen(true);
+          }}
+          user={state.user}
+          targetOrganizationName={selectedOrganizationForPartnership.name}
+        />
+      )}
+
+      {/* Teacher partnership request modal (teacher creates request for selected school) */}
+      {isTeacherPartnershipRequestModalOpen && state.showingPageType === 'teacher' && (() => {
+        // Check if we have a selected school from the SelectSchoolModal (for join-organization flow)
+        const schoolId = selectedSchoolForPartnership?.id || getSelectedOrganizationId(state.user, state.showingPageType);
+        const schoolName = selectedSchoolForPartnership?.name || state.user?.available_contexts?.schools?.find((s: any) => s.id === schoolId)?.name;
+        const school = state.user?.available_contexts?.schools?.find((s: any) => s.id === schoolId);
+        if (!schoolId || !school) return null;
+        // Organisation cliquée (carte) : pré-remplit partenaire et nom dans la modal
+        const initialPartner = selectedOrganizationForPartnership && (selectedOrganizationForPartnership.type === 'schools' || selectedOrganizationForPartnership.type === 'companies')
+          ? { id: selectedOrganizationForPartnership.id, name: selectedOrganizationForPartnership.name, type: selectedOrganizationForPartnership.type as 'schools' | 'companies' }
+          : undefined;
+        return (
+          <TeacherPartnershipRequestModal
+            onClose={() => {
+              setIsTeacherPartnershipRequestModalOpen(false);
+              setSelectedSchoolForPartnership(null);
+              setSelectedOrganizationForPartnership(null);
+            }}
+            onSuccess={() => {
+              fetchTeacherPartnershipRequests();
+              setSelectedSchoolForPartnership(null);
+              setSelectedOrganizationForPartnership(null);
+            }}
+            schoolId={schoolId}
+            schoolName={schoolName || 'Mon établissement'}
+            initialPartnerOrganization={initialPartner}
+          />
+        );
+      })()}
+
       {/* Attach Organization Modal */}
       {isAttachModalOpen && (
         <AttachOrganizationModal
@@ -3896,6 +4267,16 @@ const Network: React.FC = () => {
           onAccept={handleConfirmBranchRequest}
           onReject={handleRejectBranchRequest}
           onDelete={handleDeleteBranchRequest}
+        />
+      )}
+
+      {/* Détail demande partenariat enseignant (école) — description complète + Valider / Rejeter */}
+      {selectedSchoolTeacherPartnershipRequest && (
+        <SchoolTeacherPartnershipRequestDetailsModal
+          request={selectedSchoolTeacherPartnershipRequest}
+          onClose={() => setSelectedSchoolTeacherPartnershipRequest(null)}
+          onAccept={handleApproveSchoolTeacherPartnershipRequest}
+          onReject={handleRejectSchoolTeacherPartnershipRequest}
         />
       )}
 
@@ -3970,7 +4351,7 @@ const Network: React.FC = () => {
             onJoin={
               isPersonalUser && 
               selectedOrganizationForDetails && 
-              (selectedOrganizationForDetails.type === 'schools' || selectedOrganizationForDetails.type === 'companies') &&
+              (selectedOrganizationForDetails.type === 'schools' || (selectedOrganizationForDetails.type === 'companies' && state.showingPageType !== 'teacher')) &&
               selectedType !== 'my-requests' &&
               !isAlreadyConfirmedMember &&
               !hasPendingJoinRequest

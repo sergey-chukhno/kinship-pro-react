@@ -24,13 +24,14 @@ interface OrganizationCardProps {
   onAttach?: () => void;
   onPartnership?: () => void;
   onJoin?: () => void;
+  onTeacherPartnershipRequest?: () => void;
   isPersonalUser?: boolean;
   onClick?: () => void;
   hideJoinButton?: boolean;
   hideMembersCount?: boolean;
 }
 
-const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete, onAttach, onPartnership, onJoin, isPersonalUser = false, onClick, hideJoinButton = false, hideMembersCount = false }) => {
+const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete, onAttach, onPartnership, onJoin, onTeacherPartnershipRequest, isPersonalUser = false, onClick, hideJoinButton = false, hideMembersCount = false }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return '#10b981';
@@ -83,7 +84,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
   };
 
   // Check if there are hover actions - if so, disable onClick on the card
-  const hasHoverActions = onAttach || onPartnership || (onJoin && !hideJoinButton);
+  const hasHoverActions = onAttach || onPartnership || (onJoin && !hideJoinButton) || onTeacherPartnershipRequest;
 
   const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // If there are hover actions, prevent the modal from opening
@@ -228,7 +229,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
 
 
       {/* Hover Actions - Se rattacher, Demander un partenariat, ou Rejoindre */}
-      {(onAttach || onPartnership || (onJoin && !hideJoinButton)) && (
+      {(onAttach || onPartnership || (onJoin && !hideJoinButton) || onTeacherPartnershipRequest) && (
         <div className="organization-hover-actions">
           {onAttach && (
             <button 
@@ -267,6 +268,19 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
             >
               <i className="fas fa-handshake"></i>
               <span>Partenariat</span>
+            </button>
+          )}
+          {onTeacherPartnershipRequest && (
+            <button 
+              className="btn-hover-action btn-partnership" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onTeacherPartnershipRequest();
+              }}
+              title="Soumettre une demande de partenariat"
+            >
+              <i className="fas fa-paper-plane"></i>
+              <span>Soumettre une demande</span>
             </button>
           )}
         </div>

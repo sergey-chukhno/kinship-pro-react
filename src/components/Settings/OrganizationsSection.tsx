@@ -4,6 +4,7 @@ import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/Use
 import { useSchoolSearch } from '../../hooks/useSchoolSearch';
 import { useToast } from '../../hooks/useToast';
 import { getCompanies } from '../../api/RegistrationRessource';
+import { useAppContext } from '../../context/AppContext';
 import './OrganizationsSection.css';
 
 interface Organization {
@@ -16,11 +17,15 @@ interface Organization {
 }
 
 const OrganizationsSection: React.FC = () => {
+  const { state } = useAppContext();
   const { showSuccess, showError } = useToast();
   const [schools, setSchools] = useState<Organization[]>([]);
   const [companies, setCompanies] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRemoving, setIsRemoving] = useState<number | null>(null);
+  
+  // Masquer la section Organisations pour les rôles teacher et school (edu)
+  const shouldHideCompaniesSection = state.showingPageType === 'teacher' || state.showingPageType === 'edu';
 
   // School search
   const {
@@ -249,96 +254,98 @@ const OrganizationsSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Companies Section */}
-      <div className="organization-type-section">
-        <h3>Organisations</h3>
-        <p className="section-description">
-          Gérer vos demandes de rattachement avec les organisations
-        </p>
+      {/* Companies Section - Masquée pour teachers et school (edu) */}
+      {!shouldHideCompaniesSection && (
+        <div className="organization-type-section">
+          <h3>Organisations</h3>
+          <p className="section-description">
+            Gérer vos demandes de rattachement avec les organisations
+          </p>
 
-        {/* Add Company */}
-        <div className="add-organization">
-          <h4>Rejoindre une entreprise</h4>
-          <div className="search-container">
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Recherche une organisation (entreprises, associations, institutions,...) par nom, ville, code postal..."
-              value={companySearchQuery}
-              onChange={(e) => setCompanySearchQuery(e.target.value)}
-            />
-            {isSearchingCompanies && <div className="loading-spinner"></div>}
+          {/* Add Company */}
+          <div className="add-organization">
+            <h4>Rejoindre une entreprise</h4>
+            <div className="search-container">
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Recherche une organisation (entreprises, associations, institutions,...) par nom, ville, code postal..."
+                value={companySearchQuery}
+                onChange={(e) => setCompanySearchQuery(e.target.value)}
+              />
+              {isSearchingCompanies && <div className="loading-spinner"></div>}
+            </div>
+
+            {companySearchQuery.length >= 2 && companySearchResults.length > 0 && (
+              <div className="search-results">
+                {companySearchResults.map((company: any) => (
+                  <div key={company.id} className="search-result-item">
+                    <div className="result-info">
+                      <span className="result-name">{company.name}</span>
+                      {company.city && <span className="result-city">{company.city}</span>}
+                    </div>
+                    {isAlreadyMember(company.id, 'company') ? (
+                      <span className="already-member">Déjà membre</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        onClick={() => handleJoinCompany(company.id)}
+                      >
+                        Rejoindre
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {companySearchQuery.length >= 2 && !isSearchingCompanies && companySearchResults.length === 0 && (
+              <p className="no-results">Aucune entreprise trouvée</p>
+            )}
           </div>
 
-          {companySearchQuery.length >= 2 && companySearchResults.length > 0 && (
-            <div className="search-results">
-              {companySearchResults.map((company: any) => (
-                <div key={company.id} className="search-result-item">
-                  <div className="result-info">
-                    <span className="result-name">{company.name}</span>
-                    {company.city && <span className="result-city">{company.city}</span>}
-                  </div>
-                  {isAlreadyMember(company.id, 'company') ? (
-                    <span className="already-member">Déjà membre</span>
-                  ) : (
+          {/* My Companies */}
+          <div className="my-organizations">
+            <h4>Mes entreprises</h4>
+            {companies.length === 0 ? (
+              <p className="no-organizations">Aucune entreprise associée</p>
+            ) : (
+              <div className="organizations-list">
+                {companies.map((company) => (
+                  <div key={company.id} className="organization-item">
+                    <div className="org-info">
+                      {company.logo_url && (
+                        <img src={company.logo_url} alt={company.name} className="org-logo" />
+                      )}
+                      <div className="org-details">
+                        <span className="org-name">{company.name}</span>
+                        {company.city && <span className="org-city">{company.city}</span>}
+                        {company.my_role && (
+                          <span className="org-role">Rôle: {company.my_role}</span>
+                        )}
+                        {company.my_status && (
+                          <span className={`org-status ${company.my_status}`}>
+                            {company.my_status === 'confirmed' ? 'Confirmé' : 'En attente'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     <button
                       type="button"
-                      className="btn btn-sm btn-primary"
-                      onClick={() => handleJoinCompany(company.id)}
+                      className="btn btn-outline btn-sm btn-danger"
+                      onClick={() => handleRemoveCompany(company.id)}
+                      disabled={isRemoving === company.id}
                     >
-                      Rejoindre
+                      {isRemoving === company.id ? 'Suppression...' : 'Quitter'}
                     </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {companySearchQuery.length >= 2 && !isSearchingCompanies && companySearchResults.length === 0 && (
-            <p className="no-results">Aucune entreprise trouvée</p>
-          )}
-        </div>
-
-        {/* My Companies */}
-        <div className="my-organizations">
-          <h4>Mes entreprises</h4>
-          {companies.length === 0 ? (
-            <p className="no-organizations">Aucune entreprise associée</p>
-          ) : (
-            <div className="organizations-list">
-              {companies.map((company) => (
-                <div key={company.id} className="organization-item">
-                  <div className="org-info">
-                    {company.logo_url && (
-                      <img src={company.logo_url} alt={company.name} className="org-logo" />
-                    )}
-                    <div className="org-details">
-                      <span className="org-name">{company.name}</span>
-                      {company.city && <span className="org-city">{company.city}</span>}
-                      {company.my_role && (
-                        <span className="org-role">Rôle: {company.my_role}</span>
-                      )}
-                      {company.my_status && (
-                        <span className={`org-status ${company.my_status}`}>
-                          {company.my_status === 'confirmed' ? 'Confirmé' : 'En attente'}
-                        </span>
-                      )}
-                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm btn-danger"
-                    onClick={() => handleRemoveCompany(company.id)}
-                    disabled={isRemoving === company.id}
-                  >
-                    {isRemoving === company.id ? 'Suppression...' : 'Quitter'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

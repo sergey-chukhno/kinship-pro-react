@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getPartnerships, getTags } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -19,7 +19,7 @@ import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
 import '../Modals/Modal.css';
-import { isUserAdminOfProjectOrg, isUserProjectParticipant, isUserSuperadmin, isUserSuperadminOfProjectOrg } from '../../utils/projectPermissions';
+import { isUserAdminOfProjectOrg, isUserAdminOrReferentOfProjectOrg, isUserProjectParticipant, isUserSuperadmin, isUserSuperadminOfProjectOrg } from '../../utils/projectPermissions';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
@@ -154,6 +154,30 @@ const ProjectManagement: React.FC = () => {
       })
       .catch(() => setTags([]));
   }, [state.tags?.length, setTags]);
+
+  // Charger tous les parcours disponibles pour la modal d'édition (indépendamment de state.tags)
+  useEffect(() => {
+    const fetchEditPathways = async () => {
+      setIsLoadingEditPathways(true);
+      try {
+        const tagsData = await getTags();
+        // Ensure tagsData is an array before setting
+        if (Array.isArray(tagsData)) {
+          setEditAvailablePathways(tagsData);
+        } else {
+          console.error('getTags returned non-array:', tagsData);
+          setEditAvailablePathways([]);
+        }
+      } catch (error) {
+        console.error('Error fetching pathways for edit modal:', error);
+        setEditAvailablePathways([]);
+      } finally {
+        setIsLoadingEditPathways(false);
+      }
+    };
+
+    fetchEditPathways();
+  }, []);
   const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -193,6 +217,8 @@ const ProjectManagement: React.FC = () => {
   const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
   const [editAvailableMembers, setEditAvailableMembers] = useState<any[]>([]);
+  const [editCoResponsibleOptions, setEditCoResponsibleOptions] = useState<any[]>([]);
+  const [isLoadingEditCoResponsibles, setIsLoadingEditCoResponsibles] = useState(false);
   const [editAvailablePartnerships, setEditAvailablePartnerships] = useState<any[]>([]);
   const [editPartnershipContactMembers, setEditPartnershipContactMembers] = useState<any[]>([]);
   const [isLoadingEditMembers, setIsLoadingEditMembers] = useState(false);
@@ -207,10 +233,21 @@ const ProjectManagement: React.FC = () => {
   const [editPathwayDropdownOpen, setEditPathwayDropdownOpen] = useState(false);
   const editPathwayDropdownRef = useRef<HTMLDivElement | null>(null);
   const editPathwaySearchInputRef = useRef<HTMLInputElement | null>(null);
+  const editPathwayDropdownClickInProgress = useRef<boolean>(false);
+  const [editAvailablePathways, setEditAvailablePathways] = useState<any[]>([]);
+  const [isLoadingEditPathways, setIsLoadingEditPathways] = useState(false);
   /** Pour l'édition : mode par classe (manual / all) et popup détail classe */
   const [editClassSelectionMode, setEditClassSelectionMode] = useState<Record<string, 'manual' | 'all'>>({});
   const [editClassManualParticipantIds, setEditClassManualParticipantIds] = useState<Record<string, string[]>>({});
   const [editClassDetailPopup, setEditClassDetailPopup] = useState<{ classId: string; className: string; mode: 'choice' | 'view' | 'manual' } | null>(null);
+  // Co-responsables par classe : après sélection d'une classe, popup pour choisir les co-responsables liés à cette classe
+  const [editClassCoResponsiblesPopup, setEditClassCoResponsiblesPopup] = useState<{ classId: string; className: string } | null>(null);
+  const [editClassCoResponsibles, setEditClassCoResponsibles] = useState<Record<string, string[]>>({});
+  const [editClassCoResponsiblesSearchTerm, setEditClassCoResponsiblesSearchTerm] = useState<string>('');
+  // Co-responsables par partenariat : après sélection d'un partenariat, popup pour choisir les co-responsables liés à ce partenariat
+  const [editPartnershipCoResponsiblesPopup, setEditPartnershipCoResponsiblesPopup] = useState<{ partnershipId: string; partnershipName: string; contactUsers: any[] } | null>(null);
+  const [editPartnershipCoResponsibles, setEditPartnershipCoResponsibles] = useState<Record<string, string[]>>({});
+  const [editPartnershipCoResponsiblesSearchTerm, setEditPartnershipCoResponsiblesSearchTerm] = useState<string>('');
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
@@ -855,7 +892,8 @@ const ProjectManagement: React.FC = () => {
 
   /**
    * Check if user can join the project
-   * Returns true if user is not a participant and doesn't have admin access
+   * Returns true if user is not a participant
+   * In read-only mode (superadmin/admin/referent viewing), user can still join to become a participant
    */
   const canUserJoinProject = (): boolean => {
     if (!apiProjectData || !state.user?.id) return false;
@@ -865,7 +903,12 @@ const ProjectManagement: React.FC = () => {
       return false;
     }
 
-    // Check if user has admin access (owner/co-owner/admin or org admin)
+    // If user is in read-only mode (superadmin/admin/referent viewing but not participant), they can join
+    if (isReadOnlyMode) {
+      return true;
+    }
+
+    // Check if user has admin access (owner/co-owner/admin or org admin) - they don't need to join
     if (shouldShowTabs()) {
       return false;
     }
@@ -883,6 +926,21 @@ const ProjectManagement: React.FC = () => {
     state.user?.id != null &&
     isUserSuperadminOfProjectOrg(apiProjectData, state.user) &&
     !isUserProjectParticipant(apiProjectData, state.user.id.toString());
+
+  /**
+   * Admin/referent de l'organisation du projet qui n'est pas dans le projet : voir tous les onglets et participants en lecture seule, boutons d'actions cachés.
+   * Un admin/referent d'une autre organisation ne bénéficie pas de cette vue.
+   */
+  const isAdminViewingReadOnly =
+    apiProjectData != null &&
+    state.user?.id != null &&
+    isUserAdminOrReferentOfProjectOrg(apiProjectData, state.user) &&
+    !isUserProjectParticipant(apiProjectData, state.user.id.toString());
+
+  /**
+   * Mode lecture seule : superadmin ou admin/referent de l'organisation du projet qui n'est pas dans le projet
+   */
+  const isReadOnlyMode = isSuperadminViewingReadOnly || isAdminViewingReadOnly;
 
   /**
    * Determine if tabs should be shown based on user type and role
@@ -1334,11 +1392,36 @@ const ProjectManagement: React.FC = () => {
     setEditSearchTerms(prev => ({ ...prev, [field]: value }));
   };
 
+  // Filter members for participants (includes all members: staff + students)
   const getEditFilteredMembers = (searchTerm: string) => {
     // Filter out already selected co-responsibles
     let available = editAvailableMembers.filter((member: any) =>
       !editForm.coResponsibles.includes(member.id.toString())
     );
+
+    if (!searchTerm) return available;
+    const lowerSearch = searchTerm.toLowerCase();
+    return available.filter((member: any) => {
+      const fullName = member.full_name || `${member.first_name} ${member.last_name}`;
+      return fullName.toLowerCase().includes(lowerSearch) || member.email?.toLowerCase().includes(lowerSearch);
+    });
+  };
+
+  const getEditFilteredCoResponsibles = (searchTerm: string) => {
+    // Use co-responsible options (from teacher school API) if available, otherwise use regular members
+    const sourceMembers = (editCoResponsibleOptions.length > 0) ? editCoResponsibleOptions : editAvailableMembers;
+    
+    // Filter out already selected co-responsibles
+    let available = sourceMembers.filter((member: any) =>
+      !editForm.coResponsibles.includes(member.id.toString())
+    );
+
+    // Filter out students - only show staff members for co-responsibles
+    const STUDENT_SYSTEM_ROLES = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant'];
+    available = available.filter((member: any) => {
+      const role = (member.role_in_system || member.role || '').toString().toLowerCase();
+      return !STUDENT_SYSTEM_ROLES.includes(role);
+    });
 
     if (!searchTerm) return available;
     const lowerSearch = searchTerm.toLowerCase();
@@ -1368,6 +1451,85 @@ const ProjectManagement: React.FC = () => {
     const id = memberId.toString();
     const byId = (m: any) => m?.id?.toString() === id || m?.id === parseInt(memberId, 10);
     return editAvailableMembers.find(byId) ?? editPartnershipContactMembers.find(byId) ?? null;
+  };
+
+  /** Enseignants d'une classe (depuis availableSchoolLevels ou editCoResponsibleOptions) */
+  const getEditTeachersInClass = (schoolLevelId: string): any[] => {
+    const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === schoolLevelId);
+    if (!classItem) return [];
+    
+    // Récupérer les IDs des enseignants de la classe
+    const teacherIds = classItem.teacher_ids || (classItem.teachers || []).map((t: any) => t.id || t);
+    if (!teacherIds || teacherIds.length === 0) return [];
+    
+    // Filtrer les membres disponibles (editCoResponsibleOptions pour teacher/school, ou editAvailableMembers pour autres contextes)
+    const availableMembers = editCoResponsibleOptions.length > 0 ? editCoResponsibleOptions : editAvailableMembers;
+    
+    // Exclure le propriétaire du projet
+    const ownerId = apiProjectData?.owner?.id?.toString();
+    
+    return availableMembers.filter((member: any) => {
+      if (!member?.id) return false;
+      if (ownerId && member.id?.toString() === ownerId) return false;
+      return teacherIds.includes(member.id) || teacherIds.includes(Number(member.id));
+    });
+  };
+
+  /** Ouvrir la popup de sélection des co-responsables après sélection de classe */
+  const openEditClassCoResponsiblesPopup = (classId: string, className: string) => {
+    setEditClassDetailPopup(null);
+    setEditClassCoResponsiblesPopup({ classId, className });
+    setEditClassCoResponsiblesSearchTerm('');
+  };
+
+  /** Toggle co-responsable pour une classe */
+  const toggleEditClassCoResponsible = (classId: string, memberId: string) => {
+    const idStr = memberId.toString();
+    setEditClassCoResponsibles(prev => {
+      const current = prev[classId] || [];
+      const newList = current.includes(idStr)
+        ? current.filter(id => id !== idStr)
+        : [...current, idStr];
+      return { ...prev, [classId]: newList };
+    });
+  };
+
+  /** Filtrer les enseignants de la classe pour la popup de co-responsables */
+  const getFilteredEditClassCoResponsibles = (classId: string, searchTerm: string) => {
+    const teachers = getEditTeachersInClass(classId);
+    if (!searchTerm.trim()) return teachers;
+    const term = searchTerm.toLowerCase();
+    return teachers.filter((teacher: any) => {
+      const name = (teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim()).toLowerCase();
+      const email = (teacher.email || '').toLowerCase();
+      const role = (translateRole(teacher.role_in_system ?? teacher.role ?? '') || '').toLowerCase();
+      return name.includes(term) || email.includes(term) || role.includes(term);
+    });
+  };
+
+  /** Toggle co-responsable pour un partenariat */
+  const toggleEditPartnershipCoResponsible = (partnershipId: string, memberId: string) => {
+    const idStr = memberId.toString();
+    setEditPartnershipCoResponsibles(prev => {
+      const current = prev[partnershipId] || [];
+      const newList = current.includes(idStr)
+        ? current.filter(id => id !== idStr)
+        : [...current, idStr];
+      return { ...prev, [partnershipId]: newList };
+    });
+  };
+
+  /** Filtrer les contact users du partenariat pour la popup de co-responsables */
+  const getFilteredEditPartnershipCoResponsibles = (contactUsers: any[], searchTerm: string) => {
+    if (!searchTerm.trim()) return contactUsers;
+    const term = searchTerm.toLowerCase();
+    return contactUsers.filter((user: any) => {
+      const name = (user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim()).toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      const role = (user.role_in_organization || user.role || '').toLowerCase();
+      const org = (user.organization || '').toLowerCase();
+      return name.includes(term) || email.includes(term) || role.includes(term) || org.includes(term);
+    });
   };
 
   const handleEditParticipantRemove = (memberId: string) => {
@@ -1421,38 +1583,64 @@ const ProjectManagement: React.FC = () => {
 
   const handleEditPartnerSelect = (partnerId: string) => {
     const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
+    
+    if (!partnership) return;
+    
     const ownerId = apiProjectData?.owner?.id != null ? apiProjectData.owner.id.toString() : null;
-    const contactUsersRaw = partnership
-      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
-        id: c.id,
-        full_name: c.full_name || '',
-        email: c.email || '',
-        role: c.role_in_organization || '',
-        organization: p.name || ''
-      })))
-      : [];
+    const contactUsersRaw = (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
+      id: c.id,
+      full_name: c.full_name || '',
+      email: c.email || '',
+      role: c.role_in_organization || '',
+      organization: p.name || ''
+    })));
     // Exclude project owner so they are not proposed as co-owner (owner can be staff in partner orgs)
     const contactUsers = ownerId
       ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
       : contactUsersRaw;
-    const contactIds = contactUsers.map((c: any) => c.id.toString());
-
-    setEditForm(prev => {
-      const isAdding = !prev.partners.includes(partnerId);
-      const newPartners = isAdding
-        ? [...prev.partners, partnerId]
-        : prev.partners.filter(id => id !== partnerId);
-      return { ...prev, partners: newPartners };
-    });
-
-    setEditPartnershipContactMembers(prev => {
-      const isAdding = !editForm.partners.includes(partnerId);
-      if (isAdding) {
-        return [...prev, ...contactUsers];
-      }
-      const toRemoveIds = new Set(contactIds);
-      return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
-    });
+    
+    const isAlreadySelected = editForm.partners.includes(partnerId);
+    
+    if (isAlreadySelected) {
+      // Désélectionner le partenariat
+      const contactIds = contactUsers.map((c: any) => c.id.toString());
+      setEditForm(prev => ({
+        ...prev,
+        partners: prev.partners.filter(id => id !== partnerId),
+        coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+      }));
+      setEditPartnershipContactMembers(prev => {
+        const toRemoveIds = new Set(contactIds);
+        return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
+      });
+      // Nettoyer les co-responsables de ce partenariat
+      setEditPartnershipCoResponsibles(prev => {
+        const next = { ...prev };
+        delete next[partnerId];
+        return next;
+      });
+    } else {
+      // Ajouter le partenariat et ouvrir la popup de sélection des co-responsables
+      setEditForm(prev => ({
+        ...prev,
+        partners: [...prev.partners, partnerId]
+      }));
+      
+      // Construire le nom du partenariat pour l'affichage
+      const partnerOrgs = partnership.partners || [];
+      const partnershipName = partnerOrgs.map((p: any) => p.name).join(', ') || partnership.name || '';
+      
+      // Ouvrir la popup de sélection des co-responsables
+      setEditPartnershipCoResponsiblesPopup({
+        partnershipId: partnerId,
+        partnershipName,
+        contactUsers
+      });
+      setEditPartnershipCoResponsiblesSearchTerm('');
+      
+      // Ajouter les contact users à editPartnershipContactMembers pour l'affichage
+      setEditPartnershipContactMembers(prev => [...prev, ...contactUsers]);
+    }
   };
 
   const handleEdit = async () => {
@@ -1491,6 +1679,12 @@ const ProjectManagement: React.FC = () => {
     setEditClassSelectionMode({});
     setEditClassManualParticipantIds({});
     setEditClassDetailPopup(null);
+    setEditClassCoResponsiblesPopup(null);
+    setEditClassCoResponsibles({});
+    setEditClassCoResponsiblesSearchTerm('');
+    setEditPartnershipCoResponsiblesPopup(null);
+    setEditPartnershipCoResponsibles({});
+    setEditPartnershipCoResponsiblesSearchTerm('');
     setEditPathwaySearchTerm('');
     setEditPathwayDropdownOpen(false);
     setEditForm({
@@ -1499,7 +1693,9 @@ const ProjectManagement: React.FC = () => {
       tags: [...(project.tags || [])],
       startDate: project.startDate,
       endDate: project.endDate,
-      pathways: project.pathway ? [project.pathway] : [],
+      pathways: (project.pathways && project.pathways.length > 0)
+        ? [...project.pathways]
+        : (project.pathway ? [project.pathway] : []),
       status: project.status || 'coming',
       visibility: isMLDSProject ? 'private' : (project.visibility || 'public'), // MLDS projects are always private
       isPartnership: isPartnerProject,
@@ -1553,6 +1749,56 @@ const ProjectManagement: React.FC = () => {
       setEditAvailableMembers([]);
     } finally {
       setIsLoadingEditMembers(false);
+    }
+
+    // Load co-responsibles options (school staff + community) when teacher and project has a school
+    // Get school ID from project's school_levels or user context
+    let projectSchoolId: number | null = null;
+    if (state.showingPageType === 'teacher') {
+      // Priorité 1: school_id direct dans apiProjectData
+      if (apiProjectData?.school_id) {
+        projectSchoolId = apiProjectData.school_id;
+      }
+      // Priorité 2: depuis school_levels
+      else if (apiProjectData?.school_levels && apiProjectData.school_levels.length > 0) {
+        // Essayer d'abord school.id, puis school_id dans le level
+        const firstLevel = apiProjectData.school_levels[0];
+        projectSchoolId = firstLevel?.school?.id || firstLevel?.school_id || null;
+        
+        // Si toujours null, chercher dans tous les levels
+        if (!projectSchoolId) {
+          for (const level of apiProjectData.school_levels) {
+            const schoolId = level?.school?.id || level?.school_id;
+            if (schoolId) {
+              projectSchoolId = schoolId;
+              break;
+            }
+          }
+        }
+      }
+      // Priorité 3: fallback à l'école sélectionnée par l'utilisateur
+      else {
+        const selectedOrgId = getSelectedOrganizationId(state.user, state.showingPageType);
+        const selectedSchool = state.user?.available_contexts?.schools?.find((s: any) => s.id === selectedOrgId);
+        projectSchoolId = selectedSchool?.id || null;
+      }
+    }
+
+    if (state.showingPageType === 'teacher' && projectSchoolId) {
+      setIsLoadingEditCoResponsibles(true);
+      try {
+        console.log('🔍 [handleEdit] Fetching co-responsables for school:', projectSchoolId);
+        const membersResponse = await getTeacherSchoolMembers(projectSchoolId, { per_page: 500, exclude_me: true });
+        console.log('🔍 [handleEdit] Co-responsables fetched:', membersResponse.data?.length || 0);
+        setEditCoResponsibleOptions(membersResponse.data || []);
+      } catch (error) {
+        console.error('Error fetching teacher school members for co-responsibles:', error);
+        setEditCoResponsibleOptions([]);
+      } finally {
+        setIsLoadingEditCoResponsibles(false);
+      }
+    } else {
+      setEditCoResponsibleOptions([]);
     }
 
     // Load partnerships
@@ -1760,8 +2006,25 @@ const ProjectManagement: React.FC = () => {
       // Cas spécial : enseignants avec projets MLDS → "À traiter"
       statusForSubmit = 'to_process';
     } else {
-      // Utiliser le statut sélectionné dans le formulaire
-      statusForSubmit = editForm.status || 'coming';
+      // Déterminer le statut automatiquement en fonction de la date de début
+      if (editForm.startDate) {
+        const startDate = new Date(editForm.startDate);
+        const today = new Date();
+        // Réinitialiser les heures pour comparer uniquement les dates
+        today.setHours(0, 0, 0, 0);
+        startDate.setHours(0, 0, 0, 0);
+        
+        // Si la date de début est dans le passé, le projet est "en cours"
+        // Sinon, il est "à venir"
+        if (startDate <= today) {
+          statusForSubmit = 'in_progress';
+        } else {
+          statusForSubmit = 'coming';
+        }
+      } else {
+        // Si pas de date de début, utiliser le statut du formulaire ou "à venir" par défaut
+        statusForSubmit = editForm.status || 'coming';
+      }
     }
 
     await handleSaveEditInternal(statusForSubmit);
@@ -1798,12 +2061,25 @@ const ProjectManagement: React.FC = () => {
   const handleEditSchoolLevelToggle = (schoolLevelId: string) => {
     const isAlreadySelected = editForm.mldsSchoolLevelIds.includes(schoolLevelId);
     if (isAlreadySelected) {
+      // Récupérer les co-responsables de cette classe avant de la supprimer
+      const coResponsiblesToRemove = editClassCoResponsibles[schoolLevelId] || [];
+      
       setEditForm(prev => {
         const updatedSchoolLevelIds = prev.mldsSchoolLevelIds.filter(id => id !== schoolLevelId);
         const memberIdsInClass = getEditStudentsInClass(schoolLevelId).map((m: any) => m.id?.toString()).filter(Boolean);
         const participantsToRemove = new Set(memberIdsInClass);
         const updatedParticipants = prev.participants.filter(id => !participantsToRemove.has(id.toString()));
-        return { ...prev, mldsSchoolLevelIds: updatedSchoolLevelIds, participants: updatedParticipants };
+        
+        // Retirer les co-responsables de cette classe
+        const coResponsiblesToRemoveSet = new Set(coResponsiblesToRemove);
+        const updatedCoResponsibles = prev.coResponsibles.filter(id => !coResponsiblesToRemoveSet.has(id));
+        
+        return { 
+          ...prev, 
+          mldsSchoolLevelIds: updatedSchoolLevelIds, 
+          participants: updatedParticipants,
+          coResponsibles: updatedCoResponsibles
+        };
       });
       setEditClassSelectionMode(prev => {
         const next = { ...prev };
@@ -1811,6 +2087,12 @@ const ProjectManagement: React.FC = () => {
         return next;
       });
       setEditClassManualParticipantIds(prev => {
+        const next = { ...prev };
+        delete next[schoolLevelId];
+        return next;
+      });
+      // Nettoyer les co-responsables de cette classe
+      setEditClassCoResponsibles(prev => {
         const next = { ...prev };
         delete next[schoolLevelId];
         return next;
@@ -1852,6 +2134,41 @@ const ProjectManagement: React.FC = () => {
     setEditForm(prev => ({ ...prev, participants: Array.from(new Set(fromClasses)) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editClassSelectionMode, editClassManualParticipantIds, editForm.mldsSchoolLevelIds, editUseClassBasedParticipants, isEditModalOpen, editAvailableMembers]);
+
+  // Synchroniser editForm.coResponsibles à partir des co-responsables sélectionnés par classe et par partenariat
+  useEffect(() => {
+    if (!isEditModalOpen) return;
+    
+    // Récupérer tous les co-responsables des classes actuellement sélectionnées uniquement
+    const fromClasses: string[] = [];
+    editForm.mldsSchoolLevelIds.forEach(classId => {
+      (editClassCoResponsibles[classId] || []).forEach(id => {
+        if (!fromClasses.includes(id)) fromClasses.push(id);
+      });
+    });
+    
+    // Récupérer tous les co-responsables des partenariats actuellement sélectionnés uniquement
+    const fromPartnerships: string[] = [];
+    editForm.partners.forEach(partnershipId => {
+      (editPartnershipCoResponsibles[partnershipId] || []).forEach(id => {
+        if (!fromPartnerships.includes(id)) fromPartnerships.push(id);
+      });
+    });
+    
+    // Récupérer les IDs de tous les co-responsables qui viennent des classes et partenariats sélectionnés
+    const allSelectedIds = new Set([...fromClasses, ...fromPartnerships]);
+    
+    // Récupérer les co-responsables qui ne viennent pas des classes ni des partenariats (sélection manuelle globale)
+    setEditForm(prev => {
+      // Garder uniquement les co-responsables qui ne viennent pas des classes ni des partenariats sélectionnés
+      const nonClassOrPartnershipCoResponsibles = prev.coResponsibles.filter(id => !allSelectedIds.has(id));
+      
+      // Fusionner avec les co-responsables des classes et partenariats sélectionnés
+      const allCoResponsibles = Array.from(new Set([...nonClassOrPartnershipCoResponsibles, ...fromClasses, ...fromPartnerships]));
+      return { ...prev, coResponsibles: allCoResponsibles };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editClassCoResponsibles, editPartnershipCoResponsibles, editForm.mldsSchoolLevelIds, editForm.partners, isEditModalOpen]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -3454,7 +3771,7 @@ const ProjectManagement: React.FC = () => {
             <i className="fas fa-link"></i> Copier le lien
           </button>
           {/* Close project button: only for owner, when project is in progress */}
-          {!isProjectEnded && project.status === 'in_progress' && userProjectRole === 'owner' && !isSuperadminViewingReadOnly && (
+          {!isProjectEnded && project.status === 'in_progress' && userProjectRole === 'owner' && !isReadOnlyMode && (
             <button
               type="button"
               className="btn btn-secondary"
@@ -3471,7 +3788,7 @@ const ProjectManagement: React.FC = () => {
               <i className="fas fa-file-pdf"></i> Exporter en PDF
             </button>
           )}
-          {canAssignBadges && !isProjectEnded && !isSuperadminViewingReadOnly && (
+          {canAssignBadges && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
             <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
               <i className="fas fa-award"></i> Attribuer un badge
             </button>
@@ -3564,7 +3881,7 @@ const ProjectManagement: React.FC = () => {
                   </span>
                 ) : null}
                 {/* Edit button for owner only (hidden for superadmin in read-only view) */}
-                {apiProjectData && userProjectRole === 'owner' && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                {apiProjectData && userProjectRole === 'owner' && !isProjectEnded && !isReadOnlyMode && (
                   <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
                     <i className="fas fa-edit"></i>
                   </button>
@@ -3705,7 +4022,22 @@ const ProjectManagement: React.FC = () => {
               {project.coResponsibles && project.coResponsibles.length > 0 && (
                 <div className="project-co-responsibles-section">
                   <div className="project-manager-header">
-                    <h4>Co-responsables</h4>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      Co-responsables
+                      <span className="info-tooltip-wrapper">
+                        <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                        <div className="info-tooltip">
+                          <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+                          <ul>
+                            <li>voir le projet dans leur profil</li>
+                            <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+                            <li>attribuer des badges</li>
+                            <li>faire des équipes et donner des rôles dans équipe</li>
+                            <li>plus tard attribuer des tâches (Kanban)</li>
+                          </ul>
+                        </div>
+                      </span>
+                    </h4>
                   </div>
                   <div className="co-responsibles-list">
                     {project.coResponsibles.map((coResponsible, index) => (
@@ -4069,7 +4401,7 @@ const ProjectManagement: React.FC = () => {
         )}
 
         {/* Bannière vue lecture seule pour superadmin */}
-        {isSuperadminViewingReadOnly && (
+        {(isSuperadminViewingReadOnly || isAdminViewingReadOnly) && (
           <div className="project-readonly-banner" style={{
             padding: '0.75rem 1rem',
             backgroundColor: '#fef3c7',
@@ -4246,7 +4578,7 @@ const ProjectManagement: React.FC = () => {
                           ))}
                         </div>
                         <div className="member-actions">
-                          {canAssignBadges && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                          {canAssignBadges && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
                             <button
                               type="button"
                               className="btn-icon badge-btn"
@@ -4260,7 +4592,7 @@ const ProjectManagement: React.FC = () => {
                             </button>
                           )}
                           {/* Show remove button if user can see it and participant can be removed */}
-                          {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                          {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && !isProjectEnded && !isReadOnlyMode && (
                             <button
                               type="button"
                               className="btn-icon"
@@ -4331,7 +4663,7 @@ const ProjectManagement: React.FC = () => {
                             </div>
                           </div>
 
-                          {!isSuperadminViewingReadOnly && (
+                          {!isReadOnlyMode && (
                             <div className="request-actions">
                               <div className="action-buttons">
                                 <button
@@ -4364,7 +4696,7 @@ const ProjectManagement: React.FC = () => {
                 <div className="participants-section">
                   <div className="section-header">
                     <h3>Participants du projet</h3>
-                    {!isProjectEnded && !isSuperadminViewingReadOnly && (
+                    {!isProjectEnded && !isReadOnlyMode && (
                       <button
                         className="btn btn-primary btn-sm"
                         onClick={handleAddParticipant}
@@ -4445,7 +4777,7 @@ const ProjectManagement: React.FC = () => {
                                   Retirer
                                 </button>
                               )}
-                              {canAssignBadges && (
+                              {canAssignBadges && !isProjectEnded && project.status !== 'draft' && (
                                 <button
                                   className="btn-accept"
                                   onClick={() => handleAwardBadge(participant.memberId)}
@@ -4475,7 +4807,7 @@ const ProjectManagement: React.FC = () => {
                     </div>
                     <div className="section-actions">
                       <span className="team-count">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
-                      {shouldShowTabs() && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                      {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
                         <button className="btn btn-primary" onClick={handleCreateTeam}>
                           <i className="fas fa-plus"></i>
                           Créer une équipe
@@ -4495,7 +4827,7 @@ const ProjectManagement: React.FC = () => {
                       </div>
                       <h4>Aucune équipe créée</h4>
                       <p>Créez votre première équipe pour organiser vos participants et améliorer la collaboration.</p>
-                      {shouldShowTabs() && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                      {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
                         <button className="btn btn-primary" onClick={handleCreateTeam}>
                           <i className="fas fa-plus"></i>
                           Créer une équipe
@@ -4563,7 +4895,7 @@ const ProjectManagement: React.FC = () => {
                                     >
                                       <i className="fas fa-eye"></i>
                                     </button>
-                                    {shouldShowTabs() && !isProjectEnded && !isSuperadminViewingReadOnly && (
+                                    {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
                                       <>
                                         <button
                                           className="btn-icon edit-btn"
@@ -4879,7 +5211,7 @@ const ProjectManagement: React.FC = () => {
                     <h3>Documents</h3>
                   </div>
 
-                  {!isSuperadminViewingReadOnly && !isProjectEnded && (
+                  {!isReadOnlyMode && !isProjectEnded && (
                     <div className="badge-filters">
                       <div className="filter-group" style={{ width: '100%' }}>
                         <input
@@ -4955,7 +5287,7 @@ const ProjectManagement: React.FC = () => {
                                       Télécharger
                                     </a>
                                   )}
-                                  {!isProjectEnded && !isSuperadminViewingReadOnly && (
+                                  {!isProjectEnded && !isReadOnlyMode && (
                                     <button
                                       type="button"
                                       className="btn btn-outline btn-sm btn-danger"
@@ -5429,7 +5761,7 @@ const ProjectManagement: React.FC = () => {
               {/* Parcours - même input que ProjectModal : pills + recherche + dropdown (max. 2) */}
               <div className="form-group pathway-search-form" ref={editPathwayDropdownRef}>
                 <label className="form-label">Parcours * <span className="text-muted">(max. 2)</span></label>
-                {(state.tags || []).length === 0 ? (
+                {isLoadingEditPathways ? (
                   <div className="loading-message pathway-loading">
                     <i className="fas fa-spinner fa-spin" />
                     <span>Chargement des parcours...</span>
@@ -5459,14 +5791,24 @@ const ProjectManagement: React.FC = () => {
                         onChange={(e) => setEditPathwaySearchTerm(e.target.value)}
                         onFocus={() => (editForm.pathways || []).length < 2 && setEditPathwayDropdownOpen(true)}
                         onBlur={(e) => {
-                          const next = e.relatedTarget as Node | null;
-                          if (editPathwayDropdownRef.current && next && editPathwayDropdownRef.current.contains(next)) return;
-                          setEditPathwayDropdownOpen(false);
+                          // Sur Safari, relatedTarget peut être null même lors d'un clic dans le dropdown
+                          // Vérifier si un clic est en cours dans le dropdown avant de fermer
+                          setTimeout(() => {
+                            if (editPathwayDropdownClickInProgress.current) {
+                              editPathwayDropdownClickInProgress.current = false;
+                              return;
+                            }
+                            const activeElement = document.activeElement;
+                            if (editPathwayDropdownRef.current && activeElement && editPathwayDropdownRef.current.contains(activeElement)) {
+                              return;
+                            }
+                            setEditPathwayDropdownOpen(false);
+                          }, 150);
                         }}
                       />
                       {editPathwayDropdownOpen && (editForm.pathways || []).length < 2 && (
                         <div className="pathway-dropdown">
-                          {(state.tags || [])
+                          {editAvailablePathways
                             .filter((p: any) => !editPathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(editPathwaySearchTerm.toLowerCase()))
                             .map((pathway: any) => {
                               const pathwayName = pathway.name;
@@ -5476,8 +5818,13 @@ const ProjectManagement: React.FC = () => {
                                   type="button"
                                   key={pathway.id}
                                   className={`pathway-dropdown-item ${isSelected ? 'selected' : ''}`}
+                                  onMouseDown={(e) => {
+                                    // Marquer qu'un clic est en cours pour empêcher le blur sur Safari
+                                    editPathwayDropdownClickInProgress.current = true;
+                                  }}
                                   onClick={() => {
                                     handleEditPathwayToggle(pathwayName);
+                                    editPathwayDropdownClickInProgress.current = false;
                                     editPathwaySearchInputRef.current?.focus();
                                   }}
                                 >
@@ -5486,7 +5833,7 @@ const ProjectManagement: React.FC = () => {
                                 </button>
                               );
                             })}
-                          {(state.tags || []).filter((p: any) => !editPathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(editPathwaySearchTerm.toLowerCase())).length === 0 && (
+                          {editAvailablePathways.filter((p: any) => !editPathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(editPathwaySearchTerm.toLowerCase())).length === 0 && (
                             <div className="pathway-dropdown-empty">Aucun parcours trouvé</div>
                           )}
                         </div>
@@ -5538,7 +5885,7 @@ const ProjectManagement: React.FC = () => {
                   <div className="form-label">Ajouter une/des classe(s) au projet</div>
                   {availableSchoolLevels.length > 0 ? (
                     <>
-                      <div className="multi-select-container" style={{ maxHeight: '300px'}}>
+                      <div className="multi-select-container" style={{ }}>
                         {availableSchoolLevels.map(classItem => (
                           <label
                             key={classItem.id}
@@ -5644,7 +5991,7 @@ const ProjectManagement: React.FC = () => {
                                 style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                                 onClick={() => {
                                   setEditClassMode(editClassDetailPopup.classId, 'all');
-                                  setEditClassDetailPopup(null);
+                                  openEditClassCoResponsiblesPopup(editClassDetailPopup.classId, editClassDetailPopup.className);
                                 }}
                               >
                                 <i className="fas fa-users" />
@@ -5670,18 +6017,31 @@ const ProjectManagement: React.FC = () => {
                         return (
                           <div>
                             <div style={{ marginBottom: '12px' }}>
-                              <button
-                                type="button"
-                                className="btn btn-outline"
-                                style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => {
-                                  setEditClassMode(editClassDetailPopup.classId, 'all');
-                                  setEditClassDetailPopup(null);
-                                }}
-                              >
-                                <i className="fas fa-users" />
-                                <span>Tout sélectionner</span>
-                              </button>
+                              <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline"
+                                  style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                  onClick={() => {
+                                    setEditClassMode(editClassDetailPopup.classId, 'all');
+                                    openEditClassCoResponsiblesPopup(editClassDetailPopup.classId, editClassDetailPopup.className);
+                                  }}
+                                >
+                                  <i className="fas fa-users" />
+                                  <span>Tout sélectionner</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                  onClick={() => {
+                                    openEditClassCoResponsiblesPopup(editClassDetailPopup.classId, editClassDetailPopup.className);
+                                  }}
+                                >
+                                  <i className="fas fa-check" />
+                                  <span>Valider et continuer</span>
+                                </button>
+                              </div>
                             </div>
                             {students.map((student: any) => {
                               const sid = student.id?.toString();
@@ -5729,6 +6089,203 @@ const ProjectManagement: React.FC = () => {
                 </div>
               )}
 
+              {/* Popup sélection co-responsables de classe */}
+              {editClassCoResponsiblesPopup && (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setEditClassCoResponsiblesPopup(null)}>
+                  <div className="modal-content" style={{ background: 'white', borderRadius: '8px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', marginBottom: '4px' }}>Sélectionner les co-responsables</h3>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>{editClassCoResponsiblesPopup.className}</p>
+                      </div>
+                      <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setEditClassCoResponsiblesPopup(null)}>
+                        <i className="fas fa-times" />
+                      </button>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                      <div className="search-input-container" style={{ marginBottom: '16px' }}>
+                        <i className="fas fa-search search-icon"></i>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Rechercher un co-responsable..."
+                          value={editClassCoResponsiblesSearchTerm}
+                          onChange={(e) => setEditClassCoResponsiblesSearchTerm(e.target.value)}
+                        />
+                      </div>
+                      {(() => {
+                        const teachers = getFilteredEditClassCoResponsibles(editClassCoResponsiblesPopup.classId, editClassCoResponsiblesSearchTerm);
+                        const selectedIds = editClassCoResponsibles[editClassCoResponsiblesPopup.classId] || [];
+                        
+                        if (teachers.length === 0) {
+                          return (
+                            <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                              <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                              <p>{editClassCoResponsiblesSearchTerm ? 'Aucun enseignant trouvé' : 'Aucun enseignant disponible pour cette classe'}</p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="selection-list">
+                            {teachers.map((teacher: any) => {
+                              const teacherId = teacher.id?.toString();
+                              const isSelected = selectedIds.includes(teacherId);
+                              const name = teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim();
+                              return (
+                                <div
+                                  key={teacher.id}
+                                  className="selection-item"
+                                  onClick={() => toggleEditClassCoResponsible(editClassCoResponsiblesPopup.classId, teacherId)}
+                                  style={{
+                                    cursor: 'pointer',
+                                    ...(isSelected
+                                      ? {
+                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                          border: '1px solid #5570F1',
+                                          borderRadius: '8px',
+                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                        }
+                                      : {})
+                                  }}
+                                >
+                                  <AvatarImage
+                                    src={teacher.avatar_url || '/default-avatar.png'}
+                                    alt={name}
+                                    className="item-avatar"
+                                  />
+                                  <div className="item-info">
+                                    <div className="item-name">{name}</div>
+                                    <div className="item-role">{translateRole(teacher.role_in_system ?? teacher.role ?? '')}</div>
+                                    {teacher.email && (
+                                      <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>{teacher.email}</div>
+                                    )}
+                                  </div>
+                                  {isSelected && (
+                                    <div style={{ flexShrink: 0, color: '#5570F1' }} title="Sélectionné">
+                                      <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }} />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => setEditClassCoResponsiblesPopup(null)}
+                      >
+                        Terminer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Popup sélection co-responsables de partenariat */}
+              {editPartnershipCoResponsiblesPopup && (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setEditPartnershipCoResponsiblesPopup(null)}>
+                  <div className="modal-content" style={{ background: 'white', borderRadius: '8px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', marginBottom: '4px' }}>Sélectionner les co-responsables</h3>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>{editPartnershipCoResponsiblesPopup.partnershipName}</p>
+                      </div>
+                      <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setEditPartnershipCoResponsiblesPopup(null)}>
+                        <i className="fas fa-times" />
+                      </button>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                      <div className="search-input-container" style={{ marginBottom: '16px' }}>
+                        <i className="fas fa-search search-icon"></i>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Rechercher un co-responsable..."
+                          value={editPartnershipCoResponsiblesSearchTerm}
+                          onChange={(e) => setEditPartnershipCoResponsiblesSearchTerm(e.target.value)}
+                        />
+                      </div>
+                      {(() => {
+                        const contactUsers = getFilteredEditPartnershipCoResponsibles(editPartnershipCoResponsiblesPopup.contactUsers, editPartnershipCoResponsiblesSearchTerm);
+                        const selectedIds = editPartnershipCoResponsibles[editPartnershipCoResponsiblesPopup.partnershipId] || [];
+                        
+                        if (contactUsers.length === 0) {
+                          return (
+                            <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                              <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                              <p>{editPartnershipCoResponsiblesSearchTerm ? 'Aucun contact trouvé' : 'Aucun contact disponible pour ce partenariat'}</p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="selection-list">
+                            {contactUsers.map((user: any) => {
+                              const userId = user.id?.toString();
+                              const isSelected = selectedIds.includes(userId);
+                              const name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                              return (
+                                <div
+                                  key={user.id}
+                                  className="selection-item"
+                                  onClick={() => toggleEditPartnershipCoResponsible(editPartnershipCoResponsiblesPopup.partnershipId, userId)}
+                                  style={{
+                                    cursor: 'pointer',
+                                    ...(isSelected
+                                      ? {
+                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                          border: '1px solid #5570F1',
+                                          borderRadius: '8px',
+                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                        }
+                                      : {})
+                                  }}
+                                >
+                                  <AvatarImage
+                                    src={user.avatar_url || '/default-avatar.png'}
+                                    alt={name}
+                                    className="item-avatar"
+                                  />
+                                  <div className="item-info">
+                                    <div className="item-name">{name}</div>
+                                    <div className="item-role">{user.role_in_organization || user.role || ''}</div>
+                                    {user.email && (
+                                      <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>{user.email}</div>
+                                    )}
+                                    {user.organization && (
+                                      <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {user.organization}</div>
+                                    )}
+                                  </div>
+                                  {isSelected && (
+                                    <div style={{ flexShrink: 0, color: '#5570F1' }} title="Sélectionné">
+                                      <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }} />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => setEditPartnershipCoResponsiblesPopup(null)}
+                      >
+                        Terminer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Participants sélectionnés (membres des classes) — envoyés en participant_ids à la sauvegarde. Si toute la classe : afficher le nom de la classe (comme ProjectModal). */}
               {getOrganizationType(state.showingPageType) === 'school' && (
                 <div className="form-group">
@@ -5738,7 +6295,7 @@ const ProjectManagement: React.FC = () => {
                       Ajoutez des classes ci-dessus et choisissez « Sélectionner manuellement » ou « Tout sélectionner » pour ajouter des participants. Ils seront enregistrés avec le projet.
                     </p>
                   ) : (
-                    <div className="selected-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', maxHeight: '300px'}}>
+                    <div className="selected-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
                       {(() => {
                         const showLevelSummary = editForm.mldsSchoolLevelIds.length > 0;
                         if (showLevelSummary) {
@@ -5874,7 +6431,7 @@ const ProjectManagement: React.FC = () => {
               {/* Partenaires - Only visible if En partenariat is checked */}
               {editForm.isPartnership && (
                 <div className="form-group">
-                  <label htmlFor="projectPartners">Partenaire(s)</label>
+                  <label htmlFor="projectPartners">Ajouter un partenaire</label>
                   <div className="compact-selection">
                     <div className="search-input-container">
                       <i className="fas fa-search search-icon"></i>
@@ -5970,7 +6527,22 @@ const ProjectManagement: React.FC = () => {
 
               {/* Co-responsables */}
               <div className="form-group">
-                <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+                <label htmlFor="projectCoResponsibles" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  Co-responsable(s)
+                  <span className="info-tooltip-wrapper">
+                    <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                    <div className="info-tooltip">
+                      <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+                      <ul>
+                        <li>voir le projet dans leur profil</li>
+                        <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+                        <li>attribuer des badges</li>
+                        <li>faire des équipes et donner des rôles dans équipe</li>
+                        <li>plus tard attribuer des tâches (Kanban)</li>
+                      </ul>
+                    </div>
+                  </span>
+                </label>
                 <div className="compact-selection">
                   <div className="search-input-container">
                     <i className="fas fa-search search-icon"></i>
@@ -5980,7 +6552,7 @@ const ProjectManagement: React.FC = () => {
                       placeholder="Rechercher des co-responsables..."
                       value={editSearchTerms.coResponsibles}
                       onChange={(e) => handleEditSearchChange('coResponsibles', e.target.value)}
-                      disabled={isLoadingEditMembers}
+                      disabled={isLoadingEditMembers || isLoadingEditCoResponsibles}
                     />
                   </div>
 
@@ -5988,7 +6560,8 @@ const ProjectManagement: React.FC = () => {
                   {editForm.coResponsibles.length > 0 && (
                     <div className="selected-items">
                       {editForm.coResponsibles.map((memberId) => {
-                        const member = editAvailableMembers.find((m: any) => m.id.toString() === memberId)
+                        const member = editCoResponsibleOptions.find((m: any) => m.id.toString() === memberId)
+                          ?? editAvailableMembers.find((m: any) => m.id.toString() === memberId)
                           ?? editPartnershipContactMembers.find((m: any) => m.id?.toString() === memberId);
                         const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '')) : '';
                         return member ? (
@@ -6018,20 +6591,20 @@ const ProjectManagement: React.FC = () => {
                     </div>
                   )}
 
-                  {isLoadingEditMembers ? (
+                  {(isLoadingEditMembers || isLoadingEditCoResponsibles) ? (
                     <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
                       <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
                       <span>Chargement des membres...</span>
                     </div>
                   ) : (
                     <div className="selection-list">
-                      {getEditFilteredMembers(editSearchTerms.coResponsibles).length === 0 ? (
+                      {getEditFilteredCoResponsibles(editSearchTerms.coResponsibles).length === 0 ? (
                         <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
                           <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
                           <p>Aucun membre disponible</p>
                         </div>
                       ) : (
-                        getEditFilteredMembers(editSearchTerms.coResponsibles).map((member: any) => {
+                        getEditFilteredCoResponsibles(editSearchTerms.coResponsibles).map((member: any) => {
                           const isSelected = editForm.coResponsibles.includes(member.id.toString());
                           const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
                           return (
@@ -6381,9 +6954,11 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={handleCancelEdit}>
                 Annuler
               </button>
-              <button className="btn btn-outline" onClick={handleSaveEditDraft}>
-                Sauvegarder en brouillon
-              </button>
+              {editForm.status === 'draft' && (
+                <button className="btn btn-outline" onClick={handleSaveEditDraft}>
+                  Sauvegarder en brouillon
+                </button>
+              )}
               <button className="btn btn-primary" onClick={handleSaveEdit}>
                 {isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher')
                   ? 'Soumettre le projet MLDS'
@@ -6697,7 +7272,7 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={() => setIsViewTeamModalOpen(false)}>
                 Fermer
               </button>
-              {!isProjectEnded && !isSuperadminViewingReadOnly && (
+                  {!isProjectEnded && !isReadOnlyMode && (
                 <button className="btn btn-primary" onClick={() => {
                   setIsViewTeamModalOpen(false);
                   handleEditTeam(selectedTeam);

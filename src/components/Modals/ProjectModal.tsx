@@ -82,6 +82,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [pathwayDropdownOpen, setPathwayDropdownOpen] = useState(false);
   const pathwayDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const pathwaySearchInputRef = React.useRef<HTMLInputElement | null>(null);
+  const pathwayDropdownClickInProgress = React.useRef<boolean>(false);
   // Contact users from selected partnership, pre-selected as co-responsibles (for display)
   const [partnershipContactMembers, setPartnershipContactMembers] = useState<any[]>([]);
 
@@ -104,6 +105,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const [classSelectionMode, setClassSelectionMode] = useState<Record<string, 'manual' | 'all'>>({});
   const [classManualParticipantIds, setClassManualParticipantIds] = useState<Record<string, string[]>>({});
   const [classDetailPopup, setClassDetailPopup] = useState<{ classId: string; className: string; mode: 'choice' | 'view' | 'manual' } | null>(null);
+  // Co-responsables par classe : après sélection d'une classe, popup pour choisir les co-responsables liés à cette classe
+  const [classCoResponsiblesPopup, setClassCoResponsiblesPopup] = useState<{ classId: string; className: string } | null>(null);
+  const [classCoResponsibles, setClassCoResponsibles] = useState<Record<string, string[]>>({});
+  const [classCoResponsiblesSearchTerm, setClassCoResponsiblesSearchTerm] = useState<string>('');
+  // Co-responsables par partenariat : après sélection d'un partenariat, popup pour choisir les co-responsables liés à ce partenariat
+  const [partnershipCoResponsiblesPopup, setPartnershipCoResponsiblesPopup] = useState<{ partnershipId: string; partnershipName: string; contactUsers: any[] } | null>(null);
+  const [partnershipCoResponsibles, setPartnershipCoResponsibles] = useState<Record<string, string[]>>({});
+  const [partnershipCoResponsiblesSearchTerm, setPartnershipCoResponsiblesSearchTerm] = useState<string>('');
 
   // Search functionality with exclusion of already selected members
   // Members are mutually exclusive: cannot be both co-responsible AND participant
@@ -265,6 +274,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     setClassSelectionMode({});
     setClassManualParticipantIds({});
     setClassDetailPopup(null);
+    setClassCoResponsiblesPopup(null);
+    setClassCoResponsibles({});
+    setClassCoResponsiblesSearchTerm('');
+    setPartnershipCoResponsiblesPopup(null);
+    setPartnershipCoResponsibles({});
+    setPartnershipCoResponsiblesSearchTerm('');
   }, [selectedSchoolId]);
 
   useEffect(() => {
@@ -694,14 +709,26 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     if (name === 'isPartnership') {
       const checked = (e.target as HTMLInputElement).checked;
       if (!checked) {
+        // Récupérer tous les co-responsables de tous les partenariats
+        const allPartnershipCoResponsibleIds = new Set<string>();
+        Object.values(partnershipCoResponsibles).forEach(ids => {
+          ids.forEach(id => allPartnershipCoResponsibleIds.add(id));
+        });
         const contactIds = partnershipContactMembers.map((c: any) => c.id.toString());
+        
         setFormData(prev => ({
           ...prev,
           isPartnership: false,
           partners: [],
-          coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+          coResponsibles: prev.coResponsibles.filter(id => {
+            // Retirer les co-responsables des partenariats
+            return !allPartnershipCoResponsibleIds.has(id) && !contactIds.includes(id.toString());
+          })
         }));
         setPartnershipContactMembers([]);
+        setPartnershipCoResponsibles({});
+        setPartnershipCoResponsiblesPopup(null);
+        setPartnershipCoResponsiblesSearchTerm('');
       } else {
         setFormData(prev => ({
           ...prev,
@@ -761,16 +788,60 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     });
   };
 
+  /** Enseignants d'une classe (depuis availableSchoolLevels ou coResponsibleOptions) */
+  const getTeachersInClass = (schoolLevelId: string): any[] => {
+    const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === schoolLevelId);
+    if (!classItem) return [];
+    
+    // Récupérer les IDs des enseignants de la classe
+    const teacherIds = classItem.teacher_ids || (classItem.teachers || []).map((t: any) => t.id || t);
+    if (!teacherIds || teacherIds.length === 0) return [];
+    
+    // Filtrer les membres disponibles (coResponsibleOptions pour teacher/school, ou members pour autres contextes)
+    const availableMembers = (state.showingPageType === 'teacher' && teacherProjectContext === 'school')
+      ? coResponsibleOptions
+      : members;
+    
+    // Exclure le créateur du projet
+    const currentUserId = state.user?.id?.toString();
+    
+    return availableMembers.filter((member: any) => {
+      if (!member?.id) return false;
+      if (currentUserId && member.id?.toString() === currentUserId) return false;
+      return teacherIds.includes(member.id) || teacherIds.includes(Number(member.id));
+    });
+  };
+
+  /** Ouvrir la popup de sélection des co-responsables après sélection de classe */
+  const openClassCoResponsiblesPopup = (classId: string, className: string) => {
+    setClassDetailPopup(null);
+    setClassCoResponsiblesPopup({ classId, className });
+    setClassCoResponsiblesSearchTerm('');
+  };
+
   const handleSchoolLevelToggle = (schoolLevelId: string) => {
     const isAlreadySelected = formData.schoolLevelIds.includes(schoolLevelId);
 
     if (isAlreadySelected) {
+      // Récupérer les co-responsables de cette classe avant de la supprimer
+      const coResponsiblesToRemove = classCoResponsibles[schoolLevelId] || [];
+      
       setFormData(prev => {
         const updatedSchoolLevelIds = prev.schoolLevelIds.filter(id => id !== schoolLevelId);
         const memberIdsInClass = getStudentsInClass(schoolLevelId).map((m: any) => m.id?.toString()).filter(Boolean);
         const participantsToRemove = new Set(memberIdsInClass);
         const updatedParticipants = prev.participants.filter(id => !participantsToRemove.has(id.toString()));
-        return { ...prev, schoolLevelIds: updatedSchoolLevelIds, participants: updatedParticipants };
+        
+        // Retirer les co-responsables de cette classe
+        const coResponsiblesToRemoveSet = new Set(coResponsiblesToRemove);
+        const updatedCoResponsibles = prev.coResponsibles.filter(id => !coResponsiblesToRemoveSet.has(id));
+        
+        return { 
+          ...prev, 
+          schoolLevelIds: updatedSchoolLevelIds, 
+          participants: updatedParticipants,
+          coResponsibles: updatedCoResponsibles
+        };
       });
       setClassSelectionMode(prev => {
         const next = { ...prev };
@@ -778,6 +849,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         return next;
       });
       setClassManualParticipantIds(prev => {
+        const next = { ...prev };
+        delete next[schoolLevelId];
+        return next;
+      });
+      // Nettoyer les co-responsables de cette classe
+      setClassCoResponsibles(prev => {
         const next = { ...prev };
         delete next[schoolLevelId];
         return next;
@@ -818,6 +895,31 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     });
   };
 
+  /** Toggle co-responsable pour une classe */
+  const toggleClassCoResponsible = (classId: string, memberId: string) => {
+    const idStr = memberId.toString();
+    setClassCoResponsibles(prev => {
+      const current = prev[classId] || [];
+      const newList = current.includes(idStr)
+        ? current.filter(id => id !== idStr)
+        : [...current, idStr];
+      return { ...prev, [classId]: newList };
+    });
+  };
+
+  /** Filtrer les enseignants de la classe pour la popup de co-responsables */
+  const getFilteredClassCoResponsibles = (classId: string, searchTerm: string) => {
+    const teachers = getTeachersInClass(classId);
+    if (!searchTerm.trim()) return teachers;
+    const term = searchTerm.toLowerCase();
+    return teachers.filter((teacher: any) => {
+      const name = (teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim()).toLowerCase();
+      const email = (teacher.email || '').toLowerCase();
+      const role = (translateRole(teacher.role_in_system ?? teacher.role ?? '') || '').toLowerCase();
+      return name.includes(term) || email.includes(term) || role.includes(term);
+    });
+  };
+
   // Synchroniser formData.participants à partir des classes (modes manual / all) — teacher (contexte école) ou school (edu)
   const useClassBasedParticipants =
     (state.showingPageType === 'teacher' && teacherProjectContext === 'school') || state.showingPageType === 'edu';
@@ -838,6 +940,40 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     setFormData(prev => ({ ...prev, participants: Array.from(new Set(fromClasses)) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classSelectionMode, classManualParticipantIds, formData.schoolLevelIds, useClassBasedParticipants, members]);
+
+  // Synchroniser formData.coResponsibles à partir des co-responsables sélectionnés par classe et par partenariat
+  // Retirer les co-responsables des classes/partenariats qui ne sont plus sélectionnés, et ajouter ceux des classes/partenariats sélectionnés
+  useEffect(() => {
+    // Récupérer tous les co-responsables des classes actuellement sélectionnées uniquement
+    const fromClasses: string[] = [];
+    formData.schoolLevelIds.forEach(classId => {
+      (classCoResponsibles[classId] || []).forEach(id => {
+        if (!fromClasses.includes(id)) fromClasses.push(id);
+      });
+    });
+    
+    // Récupérer tous les co-responsables des partenariats actuellement sélectionnés uniquement
+    const fromPartnerships: string[] = [];
+    formData.partners.forEach(partnershipId => {
+      (partnershipCoResponsibles[partnershipId] || []).forEach(id => {
+        if (!fromPartnerships.includes(id)) fromPartnerships.push(id);
+      });
+    });
+    
+    // Récupérer les IDs de tous les co-responsables qui viennent des classes et partenariats sélectionnés
+    const allSelectedIds = new Set([...fromClasses, ...fromPartnerships]);
+    
+    // Récupérer les co-responsables qui ne viennent pas des classes ni des partenariats (sélection manuelle globale)
+    setFormData(prev => {
+      // Garder uniquement les co-responsables qui ne viennent pas des classes ni des partenariats sélectionnés
+      const nonClassOrPartnershipCoResponsibles = prev.coResponsibles.filter(id => !allSelectedIds.has(id));
+      
+      // Fusionner avec les co-responsables des classes et partenariats sélectionnés
+      const allCoResponsibles = Array.from(new Set([...nonClassOrPartnershipCoResponsibles, ...fromClasses, ...fromPartnerships]));
+      return { ...prev, coResponsibles: allCoResponsibles };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classCoResponsibles, partnershipCoResponsibles, formData.schoolLevelIds, formData.partners]);
 
   /** Calcule le statut (en cours / à venir) à partir de la date de début. */
   const getStatusFromStartDate = (startDate: string): 'in_progress' | 'coming' => {
@@ -1121,42 +1257,65 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
   const handlePartnerSelect = (partnerId: string | number) => {
     const idStr = partnerId?.toString();
     const partnership = availablePartnerships.find((p: any) => p.id?.toString() === idStr || p.id === Number(partnerId));
+    
+    if (!partnership) return;
+    
     const ownerId = state.user?.id != null ? state.user.id.toString() : null;
-    const contactUsersRaw = partnership
-      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
-          id: c.id,
-          full_name: c.full_name || '',
-          email: c.email || '',
-          role: c.role || '',
-          role_in_organization: c.role_in_organization || '',
-          organization: p.name || ''
-        })))
-      : [];
+    const contactUsersRaw = (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
+      id: c.id,
+      full_name: c.full_name || '',
+      email: c.email || '',
+      role: c.role || '',
+      role_in_organization: c.role_in_organization || '',
+      organization: p.name || ''
+    })));
     // Exclude current user (project creator) so they are not proposed as co-owner (creator can be staff in partner orgs)
     const contactUsers = ownerId
       ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
       : contactUsersRaw;
-    const contactIds = contactUsers.map((c: any) => c.id.toString());
-
-    setFormData(prev => {
-      const isAdding = !prev.partners.some((id) => id?.toString() === idStr);
-      const newPartners = isAdding
-        ? [...prev.partners, idStr]
-        : prev.partners.filter(id => id?.toString() !== idStr);
-      const newCoResponsibles = isAdding
-        ? Array.from(new Set([...prev.coResponsibles, ...contactIds]))
-        : prev.coResponsibles.filter(id => !contactIds.includes(id.toString()));
-      return { ...prev, partners: newPartners, coResponsibles: newCoResponsibles };
-    });
-
-    setPartnershipContactMembers(prev => {
-      const isAdding = !formData.partners.some((id) => id?.toString() === idStr);
-      if (isAdding) {
-        return [...prev, ...contactUsers];
-      }
-      const toRemoveIds = new Set(contactIds);
-      return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
-    });
+    
+    const isAlreadySelected = formData.partners.some((id) => id?.toString() === idStr);
+    
+    if (isAlreadySelected) {
+      // Désélectionner le partenariat
+      const contactIds = contactUsers.map((c: any) => c.id.toString());
+      setFormData(prev => ({
+        ...prev,
+        partners: prev.partners.filter(id => id?.toString() !== idStr),
+        coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+      }));
+      setPartnershipContactMembers(prev => {
+        const toRemoveIds = new Set(contactIds);
+        return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
+      });
+      // Nettoyer les co-responsables de ce partenariat
+      setPartnershipCoResponsibles(prev => {
+        const next = { ...prev };
+        delete next[idStr];
+        return next;
+      });
+    } else {
+      // Ajouter le partenariat et ouvrir la popup de sélection des co-responsables
+      setFormData(prev => ({
+        ...prev,
+        partners: [...prev.partners, idStr]
+      }));
+      
+      // Construire le nom du partenariat pour l'affichage
+      const partnerOrgs = partnership.partners || [];
+      const partnershipName = partnerOrgs.map((p: any) => p.name).join(', ') || formatPartnershipDisplayName(partnership.name);
+      
+      // Ouvrir la popup de sélection des co-responsables
+      setPartnershipCoResponsiblesPopup({
+        partnershipId: idStr,
+        partnershipName,
+        contactUsers
+      });
+      setPartnershipCoResponsiblesSearchTerm('');
+      
+      // Ajouter les contact users à partnershipContactMembers pour l'affichage
+      setPartnershipContactMembers(prev => [...prev, ...contactUsers]);
+    }
   };
 
   const handlePartnerRemove = (partnerId: string) => {
@@ -1164,12 +1323,51 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     const contactIds = partnership
       ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => c.id.toString()))
       : [];
+    
+    // Récupérer les co-responsables de ce partenariat avant de le supprimer
+    const coResponsiblesToRemove = partnershipCoResponsibles[partnerId] || [];
+    
     setFormData(prev => ({
       ...prev,
       partners: prev.partners.filter(id => id !== partnerId),
-      coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+      coResponsibles: prev.coResponsibles.filter(id => {
+        // Retirer les co-responsables sélectionnés pour ce partenariat
+        return !coResponsiblesToRemove.includes(id) && !contactIds.includes(id.toString());
+      })
     }));
     setPartnershipContactMembers(prev => prev.filter((m: any) => !contactIds.includes(m.id?.toString())));
+    
+    // Nettoyer les co-responsables de ce partenariat
+    setPartnershipCoResponsibles(prev => {
+      const next = { ...prev };
+      delete next[partnerId];
+      return next;
+    });
+  };
+
+  /** Toggle co-responsable pour un partenariat */
+  const togglePartnershipCoResponsible = (partnershipId: string, memberId: string) => {
+    const idStr = memberId.toString();
+    setPartnershipCoResponsibles(prev => {
+      const current = prev[partnershipId] || [];
+      const newList = current.includes(idStr)
+        ? current.filter(id => id !== idStr)
+        : [...current, idStr];
+      return { ...prev, [partnershipId]: newList };
+    });
+  };
+
+  /** Filtrer les contact users du partenariat pour la popup de co-responsables */
+  const getFilteredPartnershipCoResponsibles = (contactUsers: any[], searchTerm: string) => {
+    if (!searchTerm.trim()) return contactUsers;
+    const term = searchTerm.toLowerCase();
+    return contactUsers.filter((user: any) => {
+      const name = (user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim()).toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      const role = (user.role_in_organization || user.role || '').toLowerCase();
+      const org = (user.organization || '').toLowerCase();
+      return name.includes(term) || email.includes(term) || role.includes(term) || org.includes(term);
+    });
   };
 
   const getSelectedMember = (memberId: string) => {
@@ -1497,9 +1695,19 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       onChange={(e) => setPathwaySearchTerm(e.target.value)}
                       onFocus={() => (formData.pathways || []).length < 2 && setPathwayDropdownOpen(true)}
                       onBlur={(e) => {
-                        const next = e.relatedTarget as Node | null;
-                        if (pathwayDropdownRef.current && next && pathwayDropdownRef.current.contains(next)) return;
-                        setPathwayDropdownOpen(false);
+                        // Sur Safari, relatedTarget peut être null même lors d'un clic dans le dropdown
+                        // Vérifier si un clic est en cours dans le dropdown avant de fermer
+                        setTimeout(() => {
+                          if (pathwayDropdownClickInProgress.current) {
+                            pathwayDropdownClickInProgress.current = false;
+                            return;
+                          }
+                          const activeElement = document.activeElement;
+                          if (pathwayDropdownRef.current && activeElement && pathwayDropdownRef.current.contains(activeElement)) {
+                            return;
+                          }
+                          setPathwayDropdownOpen(false);
+                        }, 150);
                       }}
                     />
                     {pathwayDropdownOpen && (formData.pathways || []).length < 2 && (
@@ -1514,8 +1722,13 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                                 type="button"
                                 key={pathway.id}
                                 className={`pathway-dropdown-item ${isSelected ? 'selected' : ''}`}
+                                onMouseDown={(e) => {
+                                  // Marquer qu'un clic est en cours pour empêcher le blur sur Safari
+                                  pathwayDropdownClickInProgress.current = true;
+                                }}
                                 onClick={() => {
                                   handlePathwayToggle(pathwayName);
+                                  pathwayDropdownClickInProgress.current = false;
                                   pathwaySearchInputRef.current?.focus();
                                 }}
                               >
@@ -1641,7 +1854,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                               style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                               onClick={() => {
                                 setClassMode(classDetailPopup.classId, 'all');
-                                setClassDetailPopup(null);
+                                openClassCoResponsiblesPopup(classDetailPopup.classId, classDetailPopup.className);
                               }}
                             >
                               <i className="fas fa-users" />
@@ -1671,18 +1884,29 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                       // Mode sélection manuelle : liste interactive + bouton "Tout sélectionner" toujours accessible
                       return (
                         <div>
-                          <div style={{ marginBottom: '12px' }}>
+                          <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                             <button
                               type="button"
                               className="btn btn-outline"
                               style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                               onClick={() => {
                                 setClassMode(classDetailPopup.classId, 'all');
-                                setClassDetailPopup(null);
+                                openClassCoResponsiblesPopup(classDetailPopup.classId, classDetailPopup.className);
                               }}
                             >
                               <i className="fas fa-users" />
                               <span>Tout sélectionner</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{ fontSize: '0.85rem', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              onClick={() => {
+                                openClassCoResponsiblesPopup(classDetailPopup.classId, classDetailPopup.className);
+                              }}
+                            >
+                              <i className="fas fa-check" />
+                              <span>Valider et continuer</span>
                             </button>
                           </div>
                           {students.map((student: any) => {
@@ -1726,6 +1950,203 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
                         </div>
                       );
                     })()}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Popup sélection co-responsables de classe */}
+            {classCoResponsiblesPopup && (
+              <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setClassCoResponsiblesPopup(null)}>
+                <div className="modal-content" style={{ background: 'white', borderRadius: '8px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                  <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', marginBottom: '4px' }}>Sélectionner les co-responsables</h3>
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>{classCoResponsiblesPopup.className}</p>
+                    </div>
+                    <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setClassCoResponsiblesPopup(null)}>
+                      <i className="fas fa-times" />
+                    </button>
+                  </div>
+                  <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                    <div className="search-input-container" style={{ marginBottom: '16px' }}>
+                      <i className="fas fa-search search-icon"></i>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Rechercher un co-responsable..."
+                        value={classCoResponsiblesSearchTerm}
+                        onChange={(e) => setClassCoResponsiblesSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    {(() => {
+                      const teachers = getFilteredClassCoResponsibles(classCoResponsiblesPopup.classId, classCoResponsiblesSearchTerm);
+                      const selectedIds = classCoResponsibles[classCoResponsiblesPopup.classId] || [];
+                      
+                      if (teachers.length === 0) {
+                        return (
+                          <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                            <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                            <p>{classCoResponsiblesSearchTerm ? 'Aucun enseignant trouvé' : 'Aucun enseignant disponible pour cette classe'}</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="selection-list">
+                          {teachers.map((teacher: any) => {
+                            const teacherId = teacher.id?.toString();
+                            const isSelected = selectedIds.includes(teacherId);
+                            const name = teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim();
+                            return (
+                              <div
+                                key={teacher.id}
+                                className="selection-item"
+                                onClick={() => toggleClassCoResponsible(classCoResponsiblesPopup.classId, teacherId)}
+                                style={{
+                                  cursor: 'pointer',
+                                  ...(isSelected
+                                    ? {
+                                        backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                        border: '1px solid #5570F1',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                      }
+                                    : {})
+                                }}
+                              >
+                                <AvatarImage
+                                  src={teacher.avatar_url || '/default-avatar.png'}
+                                  alt={name}
+                                  className="item-avatar"
+                                />
+                                <div className="item-info">
+                                  <div className="item-name">{name}</div>
+                                  <div className="item-role">{translateRole(teacher.role_in_system ?? teacher.role ?? '')}</div>
+                                  {teacher.email && (
+                                    <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>{teacher.email}</div>
+                                  )}
+                                </div>
+                                {isSelected && (
+                                  <div style={{ flexShrink: 0, color: '#5570F1' }} title="Sélectionné">
+                                    <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }} />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => setClassCoResponsiblesPopup(null)}
+                    >
+                      Terminer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Popup sélection co-responsables de partenariat */}
+            {partnershipCoResponsiblesPopup && (
+              <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setPartnershipCoResponsiblesPopup(null)}>
+                <div className="modal-content" style={{ background: 'white', borderRadius: '8px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                  <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', marginBottom: '4px' }}>Sélectionner les co-responsables</h3>
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>{partnershipCoResponsiblesPopup.partnershipName}</p>
+                    </div>
+                    <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setPartnershipCoResponsiblesPopup(null)}>
+                      <i className="fas fa-times" />
+                    </button>
+                  </div>
+                  <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                    <div className="search-input-container" style={{ marginBottom: '16px' }}>
+                      <i className="fas fa-search search-icon"></i>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Rechercher un co-responsable..."
+                        value={partnershipCoResponsiblesSearchTerm}
+                        onChange={(e) => setPartnershipCoResponsiblesSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    {(() => {
+                      const contactUsers = getFilteredPartnershipCoResponsibles(partnershipCoResponsiblesPopup.contactUsers, partnershipCoResponsiblesSearchTerm);
+                      const selectedIds = partnershipCoResponsibles[partnershipCoResponsiblesPopup.partnershipId] || [];
+                      
+                      if (contactUsers.length === 0) {
+                        return (
+                          <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                            <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                            <p>{partnershipCoResponsiblesSearchTerm ? 'Aucun contact trouvé' : 'Aucun contact disponible pour ce partenariat'}</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="selection-list">
+                          {contactUsers.map((user: any) => {
+                            const userId = user.id?.toString();
+                            const isSelected = selectedIds.includes(userId);
+                            const name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                            return (
+                              <div
+                                key={user.id}
+                                className="selection-item"
+                                onClick={() => togglePartnershipCoResponsible(partnershipCoResponsiblesPopup.partnershipId, userId)}
+                                style={{
+                                  cursor: 'pointer',
+                                  ...(isSelected
+                                    ? {
+                                        backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                        border: '1px solid #5570F1',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                      }
+                                    : {})
+                                }}
+                              >
+                                <AvatarImage
+                                  src={user.avatar_url || '/default-avatar.png'}
+                                  alt={name}
+                                  className="item-avatar"
+                                />
+                                <div className="item-info">
+                                  <div className="item-name">{name}</div>
+                                  <div className="item-role">{user.role_in_organization || user.role || ''}</div>
+                                  {user.email && (
+                                    <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>{user.email}</div>
+                                  )}
+                                  {user.organization && (
+                                    <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {user.organization}</div>
+                                  )}
+                                </div>
+                                {isSelected && (
+                                  <div style={{ flexShrink: 0, color: '#5570F1' }} title="Sélectionné">
+                                    <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }} />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => setPartnershipCoResponsiblesPopup(null)}
+                    >
+                      Terminer
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1852,7 +2273,22 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
             {/* Co-responsables */}
             <div className="form-group">
-              <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+              <label htmlFor="projectCoResponsibles" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Co-responsable(s)
+                <span className="info-tooltip-wrapper">
+                  <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                  <div className="info-tooltip">
+                    <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+                    <ul>
+                      <li>voir le projet dans leur profil</li>
+                      <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+                      <li>attribuer des badges</li>
+                      <li>faire des équipes et donner des rôles dans équipe</li>
+                      <li>plus tard attribuer des tâches (Kanban)</li>
+                    </ul>
+                  </div>
+                </span>
+              </label>
               <div className="compact-selection">
                 <div className="search-input-container">
                   <i className="fas fa-search search-icon"></i>
