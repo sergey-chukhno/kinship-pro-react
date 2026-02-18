@@ -253,6 +253,8 @@ export interface OrganizationContext {
   company_type?: string;
   logo_url?: string | null;
   role: 'superadmin' | 'admin' | 'referent' | 'intervenant' | 'member';
+  contract_kind?: string | null; // 'vert_actuel' | 'bleu_standard' | 'bleu_premium'
+  allows_minor_members?: boolean; // true when contract is BLEU Premium
   permissions: {
     superadmin: boolean;
     admin: boolean;

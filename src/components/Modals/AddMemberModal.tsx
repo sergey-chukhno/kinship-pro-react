@@ -27,9 +27,14 @@ interface AddMemberModalProps {
   onClose: () => void;
   onAdd: (member: Omit<Member, 'id'>) => void;
   onSuccess?: () => void;
+  /** When 'minor', allows adding members under 15 with legal representative consent (BLEU Premium) */
+  variant?: 'major' | 'minor';
 }
 
-const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess }) => {
+const LEGAL_CONSENT_LABEL = "Je confirme avoir recueilli le consentement préalable du représentant légal conformément au contrat BLEU Premium.";
+
+const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess, variant = 'major' }) => {
+  const isMinorVariant = variant === 'minor';
   const { state } = useAppContext();
   const { showSuccess, showError, showInfo } = useToast();
   const [formData, setFormData] = useState({
@@ -50,8 +55,12 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
   // State pour le QR Code
   const [showQRCodeModal, setShowQRCodeModal] = useState<boolean>(false);
   const [memberData, setMemberData] = useState<{ claimToken: string; fullName: string } | null>(null);
+  const [legalRepresentativeConsent, setLegalRepresentativeConsent] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Role order for minor variant includes eleve_primaire
+  const roleOrderForMinor = ['eleve_primaire', ...ROLE_ORDER];
 
   // Chargement des Roles au montage (filtrés et triés comme en paramètres personnels)
   useEffect(() => {
@@ -60,13 +69,14 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         const rolesRes = await getPersonalUserRoles();
         const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
         if (Array.isArray(rolesData)) {
-          // Exclure legacy "other" (garder only other_personal_user → "Autre") et élève primaire (âge < 15)
+          // Exclure legacy "other"; exclude eleve_primaire only for major (min age 15)
           const filtered = rolesData.filter(
-            (r: { value: string }) => r.value !== 'other' && r.value !== 'eleve_primaire'
+            (r: { value: string }) => r.value !== 'other' && (isMinorVariant || r.value !== 'eleve_primaire')
           );
+          const order = isMinorVariant ? roleOrderForMinor : ROLE_ORDER;
           const sorted = filtered.sort((a: { value: string }, b: { value: string }) => {
-            const indexA = ROLE_ORDER.indexOf(a.value);
-            const indexB = ROLE_ORDER.indexOf(b.value);
+            const indexA = order.indexOf(a.value);
+            const indexB = order.indexOf(b.value);
             return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
           });
           setApiRoles(sorted);
@@ -79,7 +89,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       }
     };
     fetchRoles();
-  }, []);
+  }, [isMinorVariant]);
 
   // Mise à jour de la génération d'avatar pour accepter les clés dynamiques
   const generateDefaultAvatar = (role: string, firstName: string, lastName: string) => {
@@ -190,8 +200,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       return;
     }
 
-    if (computeAge(formData.birthday) < 15) {
+    if (!isMinorVariant && computeAge(formData.birthday) < 15) {
       showError("Une organisation ne peut pas créer un membre dont l'âge est inférieur à 15 ans.");
+      return;
+    }
+
+    if (isMinorVariant && !legalRepresentativeConsent) {
+      showError(LEGAL_CONSENT_LABEL);
       return;
     }
 
@@ -216,6 +231,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
       if (formData.email) {
         payload.email = formData.email;
+      }
+      if (isMinorVariant) {
+        payload.create_minor = true;
+        payload.legal_representative_consent = true;
       }
 
       // Call API
@@ -304,7 +323,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Ajouter un nouveau membre</h2>
+          <h2>{isMinorVariant ? 'Ajouter un membre mineur (<15 ans)' : 'Ajouter un nouveau membre'}</h2>
           <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
@@ -379,7 +398,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             </div>
 
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="email">{isMinorVariant ? 'Email du représentant légal' : 'Email'}</label>
               <input
                 type="email"
                 id="email"
@@ -387,9 +406,23 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 value={formData.email}
                 onChange={handleInputChange}
                 className="form-input"
-                placeholder="Optionnel - laisser vide pour créer un email temporaire"
+                placeholder={isMinorVariant ? 'Email du représentant légal (optionnel)' : 'Optionnel - laisser vide pour créer un email temporaire'}
               />
             </div>
+            {isMinorVariant && (
+              <div className="form-group">
+                <label className="checkbox-label" style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={legalRepresentativeConsent}
+                    onChange={(e) => setLegalRepresentativeConsent(e.target.checked)}
+                    required={isMinorVariant}
+                    style={{ marginTop: '4px' }}
+                  />
+                  <span>{LEGAL_CONSENT_LABEL}</span>
+                </label>
+              </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="birthday">Date de naissance *</label>
@@ -403,7 +436,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 required
                 className="form-input"
               />
-              <p className="form-hint">Obligatoire pour tous les membres (âge minimum 15 ans)</p>
+              <p className="form-hint">{isMinorVariant ? 'Obligatoire.' : "Obligatoire pour tous les membres (âge minimum 15 ans)"}</p>
             </div>
 
             <div className="form-group">
@@ -436,7 +469,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
           </button>
           <button type="submit" className="btn btn-primary" onClick={handleSubmit}>
             <i className="fas fa-plus"></i>
-            Ajouter le membre
+            {isMinorVariant ? 'Ajouter le membre mineur (<15 ans)' : 'Ajouter le membre'}
           </button>
         </div>
       </div>

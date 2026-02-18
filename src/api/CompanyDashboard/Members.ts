@@ -23,6 +23,8 @@ export function addCompanyMember(
     birthday?: string;  // Required if no email
     role?: string;      // Company role (member, admin, superadmin) - defaults to 'member'
     user_role?: string; // System role (voluntary, employee, etc.)
+    create_minor?: boolean;  // BLEU Premium: allow member under 15
+    legal_representative_consent?: boolean; // Required when create_minor is true
   }
 ) {
     return axiosClient.post(`/api/v1/companies/${companyId}/members`, memberData);
