@@ -409,20 +409,6 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 placeholder={isMinorVariant ? 'Email du représentant légal (optionnel)' : 'Optionnel - laisser vide pour créer un email temporaire'}
               />
             </div>
-            {isMinorVariant && (
-              <div className="form-group">
-                <label className="checkbox-label" style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={legalRepresentativeConsent}
-                    onChange={(e) => setLegalRepresentativeConsent(e.target.checked)}
-                    required={isMinorVariant}
-                    style={{ marginTop: '4px' }}
-                  />
-                  <span>{LEGAL_CONSENT_LABEL}</span>
-                </label>
-              </div>
-            )}
 
             <div className="form-group">
               <label htmlFor="birthday">Date de naissance *</label>
@@ -459,6 +445,18 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                   <option value="">Chargement...</option>
                 )}
               </select>
+              {isMinorVariant && (
+                <label className="checkbox-label" style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', marginTop: '12px' }}>
+                  <input
+                    type="checkbox"
+                    checked={legalRepresentativeConsent}
+                    onChange={(e) => setLegalRepresentativeConsent(e.target.checked)}
+                    required={isMinorVariant}
+                    style={{ marginTop: '4px' }}
+                  />
+                  <span>{LEGAL_CONSENT_LABEL}</span>
+                </label>
+              )}
             </div>
           </div>
         </form>
