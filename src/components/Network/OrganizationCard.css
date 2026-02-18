@@ -317,6 +317,19 @@
   box-shadow: 0 2px 8px rgba(85, 112, 241, 0.2);
 }
 
+/* Quitter - danger outline (match Personal settings) */
+.btn-leave {
+  background: transparent;
+  color: var(--danger, #dc2626);
+  border: 1.5px solid var(--danger, #dc2626);
+}
+
+.btn-leave:hover {
+  background: rgba(220, 38, 38, 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+}
+
 
 /* Responsive design */
 @media (max-width: 768px) {

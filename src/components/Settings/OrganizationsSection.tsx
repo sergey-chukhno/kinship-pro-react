@@ -5,6 +5,7 @@ import { useSchoolSearch } from '../../hooks/useSchoolSearch';
 import { useToast } from '../../hooks/useToast';
 import { getCompanies } from '../../api/RegistrationRessource';
 import { useAppContext } from '../../context/AppContext';
+import { isStudentRole } from '../../utils/roleUtils';
 import './OrganizationsSection.css';
 
 interface Organization {
@@ -239,14 +240,16 @@ const OrganizationsSection: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm btn-danger"
-                    onClick={() => handleRemoveSchool(school.id)}
-                    disabled={isRemoving === school.id}
-                  >
-                    {isRemoving === school.id ? 'Suppression...' : 'Quitter'}
-                  </button>
+                  {!isStudentRole(state.user?.role) && (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm btn-danger"
+                      onClick={() => handleRemoveSchool(school.id)}
+                      disabled={isRemoving === school.id}
+                    >
+                      {isRemoving === school.id ? 'Suppression...' : 'Quitter'}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

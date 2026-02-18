@@ -13,6 +13,8 @@ import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
 import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest } from '../../api/Projects';
+import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
+import { isStudentRole } from '../../utils/roleUtils';
 import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
@@ -1680,6 +1682,29 @@ const Network: React.FC = () => {
     } catch (err: any) {
       console.error('Error rejecting teacher partnership request:', err);
       showError(err?.response?.data?.message || 'Erreur lors du rejet');
+    }
+  };
+
+  // Leave organization (personal user only) - used from Mon réseau cards
+  const handleLeaveOrganization = async (organization: Organization) => {
+    const isSchool = organization.type === 'schools';
+    const message = isSchool
+      ? 'Êtes-vous sûr de vouloir quitter cette école ?'
+      : 'Êtes-vous sûr de vouloir quitter cette entreprise ?';
+    if (!window.confirm(message)) return;
+    try {
+      const id = Number(organization.id);
+      if (isSchool) {
+        await removeSchoolAssociation(id);
+        showSuccess('Association avec l\'école supprimée avec succès');
+      } else {
+        await removeCompanyAssociation(id);
+        showSuccess('Association avec l\'entreprise supprimée avec succès');
+      }
+      await fetchMyOrganizations();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.response?.data?.error || (isSchool ? 'Erreur lors de la suppression de l\'association' : 'Erreur lors de la suppression de l\'association');
+      showError(msg);
     }
   };
 
@@ -3880,8 +3905,14 @@ const Network: React.FC = () => {
                   }
                 : undefined;
             
+            // Leave (Quitter): only for personal user (showingPageType === 'user') viewing their own schools/companies; students cannot leave schools
+            const leaveAction = state.showingPageType === 'user' && (activeCard === 'schools' || activeCard === 'companies') &&
+              (organization.type === 'companies' || (organization.type === 'schools' && !isStudentRole(state.user?.role)))
+              ? () => handleLeaveOrganization(organization)
+              : undefined;
+            
             // Check if there are any hover actions
-            const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction || !!teacherPartnershipRequestAction;
+            const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction || !!leaveAction || !!teacherPartnershipRequestAction;
             
             return (
           <OrganizationCard
@@ -3892,6 +3923,7 @@ const Network: React.FC = () => {
             onAttach={attachActionForSearch}
             onPartnership={partnershipAction}
             onJoin={joinAction}
+            onLeave={leaveAction}
             onTeacherPartnershipRequest={teacherPartnershipRequestAction}
             isPersonalUser={isPersonalUser}
             onClick={hasHoverActions ? undefined : () => handleViewDetails(organization)}
