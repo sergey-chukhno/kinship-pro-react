@@ -232,7 +232,8 @@ const Members: React.FC = () => {
             schools: s.schools || [], // Include school information from API
             classes: s.classes || [], // Include class information from API
             claim_token: s.claim_token || null,
-            hasTemporaryEmail: s.has_temporary_email || false
+            hasTemporaryEmail: s.has_temporary_email || false,
+            confirmedAt: s.confirmed_at
           } as Member;
         }) : [];
 
@@ -315,6 +316,7 @@ const Members: React.FC = () => {
           canProposeAtelier: m.propose_workshop || false,
           claim_token: m.claim_token,
           hasTemporaryEmail: m.has_temporary_email || false,
+          confirmedAt: m.confirmed_at,
           isSuperadmin: isSuperadmin,
           classes: m.classes || []
         } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
@@ -365,6 +367,7 @@ const Members: React.FC = () => {
           canProposeAtelier: false,
           claim_token: m.claim_token ?? null,
           hasTemporaryEmail: m.has_temporary_email || false,
+          confirmedAt: m.confirmed_at,
           isSuperadmin,
           classes: [],
         } as Member & { systemRole?: string; membershipRole?: string; isSuperadmin?: boolean };
@@ -506,6 +509,7 @@ const Members: React.FC = () => {
           canProposeAtelier: vol.propose_workshop || vol.user?.propose_workshop || false,
           claim_token: vol.claim_token,
           hasTemporaryEmail: vol.has_temporary_email || false,
+          confirmedAt: vol.confirmed_at,
           birthday: vol.birthday,
           role: volunteerRole,
           levelId: undefined,
@@ -1199,6 +1203,7 @@ const Members: React.FC = () => {
       canProposeAtelier: student.propose_workshop || false,
       claim_token: student.claim_token,
       hasTemporaryEmail: student.has_temporary_email,
+      confirmedAt: student.confirmed_at,
       birthday: student.birthday,
       role: studentRole,
       levelId: selectedClass?.id?.toString(),

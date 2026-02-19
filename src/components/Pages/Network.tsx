@@ -77,6 +77,8 @@ interface NetworkUser {
   email: string;
   role: string;
   job: string | null;
+  has_temporary_email?: boolean;
+  confirmed_at?: string | null;
   take_trainee?: boolean;
   propose_workshop?: boolean;
   avatar_url: string | null;
@@ -1319,6 +1321,8 @@ const Network: React.FC = () => {
           organizationType: m.school_name ? 'school' as const : (m.company_name || m.organization_name) ? 'company' as const : undefined,
           take_trainee: m.take_trainee || false,
           propose_workshop: m.propose_workshop || false,
+          hasTemporaryEmail: m.has_temporary_email || false,
+          confirmedAt: m.confirmed_at,
           commonOrganizations
         };
       });
@@ -2019,6 +2023,8 @@ const Network: React.FC = () => {
           })(),
           take_trainee: user.take_trainee || false,
           propose_workshop: user.propose_workshop || false,
+          hasTemporaryEmail: user.has_temporary_email || false,
+          confirmedAt: user.confirmed_at,
           commonOrganizations
         } as Member;
       })
