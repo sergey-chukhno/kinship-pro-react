@@ -31,7 +31,8 @@ interface AddMemberModalProps {
   variant?: 'major' | 'minor';
 }
 
-const LEGAL_CONSENT_LABEL = "Je confirme avoir recueilli le consentement préalable du représentant légal conformément au contrat BLEU Premium.";
+const LEGAL_CONSENT_LABEL = "Je déclare avoir informé le représentant légal et avoir obtenu son autorisation préalable pour la création de ce compte.";
+const LEGAL_CONSENT_TRACEABILITY = "Cette déclaration est enregistrée et horodatée à des fins de traçabilité.";
 
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess, variant = 'major' }) => {
   const isMinorVariant = variant === 'minor';
@@ -205,8 +206,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       return;
     }
 
+    if (isMinorVariant && !formData.email?.trim()) {
+      showError("L'email du représentant légal est obligatoire.");
+      return;
+    }
+
     if (isMinorVariant && !legalRepresentativeConsent) {
-      showError(LEGAL_CONSENT_LABEL);
+      showError("Veuillez confirmer l'autorisation du représentant légal.");
       return;
     }
 
@@ -323,11 +329,21 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{isMinorVariant ? 'Ajouter un membre mineur (<15 ans)' : 'Ajouter un nouveau membre'}</h2>
+          <h2>{isMinorVariant ? 'Créer un membre mineur (<15 ans)' : 'Ajouter un nouveau membre'}</h2>
           <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
         </div>
+
+        {isMinorVariant && (
+          <div className="modal-info-block">
+            <i className="fas fa-info-circle" aria-hidden />
+            <p>
+              Pré-inscription d'une personne de moins de 15 ans.<br />
+              Le représentant légal recevra un email et devra valider l'autorisation. <strong>Sans validation, le rattachement n'est pas effectif.</strong>
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="modal-body">
           {/* Avatar Section */}
@@ -398,15 +414,16 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             </div>
 
             <div className="form-group">
-              <label htmlFor="email">{isMinorVariant ? 'Email du représentant légal' : 'Email'}</label>
+              <label htmlFor="email">{isMinorVariant ? 'Email du représentant légal *' : 'Email'}</label>
               <input
                 type="email"
                 id="email"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
+                required={isMinorVariant}
                 className="form-input"
-                placeholder={isMinorVariant ? 'Email du représentant légal (optionnel)' : 'Optionnel - laisser vide pour créer un email temporaire'}
+                placeholder={isMinorVariant ? 'ex. representant@exemple.fr' : 'Optionnel - laisser vide pour créer un email temporaire'}
               />
             </div>
 
@@ -446,16 +463,21 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 )}
               </select>
               {isMinorVariant && (
-                <label className="checkbox-label" style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', marginTop: '12px' }}>
-                  <input
-                    type="checkbox"
-                    checked={legalRepresentativeConsent}
-                    onChange={(e) => setLegalRepresentativeConsent(e.target.checked)}
-                    required={isMinorVariant}
-                    style={{ marginTop: '4px' }}
-                  />
-                  <span>{LEGAL_CONSENT_LABEL}</span>
-                </label>
+                <div style={{ marginTop: '12px' }}>
+                  <label className="checkbox-label" style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={legalRepresentativeConsent}
+                      onChange={(e) => setLegalRepresentativeConsent(e.target.checked)}
+                      required={isMinorVariant}
+                      style={{ marginTop: '4px' }}
+                    />
+                    <span>{LEGAL_CONSENT_LABEL} *</span>
+                  </label>
+                  <p className="form-hint modal-consent-traceability" style={{ marginTop: '6px', marginLeft: '28px', fontSize: '0.8rem', color: 'var(--text-muted, #6b7280)' }}>
+                    {LEGAL_CONSENT_TRACEABILITY}
+                  </p>
+                </div>
               )}
             </div>
           </div>
