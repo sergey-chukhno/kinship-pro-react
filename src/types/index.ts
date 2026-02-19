@@ -39,6 +39,7 @@ export interface Member {
   propose_workshop?: boolean; // Indique si l'utilisateur propose des ateliers
   claim_token?: string; // Token for student QR code
   hasTemporaryEmail?: boolean; // Indicates if email is temporary
+  confirmedAt?: string | null; // ISO date when email was confirmed; null = pending activation
   birthday?: string; // Date de naissance
   role?: string; // Rôle unique (pour les étudiants)
   levelId?: string; // ID de la classe/level

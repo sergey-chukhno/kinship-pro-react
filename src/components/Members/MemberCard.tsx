@@ -164,8 +164,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
                   ))}
               </>
             )}
-            {member.hasTemporaryEmail && (
-              <span className="member-pill member-pill--warning" title="Email temporaire – en attente d'activation du compte">
+            {(member.hasTemporaryEmail || member.confirmedAt === null) && (
+              <span className="member-pill member-pill--warning" title="Email temporaire ou non confirmé – en attente d'activation du compte">
                 En attente d'activation
               </span>
             )}
