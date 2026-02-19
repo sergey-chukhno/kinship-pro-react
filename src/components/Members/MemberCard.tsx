@@ -164,6 +164,11 @@ const MemberCard: React.FC<MemberCardProps> = ({
                   ))}
               </>
             )}
+            {member.hasTemporaryEmail && (
+              <span className="member-pill member-pill--warning" title="Email temporaire – en attente d'activation du compte">
+                En attente d'activation
+              </span>
+            )}
           </div>
           {(() => {
             // Display system role (translated) instead of profession on member card
