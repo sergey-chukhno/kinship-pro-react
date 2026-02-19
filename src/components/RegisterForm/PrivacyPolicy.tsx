@@ -1,6 +1,22 @@
-const PrivacyPolicy: React.FC = () => {
+import React, { useState } from 'react';
 
-return (
+const PrivacyPolicy: React.FC = () => {
+  const [accepted, setAccepted] = useState(false);
+
+  const handleAccept = () => {
+    setAccepted(true);
+    // Try to close the window (works if opened by script)
+    window.close();
+    
+    // If window didn't close (e.g., opened in new tab), show message
+    setTimeout(() => {
+      if (!window.closed) {
+        // Window is still open, user can see the message
+      }
+    }, 300);
+  };
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <main className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <div className="space-y-12">
@@ -125,7 +141,7 @@ return (
                   Développement et administration des sites
                 </h3>
                 <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-                  Équipe technique KINSHIP & DRAKKAR
+                  Équipe technique KINSHIP
                 </p>
               </div>
 
@@ -152,6 +168,39 @@ return (
               Dernière mise à jour : {new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </footer>
+
+          {/* Accept button section */}
+          <div className="border-t border-border pt-8 text-center">
+            {!accepted ? (
+              <button
+                onClick={handleAccept}
+                className="px-6 py-3 bg-primary text-white rounded-lg font-medium hover:bg-hover-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: '#ffffff',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#4b5563';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#6b7280';
+                }}
+              >
+                J'accepte
+              </button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Merci. Vous pouvez fermer cet onglet.
+              </p>
+            )}
+          </div>
         </div>
       </main>
     </div>
