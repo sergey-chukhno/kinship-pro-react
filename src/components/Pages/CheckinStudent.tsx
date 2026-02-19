@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import './CheckinStudent.css';
+import '../RegisterForm/CommonForms.css';
 import {
   ClaimVerificationPayload,
   updateStudentCredentials,
   verifyStudentClaim,
 } from '../../api/Claim';
 import { useToast } from '../../hooks/useToast';
+import { privatePolicy } from '../../data/PrivacyPolicy';
 
 type Step = 'verify' | 'credentials' | 'completed';
 
@@ -49,6 +51,8 @@ const CheckinStudent: React.FC = () => {
     uppercase: false,
     specialChar: false,
   });
+
+  const [acceptPrivacyPolicy, setAcceptPrivacyPolicy] = useState(false);
 
   useEffect(() => {
     const password = credentialsForm.password;
@@ -148,6 +152,7 @@ const CheckinStudent: React.FC = () => {
         password: credentialsForm.password,
         password_confirmation: credentialsForm.confirmPassword,
         birthday: verificationForm.birthday,
+        accept_privacy_policy: acceptPrivacyPolicy,
       });
 
       setStep('completed');
@@ -172,7 +177,7 @@ const CheckinStudent: React.FC = () => {
         <header className="checkin-header">
           <img src="/Kinship_logo.png" alt="Kinship" className="object-contain m-auto w-40 h-10" />
 
-          <h1>Activation de votre compte élève</h1>
+          <h1>Activation de votre compte</h1>
           <p className="checkin-subtitle">
             Merci de confirmer votre identité pour créer vos identifiants personnels.
           </p>
@@ -306,6 +311,22 @@ const CheckinStudent: React.FC = () => {
               />
             </div>
 
+            <div className="form-group">
+              <label>Politique de confidentialité</label>
+              <div className="privacy-policy-scroll-box !bg-white">
+                <pre>{privatePolicy}</pre>
+              </div>
+              <label className="checkbox-toggle">
+                <input
+                  type="checkbox"
+                  checked={acceptPrivacyPolicy}
+                  onChange={(e) => setAcceptPrivacyPolicy(e.target.checked)}
+                  required
+                />
+                <span>J'accepte la politique de confidentialité *</span>
+              </label>
+            </div>
+
             {verifiedStudent && (
               <p className="checkin-context">
                 Compte de{' '}
@@ -316,7 +337,7 @@ const CheckinStudent: React.FC = () => {
               </p>
             )}
 
-            <button type="submit" className="checkin-button" disabled={updateLoading}>
+            <button type="submit" className="checkin-button" disabled={updateLoading || !acceptPrivacyPolicy}>
               {updateLoading ? 'Mise à jour en cours...' : 'Enregistrer mes identifiants'}
             </button>
           </form>

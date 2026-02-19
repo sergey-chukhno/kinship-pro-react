@@ -13,6 +13,7 @@ export interface ClaimCredentialsPayload {
   password: string;
   password_confirmation: string;
   birthday: string; // Format: YYYY-MM-DD
+  accept_privacy_policy?: boolean; // Optional for backward compatibility
 }
 
 export const verifyStudentClaim = (payload: ClaimVerificationPayload) => {
