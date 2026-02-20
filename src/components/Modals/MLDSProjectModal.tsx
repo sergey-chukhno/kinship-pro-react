@@ -56,9 +56,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     // Financial means
     mldsFinancialHSE: '', // HSE (nombre d'heures)
     mldsFinancialHV: '50.73', // HV (taux €/heure, modifiable)
-    mldsFinancialTransport: '', // Frais de transport
-    mldsFinancialOperating: '', // Frais de fonctionnement
-    mldsFinancialService: '', // Prestataires de service
+    mldsFinancialTransport: [] as Array<{ transport_name: string; price: string }>, // Frais de transport
+    mldsFinancialOperating: [] as Array<{ operating_name: string; price: string }>, // Frais de fonctionnement
+    mldsFinancialService: [] as Array<{ service_name: string; price: string }>, // Prestataires de service
   });
 
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -280,6 +280,63 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         ? prev.mldsCompetencies.filter(c => c !== competency)
         : [...prev.mldsCompetencies, competency]
     }));
+  };
+
+  // Helper functions for managing financial lines
+  const addFinancialLine = (fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService') => {
+    setFormData(prev => {
+      if (fieldName === 'mldsFinancialTransport') {
+        return { ...prev, [fieldName]: [...prev[fieldName], { transport_name: '', price: '' }] };
+      } else if (fieldName === 'mldsFinancialOperating') {
+        return { ...prev, [fieldName]: [...prev[fieldName], { operating_name: '', price: '' }] };
+      } else {
+        return { ...prev, [fieldName]: [...prev[fieldName], { service_name: '', price: '' }] };
+      }
+    });
+  };
+
+  const removeFinancialLine = (fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService', index: number) => {
+    setFormData(prev => {
+      const arr = prev[fieldName] as Array<unknown>;
+      const filtered = arr.filter((_: unknown, i: number) => i !== index);
+      type FinancialLinesType =
+        | Array<{ transport_name: string; price: string }>
+        | Array<{ operating_name: string; price: string }>
+        | Array<{ service_name: string; price: string }>;
+      return {
+        ...prev,
+        [fieldName]: filtered as FinancialLinesType
+      };
+    });
+  };
+
+  const updateFinancialLine = (
+    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService',
+    index: number,
+    field: 'name' | 'price',
+    value: string
+  ) => {
+    setFormData(prev => {
+      const newArray = [...prev[fieldName]];
+      if (fieldName === 'mldsFinancialTransport') {
+        newArray[index] = { ...newArray[index], transport_name: field === 'name' ? value : (newArray[index] as any).transport_name, price: field === 'price' ? value : (newArray[index] as any).price };
+      } else if (fieldName === 'mldsFinancialOperating') {
+        newArray[index] = { ...newArray[index], operating_name: field === 'name' ? value : (newArray[index] as any).operating_name, price: field === 'price' ? value : (newArray[index] as any).price };
+      } else {
+        newArray[index] = { ...newArray[index], service_name: field === 'name' ? value : (newArray[index] as any).service_name, price: field === 'price' ? value : (newArray[index] as any).price };
+      }
+      return { ...prev, [fieldName]: newArray };
+    });
+  };
+
+  // Calculate total from financial lines array
+  const calculateFinancialLinesTotal = (
+    lines: Array<{ transport_name?: string; operating_name?: string; service_name?: string; price: string }>
+  ): number => {
+    return lines.reduce((sum, line) => {
+      const price = Number.parseFloat(line.price) || 0;
+      return sum + price;
+    }, 0);
   };
 
   const handleActionObjectiveToggle = (objective: string) => {
@@ -549,9 +606,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
             expected_participants: formData.mldsExpectedParticipants ? Number.parseInt(formData.mldsExpectedParticipants, 10) : null,
             financial_hse: formData.mldsFinancialHSE ? Number.parseFloat(formData.mldsFinancialHSE) : null,
             financial_hv: formData.mldsFinancialHV ? Number.parseFloat(formData.mldsFinancialHV) : null,
-            financial_transport: formData.mldsFinancialTransport ? Number.parseFloat(formData.mldsFinancialTransport) : null,
-            financial_operating: formData.mldsFinancialOperating ? Number.parseFloat(formData.mldsFinancialOperating) : null,
-            financial_service: formData.mldsFinancialService ? Number.parseFloat(formData.mldsFinancialService) : null,
+            financial_transport: formData.mldsFinancialTransport.length > 0 ? formData.mldsFinancialTransport.filter(line => line.transport_name.trim() || line.price.trim()) : null,
+            financial_operating: formData.mldsFinancialOperating.length > 0 ? formData.mldsFinancialOperating.filter(line => line.operating_name.trim() || line.price.trim()) : null,
+            financial_service: formData.mldsFinancialService.length > 0 ? formData.mldsFinancialService.filter(line => line.service_name.trim() || line.price.trim()) : null,
             objectives: formData.mldsObjectives || null,
             network_issue_addressed: formData.networkIssueAddressed || null
           }
@@ -1346,47 +1403,160 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                   gridTemplateColumns: '1fr',
                   gap: '1rem'
                 }}>
+                  {/* Frais de transport */}
                   <div className="form-group" style={{ marginBottom: '0' }}>
-                    <label htmlFor="mldsFinancialTransport">Frais de transport</label>
-                    <input
-                      type="number"
-                      id="mldsFinancialTransport"
-                      name="mldsFinancialTransport"
-                      className="form-input"
-                      value={formData.mldsFinancialTransport}
-                      onChange={handleInputChange}
-                      placeholder="Montant en €"
-                      min="0"
-                      step="0.01"
-                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label htmlFor="mldsFinancialTransport">Frais de transport</label>
+                      <button
+                        type="button"
+                        onClick={() => addFinancialLine('mldsFinancialTransport')}
+                        className="btn btn-outline btn-sm"
+                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      >
+                        <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                        Ajouter une ligne
+                      </button>
+                    </div>
+                    {formData.mldsFinancialTransport.length === 0 ? (
+                      <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+                        Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.
+                      </div>
+                    ) : (
+                      formData.mldsFinancialTransport.map((line, index) => (
+                        <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={line.transport_name}
+                            onChange={(e) => updateFinancialLine('mldsFinancialTransport', index, 'name', e.target.value)}
+                            placeholder="Nom du transport"
+                            style={{ flex: 2 }}
+                          />
+                          <input
+                            type="number"
+                            className="form-input"
+                            value={line.price}
+                            onChange={(e) => updateFinancialLine('mldsFinancialTransport', index, 'price', e.target.value)}
+                            placeholder="Prix en €"
+                            min="0"
+                            step="0.01"
+                            style={{ flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeFinancialLine('mldsFinancialTransport', index)}
+                            className="btn btn-outline btn-sm"
+                            style={{ padding: '8px 12px', color: '#dc2626' }}
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
+
+                  {/* Frais de fonctionnement */}
                   <div className="form-group" style={{ marginBottom: '0' }}>
-                    <label htmlFor="mldsFinancialOperating">Frais de fonctionnement</label>
-                    <input
-                      type="number"
-                      id="mldsFinancialOperating"
-                      name="mldsFinancialOperating"
-                      className="form-input"
-                      value={formData.mldsFinancialOperating}
-                      onChange={handleInputChange}
-                      placeholder="Montant en €"
-                      min="0"
-                      step="0.01"
-                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label htmlFor="mldsFinancialOperating">Frais de fonctionnement</label>
+                      <button
+                        type="button"
+                        onClick={() => addFinancialLine('mldsFinancialOperating')}
+                        className="btn btn-outline btn-sm"
+                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      >
+                        <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                        Ajouter une ligne
+                      </button>
+                    </div>
+                    {formData.mldsFinancialOperating.length === 0 ? (
+                      <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+                        Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.
+                      </div>
+                    ) : (
+                      formData.mldsFinancialOperating.map((line, index) => (
+                        <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={line.operating_name}
+                            onChange={(e) => updateFinancialLine('mldsFinancialOperating', index, 'name', e.target.value)}
+                            placeholder="Nom du fonctionnement"
+                            style={{ flex: 2 }}
+                          />
+                          <input
+                            type="number"
+                            className="form-input"
+                            value={line.price}
+                            onChange={(e) => updateFinancialLine('mldsFinancialOperating', index, 'price', e.target.value)}
+                            placeholder="Prix en €"
+                            min="0"
+                            step="0.01"
+                            style={{ flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeFinancialLine('mldsFinancialOperating', index)}
+                            className="btn btn-outline btn-sm"
+                            style={{ padding: '8px 12px', color: '#dc2626' }}
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
+
+                  {/* Prestataires de service */}
                   <div className="form-group" style={{ marginBottom: '0' }}>
-                    <label htmlFor="mldsFinancialService">Prestataires de service</label>
-                    <input
-                      type="number"
-                      id="mldsFinancialService"
-                      name="mldsFinancialService"
-                      className="form-input"
-                      value={formData.mldsFinancialService}
-                      onChange={handleInputChange}
-                      placeholder="Montant en €"
-                      min="0"
-                      step="0.01"
-                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label htmlFor="mldsFinancialService">Prestataires de service</label>
+                      <button
+                        type="button"
+                        onClick={() => addFinancialLine('mldsFinancialService')}
+                        className="btn btn-outline btn-sm"
+                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      >
+                        <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                        Ajouter une ligne
+                      </button>
+                    </div>
+                    {formData.mldsFinancialService.length === 0 ? (
+                      <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+                        Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.
+                      </div>
+                    ) : (
+                      formData.mldsFinancialService.map((line, index) => (
+                        <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={line.service_name}
+                            onChange={(e) => updateFinancialLine('mldsFinancialService', index, 'name', e.target.value)}
+                            placeholder="Nom du service"
+                            style={{ flex: 2 }}
+                          />
+                          <input
+                            type="number"
+                            className="form-input"
+                            value={line.price}
+                            onChange={(e) => updateFinancialLine('mldsFinancialService', index, 'price', e.target.value)}
+                            placeholder="Prix en €"
+                            min="0"
+                            step="0.01"
+                            style={{ flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeFinancialLine('mldsFinancialService', index)}
+                            className="btn btn-outline btn-sm"
+                            style={{ padding: '8px 12px', color: '#dc2626' }}
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
                 <div style={{
@@ -1401,9 +1571,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                   <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits :</span>
                   <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
                     {(
-                      (Number.parseFloat(formData.mldsFinancialTransport) || 0) +
-                      (Number.parseFloat(formData.mldsFinancialOperating) || 0) +
-                      (Number.parseFloat(formData.mldsFinancialService) || 0) +
+                      calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
+                      calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
+                      calculateFinancialLinesTotal(formData.mldsFinancialService) +
                       (Number.parseFloat(formData.mldsFinancialHSE) || 0) * (Number.parseFloat(formData.mldsFinancialHV) || HV_DEFAULT_RATE)
                     ).toFixed(2)} €
                   </span>
@@ -1425,9 +1595,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 </span>
                 <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
                   {(
-                    (Number.parseFloat(formData.mldsFinancialTransport) || 0) +
-                    (Number.parseFloat(formData.mldsFinancialOperating) || 0) +
-                    (Number.parseFloat(formData.mldsFinancialService) || 0) +
+                    calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
+                    calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
+                    calculateFinancialLinesTotal(formData.mldsFinancialService) +
                     (Number.parseFloat(formData.mldsFinancialHSE) || 0) * (Number.parseFloat(formData.mldsFinancialHV) || HV_DEFAULT_RATE)
                   ).toFixed(2)} €
                 </span>

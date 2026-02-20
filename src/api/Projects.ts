@@ -69,9 +69,9 @@ export interface MLDSInformationAttributes {
     expected_participants?: number | null;
     financial_hse?: number | null;
     financial_hv?: number | null;
-    financial_transport?: number | null;
-    financial_operating?: number | null;
-    financial_service?: number | null;
+    financial_transport?: Array<{ transport_name: string; price: string }> | null;
+    financial_operating?: Array<{ operating_name: string; price: string }> | null;
+    financial_service?: Array<{ service_name: string; price: string }> | null;
     objectives?: string | null;
     organization_names?: string[];
     network_issue_addressed?: string | null;
@@ -884,16 +884,25 @@ export const createProject = async (
             formData.append('project[mlds_information_attributes][financial_hv]', mlds.financial_hv.toString());
         }
         
-        if (mlds.financial_transport !== undefined && mlds.financial_transport !== null) {
-            formData.append('project[mlds_information_attributes][financial_transport]', mlds.financial_transport.toString());
+        if (mlds.financial_transport !== undefined && mlds.financial_transport !== null && Array.isArray(mlds.financial_transport)) {
+            mlds.financial_transport.forEach((line: { transport_name: string; price: string }, index: number) => {
+                formData.append(`project[mlds_information_attributes][financial_transport][${index}][transport_name]`, line.transport_name);
+                formData.append(`project[mlds_information_attributes][financial_transport][${index}][price]`, line.price);
+            });
         }
         
-        if (mlds.financial_operating !== undefined && mlds.financial_operating !== null) {
-            formData.append('project[mlds_information_attributes][financial_operating]', mlds.financial_operating.toString());
+        if (mlds.financial_operating !== undefined && mlds.financial_operating !== null && Array.isArray(mlds.financial_operating)) {
+            mlds.financial_operating.forEach((line: { operating_name: string; price: string }, index: number) => {
+                formData.append(`project[mlds_information_attributes][financial_operating][${index}][operating_name]`, line.operating_name);
+                formData.append(`project[mlds_information_attributes][financial_operating][${index}][price]`, line.price);
+            });
         }
         
-        if (mlds.financial_service !== undefined && mlds.financial_service !== null) {
-            formData.append('project[mlds_information_attributes][financial_service]', mlds.financial_service.toString());
+        if (mlds.financial_service !== undefined && mlds.financial_service !== null && Array.isArray(mlds.financial_service)) {
+            mlds.financial_service.forEach((line: { service_name: string; price: string }, index: number) => {
+                formData.append(`project[mlds_information_attributes][financial_service][${index}][service_name]`, line.service_name);
+                formData.append(`project[mlds_information_attributes][financial_service][${index}][price]`, line.price);
+            });
         }
         
         if (mlds.objectives !== undefined && mlds.objectives !== null) {
