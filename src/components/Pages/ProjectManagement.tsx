@@ -3732,8 +3732,8 @@ const ProjectManagement: React.FC = () => {
           doc.text(`${rate.toFixed(2)} €/h`, margin + 40, yPosition);
           yPosition += lineHeight;
         }
-        if (mldsInfo.total_financial_hours != null) {
-          const totalHours = Number.parseFloat(String(mldsInfo.total_financial_hours));
+        if (mldsInfo.total_financial_hours != null && mldsInfo.financial_hse != null) {
+          const totalHours = Number.parseFloat(String(mldsInfo.total_financial_hours)) || 0;
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
           doc.text('Total heures', margin + 2, yPosition);
@@ -5629,11 +5629,14 @@ const ProjectManagement: React.FC = () => {
                               
                             </div>
                             <div>
-                            {apiProjectData.mlds_information.total_financial_hours != null && (
+                            {apiProjectData.mlds_information.total_financial_hours != null && apiProjectData.mlds_information.financial_hse != null && (
                                 <div style={{ padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', flex: 1 }}>
-                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total  €/h</div>
+                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total heures</div>
                                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
-                                    {Number.parseFloat(String(apiProjectData.mlds_information.total_financial_hours)).toFixed(2)} € pour {Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)).toFixed(2)} heure{Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) > 1 ? 's' : ''}
+                                    {(() => {
+                                      const totalHours = Number.parseFloat(String(apiProjectData.mlds_information.total_financial_hours)) || 0;
+                                      return `${totalHours.toFixed(2)} h`;
+                                    })()}
                                   </div>
                                 </div>
                               )}
@@ -7292,7 +7295,7 @@ const ProjectManagement: React.FC = () => {
               )}
             </div>
 
-            <div className="modal-footer">
+            <div className="modal-footer flex !flex-wrap gap-2 justify-center flex-1">
               <button className="btn btn-outline" onClick={handleCancelEdit}>
                 Annuler
               </button>

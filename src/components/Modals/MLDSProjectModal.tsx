@@ -1607,7 +1607,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
           </div>
 
           {/* Form Actions */}
-          <div className="flex flex-wrap gap-2 modal-actions">
+          <div className="flex !flex-wrap gap-2 modal-actions">
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={isSubmitting}>
               Annuler
             </button>
