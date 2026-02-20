@@ -72,6 +72,9 @@ function normalizeAvailabilityToLabels(availability: any): string[] {
   return labels;
 }
 
+/** Taux HV par défaut (€/heure) — utilisé pour HSE × HV */
+const HV_DEFAULT_RATE = 50.73;
+
 // Component for displaying skills with "Voir plus"/"Voir moins" functionality
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
   const [showAll, setShowAll] = React.useState(false);
@@ -206,10 +209,11 @@ const ProjectManagement: React.FC = () => {
     mldsCompetenciesDeveloped: '',
     mldsExpectedParticipants: '',
     mldsFinancialHSE: '',
-    mldsFinancialHV: '',
+    mldsFinancialHV: '50.73',
     mldsFinancialTransport: '',
     mldsFinancialOperating: '',
     mldsFinancialService: '',
+    mldsNetworkIssueAddressed: '',
     mldsOrganizationNames: [] as string[],
     mldsSchoolLevelIds: [] as string[] // IDs of school levels
   });
@@ -647,7 +651,7 @@ const ProjectManagement: React.FC = () => {
             !userProjectMember ||
             userProjectMember.can_assign_badges_in_project !== newUserProjectMember.can_assign_badges_in_project ||
             JSON.stringify(userProjectMember.user?.available_contexts) !==
-              JSON.stringify(newUserProjectMember.user?.available_contexts);
+            JSON.stringify(newUserProjectMember.user?.available_contexts);
 
           if (needsUpdate) {
             setUserProjectMember(newUserProjectMember);
@@ -1410,7 +1414,7 @@ const ProjectManagement: React.FC = () => {
   const getEditFilteredCoResponsibles = (searchTerm: string) => {
     // Use co-responsible options (from teacher school API) if available, otherwise use regular members
     const sourceMembers = (editCoResponsibleOptions.length > 0) ? editCoResponsibleOptions : editAvailableMembers;
-    
+
     // Filter out already selected co-responsibles
     let available = sourceMembers.filter((member: any) =>
       !editForm.coResponsibles.includes(member.id.toString())
@@ -1457,17 +1461,17 @@ const ProjectManagement: React.FC = () => {
   const getEditTeachersInClass = (schoolLevelId: string): any[] => {
     const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === schoolLevelId);
     if (!classItem) return [];
-    
+
     // Récupérer les IDs des enseignants de la classe
     const teacherIds = classItem.teacher_ids || (classItem.teachers || []).map((t: any) => t.id || t);
     if (!teacherIds || teacherIds.length === 0) return [];
-    
+
     // Filtrer les membres disponibles (editCoResponsibleOptions pour teacher/school, ou editAvailableMembers pour autres contextes)
     const availableMembers = editCoResponsibleOptions.length > 0 ? editCoResponsibleOptions : editAvailableMembers;
-    
+
     // Exclure le propriétaire du projet
     const ownerId = apiProjectData?.owner?.id?.toString();
-    
+
     return availableMembers.filter((member: any) => {
       if (!member?.id) return false;
       if (ownerId && member.id?.toString() === ownerId) return false;
@@ -1583,9 +1587,9 @@ const ProjectManagement: React.FC = () => {
 
   const handleEditPartnerSelect = (partnerId: string) => {
     const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
-    
+
     if (!partnership) return;
-    
+
     const ownerId = apiProjectData?.owner?.id != null ? apiProjectData.owner.id.toString() : null;
     const contactUsersRaw = (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
       id: c.id,
@@ -1598,9 +1602,9 @@ const ProjectManagement: React.FC = () => {
     const contactUsers = ownerId
       ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
       : contactUsersRaw;
-    
+
     const isAlreadySelected = editForm.partners.includes(partnerId);
-    
+
     if (isAlreadySelected) {
       // Désélectionner le partenariat
       const contactIds = contactUsers.map((c: any) => c.id.toString());
@@ -1625,11 +1629,11 @@ const ProjectManagement: React.FC = () => {
         ...prev,
         partners: [...prev.partners, partnerId]
       }));
-      
+
       // Construire le nom du partenariat pour l'affichage
       const partnerOrgs = partnership.partners || [];
       const partnershipName = partnerOrgs.map((p: any) => p.name).join(', ') || partnership.name || '';
-      
+
       // Ouvrir la popup de sélection des co-responsables
       setEditPartnershipCoResponsiblesPopup({
         partnershipId: partnerId,
@@ -1637,7 +1641,7 @@ const ProjectManagement: React.FC = () => {
         contactUsers
       });
       setEditPartnershipCoResponsiblesSearchTerm('');
-      
+
       // Ajouter les contact users à editPartnershipContactMembers pour l'affichage
       setEditPartnershipContactMembers(prev => [...prev, ...contactUsers]);
     }
@@ -1711,11 +1715,12 @@ const ProjectManagement: React.FC = () => {
       mldsObjectives: mldsInfo?.objectives || '',
       mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
       mldsExpectedParticipants: mldsInfo?.expected_participants?.toString() || '',
-      mldsFinancialHSE: mldsInfo?.financial_hse || '',
-      mldsFinancialHV: mldsInfo?.financial_hv || '',
+      mldsFinancialHSE: mldsInfo?.financial_hse ?? '',
+      mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : '50.73',
       mldsFinancialTransport: mldsInfo?.financial_transport || '',
       mldsFinancialOperating: mldsInfo?.financial_operating || '',
       mldsFinancialService: mldsInfo?.financial_service || '',
+      mldsNetworkIssueAddressed: mldsInfo?.network_issue_addressed ?? '',
       mldsOrganizationNames: mldsInfo?.organization_names || [],
       // For MLDS: use mlds_information.school_level_ids
       // For non-MLDS school projects: use root school_level_ids (as returned by API)
@@ -1764,7 +1769,7 @@ const ProjectManagement: React.FC = () => {
         // Essayer d'abord school.id, puis school_id dans le level
         const firstLevel = apiProjectData.school_levels[0];
         projectSchoolId = firstLevel?.school?.id || firstLevel?.school_id || null;
-        
+
         // Si toujours null, chercher dans tous les levels
         if (!projectSchoolId) {
           for (const level of apiProjectData.school_levels) {
@@ -1915,7 +1920,8 @@ const ProjectManagement: React.FC = () => {
           financial_hv: editForm.mldsFinancialHV ? Number.parseFloat(editForm.mldsFinancialHV) : null,
           financial_transport: editForm.mldsFinancialTransport ? Number.parseFloat(editForm.mldsFinancialTransport) : null,
           financial_operating: editForm.mldsFinancialOperating ? Number.parseFloat(editForm.mldsFinancialOperating) : null,
-          financial_service: editForm.mldsFinancialService ? Number.parseFloat(editForm.mldsFinancialService) : null
+          financial_service: editForm.mldsFinancialService ? Number.parseFloat(editForm.mldsFinancialService) : null,
+          network_issue_addressed: editForm.mldsNetworkIssueAddressed || null
           // organization_names is automatically generated by backend from school_level_ids
         };
       } else {
@@ -2013,7 +2019,7 @@ const ProjectManagement: React.FC = () => {
         // Réinitialiser les heures pour comparer uniquement les dates
         today.setHours(0, 0, 0, 0);
         startDate.setHours(0, 0, 0, 0);
-        
+
         // Si la date de début est dans le passé, le projet est "en cours"
         // Sinon, il est "à venir"
         if (startDate <= today) {
@@ -2063,20 +2069,20 @@ const ProjectManagement: React.FC = () => {
     if (isAlreadySelected) {
       // Récupérer les co-responsables de cette classe avant de la supprimer
       const coResponsiblesToRemove = editClassCoResponsibles[schoolLevelId] || [];
-      
+
       setEditForm(prev => {
         const updatedSchoolLevelIds = prev.mldsSchoolLevelIds.filter(id => id !== schoolLevelId);
         const memberIdsInClass = getEditStudentsInClass(schoolLevelId).map((m: any) => m.id?.toString()).filter(Boolean);
         const participantsToRemove = new Set(memberIdsInClass);
         const updatedParticipants = prev.participants.filter(id => !participantsToRemove.has(id.toString()));
-        
+
         // Retirer les co-responsables de cette classe
         const coResponsiblesToRemoveSet = new Set(coResponsiblesToRemove);
         const updatedCoResponsibles = prev.coResponsibles.filter(id => !coResponsiblesToRemoveSet.has(id));
-        
-        return { 
-          ...prev, 
-          mldsSchoolLevelIds: updatedSchoolLevelIds, 
+
+        return {
+          ...prev,
+          mldsSchoolLevelIds: updatedSchoolLevelIds,
           participants: updatedParticipants,
           coResponsibles: updatedCoResponsibles
         };
@@ -2138,7 +2144,7 @@ const ProjectManagement: React.FC = () => {
   // Synchroniser editForm.coResponsibles à partir des co-responsables sélectionnés par classe et par partenariat
   useEffect(() => {
     if (!isEditModalOpen) return;
-    
+
     // Récupérer tous les co-responsables des classes actuellement sélectionnées uniquement
     const fromClasses: string[] = [];
     editForm.mldsSchoolLevelIds.forEach(classId => {
@@ -2146,7 +2152,7 @@ const ProjectManagement: React.FC = () => {
         if (!fromClasses.includes(id)) fromClasses.push(id);
       });
     });
-    
+
     // Récupérer tous les co-responsables des partenariats actuellement sélectionnés uniquement
     const fromPartnerships: string[] = [];
     editForm.partners.forEach(partnershipId => {
@@ -2154,15 +2160,15 @@ const ProjectManagement: React.FC = () => {
         if (!fromPartnerships.includes(id)) fromPartnerships.push(id);
       });
     });
-    
+
     // Récupérer les IDs de tous les co-responsables qui viennent des classes et partenariats sélectionnés
     const allSelectedIds = new Set([...fromClasses, ...fromPartnerships]);
-    
+
     // Récupérer les co-responsables qui ne viennent pas des classes ni des partenariats (sélection manuelle globale)
     setEditForm(prev => {
       // Garder uniquement les co-responsables qui ne viennent pas des classes ni des partenariats sélectionnés
       const nonClassOrPartnershipCoResponsibles = prev.coResponsibles.filter(id => !allSelectedIds.has(id));
-      
+
       // Fusionner avec les co-responsables des classes et partenariats sélectionnés
       const allCoResponsibles = Array.from(new Set([...nonClassOrPartnershipCoResponsibles, ...fromClasses, ...fromPartnerships]));
       return { ...prev, coResponsibles: allCoResponsibles };
@@ -3645,31 +3651,37 @@ const ProjectManagement: React.FC = () => {
         yPosition += lineHeight;
 
         if (mldsInfo.financial_hse != null) {
-          const amount = Number.parseFloat(mldsInfo.financial_hse);
+          const hours = Number.parseFloat(mldsInfo.financial_hse);
+          const rate = Number.parseFloat(mldsInfo.financial_hv) || HV_DEFAULT_RATE;
+          const euros = hours * rate;
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
           doc.text('HSE', margin + 2, yPosition);
-          doc.text(`${amount.toFixed(2)} heures`, margin + 40, yPosition);
+          doc.text(`${hours.toFixed(2)} h (${euros.toFixed(2)} €)`, margin + 40, yPosition);
           yPosition += lineHeight;
         }
 
         if (mldsInfo.financial_hv != null) {
-          const amount = Number.parseFloat(mldsInfo.financial_hv);
+          const rate = Number.parseFloat(mldsInfo.financial_hv);
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
-          doc.text('HV', margin + 2, yPosition);
-          doc.text(`${amount.toFixed(2)} €`, margin + 40, yPosition);
+          doc.text('HV (taux)', margin + 2, yPosition);
+          doc.text(`${rate.toFixed(2)} €/h`, margin + 40, yPosition);
           yPosition += lineHeight;
         }
         doc.setFontSize(10);
         yPosition += 1;
       }
 
-      // Crédits
-      let totalCredits = 0;
+      // Crédits (HSE × HV en € + autres postes)
+      const hseHours = Number.parseFloat(mldsInfo.financial_hse) || 0;
+      const hvRate = Number.parseFloat(mldsInfo.financial_hv) || HV_DEFAULT_RATE;
+      let totalCredits = hseHours * hvRate;
       const hasCredits = mldsInfo.financial_transport != null ||
         mldsInfo.financial_operating != null ||
-        mldsInfo.financial_service != null;
+        mldsInfo.financial_service != null ||
+        mldsInfo.financial_hse != null ||
+        mldsInfo.financial_hv != null;
 
       if (hasCredits) {
         checkNewPage(15);
@@ -3710,7 +3722,7 @@ const ProjectManagement: React.FC = () => {
           yPosition += lineHeight;
         }
 
-        // Sous-total crédits (utiliser le backend si disponible)
+        // Sous-total crédits (backend si disponible, sinon transport + fonctionnement + prestataires + HV en €)
         const creditsTotal = mldsInfo.total_financial_credits
           ? Number.parseFloat(mldsInfo.total_financial_credits)
           : totalCredits;
@@ -3722,14 +3734,14 @@ const ProjectManagement: React.FC = () => {
         doc.setFontSize(10);
       }
 
-      // Total général avec style (calculer uniquement avec les crédits, sans HSE et HV)
+      // Total général (crédits + HV converti en €)
       checkNewPage(10);
       doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setLineWidth(0.5);
       doc.line(margin, yPosition - 1, pageWidth - margin, yPosition - 1);
       yPosition += 2;
 
-      // Utiliser total_financial_credits du backend si disponible, sinon calculer avec les crédits uniquement
+      // Total : backend si disponible, sinon transport + fonctionnement + prestataires + HV en €
       const totalGeneral = mldsInfo.total_financial_credits
         ? Number.parseFloat(mldsInfo.total_financial_credits)
         : totalCredits;
@@ -4135,23 +4147,23 @@ const ProjectManagement: React.FC = () => {
                   badgeSeriesFilter === 'Série Parcours des possibles' ||
                   badgeSeriesFilter === 'Série Audiovisuelle' ||
                   badgeSeriesFilter === 'Série Parcours professionnel') && (
-                  <div className="filter-group">
-                    <label>Par niveau</label>
-                    <select
-                      value={badgeLevelFilter}
-                      onChange={(e) => {
-                        setBadgeLevelFilter(e.target.value);
-                        setBadgePage(1);
-                      }}
-                    >
-                      <option value="">Tous les niveaux</option>
-                      <option value="1">Niveau 1</option>
-                      <option value="2">Niveau 2</option>
-                      <option value="3">Niveau 3</option>
-                      <option value="4">Niveau 4</option>
-                    </select>
-                  </div>
-                )}
+                    <div className="filter-group">
+                      <label>Par niveau</label>
+                      <select
+                        value={badgeLevelFilter}
+                        onChange={(e) => {
+                          setBadgeLevelFilter(e.target.value);
+                          setBadgePage(1);
+                        }}
+                      >
+                        <option value="">Tous les niveaux</option>
+                        <option value="1">Niveau 1</option>
+                        <option value="2">Niveau 2</option>
+                        <option value="3">Niveau 3</option>
+                        <option value="4">Niveau 4</option>
+                      </select>
+                    </div>
+                  )}
               </div>
               <div className="badges-list">
                 {projectBadges.map((attribution) => (
@@ -5333,6 +5345,18 @@ const ProjectManagement: React.FC = () => {
                   </div>
 
                   <div className="overview-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                    {/* Problématique réseau traitée */}
+                    {apiProjectData.mlds_information.network_issue_addressed && (
+                      <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                        <div className="stat-content">
+                          <div className="stat-label"> Problématique du réseau à laquelle l&apos;action répond </div>
+                          <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                            {apiProjectData.mlds_information.network_issue_addressed}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Demande faite par */}
                     {apiProjectData.mlds_information.requested_by && (
                       <div className="stat-card">
@@ -5483,14 +5507,19 @@ const ProjectManagement: React.FC = () => {
                                   <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HSE</div>
                                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
                                     {Number.parseFloat(apiProjectData.mlds_information.financial_hse).toFixed(2)} heures
+                                    {apiProjectData.mlds_information.financial_hv != null && (
+                                      <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#6b7280', marginLeft: '0.5rem' }}>
+                                        ({(Number.parseFloat(apiProjectData.mlds_information.financial_hse) * Number.parseFloat(apiProjectData.mlds_information.financial_hv)).toFixed(2)} €)
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               )}
                               {apiProjectData.mlds_information.financial_hv != null && (
                                 <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
+                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV (taux)</div>
                                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
-                                    {Number.parseFloat(apiProjectData.mlds_information.financial_hv).toFixed(2)} €
+                                    {Number.parseFloat(apiProjectData.mlds_information.financial_hv).toFixed(2)} €/h
                                   </div>
                                 </div>
                               )}
@@ -5539,7 +5568,8 @@ const ProjectManagement: React.FC = () => {
                                       : (
                                         (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
                                         (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
-                                        (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
+                                        (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0) +
+                                        (Number.parseFloat(apiProjectData.mlds_information.financial_hse) || 0) * (Number.parseFloat(apiProjectData.mlds_information.financial_hv) || HV_DEFAULT_RATE)
                                       ).toFixed(2)
                                     } €
                                   </span>
@@ -5562,7 +5592,8 @@ const ProjectManagement: React.FC = () => {
                                 {(
                                   (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
                                   (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
-                                  (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
+                                  (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0) +
+                                  (Number.parseFloat(apiProjectData.mlds_information.financial_hse) || 0) * (Number.parseFloat(apiProjectData.mlds_information.financial_hv) || HV_DEFAULT_RATE)
                                 ).toFixed(2)} €
                               </span>
                             </div>
@@ -5670,6 +5701,20 @@ const ProjectManagement: React.FC = () => {
                   placeholder="Entrez le titre du projet"
                 />
               </div>
+
+              {isMLDSProject && (
+                <div className="form-group">
+                  <label htmlFor="networkIssueAddressed"> Problématique du réseau à laquelle l&apos;action répond <span style={{ color: 'red' }}>*</span></label>
+                  <textarea
+                    id="project-network-issue-addressed"
+                    value={editForm.mldsNetworkIssueAddressed}
+                    onChange={(e) => setEditForm({ ...editForm, mldsNetworkIssueAddressed: e.target.value })}
+                    className="form-input"
+                    placeholder="Diagnostique, constats, indicateurs, besoins identifiés, freins"
+                    rows={4}  
+                  />
+                </div>
+              )}
 
               <div className="form-group">
                 <label htmlFor="project-description">Description du projet</label>
@@ -5885,7 +5930,7 @@ const ProjectManagement: React.FC = () => {
                   <div className="form-label">Ajouter une/des classe(s) au projet</div>
                   {availableSchoolLevels.length > 0 ? (
                     <>
-                      <div className="multi-select-container" style={{ }}>
+                      <div className="multi-select-container" style={{}}>
                         {availableSchoolLevels.map(classItem => (
                           <label
                             key={classItem.id}
@@ -6056,11 +6101,11 @@ const ProjectManagement: React.FC = () => {
                                     cursor: 'pointer',
                                     ...(checked
                                       ? {
-                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
-                                          border: '1px solid #5570F1',
-                                          borderRadius: '8px',
-                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
-                                        }
+                                        backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                        border: '1px solid #5570F1',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                      }
                                       : {})
                                   }}
                                 >
@@ -6116,7 +6161,7 @@ const ProjectManagement: React.FC = () => {
                       {(() => {
                         const teachers = getFilteredEditClassCoResponsibles(editClassCoResponsiblesPopup.classId, editClassCoResponsiblesSearchTerm);
                         const selectedIds = editClassCoResponsibles[editClassCoResponsiblesPopup.classId] || [];
-                        
+
                         if (teachers.length === 0) {
                           return (
                             <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
@@ -6141,11 +6186,11 @@ const ProjectManagement: React.FC = () => {
                                     cursor: 'pointer',
                                     ...(isSelected
                                       ? {
-                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
-                                          border: '1px solid #5570F1',
-                                          borderRadius: '8px',
-                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
-                                        }
+                                        backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                        border: '1px solid #5570F1',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                      }
                                       : {})
                                   }}
                                 >
@@ -6213,7 +6258,7 @@ const ProjectManagement: React.FC = () => {
                       {(() => {
                         const contactUsers = getFilteredEditPartnershipCoResponsibles(editPartnershipCoResponsiblesPopup.contactUsers, editPartnershipCoResponsiblesSearchTerm);
                         const selectedIds = editPartnershipCoResponsibles[editPartnershipCoResponsiblesPopup.partnershipId] || [];
-                        
+
                         if (contactUsers.length === 0) {
                           return (
                             <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
@@ -6238,11 +6283,11 @@ const ProjectManagement: React.FC = () => {
                                     cursor: 'pointer',
                                     ...(isSelected
                                       ? {
-                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
-                                          border: '1px solid #5570F1',
-                                          borderRadius: '8px',
-                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
-                                        }
+                                        backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                        border: '1px solid #5570F1',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                      }
                                       : {})
                                   }}
                                 >
@@ -6295,7 +6340,7 @@ const ProjectManagement: React.FC = () => {
                       Ajoutez des classes ci-dessus et choisissez « Sélectionner manuellement » ou « Tout sélectionner » pour ajouter des participants. Ils seront enregistrés avec le projet.
                     </p>
                   ) : (
-                    <div className="selected-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
+                    <div className="selected-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                       {(() => {
                         const showLevelSummary = editForm.mldsSchoolLevelIds.length > 0;
                         if (showLevelSummary) {
@@ -6741,7 +6786,7 @@ const ProjectManagement: React.FC = () => {
                         { value: 'professional_discovery', label: 'La découverte des filières professionnelles' },
                         { value: 'student_mobility', label: 'Le développement de la mobilité des élèves' },
                         { value: 'cps_development', label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré' },
-                        { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, PAE, autres)' },
+                        { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, Avenir Pro Plus, autres)' },
                         { value: 'family_links', label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire' },
                         { value: 'professional_development', label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)' },
                         { value: 'other', label: 'Autre' }
@@ -6825,7 +6870,7 @@ const ProjectManagement: React.FC = () => {
                         />
                       </div>
                       <div className="form-group" style={{ marginBottom: '0' }}>
-                        <label htmlFor="mlds-financial-hv">HV</label>
+                        <label htmlFor="mlds-financial-hv">HV (taux €/h)</label>
                         <input
                           type="number"
                           id="mlds-financial-hv"
@@ -6833,7 +6878,7 @@ const ProjectManagement: React.FC = () => {
                           className="form-input"
                           value={editForm.mldsFinancialHV}
                           onChange={(e) => setEditForm({ ...editForm, mldsFinancialHV: e.target.value })}
-                          placeholder="Montant en €"
+                          placeholder="Taux en €/heure"
                           min="0"
                           step="0.01"
                         />
@@ -6918,7 +6963,8 @@ const ProjectManagement: React.FC = () => {
                           {(
                             (Number.parseFloat(editForm.mldsFinancialTransport) || 0) +
                             (Number.parseFloat(editForm.mldsFinancialOperating) || 0) +
-                            (Number.parseFloat(editForm.mldsFinancialService) || 0)
+                            (Number.parseFloat(editForm.mldsFinancialService) || 0) +
+                            (Number.parseFloat(editForm.mldsFinancialHSE) || 0) * (Number.parseFloat(editForm.mldsFinancialHV) || HV_DEFAULT_RATE)
                           ).toFixed(2)} €
                         </span>
                       </div>
@@ -6941,7 +6987,8 @@ const ProjectManagement: React.FC = () => {
                         {(
                           (Number.parseFloat(editForm.mldsFinancialTransport) || 0) +
                           (Number.parseFloat(editForm.mldsFinancialOperating) || 0) +
-                          (Number.parseFloat(editForm.mldsFinancialService) || 0)
+                          (Number.parseFloat(editForm.mldsFinancialService) || 0) +
+                          (Number.parseFloat(editForm.mldsFinancialHSE) || 0) * (Number.parseFloat(editForm.mldsFinancialHV) || HV_DEFAULT_RATE)
                         ).toFixed(2)} €
                       </span>
                     </div>
@@ -7272,7 +7319,7 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={() => setIsViewTeamModalOpen(false)}>
                 Fermer
               </button>
-                  {!isProjectEnded && !isReadOnlyMode && (
+              {!isProjectEnded && !isReadOnlyMode && (
                 <button className="btn btn-primary" onClick={() => {
                   setIsViewTeamModalOpen(false);
                   handleEditTeam(selectedTeam);

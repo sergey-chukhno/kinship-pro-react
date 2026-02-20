@@ -74,6 +74,7 @@ export interface MLDSInformationAttributes {
     financial_service?: number | null;
     objectives?: string | null;
     organization_names?: string[];
+    network_issue_addressed?: string | null;
 }
 
 export interface CreateProjectPayload {
@@ -897,6 +898,9 @@ export const createProject = async (
         
         if (mlds.objectives !== undefined && mlds.objectives !== null) {
             formData.append('project[mlds_information_attributes][objectives]', mlds.objectives);
+        }
+        if (mlds.network_issue_addressed !== undefined && mlds.network_issue_addressed !== null) {
+            formData.append('project[mlds_information_attributes][network_issue_addressed]', mlds.network_issue_addressed);
         }
     }
 

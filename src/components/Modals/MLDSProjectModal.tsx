@@ -13,6 +13,9 @@ import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 
+/** Taux HV par défaut (€/heure) — utilisé pour HSE × HV */
+const HV_DEFAULT_RATE = 50.73;
+
 interface MLDSProjectModalProps {
   onClose: () => void;
   onSave: (projectData: Omit<Project, 'id'>) => void;
@@ -23,6 +26,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
 
   const [formData, setFormData] = useState({
     title: '', // Will be auto-generated as [id_mlds_information]_[year]
+    networkIssueAddressed: '',
     description: '',
     startDate: '',
     endDate: '',
@@ -50,8 +54,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     mldsObjectives: '',
     mldsCompetencies: [] as string[],
     // Financial means
-    mldsFinancialHSE: '', // HSE
-    mldsFinancialHV: '', // HV
+    mldsFinancialHSE: '', // HSE (nombre d'heures)
+    mldsFinancialHV: '50.73', // HV (taux €/heure, modifiable)
     mldsFinancialTransport: '', // Frais de transport
     mldsFinancialOperating: '', // Frais de fonctionnement
     mldsFinancialService: '', // Prestataires de service
@@ -110,7 +114,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     },
     {
       value: 'territory_partnership',
-      label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, PAE, autres)'
+      label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, Avenir Pro Plus, autres)'
     },
     {
       value: 'family_links',
@@ -227,7 +231,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         if (response.ok) {
           const data = await response.json();
           // Sort departments by name
-          const sortedData = data.sort((a: { nom: string }, b: { nom: string }) => 
+          const sortedData = data.sort((a: { nom: string }, b: { nom: string }) =>
             a.nom.localeCompare(b.nom)
           );
           setDepartments(sortedData);
@@ -342,13 +346,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     if (!members || !Array.isArray(members)) {
       return [];
     }
-    
+
     const currentUserId = state.user?.id?.toString();
     const selectedMemberIds = [
       ...formData.coResponsibles.map(id => id.toString()),
       ...formData.participants.map(id => id.toString())
     ];
-    
+
     let availableMembers = members.filter((member: any) => {
       if (!member) return false;
       const memberIdStr = member.id?.toString();
@@ -357,7 +361,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
       }
       return !selectedMemberIds.includes(memberIdStr);
     });
-    
+
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       availableMembers = availableMembers.filter((member: any) => {
@@ -365,39 +369,39 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         const memberFullName = member.full_name?.toLowerCase() || '';
         const memberRole = member.role?.toLowerCase() || '';
         const memberEmail = member.email?.toLowerCase() || '';
-        
+
         return fullName.includes(searchLower) ||
-               memberFullName.includes(searchLower) ||
-               memberRole.includes(searchLower) ||
-               memberEmail.includes(searchLower);
+          memberFullName.includes(searchLower) ||
+          memberRole.includes(searchLower) ||
+          memberEmail.includes(searchLower);
       });
     }
-    
+
     return availableMembers;
   };
 
   const getFilteredPartners = (searchTerm: string) => {
     if (!availablePartnerships || !Array.isArray(availablePartnerships)) return [];
-    
+
     const savedContextId = localStorage.getItem('selectedContextId');
     const savedContextType = localStorage.getItem('selectedContextType');
-    
+
     let filtered = availablePartnerships;
     if (savedContextId && savedContextType) {
       const currentOrgId = Number.parseInt(savedContextId);
       filtered = availablePartnerships.filter(partnership => {
-        return !partnership.partners?.some((partner: any) => 
-          partner.id === currentOrgId && 
+        return !partnership.partners?.some((partner: any) =>
+          partner.id === currentOrgId &&
           partner.type?.toLowerCase() === savedContextType.toLowerCase()
         );
       });
     }
-    
+
     // Filter out already selected partnerships
-    filtered = filtered.filter((partnership: any) => 
+    filtered = filtered.filter((partnership: any) =>
       !formData.partners.includes(partnership.id?.toString())
     );
-    
+
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter((partnership: any) => {
@@ -406,7 +410,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         return partnerNames.includes(searchLower) || partnershipName.includes(searchLower);
       });
     }
-    
+
     return filtered;
   };
 
@@ -435,13 +439,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     const partnership = availablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
     const contactUsers = partnership
       ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
-          id: c.id,
-          full_name: c.full_name || '',
-          email: c.email || '',
-          role: c.role || '',
-          role_in_organization: c.role_in_organization || '',
-          organization: p.name || ''
-        })))
+        id: c.id,
+        full_name: c.full_name || '',
+        email: c.email || '',
+        role: c.role || '',
+        role_in_organization: c.role_in_organization || '',
+        organization: p.name || ''
+      })))
       : [];
     const contactIds = contactUsers.map((c: any) => c.id.toString());
 
@@ -489,8 +493,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     try {
       // Validate required fields only if not in draft mode
       if (effectiveStatus !== 'draft') {
-        if (!formData.title || !formData.description || !formData.startDate || !formData.endDate || 
-            !formData.mldsRequestedBy || !formData.mldsTargetAudience) {
+        if (!formData.title || !formData.description || !formData.startDate || !formData.endDate ||
+          !formData.mldsRequestedBy || !formData.mldsTargetAudience) {
           setSubmitError('Veuillez remplir tous les champs obligatoires');
           setIsSubmitting(false);
           return;
@@ -509,7 +513,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
       // Get context and organization ID
       const organizationType = getOrganizationType(state.showingPageType);
       const organizationId = getOrganizationId(state.user, state.showingPageType);
-      
+
       // Map organizationType to context
       let context: 'company' | 'school' | 'teacher' | 'general' = 'general';
       if (organizationType === 'company') context = 'company';
@@ -548,7 +552,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
             financial_transport: formData.mldsFinancialTransport ? Number.parseFloat(formData.mldsFinancialTransport) : null,
             financial_operating: formData.mldsFinancialOperating ? Number.parseFloat(formData.mldsFinancialOperating) : null,
             financial_service: formData.mldsFinancialService ? Number.parseFloat(formData.mldsFinancialService) : null,
-            objectives: formData.mldsObjectives || null
+            objectives: formData.mldsObjectives || null,
+            network_issue_addressed: formData.networkIssueAddressed || null
           }
         }
       };
@@ -569,11 +574,11 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
 
       // Create project via API (pass image as separate parameter)
       const response = await createProject(mldsPayload, mainImageFile, [], []);
-      
+
       if (response) {
         // Get the actual title from API response or use the form title
         const actualTitle = response.title || formData.title;
-        
+
         // Show success message
         setSuccessData({
           title: actualTitle,
@@ -654,9 +659,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
   };
 
   if (showSuccess && successData) {
-  return (
-    <div className="modal-overlay" onClick={onClose} role="presentation">
-      <div className="modal-content success-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+    return (
+      <div className="modal-overlay" onClick={onClose} role="presentation">
+        <div className="modal-content success-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
           <div className="success-animation">
             <div className="success-checkmark">
               <i className="fas fa-check"></i>
@@ -683,7 +688,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         <button className="modal-close" onClick={onClose}>
           <i className="fas fa-times"></i>
         </button>
-        
+
         <div className="flex flex-col gap-2 modal-header">
           <h2>
             <i className="fas fa-graduation-cap" style={{ marginRight: '12px' }}></i>
@@ -695,11 +700,11 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         </div>
 
         {submitError && (
-          <div className="error-message" style={{ 
-            padding: '12px', 
-            marginBottom: '16px', 
-            backgroundColor: '#fee2e2', 
-            color: '#dc2626', 
+          <div className="error-message" style={{
+            padding: '12px',
+            marginBottom: '16px',
+            backgroundColor: '#fee2e2',
+            color: '#dc2626',
             borderRadius: '8px',
             fontSize: '14px'
           }}>
@@ -712,49 +717,84 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
           {/* Basic Information */}
           <div className="form-section">
             <h3 className="form-section-title">Informations générales</h3>
-             <div className="form-group">
-                 <label htmlFor="mldsRequestedBy">Demande faite par <span style={{ color: 'red' }}>*</span></label>
-                 <select
-                   id="mldsRequestedBy"
-                   name="mldsRequestedBy"
-                   className="form-select"
-                   value={formData.mldsRequestedBy}
-                   onChange={handleInputChange}
-                 >
-                  {mldsRequestedByOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="form-group">
+              <label htmlFor="mldsRequestedBy">Demande faite par <span style={{ color: 'red' }}>*</span></label>
+              <select
+                id="mldsRequestedBy"
+                name="mldsRequestedBy"
+                className="form-select"
+                value={formData.mldsRequestedBy}
+                onChange={handleInputChange}
+              >
+                {mldsRequestedByOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
 
-              {/* Département select - Only visible when "Demande faite par" is "Département" */}
-              {formData.mldsRequestedBy === 'departement' && (
-                <div className="form-group">
-                  <label htmlFor="mldsDepartment">Département <span style={{ color: 'red' }}>*</span></label>
-                  {isLoadingDepartments ? (
-                    <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
-                      <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
-                      Chargement des départements...
-                    </div>
-                  ) : (
-                    <select
-                      id="mldsDepartment"
-                      name="mldsDepartment"
-                      className="form-select"
-                      value={formData.mldsDepartment}
-                      onChange={handleInputChange}
-                      required={formData.mldsRequestedBy === 'departement'}
+            {/* Département select - Only visible when "Demande faite par" is "Département" */}
+            {formData.mldsRequestedBy === 'departement' && (
+              <div className="form-group">
+                <label htmlFor="mldsDepartment">Département <span style={{ color: 'red' }}>*</span></label>
+                {isLoadingDepartments ? (
+                  <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                    Chargement des départements...
+                  </div>
+                ) : (
+                  <select
+                    id="mldsDepartment"
+                    name="mldsDepartment"
+                    className="form-select"
+                    value={formData.mldsDepartment}
+                    onChange={handleInputChange}
+                    required={formData.mldsRequestedBy === 'departement'}
+                  >
+                    <option value="">Sélectionnez un département</option>
+                    {departments.map(dept => (
+                      <option key={dept.code} value={dept.code}>
+                        {dept.nom} ({dept.code})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+            <div className="form-group">
+              <div className="form-label">Organisation porteuse</div>
+              {availableClasses.length > 0 ? (
+                <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  {availableClasses.map(classItem => (
+                    <label
+                      key={classItem.id}
+                      className={`multi-select-item  !flex items-center gap-2 ${formData.mldsOrganizations.includes(classItem.id.toString()) ? 'selected' : ''}`}
                     >
-                      <option value="">Sélectionnez un département</option>
-                      {departments.map(dept => (
-                        <option key={dept.code} value={dept.code}>
-                          {dept.nom} ({dept.code})
-                        </option>
-                      ))}
-                    </select>
+                      <input
+                        type="checkbox"
+                        checked={formData.mldsOrganizations.includes(classItem.id.toString())}
+                        onChange={() => handleOrganizationToggle(classItem.id.toString())}
+                      />
+                      <div className="multi-select-checkmark">
+                        <i className="fas fa-check"></i>
+                      </div>
+                      <span className="multi-select-label">{classItem.name} {classItem.level ? `- ${classItem.level}` : ''}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className={isLoadingClasses ? 'loading-message' : 'no-items-message'}>
+                  {isLoadingClasses ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin"></i>
+                      <span>Chargement des classes...</span>
+                    </>
+                  ) : (
+                    'Aucune classe disponible'
                   )}
                 </div>
               )}
+            </div>
+
             <div className="form-group">
               <label htmlFor="title" className="required">Titre du projet</label>
               <input
@@ -766,6 +806,19 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 onChange={handleInputChange}
                 placeholder="Entrez le titre du projet"
                 required={formData.status !== 'draft'}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="networkIssueAddressed"> Problématique du réseau à laquelle l&apos;action répond <span style={{ color: 'red' }}>*</span></label>
+              <textarea
+                id="networkIssueAddressed"
+                name="networkIssueAddressed"
+                className="form-input"
+                value={formData.networkIssueAddressed}
+                required={formData.status !== 'draft'}
+                onChange={handleInputChange}
+                placeholder="Diagnostique, constats, indicateurs, besoins identifiés, freins"
+                rows={4}
               />
             </div>
 
@@ -875,54 +928,19 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 />
               </div>
               <div className="form-group">
-              <label htmlFor="mldsTargetAudience">Public ciblé <span style={{ color: 'red' }}>*</span></label>
-              <select
-                id="mldsTargetAudience"
-                name="mldsTargetAudience"
-                className="form-select"
-                value={formData.mldsTargetAudience}
-                onChange={handleInputChange}
-              >
-                {mldsTargetAudienceOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            </div>
-
-            <div className="form-group">
-              <div className="form-label">Organisation porteuse</div>
-              {availableClasses.length > 0 ? (
-                <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                  {availableClasses.map(classItem => (
-                    <label 
-                      key={classItem.id} 
-                      className={`multi-select-item  !flex items-center gap-2 ${formData.mldsOrganizations.includes(classItem.id.toString()) ? 'selected' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.mldsOrganizations.includes(classItem.id.toString())}
-                        onChange={() => handleOrganizationToggle(classItem.id.toString())}
-                      />
-                      <div className="multi-select-checkmark">
-                        <i className="fas fa-check"></i>
-                      </div>
-                      <span className="multi-select-label">{classItem.name} {classItem.level ? `- ${classItem.level}` : ''}</span>
-                    </label>
+                <label htmlFor="mldsTargetAudience">Public ciblé <span style={{ color: 'red' }}>*</span></label>
+                <select
+                  id="mldsTargetAudience"
+                  name="mldsTargetAudience"
+                  className="form-select"
+                  value={formData.mldsTargetAudience}
+                  onChange={handleInputChange}
+                >
+                  {mldsTargetAudienceOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
-                </div>
-              ) : (
-                <div className={isLoadingClasses ? 'loading-message' : 'no-items-message'}>
-                  {isLoadingClasses ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin"></i>
-                      <span>Chargement des classes...</span>
-                    </>
-                  ) : (
-                    'Aucune classe disponible'
-                  )}
-                </div>
-              )}
+                </select>
+              </div>
             </div>
 
             {/* Partnership Section */}
@@ -957,23 +975,23 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                       onChange={(e) => handleSearchChange('partner', e.target.value)}
                     />
                   </div>
-                  
+
                   {formData.partners.length > 0 && (
                     <div className="selected-items">
                       {formData.partners.map((partnerId) => {
                         const selected = getSelectedPartner(partnerId);
                         if (!selected) return null;
-                        
+
                         const partnerOrgs = selected.partners || [];
                         const firstPartner = partnerOrgs[0];
                         const roleInPartnership = firstPartner?.role_in_partnership;
-                        
+
                         return (
                           <div key={partnerId} className="selected-member">
-                            <AvatarImage 
-                              src={firstPartner?.logo_url || '/default-avatar.png'} 
-                              alt={firstPartner?.name || 'Partnership'} 
-                              className="selected-avatar" 
+                            <AvatarImage
+                              src={firstPartner?.logo_url || '/default-avatar.png'}
+                              alt={firstPartner?.name || 'Partnership'}
+                              className="selected-avatar"
                             />
                             <div className="selected-info">
                               <div className="selected-name">
@@ -998,23 +1016,23 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                       })}
                     </div>
                   )}
-                  
+
                   <div className="selection-list">
                     {getFilteredPartners(searchTerms.partner).map((partnership) => {
                       const partnerOrgs = partnership.partners || [];
                       const firstPartner = partnerOrgs[0];
                       const roleInPartnership = firstPartner?.role_in_partnership;
-                      
+
                       return (
                         <div
                           key={partnership.id}
                           className="selection-item"
                           onClick={() => handlePartnerSelect(partnership.id)}
                         >
-                          <AvatarImage 
-                            src={firstPartner?.logo_url || '/default-avatar.png'} 
-                            alt={firstPartner?.name || 'Partnership'} 
-                            className="item-avatar" 
+                          <AvatarImage
+                            src={firstPartner?.logo_url || '/default-avatar.png'}
+                            alt={firstPartner?.name || 'Partnership'}
+                            className="item-avatar"
                           />
                           <div className="item-info">
                             <div className="item-name">
@@ -1048,7 +1066,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                     disabled={isLoadingMembers}
                   />
                 </div>
-                
+
                 {isLoadingMembers ? (
                   <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
                     <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
@@ -1128,7 +1146,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                     disabled={isLoadingMembers}
                   />
                 </div>
-                
+
                 {isLoadingMembers ? (
                   <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
                     <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
@@ -1200,7 +1218,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
           {/* MLDS Specific Section */}
           <div className="form-section">
             <h3 className="form-section-title">Volet Persévérance Scolaire</h3>
-            
+
             <div className="form-group">
               <label htmlFor="mldsObjectives">Objectifs pédagogiques</label>
               <textarea
@@ -1219,8 +1237,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
               <div className="form-label">Objectifs de l'action</div>
               <div className="multi-select-container">
                 {mldsActionObjectivesOptions.map(objective => (
-                  <label 
-                    key={objective.value} 
+                  <label
+                    key={objective.value}
                     className={`multi-select-item  !flex items-center gap-2 ${formData.mldsActionObjectives.includes(objective.value) ? 'selected' : ''}`}
                   >
                     <input
@@ -1292,7 +1310,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: '0' }}>
-                  <label htmlFor="mldsFinancialHV">HV</label>
+                  <label htmlFor="mldsFinancialHV">HV (taux €/h)</label>
                   <input
                     type="number"
                     id="mldsFinancialHV"
@@ -1300,13 +1318,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                     className="form-input"
                     value={formData.mldsFinancialHV}
                     onChange={handleInputChange}
-                    placeholder="Montant en €"
+                    placeholder="Taux en €/heure"
                     min="0"
                     step="0.01"
                   />
                 </div>
               </div>
-              
+
               <div style={{
                 marginTop: '12px',
                 padding: '16px',
@@ -1314,10 +1332,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 borderRadius: '8px',
                 border: '1px solid #e5e7eb'
               }}>
-                <h4 style={{ 
-                  fontSize: '0.95rem', 
-                  fontWeight: 600, 
-                  color: '#374151', 
+                <h4 style={{
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: '#374151',
                   marginBottom: '12px',
                   marginTop: '0'
                 }}>
@@ -1385,7 +1403,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                     {(
                       (Number.parseFloat(formData.mldsFinancialTransport) || 0) +
                       (Number.parseFloat(formData.mldsFinancialOperating) || 0) +
-                      (Number.parseFloat(formData.mldsFinancialService) || 0)
+                      (Number.parseFloat(formData.mldsFinancialService) || 0) +
+                      (Number.parseFloat(formData.mldsFinancialHSE) || 0) * (Number.parseFloat(formData.mldsFinancialHV) || HV_DEFAULT_RATE)
                     ).toFixed(2)} €
                   </span>
                 </div>
@@ -1408,7 +1427,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                   {(
                     (Number.parseFloat(formData.mldsFinancialTransport) || 0) +
                     (Number.parseFloat(formData.mldsFinancialOperating) || 0) +
-                    (Number.parseFloat(formData.mldsFinancialService) || 0)
+                    (Number.parseFloat(formData.mldsFinancialService) || 0) +
+                    (Number.parseFloat(formData.mldsFinancialHSE) || 0) * (Number.parseFloat(formData.mldsFinancialHV) || HV_DEFAULT_RATE)
                   ).toFixed(2)} €
                 </span>
               </div>
