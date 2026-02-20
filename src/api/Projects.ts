@@ -685,6 +685,25 @@ export const getPersonalUserOrganizations = async (): Promise<{ data: { schools:
 };
 
 /**
+ * For personal users under 15: fetch companies that are partners of the user's confirmed schools.
+ * Used in Personal settings → Organisations so minors can request membership only for those companies.
+ * Returns 403 if the user is not a personal user or is not under 15.
+ */
+export const getJoinableCompaniesForMinor = async (params?: {
+    search?: string;
+    page?: number;
+    per_page?: number;
+}): Promise<{ data: Array<{ id: number; name: string; city?: string; zip_code?: string; logo_url?: string; full_name?: string; status?: string; email?: string; members_count?: number; company_type?: string }>; meta?: { current_page: number; total_pages: number; total_count: number; per_page: number } }> => {
+    const response = await apiClient.get('/api/v1/users/me/joinable_companies', { params: params || {} });
+    const data = response.data?.data ?? response.data ?? [];
+    const list = Array.isArray(data) ? data : [];
+    return {
+        data: list,
+        meta: response.data?.meta
+    };
+};
+
+/**
  * Fetch all members from teacher's classes (students + volunteers)
  * Returns members from all classes the teacher manages
  */

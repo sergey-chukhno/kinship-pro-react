@@ -3156,6 +3156,7 @@ const Network: React.FC = () => {
                       console.log('Role change not applicable for network members');
                     }}
                     disableRoleDropdown={true}
+                    hideContactButton={isUnder15(state.user?.birthday)}
                   />
                 ))}
               </div>
@@ -4425,6 +4426,7 @@ const Network: React.FC = () => {
           }}
           hideDeleteButton={true}
           hideEditButton={true}
+          hideContactAndEmail={state.showingPageType === 'user' && isUnder15(state.user?.birthday)}
         />
       )}
     </section>
