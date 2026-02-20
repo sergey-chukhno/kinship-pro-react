@@ -1885,6 +1885,14 @@ const ProjectManagement: React.FC = () => {
       const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
         desiredStatus || editForm.status;
 
+      // Validate network issue addressed for MLDS projects when status is to_process, in_progress, or coming
+      if (isMLDSProject && (effectiveStatus === 'to_process' || effectiveStatus === 'in_progress' || effectiveStatus === 'coming')) {
+        if (!editForm.mldsNetworkIssueAddressed || editForm.mldsNetworkIssueAddressed.trim() === '') {
+          showError('Veuillez remplir la problématique du réseau à laquelle l\'action répond');
+          return;
+        }
+      }
+
       // For MLDS projects, force visibility to private
       const formDataWithVisibility = isMLDSProject
         ? { ...editForm, visibility: 'private' as const }
@@ -5631,11 +5639,11 @@ const ProjectManagement: React.FC = () => {
                             <div>
                             {apiProjectData.mlds_information.total_financial_hours != null && apiProjectData.mlds_information.financial_hse != null && (
                                 <div style={{ padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', flex: 1 }}>
-                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total heures</div>
+                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total</div>
                                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
                                     {(() => {
                                       const totalHours = Number.parseFloat(String(apiProjectData.mlds_information.total_financial_hours)) || 0;
-                                      return `${totalHours.toFixed(2)} h`;
+                                      return `${totalHours.toFixed(2)} €`;
                                     })()}
                                   </div>
                                 </div>
@@ -5896,7 +5904,8 @@ const ProjectManagement: React.FC = () => {
                     onChange={(e) => setEditForm({ ...editForm, mldsNetworkIssueAddressed: e.target.value })}
                     className="form-input"
                     placeholder="Diagnostique, constats, indicateurs, besoins identifiés, freins"
-                    rows={4}  
+                    rows={4}
+                    required={editForm.status === 'to_process' || editForm.status === 'in_progress' || editForm.status === 'coming'}
                   />
                 </div>
               )}

@@ -563,6 +563,14 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
           return;
         }
       }
+      // Validate network issue addressed for to_process, in_progress, and coming statuses
+      if (effectiveStatus === 'to_process' || effectiveStatus === 'in_progress' || effectiveStatus === 'coming') {
+        if (!formData.networkIssueAddressed || formData.networkIssueAddressed.trim() === '') {
+          setSubmitError('Veuillez remplir la problématique du réseau à laquelle l\'action répond');
+          setIsSubmitting(false);
+          return;
+        }
+      }
 
       // Convert school level IDs from strings to numbers
       const schoolLevelIds = formData.mldsOrganizations.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
@@ -872,7 +880,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 name="networkIssueAddressed"
                 className="form-input"
                 value={formData.networkIssueAddressed}
-                required={formData.status !== 'draft'}
+                required={formData.status === 'to_process' || formData.status === 'in_progress' || formData.status === 'coming'}
                 onChange={handleInputChange}
                 placeholder="Diagnostique, constats, indicateurs, besoins identifiés, freins"
                 rows={4}
