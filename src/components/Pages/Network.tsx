@@ -24,6 +24,7 @@ import SelectSchoolForPartnershipModal from '../Modals/SelectSchoolForPartnershi
 import SchoolTeacherPartnershipRequestDetailsModal from '../Modals/SchoolTeacherPartnershipRequestDetailsModal';
 import { useToast } from '../../hooks/useToast';
 import { translateSkill } from '../../translations/skills';
+import { isUnder15 } from '../../utils/ageUtils';
 import './Network.css';
 
 interface Organization {
@@ -3162,7 +3163,7 @@ const Network: React.FC = () => {
           </>
         )}
 
-        {/* Display network users for personal users using MemberCard */}
+        {/* Display network users for personal users using MemberCard (Membres de mon réseau) */}
         {isPersonalUser && selectedType === 'partner' && (
           <div className="members-grid">
             {filteredNetworkUsers.length > 0 ? filteredNetworkUsers.map((member) => (
@@ -3188,6 +3189,7 @@ const Network: React.FC = () => {
                   console.log('Role change not applicable for network users');
                 }}
                 disableRoleDropdown={true}
+                hideContactButton={isUnder15(state.user?.birthday)}
               />
             )) : (
               null

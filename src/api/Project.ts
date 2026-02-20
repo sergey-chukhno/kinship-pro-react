@@ -29,6 +29,13 @@ export function getAllUserProjects(params?: { page?: number; per_page?: number }
     return axiosClient.get(`/api/v1/users/me/projects`, { params });
 }
 
+/** Projects from schools/companies the user is a confirmed member of (for minors < 15). Server-side pagination. */
+export function getUserOrganizationProjects(params: { page?: number; per_page?: number }) {
+    return axiosClient.get(`/api/v1/users/me/projects`, {
+        params: { ...params, organization_projects_only: true },
+    });
+}
+
 export function getUserProjectsByCompany(CompanyID: number) {
     return axiosClient.get(`/api/v1/users/me/projects?by_company=${CompanyID}`);
 }
