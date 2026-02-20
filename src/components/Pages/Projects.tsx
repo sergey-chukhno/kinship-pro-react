@@ -1209,11 +1209,14 @@ const Projects: React.FC = () => {
           <h2>{(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Rechercher une idée de projet sur Kinship' : 'Gestion des projets'}</h2>
         </div>
         <div className="projects-actions">
-          <div className="dropdown" style={{ position: 'relative' }}>
-            <button className="btn btn-outline" disabled title="Disponible très bientôt" onClick={handleExportProjects}>
-              <i className="fas fa-download"></i> Exporter
-            </button>
-          </div>
+          {!isMinorPersonalUser && (
+            <div className="dropdown" style={{ position: 'relative' }}>
+              <button className="btn btn-outline" disabled title="Disponible très bientôt" onClick={handleExportProjects}>
+                <i className="fas fa-download"></i> Exporter
+              </button>
+            </div>
+          )}
+          {!isMinorPersonalUser && (
           <div className="dropdown" style={{ position: 'relative' }}>
             {(state.showingPageType === 'pro' || state.showingPageType === 'user') ? (
               <button
@@ -1288,6 +1291,7 @@ const Projects: React.FC = () => {
               </>
             )}
           </div>
+          )}
         </div>
       </div>
 
