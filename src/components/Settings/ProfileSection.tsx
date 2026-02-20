@@ -3,6 +3,7 @@ import { useAppContext } from '../../context/AppContext';
 import { updateUserProfile, uploadAvatar, deleteAvatar } from '../../api/UserDashBoard/Profile';
 import { updateUserEmail } from '../../api/UserDashBoard/Profile';
 import { useToast } from '../../hooks/useToast';
+import { isUnder18 } from '../../utils/ageUtils';
 import AvatarImage from '../UI/AvatarImage';
 import './ProfileSection.css';
 
@@ -24,6 +25,7 @@ const ProfileSection: React.FC = () => {
   const { first: initialFirst, last: initialLast } = parseName(state.user.name || '');
   const [firstName, setFirstName] = useState(initialFirst);
   const [lastName, setLastName] = useState(initialLast);
+  const lockNameFields = isUnder18(state.user?.birthday);
   const [email, setEmail] = useState(state.user.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -100,9 +102,12 @@ const ProfileSection: React.FC = () => {
     setIsUpdatingProfile(true);
 
     try {
+      const { first: nameFirst, last: nameLast } = lockNameFields
+        ? parseName(state.user?.name || '')
+        : { first: firstName, last: lastName };
       const response = await updateUserProfile({
-        firstName,
-        lastName,
+        firstName: nameFirst,
+        lastName: nameLast,
         email: state.user.email, // Don't update email here, use separate form
         take_trainee: state.user.take_trainee || false,
         propose_workshop: state.user.propose_workshop || false,
@@ -193,6 +198,11 @@ const ProfileSection: React.FC = () => {
 
       <form onSubmit={handleUpdateProfile} className="profile-form">
         <h3>Informations personnelles</h3>
+        {lockNameFields && (
+          <p className="profile-name-lock-message" role="alert">
+            Vous devez avoir 18 ans ou plus pour modifier votre prénom et votre nom.
+          </p>
+        )}
         <div className="form-group">
           <label htmlFor="firstName">Prénom</label>
           <input
@@ -201,6 +211,8 @@ const ProfileSection: React.FC = () => {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             required
+            readOnly={lockNameFields}
+            disabled={lockNameFields}
             className="form-input"
           />
         </div>
@@ -213,6 +225,8 @@ const ProfileSection: React.FC = () => {
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             required
+            readOnly={lockNameFields}
+            disabled={lockNameFields}
             className="form-input"
           />
         </div>

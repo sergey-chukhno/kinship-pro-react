@@ -27,3 +27,12 @@ export function isUnder15(birthday: string | null | undefined): boolean {
   const age = getAge(birthday);
   return age !== null && age < 15;
 }
+
+/**
+ * Returns true if the given birthday corresponds to a person under 18 years old.
+ * Used to lock prénom/nom editing in profile (no lock when birthday is unknown).
+ */
+export function isUnder18(birthday: string | null | undefined): boolean {
+  const age = getAge(birthday);
+  return age !== null && age < 18;
+}
