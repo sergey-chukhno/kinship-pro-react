@@ -40,6 +40,7 @@ const mapApiUserToAppUser = (apiUser: any) => {
       apiUser.available_contexts?.schools?.[0]?.name ||
       "",
     available_contexts: apiUser.available_contexts,
+    birthday: apiUser.birthday,
   }
 }
 

@@ -20,6 +20,7 @@ interface MemberCardProps {
   extraActions?: Array<{ label: string; onClick: () => void }>;
   badgeCartographyUrl?: string; // Optional URL for badge cartography
   showCartographyLinkWhenHasBadges?: boolean; // Élèves tab: show link-style when badgeCount > 0 even if URL not ready
+  hideContactButton?: boolean; // When true (e.g. viewer is under 15 in "Membres de mon réseau"), hide the Contacter button
 }
 
 const MemberCard: React.FC<MemberCardProps> = ({
@@ -35,7 +36,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
   categoryTag,
   extraActions = [],
   badgeCartographyUrl,
-  showCartographyLinkWhenHasBadges = false
+  showCartographyLinkWhenHasBadges = false,
+  hideContactButton = false
 }) => {
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [showAllClasses, setShowAllClasses] = useState(false);
@@ -374,7 +376,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
 
       <div className="member-footer">
         <div className="member-actions">
-          {member.email ? (
+          {!hideContactButton && (member.email ? (
             <a
               href={`mailto:${member.email}`}
               className="btn btn-outline btn-sm"
@@ -396,7 +398,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
               <i className="fas fa-envelope"></i>
               Contacter
             </button>
-          )}
+          ))}
           <button 
             className="btn btn-primary btn-sm"
             onClick={(e) => {

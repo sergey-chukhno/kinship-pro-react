@@ -280,6 +280,7 @@ export interface User {
   propose_workshop?: boolean;
   take_trainee?: boolean;
   show_my_skills?: boolean;
+  birthday?: string; // YYYY-MM-DD, used for under-15 checks (e.g. minor personal user)
   available_contexts?: {
     companies?: OrganizationContext[];
     schools?: OrganizationContext[];
