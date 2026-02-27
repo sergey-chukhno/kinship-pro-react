@@ -12,6 +12,7 @@ import {
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
+import { useToast } from '../../hooks/useToast';
 
 /** Taux HV par défaut (€/heure) — utilisé pour HSE × HV */
 const HV_DEFAULT_RATE = 50.73;
@@ -24,6 +25,7 @@ interface MLDSProjectModalProps {
 
 const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, initialDataFromProject }) => {
   const { state } = useAppContext();
+  const { showError } = useToast();
 
   const [formData, setFormData] = useState({
     title: '', // Will be auto-generated as [id_mlds_information]_[year]
@@ -642,8 +644,14 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     try {
       // Validate required fields only if not in draft mode
       if (effectiveStatus !== 'draft') {
-        if (!formData.title || !formData.description || !formData.startDate || !formData.endDate ||
-          !formData.mldsRequestedBy || !formData.mldsTargetAudience) {
+        if (
+          !formData.title ||
+          !formData.description ||
+          !formData.startDate ||
+          !formData.endDate ||
+          !formData.mldsRequestedBy ||
+          !formData.mldsTargetAudience
+        ) {
           setSubmitError('Veuillez remplir tous les champs obligatoires');
           setIsSubmitting(false);
           return;
@@ -651,6 +659,12 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
         // Validate department if "Demande faite par" is "Département"
         if (formData.mldsRequestedBy === 'departement' && !formData.mldsDepartment) {
           setSubmitError('Veuillez sélectionner un département');
+          setIsSubmitting(false);
+          return;
+        }
+        // Validate établissement porteur (organization)
+        if (!formData.organization || formData.organization.trim() === '') {
+          setSubmitError('Veuillez sélectionner un établissement porteur');
           setIsSubmitting(false);
           return;
         }
@@ -666,6 +680,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
 
       // Convert school level IDs from strings to numbers
       const schoolLevelIds = formData.mldsOrganizations.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+
+      // Require at least one organisation porteuse when submitting (non-draft)
+      if (effectiveStatus !== 'draft' && schoolLevelIds.length === 0) {
+        setSubmitError('Veuillez sélectionner au moins une organisation porteuse');
+        setIsSubmitting(false);
+        return;
+      }
 
       // Get context and organization ID
       const organizationType = getOrganizationType(state.showingPageType);
@@ -793,7 +814,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
       }
     } catch (err: any) {
       console.error('Error creating MLDS project:', err);
-      setSubmitError(err.response?.data?.message || 'Une erreur est survenue lors de la création du projet');
+      const message = err.response?.data?.message || 'Une erreur est survenue lors de la création du projet';
+      setSubmitError(message);
+      showError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -804,8 +827,30 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
 
     // Pour les enseignants, on soumet toujours le projet en statut "À traiter"
     const isTeacher = state.showingPageType === 'teacher' || state.user?.role === 'teacher';
-    const statusForSubmit: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived' =
-      isTeacher ? 'to_process' : formData.status;
+
+    let statusForSubmit: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived';
+
+    if (isTeacher) {
+      statusForSubmit = 'to_process';
+    } else {
+      // Pour les admins / superadmins (rôles organisationnels), on détermine automatiquement
+      // le statut en fonction de la date de début : "En cours" si déjà commencée, sinon "À venir".
+      let computedStatus: 'coming' | 'in_progress' = 'coming';
+      if (formData.startDate) {
+        const startDate = new Date(formData.startDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        startDate.setHours(0, 0, 0, 0);
+        if (startDate <= today) {
+          computedStatus = 'in_progress';
+        } else {
+          computedStatus = 'coming';
+        }
+      }
+      statusForSubmit = computedStatus;
+      // Garder formData cohérent avec le statut envoyé
+      setFormData(prev => ({ ...prev, status: computedStatus }));
+    }
 
     await submitProject(statusForSubmit);
   };

@@ -77,6 +77,20 @@ export interface MLDSInformationAttributes {
     network_issue_addressed?: string | null;
 }
 
+/** Payload for POST /api/v1/projects/:id/mlds_bilan */
+export interface MldsBilanPayload {
+    hse?: number;
+    hv?: number;
+    financial_transport?: number;
+    financial_transport_comment?: string;
+    financial_service?: number;
+    financial_service_comment?: string;
+    financial_operating?: number;
+    financial_operating_comment?: string;
+    expected_participants?: number;
+    expected_participants_comment?: string;
+}
+
 export interface CreateProjectPayload {
     context: 'company' | 'school' | 'teacher' | 'general';
     organization_id?: number;
@@ -1145,6 +1159,13 @@ export interface ProjectStats {
 export const getProjectStats = async (projectId: number): Promise<ProjectStats> => {
     const response = await apiClient.get(`/api/v1/projects/${projectId}/stats`);
     return response.data;
+};
+
+/**
+ * Submit MLDS bilan when closing a project (POST /api/v1/projects/:id/mlds_bilan)
+ */
+export const postMldsBilan = async (projectId: number, payload: MldsBilanPayload): Promise<void> => {
+    await apiClient.post(`/api/v1/projects/${projectId}/mlds_bilan`, { mlds_bilan: payload });
 };
 
 /**

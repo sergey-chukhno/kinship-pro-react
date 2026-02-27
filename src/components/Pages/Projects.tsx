@@ -6,19 +6,22 @@ import ProjectModal from '../Modals/ProjectModal';
 import MLDSProjectModal from '../Modals/MLDSProjectModal';
 import SubscriptionRequiredModal from '../Modals/SubscriptionRequiredModal';
 import ProjectCard from '../Projects/ProjectCard';
+import CloseProjectBilanModal, { BilanData, buildMldsBilanPayload } from '../Modals/CloseProjectBilanModal';
 import './Projects.css';
 
 // Imports API (Ajustez les chemins si nécessaire, basés sur la structure de Members.tsx)
 import { getCurrentUser } from '../../api/Authentication';
 import { deleteProject, getAllProjects, getAllUserProjects} from '../../api/Project';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
-import { getTeacherProjects, updateProject as updateProjectAPI } from '../../api/Projects';
+import { getTeacherProjects, updateProject as updateProjectAPI, postMldsBilan } from '../../api/Projects';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
+import { useToast } from '../../hooks/useToast';
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
+  const { showError } = useToast();
   const navigate = useNavigate();
   const { selectedProject } = state;
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -66,7 +69,9 @@ const Projects: React.FC = () => {
   const isTeacher = state.showingPageType === 'teacher';
   // For teachers, default to 'mes-projets' since they shouldn't see public projects
   // For regular users and pro/edu, default to 'nouveautes' to show public/org projects
-  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects' | 'brouillons'>(isTeacher ? 'mes-projets' : 'nouveautes');
+  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects' | 'brouillons' | 'archives'>(
+    isTeacher ? 'mes-projets' : 'nouveautes'
+  );
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,6 +87,7 @@ const Projects: React.FC = () => {
   const [mldsTargetAudienceFilter, setMldsTargetAudienceFilter] = useState('all');
   const [mldsActionObjectivesFilter, setMldsActionObjectivesFilter] = useState('all');
   const [mldsOrganizationFilter, setMldsOrganizationFilter] = useState('all');
+  const [archivedTypeFilter, setArchivedTypeFilter] = useState<'all' | 'classic' | 'mlds'>('all');
 
   // Loading states
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
@@ -128,6 +134,7 @@ const Projects: React.FC = () => {
       setInitialLoad(false);
     } catch (err) {
       console.error('Erreur lors de la récupération des projets publics:', err);
+      showError('Erreur lors de la récupération des projets publics.');
       setProjects([]);
       setProjectTotalPages(1);
       setProjectTotalCount(0);
@@ -213,6 +220,7 @@ const Projects: React.FC = () => {
       setInitialLoad(false);
     } catch (err) {
       console.error('Erreur lors de la récupération de mes projets:', err);
+      showError('Erreur lors de la récupération de mes projets.');
       setMyProjects([]);
       setMyProjectsTotalPages(1);
       setMyProjectsTotalCount(0);
@@ -262,8 +270,10 @@ const Projects: React.FC = () => {
         rawProjects = response.data?.data || response.data || [];
       }
       
-      // Filtrer les projets avec mlds_information !== null
-      const mldsProjectsData = rawProjects.filter((p: any) => p.mlds_information != null);
+      // Filtrer les projets MLDS (avec mlds_information) en excluant les projets archivés
+      const mldsProjectsData = rawProjects.filter(
+        (p: any) => p.mlds_information != null && p.status !== 'archived'
+      );
       
       // Store raw API projects for permission checks
       const newRawProjectsMap = new Map<string, any>();
@@ -299,6 +309,7 @@ const Projects: React.FC = () => {
       setInitialLoad(false);
     } catch (err) {
       console.error('Erreur lors de la récupération des projets MLDS:', err);
+      showError('Erreur lors de la récupération des projets MLDS.');
       setMldsProjects([]);
       setMldsProjectsTotalPages(1);
       setMldsProjectsTotalCount(0);
@@ -355,6 +366,7 @@ const Projects: React.FC = () => {
       });
     } catch (err) {
       console.error('Erreur lors de la récupération des brouillons:', err);
+      showError('Erreur lors de la récupération des brouillons.');
       setDraftProjects([]);
     } finally {
       setIsLoadingDraftProjects(false);
@@ -632,6 +644,7 @@ const Projects: React.FC = () => {
       setInitialLoad(false);
     } catch (err) {
       console.error('Erreur lors de la récupération des projets:', err);
+      showError('Erreur lors de la récupération des projets.');
       setProjects([]);
       setProjectTotalPages(1);
       setProjectTotalCount(0);
@@ -920,7 +933,7 @@ const Projects: React.FC = () => {
     setProjectToClose(null);
   };
 
-  const confirmCloseProject = async () => {
+  const confirmCloseProject = async (bilanData?: BilanData) => {
     if (!projectToClose) return;
 
     setIsClosingProject(true);
@@ -928,8 +941,15 @@ const Projects: React.FC = () => {
       const projectId = Number.parseInt(projectToClose.id, 10);
       if (Number.isNaN(projectId)) {
         console.error('Invalid project ID:', projectToClose.id);
+        showError('Identifiant du projet invalide.');
         setIsClosingProject(false);
         return;
+      }
+
+      // Envoyer le bilan MLDS si fourni (POST /api/v1/projects/:id/mlds_bilan)
+      if (bilanData) {
+        const payload = buildMldsBilanPayload(bilanData);
+        await postMldsBilan(projectId, payload);
       }
 
       // Update project status to 'ended'
@@ -948,7 +968,7 @@ const Projects: React.FC = () => {
       setProjectToClose(null);
     } catch (error) {
       console.error('Error closing project:', error);
-      alert('Erreur lors de la clôture du projet');
+      showError('Erreur lors de la clôture du projet.');
     } finally {
       setIsClosingProject(false);
     }
@@ -991,7 +1011,7 @@ const Projects: React.FC = () => {
       setProjectToDelete(null);
     } catch (err) {
       console.error('Erreur lors de la suppression du projet:', err);
-      // Close modal even on error
+      showError('Erreur lors de la suppression du projet.');
       setIsDeleteModalOpen(false);
       setProjectToDelete(null);
     }
@@ -1023,6 +1043,16 @@ const Projects: React.FC = () => {
       const allProjects = [...projects, ...myProjects];
       projectsToDisplay = allProjects.filter(p => p.status === 'draft');
     }
+  } else if (activeTab === 'archives') {
+    // Archives: regrouper tous les projets archivés (classiques + MLDS)
+    const allClassic = [...projects, ...myProjects];
+    const archivedClassic = allClassic.filter(p => p.status === 'archived');
+    const archivedMLDS = mldsProjects.filter(p => p.status === 'archived');
+    const mergedById = new Map<string, Project>();
+    [...archivedClassic, ...archivedMLDS].forEach(p => {
+      mergedById.set(p.id, p);
+    });
+    projectsToDisplay = Array.from(mergedById.values());
   } else if (isTeacher) {
     projectsToDisplay = myProjects;
   } else if (isPersonalUser) {
@@ -1051,27 +1081,44 @@ const Projects: React.FC = () => {
     return allProjects.filter(p => p.status === 'draft').length;
   }, [isTeacher, state.showingPageType, draftProjects, projects, myProjects]);
 
-  // Calculate projects count excluding drafts for "Nouveautés" tab (users)
+  // Calculate projects count excluding drafts and archives for "Nouveautés" tab (users)
   const nouveautesProjectsCount = React.useMemo(() => {
-    return projects.filter(p => p.status !== 'draft').length;
+    return projects.filter(p => p.status !== 'draft' && p.status !== 'archived').length;
   }, [projects]);
 
-  // Calculate projects count excluding drafts for "Projets" tab (pro/edu)
+  // Calculate projects count excluding drafts and archives for "Projets" tab (pro/edu)
   const projetsCount = React.useMemo(() => {
-    return projects.filter(p => p.status !== 'draft').length;
+    return projects.filter(p => p.status !== 'draft' && p.status !== 'archived').length;
   }, [projects]);
 
-  // Calculate "Mes projets" count excluding drafts (teacher and user)
+  // Calculate "Mes projets" count excluding drafts and archives (teacher and user)
   const mesProjetsCount = React.useMemo(() => {
-    return myProjects.filter(p => p.status !== 'draft').length;
+    return myProjects.filter(p => p.status !== 'draft' && p.status !== 'archived').length;
   }, [myProjects]);
+
+  // Calculate archived projects count (all types, classic + MLDS)
+  const archivedProjectsCount = React.useMemo(() => {
+    const all = [...projects, ...myProjects, ...mldsProjects];
+    return all.filter(p => p.status === 'archived').length;
+  }, [projects, myProjects, mldsProjects]);
 
 
   // Filter projects based on search and filter criteria
   // Note: On filtre maintenant sur 'projectsToDisplay' (local state) et non 'state.projects'
   // For brouillons tab, only show draft projects
   // For Projets tab (nouveautes) and mes-projets, exclude draft projects (they have their own tab)
+  // For archives tab, only show archived projects
   const filteredProjects = projectsToDisplay.filter(project => {
+    // Archives tab: only archived, with type filter
+    if (activeTab === 'archives') {
+      if (project.status !== 'archived') return false;
+      const isMLDS = Boolean((project as any).mlds_information);
+      if (archivedTypeFilter === 'classic' && isMLDS) return false;
+      if (archivedTypeFilter === 'mlds' && !isMLDS) return false;
+    } else if (project.status === 'archived') {
+      // Other tabs: never show archived
+      return false;
+    }
     // For brouillons tab, only show draft projects
     if (activeTab === 'brouillons' && project.status !== 'draft') {
       return false;
@@ -1255,7 +1302,7 @@ const Projects: React.FC = () => {
 
       {/* Tabs for all users */}
         <div className="filter-tabs" style={{ marginBottom: '24px' }}>
-        {/* For users: show Nouveautés, Mes projets, Brouillons, and MLDS tabs */}
+        {/* For users: show Nouveautés, Mes projets, Brouillons, MLDS, and Archives tabs */}
         {state.showingPageType === 'user' && (
           <>
           <button 
@@ -1284,7 +1331,7 @@ const Projects: React.FC = () => {
             >
               Brouillons ({draftProjectsCount})
             </button>
-            {mldsProjects.length > 0 && (
+            {mldsProjectsTotalCount > 0 && (
               <button 
                 className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
                 onClick={() => {
@@ -1292,13 +1339,21 @@ const Projects: React.FC = () => {
                   setMldsProjectsPage(1); // Reset pagination when switching tabs
                 }}
               >
-                Projets MLDS Volet Persévérance ({mldsProjects.length})
+                Projets MLDS Volet Persévérance ({mldsProjectsTotalCount})
               </button>
             )}
+            <button
+              className={`filter-tab ${activeTab === 'archives' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('archives');
+              }}
+            >
+              Archives ({archivedProjectsCount})
+            </button>
           </>
         )}
         
-        {/* For teachers: show Mes projets, Brouillons, and MLDS tabs */}
+        {/* For teachers: show Mes projets, Brouillons, MLDS, and Archives tabs */}
         {state.showingPageType === 'teacher' && (
           <>
             <button 
@@ -1318,7 +1373,7 @@ const Projects: React.FC = () => {
             >
               Brouillons ({draftProjectsCount})
             </button>
-            {mldsProjects.length > 0 && (
+            {mldsProjectsTotalCount > 0 && (
               <button 
                 className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
                 onClick={() => {
@@ -1326,13 +1381,21 @@ const Projects: React.FC = () => {
                   setMldsProjectsPage(1); // Reset pagination when switching tabs
                 }}
               >
-                Projets MLDS Volet Persévérance ({mldsProjects.length})
+                Projets MLDS Volet Persévérance ({mldsProjectsTotalCount})
               </button>
             )}
+            <button
+              className={`filter-tab ${activeTab === 'archives' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('archives');
+              }}
+            >
+              Archives ({archivedProjectsCount})
+            </button>
           </>
         )}
         
-        {/* For pro/edu: show Projets, Brouillons, and MLDS tabs */}
+        {/* For pro/edu: show Projets, Brouillons, MLDS, and Archives tabs */}
         {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
           <>
             <button 
@@ -1352,7 +1415,7 @@ const Projects: React.FC = () => {
             >
               Brouillons ({draftProjectsCount})
             </button>
-            {mldsProjects.length > 0 && (
+            {mldsProjectsTotalCount > 0 && (
               <button 
                 className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
                 onClick={() => {
@@ -1360,9 +1423,17 @@ const Projects: React.FC = () => {
                   setMldsProjectsPage(1); // Reset pagination when switching tabs
                 }}
               >
-                Projets MLDS Volet Persévérance ({mldsProjects.length})
+                Projets MLDS Volet Persévérance ({mldsProjectsTotalCount})
               </button>
             )}
+            <button
+              className={`filter-tab ${activeTab === 'archives' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('archives');
+              }}
+            >
+              Archives ({archivedProjectsCount})
+            </button>
           </>
         )}
       </div>
@@ -1480,6 +1551,22 @@ const Projects: React.FC = () => {
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                   />
+                </div>
+              </>
+            ) : activeTab === 'archives' ? (
+              <>
+                <div className="filter-group">
+                  <label htmlFor="archived-type-filter">Type de projet</label>
+                  <select
+                    id="archived-type-filter"
+                    className="filter-select"
+                    value={archivedTypeFilter}
+                    onChange={(e) => setArchivedTypeFilter(e.target.value as 'all' | 'classic' | 'mlds')}
+                  >
+                    <option value="all">Tous les types</option>
+                    <option value="classic">Classique</option>
+                    <option value="mlds">MLDS</option>
+                  </select>
                 </div>
               </>
             ) : (
@@ -1638,8 +1725,11 @@ const Projects: React.FC = () => {
               // Check if project is ended - disable edit/delete actions if true, but allow viewing
               const isProjectEnded = project.status === 'ended';
               const canClose = (project.status === 'in_progress' || project.status === 'coming') && isOwner;
-              // Suppression uniquement possible en brouillon
-              const canDeleteProject = canDelete && !isProjectEnded && project.status === 'draft';
+              // Suppression uniquement possible en brouillon ou archivé
+              const canDeleteProject =
+                canDelete &&
+                !isProjectEnded &&
+                (project.status === 'draft' || project.status === 'archived');
               // Duplication : uniquement sur les brouillons (comme supprimer)
               const canDuplicateProject =   state.showingPageType !== 'user' &&  state.showingPageType !== 'pro';
               
@@ -1862,71 +1952,15 @@ const Projects: React.FC = () => {
         </div>
       )}
 
-      {/* Close project confirmation modal */}
+      {/* Modal bilan à la clôture du projet */}
       {isCloseProjectModalOpen && projectToClose && (
-        <div className="modal-overlay" onClick={() => !isClosingProject && cancelCloseProject()}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3>Confirmer la clôture du projet</h3>
-              <button className="modal-close" onClick={() => !isClosingProject && cancelCloseProject()} disabled={isClosingProject}>
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
-            <div className="modal-body">
-              <div style={{
-                padding: '1.5rem',
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1rem'
-              }}>
-                <div style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '50%',
-                  backgroundColor: '#fef3c7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '0.5rem'
-                }}>
-                  <i className="fas fa-lock" style={{ fontSize: '2rem', color: '#d97706' }}></i>
-                </div>
-                <div>
-                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
-                    Êtes-vous sûr de vouloir clôturer ce projet ?
-                  </h4>
-                  <p style={{ fontSize: '0.95rem', color: '#6b7280', marginBottom: '1rem' }}>
-                    Le projet <strong>"{projectToClose.title}"</strong> sera marqué comme <strong>terminé</strong>. Toutes les actions seront figées : plus d&apos;ajout ni de modification de participants, équipes, documents ou badges.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button
-                className="btn btn-outline"
-                onClick={cancelCloseProject}
-                disabled={isClosingProject}
-                style={{ minWidth: '100px' }}
-              >
-                Annuler
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={confirmCloseProject}
-                disabled={isClosingProject}
-                style={{
-                  minWidth: '100px',
-                  backgroundColor: '#d97706',
-                  borderColor: '#d97706'
-                }}
-              >
-                {isClosingProject ? 'Clôture...' : 'Clôturer le projet'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <CloseProjectBilanModal
+          projectTitle={projectToClose.title}
+          mldsInfo={projectToClose.mlds_information ?? null}
+          onClose={cancelCloseProject}
+          onConfirm={(bilanData) => confirmCloseProject(bilanData)}
+          isSubmitting={isClosingProject}
+        />
       )}
 
     </section>

@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -14,6 +14,7 @@ import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEd
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
+import CloseProjectBilanModal, { BilanData, buildMldsBilanPayload } from '../Modals/CloseProjectBilanModal';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
@@ -346,7 +347,7 @@ const ProjectManagement: React.FC = () => {
   const isMLDSProject = apiProjectData?.mlds_information != null;
 
   // Check if project is ended - disable all actions if true
-  const isProjectEnded = project?.status === 'ended';
+  const isProjectEnded = project?.status === 'ended' || project?.status === 'archived';
 
   // State for project statistics
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
@@ -745,6 +746,7 @@ const ProjectManagement: React.FC = () => {
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminé';
+      case 'archived': return 'Archivé';
       default: return status;
     }
   };
@@ -757,6 +759,7 @@ const ProjectManagement: React.FC = () => {
       case 'coming': return 'coming';
       case 'in_progress': return 'in-progress';
       case 'ended': return 'ended';
+      case 'archived': return 'archived';
       default: return 'coming';
     }
   };
@@ -776,7 +779,7 @@ const ProjectManagement: React.FC = () => {
   /**
    * Close the project: set status to "ended" (called after user confirms in modal).
    */
-  const confirmCloseProject = async () => {
+  const confirmCloseProject = async (bilanData?: BilanData) => {
     if (!project?.id) return;
     setIsClosingProject(true);
     try {
@@ -785,6 +788,12 @@ const ProjectManagement: React.FC = () => {
         showError('ID de projet invalide');
         setIsCloseProjectModalOpen(false);
         return;
+      }
+
+      // Envoyer le bilan MLDS si fourni (POST /api/v1/projects/:id/mlds_bilan)
+      if (bilanData) {
+        const mldsPayload = buildMldsBilanPayload(bilanData);
+        await postMldsBilan(projectId, mldsPayload);
       }
 
       const payload = {
@@ -812,6 +821,46 @@ const ProjectManagement: React.FC = () => {
       }
     } finally {
       setIsClosingProject(false);
+    }
+  };
+
+  /**
+   * Archive the project: set status to "archived".
+   * Only available when project is already ended.
+   */
+  const handleArchiveProject = async () => {
+    if (!project?.id || project.status !== 'ended') return;
+    try {
+      const projectId = parseInt(project.id);
+      if (Number.isNaN(projectId)) {
+        showError('ID de projet invalide');
+        return;
+      }
+
+      const payload = {
+        project: {
+          status: 'archived' as const
+        }
+      };
+
+      await updateProject(projectId, payload as any, null, []);
+
+      const response = await getProjectById(projectId);
+      const apiProject = response.data;
+      const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
+
+      setProject(mappedProject);
+      setSelectedProject(mappedProject);
+      setApiProjectData(apiProject);
+      showSuccess('Projet archivé avec succès');
+    } catch (error: any) {
+      console.error('Error archiving project:', error);
+      const message =
+        error?.response?.data?.details?.join(', ') ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Erreur lors de l’archivage du projet';
+      showError(message);
     }
   };
 
@@ -3953,6 +4002,39 @@ const ProjectManagement: React.FC = () => {
       doc.setFontSize(10);
     }
 
+    // Bilan à la clôture (mlds_bilan / mnt)
+    const bilan = mldsInfo.mlds_bilan ?? mldsInfo.mnt;
+    if (bilan && typeof bilan === 'object') {
+      const hasBilan = bilan.hse != null || bilan.hv != null || bilan.financial_transport != null || bilan.financial_service != null || bilan.financial_operating != null || bilan.expected_participants != null ||
+        (bilan.financial_transport_comment || bilan.financial_service_comment || bilan.financial_operating_comment || bilan.expected_participants_comment);
+      if (hasBilan) {
+        checkNewPage(20);
+        yPosition += 15;
+        addSectionHeader('BILAN À LA CLÔTURE');
+        doc.setFontSize(9);
+        const fmt = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? v.toFixed(2) : String(v)) : '—');
+        if (bilan.hse != null) { doc.setFont('helvetica', 'normal'); doc.text('HSE', margin + 2, yPosition); doc.text(`${fmt(bilan.hse)} h`, margin + 45, yPosition); yPosition += lineHeight; }
+        if (bilan.hv != null) { doc.text('HV', margin + 2, yPosition); doc.text(`${fmt(bilan.hv)} €`, margin + 45, yPosition); yPosition += lineHeight; }
+        if (bilan.financial_transport != null || bilan.financial_transport_comment) {
+          doc.text('Crédits de fonctionnement (transport)', margin + 2, yPosition+3); doc.text(`${fmt(bilan.financial_transport)} €`, margin + 45, yPosition); yPosition += lineHeight;
+          if (bilan.financial_transport_comment) { addWrappedText(String(bilan.financial_transport_comment), margin + 4, 168); yPosition += 1; }
+        }
+        if (bilan.financial_service != null || bilan.financial_service_comment) {
+          doc.text('Crédits pédagogiques', margin + 2, yPosition); doc.text(`${fmt(bilan.financial_service)} €`, margin + 45, yPosition); yPosition += lineHeight;
+          if (bilan.financial_service_comment) { addWrappedText(String(bilan.financial_service_comment), margin + 4, 168); yPosition += 1; }
+        }
+        if (bilan.financial_operating != null || bilan.financial_operating_comment) {
+          doc.text('Autres financements', margin + 2, yPosition); doc.text(`${fmt(bilan.financial_operating)} €`, margin + 45, yPosition); yPosition += lineHeight;
+          if (bilan.financial_operating_comment) { addWrappedText(String(bilan.financial_operating_comment), margin + 4, 168); yPosition += 1; }
+        }
+        if (bilan.expected_participants != null || bilan.expected_participants_comment) {
+          doc.text('Participants attendus', margin + 2, yPosition); doc.text(bilan.expected_participants.toString(), margin + 45, yPosition); yPosition += lineHeight;
+          if (bilan.expected_participants_comment) { addWrappedText(String(bilan.expected_participants_comment), margin + 4, 168); yPosition += 1; }
+        }
+        doc.setFontSize(10);
+      }
+    }
+
     // Save the PDF
     const fileName = `MLDS_${project.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
@@ -3992,6 +4074,18 @@ const ProjectManagement: React.FC = () => {
             >
               <i className="fas fa-check-circle"></i>
               {isClosingProject ? 'Clôture...' : 'Clôturer le projet'}
+            </button>
+          )}
+          {/* Archive button: only for owner, when project is ended */}
+          {project.status === 'ended' && userProjectRole === 'owner' && !isReadOnlyMode && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleArchiveProject}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '50px' }}
+            >
+              <i className="fas fa-box-archive"></i>
+              Archiver le projet
             </button>
           )}
           {isMLDSProject && (
@@ -5921,6 +6015,51 @@ const ProjectManagement: React.FC = () => {
                           </div>
                         </div>
                       )}
+
+                    {/* Bilan à la clôture (mlds_bilan / mnt) */}
+                    {(() => {
+                      const bilan = apiProjectData.mlds_information?.mlds_bilan ?? apiProjectData.mlds_information?.mnt;
+                      if (!bilan || typeof bilan !== 'object') return null;
+                      const hasBilan = bilan.hse != null || bilan.hv != null || bilan.financial_transport != null || bilan.financial_service != null || bilan.financial_operating != null || bilan.expected_participants != null ||
+                        (bilan.financial_transport_comment || bilan.financial_service_comment || bilan.financial_operating_comment || bilan.expected_participants_comment);
+                      if (!hasBilan) return null;
+                      const formatBilanVal = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? v?.toFixed(2) : String(v)) : '—');
+                      return (
+                        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                          <div className="stat-content">
+                            <div className="stat-label">Bilan à la clôture</div>
+                            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                              {bilan.hse != null && <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>HSE</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.hse)} h</span></div>}
+                              {bilan.hv != null && <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>HV</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.hv)} €</span></div>}
+                              {(bilan.financial_transport != null || bilan.financial_transport_comment) && (
+                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>Crédits de fonctionnement (transport)</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.financial_transport)} €</span></div>
+                                  {bilan.financial_transport_comment && <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#374151' }}>{bilan.financial_transport_comment}</div>}
+                                </div>
+                              )}
+                              {(bilan.financial_service != null || bilan.financial_service_comment) && (
+                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>Crédits pédagogiques</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.financial_service)} €</span></div>
+                                  {bilan.financial_service_comment && <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#374151' }}>{bilan.financial_service_comment}</div>}
+                                </div>
+                              )}
+                              {(bilan.financial_operating != null || bilan.financial_operating_comment) && (
+                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>Autres financements</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.financial_operating)} €</span></div>
+                                  {bilan.financial_operating_comment && <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#374151' }}>{bilan.financial_operating_comment}</div>}
+                                </div>
+                              )}
+                              {(bilan.expected_participants != null || bilan.expected_participants_comment) && (
+                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>Participants attendus</span><span style={{ fontWeight: 600 }}>{bilan.expected_participants}</span></div>
+                                  {bilan.expected_participants_comment && <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#374151' }}>{bilan.expected_participants_comment}</div>}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -5930,72 +6069,15 @@ const ProjectManagement: React.FC = () => {
 
       </div>
 
-      {/* Close project confirmation modal (same style as project deletion in Projects.tsx) */}
+      {/* Modal bilan à la clôture du projet */}
       {isCloseProjectModalOpen && (
-        <div className="modal-overlay" onClick={() => !isClosingProject && setIsCloseProjectModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3>Confirmer la clôture du projet</h3>
-              <button className="modal-close" onClick={() => !isClosingProject && setIsCloseProjectModalOpen(false)} disabled={isClosingProject}>
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
-            <div className="modal-body">
-              <div style={{
-                padding: '1.5rem',
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1rem'
-              }}>
-                <div style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '50%',
-                  backgroundColor: '#fef3c7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '0.5rem'
-                }}>
-                  <i className="fas fa-lock" style={{ fontSize: '2rem', color: '#d97706' }}></i>
-                </div>
-                <div>
-                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
-                    Êtes-vous sûr de vouloir clôturer ce projet ?
-                  </h4>
-                  <p style={{ fontSize: '0.95rem', color: '#6b7280', marginBottom: '1rem' }}>
-                    Le projet sera marqué comme <strong>terminé</strong>. Toutes les actions seront figées : plus d&apos;ajout ni de modification de participants, équipes, documents ou badges.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button
-                className="btn btn-outline"
-                onClick={() => setIsCloseProjectModalOpen(false)}
-                disabled={isClosingProject}
-                style={{ minWidth: '100px' }}
-              >
-                Annuler
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={confirmCloseProject}
-                disabled={isClosingProject}
-                style={{
-                  minWidth: '100px',
-                  backgroundColor: '#d97706',
-                  borderColor: '#d97706'
-                }}
-              >
-                <i className="fas fa-check-circle" style={{ marginRight: '0.5rem' }}></i>
-                {isClosingProject ? 'Clôture...' : 'Clôturer le projet'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <CloseProjectBilanModal
+          projectTitle={project?.title ?? apiProjectData?.title ?? 'Projet'}
+          mldsInfo={apiProjectData?.mlds_information ?? project?.mlds_information ?? null}
+          onClose={() => !isClosingProject && setIsCloseProjectModalOpen(false)}
+          onConfirm={(bilanData) => confirmCloseProject(bilanData)}
+          isSubmitting={isClosingProject}
+        />
       )}
 
       {/* Edit Project Modal */}

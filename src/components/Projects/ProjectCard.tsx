@@ -34,6 +34,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   
   // Check if project is ended - disable all actions if true
   const isProjectEnded = project.status === 'ended';
+  const isProjectArchived = project.status === 'archived';
   // Format date from YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -184,7 +185,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
               Supprimer
             </button>
           )}
-          {canManage && !isProjectEnded ? (
+          {canManage && !isProjectEnded && !isProjectArchived ? (
             <button className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
               <i className="fas fa-cog"></i>
               Gérer
