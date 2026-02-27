@@ -13,6 +13,8 @@ import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
 import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest } from '../../api/Projects';
+import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
+import { isStudentRole } from '../../utils/roleUtils';
 import { getSkills } from '../../api/Skills';
 import { useAppContext } from '../../context/AppContext';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
@@ -22,6 +24,7 @@ import SelectSchoolForPartnershipModal from '../Modals/SelectSchoolForPartnershi
 import SchoolTeacherPartnershipRequestDetailsModal from '../Modals/SchoolTeacherPartnershipRequestDetailsModal';
 import { useToast } from '../../hooks/useToast';
 import { translateSkill } from '../../translations/skills';
+import { isUnder15 } from '../../utils/ageUtils';
 import './Network.css';
 
 interface Organization {
@@ -75,6 +78,8 @@ interface NetworkUser {
   email: string;
   role: string;
   job: string | null;
+  has_temporary_email?: boolean;
+  confirmed_at?: string | null;
   take_trainee?: boolean;
   propose_workshop?: boolean;
   avatar_url: string | null;
@@ -1317,6 +1322,8 @@ const Network: React.FC = () => {
           organizationType: m.school_name ? 'school' as const : (m.company_name || m.organization_name) ? 'company' as const : undefined,
           take_trainee: m.take_trainee || false,
           propose_workshop: m.propose_workshop || false,
+          hasTemporaryEmail: m.has_temporary_email || false,
+          confirmedAt: m.confirmed_at,
           commonOrganizations
         };
       });
@@ -1683,6 +1690,29 @@ const Network: React.FC = () => {
     }
   };
 
+  // Leave organization (personal user only) - used from Mon réseau cards
+  const handleLeaveOrganization = async (organization: Organization) => {
+    const isSchool = organization.type === 'schools';
+    const message = isSchool
+      ? 'Êtes-vous sûr de vouloir quitter cette école ?'
+      : 'Êtes-vous sûr de vouloir quitter cette entreprise ?';
+    if (!window.confirm(message)) return;
+    try {
+      const id = Number(organization.id);
+      if (isSchool) {
+        await removeSchoolAssociation(id);
+        showSuccess('Association avec l\'école supprimée avec succès');
+      } else {
+        await removeCompanyAssociation(id);
+        showSuccess('Association avec l\'entreprise supprimée avec succès');
+      }
+      await fetchMyOrganizations();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.response?.data?.error || (isSchool ? 'Erreur lors de la suppression de l\'association' : 'Erreur lors de la suppression de l\'association');
+      showError(msg);
+    }
+  };
+
   // Convert search results to organization-like format for display
   // Display all schools and companies for all dashboards (partnerships can be cross-type)
   // Branch requests will be validated separately to ensure same-type only
@@ -1994,6 +2024,8 @@ const Network: React.FC = () => {
           })(),
           take_trainee: user.take_trainee || false,
           propose_workshop: user.propose_workshop || false,
+          hasTemporaryEmail: user.has_temporary_email || false,
+          confirmedAt: user.confirmed_at,
           commonOrganizations
         } as Member;
       })
@@ -3124,6 +3156,7 @@ const Network: React.FC = () => {
                       console.log('Role change not applicable for network members');
                     }}
                     disableRoleDropdown={true}
+                    hideContactButton={isUnder15(state.user?.birthday)}
                   />
                 ))}
               </div>
@@ -3131,7 +3164,7 @@ const Network: React.FC = () => {
           </>
         )}
 
-        {/* Display network users for personal users using MemberCard */}
+        {/* Display network users for personal users using MemberCard (Membres de mon réseau) */}
         {isPersonalUser && selectedType === 'partner' && (
           <div className="members-grid">
             {filteredNetworkUsers.length > 0 ? filteredNetworkUsers.map((member) => (
@@ -3157,6 +3190,7 @@ const Network: React.FC = () => {
                   console.log('Role change not applicable for network users');
                 }}
                 disableRoleDropdown={true}
+                hideContactButton={isUnder15(state.user?.birthday)}
               />
             )) : (
               null
@@ -3880,8 +3914,14 @@ const Network: React.FC = () => {
                   }
                 : undefined;
             
+            // Leave (Quitter): only for personal user (showingPageType === 'user') viewing their own schools/companies; students cannot leave schools
+            const leaveAction = state.showingPageType === 'user' && (activeCard === 'schools' || activeCard === 'companies') &&
+              (organization.type === 'companies' || (organization.type === 'schools' && !isStudentRole(state.user?.role)))
+              ? () => handleLeaveOrganization(organization)
+              : undefined;
+            
             // Check if there are any hover actions
-            const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction || !!teacherPartnershipRequestAction;
+            const hasHoverActions = !!attachActionForSearch || !!partnershipAction || !!joinAction || !!leaveAction || !!teacherPartnershipRequestAction;
             
             return (
           <OrganizationCard
@@ -3892,6 +3932,7 @@ const Network: React.FC = () => {
             onAttach={attachActionForSearch}
             onPartnership={partnershipAction}
             onJoin={joinAction}
+            onLeave={leaveAction}
             onTeacherPartnershipRequest={teacherPartnershipRequestAction}
             isPersonalUser={isPersonalUser}
             onClick={hasHoverActions ? undefined : () => handleViewDetails(organization)}
@@ -4385,6 +4426,7 @@ const Network: React.FC = () => {
           }}
           hideDeleteButton={true}
           hideEditButton={true}
+          hideContactAndEmail={state.showingPageType === 'user' && isUnder15(state.user?.birthday)}
         />
       )}
     </section>

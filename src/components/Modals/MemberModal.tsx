@@ -22,6 +22,7 @@ interface MemberModalProps {
   badgeCartographyUrl?: string; // Optional URL for badge cartography
   hasBadges?: boolean; // When true, show Cartographie entry even while URL is loading (Élèves tab)
   isCartographyLoading?: boolean; // When true, show "Cartographie (chargement…)" instead of link
+  hideContactAndEmail?: boolean; // When true (e.g. viewer is personal user under 15 in Mon réseau), hide contact actions and email in modal
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
@@ -35,7 +36,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
   isSuperadmin = false,
   badgeCartographyUrl,
   hasBadges = false,
-  isCartographyLoading = false
+  isCartographyLoading = false,
+  hideContactAndEmail = false
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
@@ -337,7 +339,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 </span>
               )
             )}
-            {hideDeleteButton ? (
+            {!hideContactAndEmail && (hideDeleteButton ? (
               <button 
                 className="btn btn-outline btn-sm" 
                 onClick={async () => {
@@ -373,7 +375,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
               <i className="fas fa-envelope"></i>
               Contacter
             </a>
-            )}
+            ))}
             {!hideDeleteButton && !isSuperadmin && (
               <button className="btn btn-outline btn-sm" onClick={onDelete}>
                 <i className="fas fa-trash"></i>
@@ -424,6 +426,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                       <span>{member.lastName}</span>
                     )}
                   </div>
+                  {!hideContactAndEmail && (
                   <div className="info-item">
                     <label>Email:</label>
                     {isEditing ? (
@@ -437,6 +440,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                       <span>{member.email}</span>
                     )}
                   </div>
+                  )}
                   <div className="info-item">
                     <label>Profession:</label>
                     {isEditing ? (

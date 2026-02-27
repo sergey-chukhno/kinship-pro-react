@@ -68,7 +68,8 @@ export const useAuthInit = () => {
             avatar: user.avatar_url || '/default-avatar.png',
             organization: user.available_contexts?.companies?.[0]?.name ||
               user.available_contexts?.schools?.[0]?.name || '',
-            available_contexts: user.available_contexts
+            available_contexts: user.available_contexts,
+            birthday: user.birthday
           });
 
           const isAuthPage = location.pathname === "/register" || location.pathname === "/login" || location.pathname.startsWith("/register/");

@@ -24,6 +24,7 @@ interface OrganizationCardProps {
   onAttach?: () => void;
   onPartnership?: () => void;
   onJoin?: () => void;
+  onLeave?: () => void;
   onTeacherPartnershipRequest?: () => void;
   isPersonalUser?: boolean;
   onClick?: () => void;
@@ -31,7 +32,7 @@ interface OrganizationCardProps {
   hideMembersCount?: boolean;
 }
 
-const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete, onAttach, onPartnership, onJoin, onTeacherPartnershipRequest, isPersonalUser = false, onClick, hideJoinButton = false, hideMembersCount = false }) => {
+const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdit, onDelete, onAttach, onPartnership, onJoin, onLeave, onTeacherPartnershipRequest, isPersonalUser = false, onClick, hideJoinButton = false, hideMembersCount = false }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return '#10b981';
@@ -84,7 +85,7 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
   };
 
   // Check if there are hover actions - if so, disable onClick on the card
-  const hasHoverActions = onAttach || onPartnership || (onJoin && !hideJoinButton) || onTeacherPartnershipRequest;
+  const hasHoverActions = onAttach || onPartnership || (onJoin && !hideJoinButton) || onLeave || onTeacherPartnershipRequest;
 
   const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // If there are hover actions, prevent the modal from opening
@@ -228,8 +229,8 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
       </div>
 
 
-      {/* Hover Actions - Se rattacher, Demander un partenariat, ou Rejoindre */}
-      {(onAttach || onPartnership || (onJoin && !hideJoinButton) || onTeacherPartnershipRequest) && (
+      {/* Hover Actions - Se rattacher, Demander un partenariat, Rejoindre, ou Quitter */}
+      {(onAttach || onPartnership || (onJoin && !hideJoinButton) || onLeave || onTeacherPartnershipRequest) && (
         <div className="organization-hover-actions">
           {onAttach && (
             <button 
@@ -268,6 +269,19 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization, onEdi
             >
               <i className="fas fa-handshake"></i>
               <span>Partenariat</span>
+            </button>
+          )}
+          {onLeave && (
+            <button
+              className="btn-hover-action btn-leave"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLeave();
+              }}
+              title="Quitter cette organisation"
+            >
+              <i className="fas fa-sign-out-alt"></i>
+              <span>Quitter</span>
             </button>
           )}
           {onTeacherPartnershipRequest && (

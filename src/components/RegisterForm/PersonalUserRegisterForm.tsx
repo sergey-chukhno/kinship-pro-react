@@ -608,7 +608,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         <div className="form-step visible">
           <h3 className="step-title">Mes Compétences</h3>
           <label className="toggle-switch-form">
-            <span>Je veux ajouter et montrer mes compétences</span>
+            <span>Indiquez les compétences que vous souhaitez mettre en avant. Elles pourront être visibles dans votre profil et mobilisées dans vos projets et votre réseau</span>
             <input type="checkbox" checked={showSkills} onChange={(e) => setShowSkills(e.target.checked)} />
             <span className="toggle-slider"></span>
           </label>

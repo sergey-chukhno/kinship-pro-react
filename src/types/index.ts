@@ -39,6 +39,7 @@ export interface Member {
   propose_workshop?: boolean; // Indique si l'utilisateur propose des ateliers
   claim_token?: string; // Token for student QR code
   hasTemporaryEmail?: boolean; // Indicates if email is temporary
+  confirmedAt?: string | null; // ISO date when email was confirmed; null = pending activation
   birthday?: string; // Date de naissance
   role?: string; // Rôle unique (pour les étudiants)
   levelId?: string; // ID de la classe/level
@@ -253,6 +254,8 @@ export interface OrganizationContext {
   company_type?: string;
   logo_url?: string | null;
   role: 'superadmin' | 'admin' | 'referent' | 'intervenant' | 'member';
+  contract_kind?: string | null; // 'vert_actuel' | 'bleu_standard' | 'bleu_premium'
+  allows_minor_members?: boolean; // true when contract is BLEU Premium
   permissions: {
     superadmin: boolean;
     admin: boolean;
@@ -277,6 +280,7 @@ export interface User {
   propose_workshop?: boolean;
   take_trainee?: boolean;
   show_my_skills?: boolean;
+  birthday?: string; // YYYY-MM-DD, used for under-15 checks (e.g. minor personal user)
   available_contexts?: {
     companies?: OrganizationContext[];
     schools?: OrganizationContext[];

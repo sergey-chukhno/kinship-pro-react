@@ -90,6 +90,21 @@
   line-height: 1.5;
 }
 
+.member-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.member-pill--warning {
+  background: #fef3c7;
+  color: #b45309;
+}
+
 .member-classes {
   margin-top: 8px;
   display: flex;

@@ -14,6 +14,7 @@ import ProjectManagement from '../Pages/ProjectManagement';
 import Projects from '../Pages/Projects';
 import Settings from '../Pages/Settings';
 import PersonalSettings from '../Pages/PersonalSettings';
+import PrivacyPolicy from '../RegisterForm/PrivacyPolicy';
 import './MainLayout.css';
 import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
@@ -132,7 +133,7 @@ const MainLayout: React.FC = () => {
         <Route path="/login" element={<AuthPage />} />
         <Route path="/register" element={<AuthPage />} />
         <Route path="/register/:registerType" element={<AuthPage />} />
-        <Route path="/privacy-policy" element={<AuthPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path='/CGU' element={<AuthPage/>}/>
 
 
