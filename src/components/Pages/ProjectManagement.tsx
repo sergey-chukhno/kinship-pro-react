@@ -217,6 +217,7 @@ const ProjectManagement: React.FC = () => {
     mldsOrganizationNames: [] as string[],
     mldsSchoolLevelIds: [] as string[] // IDs of school levels
   });
+  const editFormInitializedRef = useRef(false);
   const [editImagePreview, setEditImagePreview] = useState<string>('');
   const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
@@ -1649,6 +1650,82 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (!project || !apiProjectData || editFormInitializedRef.current) return;
+
+    const mldsInfo = apiProjectData.mlds_information;
+
+    let currentCoResponsibles: string[] = [];
+    if (apiProjectData.co_responsibles && Array.isArray(apiProjectData.co_responsibles)) {
+      currentCoResponsibles = apiProjectData.co_responsibles
+        .map((cr: any) => cr.id?.toString())
+        .filter(Boolean);
+    } else if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
+      currentCoResponsibles = apiProjectData.co_owners
+        .map((cr: any) => cr.id?.toString())
+        .filter(Boolean);
+    }
+
+    let currentPartnerships: string[] = [];
+    if (apiProjectData.partnership_ids?.length) {
+      currentPartnerships = apiProjectData.partnership_ids.map((id: number) => id.toString());
+    } else if (apiProjectData.partnership_id) {
+      currentPartnerships = [apiProjectData.partnership_id.toString()];
+    } else if (apiProjectData.partnership?.id) {
+      currentPartnerships = [apiProjectData.partnership.id.toString()];
+    }
+    const isPartnerProject = apiProjectData.is_partner_project || false;
+
+    setEditForm({
+      title: project.title,
+      description: project.description,
+      tags: [...(project.tags || [])],
+      startDate: project.startDate,
+      endDate: project.endDate,
+      pathways: (project.pathways && project.pathways.length > 0)
+        ? [...project.pathways]
+        : (project.pathway ? [project.pathway] : []),
+      status: project.status || 'coming',
+      visibility: isMLDSProject ? 'private' : (project.visibility || 'public'),
+      isPartnership: isPartnerProject,
+      coResponsibles: currentCoResponsibles,
+      partners: currentPartnerships,
+      participants: [],
+      mldsRequestedBy: mldsInfo?.requested_by || 'departement',
+      mldsDepartment: mldsInfo?.department_number || mldsInfo?.department_code || '',
+      mldsTargetAudience: mldsInfo?.target_audience || 'students_without_solution',
+      mldsActionObjectives: mldsInfo?.action_objectives || [],
+      mldsActionObjectivesOther: mldsInfo?.action_objectives_other || '',
+      mldsObjectives: mldsInfo?.objectives || '',
+      mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
+      mldsExpectedParticipants: mldsInfo?.expected_participants?.toString() || '',
+      mldsFinancialHSE: mldsInfo?.financial_hse ?? '',
+      mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : '50.73',
+      mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport)
+        ? mldsInfo.financial_transport
+        : (mldsInfo?.financial_transport != null
+          ? [{ transport_name: '', price: String(mldsInfo.financial_transport) }]
+          : []),
+      mldsFinancialOperating: Array.isArray(mldsInfo?.financial_operating)
+        ? mldsInfo.financial_operating
+        : (mldsInfo?.financial_operating != null
+          ? [{ operating_name: '', price: String(mldsInfo.financial_operating) }]
+          : []),
+      mldsFinancialService: Array.isArray(mldsInfo?.financial_service)
+        ? mldsInfo.financial_service
+        : (mldsInfo?.financial_service != null
+          ? [{ service_name: '', price: String(mldsInfo.financial_service) }]
+          : []),
+      mldsNetworkIssueAddressed: mldsInfo?.network_issue_addressed ?? '',
+      mldsOrganizationNames: mldsInfo?.organization_names || [],
+      mldsSchoolLevelIds: (
+        (mldsInfo?.school_level_ids || apiProjectData.school_level_ids || []) as number[]
+      ).map((id: number) => id.toString())
+    });
+    setEditImagePreview(project.image || '');
+    editFormInitializedRef.current = true;
+  }, [project, apiProjectData, isMLDSProject]);
+
   const handleEdit = async () => {
     // Prevent editing if project is ended
     if (isProjectEnded) {
@@ -1656,31 +1733,7 @@ const ProjectManagement: React.FC = () => {
       return;
     }
 
-    const mldsInfo = apiProjectData?.mlds_information;
-
-    // Get current co-responsibles and partnerships
-    // Check both co_responsibles and co_owners to ensure we get all co-responsibles
-    let currentCoResponsibles: string[] = [];
-    if (apiProjectData?.co_responsibles && Array.isArray(apiProjectData.co_responsibles)) {
-      currentCoResponsibles = apiProjectData.co_responsibles.map((cr: any) => cr.id?.toString()).filter(Boolean);
-    } else if (apiProjectData?.co_owners && Array.isArray(apiProjectData.co_owners)) {
-      // Fallback to co_owners if co_responsibles doesn't exist
-      currentCoResponsibles = apiProjectData.co_owners.map((cr: any) => cr.id?.toString()).filter(Boolean);
-    }
-
-    console.log('🔍 [handleEdit] Current co-responsibles IDs:', currentCoResponsibles);
-
-    // Get all partnership IDs (can be multiple)
-    let currentPartnerships: string[] = [];
-    if (apiProjectData?.partnership_ids?.length) {
-      currentPartnerships = apiProjectData.partnership_ids.map((id: number) => id.toString());
-    } else if (apiProjectData?.partnership_id) {
-      currentPartnerships = [apiProjectData.partnership_id.toString()];
-    } else if (apiProjectData?.partnership?.id) {
-      currentPartnerships = [apiProjectData.partnership.id.toString()];
-    }
-    const isPartnerProject = apiProjectData?.is_partner_project || false;
-
+    // Reset edit-related UI state (participants, classes, partnerships, etc.)
     setEditPartnershipContactMembers([]);
     setEditClassSelectionMode({});
     setEditClassManualParticipantIds({});
@@ -1693,50 +1746,7 @@ const ProjectManagement: React.FC = () => {
     setEditPartnershipCoResponsiblesSearchTerm('');
     setEditPathwaySearchTerm('');
     setEditPathwayDropdownOpen(false);
-    setEditForm({
-      title: project.title,
-      description: project.description,
-      tags: [...(project.tags || [])],
-      startDate: project.startDate,
-      endDate: project.endDate,
-      pathways: (project.pathways && project.pathways.length > 0)
-        ? [...project.pathways]
-        : (project.pathway ? [project.pathway] : []),
-      status: project.status || 'coming',
-      visibility: isMLDSProject ? 'private' : (project.visibility || 'public'), // MLDS projects are always private
-      isPartnership: isPartnerProject,
-      coResponsibles: currentCoResponsibles,
-      partners: currentPartnerships,
-      participants: [], // Will be set below from project members
-      // MLDS fields
-      mldsRequestedBy: mldsInfo?.requested_by || 'departement',
-      mldsDepartment: mldsInfo?.department_number || mldsInfo?.department_code || '',
-      mldsTargetAudience: mldsInfo?.target_audience || 'students_without_solution',
-      mldsActionObjectives: mldsInfo?.action_objectives || [],
-      mldsActionObjectivesOther: mldsInfo?.action_objectives_other || '',
-      mldsObjectives: mldsInfo?.objectives || '',
-      mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
-      mldsExpectedParticipants: mldsInfo?.expected_participants?.toString() || '',
-      mldsFinancialHSE: mldsInfo?.financial_hse ?? '',
-      mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : '50.73',
-      mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport) 
-        ? mldsInfo.financial_transport 
-        : (mldsInfo?.financial_transport != null ? [{ transport_name: '', price: String(mldsInfo.financial_transport) }] : []),
-      mldsFinancialOperating: Array.isArray(mldsInfo?.financial_operating) 
-        ? mldsInfo.financial_operating 
-        : (mldsInfo?.financial_operating != null ? [{ operating_name: '', price: String(mldsInfo.financial_operating) }] : []),
-      mldsFinancialService: Array.isArray(mldsInfo?.financial_service) 
-        ? mldsInfo.financial_service 
-        : (mldsInfo?.financial_service != null ? [{ service_name: '', price: String(mldsInfo.financial_service) }] : []),
-      mldsNetworkIssueAddressed: mldsInfo?.network_issue_addressed ?? '',
-      mldsOrganizationNames: mldsInfo?.organization_names || [],
-      // For MLDS: use mlds_information.school_level_ids
-      // For non-MLDS school projects: use root school_level_ids (as returned by API)
-      mldsSchoolLevelIds: (
-        (mldsInfo?.school_level_ids || apiProjectData?.school_level_ids || []) as number[]
-      ).map((id: number) => id.toString())
-    });
-    setEditImagePreview(project.image || '');
+    console.log('🔍 [handleEdit] Project data:', project);
     setIsEditModalOpen(true);
 
     // Load members
@@ -1756,7 +1766,6 @@ const ProjectManagement: React.FC = () => {
       // Debug: log available members IDs
       console.log('🔍 [handleEdit] Available members:', membersResult?.length || 0);
       console.log('🔍 [handleEdit] Available member IDs:', membersResult?.map((m: any) => m.id?.toString()).slice(0, 5));
-      console.log('🔍 [handleEdit] Co-responsibles to select:', currentCoResponsibles);
     } catch (err) {
       console.error('Error fetching members:', err);
       setEditAvailableMembers([]);
@@ -1886,9 +1895,11 @@ const ProjectManagement: React.FC = () => {
     try {
       const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' =
         desiredStatus || editForm.status;
+        console.log("🔍 [handleSaveEditInternal] Effective status:", effectiveStatus);
+        console.log("🔍 [handleSaveEditInternal] Edit form:", editForm);
 
-      // Validate network issue addressed for MLDS projects when status is to_process, in_progress, or coming
-      if (isMLDSProject && (effectiveStatus === 'to_process' || effectiveStatus === 'in_progress' || effectiveStatus === 'coming')) {
+      // Validate network issue addressed for MLDS projects when status is to_process, in_progress, coming, or pending_validation
+      if (isMLDSProject && (effectiveStatus === 'to_process' || effectiveStatus === 'in_progress' || effectiveStatus === 'coming' || effectiveStatus === 'pending_validation')) {
         if (!editForm.mldsNetworkIssueAddressed || editForm.mldsNetworkIssueAddressed.trim() === '') {
           showError('Veuillez remplir la problématique du réseau à laquelle l\'action répond');
           return;
@@ -2359,16 +2370,16 @@ const ProjectManagement: React.FC = () => {
   const handleTagChange = (index: number, value: string) => {
     const newTags = [...editForm.tags];
     newTags[index] = value;
-    setEditForm({ ...editForm, tags: newTags });
+    setEditForm(prev => ({ ...prev, tags: newTags }));
   };
 
   const addTag = () => {
-    setEditForm({ ...editForm, tags: [...editForm.tags, ''] });
+    setEditForm(prev => ({ ...prev, tags: [...prev.tags, ''] }));
   };
 
   const removeTag = (index: number) => {
     const newTags = editForm.tags.filter((_, i) => i !== index);
-    setEditForm({ ...editForm, tags: newTags });
+    setEditForm(prev => ({ ...prev, tags: newTags }));
   };
 
   // Request handlers
@@ -6006,7 +6017,7 @@ const ProjectManagement: React.FC = () => {
                   type="text"
                   id="project-title"
                   value={editForm.title}
-                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
                   className="form-input"
                   placeholder="Entrez le titre du projet"
                 />
@@ -6018,7 +6029,7 @@ const ProjectManagement: React.FC = () => {
                   <textarea
                     id="project-network-issue-addressed"
                     value={editForm.mldsNetworkIssueAddressed}
-                    onChange={(e) => setEditForm({ ...editForm, mldsNetworkIssueAddressed: e.target.value })}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, mldsNetworkIssueAddressed: e.target.value }))}
                     className="form-input"
                     placeholder="Diagnostique, constats, indicateurs, besoins identifiés, freins"
                     rows={4}
@@ -6032,7 +6043,7 @@ const ProjectManagement: React.FC = () => {
                 <textarea
                   id="project-description"
                   value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                   className="form-textarea"
                   rows={4}
                   placeholder="Entrez la description du projet"
@@ -6082,7 +6093,7 @@ const ProjectManagement: React.FC = () => {
                     type="date"
                     id="project-start-date"
                     value={editForm.startDate}
-                    onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
                     className="form-input"
                   />
                 </div>
@@ -6092,7 +6103,7 @@ const ProjectManagement: React.FC = () => {
                     type="date"
                     id="project-end-date"
                     value={editForm.endDate}
-                    onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
                     className="form-input"
                   />
                 </div>
@@ -6105,7 +6116,7 @@ const ProjectManagement: React.FC = () => {
                   <select
                     id="project-visibility"
                     value={editForm.visibility}
-                    onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, visibility: e.target.value as 'public' | 'private' }))}
                     className="form-input"
                   >
                     <option value="public">Projet public</option>
@@ -7031,7 +7042,7 @@ const ProjectManagement: React.FC = () => {
                             name="mldsDepartment"
                             className="form-select"
                             value={editForm.mldsDepartment}
-                            onChange={(e) => setEditForm({ ...editForm, mldsDepartment: e.target.value })}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, mldsDepartment: e.target.value }))}
                             required={editForm.mldsRequestedBy === 'departement'}
                           >
                             <option value="">Sélectionnez un département</option>
@@ -7052,7 +7063,7 @@ const ProjectManagement: React.FC = () => {
                         name="mldsTargetAudience"
                         className="form-select"
                         value={editForm.mldsTargetAudience}
-                        onChange={(e) => setEditForm({ ...editForm, mldsTargetAudience: e.target.value })}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, mldsTargetAudience: e.target.value }))}
                         required
                       >
                         <option value="students_without_solution">Élèves sans solution à la rentrée</option>
@@ -7070,7 +7081,7 @@ const ProjectManagement: React.FC = () => {
                       name="mldsExpectedParticipants"
                       className="form-input"
                       value={editForm.mldsExpectedParticipants}
-                      onChange={(e) => setEditForm({ ...editForm, mldsExpectedParticipants: e.target.value })}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsExpectedParticipants: e.target.value }))}
                       placeholder="Nombre de participants attendus"
                       min="0"
                     />
@@ -7083,7 +7094,7 @@ const ProjectManagement: React.FC = () => {
                       name="mldsObjectives"
                       className="form-textarea"
                       value={editForm.mldsObjectives}
-                      onChange={(e) => setEditForm({ ...editForm, mldsObjectives: e.target.value })}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsObjectives: e.target.value }))}
                       rows={3}
                       placeholder="Décrire les objectifs de remobilisation et de persévérance scolaire..."
                     />
@@ -7111,9 +7122,9 @@ const ProjectManagement: React.FC = () => {
                             checked={editForm.mldsActionObjectives.includes(objective.value)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setEditForm({ ...editForm, mldsActionObjectives: [...editForm.mldsActionObjectives, objective.value] });
+                                setEditForm(prev => ({ ...prev, mldsActionObjectives: [...prev.mldsActionObjectives, objective.value] }));
                               } else {
-                                setEditForm({ ...editForm, mldsActionObjectives: editForm.mldsActionObjectives.filter(v => v !== objective.value) });
+                                setEditForm(prev => ({ ...prev, mldsActionObjectives: prev.mldsActionObjectives.filter(v => v !== objective.value) }));
                               }
                             }}
                           />
@@ -7132,7 +7143,7 @@ const ProjectManagement: React.FC = () => {
                           name="mldsActionObjectivesOther"
                           className="form-textarea"
                           value={editForm.mldsActionObjectivesOther}
-                          onChange={(e) => setEditForm({ ...editForm, mldsActionObjectivesOther: e.target.value })}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, mldsActionObjectivesOther: e.target.value }))}
                           placeholder="Décrivez l'autre objectif..."
                           rows={2}
                           style={{ marginTop: '8px' }}
@@ -7148,7 +7159,7 @@ const ProjectManagement: React.FC = () => {
                       name="mldsCompetenciesDeveloped"
                       className="form-textarea"
                       value={editForm.mldsCompetenciesDeveloped}
-                      onChange={(e) => setEditForm({ ...editForm, mldsCompetenciesDeveloped: e.target.value })}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsCompetenciesDeveloped: e.target.value }))}
                       rows={3}
                       placeholder="Décrivez les compétences que les participants développeront..."
                     />
@@ -7174,7 +7185,7 @@ const ProjectManagement: React.FC = () => {
                           name="mldsFinancialHSE"
                           className="form-input"
                           value={editForm.mldsFinancialHSE}
-                          onChange={(e) => setEditForm({ ...editForm, mldsFinancialHSE: e.target.value })}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, mldsFinancialHSE: e.target.value }))}
                           placeholder="Nombre d'heures"
                           min="0"
                           step="0.01"
@@ -7188,7 +7199,7 @@ const ProjectManagement: React.FC = () => {
                           name="mldsFinancialHV"
                           className="form-input"
                           value={editForm.mldsFinancialHV}
-                          onChange={(e) => setEditForm({ ...editForm, mldsFinancialHV: e.target.value })}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, mldsFinancialHV: e.target.value }))}
                           placeholder="Taux en €/heure"
                           min="0"
                           step="0.01"

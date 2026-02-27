@@ -1081,7 +1081,8 @@ const Projects: React.FC = () => {
       (statusFilter === 'draft' && project.status === 'draft') ||
       (statusFilter === 'À venir' && project.status === 'coming') ||
       (statusFilter === 'En cours' && project.status === 'in_progress') ||
-      (statusFilter === 'Terminée' && project.status === 'ended');
+      (statusFilter === 'Terminée' && project.status === 'ended') ||
+      (statusFilter === 'À valider' && (project.status === 'pending_validation'));
 
     // Organization filter is now handled by API, no client-side filtering needed
     const matchesOrganization = true;
@@ -1437,6 +1438,8 @@ const Projects: React.FC = () => {
                   >
                     <option value="all">Tous les statuts</option>
                     <option value="draft">Brouillon</option>
+                    <option value="to_process">À traiter</option>
+                    <option value="pending_validation">À valider</option>
                     <option value="À venir">À venir</option>
                     <option value="En cours">En cours</option>
                     <option value="Terminée">Terminée</option>
