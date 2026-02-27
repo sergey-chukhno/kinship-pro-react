@@ -111,7 +111,7 @@ export const mapFrontendToBackend = (
         startDate: string;
         endDate: string;
         organization: string;
-        status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
         pathway?: string;
         pathways?: string[];
@@ -186,7 +186,7 @@ export const mapFrontendToBackend = (
     }
 
     // Envoyer le statut tel quel (draft, coming, in_progress, etc.)
-    const backendStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' = formData.status;
+    const backendStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' = formData.status;
 
     // Convert school level IDs from strings to numbers if provided
     const schoolLevelIds = formData.schoolLevelIds
@@ -236,7 +236,7 @@ export const mapEditFormToBackend = (
         endDate: string;
         pathway?: string;
         pathways?: string[];
-        status: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended';
         visibility: 'public' | 'private';
     },
     tags: Tag[],

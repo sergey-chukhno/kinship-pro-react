@@ -31,7 +31,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     startDate: '',
     endDate: '',
     organization: '',
-    status: 'coming' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
+    status: 'coming' as 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended',
     visibility: 'private' as 'public' | 'private', // MLDS projects are private by default
     pathway: 'mlds', // Set to MLDS by default
     tags: '',
@@ -540,11 +540,11 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     return availablePartnerships.find((p: any) => p.id === partnerId || p.id === Number.parseInt(partnerId));
   };
 
-  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended') => {
+  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended') => {
     setIsSubmitting(true);
     setSubmitError(null);
 
-    const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+    const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' =
       desiredStatus || formData.status;
 
     try {
@@ -712,7 +712,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
 
     // Pour les enseignants, on soumet toujours le projet en statut "À traiter"
     const isTeacher = state.showingPageType === 'teacher' || state.user?.role === 'teacher';
-    const statusForSubmit: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+    const statusForSubmit: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' =
       isTeacher ? 'to_process' : formData.status;
 
     await submitProject(statusForSubmit);

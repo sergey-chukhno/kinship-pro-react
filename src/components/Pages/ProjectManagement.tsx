@@ -193,7 +193,7 @@ const ProjectManagement: React.FC = () => {
     startDate: '',
     endDate: '',
     pathways: [] as string[],
-    status: 'coming' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
+    status: 'coming' as 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended',
     visibility: 'public' as 'public' | 'private',
     isPartnership: false,
     coResponsibles: [] as string[],
@@ -740,6 +740,7 @@ const ProjectManagement: React.FC = () => {
     switch (status) {
       case 'draft': return 'Brouillon';
       case 'to_process': return 'À traiter';
+      case 'pending_validation': return 'À valider';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminé';
@@ -751,6 +752,7 @@ const ProjectManagement: React.FC = () => {
     switch (status) {
       case 'draft': return 'draft';
       case 'to_process': return 'to-process';
+      case 'pending_validation': return 'to-validate';
       case 'coming': return 'coming';
       case 'in_progress': return 'in-progress';
       case 'ended': return 'ended';
@@ -1879,10 +1881,10 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleSaveEditInternal = async (
-    desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended'
+    desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended'
   ) => {
     try {
-      const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+      const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' =
         desiredStatus || editForm.status;
 
       // Validate network issue addressed for MLDS projects when status is to_process, in_progress, or coming
@@ -2020,7 +2022,7 @@ const ProjectManagement: React.FC = () => {
     const isTeacher =
       isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher');
 
-    let statusForSubmit: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
+    let statusForSubmit: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended';
 
     if (isTeacher) {
       // Cas spécial : enseignants avec projets MLDS → "À traiter"
@@ -2053,6 +2055,76 @@ const ProjectManagement: React.FC = () => {
   const handleSaveEditDraft = async () => {
     setEditForm(prev => ({ ...prev, status: 'draft' }));
     await handleSaveEditInternal('draft');
+  };
+
+  /**
+   * Passer le projet MLDS en validation (statut "à valider")
+   * Visible pour admin/superadmin d'école quand le projet est en "à traiter"
+   */
+  const handlePassToValidation = async () => {
+    if (!apiProjectData || !isMLDSProject || project.status !== 'to_process') {
+      return;
+    }
+    try {
+      await handleSaveEditInternal('pending_validation');
+      showSuccess('Projet passé en validation avec succès');
+    } catch (error: any) {
+      console.error('Error passing project to validation:', error);
+      const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors du passage en validation';
+      showError(errorMessage);
+    }
+  };
+
+  /**
+   * Refuser le projet MLDS (retour au statut "brouillon")
+   * Visible pour admin/superadmin d'école quand le projet est en "à traiter"
+   */
+  const handleRefuseProject = async () => {
+    if (!apiProjectData || !isMLDSProject || project.status !== 'to_process') {
+      return;
+    }
+    if (!window.confirm('Êtes-vous sûr de vouloir refuser ce projet ? Il sera remis en brouillon.')) {
+      return;
+    }
+    try {
+      await handleSaveEditInternal('draft');
+      showSuccess('Projet refusé et remis en brouillon');
+    } catch (error: any) {
+      console.error('Error refusing project:', error);
+      const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors du refus du projet';
+      showError(errorMessage);
+    }
+  };
+
+  /**
+   * Valider le projet MLDS (passer en "en cours" ou "à venir" selon la date de début)
+   * Visible uniquement pour superadmin quand le projet est en "à valider"
+   */
+  const handleValidateProject = async () => {
+    if (!apiProjectData || !isMLDSProject || project.status !== 'pending_validation') {
+      return;
+    }
+    try {
+      // Déterminer le statut selon la date de début
+      let newStatus: 'in_progress' | 'coming' = 'coming';
+      if (project.startDate) {
+        const startDate = new Date(project.startDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        startDate.setHours(0, 0, 0, 0);
+        if (startDate <= today) {
+          newStatus = 'in_progress';
+        } else {
+          newStatus = 'coming';
+        }
+      }
+      await handleSaveEditInternal(newStatus);
+      showSuccess(`Projet validé et passé en "${getStatusText(newStatus)}"`);
+    } catch (error: any) {
+      console.error('Error validating project:', error);
+      const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors de la validation du projet';
+      showError(errorMessage);
+    }
   };
 
   const setEditClassMode = (classId: string, mode: 'manual' | 'all') => {
@@ -3979,6 +4051,51 @@ const ProjectManagement: React.FC = () => {
                     {getStatusText(project.status)}
                   </span>
                 </div>
+                {/* Boutons de validation pour projets MLDS - Admin/Superadmin d'école */}
+                {isMLDSProject && 
+                 state.showingPageType === 'edu' && 
+                 apiProjectData && 
+                 (isUserAdminOfProjectOrg(apiProjectData, state.user) || isUserSuperadminOfProjectOrg(apiProjectData, state.user)) &&
+                 project.status === 'to_process' && (
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handlePassToValidation}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <i className="fas fa-check-circle"></i>
+                      Passer en validation
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleRefuseProject}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <i className="fas fa-times-circle"></i>
+                      Refuser
+                    </button>
+                  </div>
+                )}
+                {/* Bouton de validation finale - Superadmin uniquement */}
+                {isMLDSProject && 
+                 state.showingPageType === 'edu' &&
+                 apiProjectData && 
+                 isUserSuperadmin(state.user) &&
+                 project.status === 'pending_validation' && (
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleValidateProject}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <i className="fas fa-check-double"></i>
+                      Valider le projet
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="project-actions-header">
                 {/* Join button or role pill - show for all users when appropriate */}

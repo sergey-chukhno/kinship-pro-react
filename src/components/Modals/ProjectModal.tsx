@@ -34,7 +34,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     startDate: '',
     endDate: '',
     organization: '',
-    status: 'draft' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
+    status: 'draft' as 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended',
     visibility: 'private' as 'public' | 'private', // par défaut en brouillon : privé
     pathways: [] as string[], // plusieurs parcours possibles
     tags: '',
@@ -985,10 +985,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     return start <= today ? 'in_progress' : 'coming';
   };
 
-  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended') => {
+  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended') => {
     setSubmitError(null);
 
-    const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+    const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' =
       desiredStatus ?? formData.status;
 
     if (desiredStatus !== undefined) {
@@ -1049,6 +1049,25 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
           ...formData,
           status: effectiveStatus,
           pathway: (formData.pathways && formData.pathways[0]) || '',
+        } as {
+          title: string;
+          description: string;
+          startDate: string;
+          endDate: string;
+          organization: string;
+          status: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended';
+          visibility: 'public' | 'private';
+          pathway?: string;
+          pathways?: string[];
+          tags: string;
+          links: string;
+          participants: string[];
+          coResponsibles: string[];
+          isPartnership: boolean;
+          createdBy?: string;
+          partner?: string;
+          partners?: string[];
+          schoolLevelIds?: string[];
         },
         context,
         organizationId,
@@ -1104,7 +1123,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         id: createdProject.id.toString(),
         title: createdProject.title,
         description: createdProject.description,
-        status: createdProject.status as 'to_process' | 'coming' | 'in_progress' | 'ended',
+        status: createdProject.status as 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended',
         visibility: payload.project.private ? 'private' : 'public' as 'public' | 'private',
         pathway: (formData.pathways && formData.pathways[0]) || 'citoyen',
         organization: formData.organization,
