@@ -9,13 +9,27 @@ interface ProjectCardProps {
   onManage?: (project: Project) => void;
   onDelete?: (project: Project) => void;
   onClose?: (project: Project) => void;
+  onDuplicate?: (project: Project) => void;
   isPersonalUser?: boolean;
   canManage?: boolean;
   canDelete?: boolean;
+  canDuplicate?: boolean;
   isOwnerOrCoOwner?: boolean;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, onDelete, onClose, isPersonalUser = false, canManage = false, canDelete = false, isOwnerOrCoOwner = false }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({
+  project,
+  onEdit,
+  onManage,
+  onDelete,
+  onClose,
+  onDuplicate,
+  isPersonalUser = false,
+  canManage = false,
+  canDelete = false,
+  canDuplicate = false,
+  isOwnerOrCoOwner = false
+}) => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   // Check if project is ended - disable all actions if true
@@ -156,6 +170,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
             <button className="btn btn-outline btn-sm" onClick={() => onClose(project)}>
               <i className="fas fa-check-circle"></i>
               Clôturer
+            </button>
+          )}
+          {canDuplicate && onDuplicate  && (
+            <button className="btn btn-outline btn-sm" onClick={() => onDuplicate(project)}>
+              <i className="fas fa-copy"></i>
+              Dupliquer
             </button>
           )}
           {canDelete && onDelete && !isProjectEnded && (

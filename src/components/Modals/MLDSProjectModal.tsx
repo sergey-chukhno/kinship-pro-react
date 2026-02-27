@@ -19,9 +19,10 @@ const HV_DEFAULT_RATE = 50.73;
 interface MLDSProjectModalProps {
   onClose: () => void;
   onSave: (projectData: Omit<Project, 'id'>) => void;
+  initialDataFromProject?: Project | null;
 }
 
-const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) => {
+const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, initialDataFromProject }) => {
   const { state } = useAppContext();
 
   const [formData, setFormData] = useState({
@@ -31,7 +32,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     startDate: '',
     endDate: '',
     organization: '',
-    status: 'coming' as 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended',
+    status: 'coming' as 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived',
     visibility: 'private' as 'public' | 'private', // MLDS projects are private by default
     pathway: 'mlds', // Set to MLDS by default
     tags: '',
@@ -82,6 +83,78 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     participants: '',
     partner: ''
   });
+
+  // Selected school (établissement) for filtering classes / organisations porteuses
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
+
+  // Prefill from an existing MLDS project when duplicating
+  useEffect(() => {
+    if (!initialDataFromProject) return;
+
+    const source = initialDataFromProject;
+    const mldsInfo: any = (source as any).mlds_information || {};
+
+    // Try to pre-select the school (établissement) based on the original project organization or context
+    const schools = state.user?.available_contexts?.schools || [];
+    let defaultSchoolId: string | null = null;
+    if (schools.length > 0) {
+      // 1. Match by name (organization string from original project)
+      const byName = source.organization
+        ? schools.find((s: any) => s.name === source.organization)
+        : null;
+      // 2. Fallback to first school in context
+      const chosenSchool = byName || schools[0];
+      if (chosenSchool?.id != null) {
+        defaultSchoolId = chosenSchool.id.toString();
+      }
+    }
+
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+    const toIso = (d: Date) => d.toISOString().split('T')[0];
+
+    setFormData(prev => ({
+      ...prev,
+      title: `${source.title} (copie)`,
+      networkIssueAddressed: mldsInfo?.network_issue_addressed ?? '',
+      description: source.description,
+      startDate: toIso(today),
+      endDate: toIso(nextMonth),
+      organization: defaultSchoolId
+        ? (schools.find((s: any) => s.id?.toString() === defaultSchoolId)?.name || source.organization)
+        : source.organization,
+      status: 'draft',
+      visibility: 'private',
+      pathway: 'mlds',
+      tags: (source.tags || []).join(', '),
+      links: source.links || '',
+      participants: [],
+      image: '',
+      coResponsibles: [],
+      isPartnership: false,
+      partners: [],
+      additionalImages: [],
+      mldsRequestedBy: mldsInfo?.requested_by || 'departement',
+      mldsDepartment: mldsInfo?.department_number || mldsInfo?.department_code || '',
+      mldsOrganizations: [],
+      mldsTargetAudience: mldsInfo?.target_audience || 'students_without_solution',
+      mldsActionObjectives: mldsInfo?.action_objectives || [],
+      mldsActionObjectivesOther: mldsInfo?.action_objectives_other || '',
+      mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
+      mldsExpectedParticipants: mldsInfo?.expected_participants != null ? String(mldsInfo.expected_participants) : '',
+      mldsObjectives: mldsInfo?.objectives || '',
+      mldsCompetencies: [],
+      mldsFinancialHSE: mldsInfo?.financial_hse != null ? String(mldsInfo.financial_hse) : '',
+      mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : prev.mldsFinancialHV,
+      mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport : [],
+      mldsFinancialOperating: Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating : [],
+      mldsFinancialService: Array.isArray(mldsInfo?.financial_service) ? mldsInfo.financial_service : [],
+    }));
+    if (defaultSchoolId) {
+      setSelectedSchoolId(defaultSchoolId);
+    }
+    setImagePreview('');
+  }, [initialDataFromProject, state.user]);
 
   // MLDS options
   const mldsRequestedByOptions = [
@@ -196,7 +269,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, state.user, formData.isPartnership]);
 
-  // Fetch classes (levels) from school
+  // Fetch classes (levels) from selected school (or current context school by default)
   useEffect(() => {
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
@@ -204,9 +277,14 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         const organizationType = getOrganizationType(state.showingPageType);
         const organizationId = getOrganizationId(state.user, state.showingPageType);
 
+        // Determine which school ID to use: selected in the form, or current context
+        const orgIdForLevels = selectedSchoolId
+          ? Number.parseInt(selectedSchoolId, 10)
+          : organizationId;
+
         // Only fetch classes for school context
-        if (organizationType === 'school' && organizationId) {
-          const response = await getSchoolLevels(organizationId, 1, 100);
+        if (organizationType === 'school' && orgIdForLevels) {
+          const response = await getSchoolLevels(orgIdForLevels, 1, 100);
           setAvailableClasses(response.data?.data || []);
         } else {
           setAvailableClasses([]);
@@ -220,7 +298,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     };
 
     fetchClasses();
-  }, [state.showingPageType, state.user]);
+  }, [state.showingPageType, state.user, selectedSchoolId]);
 
   // Fetch departments from API
   useEffect(() => {
@@ -271,6 +349,20 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
         [name]: value
       }));
     }
+  };
+
+  const handleSchoolChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const schoolId = e.target.value;
+    setSelectedSchoolId(schoolId || null);
+
+    const selectedSchool = state.user?.available_contexts?.schools?.find(
+      (s: any) => s.id?.toString() === schoolId
+    );
+
+    setFormData(prev => ({
+      ...prev,
+      organization: selectedSchool?.name || ''
+    }));
   };
 
   const handleCompetencyToggle = (competency: string) => {
@@ -540,11 +632,11 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
     return availablePartnerships.find((p: any) => p.id === partnerId || p.id === Number.parseInt(partnerId));
   };
 
-  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended') => {
+  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived') => {
     setIsSubmitting(true);
     setSubmitError(null);
 
-    const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' =
+    const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived' =
       desiredStatus || formData.status;
 
     try {
@@ -712,7 +804,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
 
     // Pour les enseignants, on soumet toujours le projet en statut "À traiter"
     const isTeacher = state.showingPageType === 'teacher' || state.user?.role === 'teacher';
-    const statusForSubmit: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' =
+    const statusForSubmit: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived' =
       isTeacher ? 'to_process' : formData.status;
 
     await submitProject(statusForSubmit);
@@ -825,6 +917,40 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
                 )}
               </div>
             )}
+
+            {/* Sélection de l'établissement (école) */}
+            <div className="form-group">
+              <label htmlFor="organization">Établissement porteur <span style={{ color: 'red' }}>*</span></label>
+              {state.user?.available_contexts?.schools && state.user.available_contexts.schools.length > 0 ? (
+                <select
+                  id="organization"
+                  name="organization"
+                  className="form-select"
+                  value={selectedSchoolId ?? ''}
+                  onChange={handleSchoolChange}
+                  required
+                >
+                  <option value="">Sélectionnez un établissement</option>
+                  {state.user.available_contexts.schools.map((school: any) => (
+                    <option key={school.id} value={school.id.toString()}>
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  id="organization"
+                  name="organization"
+                  className="form-input"
+                  value={formData.organization}
+                  onChange={handleInputChange}
+                  placeholder="Nom de l'établissement porteur"
+                  required
+                />
+              )}
+            </div>
+
             <div className="form-group">
               <div className="form-label">Organisation porteuse</div>
               {availableClasses.length > 0 ? (
@@ -960,23 +1086,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave }) 
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="status">Statut</label>
-                <select
-                  id="status"
-                  name="status"
-                  className="form-select"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                >
-                  <option value="coming">À venir</option>
-                  <option value="in_progress">En cours</option>
-                  <option value="ended">Terminé</option>
-                </select>
-              </div>
-              {/* Visibilité masquée pour les projets MLDS - toujours privé par défaut */}
-            </div>
+            {/* Statut non affiché pour les projets MLDS : il est déterminé automatiquement à partir des dates */}
 
             <div className="form-row">
               <div className="form-group">

@@ -87,7 +87,7 @@ export interface CreateProjectPayload {
         end_date: string;
         participants_number?: number;
         private: boolean;
-        status: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended';
+        status: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived';
         school_level_ids?: number[];
         skill_ids?: number[];
         tag_ids?: number[];
@@ -983,7 +983,7 @@ export interface UpdateProjectPayload {
         description?: string;
         start_date?: string;
         end_date?: string;
-        status?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended';
+        status?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived';
         private?: boolean;
         school_level_ids?: number[];
         tag_ids?: number[];

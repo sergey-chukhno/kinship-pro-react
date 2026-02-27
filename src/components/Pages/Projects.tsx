@@ -30,6 +30,7 @@ const Projects: React.FC = () => {
   const [isCloseProjectModalOpen, setIsCloseProjectModalOpen] = useState(false);
   const [projectToClose, setProjectToClose] = useState<Project | null>(null);
   const [isClosingProject, setIsClosingProject] = useState(false);
+  const [duplicateSourceProject, setDuplicateSourceProject] = useState<Project | null>(null);
   
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
@@ -828,6 +829,7 @@ const Projects: React.FC = () => {
   const handleCreateProject = () => {
     // Pro et user : ouvrir directement ProjectModal (pas de dropdown, pas de MLDS)
     setSelectedProject(null);
+    setDuplicateSourceProject(null);
     setIsProjectModalOpen(true);
     setIsProjectDropdownOpen(false);
   };
@@ -842,6 +844,7 @@ const Projects: React.FC = () => {
     } else {
       // Open MLDS project creation modal for organizational users
       setSelectedProject(null);
+      setDuplicateSourceProject(null);
       setIsMLDSProjectModalOpen(true);
     setIsProjectDropdownOpen(false);
     }
@@ -853,7 +856,19 @@ const Projects: React.FC = () => {
       return;
     }
     setSelectedProject(project);
+    setDuplicateSourceProject(null);
     setIsProjectModalOpen(true);
+  };
+
+  const handleDuplicateProject = (project: Project) => {
+    const isMLDS = Boolean((project as any).mlds_information);
+    setSelectedProject(null);
+    setDuplicateSourceProject(project);
+    if (isMLDS) {
+      setIsMLDSProjectModalOpen(true);
+    } else {
+      setIsProjectModalOpen(true);
+    }
   };
 
   const handleSaveProject = async (projectData: Omit<Project, 'id'>) => {
@@ -867,6 +882,7 @@ const Projects: React.FC = () => {
     }
     setIsProjectModalOpen(false);
     setSelectedProject(null);
+    setDuplicateSourceProject(null);
     
     // Rafraîchir la liste des projets après création/modification
     if (isTeacher) {
@@ -1622,6 +1638,10 @@ const Projects: React.FC = () => {
               // Check if project is ended - disable edit/delete actions if true, but allow viewing
               const isProjectEnded = project.status === 'ended';
               const canClose = (project.status === 'in_progress' || project.status === 'coming') && isOwner;
+              // Suppression uniquement possible en brouillon
+              const canDeleteProject = canDelete && !isProjectEnded && project.status === 'draft';
+              // Duplication : uniquement sur les brouillons (comme supprimer)
+              const canDuplicateProject =   state.showingPageType !== 'user' &&  state.showingPageType !== 'pro';
               
               return (
                 <ProjectCard
@@ -1629,11 +1649,13 @@ const Projects: React.FC = () => {
                   project={project}
                   onEdit={!isProjectEnded ? () => handleEditProject(project) : undefined}
                   onManage={() => handleManageProject(project)} // Always allow viewing/managing
-                  onDelete={canDelete && !isProjectEnded ? () => handleDeleteProject(project.id) : undefined}
+                  onDelete={canDeleteProject ? () => handleDeleteProject(project.id) : undefined}
                   onClose={canClose ? () => handleCloseProject(project) : undefined}
                   isPersonalUser={isPersonalUser}
                   canManage={canManage && !isProjectEnded} // Can't manage if ended, but can view
-                  canDelete={canDelete && !isProjectEnded}
+                  canDelete={canDeleteProject}
+                  onDuplicate={ () => handleDuplicateProject(project) }
+                  canDuplicate={canDuplicateProject}
                   isOwnerOrCoOwner={isOwnerOrCoOwner}
                 />
               );
@@ -1743,9 +1765,11 @@ const Projects: React.FC = () => {
       {isProjectModalOpen && (
         <ProjectModal
           project={selectedProject}
+          duplicateFromProject={duplicateSourceProject}
           onClose={() => {
             setIsProjectModalOpen(false);
             setSelectedProject(null);
+            setDuplicateSourceProject(null);
           }}
           onSave={handleSaveProject}
         />
@@ -1753,9 +1777,11 @@ const Projects: React.FC = () => {
 
       {isMLDSProjectModalOpen && (
         <MLDSProjectModal
+          initialDataFromProject={duplicateSourceProject}
           onClose={() => {
             setIsMLDSProjectModalOpen(false);
             setSelectedProject(null);
+            setDuplicateSourceProject(null);
           }}
           onSave={handleSaveProject}
         />

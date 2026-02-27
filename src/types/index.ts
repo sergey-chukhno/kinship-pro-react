@@ -126,7 +126,7 @@ export interface Project {
   id: string;
   title: string;
   description: string;
-  status: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended';
+  status: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived';
   visibility?: 'public' | 'private';
   pathway?: string;
   pathways?: string[];

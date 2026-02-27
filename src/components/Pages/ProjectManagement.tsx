@@ -193,7 +193,7 @@ const ProjectManagement: React.FC = () => {
     startDate: '',
     endDate: '',
     pathways: [] as string[],
-    status: 'coming' as 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended',
+    status: 'coming' as 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived',
     visibility: 'public' as 'public' | 'private',
     isPartnership: false,
     coResponsibles: [] as string[],
@@ -1890,10 +1890,10 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleSaveEditInternal = async (
-    desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended'
+    desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived'
   ) => {
     try {
-      const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' =
+      const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived' =
         desiredStatus || editForm.status;
         console.log("🔍 [handleSaveEditInternal] Effective status:", effectiveStatus);
         console.log("🔍 [handleSaveEditInternal] Edit form:", editForm);
@@ -2033,7 +2033,7 @@ const ProjectManagement: React.FC = () => {
     const isTeacher =
       isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher');
 
-    let statusForSubmit: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended';
+    let statusForSubmit: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived';
 
     if (isTeacher) {
       // Cas spécial : enseignants avec projets MLDS → "À traiter"
