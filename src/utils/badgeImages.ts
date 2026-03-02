@@ -186,6 +186,30 @@ const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>>
       level_3: "/badges_competences_a_sorienter_au_college/niveau_3/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
       level_4: "/badges_competences_a_sorienter_au_college/niveau_4/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
     },
+    "Compétence 1 – Accepter les imprévus et saisir les occasions": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/accepter_les_imprevus_et_saisir_les_occasions.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/accepter_les_imprevus_et_saisir_les_occasions.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/accepter_les_imprevus_et_saisir_les_occasions.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/accepter_les_imprevus_et_saisir_les_occasions.png",
+    },
+    "Compétence 2 – M'ouvrir au monde et aux autres": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/mouvrir_au_monde_et_aux_autres.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/mouvrir_au_monde_et_aux_autres.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/mouvrir_au_monde_et_aux_autres.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/mouvrir_au_monde_et_aux_autres.png",
+    },
+    "Compétence 3 – Me préparer aux transitions et aux changements": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/me_preparer_aux_transitions_et_aux_changements.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/me_preparer_aux_transitions_et_aux_changements.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/me_preparer_aux_transitions_et_aux_changements.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/me_preparer_aux_transitions_et_aux_changements.png",
+    },
+    "Compétence 4 – Me projeter et comprendre les conséquences de mes choix": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/me_projeter_et_comprendre_les_consequences_de_mes_choix.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/me_projeter_et_comprendre_les_consequences_de_mes_choix.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/me_projeter_et_comprendre_les_consequences_de_mes_choix.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/me_projeter_et_comprendre_les_consequences_de_mes_choix.png",
+    },
   },
 };
 

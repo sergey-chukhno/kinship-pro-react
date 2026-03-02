@@ -129,7 +129,7 @@ const PARCOURS: Parcours[] = [
         axes: [
           { title: "Axe 1 — Connaître et s'informer sur le monde", description: "Découverte des environnements scolaires, professionnels, économiques et sociaux." },
           { title: "Axe 2 — Se découvrir et s'affirmer", description: "Identification de soi, de ses intérêts, de ses compétences, de ses valeurs." },
-          { title: "Axe 3 — Se construire et se projeter", description: "Élaboration progressive de choix, projection dans des parcours possibles." }
+          { title: "Axe 3 — Se construire et se projeter dans un monde en mouvement", description: "Élaboration progressive de choix, projection dans des parcours possibles." }
         ]
       },
       {
@@ -171,7 +171,7 @@ const PARCOURS: Parcours[] = [
 ];
 
 // Static badges for "Série Compétences à s'orienter - Collège" (local-only; images in public/badges_competences_a_sorienter_au_college)
-// axe: 1 = Axe 1, 2 = Axe 2 (default 1)
+// axe: 1 = Axe 1, 2 = Axe 2, 3 = Axe 3 (default 1)
 const STATIC_COMPETENCES_ORIENTER_BADGES: { name: string; imageFileBase: string; axe?: number }[] = [
   { name: "Compétence 1 – Chercher et trier l'information", imageFileBase: 'chercher_et_trier_linformation', axe: 1 },
   { name: "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider", imageFileBase: 'connaitre_personnes_qui_peuvent_aider', axe: 1 },
@@ -182,7 +182,11 @@ const STATIC_COMPETENCES_ORIENTER_BADGES: { name: string; imageFileBase: string;
   { name: "Compétence 2 – Définir mes projets en fonction de qui je suis", imageFileBase: 'definir_mes_projets_en_fonction_de_qui_je_suis', axe: 2 },
   { name: "Compétence 3 – M'autoriser à rêver et à avoir des ambitions", imageFileBase: 'mautoriser_rever_et_a_avoir_des_ambitions', axe: 2 },
   { name: "Compétence 4 – Savoir me présenter et m'affirmer", imageFileBase: 'savoir_me_presenter_et_maffirmer', axe: 2 },
-  { name: "Compétence 5 – Identifier ce que j'ai appris et ce que je sais faire", imageFileBase: 'identifier_ce_que_jai_appris_et_ce_que_je_sais_faire', axe: 2 }
+  { name: "Compétence 5 – Identifier ce que j'ai appris et ce que je sais faire", imageFileBase: 'identifier_ce_que_jai_appris_et_ce_que_je_sais_faire', axe: 2 },
+  { name: "Compétence 1 – Accepter les imprévus et saisir les occasions", imageFileBase: 'accepter_les_imprevus_et_saisir_les_occasions', axe: 3 },
+  { name: "Compétence 2 – M'ouvrir au monde et aux autres", imageFileBase: 'mouvrir_au_monde_et_aux_autres', axe: 3 },
+  { name: "Compétence 3 – Me préparer aux transitions et aux changements", imageFileBase: 'me_preparer_aux_transitions_et_aux_changements', axe: 3 },
+  { name: "Compétence 4 – Me projeter et comprendre les conséquences de mes choix", imageFileBase: 'me_projeter_et_comprendre_les_consequences_de_mes_choix', axe: 3 }
 ];
 
 // Competencies for "Compétence 1 – Chercher et trier l'information" by level (for BadgeInfoModal)
@@ -544,6 +548,141 @@ const COMPETENCE_AXE2_5_IDENTIFIER_APPRIS_EXPERTISES: Record<string, BadgeSkillA
   ]
 };
 
+// Competencies for Axe 3 "Compétence 1 – Accepter les imprévus et saisir les occasions" by level (for BadgeInfoModal)
+const COMPETENCE_AXE3_1_ACCEPTER_IMPREVUS_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -3801, name: "Découvrir le caractère imprévisible et évolutif des parcours d'orientation", category: 'expertise' },
+    { id: -3802, name: "Découvrir les notions d'imprévu, d'opportunité et d'alternative et découvrir leurs implications positives et négatives", category: 'expertise' },
+    { id: -3803, name: "Découvrir des notions comme l'adaptation, la prise de risque, la découverte et la sérendipité, appliquées à la construction d'un parcours d'orientation", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -3901, name: "Comprendre et identifier les différents types d'imprévus qui peuvent survenir dans un parcours d'orientation (par exemple : échec à un examen, fermeture soudaine de la formation souhaitée, déménagement, rencontre avec d'anciens élèves, réalisation d'un stage…)", category: 'expertise' },
+    { id: -3902, name: "Comprendre, déconstruire et m'approprier les notions de linéarité et de non-linéarité des parcours", category: 'expertise' },
+    { id: -3903, name: "Comprendre et identifier les possibilités d'anticiper, gérer ou réduire les imprévus", category: 'expertise' },
+    { id: -3904, name: "Analyser un parcours d'orientation en appliquant plusieurs notions (par exemple : imprévu, opportunité, alternative, adaptation, prise de risque, découverte, sérendipité…)", category: 'expertise' },
+    { id: -3905, name: "Comprendre et identifier les possibilités de réagir face à l'incertitude et aux événements imprévus (par exemple donner leur place aux émotions)", category: 'expertise' },
+    { id: -3906, name: "Comprendre et identifier des stratégies possibles pour créer des opportunités (par exemple : efforts à fournir, aides possibles, rencontres…)", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -4001, name: "Comprendre, identifier et élaborer des stratégies possibles pour me créer des opportunités dans mon environnement (par exemple : visiter une entreprise, participer à un concours, à un événement…)", category: 'expertise' },
+    { id: -4002, name: "M'interroger sur mon parcours et y situer les notions d'imprévu, d'opportunité, d'alternative, de résilience, de prise de risque, de découverte, de sérendipité et de créativité", category: 'expertise' },
+    { id: -4003, name: "Comprendre les possibilités de transformer des expériences en opportunités à saisir (par exemple, un ou une élève qui obtient un contrat d'apprentissage à la suite d'une discussion avec un professionnel/une professionnelle durant un salon d'orientation)", category: 'expertise' },
+    { id: -4004, name: "Comprendre et explorer les implications positives et négatives d'une opportunité ou d'un imprévu dans mon parcours d'orientation (par exemple l'échec à un examen)", category: 'expertise' },
+    { id: -4005, name: "Apprendre à gérer ma façon de réagir et d'agir face à l'incertitude et aux événements imprévus qui peuvent survenir dans mon parcours d'orientation", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -4101, name: "Prévoir des alternatives possibles (un plan B) si mon parcours ou mes démarches d'orientation ne se déroulent pas comme prévu (par exemple si je ne trouve pas le stage que je souhaite)", category: 'expertise' },
+    { id: -4102, name: "Adapter mon parcours en fonction des imprévus ou des opportunités qui se présentent", category: 'expertise' },
+    { id: -4103, name: "Peser le pour et le contre avant de faire un choix face à une opportunité ou à un imprévu", category: 'expertise' },
+    { id: -4104, name: "Adopter une attitude curieuse et ouverte face aux imprévus et aux occasions", category: 'expertise' },
+    { id: -4105, name: "Prendre du recul face aux alternatives possibles pour faire un choix éclairé dans la construction de mon parcours", category: 'expertise' },
+    { id: -4106, name: "Identifier, élaborer et mettre en place des stratégies pour me créer des opportunités (par exemple valoriser mes productions artistiques sur les réseaux sociaux pour montrer mes savoir-faire)", category: 'expertise' },
+    { id: -4107, name: "Apprendre et agir pour transformer des expériences en opportunités à saisir (par exemple un ou une élève qui obtient un contrat d'apprentissage à la suite d'une discussion avec un professionnel/une professionnelle durant un salon d'orientation)", category: 'expertise' },
+    { id: -4108, name: "Apprendre à tirer profit des imprévus pour réfléchir sur moi et/ou sur mon parcours", category: 'expertise' },
+    { id: -4109, name: "Savoir expliciter le cheminement de mon parcours et savoir donner du sens aux imprévus et aux opportunités", category: 'expertise' }
+  ]
+};
+
+// Competencies for Axe 3 "Compétence 2 – M'ouvrir au monde et aux autres" by level (for BadgeInfoModal)
+const COMPETENCE_AXE3_2_MOUVRIR_MONDE_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -4201, name: "Découvrir les notions pour décrire mon environnement proche et les sphères qui le composent (par exemple : sphère familiale, sphère scolaire, commerces de proximité…)", category: 'expertise' },
+    { id: -4202, name: "Découvrir ce que mon environnement peut m'apporter", category: 'expertise' },
+    { id: -4203, name: "Découvrir ce que je peux apporter au monde et aux autres", category: 'expertise' },
+    { id: -4204, name: "Découvrir les moyens de communication pour m'ouvrir au monde", category: 'expertise' },
+    { id: -4205, name: "Découvrir la notion de réseau et les différentes formes que peut prendre un réseau", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -4301, name: "Comprendre les relations dynamiques entre les différentes sphères composant mon environnement proche (par exemple les réunions parents-professeurs)", category: 'expertise' },
+    { id: -4302, name: "Comprendre les codes pour communiquer (par exemple les marques de politesse dans un courriel)", category: 'expertise' },
+    { id: -4303, name: "Identifier les différentes possibilités de m'ouvrir au monde et de m'engager (par exemple : rôle de délégué de classe, lecture de l'actualité…)", category: 'expertise' },
+    { id: -4304, name: "Comprendre les liens qui existent entre les personnes (par exemple : « le phénomène du petit monde »)", category: 'expertise' },
+    { id: -4305, name: "Identifier les différentes possibilités de recourir à un réseau dans la construction d'un parcours d'orientation", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -4401, name: "M'exprimer/interagir avec aisance à l'oral et à l'écrit (par exemple lors de la rédaction d'un courriel)", category: 'expertise' },
+    { id: -4402, name: "Identifier les différents codes en fonction de la situation (par exemple la sphère professionnelle)", category: 'expertise' },
+    { id: -4403, name: "Expérimenter et utiliser des modes différents de communication", category: 'expertise' },
+    { id: -4404, name: "Identifier les relations entre les personnes de mes réseaux (« qui connaît qui ? »)", category: 'expertise' },
+    { id: -4405, name: "Comprendre les implications, les avantages et les inconvénients des réseaux (par exemple : être disponible si une personne de mon réseau me sollicite, la réputation des membres de mon réseau, l'image de soi…)", category: 'expertise' },
+    { id: -4406, name: "M'engager dans des activités me permettant de m'ouvrir au monde (par exemple m'engager dans un club au collège)", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -4501, name: "Comprendre le sens de mes engagements dans mon établissement scolaire et en dehors", category: 'expertise' },
+    { id: -4502, name: "Savoir expliquer mes engagements dans mon établissement scolaire et en dehors", category: 'expertise' },
+    { id: -4503, name: "Adapter ma façon de communiquer en fonction des interlocuteurs et/ou du contexte (par exemple échanges avec les intervenants extérieurs qui viennent en classe)", category: 'expertise' },
+    { id: -4504, name: "Savoir m'interroger sur mes postures et ma manière de communiquer", category: 'expertise' },
+    { id: -4505, name: "Faire preuve de discernement dans mes relations aux autres", category: 'expertise' },
+    { id: -4506, name: "Être capable de solliciter des personnes de mon réseau lorsque j'en ai besoin pour construire mon parcours d'orientation (par exemple pour trouver un stage)", category: 'expertise' }
+  ]
+};
+
+// Competencies for Axe 3 "Compétence 3 – Me préparer aux transitions et aux changements" by level (for BadgeInfoModal)
+const COMPETENCE_AXE3_3_ME_PREPARER_TRANSITIONS_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -4601, name: "Découvrir les notions de transition et de changement", category: 'expertise' },
+    { id: -4602, name: "Découvrir les principales transitions dans un parcours scolaire, personnel et professionnel (par exemple : passage du collège au lycée, étapes de vie, évolutions professionnelles…)", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -4701, name: "Comprendre et analyser une transition dans sa temporalité : avant, pendant, après", category: 'expertise' },
+    { id: -4702, name: "Apprendre à reconnaître les manifestations d'une expérience de changement (par exemple variations dans les émotions) et les réactions qui en découlent (par exemple : gestion des émotions, aller vers les autres, demander du soutien…)", category: 'expertise' },
+    { id: -4703, name: "Comprendre et reconnaître les différents types de transition (par exemple un déménagement soudain peut être considéré comme une transition non anticipée)", category: 'expertise' },
+    { id: -4704, name: "Identifier les conséquences possibles d'un changement", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -4801, name: "Identifier les transitions qui ont marqué mon parcours de vie (par exemple le passage de l'école primaire au collège)", category: 'expertise' },
+    { id: -4802, name: "Analyser mes transitions passées (par exemple : contexte, ressources, réactions, temporalité…)", category: 'expertise' },
+    { id: -4803, name: "Appréhender le caractère transversal de mes réactions et de mes actions dans mes expériences de transition (par exemple le passage de l'école primaire au collège et le passage du collège au lycée présentent des similarités)", category: 'expertise' },
+    { id: -4804, name: "Savoir comment solliciter des ressources durant mes transitions (par exemple demander le soutien de mes parents)", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -4901, name: "M'adapter et agir face aux changements prévus et imprévus", category: 'expertise' },
+    { id: -4902, name: "Savoir anticiper les conséquences d'une transition (par exemple : mobilité, attentes, règles, habitudes…)", category: 'expertise' },
+    { id: -4903, name: "M'autoévaluer au cours d'une transition", category: 'expertise' },
+    { id: -4904, name: "Choisir et ajuster ma manière d'agir pour envisager sereinement une transition", category: 'expertise' },
+    { id: -4905, name: "Anticiper d'éventuels imprévus et obstacles dans une transition à venir", category: 'expertise' },
+    { id: -4906, name: "M'adapter, savoir réagir et savoir mobiliser de manière proactive des ressources durant une transition (par exemple : aide, motivation, gestion du stress…)", category: 'expertise' },
+    { id: -4907, name: "Apprendre de mes transitions passées pour progresser et anticiper les prochaines, et savoir m'y référer (par exemple : les garder en mémoire, en conserver une trace…)", category: 'expertise' },
+    { id: -4908, name: "Savoir solliciter des personnes et accepter de recevoir de l'aide durant mes transitions", category: 'expertise' }
+  ]
+};
+
+// Competencies for Axe 3 "Compétence 4 – Me projeter et comprendre les conséquences de mes choix" by level (for BadgeInfoModal)
+const COMPETENCE_AXE3_4_ME_PROJETER_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -5001, name: "Découvrir les notions de parcours et d'orientation tout au long de la vie", category: 'expertise' },
+    { id: -5002, name: "Découvrir les différentes étapes permettant de prendre une décision (par exemple : collecter les informations, comparer les options…)", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -5101, name: "Situer la notion de projet dans un parcours d'orientation", category: 'expertise' },
+    { id: -5102, name: "Situer un choix par rapport à différents paramètres : implications à court, moyen ou long terme", category: 'expertise' },
+    { id: -5103, name: "Identifier les injonctions associées à l'orientation (par exemple injonction au projet)", category: 'expertise' },
+    { id: -5104, name: "Comprendre et identifier les différentes étapes permettant de prendre une décision en lien avec les choix d'orientation", category: 'expertise' },
+    { id: -5105, name: "Comprendre et identifier les possibilités d'action à chaque étape d'une prise de décision en lien avec les choix d'orientation", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -5201, name: "Apprendre à me projeter dans des cadres d'apprentissage, d'études, professionnel et dans un style de vie", category: 'expertise' },
+    { id: -5202, name: "Identifier et planifier les étapes me permettant de prendre une décision et de construire mon parcours", category: 'expertise' },
+    { id: -5203, name: "Comprendre et analyser ma façon de procéder pour prendre une décision (par exemple la place des émotions)", category: 'expertise' },
+    { id: -5204, name: "Comprendre, analyser et m'approprier les enjeux lorsque je dois faire un choix d'orientation (par exemple : rôle des parents, temporalité, possibilités d'action…)", category: 'expertise' },
+    { id: -5205, name: "Identifier et réfléchir sur les compromis à faire ou sur mes priorités", category: 'expertise' },
+    { id: -5206, name: "Réfléchir à la place que je veux donner à mes études dans mon parcours de vie", category: 'expertise' },
+    { id: -5207, name: "Réfléchir à la place que je veux donner au travail dans mon parcours de vie", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -5301, name: "Composer avec les influences qui agissent sur mes choix d'orientation (par exemple la pression des parents)", category: 'expertise' },
+    { id: -5302, name: "Actualiser et planifier les différentes étapes de mon parcours d'orientation", category: 'expertise' },
+    { id: -5303, name: "Définir, ajuster et anticiper les principales étapes de mon parcours d'orientation", category: 'expertise' },
+    { id: -5304, name: "Savoir argumenter et donner du sens à mes choix et à mes études (« Pourquoi je veux faire cela. »)", category: 'expertise' },
+    { id: -5305, name: "Savoir argumenter sur mes choix auprès des adultes (par exemple : parents, équipe éducative…)", category: 'expertise' },
+    { id: -5306, name: "Organiser et concilier mes priorités", category: 'expertise' },
+    { id: -5307, name: "Adapter ma façon de procéder pour prendre une décision en fonction de la situation rencontrée (par exemple : gestion des émotions, recherche de soutien…)", category: 'expertise' },
+    { id: -5308, name: "Prendre des décisions éclairées sur mes choix, en tenant compte de leurs implications sur mon parcours d'orientation", category: 'expertise' },
+    { id: -5309, name: "Prendre conscience et accepter les conséquences de mes choix immédiats sur la suite de mon parcours (par exemple choisir une langue vivante)", category: 'expertise' },
+    { id: -5310, name: "Actualiser mes projections dans un cadre d'apprentissage, de formation, professionnel et dans un style de vie", category: 'expertise' }
+  ]
+};
+
 const COMPETENCE_1_NAME = "Compétence 1 – Chercher et trier l'information";
 const COMPETENCE_2_NAME = "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider";
 const COMPETENCE_3_NAME = "Compétence 3 – Apprendre à découvrir les parcours de formation";
@@ -554,6 +693,10 @@ const COMPETENCE_AXE2_2_NAME = "Compétence 2 – Définir mes projets en foncti
 const COMPETENCE_AXE2_3_NAME = "Compétence 3 – M'autoriser à rêver et à avoir des ambitions";
 const COMPETENCE_AXE2_4_NAME = "Compétence 4 – Savoir me présenter et m'affirmer";
 const COMPETENCE_AXE2_5_NAME = "Compétence 5 – Identifier ce que j'ai appris et ce que je sais faire";
+const COMPETENCE_AXE3_1_NAME = "Compétence 1 – Accepter les imprévus et saisir les occasions";
+const COMPETENCE_AXE3_2_NAME = "Compétence 2 – M'ouvrir au monde et aux autres";
+const COMPETENCE_AXE3_3_NAME = "Compétence 3 – Me préparer aux transitions et aux changements";
+const COMPETENCE_AXE3_4_NAME = "Compétence 4 – Me projeter et comprendre les conséquences de mes choix";
 
 function buildStaticBadgesCompetencesOrienterCollege(): BadgeAPI[] {
   const levels: BadgeAPI['level'][] = ['level_1', 'level_2', 'level_3', 'level_4'];
@@ -582,6 +725,14 @@ function buildStaticBadgesCompetencesOrienterCollege(): BadgeAPI[] {
         expertises = COMPETENCE_AXE2_4_SAVOIR_PRESENTER_EXPERTISES[level];
       } else if (name === COMPETENCE_AXE2_5_NAME && COMPETENCE_AXE2_5_IDENTIFIER_APPRIS_EXPERTISES[level]) {
         expertises = COMPETENCE_AXE2_5_IDENTIFIER_APPRIS_EXPERTISES[level];
+      } else if (name === COMPETENCE_AXE3_1_NAME && COMPETENCE_AXE3_1_ACCEPTER_IMPREVUS_EXPERTISES[level]) {
+        expertises = COMPETENCE_AXE3_1_ACCEPTER_IMPREVUS_EXPERTISES[level];
+      } else if (name === COMPETENCE_AXE3_2_NAME && COMPETENCE_AXE3_2_MOUVRIR_MONDE_EXPERTISES[level]) {
+        expertises = COMPETENCE_AXE3_2_MOUVRIR_MONDE_EXPERTISES[level];
+      } else if (name === COMPETENCE_AXE3_3_NAME && COMPETENCE_AXE3_3_ME_PREPARER_TRANSITIONS_EXPERTISES[level]) {
+        expertises = COMPETENCE_AXE3_3_ME_PREPARER_TRANSITIONS_EXPERTISES[level];
+      } else if (name === COMPETENCE_AXE3_4_NAME && COMPETENCE_AXE3_4_ME_PROJETER_EXPERTISES[level]) {
+        expertises = COMPETENCE_AXE3_4_ME_PROJETER_EXPERTISES[level];
       }
       badges.push({
         id: id++,
@@ -603,10 +754,14 @@ const STATIC_COMPETENCES_ORIENTER_AXE1_TITLE = "Axe 1 – CONNAITRE ET SAVOIR S'
 // Axe 2 section for badge list view
 const STATIC_COMPETENCES_ORIENTER_AXE2_TITLE = "Axe 2 – SE DÉCOUVRIR ET S'AFFIRMER : identification de soi, de ses intérêts, de ses compétences, de ses valeurs";
 
+// Axe 3 section for badge list view
+const STATIC_COMPETENCES_ORIENTER_AXE3_TITLE = "Axe 3 – SE CONSTRUIRE ET SE PROJETER DANS UN MONDE EN MOUVEMENT";
+
 function getStaticBadgesByAxis(): { title: string; groups: { name: string; description: string; levels: BadgeAPI[] }[] }[] {
   const allBadges = buildStaticBadgesCompetencesOrienterCollege();
   const axe1Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
   const axe2Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
+  const axe3Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
   STATIC_COMPETENCES_ORIENTER_BADGES.forEach(({ name, axe }) => {
     const levelBadges = allBadges.filter((b) => b.name === name).sort(
       (a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level)
@@ -614,13 +769,16 @@ function getStaticBadgesByAxis(): { title: string; groups: { name: string; descr
     const group = { name, description: '', levels: levelBadges };
     if (axe === 2) {
       axe2Groups.push(group);
+    } else if (axe === 3) {
+      axe3Groups.push(group);
     } else {
       axe1Groups.push(group);
     }
   });
   return [
     { title: STATIC_COMPETENCES_ORIENTER_AXE1_TITLE, groups: axe1Groups },
-    { title: STATIC_COMPETENCES_ORIENTER_AXE2_TITLE, groups: axe2Groups }
+    { title: STATIC_COMPETENCES_ORIENTER_AXE2_TITLE, groups: axe2Groups },
+    { title: STATIC_COMPETENCES_ORIENTER_AXE3_TITLE, groups: axe3Groups }
   ];
 }
 
