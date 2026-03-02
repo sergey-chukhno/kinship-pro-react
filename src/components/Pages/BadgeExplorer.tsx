@@ -174,7 +174,9 @@ const PARCOURS: Parcours[] = [
 const STATIC_COMPETENCES_ORIENTER_BADGES: { name: string; imageFileBase: string }[] = [
   { name: "Compétence 1 – Chercher et trier l'information", imageFileBase: 'chercher_et_trier_linformation' },
   { name: "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider", imageFileBase: 'connaitre_personnes_qui_peuvent_aider' },
-  { name: "Compétence 3 – Apprendre à découvrir les parcours de formation", imageFileBase: 'apprendre_a_decovrir_les_parcours' }
+  { name: "Compétence 3 – Apprendre à découvrir les parcours de formation", imageFileBase: 'apprendre_a_decovrir_les_parcours' },
+  { name: "Compétence 4 – Apprendre à découvrir les métiers et le monde du travail", imageFileBase: 'apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail' },
+  { name: "Compétence 5 – M'interroger sur les clichés", imageFileBase: 'minterroger_sur_les_cliches' }
 ];
 
 // Competencies for "Compétence 1 – Chercher et trier l'information" by level (for BadgeInfoModal)
@@ -217,7 +219,143 @@ const COMPETENCE_1_CHERCHER_TRIER_EXPERTISES: Record<string, BadgeSkillAPI[]> = 
   ]
 };
 
+// Competencies for "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider" by level (for BadgeInfoModal)
+const COMPETENCE_2_CONNAITRE_PERSONNES_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -501, name: "Découvrir les personnes, les lieux et les acronymes de mon collège (par exemple : CDI, psy-EN, CPE, PP…)", category: 'expertise' },
+    { id: -502, name: "Découvrir les rôles et les fonctions des personnes dans mon collège qui peuvent m'accompagner pour m'informer et m'orienter", category: 'expertise' },
+    { id: -503, name: "Découvrir les ressources institutionnelles qui peuvent m'accompagner pour m'informer et m'orienter (par exemple : ENT, Onisep, brochures…)", category: 'expertise' },
+    { id: -504, name: "Découvrir les différents événements qui peuvent m'aider à m'informer et à m'orienter (par exemple : mini-stages, salons de l'orientation, forums des métiers, journées portes ouvertes)", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -601, name: "Connaître et savoir comment consulter les personnes et les lieux, dans mon collège, qui peuvent m'aider à m'informer et à m'orienter (par exemple savoir comment prendre rendez-vous avec le ou la psy-EN)", category: 'expertise' },
+    { id: -602, name: "Connaître et savoir utiliser les principales ressources institutionnelles qui peuvent m'aider à m'informer et à m'orienter (par exemple le Kiosque Onisep)", category: 'expertise' },
+    { id: -603, name: "Apprendre à explorer les sites Internet qui apportent une aide dans mon orientation", category: 'expertise' },
+    { id: -604, name: "Apprendre à identifier les bonnes temporalités pour solliciter et mobiliser des personnes, des lieux et des ressources", category: 'expertise' },
+    { id: -605, name: "Identifier les personnes, les lieux et les ressources les plus adaptés par rapport à mes besoins en lien avec l'orientation", category: 'expertise' },
+    { id: -606, name: "Repérer les différents lieux de proximité qui peuvent m'aider à m'informer et à m'orienter (par exemple : CIO, point information jeunesse…)", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -701, name: "Utiliser les sites Internet qui m'apportent une aide dans mon orientation", category: 'expertise' },
+    { id: -702, name: "Identifier ce que les personnes, les lieux et les ressources peuvent m'apporter en termes d'aide à l'information et à l'orientation, et identifier leurs limites (par exemple : vision parcellaire d'un métier)", category: 'expertise' },
+    { id: -703, name: "Intégrer les temporalités de l'orientation et anticiper le temps nécessaire à la mobilisation de personnes, de lieux et de ressources", category: 'expertise' },
+    { id: -704, name: "Savoir comment prendre contact et comment mobiliser les personnes, les lieux et les ressources qui peuvent m'aider à m'informer et à m'orienter", category: 'expertise' },
+    { id: -705, name: "Savoir comment et quand solliciter les bonnes personnes et les bonnes ressources qui peuvent m'aider à m'informer et à m'orienter", category: 'expertise' },
+    { id: -706, name: "Mettre en place des démarches structurées et hiérarchisées dans la mobilisation des personnes, des lieux et des ressources (par exemple consulter d'abord le professeur principal/la professeure principale au sujet des procédures d'affectation, plutôt que de solliciter en premier lieu le chef/la cheffe d'établissement)", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -801, name: "Choisir les sites Internet les plus adaptés pour m'aider dans mon orientation", category: 'expertise' },
+    { id: -802, name: "Croiser et mettre en perspective les informations provenant de deux sources différentes", category: 'expertise' },
+    { id: -803, name: "Savoir comment et quand solliciter les bonnes personnes et les bonnes ressources qui peuvent m'aider à m'informer et à m'orienter au moment où j'en ai besoin", category: 'expertise' },
+    { id: -804, name: "Savoir ce que chaque personne, chaque lieu et chaque ressource peuvent m'apporter comme aide à m'informer et à m'orienter", category: 'expertise' },
+    { id: -805, name: "Savoir expliquer et justifier mes démarches (par exemple : Quelles personnes ont été contactées ? Pourquoi avoir consulté ce site Internet ?...)", category: 'expertise' },
+    { id: -806, name: "Identifier les possibilités de me déplacer vers les personnes que je souhaite rencontrer, dans des lieux précis (par exemple : demander à mes parents, utiliser les transports en commun…)", category: 'expertise' },
+    { id: -807, name: "Être à l'écoute et faire preuve de curiosité, tout en manifestant du discernement et un esprit critique face aux informations, aux conseils et aux suggestions (par exemple : réseaux sociaux, Internet, avis de quelqu'un, discours promotionnel…)", category: 'expertise' }
+  ]
+};
+
+// Competencies for "Compétence 3 – Apprendre à découvrir les parcours de formation" by level (for BadgeInfoModal)
+const COMPETENCE_3_APPRENDRE_DECOUVRIR_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -901, name: "Découvrir l'intérêt de faire des études", category: 'expertise' },
+    { id: -902, name: "Découvrir le vocabulaire et les acronymes (par exemple : « voies d'accès », « procédures », « passerelles », « PFMP »…)", category: 'expertise' },
+    { id: -903, name: "Découvrir les principaux paliers d'orientation et les temporalités dans lesquels ceux-ci s'inscrivent", category: 'expertise' },
+    { id: -904, name: "Découvrir les dispositifs particuliers au collège (par exemple : prépa-métiers, enseignement agricole…)", category: 'expertise' },
+    { id: -905, name: "Découvrir les voies d'orientation post-3e", category: 'expertise' },
+    { id: -906, name: "Découvrir les poursuites d'études après le lycée", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -1001, name: "Utiliser les bons mots du vocabulaire associé aux études", category: 'expertise' },
+    { id: -1002, name: "Connaître les conditions d'accès aux dispositifs particuliers au collège", category: 'expertise' },
+    { id: -1003, name: "Connaître les conditions d'accès aux différentes voies d'orientation post-3e", category: 'expertise' },
+    { id: -1004, name: "Connaître les conditions d'accès aux différentes poursuites d'études après le lycée", category: 'expertise' },
+    { id: -1005, name: "Connaître les étapes à suivre pour construire un parcours de formation", category: 'expertise' },
+    { id: -1006, name: "Apprendre à explorer les informations disponibles sur une formation", category: 'expertise' },
+    { id: -1007, name: "Identifier plusieurs sources permettant de m'informer sur une formation", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -1101, name: "Savoir expliquer les mots du vocabulaire associé aux études", category: 'expertise' },
+    { id: -1102, name: "Apprendre à combiner les différentes voies d'orientation pour construire un parcours de formation (par exemple liens entre les voies proposées au lycée et les formations dans l'enseignement supérieur)", category: 'expertise' },
+    { id: -1103, name: "Explorer les attendus d'une formation", category: 'expertise' },
+    { id: -1104, name: "Appliquer plusieurs méthodes pour m'informer sur une formation (par exemple : consulter une brochure, interroger des anciens élèves…)", category: 'expertise' },
+    { id: -1105, name: "Comparer les contenus de plusieurs formations", category: 'expertise' },
+    { id: -1106, name: "Identifier vers quels métiers et domaines professionnels conduit une formation", category: 'expertise' },
+    { id: -1107, name: "Identifier les différentes voies et les passerelles possibles pour accéder à une formation", category: 'expertise' },
+    { id: -1108, name: "Apprendre à réaliser une fiche de synthèse sur une formation", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -1201, name: "Mener des démarches autonomes qui permettent d'explorer les formations", category: 'expertise' },
+    { id: -1202, name: "Explorer, identifier et comprendre un parcours de formation qui m'intéresse", category: 'expertise' },
+    { id: -1203, name: "Restituer ce que je sais d'une formation", category: 'expertise' },
+    { id: -1204, name: "Évaluer ce que je sais d'une formation et ce qu'il me reste à découvrir", category: 'expertise' },
+    { id: -1205, name: "Expliquer ce qui m'intéresse dans une formation", category: 'expertise' },
+    { id: -1206, name: "Prendre en considération les attendus d'une formation qui m'intéresse pour construire mon parcours", category: 'expertise' },
+    { id: -1207, name: "Identifier vers quels métiers et domaines professionnels conduit une formation qui m'intéresse", category: 'expertise' },
+    { id: -1208, name: "Développer un esprit critique sur le lien formation-emploi (par exemple non-linéarité des parcours)", category: 'expertise' },
+    { id: -1209, name: "Comprendre que je dois continuer de m'informer sur les possibilités d'études", category: 'expertise' }
+  ]
+};
+
+// Competencies for "Compétence 4 – Apprendre à découvrir les métiers et le monde du travail" by level (for BadgeInfoModal)
+const COMPETENCE_4_APPRENDRE_DECOUVRIR_METIERS_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -1301, name: "Découvrir le vocabulaire associé aux métiers et au monde du travail", category: 'expertise' },
+    { id: -1302, name: "Découvrir les métiers qui m'entourent", category: 'expertise' },
+    { id: -1303, name: "Découvrir un métier au travers de ses différentes caractéristiques (par exemple : tâches, impact social…)", category: 'expertise' },
+    { id: -1304, name: "Découvrir les relations qui existent entre les métiers (par exemple les interactions entre l'architecte, l'ingénieur civil/l'ingénieure civile et l'urbaniste dans un projet de construction)", category: 'expertise' },
+    { id: -1305, name: "Découvrir la diversité des métiers, les lieux d'exercice et les conditions de travail", category: 'expertise' },
+    { id: -1306, name: "Découvrir la diversité des statuts professionnels (par exemple : salariat, fonctionnariat…)", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -1401, name: "Explorer un métier (par exemple : compétences, lieu d'exercice, débouchés…)", category: 'expertise' },
+    { id: -1402, name: "Décrire un métier grâce à ses différentes caractéristiques", category: 'expertise' },
+    { id: -1403, name: "Découvrir de nouveaux métiers au-delà de ceux qui m'entourent", category: 'expertise' },
+    { id: -1404, name: "Classer les métiers en secteurs d'activité et en familles de métiers", category: 'expertise' },
+    { id: -1405, name: "Associer des métiers à des situations ou des besoins spécifiques (par exemple : quels métiers peuvent aider à guérir si on est malade ? quels métiers pour réparer une voiture ?...)", category: 'expertise' },
+    { id: -1406, name: "Identifier différents moyens de me former à un métier (par exemple : statut scolaire, apprentissage…)", category: 'expertise' },
+    { id: -1407, name: "Faire des liens entre formations et métiers", category: 'expertise' },
+    { id: -1408, name: "Identifier différentes démarches pour m'informer sur un métier (par exemple : visite, enquête, entretien, recherche documentaire…)", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -1501, name: "Mettre en place une activité de découverte des métiers (par exemple : visite, enquête, entretien, recherche documentaire…)", category: 'expertise' },
+    { id: -1502, name: "Décrire un métier dans ses différentes caractéristiques", category: 'expertise' },
+    { id: -1503, name: "Comparer plusieurs métiers", category: 'expertise' },
+    { id: -1504, name: "Prendre contact avec des professionnels", category: 'expertise' },
+    { id: -1505, name: "Interroger des professionnels sur leurs expériences", category: 'expertise' },
+    { id: -1506, name: "Appréhender un métier en termes de compétences (savoirs, savoir-faire, savoir-être)", category: 'expertise' },
+    { id: -1507, name: "Identifier les évolutions des métiers et les transformations du monde du travail", category: 'expertise' },
+    { id: -1508, name: "Comprendre comment changer de métier pour construire son parcours professionnel", category: 'expertise' },
+    { id: -1509, name: "Identifier les lieux ou les professionnels susceptibles de m'intéresser pour faire un stage", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -1601, name: "Mener des démarches autonomes qui permettent d'explorer les métiers et le monde du travail", category: 'expertise' },
+    { id: -1602, name: "Explorer, identifier et comprendre un métier qui m'intéresse", category: 'expertise' },
+    { id: -1603, name: "Restituer ce que je sais d'un métier", category: 'expertise' },
+    { id: -1604, name: "Évaluer ce que je sais d'un métier et ce qu'il me reste à découvrir", category: 'expertise' },
+    { id: -1605, name: "Expliquer ce qui m'intéresse dans un métier", category: 'expertise' },
+    { id: -1606, name: "Être capable de lier un nouveau métier que je découvre aux caractéristiques des métiers que je connais déjà (par exemple associer le métier de conducteur de train à d'autres métiers du transport ferroviaire)", category: 'expertise' },
+    { id: -1607, name: "Prendre en considération les attendus d'un métier qui m'intéresse pour construire mon parcours", category: 'expertise' },
+    { id: -1608, name: "Identifier les diplômes, les filières et les voies de formation permettant d'accéder à un métier", category: 'expertise' },
+    { id: -1609, name: "Développer un esprit critique vis-à-vis du lien formation-emploi (par exemple non-linéarité des parcours)", category: 'expertise' },
+    { id: -1610, name: "Comprendre que je dois continuer de m'informer sur les métiers et le monde du travail", category: 'expertise' }
+  ]
+};
+
+// Competencies for "Compétence 5 – M'interroger sur les clichés" by level (for BadgeInfoModal)
+const COMPETENCE_5_MINTERROGER_CLICHES_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -1701, name: "Découvrir à travers des exemples ce qu'est une représentation, à l'égard des formations, des métiers, des domaines professionnels, des établissements scolaires et des personnes", category: 'expertise' },
+    { id: -1702, name: "Découvrir et prendre conscience de l'existence des clichés", category: 'expertise' },
+    { id: -1703, name: "Découvrir les effets des représentations dans les attitudes et les comportements", category: 'expertise' },
+    { id: -1704, name: "Découvrir les différentes formes d'inégalité et les principes de non-discrimination dans l'accès à une formation, un stage ou un métier", category: 'expertise' }
+  ]
+};
+
 const COMPETENCE_1_NAME = "Compétence 1 – Chercher et trier l'information";
+const COMPETENCE_2_NAME = "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider";
+const COMPETENCE_3_NAME = "Compétence 3 – Apprendre à découvrir les parcours de formation";
+const COMPETENCE_4_NAME = "Compétence 4 – Apprendre à découvrir les métiers et le monde du travail";
+const COMPETENCE_5_NAME = "Compétence 5 – M'interroger sur les clichés";
 
 function buildStaticBadgesCompetencesOrienterCollege(): BadgeAPI[] {
   const levels: BadgeAPI['level'][] = ['level_1', 'level_2', 'level_3', 'level_4'];
@@ -225,9 +363,18 @@ function buildStaticBadgesCompetencesOrienterCollege(): BadgeAPI[] {
   let id = 1;
   STATIC_COMPETENCES_ORIENTER_BADGES.forEach(({ name }) => {
     levels.forEach((level) => {
-      const expertises = name === COMPETENCE_1_NAME && COMPETENCE_1_CHERCHER_TRIER_EXPERTISES[level]
-        ? COMPETENCE_1_CHERCHER_TRIER_EXPERTISES[level]
-        : [];
+      let expertises: BadgeSkillAPI[] = [];
+      if (name === COMPETENCE_1_NAME && COMPETENCE_1_CHERCHER_TRIER_EXPERTISES[level]) {
+        expertises = COMPETENCE_1_CHERCHER_TRIER_EXPERTISES[level];
+      } else if (name === COMPETENCE_2_NAME && COMPETENCE_2_CONNAITRE_PERSONNES_EXPERTISES[level]) {
+        expertises = COMPETENCE_2_CONNAITRE_PERSONNES_EXPERTISES[level];
+      } else if (name === COMPETENCE_3_NAME && COMPETENCE_3_APPRENDRE_DECOUVRIR_EXPERTISES[level]) {
+        expertises = COMPETENCE_3_APPRENDRE_DECOUVRIR_EXPERTISES[level];
+      } else if (name === COMPETENCE_4_NAME && COMPETENCE_4_APPRENDRE_DECOUVRIR_METIERS_EXPERTISES[level]) {
+        expertises = COMPETENCE_4_APPRENDRE_DECOUVRIR_METIERS_EXPERTISES[level];
+      } else if (name === COMPETENCE_5_NAME && COMPETENCE_5_MINTERROGER_CLICHES_EXPERTISES[level]) {
+        expertises = COMPETENCE_5_MINTERROGER_CLICHES_EXPERTISES[level];
+      }
       badges.push({
         id: id++,
         name,

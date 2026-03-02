@@ -144,6 +144,18 @@ const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>>
       level_3: "/badges_competences_a_sorienter_au_college/niveau_3/apprendre_a_decovrir_les_parcours.png",
       level_4: "/badges_competences_a_sorienter_au_college/niveau_4/apprendre_a_decovrir_les_parcours.png",
     },
+    "Compétence 4 – Apprendre à découvrir les métiers et le monde du travail": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail.png",
+    },
+    "Compétence 5 – M'interroger sur les clichés": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/minterroger_sur_les_cliches.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/minterroger_sur_les_cliches.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/minterroger_sur_les_cliches.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/minterroger_sur_les_cliches.png",
+    },
   },
 };
 
