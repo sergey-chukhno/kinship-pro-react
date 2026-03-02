@@ -171,12 +171,18 @@ const PARCOURS: Parcours[] = [
 ];
 
 // Static badges for "Série Compétences à s'orienter - Collège" (local-only; images in public/badges_competences_a_sorienter_au_college)
-const STATIC_COMPETENCES_ORIENTER_BADGES: { name: string; imageFileBase: string }[] = [
-  { name: "Compétence 1 – Chercher et trier l'information", imageFileBase: 'chercher_et_trier_linformation' },
-  { name: "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider", imageFileBase: 'connaitre_personnes_qui_peuvent_aider' },
-  { name: "Compétence 3 – Apprendre à découvrir les parcours de formation", imageFileBase: 'apprendre_a_decovrir_les_parcours' },
-  { name: "Compétence 4 – Apprendre à découvrir les métiers et le monde du travail", imageFileBase: 'apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail' },
-  { name: "Compétence 5 – M'interroger sur les clichés", imageFileBase: 'minterroger_sur_les_cliches' }
+// axe: 1 = Axe 1, 2 = Axe 2 (default 1)
+const STATIC_COMPETENCES_ORIENTER_BADGES: { name: string; imageFileBase: string; axe?: number }[] = [
+  { name: "Compétence 1 – Chercher et trier l'information", imageFileBase: 'chercher_et_trier_linformation', axe: 1 },
+  { name: "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider", imageFileBase: 'connaitre_personnes_qui_peuvent_aider', axe: 1 },
+  { name: "Compétence 3 – Apprendre à découvrir les parcours de formation", imageFileBase: 'apprendre_a_decovrir_les_parcours', axe: 1 },
+  { name: "Compétence 4 – Apprendre à découvrir les métiers et le monde du travail", imageFileBase: 'apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail', axe: 1 },
+  { name: "Compétence 5 – M'interroger sur les clichés", imageFileBase: 'minterroger_sur_les_cliches', axe: 1 },
+  { name: "Compétence 1 – Apprendre à me connaitre", imageFileBase: 'apprendre_a_me_connaitre', axe: 2 },
+  { name: "Compétence 2 – Définir mes projets en fonction de qui je suis", imageFileBase: 'definir_mes_projets_en_fonction_de_qui_je_suis', axe: 2 },
+  { name: "Compétence 3 – M'autoriser à rêver et à avoir des ambitions", imageFileBase: 'mautoriser_rever_et_a_avoir_des_ambitions', axe: 2 },
+  { name: "Compétence 4 – Savoir me présenter et m'affirmer", imageFileBase: 'savoir_me_presenter_et_maffirmer', axe: 2 },
+  { name: "Compétence 5 – Identifier ce que j'ai appris et ce que je sais faire", imageFileBase: 'identifier_ce_que_jai_appris_et_ce_que_je_sais_faire', axe: 2 }
 ];
 
 // Competencies for "Compétence 1 – Chercher et trier l'information" by level (for BadgeInfoModal)
@@ -351,11 +357,203 @@ const COMPETENCE_5_MINTERROGER_CLICHES_EXPERTISES: Record<string, BadgeSkillAPI[
   ]
 };
 
+// Competencies for Axe 2 "Compétence 1 – Apprendre à me connaitre" by level (for BadgeInfoModal)
+const COMPETENCE_AXE2_1_APPRENDRE_ME_CONNAITRE_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -1801, name: "Découvrir les notions et le vocabulaire liés à la connaissance de soi (par exemple : personnalité, intérêts, passions, valeurs, envies, motivations, compétences…)", category: 'expertise' },
+    { id: -1802, name: "Découvrir la notion de « connaissance de soi » et sa dynamique dans le temps", category: 'expertise' },
+    { id: -1803, name: "Découvrir l'intérêt de la connaissance de soi pour construire mon parcours d'orientation (par exemple choisir un métier qui me plaît)", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -1901, name: "Savoir utiliser les notions et le vocabulaire liés à la connaissance de soi", category: 'expertise' },
+    { id: -1902, name: "Explorer les différentes méthodes possibles pour connaître les différentes facettes de soi (par exemple : personnes, ressources, outils, postures…)", category: 'expertise' },
+    { id: -1903, name: "Comprendre les aspects dynamiques et potentiellement changeants dans chaque registre de la connaissance de soi (par exemple avoir un intérêt nouveau pour un métier)", category: 'expertise' },
+    { id: -1904, name: "Comprendre le rôle des facteurs liés à soi et à des facteurs extérieurs qui peuvent influencer la construction de soi (par exemple les parents transmettent des valeurs à leurs enfants)", category: 'expertise' },
+    { id: -1905, name: "Comprendre les paradoxes qui peuvent exister dans la conjugaison des éléments de connaissance de soi (par exemple vouloir aider les autres, mais ne pas être à l'aise face à eux)", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -2001, name: "Développer un regard éclairé sur les méthodes d'exploration de la connaissance de soi (par exemple les réponses obtenues à un quiz portant sur les intérêts professionnels)", category: 'expertise' },
+    { id: -2002, name: "Sélectionner, utiliser et combiner plusieurs méthodes pour explorer la connaissance de soi dans ses différents registres", category: 'expertise' },
+    { id: -2003, name: "Savoir utiliser, sélectionner et combiner différentes méthodes pour explorer chaque aspect de la connaissance de soi", category: 'expertise' },
+    { id: -2004, name: "Hiérarchiser les éléments de connaissance de soi à l'intérieur d'un même registre (classer mes centres d'intérêt par ordre de préférence)", category: 'expertise' },
+    { id: -2005, name: "Comprendre comment mes éléments de connaissance de soi ont pu évoluer au cours de mon parcours de vie", category: 'expertise' },
+    { id: -2006, name: "Identifier mes propres paradoxes dans les éléments de connaissance de soi (par exemple avoir de très bonnes notes en mathématiques sans pour autant avoir un intérêt pour cette discipline)", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -2101, name: "Affirmer et justifier mes choix en fonction des éléments de connaissance de soi", category: 'expertise' },
+    { id: -2102, name: "Me décrire en conjuguant les registres de la connaissance de soi", category: 'expertise' },
+    { id: -2103, name: "Interroger et actualiser mes éléments de connaissance de soi", category: 'expertise' },
+    { id: -2104, name: "Engager des démarches adaptées pour approfondir la connaissance de soi", category: 'expertise' },
+    { id: -2105, name: "Avoir conscience de qui je suis, de comment je fonctionne et être capable de l'expliciter", category: 'expertise' },
+    { id: -2106, name: "Concilier mes paradoxes avec mes éléments de connaissance de soi", category: 'expertise' }
+  ]
+};
+
+// Competencies for Axe 2 "Compétence 2 – Définir mes projets en fonction de qui je suis" by level (for BadgeInfoModal)
+const COMPETENCE_AXE2_2_DEFINIR_PROJETS_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -2201, name: "Découvrir la notion de projet dans ses différentes formes (par exemple : projet de formation, projet professionnel, projet de vie…)", category: 'expertise' },
+    { id: -2202, name: "Découvrir les notions d'attendus, de prérequis et d'exigences pour accéder à une formation, un stage ou un métier et y réussir", category: 'expertise' },
+    { id: -2203, name: "Découvrir la notion d'adéquation dans différents contextes (par exemple : adéquation formation-emploi)", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -2301, name: "Explorer les attendus, les prérequis et les exigences d'une formation, d'un stage ou d'un métier", category: 'expertise' },
+    { id: -2302, name: "Comprendre les différentes formes d'adéquations (par exemple : liens entre mon profil et les attendus d'une formation ; formations permettant d'accéder à un métier…)", category: 'expertise' },
+    { id: -2303, name: "Analyser les mises en lien possibles entre le profil d'une personne et les attendus, les prérequis et les exigences d'une formation, d'un stage ou d'un métier", category: 'expertise' },
+    { id: -2304, name: "Différencier et mettre en lien « pouvoir », « savoir », « vouloir »", category: 'expertise' },
+    { id: -2305, name: "Comprendre les articulations possibles entre des choix et des éléments de la connaissance de soi", category: 'expertise' },
+    { id: -2306, name: "Identifier les actions à mener pour construire progressivement un projet (par exemple : projet de formation, projet professionnel, projet de vie…)", category: 'expertise' },
+    { id: -2307, name: "Identifier les facteurs individuels et environnementaux qui peuvent conduire à faire évoluer un projet", category: 'expertise' },
+    { id: -2308, name: "Relier mes choix passés, présents et futurs à des éléments de la connaissance de soi", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -2401, name: "Planifier les actions à mener pour construire progressivement mon projet (par exemple : projet de formation, projet professionnel, projet de vie…)", category: 'expertise' },
+    { id: -2402, name: "Identifier les démarches, les méthodes ou les aides possibles pour améliorer l'adéquation entre mon profil et les attendus, les prérequis ou les exigences d'une formation, d'un stage ou d'un métier", category: 'expertise' },
+    { id: -2403, name: "Discerner si mon profil correspond aux attendus, aux prérequis ou aux exigences d'une formation, d'un stage ou d'un métier qui m'intéresse", category: 'expertise' },
+    { id: -2404, name: "Comprendre et interroger le modèle de l'adéquation (par exemple : lien formation-emploi, relation entre niveau d'étude et salaire…)", category: 'expertise' },
+    { id: -2405, name: "Identifier les démarches, les méthodes ou les aides les plus adaptées pour améliorer l'adéquation entre mon profil et les attendus, les prérequis ou les exigences d'une formation, d'un stage ou d'un métier qui m'intéresse", category: 'expertise' },
+    { id: -2406, name: "Apprendre à mettre en lien qui je suis, ce que je sais faire, ce que je peux faire et ce que je veux faire", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -2501, name: "Expliciter et argumenter clairement mes choix en articulant qui je suis, ce que je sais de moi et mes ambitions", category: 'expertise' },
+    { id: -2502, name: "Adapter mon parcours en fonction de l'évolution des liens entre qui je suis, ce que je sais de moi et mes ambitions", category: 'expertise' },
+    { id: -2503, name: "Mettre en place et ajuster les démarches nécessaires pour réduire les écarts entre qui je suis, ce que je sais de moi et mes ambitions", category: 'expertise' },
+    { id: -2504, name: "Développer un esprit critique et des capacités réflexives sur la vision adéquationniste du lien formation-emploi (par exemple : limites des tests ou quiz, qui formulent des préconisations de formations ou de métiers basées sur le profil de l'élève)", category: 'expertise' },
+    { id: -2505, name: "Trouver l'équilibre qui me correspond entre qui je suis, ce que je sais de moi et mes ambitions", category: 'expertise' }
+  ]
+};
+
+// Competencies for Axe 2 "Compétence 3 – M'autoriser à rêver et à avoir des ambitions" by level (for BadgeInfoModal)
+const COMPETENCE_AXE2_3_MAUTORISER_REVER_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -2601, name: "Découvrir les termes « ambition », « projet », « objectif », « rêves » et « autocensure »", category: 'expertise' },
+    { id: -2602, name: "Découvrir les liens entre rêves et réalité dans la construction d'un parcours d'orientation", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -2701, name: "Décrire mes rêves de formation, de métier ou même de style de vie", category: 'expertise' },
+    { id: -2702, name: "Découvrir différentes façons d'articuler rêves et réalité (par exemple transformer un projet initial de métier en un projet d'activité de loisir)", category: 'expertise' },
+    { id: -2703, name: "Énoncer les métiers, les formations, les personnes et les styles de vie qui m'inspirent et me font rêver", category: 'expertise' },
+    { id: -2704, name: "Comprendre les effets de l'autocensure sur les parcours d'orientation", category: 'expertise' },
+    { id: -2705, name: "Comprendre et identifier les facteurs personnels et environnementaux qui m'amènent à m'autocensurer dans la construction de mon parcours d'orientation (par exemple : découragement, difficultés scolaires, manque de motivation…)", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -2801, name: "Être capable d'expliciter et de faire évoluer mes rêves", category: 'expertise' },
+    { id: -2802, name: "Apprendre à décomposer un rêve en étapes à suivre", category: 'expertise' },
+    { id: -2803, name: "Identifier ou inventer des stratégies pour faire face et dépasser mes découragements", category: 'expertise' },
+    { id: -2804, name: "Identifier ou inventer des stratégies pour surmonter mes difficultés", category: 'expertise' },
+    { id: -2805, name: "Identifier les compromis possibles pour articuler mes rêves et mes réalités", category: 'expertise' },
+    { id: -2806, name: "Comprendre et identifier les facteurs personnels et environnementaux qui peuvent m'amener à m'autocensurer dans la construction de mon parcours d'orientation", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -2901, name: "Être capable de décrire mes rêves et d'argumenter clairement sur mes ambitions", category: 'expertise' },
+    { id: -2902, name: "Transformer mes rêves en ambitions ou en objectifs, en les rendant concrets et réalisables", category: 'expertise' },
+    { id: -2903, name: "Savoir ce que j'ai fait et ce que je dois faire pour atteindre mes ambitions (par exemple : améliorer mon dossier scolaire, évaluer les efforts nécessaires à fournir…)", category: 'expertise' },
+    { id: -2904, name: "Réinterroger et faire évoluer mes ambitions en fonction de qui je suis, de mon parcours et de la réalité", category: 'expertise' },
+    { id: -2905, name: "Prendre du recul sur mes découragements, les obstacles et les difficultés", category: 'expertise' },
+    { id: -2906, name: "Être réaliste dans mes choix d'orientation sans me fermer la porte à des ambitions plus grandes", category: 'expertise' }
+  ]
+};
+
+// Competencies for Axe 2 "Compétence 4 – Savoir me présenter et m'affirmer" by level (for BadgeInfoModal)
+const COMPETENCE_AXE2_4_SAVOIR_PRESENTER_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -3001, name: "Découvrir différentes situations pouvant m'amener à me présenter et à parler de moi", category: 'expertise' },
+    { id: -3002, name: "Découvrir la notion de vie privée/vie publique", category: 'expertise' },
+    { id: -3003, name: "Découvrir les principaux droits et devoirs en lien avec la présentation de soi et la maîtrise de son image (par exemple : questions interdites ou inappropriées durant un entretien, droit à l'image, gestion des données personnelles…)", category: 'expertise' },
+    { id: -3004, name: "Découvrir plusieurs entrées possibles pour me présenter (par exemple : identité, loisirs, projet professionnel, centres d'intérêt, résultats scolaires…)", category: 'expertise' },
+    { id: -3005, name: "Découvrir les notions d'image de soi, de réputation et d'identité numérique", category: 'expertise' },
+    { id: -3006, name: "Découvrir la distinction et les liens entre l'être et le paraître", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -3101, name: "Savoir exprimer mes idées, mes choix et mes opinions", category: 'expertise' },
+    { id: -3102, name: "Identifier et comprendre les codes et les attentes spécifiques pour me présenter et parler de moi (par exemple le vocabulaire à utiliser)", category: 'expertise' },
+    { id: -3103, name: "Comprendre les principales attentes présentes lors des différentes situations pouvant m'amener à me présenter et à parler de moi, à l'oral et à l'écrit", category: 'expertise' },
+    { id: -3104, name: "Identifier les différents canaux de communication servant à me présenter (par exemple : oral, écrit, vidéos, réseaux sociaux…) et leurs spécificités", category: 'expertise' },
+    { id: -3105, name: "Comprendre les principaux droits et devoirs en lien avec la présentation de soi et la maîtrise de son image (par exemple : questions interdites ou inappropriées durant un entretien, droit à l'image, gestion des données personnelles…)", category: 'expertise' },
+    { id: -3106, name: "Comprendre mes émotions lorsque je dois me présenter (par exemple le sentiment d'anxiété lors d'une prise de parole)", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -3201, name: "Savoir parler de moi et de mon parcours", category: 'expertise' },
+    { id: -3202, name: "Comprendre et expliciter les différents codes pour me présenter et parler de moi", category: 'expertise' },
+    { id: -3203, name: "Argumenter, débattre sur mes idées, mes choix et mes opinions", category: 'expertise' },
+    { id: -3204, name: "Savoir prendre la parole et m'exprimer", category: 'expertise' },
+    { id: -3205, name: "Savoir m'informer et actualiser mes connaissances sur les principaux droits et devoirs en lien avec la présentation de soi et la maîtrise de son image (par exemple : questions interdites ou inappropriées durant un entretien, droit à l'image, gestion des données personnelles…)", category: 'expertise' },
+    { id: -3206, name: "Savoir réagir aux questions qui peuvent m'être adressées dans des contextes où je dois me présenter", category: 'expertise' },
+    { id: -3207, name: "Savoir comment structurer et rédiger des documents écrits visant à me présenter et à parler de moi (par exemple : CV, lettres de motivation, projets motivés, e-mails…)", category: 'expertise' },
+    { id: -3208, name: "Savoir utiliser et maîtriser la communication verbale (par exemple avoir un langage adapté à mon interlocuteur) et non verbale (par exemple : émotions, gestes, postures, gestion de l'espace…) lors de démarches impliquant une présentation de moi-même à l'oral (par exemple : oral du brevet, entretiens, échanges téléphoniques…)", category: 'expertise' },
+    { id: -3209, name: "Savoir explorer et appliquer les paramètres de gestion de confidentialité des données sur les réseaux sociaux et les applications Web", category: 'expertise' },
+    { id: -3210, name: "Savoir ce que je dois, ce que je veux et ce que je peux dévoiler de moi-même en fonction du contexte (par exemple parler de mon handicap ou de mes problèmes de santé)", category: 'expertise' },
+    { id: -3211, name: "Savoir trouver le bon équilibre entre authenticité et valorisation de moi, entre être et paraître", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -3301, name: "Savoir parler de moi et de mon parcours de manière structurée, claire et argumentée (par exemple : mes réalisations, mes réussites, mes échecs…)", category: 'expertise' },
+    { id: -3302, name: "Prendre en compte les critiques que je reçois et les opinions différentes des miennes, faire preuve de discernement à leur sujet", category: 'expertise' },
+    { id: -3303, name: "Gérer et maîtriser mon identité numérique", category: 'expertise' },
+    { id: -3304, name: "M'accepter comme je suis et avoir une vision positive de moi-même", category: 'expertise' },
+    { id: -3305, name: "Exprimer et argumenter mon accord ou mon refus", category: 'expertise' },
+    { id: -3306, name: "Valoriser mon image et mon parcours à l'oral (par exemple : oral du brevet, entretiens, échanges téléphoniques…) et à l'écrit (par exemple : CV, lettres de motivation, projets motivés, e-mails, messages sur les réseaux sociaux…)", category: 'expertise' },
+    { id: -3307, name: "Réfléchir à l'image que je renvoie lorsque je me présente et que je parle de moi à l'oral ou à l'écrit", category: 'expertise' },
+    { id: -3308, name: "Identifier les points positifs et les points à améliorer dans ma façon de me présenter et de maîtriser mon image", category: 'expertise' },
+    { id: -3309, name: "Savoir appliquer et actualiser les principaux droits et devoirs en lien avec la présentation de soi et la maîtrise de son image (par exemple : questions interdites ou inappropriées durant un entretien, droit à l'image, gestion des données personnelles…)", category: 'expertise' },
+    { id: -3310, name: "Anticiper les attentes et choisir les postures les plus adaptées en fonction des interlocuteurs et des contextes (par exemple tenue vestimentaire pour un entretien)", category: 'expertise' }
+  ]
+};
+
+// Competencies for Axe 2 "Compétence 5 – Identifier ce que j'ai appris et ce que je sais faire" by level (for BadgeInfoModal)
+const COMPETENCE_AXE2_5_IDENTIFIER_APPRIS_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -3401, name: "Découvrir la notion d'expériences et son application à différentes sphères de vie, comme les activités sportives ou culturelles, les engagements associatifs ou bénévoles, les voyages, les stages, les expériences d'apprentissage ou toute autre expérience réalisée dans un cadre personnel, scolaire ou professionnel", category: 'expertise' },
+    { id: -3402, name: "Découvrir la notion de compétences et les termes associés, comme la décomposition en « savoirs » (connaissances), « savoir-faire » (aptitudes), « savoir-être » (attitudes), les Référentiels des compétences, les approches par compétences dans les situations d'apprentissage, ainsi que les aspects dynamiques, évolutifs, contextuels et transférables d'une compétence", category: 'expertise' },
+    { id: -3403, name: "Découvrir les liens entre expériences et compétences", category: 'expertise' }
+  ],
+  level_2: [
+    { id: -3501, name: "Situer la notion de compétences par rapport à des apprentissages, des disciplines scolaires, des activités extrascolaires, des diplômes, des formations, des métiers et des activités professionnelles", category: 'expertise' },
+    { id: -3502, name: "Décrire une compétence en utilisant des verbes d'action adaptés", category: 'expertise' },
+    { id: -3503, name: "Analyser une expérience dans son contexte et identifier les compétences mobilisées et développées", category: 'expertise' },
+    { id: -3504, name: "Analyser une expérience dans son contexte, au-delà des compétences (par exemple : motivations, émotions ressenties…)", category: 'expertise' },
+    { id: -3505, name: "Comprendre et identifier différentes possibilités d'acquérir ou de renforcer une compétence", category: 'expertise' },
+    { id: -3506, name: "Comprendre et identifier différentes méthodes permettant d'explorer et de mettre à l'épreuve des compétences", category: 'expertise' },
+    { id: -3507, name: "Comprendre comment transposer une compétence acquise d'un contexte à l'autre et cerner les enjeux et les limites de la transférabilité des compétences", category: 'expertise' },
+    { id: -3508, name: "Identifier et extraire les compétences dans des supports d'information (par exemple des compétences transversales dans le socle commun)", category: 'expertise' },
+    { id: -3509, name: "Identifier des outils et des méthodes permettant de documenter et de conserver une trace des expériences et des compétences", category: 'expertise' }
+  ],
+  level_3: [
+    { id: -3601, name: "Analyser mes expériences dans leur contexte, identifier les compétences mobilisées et développées et les compétences non mobilisées et non développées", category: 'expertise' },
+    { id: -3602, name: "Identifier mes freins ou mes difficultés à l'acquisition d'une compétence (par exemple le besoin d'entraînement supplémentaire)", category: 'expertise' },
+    { id: -3603, name: "M'interroger sur mes motivations à m'engager dans certaines expériences", category: 'expertise' },
+    { id: -3604, name: "Décrire mes propres compétences en utilisant des verbes d'action adaptés", category: 'expertise' },
+    { id: -3605, name: "Rassembler et organiser mes compétences acquises ou mobilisées dans mon parcours", category: 'expertise' },
+    { id: -3606, name: "Faire le lien entre plusieurs expériences de mon parcours ayant permis de mobiliser une même compétence", category: 'expertise' },
+    { id: -3607, name: "Identifier différentes possibilités d'acquérir ou de renforcer une compétence nécessaire à mon parcours", category: 'expertise' },
+    { id: -3608, name: "Utiliser des outils et des méthodes permettant de documenter et de conserver une trace de mes expériences et de mes compétences", category: 'expertise' },
+    { id: -3609, name: "Utiliser différentes méthodes permettant d'identifier mes compétences", category: 'expertise' }
+  ],
+  level_4: [
+    { id: -3701, name: "Expliciter mes compétences et les contextes dans lesquels elles ont été acquises", category: 'expertise' },
+    { id: -3702, name: "Expliciter mes progressions dans une compétence au cours du temps", category: 'expertise' },
+    { id: -3703, name: "Combiner différentes méthodes permettant d'identifier mes compétences", category: 'expertise' },
+    { id: -3704, name: "Savoir échanger avec les autres (par exemple les pairs, les parents) sur mes expériences vécues et mes compétences acquises ou mobilisées", category: 'expertise' },
+    { id: -3705, name: "Trouver/créer du lien entre les compétences acquises ou mobilisées dans mon parcours (par exemple : qu'est-ce que cela me permettrait de faire plus tard ?)", category: 'expertise' },
+    { id: -3706, name: "Comprendre comment transposer mes compétences acquises d'un contexte à l'autre", category: 'expertise' },
+    { id: -3707, name: "Remobiliser de manière adaptée mes compétences acquises d'un contexte à l'autre", category: 'expertise' },
+    { id: -3708, name: "Expliciter le sens donné aux expériences et aux situations d'apprentissage vécues dans mon parcours", category: 'expertise' },
+    { id: -3709, name: "M'engager dans une démarche adaptée permettant d'acquérir ou de renforcer mes compétences nécessaires à mon parcours", category: 'expertise' },
+    { id: -3710, name: "Savoir constituer un portfolio des expériences et des compétences", category: 'expertise' },
+    { id: -3711, name: "Identifier si ma maîtrise d'une compétence est suffisante ou s'il est nécessaire de me perfectionner par rapport à mes objectifs", category: 'expertise' },
+    { id: -3712, name: "Développer un regard éclairé sur l'évaluation des compétences", category: 'expertise' }
+  ]
+};
+
 const COMPETENCE_1_NAME = "Compétence 1 – Chercher et trier l'information";
 const COMPETENCE_2_NAME = "Compétence 2 – Connaitre les personnes, lieux, ressources qui peuvent m'aider";
 const COMPETENCE_3_NAME = "Compétence 3 – Apprendre à découvrir les parcours de formation";
 const COMPETENCE_4_NAME = "Compétence 4 – Apprendre à découvrir les métiers et le monde du travail";
 const COMPETENCE_5_NAME = "Compétence 5 – M'interroger sur les clichés";
+const COMPETENCE_AXE2_1_NAME = "Compétence 1 – Apprendre à me connaitre";
+const COMPETENCE_AXE2_2_NAME = "Compétence 2 – Définir mes projets en fonction de qui je suis";
+const COMPETENCE_AXE2_3_NAME = "Compétence 3 – M'autoriser à rêver et à avoir des ambitions";
+const COMPETENCE_AXE2_4_NAME = "Compétence 4 – Savoir me présenter et m'affirmer";
+const COMPETENCE_AXE2_5_NAME = "Compétence 5 – Identifier ce que j'ai appris et ce que je sais faire";
 
 function buildStaticBadgesCompetencesOrienterCollege(): BadgeAPI[] {
   const levels: BadgeAPI['level'][] = ['level_1', 'level_2', 'level_3', 'level_4'];
@@ -374,6 +572,16 @@ function buildStaticBadgesCompetencesOrienterCollege(): BadgeAPI[] {
         expertises = COMPETENCE_4_APPRENDRE_DECOUVRIR_METIERS_EXPERTISES[level];
       } else if (name === COMPETENCE_5_NAME && COMPETENCE_5_MINTERROGER_CLICHES_EXPERTISES[level]) {
         expertises = COMPETENCE_5_MINTERROGER_CLICHES_EXPERTISES[level];
+      } else if (name === COMPETENCE_AXE2_1_NAME && COMPETENCE_AXE2_1_APPRENDRE_ME_CONNAITRE_EXPERTISES[level]) {
+        expertises = COMPETENCE_AXE2_1_APPRENDRE_ME_CONNAITRE_EXPERTISES[level];
+      } else if (name === COMPETENCE_AXE2_2_NAME && COMPETENCE_AXE2_2_DEFINIR_PROJETS_EXPERTISES[level]) {
+        expertises = COMPETENCE_AXE2_2_DEFINIR_PROJETS_EXPERTISES[level];
+      } else if (name === COMPETENCE_AXE2_3_NAME && COMPETENCE_AXE2_3_MAUTORISER_REVER_EXPERTISES[level]) {
+        expertises = COMPETENCE_AXE2_3_MAUTORISER_REVER_EXPERTISES[level];
+      } else if (name === COMPETENCE_AXE2_4_NAME && COMPETENCE_AXE2_4_SAVOIR_PRESENTER_EXPERTISES[level]) {
+        expertises = COMPETENCE_AXE2_4_SAVOIR_PRESENTER_EXPERTISES[level];
+      } else if (name === COMPETENCE_AXE2_5_NAME && COMPETENCE_AXE2_5_IDENTIFIER_APPRIS_EXPERTISES[level]) {
+        expertises = COMPETENCE_AXE2_5_IDENTIFIER_APPRIS_EXPERTISES[level];
       }
       badges.push({
         id: id++,
@@ -389,19 +597,31 @@ function buildStaticBadgesCompetencesOrienterCollege(): BadgeAPI[] {
   return badges;
 }
 
-// Axe 1 section for badge list view (3 badges under this axis; 2 more to be added later)
+// Axe 1 section for badge list view
 const STATIC_COMPETENCES_ORIENTER_AXE1_TITLE = "Axe 1 – CONNAITRE ET SAVOIR S'INFORMER SUR LE MONDE : Découverte des environnements scolaires, professionnels, économiques et sociaux";
+
+// Axe 2 section for badge list view
+const STATIC_COMPETENCES_ORIENTER_AXE2_TITLE = "Axe 2 – SE DÉCOUVRIR ET S'AFFIRMER : identification de soi, de ses intérêts, de ses compétences, de ses valeurs";
 
 function getStaticBadgesByAxis(): { title: string; groups: { name: string; description: string; levels: BadgeAPI[] }[] }[] {
   const allBadges = buildStaticBadgesCompetencesOrienterCollege();
-  const groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
-  STATIC_COMPETENCES_ORIENTER_BADGES.forEach(({ name }) => {
+  const axe1Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
+  const axe2Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
+  STATIC_COMPETENCES_ORIENTER_BADGES.forEach(({ name, axe }) => {
     const levelBadges = allBadges.filter((b) => b.name === name).sort(
       (a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level)
     );
-    groups.push({ name, description: '', levels: levelBadges });
+    const group = { name, description: '', levels: levelBadges };
+    if (axe === 2) {
+      axe2Groups.push(group);
+    } else {
+      axe1Groups.push(group);
+    }
   });
-  return [{ title: STATIC_COMPETENCES_ORIENTER_AXE1_TITLE, groups }];
+  return [
+    { title: STATIC_COMPETENCES_ORIENTER_AXE1_TITLE, groups: axe1Groups },
+    { title: STATIC_COMPETENCES_ORIENTER_AXE2_TITLE, groups: axe2Groups }
+  ];
 }
 
 const INTRO_MESSAGE = "Explorez les parcours Kinship et les badges associés, qui permettent d'identifier et de valoriser les compétences développées par les jeunes à travers des projets, des expériences et des parcours métiers.";

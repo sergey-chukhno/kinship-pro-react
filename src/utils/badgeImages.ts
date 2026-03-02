@@ -156,6 +156,36 @@ const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>>
       level_3: "/badges_competences_a_sorienter_au_college/niveau_3/minterroger_sur_les_cliches.png",
       level_4: "/badges_competences_a_sorienter_au_college/niveau_4/minterroger_sur_les_cliches.png",
     },
+    "Compétence 1 – Apprendre à me connaitre": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/apprendre_a_me_connaitre.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/apprendre_a_me_connaitre.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/apprendre_a_me_connaitre.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/apprendre_a_me_connaitre.png",
+    },
+    "Compétence 2 – Définir mes projets en fonction de qui je suis": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/définir_mes_projets_en_fonction_de_qui_je_suis.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/définir_mes_projets_en_fonction_de_qui_je_suis.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/définir_mes_projets_en_fonction_de_qui_je_suis.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/définir_mes_projets_en_fonction_de_qui_je_suis.png",
+    },
+    "Compétence 3 – M'autoriser à rêver et à avoir des ambitions": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/mautoriser_rever_et_a_avoir_des_ambitions.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/mautoriser_rever_et_a_avoir_des_ambitions.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/mautoriser_rever_et_a_avoir_des_ambitions.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/mautoriser_rever_et_a_avoir_des_ambitions.png",
+    },
+    "Compétence 4 – Savoir me présenter et m'affirmer": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/savoir_me_présenter_et_maffirmer.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/savoir_me_présenter_et_maffirmer.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/savoir_me_présenter_et_maffirmer.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/savoir_me_présenter_et_maffirmer.png",
+    },
+    "Compétence 5 – Identifier ce que j'ai appris et ce que je sais faire": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
+    },
   },
 };
 
