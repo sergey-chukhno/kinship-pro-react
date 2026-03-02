@@ -293,8 +293,8 @@
 }
 
 .register-teacher {
-  background: #0f9f6c26;
-  border-color: #10b981;
+  background: #ffa60026;
+  border-color: #ffa600;
 }
 
 .register-partner {
@@ -346,11 +346,11 @@
 }
 
 .register-teacher-button {
-  background: #10b981;
+  background: #ffa600;
 }
 
 .register-teacher-button:hover {
-  background: #0f9f6d;
+  background: #e69500;
 }
 
 .register-partner-button {
