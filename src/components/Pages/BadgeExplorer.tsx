@@ -801,6 +801,17 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
   const [badgeFilter, setBadgeFilter] = useState<string>('all');
   // Badge shown in the "Voir les infos du badge" modal (single level badge)
   const [badgeInfoModalBadge, setBadgeInfoModalBadge] = useState<BadgeAPI | null>(null);
+  // Collapsible axes (Compétences à s'orienter - Collège): which axis indices are expanded
+  const [expandedAxes, setExpandedAxes] = useState<Set<number>>(() => new Set([0, 1, 2]));
+
+  const toggleAxis = (idx: number) => {
+    setExpandedAxes((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
 
   // Fetch badges only when on badge-list view with a valid series (or use static data for local-only series)
   useEffect(() => {
@@ -1253,12 +1264,37 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           </div>
         ) : contentAxes ? (
           <div className="badge-explorer-by-title-list">
-            {contentAxes.map((axis, idx) => (
-              <section key={idx} className="badge-explorer-axis-section">
-                <h3 className="badge-explorer-axis-title">{axis.title}</h3>
-                {axis.groups.map((group) => renderBadgeRow(group))}
-              </section>
-            ))}
+            {contentAxes.map((axis, idx) => {
+              const isExpanded = expandedAxes.has(idx);
+              const contentId = `badge-explorer-axis-content-${idx}`;
+              return (
+                <section key={idx} className="badge-explorer-axis-section">
+                  <button
+                    type="button"
+                    className="badge-explorer-axis-header"
+                    onClick={() => toggleAxis(idx)}
+                    aria-expanded={isExpanded}
+                    aria-controls={contentId}
+                  >
+                    <span className="badge-explorer-axis-title">{axis.title}</span>
+                    <span className="badge-explorer-axis-count">
+                      {axis.groups.length} compétence{axis.groups.length !== 1 ? 's' : ''}
+                    </span>
+                    <i
+                      className={`fas ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'}`}
+                      aria-hidden
+                    />
+                  </button>
+                  <div
+                    id={contentId}
+                    className={`badge-explorer-axis-content ${isExpanded ? '' : 'collapsed'}`}
+                    aria-hidden={!isExpanded}
+                  >
+                    {axis.groups.map((group) => renderBadgeRow(group))}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         ) : (
           <div className="badge-explorer-by-title-list">

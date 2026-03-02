@@ -795,17 +795,61 @@
 .badge-explorer-axis-section {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0;
 }
 
-.badge-explorer-axis-section .badge-explorer-axis-title {
+.badge-explorer-axis-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 0;
+  margin: 0;
+  font: inherit;
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-main, #111827);
   line-height: 1.4;
-  margin: 0 0 0.25rem 0;
-  padding-bottom: 0.5rem;
+  text-align: left;
+  background: none;
+  border: none;
   border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+}
+
+.badge-explorer-axis-header:hover {
+  color: var(--primary, #2563eb);
+}
+
+.badge-explorer-axis-header .badge-explorer-axis-title {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.badge-explorer-axis-count {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.badge-explorer-axis-header .fa-chevron-down,
+.badge-explorer-axis-header .fa-chevron-right {
+  font-size: 0.75rem;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.badge-explorer-axis-content {
+  padding-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.badge-explorer-axis-content.collapsed {
+  display: none;
 }
 
 .badge-explorer-page .badge-explorer-by-title-row {
