@@ -11,6 +11,12 @@ interface BadgeExplorerProps {
   onBack: () => void;
 }
 
+// Renders text with **bold** segments as <strong>
+function renderDescriptionWithBold(text: string): React.ReactNode {
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  return parts.map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part));
+}
+
 // Series entry: display name, optional DB name (null if à venir), comingSoon flag, description
 // staticSeriesId: when set, badge list uses local static data (no API)
 // axes: optional list of axes to show on parcours-detail instead of description (exact titles/descriptions)
@@ -976,6 +982,27 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     return grouped;
   }, [badges]);
 
+  // Display badge count: for Compétences à s'orienter use total competences (all axes) or 1 when one selected
+  const displayBadgeCount = useMemo(() => {
+    if (contentAxes) {
+      if (badgeFilter === 'all') {
+        return contentAxes.reduce((sum, ax) => sum + ax.groups.length, 0);
+      }
+      return 1;
+    }
+    return badgesByName.length;
+  }, [contentAxes, badgeFilter, badgesByName.length]);
+
+  // When filtering to one competence in axes view: find which axis contains it
+  const filteredAxisSelection = useMemo(() => {
+    if (!contentAxes || badgeFilter === 'all') return null;
+    for (let idx = 0; idx < contentAxes.length; idx++) {
+      const group = contentAxes[idx].groups.find((g) => g.name === badgeFilter);
+      if (group) return { axisIndex: idx, axis: contentAxes[idx], group };
+    }
+    return null;
+  }, [contentAxes, badgeFilter]);
+
   const renderBadgeRow = (group: BadgeGroup) => {
     const series = group.levels[0]?.series ?? selectedSeriesDbName ?? '';
     return (
@@ -1216,14 +1243,14 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           </div>
         </div>
         {selectedSeries?.description && (
-          <p className="series-description">{selectedSeries.description}</p>
+          <p className="series-description">{renderDescriptionWithBold(selectedSeries.description)}</p>
         )}
         {!isLoading && !error && badges.length > 0 && (
           <div className="badge-explorer-header-row">
             <div className="series-stats">
               <div className="stat-item">
                 <i className="fas fa-medal"></i>
-                <span>{badgesByName.length} badge{badgesByName.length > 1 ? 's' : ''}</span>
+                <span>{displayBadgeCount} badge{displayBadgeCount > 1 ? 's' : ''}</span>
               </div>
               <div className="stat-item">
                 <i className="fas fa-chart-line"></i>
@@ -1239,9 +1266,19 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                 onChange={(e) => setBadgeFilter(e.target.value)}
               >
                 <option value="all">Tous les badges</option>
-                {badgesByName.map((g) => (
-                  <option key={g.name} value={g.name}>{g.name}</option>
-                ))}
+                {contentAxes ? (
+                  contentAxes.map((axis, idx) => (
+                    <optgroup key={idx} label={axis.title}>
+                      {axis.groups.map((g) => (
+                        <option key={g.name} value={g.name}>{g.name}</option>
+                      ))}
+                    </optgroup>
+                  ))
+                ) : (
+                  badgesByName.map((g) => (
+                    <option key={g.name} value={g.name}>{g.name}</option>
+                  ))
+                )}
               </select>
             </div>
           </div>
@@ -1264,37 +1301,62 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           </div>
         ) : contentAxes ? (
           <div className="badge-explorer-by-title-list">
-            {contentAxes.map((axis, idx) => {
-              const isExpanded = expandedAxes.has(idx);
-              const contentId = `badge-explorer-axis-content-${idx}`;
-              return (
-                <section key={idx} className="badge-explorer-axis-section">
-                  <button
-                    type="button"
-                    className="badge-explorer-axis-header"
-                    onClick={() => toggleAxis(idx)}
-                    aria-expanded={isExpanded}
-                    aria-controls={contentId}
-                  >
-                    <span className="badge-explorer-axis-title">{axis.title}</span>
-                    <span className="badge-explorer-axis-count">
-                      {axis.groups.length} compétence{axis.groups.length !== 1 ? 's' : ''}
-                    </span>
-                    <i
-                      className={`fas ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'}`}
-                      aria-hidden
-                    />
-                  </button>
-                  <div
-                    id={contentId}
-                    className={`badge-explorer-axis-content ${isExpanded ? '' : 'collapsed'}`}
-                    aria-hidden={!isExpanded}
-                  >
-                    {axis.groups.map((group) => renderBadgeRow(group))}
-                  </div>
-                </section>
-              );
-            })}
+            {filteredAxisSelection ? (
+              (() => {
+                const { axisIndex, axis, group } = filteredAxisSelection;
+                const contentId = `badge-explorer-axis-content-${axisIndex}`;
+                return (
+                  <section key={axisIndex} className="badge-explorer-axis-section">
+                    <button
+                      type="button"
+                      className="badge-explorer-axis-header"
+                      onClick={() => toggleAxis(axisIndex)}
+                      aria-expanded={true}
+                      aria-controls={contentId}
+                    >
+                      <span className="badge-explorer-axis-title">{axis.title}</span>
+                      <span className="badge-explorer-axis-count">1 compétence</span>
+                      <i className="fas fa-chevron-down" aria-hidden />
+                    </button>
+                    <div id={contentId} className="badge-explorer-axis-content" aria-hidden={false}>
+                      {renderBadgeRow(group)}
+                    </div>
+                  </section>
+                );
+              })()
+            ) : (
+              contentAxes.map((axis, idx) => {
+                const isExpanded = expandedAxes.has(idx);
+                const contentId = `badge-explorer-axis-content-${idx}`;
+                return (
+                  <section key={idx} className="badge-explorer-axis-section">
+                    <button
+                      type="button"
+                      className="badge-explorer-axis-header"
+                      onClick={() => toggleAxis(idx)}
+                      aria-expanded={isExpanded}
+                      aria-controls={contentId}
+                    >
+                      <span className="badge-explorer-axis-title">{axis.title}</span>
+                      <span className="badge-explorer-axis-count">
+                        {axis.groups.length} compétence{axis.groups.length !== 1 ? 's' : ''}
+                      </span>
+                      <i
+                        className={`fas ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'}`}
+                        aria-hidden
+                      />
+                    </button>
+                    <div
+                      id={contentId}
+                      className={`badge-explorer-axis-content ${isExpanded ? '' : 'collapsed'}`}
+                      aria-hidden={!isExpanded}
+                    >
+                      {axis.groups.map((group) => renderBadgeRow(group))}
+                    </div>
+                  </section>
+                );
+              })
+            )}
           </div>
         ) : (
           <div className="badge-explorer-by-title-list">
