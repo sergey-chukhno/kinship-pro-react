@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getBadges } from '../../api/Badges';
+import {
+  COMPETENCES_ORIENTER_COLLEGE_SERIES,
+  METIERS_DE_LA_MER_SERIES,
+  getAxesForSeries,
+  getMetiersMerBadgesWithLevel
+} from '../../constants/badgeAxes';
 import { BadgeAPI, BadgeSkillAPI } from '../../types';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
@@ -57,11 +63,8 @@ function formatBold(text: string): React.ReactNode {
   });
 }
 
-// Series name used for static "Compétences à s'orienter - Collège" (local-only until API supports it)
-export const COMPETENCES_ORIENTER_COLLEGE_SERIES = "Série Compétences à s'orienter - Collège";
-
-// Series name used for static "Série Métiers de la mer" (local-only, axes only in Phase 1)
-const METIERS_DE_LA_MER_SERIES = "Série Métiers de la mer";
+// Re-export for consumers (e.g. BadgeAssignmentModal)
+export { COMPETENCES_ORIENTER_COLLEGE_SERIES };
 
 // Representative badge (name, level) per series dbName for series icon on parcours-detail view
 const SERIES_REPRESENTATIVE_BADGE: Record<string, { name: string; level: string }> = {
@@ -759,46 +762,8 @@ function buildStaticBadgesCompetencesOrienterCollege(): BadgeAPI[] {
   return badges;
 }
 
-// Axe 1 section for badge list view
-const STATIC_COMPETENCES_ORIENTER_AXE1_TITLE = "Axe 1 – CONNAITRE ET SAVOIR S'INFORMER SUR LE MONDE : Découverte des environnements scolaires, professionnels, économiques et sociaux";
-
-// Axe 2 section for badge list view
-const STATIC_COMPETENCES_ORIENTER_AXE2_TITLE = "Axe 2 – SE DÉCOUVRIR ET S'AFFIRMER : identification de soi, de ses intérêts, de ses compétences, de ses valeurs";
-
-// Axe 3 section for badge list view
-const STATIC_COMPETENCES_ORIENTER_AXE3_TITLE = "Axe 3 – SE CONSTRUIRE ET SE PROJETER DANS UN MONDE EN MOUVEMENT";
-
 // Axis type for badge list (optional imageUrl for Métiers de la mer)
 type AxisSection = { title: string; imageUrl?: string; groups: { name: string; description: string; levels: BadgeAPI[] }[] };
-
-// Série Métiers de la mer: 3 axes with images; Axe 1 badges defined below
-const METIERS_MER_AXE1_TITLE = "Axe 1: Vie en collectivité";
-const METIERS_MER_AXE1_IMAGE = "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/axe_1.png";
-const METIERS_MER_AXE2_TITLE = "Axe 2: Expérience de la mer et sécurité";
-const METIERS_MER_AXE2_IMAGE = "/badges_metiers_de_la_mer/axe_2_experience_de_la_mer_et_securite/axe_2.png";
-const METIERS_MER_AXE3_TITLE = "Axe 3: Engagement et construction du projet professionnel";
-const METIERS_MER_AXE3_IMAGE = "/badges_metiers_de_la_mer/axe_3_engagement_et_construction_du_projet_professionnel/axe_3.png";
-
-// Axe 1 – Vie en collectivité: badge name, level, axe (for partitioning)
-const STATIC_METIERS_MER_AXE1_BADGES: { name: string; level: 'level_1' | 'level_2'; axe: 1 }[] = [
-  { name: "Niveau 1 - Se situer et s'adapter dans un collectif", level: 'level_1', axe: 1 },
-  { name: "Niveau 1 - Respect des autres", level: 'level_1', axe: 1 },
-  { name: "Niveau 1 - Respect du vivant et de l'environnement", level: 'level_1', axe: 1 },
-  { name: "Niveau 2 - Contribuer activement au collectif", level: 'level_2', axe: 1 }
-];
-
-// Axe 2 – Expérience de la mer et sécurité: badge name, level, axe (for partitioning)
-const STATIC_METIERS_MER_AXE2_BADGES: { name: string; level: 'level_1' | 'level_2'; axe: 2 }[] = [
-  { name: "Niveau 1 - Comprendre et appliquer les règles de sécurité maritime", level: 'level_1', axe: 2 },
-  { name: "Niveau 1 - Responsabilité", level: 'level_1', axe: 2 },
-  { name: "Niveau 2 - Agir avec autonomie et sens marin", level: 'level_2', axe: 2 }
-];
-
-// Axe 3 – Engagement et construction du projet professionnel: badge name, level, axe (for partitioning)
-const STATIC_METIERS_MER_AXE3_BADGES: { name: string; level: 'level_1' | 'level_2'; axe: 3 }[] = [
-  { name: "Niveau 1 - S'impliquer dans un parcours de découverte", level: 'level_1', axe: 3 },
-  { name: "Niveau 2 - Se projeter et construire des perspectives", level: 'level_2', axe: 3 }
-];
 
 // Expertises for "Niveau 1 - Se situer et s'adapter dans un collectif" (Métiers de la mer, Axe 1)
 const METIERS_MER_AXE1_SESITUER_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
@@ -896,7 +861,7 @@ function buildStaticBadgesMetiersMer(): BadgeAPI[] {
   const AGIR_AUTONOMIE_NAME = "Niveau 2 - Agir avec autonomie et sens marin";
   const IMPLIQUER_NAME = "Niveau 1 - S'impliquer dans un parcours de découverte";
   const SE_PROJETER_NAME = "Niveau 2 - Se projeter et construire des perspectives";
-  const allAxeDefs = [...STATIC_METIERS_MER_AXE1_BADGES, ...STATIC_METIERS_MER_AXE2_BADGES, ...STATIC_METIERS_MER_AXE3_BADGES];
+  const allAxeDefs = getMetiersMerBadgesWithLevel();
   allAxeDefs.forEach(({ name, level }) => {
     let expertises: BadgeSkillAPI[] = [];
     if (name === SESITUER_NAME && METIERS_MER_AXE1_SESITUER_EXPERTISES[level]) {
@@ -933,54 +898,31 @@ function buildStaticBadgesMetiersMer(): BadgeAPI[] {
 
 function getStaticAxesMetiersMer(): AxisSection[] {
   const allBadges = buildStaticBadgesMetiersMer();
-  const axe1LevelBadges = allBadges
-    .filter((b) => STATIC_METIERS_MER_AXE1_BADGES.some((def) => def.name === b.name))
-    .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level));
-  const axe2LevelBadges = allBadges
-    .filter((b) => STATIC_METIERS_MER_AXE2_BADGES.some((def) => def.name === b.name))
-    .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level));
-  const axe3LevelBadges = allBadges
-    .filter((b) => STATIC_METIERS_MER_AXE3_BADGES.some((def) => def.name === b.name))
-    .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level));
-  const axe1Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [
-    { name: METIERS_MER_AXE1_TITLE, description: '', levels: axe1LevelBadges }
-  ];
-  const axe2Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [
-    { name: METIERS_MER_AXE2_TITLE, description: '', levels: axe2LevelBadges }
-  ];
-  const axe3Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [
-    { name: METIERS_MER_AXE3_TITLE, description: '', levels: axe3LevelBadges }
-  ];
-  return [
-    { title: METIERS_MER_AXE1_TITLE, imageUrl: METIERS_MER_AXE1_IMAGE, groups: axe1Groups },
-    { title: METIERS_MER_AXE2_TITLE, imageUrl: METIERS_MER_AXE2_IMAGE, groups: axe2Groups },
-    { title: METIERS_MER_AXE3_TITLE, imageUrl: METIERS_MER_AXE3_IMAGE, groups: axe3Groups }
-  ];
+  const axes = getAxesForSeries(METIERS_DE_LA_MER_SERIES);
+  return axes.map((axe) => {
+    const levelBadges = allBadges
+      .filter((b) => axe.badgeNames.includes(b.name))
+      .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level));
+    const groups: { name: string; description: string; levels: BadgeAPI[] }[] = [
+      { name: axe.title, description: '', levels: levelBadges }
+    ];
+    return { title: axe.title, imageUrl: axe.imageUrl, groups };
+  });
 }
 
 function getStaticBadgesByAxis(): AxisSection[] {
   const allBadges = buildStaticBadgesCompetencesOrienterCollege();
-  const axe1Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
-  const axe2Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
-  const axe3Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
-  STATIC_COMPETENCES_ORIENTER_BADGES.forEach(({ name, axe }) => {
-    const levelBadges = allBadges.filter((b) => b.name === name).sort(
-      (a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level)
-    );
-    const group = { name, description: '', levels: levelBadges };
-    if (axe === 2) {
-      axe2Groups.push(group);
-    } else if (axe === 3) {
-      axe3Groups.push(group);
-    } else {
-      axe1Groups.push(group);
-    }
+  const axes = getAxesForSeries(COMPETENCES_ORIENTER_COLLEGE_SERIES);
+  return axes.map((axe) => {
+    const groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
+    axe.badgeNames.forEach((name) => {
+      const levelBadges = allBadges.filter((b) => b.name === name).sort(
+        (a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level)
+      );
+      groups.push({ name, description: '', levels: levelBadges });
+    });
+    return { title: axe.title, groups };
   });
-  return [
-    { title: STATIC_COMPETENCES_ORIENTER_AXE1_TITLE, groups: axe1Groups },
-    { title: STATIC_COMPETENCES_ORIENTER_AXE2_TITLE, groups: axe2Groups },
-    { title: STATIC_COMPETENCES_ORIENTER_AXE3_TITLE, groups: axe3Groups }
-  ];
 }
 
 const INTRO_MESSAGE = "Explorez les parcours Kinship et les badges associés, qui permettent d'identifier et de valoriser les compétences développées par les jeunes à travers des projets, des expériences et des parcours métiers.";
