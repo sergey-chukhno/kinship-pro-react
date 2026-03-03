@@ -211,6 +211,35 @@ const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>>
       level_4: "/badges_competences_a_sorienter_au_college/niveau_4/me_projeter_et_comprendre_les_consequences_de_mes_choix.png",
     },
   },
+  "Série Métiers de la mer": {
+    "Niveau 1 - Se situer et s'adapter dans un collectif": {
+      level_1: "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/niveau_1_sesituer_et_sadapter.png",
+    },
+    "Niveau 1 - Respect des autres": {
+      level_1: "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/niveau_1_respect_des_autres.png",
+    },
+    "Niveau 1 - Respect du vivant et de l'environnement": {
+      level_1: "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/niveau_1_respect_du_vivant.png",
+    },
+    "Niveau 2 - Contribuer activement au collectif": {
+      level_2: "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/niveau_2_contribuer_activement_au_collectif.png",
+    },
+    "Niveau 1 - Comprendre et appliquer les règles de sécurité maritime": {
+      level_1: "/badges_metiers_de_la_mer/axe_2_experience_de_la_mer_et_securite/niveau_1_comprendre_et_appliquer_les_regles_de_securite_maritime.png",
+    },
+    "Niveau 1 - Responsabilité": {
+      level_1: "/badges_metiers_de_la_mer/axe_2_experience_de_la_mer_et_securite/niveau_1_responsabilite.png",
+    },
+    "Niveau 2 - Agir avec autonomie et sens marin": {
+      level_2: "/badges_metiers_de_la_mer/axe_2_experience_de_la_mer_et_securite/niveau_2_agir_avec_autonomie_et_sens_marin.png",
+    },
+    "Niveau 1 - S'impliquer dans un parcours de découverte": {
+      level_1: "/badges_metiers_de_la_mer/axe_3_engagement_et_construction_du_projet_professionnel/niveau_1_simpliquer_dans_un_parcours_de_decouverte.png",
+    },
+    "Niveau 2 - Se projeter et construire des perspectives": {
+      level_2: "/badges_metiers_de_la_mer/axe_3_engagement_et_construction_du_projet_professionnel/niveau_2_seprojeter_et_construire_des_perspectives.png",
+    },
+  },
 };
 
 export const getLocalBadgeImage = (badgeName?: string, badgeLevel?: string, badgeSeries?: string): string | undefined => {
