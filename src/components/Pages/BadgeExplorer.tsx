@@ -60,13 +60,17 @@ function formatBold(text: string): React.ReactNode {
 // Series name used for static "Compétences à s'orienter - Collège" (local-only until API supports it)
 export const COMPETENCES_ORIENTER_COLLEGE_SERIES = "Série Compétences à s'orienter - Collège";
 
+// Series name used for static "Série Métiers de la mer" (local-only, axes only in Phase 1)
+const METIERS_DE_LA_MER_SERIES = "Série Métiers de la mer";
+
 // Representative badge (name, level) per series dbName for series icon on parcours-detail view
 const SERIES_REPRESENTATIVE_BADGE: Record<string, { name: string; level: string }> = {
   'Série TouKouLeur': { name: 'Adaptabilité', level: '1' },
   'Série Parcours des possibles': { name: 'Étape 1 : IMPLICATION INITIALE', level: '1' },
   'Série Parcours professionnel': { name: 'PARCOURS DE DÉCOUVERTE - COLLÈGE', level: '1' },
   'Série Audiovisuelle': { name: 'IMAGE', level: '1' },
-  [COMPETENCES_ORIENTER_COLLEGE_SERIES]: { name: "Compétence 1 – Chercher et trier l'information", level: '1' }
+  [COMPETENCES_ORIENTER_COLLEGE_SERIES]: { name: "Compétence 1 – Chercher et trier l'information", level: '1' },
+  [METIERS_DE_LA_MER_SERIES]: { name: "Niveau 1 - Se situer et s'adapter dans un collectif", level: '1' }
 };
 
 // Single source of truth: Parcours and their series (display names, DB names, descriptions)
@@ -167,9 +171,10 @@ const PARCOURS: Parcours[] = [
         description: "Reconnaît les compétences techniques et créatives liées aux métiers de l'audiovisuel."
       },
       {
-        displayName: "Série Métiers de la mer (à venir)",
+        displayName: "Série Métiers de la mer",
         dbName: null,
-        comingSoon: true,
+        comingSoon: false,
+        staticSeriesId: 'metiers_mer',
         description: ''
       }
     ]
@@ -763,7 +768,197 @@ const STATIC_COMPETENCES_ORIENTER_AXE2_TITLE = "Axe 2 – SE DÉCOUVRIR ET S'AFF
 // Axe 3 section for badge list view
 const STATIC_COMPETENCES_ORIENTER_AXE3_TITLE = "Axe 3 – SE CONSTRUIRE ET SE PROJETER DANS UN MONDE EN MOUVEMENT";
 
-function getStaticBadgesByAxis(): { title: string; groups: { name: string; description: string; levels: BadgeAPI[] }[] }[] {
+// Axis type for badge list (optional imageUrl for Métiers de la mer)
+type AxisSection = { title: string; imageUrl?: string; groups: { name: string; description: string; levels: BadgeAPI[] }[] };
+
+// Série Métiers de la mer: 3 axes with images; Axe 1 badges defined below
+const METIERS_MER_AXE1_TITLE = "Axe 1: Vie en collectivité";
+const METIERS_MER_AXE1_IMAGE = "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/axe_1.png";
+const METIERS_MER_AXE2_TITLE = "Axe 2: Expérience de la mer et sécurité";
+const METIERS_MER_AXE2_IMAGE = "/badges_metiers_de_la_mer/axe_2_experience_de_la_mer_et_securite/axe_2.png";
+const METIERS_MER_AXE3_TITLE = "Axe 3: Engagement et construction du projet professionnel";
+const METIERS_MER_AXE3_IMAGE = "/badges_metiers_de_la_mer/axe_3_engagement_et_construction_du_projet_professionnel/axe_3.png";
+
+// Axe 1 – Vie en collectivité: badge name, level, axe (for partitioning)
+const STATIC_METIERS_MER_AXE1_BADGES: { name: string; level: 'level_1' | 'level_2'; axe: 1 }[] = [
+  { name: "Niveau 1 - Se situer et s'adapter dans un collectif", level: 'level_1', axe: 1 },
+  { name: "Niveau 1 - Respect des autres", level: 'level_1', axe: 1 },
+  { name: "Niveau 1 - Respect du vivant et de l'environnement", level: 'level_1', axe: 1 },
+  { name: "Niveau 2 - Contribuer activement au collectif", level: 'level_2', axe: 1 }
+];
+
+// Axe 2 – Expérience de la mer et sécurité: badge name, level, axe (for partitioning)
+const STATIC_METIERS_MER_AXE2_BADGES: { name: string; level: 'level_1' | 'level_2'; axe: 2 }[] = [
+  { name: "Niveau 1 - Comprendre et appliquer les règles de sécurité maritime", level: 'level_1', axe: 2 },
+  { name: "Niveau 1 - Responsabilité", level: 'level_1', axe: 2 },
+  { name: "Niveau 2 - Agir avec autonomie et sens marin", level: 'level_2', axe: 2 }
+];
+
+// Axe 3 – Engagement et construction du projet professionnel: badge name, level, axe (for partitioning)
+const STATIC_METIERS_MER_AXE3_BADGES: { name: string; level: 'level_1' | 'level_2'; axe: 3 }[] = [
+  { name: "Niveau 1 - S'impliquer dans un parcours de découverte", level: 'level_1', axe: 3 },
+  { name: "Niveau 2 - Se projeter et construire des perspectives", level: 'level_2', axe: 3 }
+];
+
+// Expertises for "Niveau 1 - Se situer et s'adapter dans un collectif" (Métiers de la mer, Axe 1)
+const METIERS_MER_AXE1_SESITUER_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -6101, name: "Gérer la fatigue, la faim, le froid et la « frousse » = Les 4F", category: 'expertise' },
+    { id: -6102, name: "Ajuster son rythme personnel aux exigences d'un cadre collectif et s'adapter à des situations nouvelles", category: 'expertise' },
+    { id: -6103, name: "Entretenir son espace personnel", category: 'expertise' }
+  ]
+};
+
+// Expertises for "Niveau 1 - Respect des autres" (Métiers de la mer, Axe 1)
+const METIERS_MER_AXE1_RESPECT_AUTRES_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -6104, name: "Communiquer de manière respectueuse et bienveillante", category: 'expertise' },
+    { id: -6105, name: "Participer à l'entretien collectif des espaces de vie", category: 'expertise' },
+    { id: -6106, name: "Accepter les différences et les points de vue de chacun", category: 'expertise' },
+    { id: -6107, name: "Exprimer un désaccord sans conflit et rechercher des solutions", category: 'expertise' }
+  ]
+};
+
+// Expertises for "Niveau 1 - Respect du vivant et de l'environnement" (Métiers de la mer, Axe 1)
+const METIERS_MER_AXE1_RESPECT_VIVANT_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -6108, name: "Gérer ses déchets et ses usages sans impact sur le milieu naturel", category: 'expertise' },
+    { id: -6109, name: "Développer sa curiosité pour les espèces marines et le milieu environnant", category: 'expertise' },
+    { id: -6110, name: "Adopter des comportements responsables pour préserver l'environnement (eau, produits, zones sensibles)", category: 'expertise' }
+  ]
+};
+
+// Expertises for "Niveau 2 - Contribuer activement au collectif" (Métiers de la mer, Axe 1)
+const METIERS_MER_AXE1_CONTRIBUER_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_2: [
+    { id: -6111, name: "Anticiper les besoins des autres membres du groupe", category: 'expertise' },
+    { id: -6112, name: "Faire preuve d'entraide et de solidarité", category: 'expertise' },
+    { id: -6113, name: "Participer à la cohésion du groupe et au bon fonctionnement collectif", category: 'expertise' },
+    { id: -6114, name: "Être force de proposition pour améliorer l'organisation et la vie commune", category: 'expertise' }
+  ]
+};
+
+// Expertises for "Niveau 1 - Comprendre et appliquer les règles de sécurité maritime" (Métiers de la mer, Axe 2)
+const METIERS_MER_AXE2_SECURITE_MARITIME_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -6115, name: "Identifier les principaux risques liés à la navigation (Homme à la mer, incendie, blessure, chavirage)", category: 'expertise' },
+    { id: -6116, name: "Connaître les règles de prévention et adopter les bons comportements (port du gilet, déplacements sécurisés, vigilance)", category: 'expertise' },
+    { id: -6117, name: "Savoir alerter et demander de l'aide en cas de situation d'urgence", category: 'expertise' }
+  ]
+};
+
+// Expertises for "Niveau 1 - Responsabilité" (Métiers de la mer, Axe 2)
+const METIERS_MER_AXE2_RESPONSABILITE_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -6118, name: "Respecter les consignes données par le chef de bord et les encadrants", category: 'expertise' },
+    { id: -6119, name: "Appliquer les règles collectives pour garantir la sécurité de tous", category: 'expertise' }
+  ]
+};
+
+// Expertises for "Niveau 2 - Agir avec autonomie et sens marin" (Métiers de la mer, Axe 2)
+const METIERS_MER_AXE2_AGIR_AUTONOMIE_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_2: [
+    { id: -6120, name: "Développer un premier « sens marin » : observation, anticipation, prudence", category: 'expertise' },
+    { id: -6121, name: "Faire preuve de vigilance pour soi et pour les autres, adapter sa posture aux conditions (météo, sécurité…)", category: 'expertise' },
+    { id: -6122, name: "S'impliquer dans les manœuvres et les tâches liées à la navigation", category: 'expertise' }
+  ]
+};
+
+// Expertises for "Niveau 1 - S'impliquer dans un parcours de découverte" (Métiers de la mer, Axe 3)
+const METIERS_MER_AXE3_IMPLIQUER_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_1: [
+    { id: -6123, name: "Participer activement à toutes les étapes du projet", category: 'expertise' },
+    { id: -6124, name: "Respecter les engagements pris (présence, ponctualité)", category: 'expertise' },
+    { id: -6125, name: "Faire preuve de curiosité pour les métiers et les environnements professionnels rencontrés", category: 'expertise' },
+    { id: -6126, name: "Préparer les rencontres avec les professionnels (questions, échanges)", category: 'expertise' }
+  ]
+};
+
+// Expertises for "Niveau 2 - Se projeter et construire des perspectives" (Métiers de la mer, Axe 3)
+const METIERS_MER_AXE3_SE_PROJETER_EXPERTISES: Record<string, BadgeSkillAPI[]> = {
+  level_2: [
+    { id: -6127, name: "Identifier ses centres d'intérêt et ses compétences", category: 'expertise' },
+    { id: -6128, name: "Relier l'expérience vécue à des métiers ou formations possibles", category: 'expertise' },
+    { id: -6129, name: "Être capable de valoriser son parcours et ses acquis dans un cadre professionnel", category: 'expertise' },
+    { id: -6130, name: "S'engager dans une démarche active vers l'emploi ou la formation", category: 'expertise' }
+  ]
+};
+
+function buildStaticBadgesMetiersMer(): BadgeAPI[] {
+  const badges: BadgeAPI[] = [];
+  let id = -6000;
+  const SESITUER_NAME = "Niveau 1 - Se situer et s'adapter dans un collectif";
+  const RESPECT_AUTRES_NAME = "Niveau 1 - Respect des autres";
+  const RESPECT_VIVANT_NAME = "Niveau 1 - Respect du vivant et de l'environnement";
+  const CONTRIBUER_NAME = "Niveau 2 - Contribuer activement au collectif";
+  const SECURITE_MARITIME_NAME = "Niveau 1 - Comprendre et appliquer les règles de sécurité maritime";
+  const RESPONSABILITE_NAME = "Niveau 1 - Responsabilité";
+  const AGIR_AUTONOMIE_NAME = "Niveau 2 - Agir avec autonomie et sens marin";
+  const IMPLIQUER_NAME = "Niveau 1 - S'impliquer dans un parcours de découverte";
+  const SE_PROJETER_NAME = "Niveau 2 - Se projeter et construire des perspectives";
+  const allAxeDefs = [...STATIC_METIERS_MER_AXE1_BADGES, ...STATIC_METIERS_MER_AXE2_BADGES, ...STATIC_METIERS_MER_AXE3_BADGES];
+  allAxeDefs.forEach(({ name, level }) => {
+    let expertises: BadgeSkillAPI[] = [];
+    if (name === SESITUER_NAME && METIERS_MER_AXE1_SESITUER_EXPERTISES[level]) {
+      expertises = METIERS_MER_AXE1_SESITUER_EXPERTISES[level];
+    } else if (name === RESPECT_AUTRES_NAME && METIERS_MER_AXE1_RESPECT_AUTRES_EXPERTISES[level]) {
+      expertises = METIERS_MER_AXE1_RESPECT_AUTRES_EXPERTISES[level];
+    } else if (name === RESPECT_VIVANT_NAME && METIERS_MER_AXE1_RESPECT_VIVANT_EXPERTISES[level]) {
+      expertises = METIERS_MER_AXE1_RESPECT_VIVANT_EXPERTISES[level];
+    } else if (name === CONTRIBUER_NAME && METIERS_MER_AXE1_CONTRIBUER_EXPERTISES[level]) {
+      expertises = METIERS_MER_AXE1_CONTRIBUER_EXPERTISES[level];
+    } else if (name === SECURITE_MARITIME_NAME && METIERS_MER_AXE2_SECURITE_MARITIME_EXPERTISES[level]) {
+      expertises = METIERS_MER_AXE2_SECURITE_MARITIME_EXPERTISES[level];
+    } else if (name === RESPONSABILITE_NAME && METIERS_MER_AXE2_RESPONSABILITE_EXPERTISES[level]) {
+      expertises = METIERS_MER_AXE2_RESPONSABILITE_EXPERTISES[level];
+    } else if (name === AGIR_AUTONOMIE_NAME && METIERS_MER_AXE2_AGIR_AUTONOMIE_EXPERTISES[level]) {
+      expertises = METIERS_MER_AXE2_AGIR_AUTONOMIE_EXPERTISES[level];
+    } else if (name === IMPLIQUER_NAME && METIERS_MER_AXE3_IMPLIQUER_EXPERTISES[level]) {
+      expertises = METIERS_MER_AXE3_IMPLIQUER_EXPERTISES[level];
+    } else if (name === SE_PROJETER_NAME && METIERS_MER_AXE3_SE_PROJETER_EXPERTISES[level]) {
+      expertises = METIERS_MER_AXE3_SE_PROJETER_EXPERTISES[level];
+    }
+    badges.push({
+      id: id++,
+      name,
+      description: '',
+      level,
+      series: METIERS_DE_LA_MER_SERIES,
+      domains: [],
+      expertises
+    });
+  });
+  return badges;
+}
+
+function getStaticAxesMetiersMer(): AxisSection[] {
+  const allBadges = buildStaticBadgesMetiersMer();
+  const axe1LevelBadges = allBadges
+    .filter((b) => STATIC_METIERS_MER_AXE1_BADGES.some((def) => def.name === b.name))
+    .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level));
+  const axe2LevelBadges = allBadges
+    .filter((b) => STATIC_METIERS_MER_AXE2_BADGES.some((def) => def.name === b.name))
+    .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level));
+  const axe3LevelBadges = allBadges
+    .filter((b) => STATIC_METIERS_MER_AXE3_BADGES.some((def) => def.name === b.name))
+    .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level));
+  const axe1Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [
+    { name: METIERS_MER_AXE1_TITLE, description: '', levels: axe1LevelBadges }
+  ];
+  const axe2Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [
+    { name: METIERS_MER_AXE2_TITLE, description: '', levels: axe2LevelBadges }
+  ];
+  const axe3Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [
+    { name: METIERS_MER_AXE3_TITLE, description: '', levels: axe3LevelBadges }
+  ];
+  return [
+    { title: METIERS_MER_AXE1_TITLE, imageUrl: METIERS_MER_AXE1_IMAGE, groups: axe1Groups },
+    { title: METIERS_MER_AXE2_TITLE, imageUrl: METIERS_MER_AXE2_IMAGE, groups: axe2Groups },
+    { title: METIERS_MER_AXE3_TITLE, imageUrl: METIERS_MER_AXE3_IMAGE, groups: axe3Groups }
+  ];
+}
+
+function getStaticBadgesByAxis(): AxisSection[] {
   const allBadges = buildStaticBadgesCompetencesOrienterCollege();
   const axe1Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
   const axe2Groups: { name: string; description: string; levels: BadgeAPI[] }[] = [];
@@ -831,6 +1026,12 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       setIsLoading(false);
       return;
     }
+    if (selectedSeriesDbName === METIERS_DE_LA_MER_SERIES) {
+      setBadges(buildStaticBadgesMetiersMer());
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
     const fetchBadges = async () => {
       setIsLoading(true);
       setError(null);
@@ -857,9 +1058,16 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
   // Parcours detail → Badge list (for a series)
   const handleExplorerSeries = (series: SeriesEntry) => {
     if (series.comingSoon) return;
-    if (series.staticSeriesId) {
+    if (series.staticSeriesId === 'competences_orienter_college') {
       setSelectedSeries(series);
       setSelectedSeriesDbName(COMPETENCES_ORIENTER_COLLEGE_SERIES);
+      setBadgeFilter('all');
+      setView('badge-list');
+      return;
+    }
+    if (series.staticSeriesId === 'metiers_mer') {
+      setSelectedSeries(series);
+      setSelectedSeriesDbName(METIERS_DE_LA_MER_SERIES);
       setBadgeFilter('all');
       setView('badge-list');
       return;
@@ -889,6 +1097,12 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
   // Representative image for a series (for parcours-detail list)
   const getSeriesIconUrl = (series: SeriesEntry): string | undefined => {
     if (series.comingSoon) return undefined;
+    if (series.staticSeriesId === 'metiers_mer') {
+      const rep = SERIES_REPRESENTATIVE_BADGE[METIERS_DE_LA_MER_SERIES];
+      if (!rep) return undefined;
+      const levelKey = rep.level.includes('level_') ? rep.level : `level_${rep.level}`;
+      return getLocalBadgeImage(rep.name, levelKey, METIERS_DE_LA_MER_SERIES);
+    }
     if (series.staticSeriesId === 'competences_orienter_college') {
       const rep = SERIES_REPRESENTATIVE_BADGE[COMPETENCES_ORIENTER_COLLEGE_SERIES];
       if (!rep) return undefined;
@@ -923,6 +1137,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     levels: BadgeAPI[];
   }
   const badgesByName = useMemo(() => {
+    if (selectedSeriesDbName === METIERS_DE_LA_MER_SERIES) return [];
     if (selectedSeriesDbName === COMPETENCES_ORIENTER_COLLEGE_SERIES) {
       return getStaticBadgesByAxis()[0]?.groups ?? [];
     }
@@ -965,9 +1180,10 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     return groups;
   }, [filteredBadges, selectedSeriesDbName]);
 
-  // For static series (Compétences à s'orienter): render by axes (section title + groups)
+  // For static series with axes: Compétences à s'orienter - Collège, Métiers de la mer
   const contentAxes = useMemo(() => {
     if (selectedSeriesDbName === COMPETENCES_ORIENTER_COLLEGE_SERIES) return getStaticBadgesByAxis();
+    if (selectedSeriesDbName === METIERS_DE_LA_MER_SERIES) return getStaticAxesMetiersMer();
     return null;
   }, [selectedSeriesDbName]);
 
@@ -982,16 +1198,25 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
     return grouped;
   }, [badges]);
 
-  // Display badge count: for Compétences à s'orienter use total competences (all axes) or 1 when one selected
+  // Display badge count: Compétences à s'orienter = total competences (groups); Métiers de la mer = total badges (sum of group.levels)
   const displayBadgeCount = useMemo(() => {
     if (contentAxes) {
       if (badgeFilter === 'all') {
+        if (selectedSeriesDbName === METIERS_DE_LA_MER_SERIES) {
+          return contentAxes.reduce((sum, ax) => sum + ax.groups.reduce((s, g) => s + g.levels.length, 0), 0);
+        }
         return contentAxes.reduce((sum, ax) => sum + ax.groups.length, 0);
+      }
+      if (selectedSeriesDbName === METIERS_DE_LA_MER_SERIES) {
+        for (const ax of contentAxes) {
+          const g = ax.groups.find((gr) => gr.name === badgeFilter);
+          if (g) return g.levels.length;
+        }
       }
       return 1;
     }
     return badgesByName.length;
-  }, [contentAxes, badgeFilter, badgesByName.length]);
+  }, [contentAxes, badgeFilter, badgesByName.length, selectedSeriesDbName]);
 
   // When filtering to one competence in axes view: find which axis contains it
   const filteredAxisSelection = useMemo(() => {
@@ -1022,12 +1247,16 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               {group.levels.map((levelBadge) => {
                 const imageUrl = getLocalBadgeImage(levelBadge.name, levelBadge.level, levelBadge.series);
                 const levelNum = levelBadge.level?.replace('level_', '') || '1';
-                let levelLabel = getLevelLabel(series, levelNum);
-                if (series === 'Série Parcours des possibles') {
+                let levelLabel: string;
+                if (series === METIERS_DE_LA_MER_SERIES) {
+                  levelLabel = levelBadge.name;
+                } else if (series === 'Série Parcours des possibles') {
                   const suffix = levelBadge.name.replace(/^Étape\s*\d+\s*[:\s]*/i, '').trim() || `Étape ${levelNum}`;
                   levelLabel = `Niveau ${levelNum} - ${suffix}`;
                 } else if (series === 'Série Parcours professionnel' && levelBadge.name.includes(' - ')) {
-                  levelLabel = `${levelLabel} - ${levelBadge.name.split(' - ')[1]}`;
+                  levelLabel = `${getLevelLabel(series, levelNum)} - ${levelBadge.name.split(' - ')[1]}`;
+                } else {
+                  levelLabel = getLevelLabel(series, levelNum);
                 }
                 return (
                   <div key={`${levelBadge.name}-${levelBadge.level}`} className="badge-explorer-level-image-item">
@@ -1245,7 +1474,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
         {selectedSeries?.description && (
           <p className="series-description">{renderDescriptionWithBold(selectedSeries.description)}</p>
         )}
-        {!isLoading && !error && badges.length > 0 && (
+        {!isLoading && !error && (badges.length > 0 || contentAxes) && (
           <div className="badge-explorer-header-row">
             <div className="series-stats">
               <div className="stat-item">
@@ -1267,13 +1496,19 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               >
                 <option value="all">Tous les badges</option>
                 {contentAxes ? (
-                  contentAxes.map((axis, idx) => (
-                    <optgroup key={idx} label={axis.title}>
-                      {axis.groups.map((g) => (
-                        <option key={g.name} value={g.name}>{g.name}</option>
-                      ))}
-                    </optgroup>
-                  ))
+                  selectedSeriesDbName === METIERS_DE_LA_MER_SERIES ? (
+                    contentAxes.map((axis) => (
+                      <option key={axis.title} value={axis.title}>{axis.title}</option>
+                    ))
+                  ) : (
+                    contentAxes.map((axis, idx) => (
+                      <optgroup key={idx} label={axis.title}>
+                        {axis.groups.map((g) => (
+                          <option key={g.name} value={g.name}>{g.name}</option>
+                        ))}
+                      </optgroup>
+                    ))
+                  )
                 ) : (
                   badgesByName.map((g) => (
                     <option key={g.name} value={g.name}>{g.name}</option>
@@ -1295,27 +1530,27 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           <div className="error-container">
             <p className="error-text">{error}</p>
           </div>
-        ) : badgesByName.length === 0 ? (
-          <div className="empty-level-message">
-            <p>Aucun badge disponible pour cette série</p>
-          </div>
         ) : contentAxes ? (
           <div className="badge-explorer-by-title-list">
             {filteredAxisSelection ? (
               (() => {
                 const { axisIndex, axis, group } = filteredAxisSelection;
                 const contentId = `badge-explorer-axis-content-${axisIndex}`;
+                const axisCountLabel = selectedSeriesDbName === METIERS_DE_LA_MER_SERIES
+                  ? `${group.levels.length} badge${group.levels.length !== 1 ? 's' : ''}`
+                  : '1 compétence';
                 return (
                   <section key={axisIndex} className="badge-explorer-axis-section">
                     <button
                       type="button"
-                      className="badge-explorer-axis-header"
+                      className={`badge-explorer-axis-header ${axis.imageUrl ? 'badge-explorer-axis-header-with-img' : ''}`}
                       onClick={() => toggleAxis(axisIndex)}
                       aria-expanded={true}
                       aria-controls={contentId}
                     >
+                      {axis.imageUrl && <img src={axis.imageUrl} alt="" className="badge-explorer-axis-header-img" />}
                       <span className="badge-explorer-axis-title">{axis.title}</span>
-                      <span className="badge-explorer-axis-count">1 compétence</span>
+                      <span className="badge-explorer-axis-count">{axisCountLabel}</span>
                       <i className="fas fa-chevron-down" aria-hidden />
                     </button>
                     <div id={contentId} className="badge-explorer-axis-content" aria-hidden={false}>
@@ -1328,19 +1563,24 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               contentAxes.map((axis, idx) => {
                 const isExpanded = expandedAxes.has(idx);
                 const contentId = `badge-explorer-axis-content-${idx}`;
+                const axisBadgeCount = selectedSeriesDbName === METIERS_DE_LA_MER_SERIES
+                  ? axis.groups.reduce((sum, g) => sum + g.levels.length, 0)
+                  : axis.groups.length;
+                const axisCountLabel = selectedSeriesDbName === METIERS_DE_LA_MER_SERIES
+                  ? `${axisBadgeCount} badge${axisBadgeCount !== 1 ? 's' : ''}`
+                  : `${axisBadgeCount} compétence${axisBadgeCount !== 1 ? 's' : ''}`;
                 return (
                   <section key={idx} className="badge-explorer-axis-section">
                     <button
                       type="button"
-                      className="badge-explorer-axis-header"
+                      className={`badge-explorer-axis-header ${axis.imageUrl ? 'badge-explorer-axis-header-with-img' : ''}`}
                       onClick={() => toggleAxis(idx)}
                       aria-expanded={isExpanded}
                       aria-controls={contentId}
                     >
+                      {axis.imageUrl && <img src={axis.imageUrl} alt="" className="badge-explorer-axis-header-img" />}
                       <span className="badge-explorer-axis-title">{axis.title}</span>
-                      <span className="badge-explorer-axis-count">
-                        {axis.groups.length} compétence{axis.groups.length !== 1 ? 's' : ''}
-                      </span>
+                      <span className="badge-explorer-axis-count">{axisCountLabel}</span>
                       <i
                         className={`fas ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'}`}
                         aria-hidden
@@ -1357,6 +1597,10 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                 );
               })
             )}
+          </div>
+        ) : badgesByName.length === 0 ? (
+          <div className="empty-level-message">
+            <p>Aucun badge disponible pour cette série</p>
           </div>
         ) : (
           <div className="badge-explorer-by-title-list">
