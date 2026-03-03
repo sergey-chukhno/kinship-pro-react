@@ -63,7 +63,7 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
       case '2':
         return 'Niveau 2 - Appropriation';
       case '3':
-        return 'Niveau 3- Application';
+        return 'Niveau 3 - Application';
       case '4':
         return 'Niveau 4 - Autonomie';
       default:
