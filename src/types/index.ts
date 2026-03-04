@@ -202,6 +202,13 @@ export interface EventParticipant {
   received_badge_ids?: string[];
 }
 
+/** Creator info returned by API for events */
+export interface EventCreator {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -216,7 +223,7 @@ export interface Event {
   badges?: string[]; // Array of badge IDs
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   projectId: string;
-  createdBy: string;
+  createdBy?: string | EventCreator | null;
   createdAt: string;
   documents?: any[];
 }

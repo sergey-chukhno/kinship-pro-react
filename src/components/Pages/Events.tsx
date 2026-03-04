@@ -66,7 +66,7 @@ const Events: React.FC = () => {
       image: apiEvent.image || '',
       status: apiEvent.status as Event['status'],
       projectId: '',
-      createdBy: (apiEvent.createdBy ?? '').toString(),
+      createdBy: apiEvent.createdBy ?? undefined,
       createdAt: apiEvent.created_at,
       documents: apiEvent.documents || [],
     };
@@ -439,7 +439,10 @@ const Events: React.FC = () => {
               ) : (
                 filteredEvents.map((event) => {
                   const currentUserId = state.user?.id == null ? '' : String(state.user.id);
-                  const isEventCreator = Boolean(currentUserId && event.createdBy && currentUserId === String(event.createdBy));
+                  const creatorId = typeof event.createdBy === 'object' && event.createdBy !== null && 'id' in event.createdBy
+                    ? event.createdBy.id
+                    : (event.createdBy ?? '');
+                  const isEventCreator = Boolean(currentUserId && creatorId && currentUserId === creatorId);
                   return (
                     <EventCard
                       key={event.id}
@@ -470,7 +473,10 @@ const Events: React.FC = () => {
           <div className="events-overlay-content">
             {filteredEvents.slice(0, 5).map((event) => {
               const currentUserId = state.user?.id == null ? '' : String(state.user.id);
-              const isEventCreator = Boolean(currentUserId && event.createdBy && currentUserId === String(event.createdBy));
+              const creatorId = typeof event.createdBy === 'object' && event.createdBy !== null && 'id' in event.createdBy
+                ? event.createdBy.id
+                : (event.createdBy ?? '');
+              const isEventCreator = Boolean(currentUserId && creatorId && currentUserId === creatorId);
               return (
               <div key={event.id} className="notification-card">
                 <div className="notification-icon">

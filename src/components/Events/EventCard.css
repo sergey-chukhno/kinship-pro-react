@@ -125,6 +125,16 @@
   color: var(--primary, #5570F1);
 }
 
+.event-creator {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.event-creator-label {
+  font-weight: 500;
+  margin-right: 4px;
+}
+
 .event-participants {
   display: flex;
   flex-direction: column;
