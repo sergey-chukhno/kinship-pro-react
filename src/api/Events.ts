@@ -34,6 +34,12 @@ export interface EventParticipantResponse {
   received_badge_ids?: string[];
 }
 
+export interface EventCreatorResponse {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
+
 export interface EventResponse {
   id: number;
   title: string;
@@ -48,7 +54,7 @@ export interface EventResponse {
   participants?: EventParticipantResponse[];
   image?: string;
   created_at: string;
-  createdBy?: string;
+  createdBy?: string | EventCreatorResponse | null;
   updated_at: string;
   documents?: any[];
 }

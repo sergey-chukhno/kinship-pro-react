@@ -45,7 +45,10 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
   const eventDocuments = (event as any).documents || [];
   const eventHasBadges = Boolean(event.badges && event.badges.length > 0);
   const currentUserId = state.user?.id == null ? '' : String(state.user.id);
-  const isEventCreator = Boolean(currentUserId && event.createdBy && currentUserId === String(event.createdBy));
+  const creatorId = typeof event.createdBy === 'object' && event.createdBy !== null && 'id' in event.createdBy
+    ? event.createdBy.id
+    : (event.createdBy ?? '');
+  const isEventCreator = Boolean(currentUserId && creatorId && currentUserId === creatorId);
   
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
