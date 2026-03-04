@@ -85,8 +85,15 @@ const COMPETENCES_ORIENTER_AXES: BadgeAxe[] = [
 /** Series that use axes in the assignment modal (Axe dropdown) */
 export const SERIES_WITH_AXES = [METIERS_DE_LA_MER_SERIES, COMPETENCES_ORIENTER_COLLEGE_SERIES] as const;
 
+/** Series that use competence-progress UI in Ma Cartographie (greyed image, progress bar, legend) */
+export const SERIES_WITH_COMPETENCE_PROGRESS = [COMPETENCES_ORIENTER_COLLEGE_SERIES, METIERS_DE_LA_MER_SERIES] as const;
+
 export function isSeriesWithAxes(seriesName: string): boolean {
   return SERIES_WITH_AXES.includes(seriesName as typeof SERIES_WITH_AXES[number]);
+}
+
+export function isSeriesWithCompetenceProgress(seriesName: string): boolean {
+  return (SERIES_WITH_COMPETENCE_PROGRESS as readonly string[]).includes(seriesName);
 }
 
 /**

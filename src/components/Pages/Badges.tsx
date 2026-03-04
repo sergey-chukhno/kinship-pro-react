@@ -19,7 +19,7 @@ import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
-import { COMPETENCES_ORIENTER_COLLEGE_SERIES } from '../../constants/badgeAxes';
+import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 import './Analytics.css';
 import './Badges.css';
 
@@ -107,8 +107,8 @@ const Badges: React.FC = () => {
         let payload = Array.isArray(response.data) ? response.data : [];
         const totalPagesFromApi = response.meta?.total_pages || 1;
         const totalCountFromApi = response.meta?.total_count || payload.length;
-        // For Compétences à s'orienter - Collège, load all pages so progress (received competencies) is complete
-        if (selectedSeries === COMPETENCES_ORIENTER_COLLEGE_SERIES && totalPagesFromApi > 1) {
+        // For series with competence progress (Compétences à s'orienter, Métiers de la mer), load all pages so progress is complete
+        if (isSeriesWithCompetenceProgress(selectedSeries) && totalPagesFromApi > 1) {
           for (let p = 2; p <= totalPagesFromApi; p++) {
             const nextResp = await getUserBadges(p, perPage, filters);
             const nextData = Array.isArray(nextResp.data) ? nextResp.data : [];
@@ -378,9 +378,9 @@ const Badges: React.FC = () => {
 
   const sections = getSections(selectedSeries || 'Série TouKouLeur');
 
-  // For personal user + Compétences à s'orienter: aggregate by (name, level), full vs received competencies
+  // For personal user + series with competence progress: aggregate by (name, level), full vs received competencies
   const competencesOrienterProgressByLevel = useMemo(() => {
-    if (state.showingPageType !== 'user' || selectedSeries !== COMPETENCES_ORIENTER_COLLEGE_SERIES || rawBadgeData.length === 0) {
+    if (state.showingPageType !== 'user' || !isSeriesWithCompetenceProgress(selectedSeries) || rawBadgeData.length === 0) {
       return {} as Record<string, Array<{ badge: Badge; badgeId?: string; fullExpertiseNames: string[]; receivedExpertiseNames: string[] }>>;
     }
     const groupKey = (item: any) => `${item?.badge?.name ?? ''}|${item?.badge?.level ?? ''}`;
@@ -642,8 +642,8 @@ const Badges: React.FC = () => {
                       <h4>Aucun badge trouvé</h4>
                       <p>Les badges attribués apparaîtront ici.</p>
                     </div>
-                  ) : state.showingPageType === 'user' && selectedSeries === COMPETENCES_ORIENTER_COLLEGE_SERIES ? (
-                    /* Compétences à s'orienter - Collège: progress card (greyed image, segmented bar, legend) */
+                  ) : state.showingPageType === 'user' && isSeriesWithCompetenceProgress(selectedSeries) ? (
+                    /* Progress card (greyed image, segmented bar, legend) for Compétences à s'orienter & Métiers de la mer */
                     sections.map((section) => {
                       const rawSectionItems = competencesOrienterProgressByLevel[section.key] || [];
                       const sectionItems = rawSectionItems.filter((item) => {
