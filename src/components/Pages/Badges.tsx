@@ -52,6 +52,10 @@ const Badges: React.FC = () => {
   const [loadingSeriesStats, setLoadingSeriesStats] = useState(false);
   const [loadingProjectsUser, setLoadingProjectsUser] = useState(false);
 
+  // Cartography (org view): series options from API for dynamic dropdown
+  const [cartographySeriesOptions, setCartographySeriesOptions] = useState<string[]>([]);
+  const [loadingCartographySeries, setLoadingCartographySeries] = useState(false);
+
   // API data states
   const [badges, setBadges] = useState<Badge[]>([]);
   const [isLoadingBadges, setIsLoadingBadges] = useState(false);
@@ -158,6 +162,31 @@ const Badges: React.FC = () => {
     setCurrentPage(1);
     fetchBadges(1);
   }, [fetchBadges]);
+
+  // Cartography (edu/pro/teacher): fetch available series from API for dynamic dropdown
+  useEffect(() => {
+    if (state.showingPageType !== 'edu' && state.showingPageType !== 'pro' && state.showingPageType !== 'teacher') return;
+    const fetchSeries = async () => {
+      setLoadingCartographySeries(true);
+      try {
+        const list = await getBadges();
+        const seriesSet = new Set<string>();
+        (Array.isArray(list) ? list : []).forEach((b: any) => { if (b.series) seriesSet.add(b.series); });
+        const sorted = Array.from(seriesSet).sort((a, b) => a.localeCompare(b));
+        setCartographySeriesOptions(sorted);
+        setSelectedSeries((prev) => {
+          if (sorted.length === 0) return prev;
+          if (sorted.includes(prev)) return prev;
+          return sorted.includes('Série TouKouLeur') ? 'Série TouKouLeur' : sorted[0];
+        });
+      } catch (e) {
+        console.error('Error fetching cartography series options', e);
+      } finally {
+        setLoadingCartographySeries(false);
+      }
+    };
+    fetchSeries();
+  }, [state.showingPageType]);
 
   // Mes statistiques (personal user): fetch badge series options
   useEffect(() => {
@@ -506,11 +535,28 @@ const Badges: React.FC = () => {
                       value={selectedSeries}
                       onChange={(e) => setSelectedSeries(e.target.value)}
                       className="filter-select big-select"
+                      disabled={state.showingPageType !== 'user' && loadingCartographySeries}
                     >
-                      <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
-                      <option value="Série Parcours des possibles">Série Parcours des possibles</option>
-                      <option value="Série Audiovisuelle">Série Audiovisuelle</option>
-                      <option value="Série Parcours professionnel">Série Parcours professionnel</option>
+                      {state.showingPageType === 'user' && badgeSeriesOptionsStats.length === 0 && (
+                        <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
+                      )}
+                      {state.showingPageType === 'user' && badgeSeriesOptionsStats.map((s) => (
+                        <option key={s} value={s}>{displaySeries(s)}</option>
+                      ))}
+                      {state.showingPageType !== 'user' && loadingCartographySeries && (
+                        <option value={selectedSeries}>Chargement…</option>
+                      )}
+                      {state.showingPageType !== 'user' && !loadingCartographySeries && cartographySeriesOptions.length === 0 && (
+                        <>
+                          <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
+                          <option value="Série Parcours des possibles">Série Parcours des possibles</option>
+                          <option value="Série Audiovisuelle">Série Audiovisuelle</option>
+                          <option value="Série Parcours professionnel">Série Parcours professionnel</option>
+                        </>
+                      )}
+                      {state.showingPageType !== 'user' && !loadingCartographySeries && cartographySeriesOptions.length > 0 && cartographySeriesOptions.map((s) => (
+                        <option key={s} value={s}>{displaySeries(s)}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="filter-group">
