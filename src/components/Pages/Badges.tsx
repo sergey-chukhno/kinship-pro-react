@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { mockMembers } from '../../data/mockData';
 import { Badge } from '../../types';
 import BadgeCard from '../Badges/BadgeCard';
+import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
 import BadgeModal from '../Modals/BadgeModal';
 import BadgeAnalyticsModal from '../Modals/BadgeAnalyticsModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
@@ -18,6 +19,7 @@ import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
+import { COMPETENCES_ORIENTER_COLLEGE_SERIES } from '../../constants/badgeAxes';
 import './Analytics.css';
 import './Badges.css';
 
@@ -98,18 +100,29 @@ const Badges: React.FC = () => {
         if (selectedSeries) {
           filters.series = selectedSeries; // Use exact database series name
         }
-        
         if (selectedLevel) {
           filters.level = selectedLevel.replace('Niveau ', 'level_');
         }
-        
         response = await getUserBadges(page, perPage, filters);
-        const payload = Array.isArray(response.data) ? response.data : [];
-        setRawBadgeData(payload); // Store raw for PDF export (same as orgs)
+        let payload = Array.isArray(response.data) ? response.data : [];
+        const totalPagesFromApi = response.meta?.total_pages || 1;
+        const totalCountFromApi = response.meta?.total_count || payload.length;
+        // For Compétences à s'orienter - Collège, load all pages so progress (received competencies) is complete
+        if (selectedSeries === COMPETENCES_ORIENTER_COLLEGE_SERIES && totalPagesFromApi > 1) {
+          for (let p = 2; p <= totalPagesFromApi; p++) {
+            const nextResp = await getUserBadges(p, perPage, filters);
+            const nextData = Array.isArray(nextResp.data) ? nextResp.data : [];
+            payload = payload.concat(nextData);
+          }
+          setTotalPages(1);
+          setTotalBadges(payload.length);
+        } else {
+          setTotalPages(totalPagesFromApi);
+          setTotalBadges(totalCountFromApi);
+        }
+        setRawBadgeData(payload);
         const mapped = payload.map(mapBackendUserBadgeToBadge);
         setBadges(mapped);
-        setTotalPages(response.meta?.total_pages || 1);
-        setTotalBadges(response.meta?.total_count || 0);
       } else if (state.showingPageType === 'edu' && organizationId) {
         // School: fetch assigned badges
         response = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries || undefined);
@@ -365,6 +378,43 @@ const Badges: React.FC = () => {
 
   const sections = getSections(selectedSeries || 'Série TouKouLeur');
 
+  // For personal user + Compétences à s'orienter: aggregate by (name, level), full vs received competencies
+  const competencesOrienterProgressByLevel = useMemo(() => {
+    if (state.showingPageType !== 'user' || selectedSeries !== COMPETENCES_ORIENTER_COLLEGE_SERIES || rawBadgeData.length === 0) {
+      return {} as Record<string, Array<{ badge: Badge; badgeId?: string; fullExpertiseNames: string[]; receivedExpertiseNames: string[] }>>;
+    }
+    const groupKey = (item: any) => `${item?.badge?.name ?? ''}|${item?.badge?.level ?? ''}`;
+    const groups = new Map<string, any[]>();
+    rawBadgeData.forEach((item: any) => {
+      const key = groupKey(item);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    });
+    const list: Array<{ badge: Badge; badgeId?: string; fullExpertiseNames: string[]; receivedExpertiseNames: string[] }> = [];
+    groups.forEach((groupItems) => {
+      const first = groupItems[0];
+      const expertises = first?.badge?.expertises ?? [];
+      const fullExpertiseNames = expertises.map((e: any) => (typeof e === 'string' ? e : e?.name ?? '')).filter(Boolean);
+      const receivedSet = new Set<string>();
+      groupItems.forEach((ub: any) => {
+        (ub.skills_indicated || []).forEach((s: string) => {
+          if (fullExpertiseNames.includes(s)) receivedSet.add(s);
+        });
+      });
+      const receivedExpertiseNames = Array.from(receivedSet);
+      const badge = mapBackendUserBadgeToBadge(first);
+      const badgeId = first?.badge?.id?.toString();
+      list.push({ badge, badgeId, fullExpertiseNames, receivedExpertiseNames });
+    });
+    const byLevel: Record<string, typeof list> = {};
+    list.forEach((item) => {
+      const levelKey = item.badge.level;
+      if (!byLevel[levelKey]) byLevel[levelKey] = [];
+      byLevel[levelKey].push(item);
+    });
+    return byLevel;
+  }, [state.showingPageType, selectedSeries, rawBadgeData]);
+
   // Mes statistiques: Compétences par niveau (same logic as Analytics)
   const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
   const LEVEL_LABELS_STATS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
@@ -592,11 +642,50 @@ const Badges: React.FC = () => {
                       <h4>Aucun badge trouvé</h4>
                       <p>Les badges attribués apparaîtront ici.</p>
                     </div>
+                  ) : state.showingPageType === 'user' && selectedSeries === COMPETENCES_ORIENTER_COLLEGE_SERIES ? (
+                    /* Compétences à s'orienter - Collège: progress card (greyed image, segmented bar, legend) */
+                    sections.map((section) => {
+                      const rawSectionItems = competencesOrienterProgressByLevel[section.key] || [];
+                      const sectionItems = rawSectionItems.filter((item) => {
+                        const matchesSearch = !searchTerm || item.badge.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.badge.description.toLowerCase().includes(searchTerm.toLowerCase());
+                        const matchesLevel = !selectedLevel || item.badge.level.includes(selectedLevel);
+                        return matchesSearch && matchesLevel;
+                      });
+                      if (sectionItems.length === 0) return null;
+                      return (
+                        <div key={section.key} className="level-divider">
+                          <div className="level-header">
+                            <div className="level-title" style={{ color: section.color }}>
+                              {section.icon ? (
+                                <img src={section.icon} alt={section.label} className="domain-icon" />
+                              ) : (
+                                <div className="level-color-square" style={{ backgroundColor: section.color }}></div>
+                              )}
+                              <span>{section.label}</span>
+                            </div>
+                            <div className="bg-red-500 level-count">
+                              {sectionItems.length} badge{sectionItems.length > 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          <div className="badges-grid">
+                            {sectionItems.map((item) => (
+                              <CompetencesOrienterProgressCard
+                                key={`${item.badge.name}|${item.badge.level}`}
+                                badge={item.badge}
+                                fullExpertiseNames={item.fullExpertiseNames}
+                                receivedExpertiseNames={item.receivedExpertiseNames}
+                                badgeId={item.badgeId}
+                                onClick={() => handleBadgeClick(item.badge)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })
                   ) : (
                     sections.map((section) => {
                       const sectionBadges = badgesByLevel[section.key] || [];
                       if (sectionBadges.length === 0) return null;
-                      
                       return (
                         <div key={section.key} className="level-divider">
                           <div className="level-header">
@@ -612,13 +701,10 @@ const Badges: React.FC = () => {
                               {sectionBadges.length} badge{sectionBadges.length > 1 ? 's' : ''}
                             </div>
                           </div>
-                          
                           <div className="badges-grid">
                             {sectionBadges.map((badge) => {
-                              // Get attribution count for this badge (name + level)
                               const badgeKey = `${badge.name}|${badge.level}`;
                               const attributionCount = badgeAttributionCounts[badgeKey] || 0;
-                              
                               return (
                                 <BadgeCard
                                   key={badge.id}
