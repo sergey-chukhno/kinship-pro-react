@@ -1209,16 +1209,16 @@ const Projects: React.FC = () => {
           <h2>{(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Rechercher une idée de projet sur Kinship' : 'Gestion des projets'}</h2>
         </div>
         <div className="projects-actions">
-          {!isMinorPersonalUser && (
+          {state.showingPageType !== 'user' && !isMinorPersonalUser && (
             <div className="dropdown" style={{ position: 'relative' }}>
               <button className="btn btn-outline" disabled title="Disponible très bientôt" onClick={handleExportProjects}>
                 <i className="fas fa-download"></i> Exporter
               </button>
             </div>
           )}
-          {!isMinorPersonalUser && (
+          {state.showingPageType !== 'user' && !isMinorPersonalUser && (
           <div className="dropdown" style={{ position: 'relative' }}>
-            {(state.showingPageType === 'pro' || state.showingPageType === 'user') ? (
+            {state.showingPageType === 'pro' ? (
               <button
                 className="btn btn-primary"
                 onClick={handleCreateProject}
