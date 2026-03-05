@@ -1828,6 +1828,104 @@
   border-color: #9ca3af;
 }
 
+/* Badges view toggle (Cartes / Liste) */
+.badges-section .view-toggle.badges-view-toggle {
+  display: flex;
+  background: var(--bg-primary, #f8fafc);
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 16px;
+  width: 220px;
+  gap: 8px;
+}
+
+.badges-section .view-toggle.badges-view-toggle .view-btn {
+  flex: 1;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.badges-section .view-toggle.badges-view-toggle .view-btn.active {
+  background: var(--primary, #5570F1);
+  color: white;
+  font-weight: 600;
+}
+
+.badges-section .view-toggle.badges-view-toggle .view-btn:hover:not(.active) {
+  background: var(--border, #e5e7eb);
+  color: var(--text-primary, #374151);
+}
+
+/* Badges list view table */
+.badges-table-scroll {
+  grid-column: 1 / -1;
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.badges-attribution-table {
+  width: 100%;
+  min-width: 800px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.badges-attribution-table th,
+.badges-attribution-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  white-space: nowrap;
+}
+
+.badges-attribution-table th {
+  background: var(--bg-primary, #f8fafc);
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+}
+
+.badges-attribution-table tbody tr:hover {
+  background: var(--bg-primary, #f8fafc);
+}
+
+.badges-attribution-table .badge-list-icon {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
+}
+
+.badges-attribution-table .badge-list-comment {
+  white-space: normal;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.badges-attribution-table .badge-list-preuve-link {
+  color: var(--primary, #5570F1);
+  text-decoration: none;
+}
+
+.badges-attribution-table .badge-list-preuve-link:hover {
+  text-decoration: underline;
+}
+
 /* Teams Section Styles */
 .teams-section {
   padding: 24px 0;

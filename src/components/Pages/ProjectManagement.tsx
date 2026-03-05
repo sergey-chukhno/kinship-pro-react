@@ -266,6 +266,7 @@ const ProjectManagement: React.FC = () => {
   const [badgePage, setBadgePage] = useState(1);
   const [badgeTotalPages, setBadgeTotalPages] = useState(1);
   const [badgeTotalCount, setBadgeTotalCount] = useState(0);
+  const [badgeViewMode, setBadgeViewMode] = useState<'cards' | 'list'>('cards');
 
   // Project documents (admin only)
   const [projectDocuments, setProjectDocuments] = useState<any[]>([]);
@@ -4175,8 +4176,24 @@ const ProjectManagement: React.FC = () => {
                   />
                 </div>
               </div>
+              <div className="view-toggle badges-view-toggle">
+                <button
+                  type="button"
+                  className={`view-btn ${badgeViewMode === 'cards' ? 'active' : ''}`}
+                  onClick={() => setBadgeViewMode('cards')}
+                >
+                  <i className="fas fa-th-large"></i> Cartes
+                </button>
+                <button
+                  type="button"
+                  className={`view-btn ${badgeViewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setBadgeViewMode('list')}
+                >
+                  <i className="fas fa-list"></i> Liste
+                </button>
+              </div>
               <div className="badges-list">
-                {projectBadges.map((attribution) => (
+                {badgeViewMode === 'cards' && projectBadges.map((attribution) => (
                   <div key={attribution.id} className="badge-attribution-card">
                     <div className="badge-attribution-header">
                       <div className="badge-image">
@@ -4293,6 +4310,63 @@ const ProjectManagement: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                {badgeViewMode === 'list' && projectBadges.length > 0 && (
+                  <div className="badges-table-scroll">
+                    <table className="badges-attribution-table">
+                      <thead>
+                        <tr>
+                          <th>Badge</th>
+                          <th>Titre</th>
+                          <th>Série</th>
+                          <th>Niveau</th>
+                          <th>Attribué à</th>
+                          <th>Attribué par</th>
+                          <th>Preuve</th>
+                          <th>Commentaire</th>
+                          <th>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {projectBadges.map((attribution) => {
+                          const firstPreuve = attribution.preuveFiles?.length
+                            ? attribution.preuveFiles[0]
+                            : attribution.preuve;
+                          const preuveUrl = firstPreuve?.url;
+                          const preuveLabel = firstPreuve?.name || (attribution.preuveFiles?.length ? `${attribution.preuveFiles.length} document(s)` : 'Document');
+                          return (
+                            <tr key={attribution.id}>
+                              <td>
+                                <img src={attribution.badgeImage} alt={attribution.badgeTitle} className="badge-list-icon" />
+                              </td>
+                              <td>{attribution.badgeTitle}</td>
+                              <td>{attribution.badgeSeries || '—'}</td>
+                              <td>
+                                {attribution.badgeSeries === 'Série CPS'
+                                  ? (attribution.domaineEngagement || '—')
+                                  : `Niveau ${attribution.badgeLevel || '1'}`}
+                              </td>
+                              <td>{attribution.participantName || '—'}</td>
+                              <td>{attribution.attributedByName || '—'}</td>
+                              <td>
+                                {preuveUrl ? (
+                                  <a href={preuveUrl} target="_blank" rel="noopener noreferrer" className="badge-list-preuve-link">
+                                    {preuveLabel}
+                                  </a>
+                                ) : (
+                                  attribution.preuveFiles?.length || attribution.preuve ? preuveLabel : '—'
+                                )}
+                              </td>
+                              <td title={attribution.commentaire || ''} className="badge-list-comment">
+                                {attribution.commentaire ? (attribution.commentaire.length > 60 ? `${attribution.commentaire.slice(0, 60)}…` : attribution.commentaire) : '—'}
+                              </td>
+                              <td>{formatDate(attribution.dateAttribution)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 {!isLoadingProjectBadges && projectBadges.length === 0 && (
                   <div className="empty-state">
                     <div className="empty-icon">
@@ -5012,8 +5086,25 @@ const ProjectManagement: React.FC = () => {
                     </div>
                   </div>
 
+                  <div className="view-toggle badges-view-toggle">
+                    <button
+                      type="button"
+                      className={`view-btn ${badgeViewMode === 'cards' ? 'active' : ''}`}
+                      onClick={() => setBadgeViewMode('cards')}
+                    >
+                      <i className="fas fa-th-large"></i> Cartes
+                    </button>
+                    <button
+                      type="button"
+                      className={`view-btn ${badgeViewMode === 'list' ? 'active' : ''}`}
+                      onClick={() => setBadgeViewMode('list')}
+                    >
+                      <i className="fas fa-list"></i> Liste
+                    </button>
+                  </div>
+
                   <div className="badges-list">
-                    {projectBadges.map((attribution) => (
+                    {badgeViewMode === 'cards' && projectBadges.map((attribution) => (
                       <div key={attribution.id} className="badge-attribution-card">
                         <div className="badge-attribution-header">
                           <div className="badge-image">
@@ -5144,6 +5235,64 @@ const ProjectManagement: React.FC = () => {
                         </div>
                       </div>
                     ))}
+
+                    {badgeViewMode === 'list' && projectBadges.length > 0 && (
+                      <div className="badges-table-scroll">
+                        <table className="badges-attribution-table">
+                          <thead>
+                            <tr>
+                              <th>Badge</th>
+                              <th>Titre</th>
+                              <th>Série</th>
+                              <th>Niveau</th>
+                              <th>Attribué à</th>
+                              <th>Attribué par</th>
+                              <th>Preuve</th>
+                              <th>Commentaire</th>
+                              <th>Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {projectBadges.map((attribution) => {
+                              const firstPreuve = attribution.preuveFiles?.length
+                                ? attribution.preuveFiles[0]
+                                : attribution.preuve;
+                              const preuveUrl = firstPreuve?.url;
+                              const preuveLabel = firstPreuve?.name || (attribution.preuveFiles?.length ? `${attribution.preuveFiles.length} document(s)` : 'Document');
+                              return (
+                                <tr key={attribution.id}>
+                                  <td>
+                                    <img src={attribution.badgeImage} alt={attribution.badgeTitle} className="badge-list-icon" />
+                                  </td>
+                                  <td>{attribution.badgeTitle}</td>
+                                  <td>{attribution.badgeSeries || '—'}</td>
+                                  <td>
+                                    {attribution.badgeSeries === 'Série CPS'
+                                      ? (attribution.domaineEngagement || '—')
+                                      : `Niveau ${attribution.badgeLevel || '1'}`}
+                                  </td>
+                                  <td>{attribution.participantName || '—'}</td>
+                                  <td>{attribution.attributedByName || '—'}</td>
+                                  <td>
+                                    {preuveUrl ? (
+                                      <a href={preuveUrl} target="_blank" rel="noopener noreferrer" className="badge-list-preuve-link">
+                                        {preuveLabel}
+                                      </a>
+                                    ) : (
+                                      attribution.preuveFiles?.length || attribution.preuve ? preuveLabel : '—'
+                                    )}
+                                  </td>
+                                  <td title={attribution.commentaire || ''} className="badge-list-comment">
+                                    {attribution.commentaire ? (attribution.commentaire.length > 60 ? `${attribution.commentaire.slice(0, 60)}…` : attribution.commentaire) : '—'}
+                                  </td>
+                                  <td>{formatDate(attribution.dateAttribution)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
 
                     {!isLoadingProjectBadges && projectBadges.length === 0 && (
                       <div className="empty-state">
