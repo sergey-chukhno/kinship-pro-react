@@ -9,6 +9,9 @@ import AvatarImage from '../UI/AvatarImage';
 import { translateRoles, translateRole, normalizeRoleKey } from '../../utils/roleTranslations';
 import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import CompactProgressBadge from '../Badges/CompactProgressBadge';
+import MemberCardBadgeProgressModal from './MemberCardBadgeProgressModal';
+import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 
 interface MemberModalProps {
   member: Member;
@@ -130,6 +133,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
     badges: hasRoleLabel('Admin') || hasRoleLabel('Référent') || hasRoleLabel('Intervenant'),
     events: hasRoleLabel('Admin') || hasRoleLabel('Référent')
   });
+  const [progressModalBadge, setProgressModalBadge] = useState<{
+    badge: { name: string; level: string; series: string; image_url?: string | null };
+    fullExpertiseNames: string[];
+    receivedExpertiseNames: string[];
+  } | null>(null);
   const [proposals, setProposals] = useState({
     canProposeStage: member.canProposeStage || false,
     canProposeAtelier: member.canProposeAtelier || false
@@ -577,25 +585,54 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   {!member.latestBadges || member.latestBadges.length === 0 ? (
                     <p className="w-full text-center no-badges">Aucun badge reçu</p>
                   ) : (
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                      {member.latestBadges.slice(0, 3).map((latestBadge) => {
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                      {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
                         const badge = latestBadge.badge;
                         const badgeLevel = badge.level || 'level_1';
-                        const badgeImage = badge.image_url || 
-                          getLocalBadgeImage(badge.name, badgeLevel, badge.series) || 
+                        const isProgressBadge =
+                          badge?.series &&
+                          isSeriesWithCompetenceProgress(badge.series) &&
+                          Array.isArray(badge.expertises) &&
+                          Array.isArray((latestBadge as any).received_expertise_names);
+
+                        if (isProgressBadge) {
+                          const fullExpertiseNames = badge.expertises!;
+                          const receivedExpertiseNames = (latestBadge as any).received_expertise_names as string[];
+                          return (
+                            <CompactProgressBadge
+                              key={latestBadge.id || `${badge.id}-${badgeLevel}-${index}`}
+                              badge={badge}
+                              fullExpertiseNames={fullExpertiseNames}
+                              receivedExpertiseNames={receivedExpertiseNames}
+                              onClick={() => {
+                                setProgressModalBadge({
+                                  badge,
+                                  fullExpertiseNames,
+                                  receivedExpertiseNames,
+                                });
+                              }}
+                            />
+                          );
+                        }
+
+                        const badgeImage = badge.image_url ||
+                          getLocalBadgeImage(badge.name, badgeLevel, badge.series) ||
                           '/TouKouLeur-Jaune.png';
-                        
                         return (
-                          <img 
-                            key={latestBadge.id || `${badge.id}-${badgeLevel}`}
-                            src={badgeImage} 
+                          <img
+                            key={latestBadge.id || `${badge.id}-${badgeLevel}-${index}`}
+                            src={badgeImage}
                             alt={badge.name}
                             title={`${badge.name} - ${badgeLevel.replace('level_', 'Niveau ')}`}
-                            style={{ 
-                              width: '64px', 
-                              height: '64px', 
+                            style={{
+                              width: '48px',
+                              height: '48px',
                               objectFit: 'contain',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              borderRadius: '8px',
+                              border: '1px solid #e5e7eb',
+                              padding: '4px',
+                              backgroundColor: '#f9fafb',
                             }}
                           />
                         );
@@ -603,6 +640,16 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     </div>
                   )}
                 </div>
+
+                {progressModalBadge && (
+                  <MemberCardBadgeProgressModal
+                    isOpen={!!progressModalBadge}
+                    onClose={() => setProgressModalBadge(null)}
+                    badge={progressModalBadge.badge}
+                    fullExpertiseNames={progressModalBadge.fullExpertiseNames}
+                    receivedExpertiseNames={progressModalBadge.receivedExpertiseNames}
+                  />
+                )}
 
                 {/* Badges reçus section - hidden as not used */}
                 {false && (

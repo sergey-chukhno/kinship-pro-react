@@ -4,9 +4,19 @@ import { getPublicBadgeCartography } from '../../api/BadgeCartography';
 import { Badge } from '../../types';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import BadgeCard from '../Badges/BadgeCard';
+import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
+import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import './PublicBadgeCartography.css';
 import { translateRole } from '../../utils/roleTranslations';
+
+function normalizeLevel(level: string | undefined): string {
+  if (!level) return 'Niveau 1';
+  if (level.startsWith('Niveau')) return level;
+  const num = level.replace('level_', '');
+  return `Niveau ${num || '1'}`;
+}
 
 const PublicBadgeCartography: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -97,6 +107,59 @@ const PublicBadgeCartography: React.FC = () => {
     return grouped;
   }, [badges]);
 
+  // Progress data for Série Compétences à s'orienter & Série Métiers de la mer (same as personal cartography)
+  const progressItemsByLevel = React.useMemo(() => {
+    const progressRaw = rawAttributions.filter(
+      (item: any) => item?.badge?.series && isSeriesWithCompetenceProgress(item.badge.series)
+    );
+    if (progressRaw.length === 0) return {} as Record<string, Array<{ badge: Badge; fullExpertiseNames: string[]; receivedExpertiseNames: string[] }>>;
+    const groupKey = (item: any) => `${item?.badge?.name ?? ''}|${normalizeLevel(item?.badge?.level)}`;
+    const groups = new Map<string, any[]>();
+    progressRaw.forEach((item: any) => {
+      const key = groupKey(item);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    });
+    const list: Array<{ badge: Badge; fullExpertiseNames: string[]; receivedExpertiseNames: string[] }> = [];
+    groups.forEach((groupItems) => {
+      const first = groupItems[0];
+      const expertises = first?.badge?.expertises ?? [];
+      const fullExpertiseNames = expertises.map((e: any) => (typeof e === 'string' ? e : e?.name ?? '')).filter(Boolean);
+      const receivedSet = new Set<string>();
+      groupItems.forEach((ub: any) => {
+        (ub.skills_indicated || []).forEach((s: string) => {
+          if (fullExpertiseNames.includes(s)) receivedSet.add(s);
+        });
+      });
+      const receivedExpertiseNames = Array.from(receivedSet);
+      const badge = mapBackendUserBadgeToBadge(first);
+      list.push({ badge, fullExpertiseNames, receivedExpertiseNames });
+    });
+    const byLevel: Record<string, typeof list> = {};
+    list.forEach((item) => {
+      const levelKey = item.badge.level;
+      if (!byLevel[levelKey]) byLevel[levelKey] = [];
+      byLevel[levelKey].push(item);
+    });
+    return byLevel;
+  }, [rawAttributions]);
+
+  // Normal badges (exclude those shown as progress cards) per level
+  const normalBadgesByLevel = React.useMemo(() => {
+    const progressKeysByLevel: Record<string, Set<string>> = {};
+    (['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'] as const).forEach((level) => {
+      const set = new Set<string>();
+      (progressItemsByLevel[level] || []).forEach((item) => set.add(`${item.badge.name}|${item.badge.level}`));
+      progressKeysByLevel[level] = set;
+    });
+    const result: Record<string, Badge[]> = {};
+    (['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'] as const).forEach((level) => {
+      const progressSet = progressKeysByLevel[level];
+      result[level] = (badgesByLevel[level] || []).filter((b) => !progressSet.has(`${b.name}|${b.level}`));
+    });
+    return result;
+  }, [badgesByLevel, progressItemsByLevel]);
+
   const sections = [
     { key: 'Niveau 1', label: 'Niveau 1 - Découverte', color: '#10b981', icon: null },
     { key: 'Niveau 2', label: 'Niveau 2 - Application', color: '#3b82f6', icon: null },
@@ -168,27 +231,44 @@ const PublicBadgeCartography: React.FC = () => {
           </div>
         ) : (
           sections.map((section) => {
-            const sectionBadges = badgesByLevel[section.key] || [];
-            if (sectionBadges.length === 0) return null;
+            const progressItems = progressItemsByLevel[section.key] || [];
+            const normalBadges = normalBadgesByLevel[section.key] || [];
+            if (progressItems.length === 0 && normalBadges.length === 0) return null;
+
+            const sectionLabel =
+              progressItems.length > 0 && progressItems[0].badge.series
+                ? getLevelLabel(progressItems[0].badge.series, section.key.replace('Niveau ', ''))
+                : section.label;
+            const totalCount = progressItems.length + normalBadges.length;
 
             return (
               <div key={section.key} className="level-divider">
                 <div className="level-header">
                   <div className="level-title" style={{ color: section.color }}>
                     <div className="level-color-square" style={{ backgroundColor: section.color }}></div>
-                    <span>{section.label}</span>
+                    <span>{sectionLabel}</span>
                   </div>
                   <div className="level-count">
-                    {sectionBadges.length} badge{sectionBadges.length > 1 ? 's' : ''}
+                    {totalCount} badge{totalCount > 1 ? 's' : ''}
                   </div>
                 </div>
 
                 <div className="badges-grid">
-                  {sectionBadges.map((badge) => {
-                    // Get attribution count for this badge (name + level)
+                  {progressItems.map((item) => (
+                    <CompetencesOrienterProgressCard
+                      key={`progress-${item.badge.name}|${item.badge.level}`}
+                      badge={item.badge}
+                      fullExpertiseNames={item.fullExpertiseNames}
+                      receivedExpertiseNames={item.receivedExpertiseNames}
+                      onClick={() => {
+                        setSelectedBadge(item.badge);
+                        setIsAttributionsModalOpen(true);
+                      }}
+                    />
+                  ))}
+                  {normalBadges.map((badge) => {
                     const badgeKey = `${badge.name}|${badge.level}`;
                     const attributionCount = badgeAttributionCounts[badgeKey] || 0;
-                    
                     return (
                       <BadgeCard
                         key={`${badge.name}-${badge.level}-${badge.id}`}
@@ -197,10 +277,10 @@ const PublicBadgeCartography: React.FC = () => {
                           setSelectedBadge(badge);
                           setIsAttributionsModalOpen(true);
                         }}
-                        onEdit={() => {}} // No edit in public view
-                        onDelete={() => {}} // No delete in public view
+                        onEdit={() => {}}
+                        onDelete={() => {}}
                         attributionCount={attributionCount}
-                        showClickHint={true} // Show click hint to indicate badge is clickable
+                        showClickHint={true}
                       />
                     );
                   })}

@@ -22,7 +22,9 @@ export interface Member {
       level: string;
       series: string;
       image_url?: string | null;
+      expertises?: string[]; // For progress series: full list of competencies
     };
+    received_expertise_names?: string[]; // For progress series: competencies received for this badge (this user)
     project?: any;
     organization?: {
       type: string;

@@ -1,0 +1,69 @@
+/* Compact progress badge for member card "3 derniers badges" – 48px width, thin bar under icon */
+.compact-progress-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 48px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.compact-progress-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.compact-progress-badge:focus-visible {
+  outline: 2px solid var(--primary, #5570F1);
+  outline-offset: 2px;
+}
+
+.compact-progress-badge-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.compact-progress-badge-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.compact-progress-badge-icon-greyed img {
+  filter: grayscale(100%);
+  opacity: 0.85;
+}
+
+.compact-progress-badge-bar {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  height: 8px;
+  padding: 0 4px 4px;
+  box-sizing: border-box;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.compact-progress-badge-segment {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: #e5e7eb;
+  flex-shrink: 0;
+}
+
+.compact-progress-badge-segment-filled {
+  background: var(--primary, #5570F1);
+}
