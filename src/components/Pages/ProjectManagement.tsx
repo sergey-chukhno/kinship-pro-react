@@ -256,6 +256,8 @@ const ProjectManagement: React.FC = () => {
   // Badge filters
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
+  const [badgeReceiverFilter, setBadgeReceiverFilter] = useState('');
+  const [debouncedBadgeReceiverQuery, setDebouncedBadgeReceiverQuery] = useState('');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_badgeDomainFilter, setBadgeDomainFilter] = useState(''); // Set but not used in UI - kept for future use
   const [projectBadges, setProjectBadges] = useState<any[]>([]);
@@ -597,6 +599,12 @@ const ProjectManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiProjectData?.id, project?.id]); // Depend directly on ID values - fetchAllProjectMembers and showError are stable
 
+  // Debounce receiver search for badge filter (350 ms)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedBadgeReceiverQuery(badgeReceiverFilter.trim()), 350);
+    return () => clearTimeout(t);
+  }, [badgeReceiverFilter]);
+
   // Fetch project badges only when the user can see badges (tab or "Badges que j'ai attribués" section)
   // Avoids fetching all badges when role is "participant" and then overwriting with stale response when role becomes "participant avec droit de badges"
   useEffect(() => {
@@ -604,7 +612,7 @@ const ProjectManagement: React.FC = () => {
     if (!shouldShowTabs() && userProjectRole !== 'participant avec droit de badges') return;
     fetchProjectBadgesData(badgePage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [badgePage, badgeSeriesFilter, badgeLevelFilter, userProjectRole, state.user?.id]);
+  }, [badgePage, badgeSeriesFilter, badgeLevelFilter, debouncedBadgeReceiverQuery, userProjectRole, state.user?.id]);
 
   // Fetch project documents when Documents tab is opened (admin only)
   useEffect(() => {
@@ -2450,9 +2458,10 @@ const ProjectManagement: React.FC = () => {
     setProjectBadgesError(null);
     try {
       const projectId = parseInt(project.id);
-      const filters: { series?: string; level?: string; sender_id?: number } = {};
+      const filters: { series?: string; level?: string; sender_id?: number; receiver_query?: string } = {};
       if (badgeSeriesFilter) filters.series = mapSeriesToBackend(badgeSeriesFilter);
       if (badgeLevelFilter) filters.level = `level_${badgeLevelFilter}`;
+      if (debouncedBadgeReceiverQuery) filters.receiver_query = debouncedBadgeReceiverQuery;
       // Participant avec droit de badges: only badges they attributed
       if (userProjectRole === 'participant avec droit de badges' && state.user?.id != null) {
         filters.sender_id = typeof state.user.id === 'number' ? state.user.id : parseInt(String(state.user.id), 10);
@@ -2473,7 +2482,7 @@ const ProjectManagement: React.FC = () => {
       setIsLoadingProjectBadges(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id, badgeSeriesFilter, badgeLevelFilter, userProjectRole, state.user?.id]);
+  }, [project?.id, badgeSeriesFilter, badgeLevelFilter, debouncedBadgeReceiverQuery, userProjectRole, state.user?.id]);
 
   const fetchProjectDocuments = useCallback(async () => {
     if (!project?.id) return;
@@ -4152,6 +4161,19 @@ const ProjectManagement: React.FC = () => {
                     </select>
                   </div>
                 )}
+                <div className="filter-group">
+                  <label>Attribué à</label>
+                  <input
+                    type="text"
+                    className="filter-select"
+                    placeholder="Rechercher par nom…"
+                    value={badgeReceiverFilter}
+                    onChange={(e) => {
+                      setBadgeReceiverFilter(e.target.value);
+                      setBadgePage(1);
+                    }}
+                  />
+                </div>
               </div>
               <div className="badges-list">
                 {projectBadges.map((attribution) => (
@@ -4975,6 +4997,19 @@ const ProjectManagement: React.FC = () => {
                           </select>
                         </div>
                       )}
+                    <div className="filter-group">
+                      <label>Attribué à</label>
+                      <input
+                        type="text"
+                        className="filter-select"
+                        placeholder="Rechercher par nom…"
+                        value={badgeReceiverFilter}
+                        onChange={(e) => {
+                          setBadgeReceiverFilter(e.target.value);
+                          setBadgePage(1);
+                        }}
+                      />
+                    </div>
                   </div>
 
                   <div className="badges-list">
