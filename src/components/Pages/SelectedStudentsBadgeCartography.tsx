@@ -126,23 +126,9 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
     );
   }
 
-  // Check if the share has expired
-  const expiresAt =   shareInfo?.share?.expires_at || shareInfo?.expires_at;
-  const expiresAtDate = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }) : null;
-  const today = new Date().toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-  const isExpired = expiresAtDate && expiresAtDate < today;
+  // Check if the share has expired (use date comparison, not string)
+  const expiresAt = shareInfo?.share?.expires_at || shareInfo?.expires_at;
+  const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
 
   if (isExpired) {
     return (
@@ -167,22 +153,6 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
     <div className="public-cartography-container">
       <div className="public-cartography-header">
         <h1>Cartographie des badges - <span className="capitalize">{shareInfo?.context?.student?.full_name}</span></h1>
-        
-        {shareInfo && (() => {
-          const expiresAt = shareInfo?.share?.expires_at || shareInfo?.expires_at;
-          return expiresAt ? (
-            <div className="public-cartography-meta">
-              <p>
-                <i className="fas fa-clock"></i>
-                Expire le {new Date(expiresAt).toLocaleDateString('fr-FR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric'
-                })}
-              </p>
-            </div>
-          ) : null;
-        })()}
       </div>
 
       <div className="public-cartography-content">
