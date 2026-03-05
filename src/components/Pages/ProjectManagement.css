@@ -1807,6 +1807,27 @@
   border-color: #9ca3af;
 }
 
+.filter-group input.filter-select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  color: #374151;
+  min-width: 140px;
+  transition: border-color 0.2s ease;
+}
+
+.filter-group input.filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.filter-group input.filter-select:hover {
+  border-color: #9ca3af;
+}
+
 /* Teams Section Styles */
 .teams-section {
   padding: 24px 0;
