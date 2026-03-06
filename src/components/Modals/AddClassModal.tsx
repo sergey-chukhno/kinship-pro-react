@@ -8,6 +8,28 @@ import { getSchoolStaff } from '../../api/SchoolDashboard/Members';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 
+/** Map API level values to French labels (for read-only display in teacher edit) */
+const LEVEL_LABEL_MAP: Record<string, string> = {
+  petite_section: 'Petite section',
+  moyenne_section: 'Moyenne section',
+  grande_section: 'Grande section',
+  cp: 'CP',
+  ce1: 'CE1',
+  ce2: 'CE2',
+  cm1: 'CM1',
+  cm2: 'CM2',
+  sixieme: 'Sixième',
+  cinquieme: 'Cinquième',
+  quatrieme: 'Quatrième',
+  troisieme: 'Troisième',
+  seconde: 'Seconde',
+  premiere: 'Première',
+  terminale: 'Terminale',
+  cap: 'CAP',
+  bts: 'BTS',
+  other: 'Autre'
+};
+
 type Props = {
   onClose: () => void;
   onAdd: (levelData: { level: { name: string; level: string; teacher_ids?: number[]; pedagogical_team_member_ids?: number[]; school_id?: number | null } }) => void;
@@ -19,6 +41,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
   const { state } = useAppContext();
   const isTeacherContext = state.showingPageType === 'teacher';
   const isEduContext = state.showingPageType === 'edu';
+  const isTeacherEditViewOnly = isTeacherContext && isEdit;
   const [name, setName] = useState(initialData?.name || '');
   const [level, setLevel] = useState(initialData?.level || 'petite_section');
   const [selectedStaffIds, setSelectedStaffIds] = useState<number[]>(initialData?.teacher_ids || []);
@@ -257,6 +280,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
   };
 
   const handleSubmit = async () => {
+    if (isTeacherEditViewOnly) return;
     if (!name.trim() || !level.trim()) {
       showError('Veuillez remplir tous les champs');
       return;
@@ -311,6 +335,29 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           <h2>{isEdit ? 'Modifier la classe' : 'Ajouter une classe'}</h2>
         </div>
         <div className="modal-body">
+          {isTeacherEditViewOnly ? (
+            <>
+              <div className="form-group">
+                <label>Nom de la classe</label>
+                <p className="add-class-modal-readonly-value">{name || '—'}</p>
+              </div>
+              <div className="form-group">
+                <label>Niveau de la classe</label>
+                <p className="add-class-modal-readonly-value">
+                  {level ? (LEVEL_LABEL_MAP[level.toLowerCase().trim()] ?? level) : '—'}
+                </p>
+              </div>
+              <div className="form-group">
+                <label>Établissement</label>
+                <p className="add-class-modal-readonly-value">
+                  {selectedSchoolId !== null
+                    ? (availableSchools.find((s) => s.id === selectedSchoolId)?.name ?? '—')
+                    : '—'}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
           <div className="form-group">
             <label htmlFor="name">Nom de la classe</label>
             <input 
@@ -542,8 +589,16 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
               </div>
             </div>
           )}
+            </>
+          )}
 
           <div className="modal-footer">
+            {isTeacherEditViewOnly ? (
+              <button type="button" className="btn btn-primary" onClick={onClose}>
+                Fermer
+              </button>
+            ) : (
+              <>
             <button type="button" className="btn btn-outline" onClick={onClose} disabled={isLoading}>
               Annuler
             </button>
@@ -556,6 +611,8 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
               <i className={isEdit ? 'fas fa-save' : 'fas fa-plus'}></i>
               {isLoading ? (isEdit ? 'Modification en cours...' : 'Ajout en cours...') : (isEdit ? 'Modifier la classe' : 'Ajouter la classe')}
             </button>
+              </>
+            )}
           </div>
         </div>
       </div>
