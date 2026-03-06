@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
-import { getPartnerships, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
+import { getPartnerships, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, createProject } from '../../api/Projects';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import {
   getOrganizationId,
@@ -16,6 +16,8 @@ import { useToast } from '../../hooks/useToast';
 
 /** Taux HV par défaut (€/heure) — utilisé pour HSE × HV */
 const HV_DEFAULT_RATE = 50.73;
+
+const STUDENT_SYSTEM_ROLES = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant'];
 
 interface MLDSProjectModalProps {
   onClose: () => void;
@@ -85,6 +87,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     participants: '',
     partner: ''
   });
+
+  // Co-responsibles options for teacher context (school staff, not students)
+  const [coResponsibleOptions, setCoResponsibleOptions] = useState<any[]>([]);
+  const [isLoadingCoResponsibles, setIsLoadingCoResponsibles] = useState(false);
 
   // Selected school (établissement) for filtering classes / organisations porteuses
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
@@ -157,6 +163,25 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     }
     setImagePreview('');
   }, [initialDataFromProject, state.user]);
+
+  // Default school selection on mount (when not duplicating)
+  useEffect(() => {
+    if (initialDataFromProject) return; // Already handled by duplication prefill
+    if (selectedSchoolId) return; // Already selected
+    const schools = state.user?.available_contexts?.schools || [];
+    if (schools.length > 0) {
+      const defaultSchool = schools[0];
+      if (defaultSchool?.id != null) {
+        const id = defaultSchool.id.toString();
+        setSelectedSchoolId(id);
+        setFormData(prev => ({
+          ...prev,
+          organization: defaultSchool.name || prev.organization
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.user?.available_contexts?.schools]);
 
   // MLDS options
   const mldsRequestedByOptions = [
@@ -241,6 +266,27 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
 
     fetchMembers();
   }, [state.showingPageType, state.user]);
+
+  // Fetch co-responsible options (school staff) when teacher selects a school
+  useEffect(() => {
+    if (state.showingPageType !== 'teacher' || !selectedSchoolId) {
+      setCoResponsibleOptions([]);
+      return;
+    }
+    const fetchCoResponsibles = async () => {
+      setIsLoadingCoResponsibles(true);
+      try {
+        const membersResponse = await getTeacherSchoolMembers(Number.parseInt(selectedSchoolId, 10), { per_page: 500, exclude_me: true });
+        setCoResponsibleOptions(membersResponse.data || []);
+      } catch (err) {
+        console.error('Error fetching teacher school members:', err);
+        setCoResponsibleOptions([]);
+      } finally {
+        setIsLoadingCoResponsibles(false);
+      }
+    };
+    fetchCoResponsibles();
+  }, [state.showingPageType, selectedSchoolId]);
 
   // Fetch partnerships - only when partnership checkbox is checked
   useEffect(() => {
@@ -531,6 +577,74 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     return availableMembers;
   };
 
+  // Co-responsibles: for teacher use school staff (coResponsibleOptions), for edu filter out students
+  const getFilteredCoResponsibles = (searchTerm: string) => {
+    if (state.showingPageType === 'teacher' && selectedSchoolId) {
+      const selectedIds = [
+        ...formData.coResponsibles.map(id => id.toString()),
+        ...formData.participants.map(id => id.toString())
+      ];
+      const currentUserId = state.user?.id?.toString();
+      let list = (coResponsibleOptions || []).filter((m: any) => {
+        const id = m?.id?.toString();
+        if (currentUserId && id === currentUserId) return false;
+        if (selectedIds.includes(id)) return false;
+        return true;
+      });
+      if (searchTerm.trim()) {
+        const lower = searchTerm.toLowerCase();
+        list = list.filter((m: any) =>
+          (m.full_name || `${m.first_name || ''} ${m.last_name || ''}`).toLowerCase().includes(lower) ||
+          (m.email || '').toLowerCase().includes(lower) ||
+          (m.role || '').toLowerCase().includes(lower)
+        );
+      }
+      return list;
+    }
+    const baseList = getFilteredMembers(searchTerm);
+    if (state.showingPageType === 'edu') {
+      return baseList.filter((m: any) => {
+        const role = (m.role_in_system || m.role || '').toString().toLowerCase();
+        return !STUDENT_SYSTEM_ROLES.includes(role);
+      });
+    }
+    return baseList;
+  };
+
+  // Participants: for teacher, filter members by selected school
+  const getFilteredParticipants = (searchTerm: string) => {
+    if (state.showingPageType === 'teacher' && selectedSchoolId) {
+      const selectedIds = new Set([
+        ...formData.coResponsibles.map(id => id.toString()),
+        ...formData.participants.map(id => id.toString())
+      ]);
+      const currentUserId = state.user?.id?.toString();
+      let list = (members || []).filter((m: any) => {
+        const id = m?.id?.toString();
+        if (currentUserId && id === currentUserId) return false;
+        if (selectedIds.has(id)) return false;
+        // Filter by selected school: member must have a class in that school
+        if (m.classes && Array.isArray(m.classes)) {
+          return m.classes.some((cls: any) => {
+            const classSchoolId = cls.school_id || cls.school?.id;
+            return classSchoolId?.toString() === selectedSchoolId;
+          });
+        }
+        return false;
+      });
+      if (searchTerm.trim()) {
+        const lower = searchTerm.toLowerCase();
+        list = list.filter((m: any) =>
+          (m.full_name || `${m.first_name || ''} ${m.last_name || ''}`).toLowerCase().includes(lower) ||
+          (m.email || '').toLowerCase().includes(lower) ||
+          (m.role || '').toLowerCase().includes(lower)
+        );
+      }
+      return list;
+    }
+    return getFilteredMembers(searchTerm);
+  };
+
   const getFilteredPartners = (searchTerm: string) => {
     if (!availablePartnerships || !Array.isArray(availablePartnerships)) return [];
 
@@ -627,7 +741,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
   const getSelectedMember = (memberId: string) => {
     const id = memberId.toString();
     const byId = (m: any) => m?.id?.toString() === id || m?.id === Number.parseInt(memberId, 10);
-    return members.find(byId) ?? partnershipContactMembers.find(byId) ?? null;
+    return members.find(byId) ?? coResponsibleOptions.find(byId) ?? partnershipContactMembers.find(byId) ?? null;
   };
 
   const getSelectedPartner = (partnerId: string) => {
@@ -975,7 +1089,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                   onChange={handleSchoolChange}
                   required
                 >
-                  <option value="">Sélectionnez un établissement</option>
+                  {/* <option value="">Sélectionnez un établissement</option> */}
                   {state.user.available_contexts.schools.map((school: any) => (
                     <option key={school.id} value={school.id.toString()}>
                       {school.name}
@@ -1283,14 +1397,14 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                     placeholder="Rechercher des co-responsables..."
                     value={searchTerms.coResponsibles}
                     onChange={(e) => handleSearchChange('coResponsibles', e.target.value)}
-                    disabled={isLoadingMembers}
+                    disabled={isLoadingMembers || isLoadingCoResponsibles}
                   />
                 </div>
 
-                {isLoadingMembers ? (
+                {(isLoadingMembers || isLoadingCoResponsibles) ? (
                   <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
                     <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
-                    <span>Chargement des membres...</span>
+                    <span>Chargement des collaborateurs...</span>
                   </div>
                 ) : (
                   <>
@@ -1322,13 +1436,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                       </div>
                     )}
                     <div className="selection-list">
-                      {getFilteredMembers(searchTerms.coResponsibles).length === 0 ? (
+                      {getFilteredCoResponsibles(searchTerms.coResponsibles).length === 0 ? (
                         <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
                           <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
                           <p>Aucun membre disponible</p>
                         </div>
                       ) : (
-                        getFilteredMembers(searchTerms.coResponsibles).map((member: any) => (
+                        getFilteredCoResponsibles(searchTerms.coResponsibles).map((member: any) => (
                           <div
                             key={member.id}
                             className="selection-item"
@@ -1402,13 +1516,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                       </div>
                     )}
                     <div className="selection-list">
-                      {getFilteredMembers(searchTerms.participants).length === 0 ? (
+                      {getFilteredParticipants(searchTerms.participants).length === 0 ? (
                         <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
                           <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
                           <p>Aucun membre disponible</p>
                         </div>
                       ) : (
-                        getFilteredMembers(searchTerms.participants).map((member: any) => {
+                        getFilteredParticipants(searchTerms.participants).map((member: any) => {
                           const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
                           return (
                             <div
@@ -1439,7 +1553,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
           <div className="form-section">
             <h3 className="form-section-title">Volet Persévérance Scolaire</h3>
 
-            <div className="form-group">
+            {/* <div className="form-group">
               <label htmlFor="mldsObjectives">Objectifs pédagogiques</label>
               <textarea
                 id="mldsObjectives"
@@ -1450,7 +1564,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                 placeholder="Décrire les objectifs de remobilisation et de persévérance scolaire..."
                 rows={3}
               />
-            </div>
+            </div> */}
 
 
             <div className="form-group">

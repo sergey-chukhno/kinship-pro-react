@@ -98,6 +98,10 @@ const Projects: React.FC = () => {
   const [draftProjects, setDraftProjects] = useState<Project[]>([]);
   const [isLoadingDraftProjects, setIsLoadingDraftProjects] = useState(false);
 
+  // Archived projects: loaded when "Archives" tab is active
+  const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
+  const [isLoadingArchivedProjects, setIsLoadingArchivedProjects] = useState(false);
+
   // Fonction pour obtenir l'organizationId sélectionné (comme dans Dashboard)
   const getSelectedOrganizationId = (): number | undefined => {
     return getSelectedOrgId(state.user, state.showingPageType);
@@ -370,6 +374,63 @@ const Projects: React.FC = () => {
       setDraftProjects([]);
     } finally {
       setIsLoadingDraftProjects(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType]);
+
+  // Fetch archived projects for "Archives" tab
+  const fetchArchivedProjects = React.useCallback(async () => {
+    setIsLoadingArchivedProjects(true);
+    try {
+      const currentUser = await getCurrentUser();
+      let rawProjects: any[] = [];
+
+      if (state.showingPageType === 'teacher') {
+        const response = await getTeacherProjects({ status: 'archived', per_page: 200 });
+        rawProjects = (response.data || []).filter((p: any) => p.status === 'archived');
+      } else if (state.showingPageType === 'edu' || state.showingPageType === 'pro') {
+        const contextId = getSelectedOrganizationId();
+        if (!contextId) {
+          setArchivedProjects([]);
+          return;
+        }
+        const isEdu = state.showingPageType === 'edu';
+        const response = isEdu
+          ? await getSchoolProjects(contextId, true, 200, 1)
+          : await getCompanyProjects(contextId, true, 200, 1);
+        rawProjects = (response.data?.data || response.data || []).filter(
+          (p: any) => p.status === 'archived'
+        );
+      } else if (state.showingPageType === 'user') {
+        const response = await getAllUserProjects({ per_page: 200 });
+        rawProjects = (response.data?.data || response.data || []).filter(
+          (p: any) => p.status === 'archived'
+        );
+      } else {
+        setArchivedProjects([]);
+        return;
+      }
+
+      const formatted: Project[] = rawProjects.map((p: any) =>
+        mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data)
+      );
+      setArchivedProjects(formatted);
+
+      const newRawMap = new Map<string, any>();
+      rawProjects.forEach((p: any) => {
+        if (p.id) newRawMap.set(p.id.toString(), p);
+      });
+      setRawProjectsMap(prev => {
+        const merged = new Map(prev);
+        newRawMap.forEach((v, k) => merged.set(k, v));
+        return merged;
+      });
+    } catch (err) {
+      console.error('Erreur lors de la récupération des archives:', err);
+      showError('Erreur lors de la récupération des archives.');
+      setArchivedProjects([]);
+    } finally {
+      setIsLoadingArchivedProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]);
@@ -682,16 +743,19 @@ const Projects: React.FC = () => {
       fetchMyProjects(1);
       fetchMLDSProjects(1);
       fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
+      fetchArchivedProjects();
     } else if (state.showingPageType === 'user') {
       fetchPublicProjects(1);
       fetchMyProjects(1);
       fetchMLDSProjects(1);
+      fetchArchivedProjects();
     } else {
       // Pro / Edu: charger les projets au chargement initial
       fetchProjects(1);
       initialProjectsFetched.current = true;
       fetchMLDSProjects(1);
       fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
+      fetchArchivedProjects();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]); // Retirer state.user.available_contexts pour éviter les re-renders, le contexte est lu depuis localStorage
@@ -809,6 +873,13 @@ const Projects: React.FC = () => {
     }
   }, [activeTab, isTeacher, state.showingPageType, fetchDraftProjects]);
 
+  // Recharger les archives à l'ouverture de l'onglet (données à jour)
+  useEffect(() => {
+    if (activeTab === 'archives') {
+      fetchArchivedProjects();
+    }
+  }, [activeTab, fetchArchivedProjects]);
+
   // Reset pagination and re-fetch when filters change
   useEffect(() => {
     // Reset to page 1 when filters change
@@ -902,6 +973,7 @@ const Projects: React.FC = () => {
       await fetchMyProjects();
       await fetchMLDSProjects();
       await fetchDraftProjects();
+      await fetchArchivedProjects();
     } else if (isPersonalUser) {
       if (activeTab === 'nouveautes') {
         await fetchPublicProjects();
@@ -910,10 +982,12 @@ const Projects: React.FC = () => {
       } else if (activeTab === 'mlds-projects') {
         await fetchMLDSProjects();
       }
+      await fetchArchivedProjects();
     } else {
       await fetchProjects();
       await fetchMLDSProjects();
       await fetchDraftProjects();
+      await fetchArchivedProjects();
     }
   };
 
@@ -977,7 +1051,7 @@ const Projects: React.FC = () => {
   const handleDeleteProject = (projectId: string) => {
     // Find the project title for the confirmation modal
     // Search in all project lists
-    const project = [...projects, ...myProjects, ...mldsProjects].find(p => p.id === projectId);
+    const project = [...projects, ...myProjects, ...mldsProjects, ...archivedProjects].find(p => p.id === projectId);
     if (project) {
       // Prevent deleting if project is ended
       if (project.status === 'ended') {
@@ -997,10 +1071,13 @@ const Projects: React.FC = () => {
       setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setMyProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setMldsProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+      setArchivedProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setSelectedProject(null);
-      
+
       // Rafraîchir en fonction de l'onglet actif
-      if (activeTab === 'mlds-projects') {
+      if (activeTab === 'archives') {
+        await fetchArchivedProjects();
+      } else if (activeTab === 'mlds-projects') {
         await fetchMLDSProjects();
       } else if (isPersonalUser && activeTab === 'mes-projets') {
         await fetchMyProjects();
@@ -1044,15 +1121,7 @@ const Projects: React.FC = () => {
       projectsToDisplay = allProjects.filter(p => p.status === 'draft');
     }
   } else if (activeTab === 'archives') {
-    // Archives: regrouper tous les projets archivés (classiques + MLDS)
-    const allClassic = [...projects, ...myProjects];
-    const archivedClassic = allClassic.filter(p => p.status === 'archived');
-    const archivedMLDS = mldsProjects.filter(p => p.status === 'archived');
-    const mergedById = new Map<string, Project>();
-    [...archivedClassic, ...archivedMLDS].forEach(p => {
-      mergedById.set(p.id, p);
-    });
-    projectsToDisplay = Array.from(mergedById.values());
+    projectsToDisplay = archivedProjects;
   } else if (isTeacher) {
     projectsToDisplay = myProjects;
   } else if (isPersonalUser) {
@@ -1096,11 +1165,8 @@ const Projects: React.FC = () => {
     return myProjects.filter(p => p.status !== 'draft' && p.status !== 'archived').length;
   }, [myProjects]);
 
-  // Calculate archived projects count (all types, classic + MLDS)
-  const archivedProjectsCount = React.useMemo(() => {
-    const all = [...projects, ...myProjects, ...mldsProjects];
-    return all.filter(p => p.status === 'archived').length;
-  }, [projects, myProjects, mldsProjects]);
+  // Calculate archived projects count from dedicated archived list
+  const archivedProjectsCount = archivedProjects.length;
 
 
   // Filter projects based on search and filter criteria
@@ -1674,10 +1740,10 @@ const Projects: React.FC = () => {
         </div>
       </div>
 
-      {(isLoadingProjects && initialLoad) || (activeTab === 'brouillons' && isLoadingDraftProjects && (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu')) ? (
+      {(isLoadingProjects && initialLoad) || (activeTab === 'brouillons' && isLoadingDraftProjects && (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu')) || (activeTab === 'archives' && isLoadingArchivedProjects) ? (
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p className="loading-text">{activeTab === 'brouillons' ? 'Chargement des brouillons...' : 'Chargement des projets...'}</p>
+          <p className="loading-text">{activeTab === 'brouillons' ? 'Chargement des brouillons...' : activeTab === 'archives' ? 'Chargement des archives...' : 'Chargement des projets...'}</p>
         </div>
       ) : filteredProjects.length > 0 ? (
         <>

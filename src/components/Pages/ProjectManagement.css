@@ -296,6 +296,11 @@
   color: white;
 }
 
+.project-modal-status-pill.archived {
+  background: #5570F1;
+  color: white;
+}
+
 /* Project Description Section */
 .project-description-section {
   margin-bottom: 1.5rem;

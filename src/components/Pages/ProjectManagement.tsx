@@ -768,7 +768,7 @@ const ProjectManagement: React.FC = () => {
    * Open the close-project confirmation modal.
    */
   const openCloseProjectModal = () => {
-    if (!project?.id || project.status !== 'in_progress') return;
+    if (!project?.id || (project.status !== 'in_progress' && project.status !== 'coming')) return;
     if (userProjectRole !== 'owner') {
       showError('Seul le responsable du projet peut le clôturer.');
       return;
@@ -3464,331 +3464,304 @@ const ProjectManagement: React.FC = () => {
 
     const doc = new jsPDF();
     const mldsInfo = apiProjectData.mlds_information;
-    let yPosition = 25;
-    const lineHeight = 5.5;
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 25;
-    const textColor = [40, 40, 40]; // Gris très foncé
-    const labelColor = [120, 120, 120]; // Gris moyen
-    const accentColor = [100, 100, 100]; // Gris foncé pour compatibilité
-    const primaryColor = [41, 98, 255]; // Bleu pour compatibilité
+    const pdfBilan = mldsInfo.mlds_bilan ?? mldsInfo.mnt;
+    const fmt = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? v.toFixed(2) : String(v)) : '—');
+    let y = 0;
+    const lh = 5.5;
+    const pH = doc.internal.pageSize.getHeight();
+    const pW = doc.internal.pageSize.getWidth();
+    const ml = 20; // marge gauche
+    const mr = 20; // marge droite
+    const contentW = pW - ml - mr;
 
-    // Helper function to check if we need a new page
-    const checkNewPage = (requiredSpace = 10) => {
-      if (yPosition + requiredSpace > pageHeight - margin) {
+    // Couleurs institutionnelles Éducation nationale
+    const bleuEN = [0, 63, 135];       // Bleu foncé EN
+    const bleuClair = [230, 240, 250];  // Fond bleu clair
+    const vertBilan = [22, 101, 52];    // Vert pour bilan
+    const vertClair = [240, 253, 244];  // Fond vert clair
+    const gris = [55, 65, 81];          // Texte principal
+    const grisLabel = [107, 114, 128];  // Labels
+    const grisClair = [229, 231, 235];  // Lignes séparation
+
+    const checkPage = (space = 12) => {
+      if (y + space > pH - 25) {
         doc.addPage();
-        addPageNumber();
-        yPosition = margin;
+        y = 25;
         return true;
       }
       return false;
     };
 
-    // Helper function to add page number
-    const addPageNumber = () => {
-      const pageCount = doc.getCurrentPageInfo().pageNumber;
-      doc.setFontSize(8);
-      doc.setTextColor(180, 180, 180);
-      doc.text(`Page ${pageCount}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    const addFooters = () => {
+      const totalPages = doc.getNumberOfPages();
+      const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+        doc.setLineWidth(0.3);
+        doc.line(ml, pH - 18, pW - mr, pH - 18);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+        doc.text(`Édité le ${today}`, ml, pH - 12);
+        doc.text(`Page ${i} / ${totalPages}`, pW - mr, pH - 12, { align: 'right' });
+        doc.text('Document généré par Kinship — Mission de Lutte contre le Décrochage Scolaire', pW / 2, pH - 12, { align: 'center' });
+      }
     };
 
-    // Helper function to add text with word wrap
-    const addWrappedText = (text: string, x: number, maxWidth: number, isBold = false) => {
-      if (isBold) {
-        doc.setFont('helvetica', 'bold');
-      } else {
-        doc.setFont('helvetica', 'normal');
-      }
-      const lines = doc.splitTextToSize(text, maxWidth);
+    const wrapped = (text: string, x: number, maxW: number, bold = false) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      const lines = doc.splitTextToSize(text, maxW);
       lines.forEach((line: string) => {
-        checkNewPage();
-        doc.text(line, x, yPosition);
-        yPosition += lineHeight;
+        checkPage();
+        doc.text(line, x, y);
+        y += lh;
       });
     };
 
-    // Helper function to add section header
-    const addSectionHeader = (title: string) => {
-      checkNewPage(15);
-      yPosition += 2;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(title.toUpperCase(), margin, yPosition);
-      doc.setDrawColor(220, 220, 220);
-      doc.setLineWidth(0.3);
-      doc.line(margin, yPosition + 2, pageWidth - margin, yPosition + 2);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      yPosition += 7;
-    };
+    // ========== EN-TÊTE ==========
+    // Bandeau bleu EN
+    doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+    doc.rect(0, 0, pW, 38, 'F');
 
-    // Clean minimal header
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    // Titre blanc sur bandeau
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Projet MLDS', margin, yPosition);
-    yPosition += 7;
-    doc.setFontSize(9);
-    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-    doc.text('Mission de Lutte contre le Décrochage Scolaire - Volet Persévérance', margin, yPosition);
-    yPosition += 10;
-    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    const titleLines = doc.splitTextToSize(project.title, pageWidth - 2 * margin);
-    titleLines.forEach((line: string) => {
-      doc.text(line, margin, yPosition);
-      yPosition += 6;
-    });
-
-    // ==================== INFORMATIONS GÉNÉRALES ====================
-    addSectionHeader('Informations générales');
+    doc.text('Fiche Projet MLDS', ml, 16);
     doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Mission de Lutte contre le Décrochage Scolaire — Volet Persévérance', ml, 24);
+
+    // Date et statut en haut à droite
+    const statusText = getStatusText(project.status);
+    doc.setFontSize(8);
+    doc.text(`Statut : ${statusText}`, pW - mr, 16, { align: 'right' });
+    doc.text(`Période : ${formatDateRange(project.startDate, project.endDate)}`, pW - mr, 22, { align: 'right' });
+
+    // Organisation sous le bandeau
+    y = 32;
+    if (project.organization) {
+      doc.setFontSize(8);
+      doc.text(project.organization, pW - mr, y, { align: 'right' });
+    }
+
+    // Titre du projet
+    y = 48;
+    doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    const titleLines = doc.splitTextToSize(project.title, contentW);
+    titleLines.forEach((line: string) => {
+      doc.text(line, ml, y);
+      y += 7;
+    });
+    y += 2;
+
+    // Ligne de séparation fine
+    doc.setDrawColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+    doc.setLineWidth(0.6);
+    doc.line(ml, y, pW - mr, y);
+    y += 8;
+
+    // ========== INFORMATIONS GÉNÉRALES ==========
+    // Encadré bleu clair avec infos clés
+    doc.setFillColor(bleuClair[0], bleuClair[1], bleuClair[2]);
+    const infoBoxY = y;
+    const infoBoxH = 28;
+    doc.roundedRect(ml, infoBoxY, contentW, infoBoxH, 2, 2, 'F');
+
+    const col1 = ml + 5;
+    const col2 = ml + contentW * 0.35;
+    const col3 = ml + contentW * 0.65;
+
+    // Ligne 1 dans l'encadré
+    y = infoBoxY + 7;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+    doc.text('PARCOURS', col1, y);
+    doc.text('PARTICIPANTS', col2, y);
+    doc.text('RESPONSABLE', col3, y);
+    y += 4;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(gris[0], gris[1], gris[2]);
+    doc.text(project.pathway ? project.pathway.toUpperCase() : '—', col1, y);
+    doc.text(`${projectStats?.overview?.total_members || project.participants || 0}`, col2, y);
+    doc.text(project.responsible?.name || '—', col3, y);
+
+    // Ligne 2 dans l'encadré
+    y += 6;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+    if (mldsInfo.expected_participants != null) doc.text('EFFECTIFS PRÉVISIONNELS', col1, y);
+    if (project.responsible?.email) doc.text('EMAIL', col3, y);
+    y += 4;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(gris[0], gris[1], gris[2]);
+    if (mldsInfo.expected_participants != null) doc.text(`${mldsInfo.expected_participants} participants`, col1, y);
+    if (project.responsible?.email) doc.text(project.responsible.email, col3, y);
+
+    y = infoBoxY + infoBoxH + 8;
 
     // Description
     if (project.description) {
-      checkNewPage(8);
+      checkPage(15);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('Description', margin, yPosition);
-      yPosition += lineHeight;
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      addWrappedText(project.description, margin, pageWidth - 2 * margin);
-      yPosition += 2;
-    }
-
-    // Grid layout for key info
-    checkNewPage(15);
-    const col1 = margin;
-    const col2 = margin + 50;
-
-    // Row 1: Statut, Période
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-    doc.text('STATUT', col1, yPosition);
-    doc.text('PÉRIODE', col2, yPosition);
-    yPosition += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    doc.text(getStatusText(project.status), col1, yPosition);
-    doc.text(formatDateRange(project.startDate, project.endDate), col2, yPosition);
-    yPosition += lineHeight + 3;
-
-    // Row 2: Parcours, Organisation
-    if (project.pathway || project.organization) {
-      checkNewPage(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      if (project.pathway) doc.text('PARCOURS', col1, yPosition);
-      if (project.organization) doc.text('ORGANISATION', col2, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Description du projet', ml, y);
+      y += 6;
       doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      if (project.pathway) doc.text(project.pathway.toUpperCase(), col1, yPosition);
-      if (project.organization) {
-        const orgLines = doc.splitTextToSize(project.organization, 60);
-        doc.text(orgLines[0], col2, yPosition);
-      }
-      yPosition += lineHeight + 3;
-    }
-
-    // Row 3: Participants
-    checkNewPage(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-    doc.text('PARTICIPANTS', col1, yPosition);
-    yPosition += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    doc.text(`${projectStats?.overview?.total_members || project.participants || 0}`, col1, yPosition);
-    yPosition += lineHeight + 3;
-
-    // Responsable du projet
-    if (project.responsible) {
-      checkNewPage(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('RESPONSABLE DU PROJET', margin, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(project.responsible.name, margin, yPosition);
-      yPosition += lineHeight;
-      if (project.responsible.role || project.responsible.profession) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-        doc.text(project.responsible.role || project.responsible.profession, margin, yPosition);
-        yPosition += lineHeight - 0.5;
-      }
-      if (project.responsible.email) {
-        doc.setFontSize(8);
-        doc.text(project.responsible.email, margin, yPosition);
-        yPosition += lineHeight;
-      }
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      yPosition += 2;
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      wrapped(project.description, ml, contentW);
+      y += 3;
     }
 
     // Co-responsables
     if (project.coResponsibles && project.coResponsibles.length > 0) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('CO-RESPONSABLES', margin, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Co-responsables', ml, y);
+      y += 5;
       doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
       project.coResponsibles.forEach((coResp) => {
-        checkNewPage(10);
-        doc.text(coResp.name, margin, yPosition);
-        if (coResp.email) {
-          doc.text(` - ${coResp.email}`, margin + 45, yPosition);
-        }
-        yPosition += lineHeight;
+        checkPage(6);
+        const txt = coResp.email ? `${coResp.name} — ${coResp.email}` : coResp.name;
+        doc.text(`• ${txt}`, ml + 2, y);
+        y += lh;
       });
-      yPosition += 2;
+      y += 3;
     }
 
-    // Partenaire(s)
+    // Partenaires
     const partnersList = (project.partners && project.partners.length > 0) ? project.partners : (project.partner ? [project.partner] : []);
     if (partnersList.length > 0) {
-      checkNewPage(8 + partnersList.length * (lineHeight + 2));
+      checkPage(12);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text(partnersList.length > 1 ? 'PARTENAIRES' : 'PARTENAIRE', margin, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text(partnersList.length > 1 ? 'Partenaires' : 'Partenaire', ml, y);
+      y += 5;
       doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      partnersList.forEach((p) => {
-        doc.text(p.name, margin, yPosition);
-        yPosition += lineHeight;
-      });
-      yPosition += 2;
-    }
-
-    // Tags
-    if (project.tags && project.tags.length > 0) {
-      checkNewPage(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('TAGS', margin, yPosition);
-      yPosition += 4;
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      const tagsText = project.tags.map(tag => `#${tag}`).join('  ');
-      addWrappedText(tagsText, margin, pageWidth - 2 * margin);
-      yPosition += 2;
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      partnersList.forEach((p) => {
+        checkPage(6);
+        doc.text(`• ${p.name}`, ml + 2, y);
+        y += lh;
+      });
+      y += 3;
     }
 
     // Organisations porteuses
     if (mldsInfo.organization_names && mldsInfo.organization_names.length > 0) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('ORGANISATIONS PORTEUSES', margin, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Établissements porteurs', ml, y);
+      y += 5;
       doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
       mldsInfo.organization_names.forEach((org: string) => {
-        checkNewPage(7);
-        doc.text(`• ${org}`, margin, yPosition);
-        yPosition += lineHeight - 1;
+        checkPage(6);
+        doc.text(`• ${org}`, ml + 2, y);
+        y += lh;
       });
-
-      yPosition += 2;
+      y += 3;
     }
 
-    // ==================== INFORMATIONS MLDS ====================
-    yPosition += 3;
-    addSectionHeader('INFORMATIONS MLDS');
-    doc.setFontSize(10);
-
-    // Demande faite par et Public ciblé sur la même ligne si possible
-    if (mldsInfo.requested_by) {
-      checkNewPage(8);
+    // Tags
+    if (project.tags && project.tags.length > 0) {
+      checkPage(10);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Demande faite par', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Mots-clés', ml, y);
+      y += 5;
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      const requestedByText = mldsInfo.requested_by === 'departement' ? 'Département' : 'Réseau foquale';
-      doc.text(requestedByText, margin + 45, yPosition);
-      yPosition += lineHeight + 2;
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      wrapped(project.tags.map(tag => `#${tag}`).join('   '), ml, contentW);
+      y += 3;
+    }
+
+    // ========== SECTION MLDS ==========
+    checkPage(20);
+    y += 2;
+    doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+    doc.roundedRect(ml, y, contentW, 8, 1, 1, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DISPOSITIF MLDS', ml + 4, y + 5.5);
+    y += 14;
+
+    // Demande faite par
+    if (mldsInfo.requested_by) {
+      checkPage(10);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('DEMANDE FAITE PAR', ml, y);
+      y += 4;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      doc.text(mldsInfo.requested_by === 'departement' ? 'Département' : 'Réseau foquale', ml, y);
+      y += lh + 2;
     }
 
     // Public ciblé
     if (mldsInfo.target_audience) {
-      checkNewPage(10);
+      checkPage(10);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Public ciblé', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      yPosition += lineHeight;
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('PUBLIC CIBLÉ', ml, y);
+      y += 4;
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
       let targetText = '';
       if (mldsInfo.target_audience === 'students_without_solution') targetText = 'Élèves sans solution à la rentrée';
       else if (mldsInfo.target_audience === 'students_at_risk') targetText = 'Élèves en situation de décrochage repérés par le GPDS';
       else if (mldsInfo.target_audience === 'school_teams') targetText = 'Équipes des établissements';
-      addWrappedText(targetText, margin + 2, 168);
-      yPosition += 1;
-    }
-
-    // Effectifs prévisionnel
-    if (mldsInfo.expected_participants != null) {
-      checkNewPage(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Effectifs prévisionnel', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${mldsInfo.expected_participants} participants`, margin + 50, yPosition);
-      yPosition += lineHeight + 2;
+      wrapped(targetText, ml, contentW);
+      y += 2;
     }
 
     // Objectifs pédagogiques
     if (mldsInfo.objectives) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Objectifs pédagogiques', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      yPosition += lineHeight;
-      doc.setFont('helvetica', 'normal');
-      addWrappedText(mldsInfo.objectives, margin + 2, 168);
-      yPosition += 1;
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('OBJECTIFS PÉDAGOGIQUES', ml, y);
+      y += 4;
+      doc.setFontSize(9);
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      wrapped(mldsInfo.objectives, ml, contentW);
+      y += 2;
     }
 
     // Objectifs de l'action
     if (mldsInfo.action_objectives && mldsInfo.action_objectives.length > 0) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Objectifs de l\'action', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      yPosition += lineHeight;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('OBJECTIFS DE L\'ACTION', ml, y);
+      y += 5;
 
       const objectiveLabels: { [key: string]: string } = {
         'path_security': 'Sécurisation des parcours (liaison inter-cycles)',
@@ -3801,38 +3774,40 @@ const ProjectManagement: React.FC = () => {
         'other': 'Autre'
       };
 
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
       mldsInfo.action_objectives.forEach((obj: string) => {
-        checkNewPage(7);
-        const label = objectiveLabels[obj] || obj;
-        doc.text(`• ${label}`, margin + 2, yPosition);
-        yPosition += lineHeight - 1;
+        checkPage(6);
+        doc.text(`• ${objectiveLabels[obj] || obj}`, ml + 2, y);
+        y += lh;
       });
 
       if (mldsInfo.action_objectives_other) {
-        checkNewPage(7);
+        checkPage(6);
         doc.setFont('helvetica', 'italic');
-        doc.text(`  ${mldsInfo.action_objectives_other}`, margin + 4, yPosition);
+        doc.text(`  ${mldsInfo.action_objectives_other}`, ml + 4, y);
         doc.setFont('helvetica', 'normal');
-        yPosition += lineHeight;
+        y += lh;
       }
-      doc.setFontSize(10);
-      yPosition += 1;
+      y += 2;
     }
 
     // Compétences développées
     if (mldsInfo.competencies_developed) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Compétences développées', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      yPosition += lineHeight;
-      doc.setFont('helvetica', 'normal');
-      addWrappedText(mldsInfo.competencies_developed, margin + 2, 168);
-      yPosition += 1;
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('COMPÉTENCES DÉVELOPPÉES', ml, y);
+      y += 4;
+      doc.setFontSize(9);
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      wrapped(mldsInfo.competencies_developed, ml, contentW);
+      y += 2;
     }
 
-    // Moyens financiers
+    // ========== MOYENS FINANCIERS ==========
     const hasFinancials = mldsInfo.financial_hse != null ||
       mldsInfo.financial_hv != null ||
       mldsInfo.financial_transport != null ||
@@ -3840,202 +3815,215 @@ const ProjectManagement: React.FC = () => {
       mldsInfo.financial_service != null;
 
     if (hasFinancials) {
-      yPosition += 3;
-      addSectionHeader('MOYENS FINANCIERS DEMANDÉS');
+      checkPage(25);
+      y += 2;
+      doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.roundedRect(ml, y, contentW, 8, 1, 1, 'F');
+      doc.setTextColor(255, 255, 255);
       doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('MOYENS FINANCIERS', ml + 4, y + 5.5);
+      y += 14;
 
-      // HSE and HV on same line if possible
-      if (mldsInfo.financial_hse != null || mldsInfo.financial_hv != null) {
-        checkNewPage(8);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-        doc.text('Heures supplémentaires', margin, yPosition);
-        doc.setTextColor(0, 0, 0);
-        yPosition += lineHeight;
+      // Tableau financier
+      const tableX = ml;
+      const colLabel = contentW * 0.55;
+      const colVal = contentW * 0.45;
+      const rowH = 7;
+      let totalCredits = 0;
 
-        if (mldsInfo.financial_hse != null) {
-          const hours = Number.parseFloat(String(mldsInfo.financial_hse));
-          const rate = Number.parseFloat(String(mldsInfo.financial_hv)) || HV_DEFAULT_RATE;
-          const euros = hours * rate;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          doc.text('HSE', margin + 2, yPosition);
-          doc.text(`${hours.toFixed(2)} h (${euros.toFixed(2)} €)`, margin + 40, yPosition);
-          yPosition += lineHeight;
-        }
+      // En-tête tableau
+      doc.setFillColor(bleuClair[0], bleuClair[1], bleuClair[2]);
+      doc.rect(tableX, y - 4, contentW, rowH, 'F');
+      doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+      doc.setLineWidth(0.2);
+      doc.rect(tableX, y - 4, colLabel, rowH);
+      doc.rect(tableX + colLabel, y - 4, colVal, rowH);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Poste budgétaire', tableX + 3, y + 0.5);
+      doc.text('Montant', tableX + colLabel + 3, y + 0.5);
+      y += rowH;
 
-        if (mldsInfo.financial_hv != null) {
-          const rate = Number.parseFloat(String(mldsInfo.financial_hv));
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          doc.text('HV (taux)', margin + 2, yPosition);
-          doc.text(`${rate.toFixed(2)} €/h`, margin + 40, yPosition);
-          yPosition += lineHeight;
-        }
-        if (mldsInfo.total_financial_hours != null && mldsInfo.financial_hse != null) {
-          const totalHours = Number.parseFloat(String(mldsInfo.total_financial_hours)) || 0;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          doc.text('Total heures', margin + 2, yPosition);
-          doc.text(`${totalHours.toFixed(2)} h`, margin + 40, yPosition);
-          yPosition += lineHeight;
-        }
-        doc.setFontSize(10);
-        yPosition += 1;
+      const addFinRow = (label: string, value: string, isBold = false) => {
+        checkPage(rowH + 2);
+        doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+        doc.setLineWidth(0.15);
+        doc.rect(tableX, y - 4, colLabel, rowH);
+        doc.rect(tableX + colLabel, y - 4, colVal, rowH);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+        doc.setTextColor(gris[0], gris[1], gris[2]);
+        doc.text(label, tableX + 3, y + 0.5);
+        doc.text(value, tableX + colLabel + 3, y + 0.5);
+        y += rowH;
+      };
+
+      // HSE
+      if (mldsInfo.financial_hse != null) {
+        const hours = Number.parseFloat(String(mldsInfo.financial_hse));
+        const rate = Number.parseFloat(String(mldsInfo.financial_hv)) || HV_DEFAULT_RATE;
+        const euros = hours * rate;
+        totalCredits += euros;
+        addFinRow('Heures supplémentaires effectives (HSE)', `${hours.toFixed(2)} h`);
+        addFinRow('Valeur horaire (HV)', `${rate.toFixed(2)} €/h`);
+        addFinRow('Sous-total HSE', `${euros.toFixed(2)} €`, true);
       }
 
-      // Crédits (HSE × HV en € + autres postes)
-      const hseHours = Number.parseFloat(String(mldsInfo.financial_hse)) || 0;
-      const hvRate = Number.parseFloat(String(mldsInfo.financial_hv)) || HV_DEFAULT_RATE;
-      let totalCredits = hseHours * hvRate;
+      // Transport
       const transportLines = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport : [];
-      const operatingLines = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating : [];
-      const serviceLines = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service : [];
-      const hasCredits = transportLines.length > 0 ||
-        operatingLines.length > 0 ||
-        serviceLines.length > 0 ||
-        mldsInfo.financial_hse != null ||
-        mldsInfo.financial_hv != null;
-
-      if (hasCredits) {
-        checkNewPage(15);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-        doc.text('Crédits', margin, yPosition);
-        doc.setTextColor(0, 0, 0);
-        yPosition += lineHeight;
-        doc.setFontSize(9);
-
-        // Transport lines
-        const transportLines = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport : [];
-        if (transportLines.length > 0) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.text('Transport', margin + 2, yPosition);
-          yPosition += lineHeight;
-          transportLines.forEach((line: any) => {
-            const amount = Number.parseFloat(line.price || '0') || 0;
-            totalCredits += amount;
-            checkNewPage(6);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
-            const name = line.transport_name || 'Non spécifié';
-            doc.text(name.length > 40 ? name.substring(0, 37) + '...' : name, margin + 4, yPosition);
-            doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
-            yPosition += lineHeight;
-          });
-          doc.setFontSize(9);
-        }
-
-        // Operating lines
-        const operatingLines = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating : [];
-        if (operatingLines.length > 0) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.text('Fonctionnement', margin + 2, yPosition);
-          yPosition += lineHeight;
-          operatingLines.forEach((line: any) => {
-            const amount = Number.parseFloat(line.price || '0') || 0;
-            totalCredits += amount;
-            checkNewPage(6);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
-            const name = line.operating_name || 'Non spécifié';
-            doc.text(name.length > 40 ? name.substring(0, 37) + '...' : name, margin + 4, yPosition);
-            doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
-            yPosition += lineHeight;
-          });
-          doc.setFontSize(9);
-        }
-
-        // Service lines
-        const serviceLines = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service : [];
-        if (serviceLines.length > 0) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.text('Prestataires', margin + 2, yPosition);
-          yPosition += lineHeight;
-          serviceLines.forEach((line: any) => {
-            const amount = Number.parseFloat(line.price || '0') || 0;
-            totalCredits += amount;
-            checkNewPage(6);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
-            const name = line.service_name || 'Non spécifié';
-            doc.text(name.length > 40 ? name.substring(0, 37) + '...' : name, margin + 4, yPosition);
-            doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
-            yPosition += lineHeight;
-          });
-          doc.setFontSize(9);
-        }
-
-        // Sous-total crédits (backend si disponible, sinon transport + fonctionnement + prestataires + HV en €)
-        const creditsTotal = mldsInfo.total_financial_credits != null
-          ? Number.parseFloat(String(mldsInfo.total_financial_credits))
-          : totalCredits;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text('Sous-total', margin + 2, yPosition);
-        doc.text(`${creditsTotal.toFixed(2)} €`, margin + 50, yPosition);
-        yPosition += lineHeight + 2;
-        doc.setFontSize(10);
+      if (transportLines.length > 0) {
+        transportLines.forEach((line: any) => {
+          const amount = Number.parseFloat(line.price || '0') || 0;
+          totalCredits += amount;
+          const name = line.transport_name || 'Transport';
+          addFinRow(`Transport — ${name.length > 35 ? name.substring(0, 32) + '...' : name}`, `${amount.toFixed(2)} €`);
+        });
       }
 
-      // Total général : total_financial du backend si disponible, sinon crédits
-      checkNewPage(10);
-      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.setLineWidth(0.5);
-      doc.line(margin, yPosition - 1, pageWidth - margin, yPosition - 1);
-      yPosition += 2;
+      // Fonctionnement
+      const operatingLines = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating : [];
+      if (operatingLines.length > 0) {
+        operatingLines.forEach((line: any) => {
+          const amount = Number.parseFloat(line.price || '0') || 0;
+          totalCredits += amount;
+          const name = line.operating_name || 'Fonctionnement';
+          addFinRow(`Fonctionnement — ${name.length > 30 ? name.substring(0, 27) + '...' : name}`, `${amount.toFixed(2)} €`);
+        });
+      }
 
+      // Prestataires
+      const serviceLines = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service : [];
+      if (serviceLines.length > 0) {
+        serviceLines.forEach((line: any) => {
+          const amount = Number.parseFloat(line.price || '0') || 0;
+          totalCredits += amount;
+          const name = line.service_name || 'Prestataire';
+          addFinRow(`Prestataire — ${name.length > 30 ? name.substring(0, 27) + '...' : name}`, `${amount.toFixed(2)} €`);
+        });
+      }
+
+      // Total général
+      checkPage(12);
+      doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.rect(tableX, y - 4, contentW, rowH + 1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
       const totalGeneral = mldsInfo.total_financial != null
         ? Number.parseFloat(String(mldsInfo.total_financial))
         : (mldsInfo.total_financial_credits != null
           ? Number.parseFloat(String(mldsInfo.total_financial_credits))
           : totalCredits);
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text('TOTAL GÉNÉRAL', margin, yPosition + 2);
-      doc.text(`${totalGeneral.toFixed(2)} €`, pageWidth - margin, yPosition + 2, { align: 'right' });
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(10);
+      doc.text('TOTAL GÉNÉRAL', tableX + 3, y + 1);
+      doc.text(`${totalGeneral.toFixed(2)} €`, tableX + colLabel + 3, y + 1);
+      y += rowH + 6;
     }
 
-    // Bilan à la clôture (mlds_bilan / mnt)
-    const bilan = mldsInfo.mlds_bilan ?? mldsInfo.mnt;
-    if (bilan && typeof bilan === 'object') {
-      const hasBilan = bilan.hse != null || bilan.hv != null || bilan.financial_transport != null || bilan.financial_service != null || bilan.financial_operating != null || bilan.expected_participants != null ||
-        (bilan.financial_transport_comment || bilan.financial_service_comment || bilan.financial_operating_comment || bilan.expected_participants_comment);
+    // ========== BILAN À LA CLÔTURE ==========
+    if (pdfBilan && typeof pdfBilan === 'object') {
+      const hasBilan = pdfBilan.hse != null || pdfBilan.hv != null || pdfBilan.financial_transport != null || pdfBilan.financial_service != null || pdfBilan.financial_operating != null || pdfBilan.expected_participants != null ||
+        pdfBilan.financial_transport_comment || pdfBilan.financial_service_comment || pdfBilan.financial_operating_comment || pdfBilan.expected_participants_comment;
       if (hasBilan) {
-        checkNewPage(20);
-        yPosition += 15;
-        addSectionHeader('BILAN À LA CLÔTURE');
-        doc.setFontSize(9);
-        const fmt = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? v.toFixed(2) : String(v)) : '—');
-        if (bilan.hse != null) { doc.setFont('helvetica', 'normal'); doc.text('HSE', margin + 2, yPosition); doc.text(`${fmt(bilan.hse)} h`, margin + 45, yPosition); yPosition += lineHeight; }
-        if (bilan.hv != null) { doc.text('HV', margin + 2, yPosition); doc.text(`${fmt(bilan.hv)} €`, margin + 45, yPosition); yPosition += lineHeight; }
-        if (bilan.financial_transport != null || bilan.financial_transport_comment) {
-          doc.text('Crédits de fonctionnement (transport)', margin + 2, yPosition+3); doc.text(`${fmt(bilan.financial_transport)} €`, margin + 45, yPosition); yPosition += lineHeight;
-          if (bilan.financial_transport_comment) { addWrappedText(String(bilan.financial_transport_comment), margin + 4, 168); yPosition += 1; }
-        }
-        if (bilan.financial_service != null || bilan.financial_service_comment) {
-          doc.text('Crédits pédagogiques', margin + 2, yPosition); doc.text(`${fmt(bilan.financial_service)} €`, margin + 45, yPosition); yPosition += lineHeight;
-          if (bilan.financial_service_comment) { addWrappedText(String(bilan.financial_service_comment), margin + 4, 168); yPosition += 1; }
-        }
-        if (bilan.financial_operating != null || bilan.financial_operating_comment) {
-          doc.text('Autres financements', margin + 2, yPosition); doc.text(`${fmt(bilan.financial_operating)} €`, margin + 45, yPosition); yPosition += lineHeight;
-          if (bilan.financial_operating_comment) { addWrappedText(String(bilan.financial_operating_comment), margin + 4, 168); yPosition += 1; }
-        }
-        if (bilan.expected_participants != null || bilan.expected_participants_comment) {
-          doc.text('Participants attendus', margin + 2, yPosition); doc.text(bilan.expected_participants.toString(), margin + 45, yPosition); yPosition += lineHeight;
-          if (bilan.expected_participants_comment) { addWrappedText(String(bilan.expected_participants_comment), margin + 4, 168); yPosition += 1; }
-        }
+        checkPage(40);
+        y += 2;
+
+        // Bandeau vert bilan
+        doc.setFillColor(vertBilan[0], vertBilan[1], vertBilan[2]);
+        doc.roundedRect(ml, y, contentW, 8, 1, 1, 'F');
+        doc.setTextColor(255, 255, 255);
         doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('BILAN À LA CLÔTURE', ml + 4, y + 5.5);
+        y += 14;
+
+        // Tableau bilan
+        const tableX = ml;
+        const colPoste = contentW * 0.38;
+        const colValeur = contentW * 0.2;
+        const colComment = contentW * 0.42;
+        const rowH = 7;
+
+        // En-tête
+        doc.setFillColor(vertClair[0], vertClair[1], vertClair[2]);
+        doc.rect(tableX, y - 4, contentW, rowH, 'F');
+        doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+        doc.setLineWidth(0.2);
+        doc.rect(tableX, y - 4, colPoste, rowH);
+        doc.rect(tableX + colPoste, y - 4, colValeur, rowH);
+        doc.rect(tableX + colPoste + colValeur, y - 4, colComment, rowH);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(vertBilan[0], vertBilan[1], vertBilan[2]);
+        doc.text('Poste', tableX + 3, y + 0.5);
+        doc.text('Valeur', tableX + colPoste + 3, y + 0.5);
+        doc.text('Commentaire', tableX + colPoste + colValeur + 3, y + 0.5);
+        y += rowH;
+
+        // Fallback mlds_information values
+        const mldsTransportFB = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+        const mldsServiceFB = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+        const mldsOperatingFB = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+        const mldsHseFB = mldsInfo.financial_hse != null ? Number(mldsInfo.financial_hse) : 0;
+        const mldsHvFB = mldsInfo.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
+
+        const rows: Array<{ poste: string; valeur: string; comment: string; isTotal?: boolean }> = [];
+        if (pdfBilan.hse != null) rows.push({ poste: 'HSE', valeur: `${fmt(pdfBilan.hse)} h`, comment: '' });
+        if (pdfBilan.hv != null) rows.push({ poste: 'HV', valeur: `${fmt(pdfBilan.hv)} €/h`, comment: '' });
+        if (pdfBilan.financial_transport != null || pdfBilan.financial_transport_comment) rows.push({ poste: 'Crédits transport', valeur: pdfBilan.financial_transport != null ? `${fmt(pdfBilan.financial_transport)} €` : '—', comment: String(pdfBilan.financial_transport_comment || '') });
+        if (pdfBilan.financial_service != null || pdfBilan.financial_service_comment) rows.push({ poste: 'Crédits pédagogiques', valeur: pdfBilan.financial_service != null ? `${fmt(pdfBilan.financial_service)} €` : '—', comment: String(pdfBilan.financial_service_comment || '') });
+        if (pdfBilan.financial_operating != null || pdfBilan.financial_operating_comment) rows.push({ poste: 'Autres financements', valeur: pdfBilan.financial_operating != null ? `${fmt(pdfBilan.financial_operating)} €` : '—', comment: String(pdfBilan.financial_operating_comment || '') });
+        if (pdfBilan.expected_participants != null || pdfBilan.expected_participants_comment) rows.push({ poste: 'Participants effectifs', valeur: pdfBilan.expected_participants != null ? fmt(pdfBilan.expected_participants) : '—', comment: String(pdfBilan.expected_participants_comment || '') });
+
+        // Totaux avec fallback
+        const hseNum = pdfBilan.hse != null ? Number(pdfBilan.hse) : mldsHseFB;
+        const hvNum = pdfBilan.hv != null ? Number(pdfBilan.hv) : mldsHvFB;
+        const transportNum = pdfBilan.financial_transport != null ? Number(pdfBilan.financial_transport) : mldsTransportFB;
+        const serviceNum = pdfBilan.financial_service != null ? Number(pdfBilan.financial_service) : mldsServiceFB;
+        const operatingNum = pdfBilan.financial_operating != null ? Number(pdfBilan.financial_operating) : mldsOperatingFB;
+        const totalCreditsBilan = transportNum + serviceNum + operatingNum;
+        const totalBilan = hseNum * hvNum + totalCreditsBilan;
+
+        rows.push({ poste: 'Total des crédits', valeur: `${totalCreditsBilan.toFixed(2)} €`, comment: '', isTotal: true });
+        rows.push({ poste: 'Total général', valeur: `${totalBilan.toFixed(2)} €`, comment: '', isTotal: true });
+
+        doc.setFontSize(8);
+        rows.forEach((row) => {
+          checkPage(rowH + 4);
+          const commentLines = row.comment ? doc.splitTextToSize(row.comment, colComment - 6) : [];
+          const cellH = Math.max(rowH, commentLines.length * lh + 3);
+
+          if (row.isTotal) {
+            doc.setFillColor(vertClair[0], vertClair[1], vertClair[2]);
+            doc.rect(tableX, y - 4, contentW, cellH, 'F');
+          }
+
+          doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+          doc.setLineWidth(0.15);
+          doc.rect(tableX, y - 4, colPoste, cellH);
+          doc.rect(tableX + colPoste, y - 4, colValeur, cellH);
+          doc.rect(tableX + colPoste + colValeur, y - 4, colComment, cellH);
+          doc.setFont('helvetica', row.isTotal ? 'bold' : 'normal');
+          doc.setTextColor(row.isTotal ? vertBilan[0] : gris[0], row.isTotal ? vertBilan[1] : gris[1], row.isTotal ? vertBilan[2] : gris[2]);
+          doc.text(row.poste, tableX + 3, y + 0.5, { maxWidth: colPoste - 6 });
+          doc.text(row.valeur, tableX + colPoste + 3, y + 0.5);
+          if (commentLines.length > 0) {
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+            commentLines.forEach((line: string, i: number) => {
+              doc.text(line, tableX + colPoste + colValeur + 3, y + 0.5 + i * lh);
+            });
+          }
+          y += cellH;
+        });
       }
     }
 
-    // Save the PDF
+    // Ajouter les pieds de page sur toutes les pages
+    addFooters();
+
+    // Sauvegarder
     const fileName = `MLDS_${project.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
 
@@ -4064,7 +4052,7 @@ const ProjectManagement: React.FC = () => {
             <i className="fas fa-link"></i> Copier le lien
           </button>
           {/* Close project button: only for owner, when project is in progress */}
-          {!isProjectEnded && project.status === 'in_progress' && userProjectRole === 'owner' && !isReadOnlyMode && (
+          {!isProjectEnded && (project.status === 'in_progress' || project.status === 'coming') && userProjectRole === 'owner' && !isReadOnlyMode && (
             <button
               type="button"
               className="btn btn-secondary"
@@ -5675,7 +5663,10 @@ const ProjectManagement: React.FC = () => {
               </div>
             )}
 
-            {activeTab === 'mlds-info' && isMLDSProject && (
+            {activeTab === 'mlds-info' && isMLDSProject && (() => {
+              const mldsBilan = apiProjectData.mlds_information?.mlds_bilan ?? apiProjectData.mlds_information?.mnt;
+              const formatBilanVal = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? Number(v).toFixed(2) : String(v)) : '—');
+              return (
               <div className="tab-content active">
                 <div className="badges-section">
                   <div className="badges-section-header">
@@ -5770,6 +5761,13 @@ const ProjectManagement: React.FC = () => {
                         <div className="stat-content">
                           <div className="stat-value">{apiProjectData.mlds_information.expected_participants}</div>
                           <div className="stat-label">Effectifs prévisionnel</div>
+                          {mldsBilan && (mldsBilan.expected_participants != null || mldsBilan.expected_participants_comment) && (
+                            <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
+                              <div style={{ fontSize: '0.80rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>{mldsBilan.expected_participants ?? '0'}</div>
+                              {mldsBilan.expected_participants_comment && <div style={{ marginTop: '0.35rem', fontSize: '0.8125rem', color: '#4b5563', lineHeight: 1.4 }}>{mldsBilan.expected_participants_comment}</div>}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -5870,6 +5868,31 @@ const ProjectManagement: React.FC = () => {
                                   </div>
                                 </div>
                               )}
+                               {/* Total bilan  mldsBilan.hse *  mldsBilan.hv */}
+                               {mldsBilan && (mldsBilan.hse != null || mldsBilan.hv != null) && (() => {
+                                const initHse = apiProjectData.mlds_information.financial_hse != null ? Number(apiProjectData.mlds_information.financial_hse) : null;
+                                const initHv = apiProjectData.mlds_information.financial_hv != null ? Number(apiProjectData.mlds_information.financial_hv) : null;
+                                const bilanHse = mldsBilan.hse != null ? Number(mldsBilan.hse) : null;
+                                const bilanHv = mldsBilan.hv != null ? Number(mldsBilan.hv) : null;
+                                const hseChanged = bilanHse !== null && bilanHse !== initHse;
+                                const hvChanged = bilanHv !== null && bilanHv !== initHv;
+                                const hasChanged = hseChanged || hvChanged;
+
+                                return (
+                                  <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
+                                    {!hasChanged ? (
+                                      <div style={{ fontSize: '0.9rem', color: '#6b7280', fontStyle: 'italic' }}>Aucun changement</div>
+                                    ) : (
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem', fontSize: '0.9rem' }}>
+                                        {bilanHse !== null && <span><strong>HSE :</strong> {formatBilanVal(bilanHse)} h</span>}
+                                        {bilanHv !== null && <span><strong>HV :</strong> {formatBilanVal(bilanHv)} €</span>}
+                                        <span><strong>Total :</strong> {formatBilanVal((bilanHse ?? initHse ?? 0) * (bilanHv ?? initHv ?? HV_DEFAULT_RATE))} €</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               </div>
 
                             <div style={{ marginTop: '0.10rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
@@ -5899,6 +5922,13 @@ const ProjectManagement: React.FC = () => {
                                               </span>
                                             </div>
                                           ))}
+                                          {mldsBilan && (mldsBilan.financial_transport != null || mldsBilan.financial_transport_comment) && (
+                                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
+                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
+                                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_transport)} €</div>
+                                              {mldsBilan.financial_transport_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_transport_comment}</div>}
+                                            </div>
+                                          )}
                                         </div>
                                       )}
                                       {operatingLines.length > 0 && (
@@ -5912,6 +5942,13 @@ const ProjectManagement: React.FC = () => {
                                               </span>
                                             </div>
                                           ))}
+                                          {mldsBilan && (mldsBilan.financial_operating != null || mldsBilan.financial_operating_comment) && (
+                                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
+                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
+                                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_operating)} €</div>
+                                              {mldsBilan.financial_operating_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_operating_comment}</div>}
+                                            </div>
+                                          )}
                                         </div>
                                       )}
                                       {serviceLines.length > 0 && (
@@ -5925,6 +5962,13 @@ const ProjectManagement: React.FC = () => {
                                               </span>
                                             </div>
                                           ))}
+                                          {mldsBilan && (mldsBilan.financial_service != null || mldsBilan.financial_service_comment) && (
+                                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
+                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
+                                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_service)} €</div>
+                                              {mldsBilan.financial_service_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_service_comment}</div>}
+                                            </div>
+                                          )}
                                         </div>
                                       )}
                                     </>
@@ -6012,58 +6056,41 @@ const ProjectManagement: React.FC = () => {
                                 })()} €
                               </span>
                             </div>
+                            {mldsBilan && (() => {
+                              const mldsInfo = apiProjectData?.mlds_information;
+                              const mldsTransportFallback = Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+                              const mldsServiceFallback = Array.isArray(mldsInfo?.financial_service) ? mldsInfo.financial_service.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+                              const mldsOperatingFallback = Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+                              const mldsHseFallback = mldsInfo?.financial_hse != null ? Number(mldsInfo.financial_hse) : 0;
+                              const mldsHvFallback = mldsInfo?.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
+
+                              const h = mldsBilan.hse != null ? Number(mldsBilan.hse) : mldsHseFallback;
+                              const v = mldsBilan.hv != null ? Number(mldsBilan.hv) : mldsHvFallback;
+                              const tr = mldsBilan.financial_transport != null ? Number(mldsBilan.financial_transport) : mldsTransportFallback;
+                              const sv = mldsBilan.financial_service != null ? Number(mldsBilan.financial_service) : mldsServiceFallback;
+                              const op = mldsBilan.financial_operating != null ? Number(mldsBilan.financial_operating) : mldsOperatingFallback;
+                              const totalCredits = tr + sv + op;
+                              const totalBilan = h * v + tr + sv + op;
+                              if (totalBilan === 0) return null;
+                              return (
+                                <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.5rem' }}>Bilan à la clôture</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.9rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#374151' }}>Total des crédits</span><span style={{ fontWeight: 700, color: '#111827' }}>{totalCredits.toFixed(2)} €</span></div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#374151' }}>Total général</span><span style={{ fontWeight: 700, color: '#111827' }}>{totalBilan.toFixed(2)} €</span></div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       )}
 
-                    {/* Bilan à la clôture (mlds_bilan / mnt) */}
-                    {(() => {
-                      const bilan = apiProjectData.mlds_information?.mlds_bilan ?? apiProjectData.mlds_information?.mnt;
-                      if (!bilan || typeof bilan !== 'object') return null;
-                      const hasBilan = bilan.hse != null || bilan.hv != null || bilan.financial_transport != null || bilan.financial_service != null || bilan.financial_operating != null || bilan.expected_participants != null ||
-                        (bilan.financial_transport_comment || bilan.financial_service_comment || bilan.financial_operating_comment || bilan.expected_participants_comment);
-                      if (!hasBilan) return null;
-                      const formatBilanVal = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? v?.toFixed(2) : String(v)) : '—');
-                      return (
-                        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
-                          <div className="stat-content">
-                            <div className="stat-label">Bilan à la clôture</div>
-                            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                              {bilan.hse != null && <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>HSE</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.hse)} h</span></div>}
-                              {bilan.hv != null && <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>HV</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.hv)} €</span></div>}
-                              {(bilan.financial_transport != null || bilan.financial_transport_comment) && (
-                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>Crédits de fonctionnement (transport)</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.financial_transport)} €</span></div>
-                                  {bilan.financial_transport_comment && <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#374151' }}>{bilan.financial_transport_comment}</div>}
-                                </div>
-                              )}
-                              {(bilan.financial_service != null || bilan.financial_service_comment) && (
-                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>Crédits pédagogiques</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.financial_service)} €</span></div>
-                                  {bilan.financial_service_comment && <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#374151' }}>{bilan.financial_service_comment}</div>}
-                                </div>
-                              )}
-                              {(bilan.financial_operating != null || bilan.financial_operating_comment) && (
-                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>Autres financements</span><span style={{ fontWeight: 600 }}>{formatBilanVal(bilan.financial_operating)} €</span></div>
-                                  {bilan.financial_operating_comment && <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#374151' }}>{bilan.financial_operating_comment}</div>}
-                                </div>
-                              )}
-                              {(bilan.expected_participants != null || bilan.expected_participants_comment) && (
-                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}><span style={{ color: '#6b7280' }}>Participants attendus</span><span style={{ fontWeight: 600 }}>{bilan.expected_participants}</span></div>
-                                  {bilan.expected_participants_comment && <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#374151' }}>{bilan.expected_participants_comment}</div>}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 </div>
               </div>
-            )}
+            );
+            })()}
           </>
         )}
 
@@ -7480,8 +7507,8 @@ const ProjectManagement: React.FC = () => {
                           {(
                             calculateFinancialLinesTotal(editForm.mldsFinancialTransport) +
                             calculateFinancialLinesTotal(editForm.mldsFinancialOperating) +
-                            calculateFinancialLinesTotal(editForm.mldsFinancialService) +
-                            (Number.parseFloat(editForm.mldsFinancialHSE) || 0) * (Number.parseFloat(editForm.mldsFinancialHV) || HV_DEFAULT_RATE)
+                            calculateFinancialLinesTotal(editForm.mldsFinancialService) 
+                            
                           ).toFixed(2)} €
                         </span>
                       </div>
