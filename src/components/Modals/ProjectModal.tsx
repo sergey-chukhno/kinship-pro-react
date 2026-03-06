@@ -21,11 +21,12 @@ const STUDENT_SYSTEM_ROLES = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant
 
 interface ProjectModalProps {
   project?: Project | null;
+  duplicateFromProject?: Project | null;
   onClose: () => void;
   onSave: (projectData: Omit<Project, 'id'>) => void;
 }
 
-const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave }) => {
+const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProject, onClose, onSave }) => {
   const { state, addProject, setTags } = useAppContext();
 
   const [formData, setFormData] = useState({
@@ -34,7 +35,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     startDate: '',
     endDate: '',
     organization: '',
-    status: 'draft' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
+    status: 'draft' as 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived',
     visibility: 'private' as 'public' | 'private', // par défaut en brouillon : privé
     pathways: [] as string[], // plusieurs parcours possibles
     tags: '',
@@ -292,7 +293,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         organization: project.organization,
         status: project.status,
         visibility: project.visibility || 'public',
-        pathways: project.pathway ? [project.pathway] : [],
+        pathways: project.pathways && project.pathways.length > 0
+          ? [...project.pathways]
+          : (project.pathway ? [project.pathway] : []),
         tags: project.tags.join(', '),
         links: project.links || '',
         participants: project.members,
@@ -342,12 +345,34 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
 
       setFormData(prev => ({
         ...prev,
+        title: duplicateFromProject ? `${duplicateFromProject.title} (copie)` : prev.title,
+        description: duplicateFromProject ? duplicateFromProject.description : prev.description,
+        pathways: duplicateFromProject
+          ? (duplicateFromProject.pathways && duplicateFromProject.pathways.length > 0
+              ? [...duplicateFromProject.pathways]
+              : (duplicateFromProject.pathway ? [duplicateFromProject.pathway] : []))
+          : prev.pathways,
+        tags: duplicateFromProject ? (duplicateFromProject.tags || []).join(', ') : prev.tags,
+        links: duplicateFromProject ? (duplicateFromProject.links || '') : prev.links,
+        status: duplicateFromProject ? 'draft' : prev.status,
         startDate: today.toISOString().split('T')[0],
         endDate: nextMonth.toISOString().split('T')[0],
-        organization: defaultOrg
+        organization: defaultOrg || prev.organization,
+        participants: [],
+        image: '',
+        coResponsibles: [],
+        isPartnership: duplicateFromProject ? !!(duplicateFromProject.partners?.length || (duplicateFromProject as any).partner) : prev.isPartnership,
+        partners: duplicateFromProject
+          ? (duplicateFromProject.partners?.length
+              ? duplicateFromProject.partners.map((p: any) => p.id?.toString?.() ?? p.id)
+              : ((duplicateFromProject as any).partner?.id ? [(duplicateFromProject as any).partner.id.toString()] : []))
+          : prev.partners,
+        additionalImages: [],
+        schoolLevelIds: []
       }));
+      setImagePreview('');
     }
-  }, [project, state.showingPageType, state.user]);
+  }, [project, duplicateFromProject, state.showingPageType, state.user]);
 
   // Fetch tags when modal opens
   useEffect(() => {
@@ -985,10 +1010,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
     return start <= today ? 'in_progress' : 'coming';
   };
 
-  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended') => {
+  const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived') => {
     setSubmitError(null);
 
-    const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+    const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived' =
       desiredStatus ?? formData.status;
 
     if (desiredStatus !== undefined) {
@@ -1049,6 +1074,25 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
           ...formData,
           status: effectiveStatus,
           pathway: (formData.pathways && formData.pathways[0]) || '',
+        } as {
+          title: string;
+          description: string;
+          startDate: string;
+          endDate: string;
+          organization: string;
+          status: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended';
+          visibility: 'public' | 'private';
+          pathway?: string;
+          pathways?: string[];
+          tags: string;
+          links: string;
+          participants: string[];
+          coResponsibles: string[];
+          isPartnership: boolean;
+          createdBy?: string;
+          partner?: string;
+          partners?: string[];
+          schoolLevelIds?: string[];
         },
         context,
         organizationId,
@@ -1104,7 +1148,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, onSave })
         id: createdProject.id.toString(),
         title: createdProject.title,
         description: createdProject.description,
-        status: createdProject.status as 'to_process' | 'coming' | 'in_progress' | 'ended',
+        status: createdProject.status as 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived',
         visibility: payload.project.private ? 'private' : 'public' as 'public' | 'private',
         pathway: (formData.pathways && formData.pathways[0]) || 'citoyen',
         organization: formData.organization,

@@ -262,6 +262,19 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+.project-modal-status-pill.draft {
+  background: #6b7280;
+  color: white;
+}
+
+.project-modal-status-pill.pending_validation {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+.project-modal-status-pill.to-validate {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
 
 .project-modal-status-pill.coming {
   background: #5570F1;
@@ -280,6 +293,11 @@
 
 .project-modal-status-pill.ended {
   background: #10b981;
+  color: white;
+}
+
+.project-modal-status-pill.archived {
+  background: #5570F1;
   color: white;
 }
 
