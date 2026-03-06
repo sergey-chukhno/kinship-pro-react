@@ -5,6 +5,9 @@ import './MemberCard.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import CompactProgressBadge from '../Badges/CompactProgressBadge';
+import MemberCardBadgeProgressModal from '../Modals/MemberCardBadgeProgressModal';
+import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 
 interface MemberCardProps {
   categoryTag?: { label: string; color: string };// Optional pill tag
@@ -42,6 +45,11 @@ const MemberCard: React.FC<MemberCardProps> = ({
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [showAllClasses, setShowAllClasses] = useState(false);
   const [showAllSchools, setShowAllSchools] = useState<Record<string, boolean>>({});
+  const [progressModalBadge, setProgressModalBadge] = useState<{
+    badge: { name: string; level: string; series: string; image_url?: string | null };
+    fullExpertiseNames: string[];
+    receivedExpertiseNames: string[];
+  } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleRoleClick = (e: React.MouseEvent) => {
@@ -324,18 +332,43 @@ const MemberCard: React.FC<MemberCardProps> = ({
             display: 'flex', 
             gap: '8px', 
             flexWrap: 'wrap',
-            alignItems: 'center'
+            alignItems: 'flex-end'
           }}>
             {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
               const badge = latestBadge.badge;
               const badgeLevel = badge.level || 'level_1';
+              const isProgressBadge =
+                badge?.series &&
+                isSeriesWithCompetenceProgress(badge.series) &&
+                Array.isArray(badge.expertises) &&
+                Array.isArray((latestBadge as any).received_expertise_names);
+
+              if (isProgressBadge) {
+                const fullExpertiseNames = badge.expertises!;
+                const receivedExpertiseNames = (latestBadge as any).received_expertise_names as string[];
+                return (
+                  <CompactProgressBadge
+                    key={`${latestBadge.id}-${index}`}
+                    badge={badge}
+                    fullExpertiseNames={fullExpertiseNames}
+                    receivedExpertiseNames={receivedExpertiseNames}
+                    onClick={() => {
+                      setProgressModalBadge({
+                        badge,
+                        fullExpertiseNames,
+                        receivedExpertiseNames,
+                      });
+                    }}
+                  />
+                );
+              }
+
               const badgeImage = badge.image_url || 
                 getLocalBadgeImage(badge.name, badgeLevel, badge.series) || 
                 '/TouKouLeur-Jaune.png';
-              
               return (
                 <div
-                  key={index}
+                  key={`${latestBadge.id}-${index}`}
                   style={{
                     position: 'relative',
                     width: '48px',
@@ -372,6 +405,16 @@ const MemberCard: React.FC<MemberCardProps> = ({
             })}
           </div>
         </div>
+      )}
+
+      {progressModalBadge && (
+        <MemberCardBadgeProgressModal
+          isOpen={!!progressModalBadge}
+          onClose={() => setProgressModalBadge(null)}
+          badge={progressModalBadge.badge}
+          fullExpertiseNames={progressModalBadge.fullExpertiseNames}
+          receivedExpertiseNames={progressModalBadge.receivedExpertiseNames}
+        />
       )}
 
       <div className="member-footer">

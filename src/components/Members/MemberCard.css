@@ -103,6 +103,8 @@
 .member-pill--warning {
   background: #fef3c7;
   color: #b45309;
+  white-space: normal;
+  max-width: 100%;
 }
 
 .member-classes {
