@@ -144,6 +144,101 @@ const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>>
       level_3: "/badges_competences_a_sorienter_au_college/niveau_3/apprendre_a_decovrir_les_parcours.png",
       level_4: "/badges_competences_a_sorienter_au_college/niveau_4/apprendre_a_decovrir_les_parcours.png",
     },
+    "Compétence 4 – Apprendre à découvrir les métiers et le monde du travail": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/apprendre_a_decouvrir_les_metiers_et_le_monde_du_travail.png",
+    },
+    "Compétence 5 – M'interroger sur les clichés": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/minterroger_sur_les_cliches.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/minterroger_sur_les_cliches.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/minterroger_sur_les_cliches.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/minterroger_sur_les_cliches.png",
+    },
+    "Compétence 1 – Apprendre à me connaitre": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/apprendre_a_me_connaitre.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/apprendre_a_me_connaitre.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/apprendre_a_me_connaitre.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/apprendre_a_me_connaitre.png",
+    },
+    "Compétence 2 – Définir mes projets en fonction de qui je suis": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/définir_mes_projets_en_fonction_de_qui_je_suis.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/définir_mes_projets_en_fonction_de_qui_je_suis.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/définir_mes_projets_en_fonction_de_qui_je_suis.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/définir_mes_projets_en_fonction_de_qui_je_suis.png",
+    },
+    "Compétence 3 – M'autoriser à rêver et à avoir des ambitions": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/mautoriser_rever_et_a_avoir_des_ambitions.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/mautoriser_rever_et_a_avoir_des_ambitions.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/mautoriser_rever_et_a_avoir_des_ambitions.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/mautoriser_rever_et_a_avoir_des_ambitions.png",
+    },
+    "Compétence 4 – Savoir me présenter et m'affirmer": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/savoir_me_présenter_et_maffirmer.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/savoir_me_présenter_et_maffirmer.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/savoir_me_présenter_et_maffirmer.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/savoir_me_présenter_et_maffirmer.png",
+    },
+    "Compétence 5 – Identifier ce que j'ai appris et ce que je sais faire": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/identifier_ce_que_jai_appris_et_ce_que_je_sais_faire.png",
+    },
+    "Compétence 1 – Accepter les imprévus et saisir les occasions": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/accepter_les_imprevus_et_saisir_les_occasions.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/accepter_les_imprevus_et_saisir_les_occasions.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/accepter_les_imprevus_et_saisir_les_occasions.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/accepter_les_imprevus_et_saisir_les_occasions.png",
+    },
+    "Compétence 2 – M'ouvrir au monde et aux autres": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/mouvrir_au_monde_et_aux_autres.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/mouvrir_au_monde_et_aux_autres.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/mouvrir_au_monde_et_aux_autres.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/mouvrir_au_monde_et_aux_autres.png",
+    },
+    "Compétence 3 – Me préparer aux transitions et aux changements": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/me_preparer_aux_transitions_et_aux_changements.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/me_preparer_aux_transitions_et_aux_changements.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/me_preparer_aux_transitions_et_aux_changements.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/me_preparer_aux_transitions_et_aux_changements.png",
+    },
+    "Compétence 4 – Me projeter et comprendre les conséquences de mes choix": {
+      level_1: "/badges_competences_a_sorienter_au_college/niveau_1/me_projeter_et_comprendre_les_consequences_de_mes_choix.png",
+      level_2: "/badges_competences_a_sorienter_au_college/niveau_2/me_projeter_et_comprendre_les_consequences_de_mes_choix.png",
+      level_3: "/badges_competences_a_sorienter_au_college/niveau_3/me_projeter_et_comprendre_les_consequences_de_mes_choix.png",
+      level_4: "/badges_competences_a_sorienter_au_college/niveau_4/me_projeter_et_comprendre_les_consequences_de_mes_choix.png",
+    },
+  },
+  "Série Métiers de la mer": {
+    "Niveau 1 - Se situer et s'adapter dans un collectif": {
+      level_1: "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/niveau_1_sesituer_et_sadapter.png",
+    },
+    "Niveau 1 - Respect des autres": {
+      level_1: "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/niveau_1_respect_des_autres.png",
+    },
+    "Niveau 1 - Respect du vivant et de l'environnement": {
+      level_1: "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/niveau_1_respect_du_vivant.png",
+    },
+    "Niveau 2 - Contribuer activement au collectif": {
+      level_2: "/badges_metiers_de_la_mer/axe_1_vie_en_collectivite/niveau_2_contribuer_activement_au_collectif.png",
+    },
+    "Niveau 1 - Comprendre et appliquer les règles de sécurité maritime": {
+      level_1: "/badges_metiers_de_la_mer/axe_2_experience_de_la_mer_et_securite/niveau_1_comprendre_et_appliquer_les_regles_de_securite_maritime.png",
+    },
+    "Niveau 1 - Responsabilité": {
+      level_1: "/badges_metiers_de_la_mer/axe_2_experience_de_la_mer_et_securite/niveau_1_responsabilite.png",
+    },
+    "Niveau 2 - Agir avec autonomie et sens marin": {
+      level_2: "/badges_metiers_de_la_mer/axe_2_experience_de_la_mer_et_securite/niveau_2_agir_avec_autonomie_et_sens_marin.png",
+    },
+    "Niveau 1 - S'impliquer dans un parcours de découverte": {
+      level_1: "/badges_metiers_de_la_mer/axe_3_engagement_et_construction_du_projet_professionnel/niveau_1_simpliquer_dans_un_parcours_de_decouverte.png",
+    },
+    "Niveau 2 - Se projeter et construire des perspectives": {
+      level_2: "/badges_metiers_de_la_mer/axe_3_engagement_et_construction_du_projet_professionnel/niveau_2_seprojeter_et_construire_des_perspectives.png",
+    },
   },
 };
 

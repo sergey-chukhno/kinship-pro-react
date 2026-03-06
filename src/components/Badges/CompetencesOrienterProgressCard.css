@@ -1,0 +1,183 @@
+/* Compétences à s'orienter – progress card (Ma Cartographie, personal user) */
+.competences-orienter-progress-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 16px;
+  padding: 20px 20px 24px 20px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.competences-orienter-progress-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--primary, #5570F1);
+}
+
+.competences-orienter-card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 10px;
+}
+
+.competences-orienter-card-logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--primary-light, rgba(85, 112, 241, 0.1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.competences-orienter-card-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.competences-orienter-card-logo-greyed img {
+  filter: grayscale(100%);
+  opacity: 0.85;
+}
+
+.competences-orienter-card-logo .badge-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary, #5570F1);
+  font-size: 48px;
+}
+
+.competences-orienter-card-level {
+  padding: 4px 8px;
+  border-radius: 12px;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.competences-orienter-card-content {
+  flex: 1;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.competences-orienter-card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin: 0 0 12px 0;
+  line-height: 1.3;
+}
+
+/* Segmented progress bar */
+.competences-orienter-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.competences-orienter-progress-segments {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  max-width: 280px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.competences-orienter-progress-segment {
+  width: 28px;
+  height: 10px;
+  border-radius: 4px;
+  background: #e5e7eb;
+  transition: background 0.2s ease;
+}
+
+.competences-orienter-progress-segment-filled {
+  background: var(--primary, #5570F1);
+}
+
+.competences-orienter-progress-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+}
+
+/* Legend: one list with checkmarks */
+.competences-orienter-legend {
+  list-style: none;
+  margin: 0 0 12px 0;
+  padding: 0;
+  text-align: left;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.4;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.competences-orienter-legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.competences-orienter-legend-item i {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.competences-orienter-legend-check {
+  color: #10b981;
+}
+
+.competences-orienter-legend-empty {
+  color: #d1d5db;
+}
+
+.competences-orienter-card-click-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  border-radius: 8px;
+  background: var(--primary-light, rgba(85, 112, 241, 0.08));
+  color: var(--primary, #5570F1);
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.competences-orienter-card-click-hint:hover {
+  background: var(--primary, #5570F1);
+  color: white;
+}
+
+.competences-orienter-card-click-hint i {
+  font-size: 0.7rem;
+}

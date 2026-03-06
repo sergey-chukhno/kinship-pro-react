@@ -144,6 +144,42 @@ const ParticipantAvailabilityList: React.FC<{ availability: string[] }> = ({ ava
   );
 };
 
+/** Pills cell for list view: colored pills + collapsible when many items (default collapsed). */
+const CollapsiblePillsCell: React.FC<{
+  items: string[];
+  pillClassName: 'skill-pill' | 'availability-pill';
+  emptyLabel?: string;
+}> = ({ items, pillClassName, emptyLabel = '—' }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  const maxVisible = 3;
+
+  if (!items || items.length === 0) {
+    return <>{emptyLabel}</>;
+  }
+
+  const hasMore = items.length > maxVisible;
+  const visibleItems = expanded ? items : items.slice(0, maxVisible);
+
+  return (
+    <div className="participant-list-pills-cell">
+      <div className="participant-list-pills-wrap">
+        {visibleItems.map((item: string, index: number) => (
+          <span key={index} className={pillClassName}>{item}</span>
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          type="button"
+          className="participant-list-toggle-pills-btn"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? 'Voir moins' : `Voir plus (${items.length - maxVisible} autres)`}
+        </button>
+      )}
+    </div>
+  );
+};
+
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject, setTags } = useAppContext();
   const { showWarning } = useToast();
@@ -262,6 +298,8 @@ const ProjectManagement: React.FC = () => {
   // Badge filters
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
+  const [badgeReceiverFilter, setBadgeReceiverFilter] = useState('');
+  const [debouncedBadgeReceiverQuery, setDebouncedBadgeReceiverQuery] = useState('');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_badgeDomainFilter, setBadgeDomainFilter] = useState(''); // Set but not used in UI - kept for future use
   const [projectBadges, setProjectBadges] = useState<any[]>([]);
@@ -270,6 +308,9 @@ const ProjectManagement: React.FC = () => {
   const [badgePage, setBadgePage] = useState(1);
   const [badgeTotalPages, setBadgeTotalPages] = useState(1);
   const [badgeTotalCount, setBadgeTotalCount] = useState(0);
+  const [badgeViewMode, setBadgeViewMode] = useState<'cards' | 'list'>('cards');
+  const [participantViewMode, setParticipantViewMode] = useState<'cards' | 'list'>('cards');
+  const [badgeHolderSubView, setBadgeHolderSubView] = useState<'badges' | 'participants'>('badges');
 
   // Project documents (admin only)
   const [projectDocuments, setProjectDocuments] = useState<any[]>([]);
@@ -603,6 +644,12 @@ const ProjectManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiProjectData?.id, project?.id]); // Depend directly on ID values - fetchAllProjectMembers and showError are stable
 
+  // Debounce receiver search for badge filter (350 ms)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedBadgeReceiverQuery(badgeReceiverFilter.trim()), 350);
+    return () => clearTimeout(t);
+  }, [badgeReceiverFilter]);
+
   // Fetch project badges only when the user can see badges (tab or "Badges que j'ai attribués" section)
   // Avoids fetching all badges when role is "participant" and then overwriting with stale response when role becomes "participant avec droit de badges"
   useEffect(() => {
@@ -610,7 +657,7 @@ const ProjectManagement: React.FC = () => {
     if (!shouldShowTabs() && userProjectRole !== 'participant avec droit de badges') return;
     fetchProjectBadgesData(badgePage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [badgePage, badgeSeriesFilter, badgeLevelFilter, userProjectRole, state.user?.id]);
+  }, [badgePage, badgeSeriesFilter, badgeLevelFilter, debouncedBadgeReceiverQuery, userProjectRole, state.user?.id]);
 
   // Fetch project documents when Documents tab is opened (admin only)
   useEffect(() => {
@@ -2659,9 +2706,10 @@ const ProjectManagement: React.FC = () => {
     setProjectBadgesError(null);
     try {
       const projectId = parseInt(project.id);
-      const filters: { series?: string; level?: string; sender_id?: number } = {};
+      const filters: { series?: string; level?: string; sender_id?: number; receiver_query?: string } = {};
       if (badgeSeriesFilter) filters.series = mapSeriesToBackend(badgeSeriesFilter);
       if (badgeLevelFilter) filters.level = `level_${badgeLevelFilter}`;
+      if (debouncedBadgeReceiverQuery) filters.receiver_query = debouncedBadgeReceiverQuery;
       // Participant avec droit de badges: only badges they attributed
       if (userProjectRole === 'participant avec droit de badges' && state.user?.id != null) {
         filters.sender_id = typeof state.user.id === 'number' ? state.user.id : parseInt(String(state.user.id), 10);
@@ -2682,7 +2730,7 @@ const ProjectManagement: React.FC = () => {
       setIsLoadingProjectBadges(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id, badgeSeriesFilter, badgeLevelFilter, userProjectRole, state.user?.id]);
+  }, [project?.id, badgeSeriesFilter, badgeLevelFilter, debouncedBadgeReceiverQuery, userProjectRole, state.user?.id]);
 
   const fetchProjectDocuments = useCallback(async () => {
     if (!project?.id) return;
@@ -3240,6 +3288,18 @@ const ProjectManagement: React.FC = () => {
 
     // Regular member
     return 'member';
+  };
+
+  /** Display label for project role (used in list view). */
+  const getProjectRoleLabel = (value: string): string => {
+    switch (value) {
+      case 'owner': return 'Responsable du projet';
+      case 'co-owner': return 'Co-responsable du projet';
+      case 'member': return 'Participant';
+      case 'member-with-badges': return 'Participant avec droit de badges';
+      case 'admin': return 'Admin';
+      default: return value;
+    }
   };
 
   /**
@@ -4030,7 +4090,231 @@ const ProjectManagement: React.FC = () => {
     showSuccess('PDF exporté avec succès');
   };
 
+  /** Renders the rich "Participants du projet" section (Cartes/Liste). Reused for main tab and badge-holder tab. */
+  const renderParticipantsSection = (showAddButton: boolean, showEmails: boolean) => (
+    <div className="tab-content active">
+      <div className="participants-section">
+        <div className="section-header">
+          <h3>Participants du projet</h3>
+          {showAddButton && !isProjectEnded && !isReadOnlyMode && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleAddParticipant}
+            >
+              <i className="fas fa-plus"></i>
+              Ajouter un participant
+            </button>
+          )}
+        </div>
 
+        <div className="view-toggle participants-view-toggle">
+          <button
+            type="button"
+            className={`view-btn ${participantViewMode === 'cards' ? 'active' : ''}`}
+            onClick={() => setParticipantViewMode('cards')}
+          >
+            <i className="fas fa-th-large"></i> Cartes
+          </button>
+          <button
+            type="button"
+            className={`view-btn ${participantViewMode === 'list' ? 'active' : ''}`}
+            onClick={() => setParticipantViewMode('list')}
+          >
+            <i className="fas fa-list"></i> Liste
+          </button>
+        </div>
+
+        <div className="participants-table">
+          {participantViewMode === 'cards' && participants.map((participant) => (
+            <div key={participant.id} className="request-card">
+              <div className="request-header">
+                <div className="request-avatar">
+                  <AvatarImage src={participant.avatar} alt={participant.name} />
+                </div>
+                <div className="request-info">
+                  <h4 className="request-name">{participant.name}</h4>
+                  <p className="request-profession">{(participant as any).userRole ? translateRole((participant as any).userRole) : participant.profession}</p>
+                  {(participant as any).school_level_name && (
+                    <p className="text-sm request-school-level bg-[--primary-light]">classe : {(participant as any).school_level_name}</p>
+                  )}
+                  {showEmails && <p className="request-email" title={participant.email}>{participant.email}</p>}
+                  <p className="request-date">{toDisplayString(participant.organization)}</p>
+                </div>
+              </div>
+
+              {participant.skills && participant.skills.length > 0 && (
+                <ParticipantSkillsList skills={participant.skills} />
+              )}
+              {participant.availability && participant.availability.length > 0 && (
+                <ParticipantAvailabilityList availability={participant.availability} />
+              )}
+
+              <div className="request-role-selector" style={{ marginTop: '0.75rem' }}>
+                <h4>Rôle dans le projet</h4>
+                <select
+                  value={getCurrentRoleValue(participant)}
+                  onChange={(e) => handleRoleChange(participant, e.target.value)}
+                  disabled={!canChangeRole(participant)}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    borderRadius: '0.375rem',
+                    border: '1px solid #d1d5db',
+                    fontSize: '0.875rem',
+                    backgroundColor: !canChangeRole(participant) ? '#f3f4f6' : 'white',
+                    cursor: !canChangeRole(participant) ? 'not-allowed' : 'pointer',
+                    color: !canChangeRole(participant) ? '#6b7280' : '#111827'
+                  }}
+                >
+                  {participant.role === 'owner' && (
+                    <option value="owner">Responsable du projet</option>
+                  )}
+                  {participant.role === 'co-owner' && (
+                    <option value="co-owner">Co-responsable du projet</option>
+                  )}
+                  {participant.role !== 'owner' && participant.role !== 'co-owner' && (
+                    <>
+                      <option value="member">Participant</option>
+                      <option value="member-with-badges">Participant avec droit de badges</option>
+                      <option value="admin">Admin</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              {!isProjectEnded && (
+                <div className="request-actions">
+                  <div className="action-buttons">
+                    {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
+                      <button
+                        className="btn-reject"
+                        onClick={() => handleRemoveParticipant(participant.id)}
+                        title="Retirer du projet"
+                      >
+                        <i className="fas fa-user-minus"></i>
+                        Retirer
+                      </button>
+                    )}
+                    {canAssignBadges && !isProjectEnded && project.status !== 'draft' && (
+                      <button
+                        className="btn-accept"
+                        onClick={() => handleAwardBadge(participant.memberId)}
+                        title="Attribuer un badge"
+                      >
+                        <i className="fas fa-award"></i>
+                        Badge
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+
+          {participantViewMode === 'list' && participants.length > 0 && (
+            <div className="participants-table-scroll">
+              <table className="participants-list-table">
+                <thead>
+                  <tr>
+                    <th>Avatar</th>
+                    <th>Nom</th>
+                    <th>Rôle système</th>
+                    {showEmails && <th>Email</th>}
+                    <th>Organisation</th>
+                    <th>Compétences</th>
+                    <th>Disponibilités</th>
+                    <th>Rôle projet</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {participants.map((participant) => (
+                    <tr key={participant.id}>
+                      <td>
+                        <AvatarImage src={participant.avatar} alt={participant.name} className="participant-list-avatar" />
+                      </td>
+                      <td>{participant.name}</td>
+                      <td>
+                        <span>{(participant as any).userRole ? translateRole((participant as any).userRole) : participant.profession || '—'}</span>
+                        {(participant as any).school_level_name && (
+                          <span className="participant-list-school"> — classe : {(participant as any).school_level_name}</span>
+                        )}
+                      </td>
+                      {showEmails && <td title={participant.email}>{participant.email || '—'}</td>}
+                      <td>{toDisplayString(participant.organization) || '—'}</td>
+                      <td className="participant-list-pills-td">
+                        <CollapsiblePillsCell
+                          items={participant.skills ?? []}
+                          pillClassName="skill-pill"
+                        />
+                      </td>
+                      <td className="participant-list-pills-td">
+                        <CollapsiblePillsCell
+                          items={participant.availability ?? []}
+                          pillClassName="availability-pill"
+                        />
+                      </td>
+                      <td>
+                        <select
+                          value={getCurrentRoleValue(participant)}
+                          onChange={(e) => handleRoleChange(participant, e.target.value)}
+                          disabled={!canChangeRole(participant)}
+                          className="participant-list-role-select"
+                        >
+                          {participant.role === 'owner' && (
+                            <option value="owner">Responsable du projet</option>
+                          )}
+                          {participant.role === 'co-owner' && (
+                            <option value="co-owner">Co-responsable du projet</option>
+                          )}
+                          {participant.role !== 'owner' && participant.role !== 'co-owner' && (
+                            <>
+                              <option value="member">Participant</option>
+                              <option value="member-with-badges">Participant avec droit de badges</option>
+                              <option value="admin">Admin</option>
+                            </>
+                          )}
+                        </select>
+                      </td>
+                      <td>
+                        {!isProjectEnded && (
+                          <div className="participant-list-actions">
+                            {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
+                              <button
+                                type="button"
+                                className="btn-reject btn-sm"
+                                onClick={() => handleRemoveParticipant(participant.id)}
+                                title="Retirer du projet"
+                              >
+                                <i className="fas fa-user-minus"></i> Retirer
+                              </button>
+                            )}
+                            {canAssignBadges && project.status !== 'draft' && (
+                              <button
+                                type="button"
+                                className="btn-accept btn-sm"
+                                onClick={() => handleAwardBadge(participant.memberId)}
+                                title="Attribuer un badge"
+                              >
+                                <i className="fas fa-award"></i> Badge
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {participantViewMode === 'list' && participants.length === 0 && (
+            <p className="participants-empty-list">Aucun participant.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <section className="project-management-container with-sidebar">
@@ -4443,9 +4727,27 @@ const ProjectManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* Fixed section for "participant avec droit de badges": Badges que j'ai attribués (no tab bar) */}
+        {/* Fixed section for "participant avec droit de badges": Badges que j'ai attribués + Participants du projet */}
         {!shouldShowTabs() && userProjectRole === 'participant avec droit de badges' && (
-          <div className="tab-content active" style={{ marginTop: '1.5rem' }}>
+          <div style={{ marginTop: '1.5rem' }}>
+            <div className="project-management-tabs">
+              <button
+                type="button"
+                className={`tab-btn ${badgeHolderSubView === 'badges' ? 'active' : ''}`}
+                onClick={() => setBadgeHolderSubView('badges')}
+              >
+                Badges que j&apos;ai attribués
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${badgeHolderSubView === 'participants' ? 'active' : ''}`}
+                onClick={() => setBadgeHolderSubView('participants')}
+              >
+                Participants du projet
+              </button>
+            </div>
+            {badgeHolderSubView === 'badges' && (
+          <div className="tab-content active">
             <div className="badges-section">
               <div className="badges-section-header">
                 <h3>Badges que j&apos;ai attribués</h3>
@@ -4473,26 +4775,55 @@ const ProjectManagement: React.FC = () => {
                   badgeSeriesFilter === 'Série Parcours des possibles' ||
                   badgeSeriesFilter === 'Série Audiovisuelle' ||
                   badgeSeriesFilter === 'Série Parcours professionnel') && (
-                    <div className="filter-group">
-                      <label>Par niveau</label>
-                      <select
-                        value={badgeLevelFilter}
-                        onChange={(e) => {
-                          setBadgeLevelFilter(e.target.value);
-                          setBadgePage(1);
-                        }}
-                      >
-                        <option value="">Tous les niveaux</option>
-                        <option value="1">Niveau 1</option>
-                        <option value="2">Niveau 2</option>
-                        <option value="3">Niveau 3</option>
-                        <option value="4">Niveau 4</option>
-                      </select>
-                    </div>
-                  )}
+                  <div className="filter-group">
+                    <label>Par niveau</label>
+                    <select
+                      value={badgeLevelFilter}
+                      onChange={(e) => {
+                        setBadgeLevelFilter(e.target.value);
+                        setBadgePage(1);
+                      }}
+                    >
+                      <option value="">Tous les niveaux</option>
+                      <option value="1">Niveau 1</option>
+                      <option value="2">Niveau 2</option>
+                      <option value="3">Niveau 3</option>
+                      <option value="4">Niveau 4</option>
+                    </select>
+                  </div>
+                )}
+                <div className="filter-group">
+                  <label>Attribué à</label>
+                  <input
+                    type="text"
+                    className="filter-select"
+                    placeholder="Rechercher par nom…"
+                    value={badgeReceiverFilter}
+                    onChange={(e) => {
+                      setBadgeReceiverFilter(e.target.value);
+                      setBadgePage(1);
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="view-toggle badges-view-toggle">
+                <button
+                  type="button"
+                  className={`view-btn ${badgeViewMode === 'cards' ? 'active' : ''}`}
+                  onClick={() => setBadgeViewMode('cards')}
+                >
+                  <i className="fas fa-th-large"></i> Cartes
+                </button>
+                <button
+                  type="button"
+                  className={`view-btn ${badgeViewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setBadgeViewMode('list')}
+                >
+                  <i className="fas fa-list"></i> Liste
+                </button>
               </div>
               <div className="badges-list">
-                {projectBadges.map((attribution) => (
+                {badgeViewMode === 'cards' && projectBadges.map((attribution) => (
                   <div key={attribution.id} className="badge-attribution-card">
                     <div className="badge-attribution-header">
                       <div className="badge-image">
@@ -4609,6 +4940,63 @@ const ProjectManagement: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                {badgeViewMode === 'list' && projectBadges.length > 0 && (
+                  <div className="badges-table-scroll">
+                    <table className="badges-attribution-table">
+                      <thead>
+                        <tr>
+                          <th>Badge</th>
+                          <th>Titre</th>
+                          <th>Série</th>
+                          <th>Niveau</th>
+                          <th>Attribué à</th>
+                          <th>Attribué par</th>
+                          <th>Preuve</th>
+                          <th>Commentaire</th>
+                          <th>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {projectBadges.map((attribution) => {
+                          const firstPreuve = attribution.preuveFiles?.length
+                            ? attribution.preuveFiles[0]
+                            : attribution.preuve;
+                          const preuveUrl = firstPreuve?.url;
+                          const preuveLabel = firstPreuve?.name || (attribution.preuveFiles?.length ? `${attribution.preuveFiles.length} document(s)` : 'Document');
+                          return (
+                            <tr key={attribution.id}>
+                              <td>
+                                <img src={attribution.badgeImage} alt={attribution.badgeTitle} className="badge-list-icon" />
+                              </td>
+                              <td>{attribution.badgeTitle}</td>
+                              <td>{attribution.badgeSeries || '—'}</td>
+                              <td>
+                                {attribution.badgeSeries === 'Série CPS'
+                                  ? (attribution.domaineEngagement || '—')
+                                  : `Niveau ${attribution.badgeLevel || '1'}`}
+                              </td>
+                              <td>{attribution.participantName || '—'}</td>
+                              <td>{attribution.attributedByName || '—'}</td>
+                              <td>
+                                {preuveUrl ? (
+                                  <a href={preuveUrl} target="_blank" rel="noopener noreferrer" className="badge-list-preuve-link">
+                                    {preuveLabel}
+                                  </a>
+                                ) : (
+                                  attribution.preuveFiles?.length || attribution.preuve ? preuveLabel : '—'
+                                )}
+                              </td>
+                              <td title={attribution.commentaire || ''} className="badge-list-comment">
+                                {attribution.commentaire ? (attribution.commentaire.length > 60 ? `${attribution.commentaire.slice(0, 60)}…` : attribution.commentaire) : '—'}
+                              </td>
+                              <td>{formatDate(attribution.dateAttribution)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 {!isLoadingProjectBadges && projectBadges.length === 0 && (
                   <div className="empty-state">
                     <div className="empty-icon">
@@ -4669,6 +5057,9 @@ const ProjectManagement: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+            )}
+            {badgeHolderSubView === 'participants' && renderParticipantsSection(false, false)}
           </div>
         )}
 
@@ -5029,111 +5420,7 @@ const ProjectManagement: React.FC = () => {
               </div>
             )}
 
-            {activeTab === 'participants' && (
-              <div className="tab-content active">
-                <div className="participants-section">
-                  <div className="section-header">
-                    <h3>Participants du projet</h3>
-                    {!isProjectEnded && !isReadOnlyMode && (
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={handleAddParticipant}
-                      >
-                        <i className="fas fa-plus"></i>
-                        Ajouter un participant
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="participants-table">
-                    {participants.map((participant) => (
-                      <div key={participant.id} className="request-card">
-                        <div className="request-header">
-                          <div className="request-avatar">
-                            <AvatarImage src={participant.avatar} alt={participant.name} />
-                          </div>
-                          <div className="request-info">
-                            <h4 className="request-name">{participant.name}</h4>
-                            <p className="request-profession">{(participant as any).userRole ? translateRole((participant as any).userRole) : participant.profession}</p>
-                            {(participant as any).school_level_name && (
-                              <p className="text-sm request-school-level bg-[--primary-light]">classe : {(participant as any).school_level_name}</p>
-                            )}
-                            <p className="request-email" title={participant.email}>{participant.email}</p>
-                            <p className="request-date">{toDisplayString(participant.organization)}</p>
-                          </div>
-                        </div>
-
-                        {participant.skills && participant.skills.length > 0 && (
-                          <ParticipantSkillsList skills={participant.skills} />
-                        )}
-                        {participant.availability && participant.availability.length > 0 && (
-                          <ParticipantAvailabilityList availability={participant.availability} />
-                        )}
-
-                        <div className="request-role-selector" style={{ marginTop: '0.75rem' }}>
-                          <h4>Rôle dans le projet</h4>
-                          <select
-                            value={getCurrentRoleValue(participant)}
-                            onChange={(e) => handleRoleChange(participant, e.target.value)}
-                            disabled={!canChangeRole(participant)}
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem',
-                              borderRadius: '0.375rem',
-                              border: '1px solid #d1d5db',
-                              fontSize: '0.875rem',
-                              backgroundColor: !canChangeRole(participant) ? '#f3f4f6' : 'white',
-                              cursor: !canChangeRole(participant) ? 'not-allowed' : 'pointer',
-                              color: !canChangeRole(participant) ? '#6b7280' : '#111827'
-                            }}
-                          >
-                            {participant.role === 'owner' && (
-                              <option value="owner">Responsable du projet</option>
-                            )}
-                            {participant.role === 'co-owner' && (
-                              <option value="co-owner">Co-responsable du projet</option>
-                            )}
-                            {participant.role !== 'owner' && participant.role !== 'co-owner' && (
-                              <>
-                                <option value="member">Participant</option>
-                                <option value="member-with-badges">Participant avec droit de badges</option>
-                                <option value="admin">Admin</option>
-                              </>
-                            )}
-                          </select>
-                        </div>
-                        {!isProjectEnded && (
-                          <div className="request-actions">
-                            <div className="action-buttons">
-                              {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && (
-                                <button
-                                  className="btn-reject"
-                                  onClick={() => handleRemoveParticipant(participant.id)}
-                                  title="Retirer du projet"
-                                >
-                                  <i className="fas fa-user-minus"></i>
-                                  Retirer
-                                </button>
-                              )}
-                              {canAssignBadges && !isProjectEnded && project.status !== 'draft' && (
-                                <button
-                                  className="btn-accept"
-                                  onClick={() => handleAwardBadge(participant.memberId)}
-                                  title="Attribuer un badge"
-                                >
-                                  <i className="fas fa-award"></i>
-                                  Badge
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {activeTab === 'participants' && renderParticipantsSection(!isProjectEnded && !isReadOnlyMode, true)}
 
             {activeTab === 'equipes' && (
               <div className="tab-content active">
@@ -5313,10 +5600,40 @@ const ProjectManagement: React.FC = () => {
                           </select>
                         </div>
                       )}
+                    <div className="filter-group">
+                      <label>Attribué à</label>
+                      <input
+                        type="text"
+                        className="filter-select"
+                        placeholder="Rechercher par nom…"
+                        value={badgeReceiverFilter}
+                        onChange={(e) => {
+                          setBadgeReceiverFilter(e.target.value);
+                          setBadgePage(1);
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="view-toggle badges-view-toggle">
+                    <button
+                      type="button"
+                      className={`view-btn ${badgeViewMode === 'cards' ? 'active' : ''}`}
+                      onClick={() => setBadgeViewMode('cards')}
+                    >
+                      <i className="fas fa-th-large"></i> Cartes
+                    </button>
+                    <button
+                      type="button"
+                      className={`view-btn ${badgeViewMode === 'list' ? 'active' : ''}`}
+                      onClick={() => setBadgeViewMode('list')}
+                    >
+                      <i className="fas fa-list"></i> Liste
+                    </button>
                   </div>
 
                   <div className="badges-list">
-                    {projectBadges.map((attribution) => (
+                    {badgeViewMode === 'cards' && projectBadges.map((attribution) => (
                       <div key={attribution.id} className="badge-attribution-card">
                         <div className="badge-attribution-header">
                           <div className="badge-image">
@@ -5447,6 +5764,64 @@ const ProjectManagement: React.FC = () => {
                         </div>
                       </div>
                     ))}
+
+                    {badgeViewMode === 'list' && projectBadges.length > 0 && (
+                      <div className="badges-table-scroll">
+                        <table className="badges-attribution-table">
+                          <thead>
+                            <tr>
+                              <th>Badge</th>
+                              <th>Titre</th>
+                              <th>Série</th>
+                              <th>Niveau</th>
+                              <th>Attribué à</th>
+                              <th>Attribué par</th>
+                              <th>Preuve</th>
+                              <th>Commentaire</th>
+                              <th>Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {projectBadges.map((attribution) => {
+                              const firstPreuve = attribution.preuveFiles?.length
+                                ? attribution.preuveFiles[0]
+                                : attribution.preuve;
+                              const preuveUrl = firstPreuve?.url;
+                              const preuveLabel = firstPreuve?.name || (attribution.preuveFiles?.length ? `${attribution.preuveFiles.length} document(s)` : 'Document');
+                              return (
+                                <tr key={attribution.id}>
+                                  <td>
+                                    <img src={attribution.badgeImage} alt={attribution.badgeTitle} className="badge-list-icon" />
+                                  </td>
+                                  <td>{attribution.badgeTitle}</td>
+                                  <td>{attribution.badgeSeries || '—'}</td>
+                                  <td>
+                                    {attribution.badgeSeries === 'Série CPS'
+                                      ? (attribution.domaineEngagement || '—')
+                                      : `Niveau ${attribution.badgeLevel || '1'}`}
+                                  </td>
+                                  <td>{attribution.participantName || '—'}</td>
+                                  <td>{attribution.attributedByName || '—'}</td>
+                                  <td>
+                                    {preuveUrl ? (
+                                      <a href={preuveUrl} target="_blank" rel="noopener noreferrer" className="badge-list-preuve-link">
+                                        {preuveLabel}
+                                      </a>
+                                    ) : (
+                                      attribution.preuveFiles?.length || attribution.preuve ? preuveLabel : '—'
+                                    )}
+                                  </td>
+                                  <td title={attribution.commentaire || ''} className="badge-list-comment">
+                                    {attribution.commentaire ? (attribution.commentaire.length > 60 ? `${attribution.commentaire.slice(0, 60)}…` : attribution.commentaire) : '—'}
+                                  </td>
+                                  <td>{formatDate(attribution.dateAttribution)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
 
                     {!isLoadingProjectBadges && projectBadges.length === 0 && (
                       <div className="empty-state">

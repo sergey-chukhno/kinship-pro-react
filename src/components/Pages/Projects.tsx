@@ -11,13 +11,14 @@ import './Projects.css';
 
 // Imports API (Ajustez les chemins si nécessaire, basés sur la structure de Members.tsx)
 import { getCurrentUser } from '../../api/Authentication';
-import { deleteProject, getAllProjects, getAllUserProjects} from '../../api/Project';
+import { deleteProject, getAllProjects, getAllUserProjects, getUserOrganizationProjects } from '../../api/Project';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
 import { getTeacherProjects, updateProject as updateProjectAPI, postMldsBilan } from '../../api/Projects';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
 import { useToast } from '../../hooks/useToast';
+import { isUnder15 } from '../../utils/ageUtils';
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
@@ -67,6 +68,7 @@ const Projects: React.FC = () => {
   // Teachers should only see their own projects, not public projects
   const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   const isTeacher = state.showingPageType === 'teacher';
+  const isMinorPersonalUser = state.showingPageType === 'user' && isUnder15(state.user?.birthday);
   // For teachers, default to 'mes-projets' since they shouldn't see public projects
   // For regular users and pro/edu, default to 'nouveautes' to show public/org projects
   const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects' | 'brouillons' | 'archives'>(
@@ -148,6 +150,43 @@ const Projects: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, organizationFilter]);
+
+  // Projets des établissements/organisations dont l'utilisateur est membre confirmé (pour mineurs < 15)
+  const fetchOrganizationProjects = React.useCallback(async (page: number = 1) => {
+    setIsLoadingProjects(true);
+    try {
+      const currentUser = await getCurrentUser();
+      const response = await getUserOrganizationProjects({ page, per_page: 12 });
+      const rawProjects = response.data?.data || response.data || [];
+      const formattedProjects: Project[] = rawProjects.map((p: any) => {
+        return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+      });
+      setProjects(formattedProjects);
+      const newRawProjectsMap = new Map<string, any>();
+      rawProjects.forEach((p: any) => {
+        if (p.id) newRawProjectsMap.set(p.id.toString(), p);
+      });
+      setRawProjectsMap(prev => {
+        const merged = new Map(prev);
+        newRawProjectsMap.forEach((value, key) => merged.set(key, value));
+        return merged;
+      });
+      if (response.data?.meta) {
+        setProjectTotalPages(response.data.meta.total_pages || 1);
+        setProjectTotalCount(response.data.meta.total_count || 0);
+      }
+      setInitialLoad(false);
+    } catch (err) {
+      console.error('Erreur lors de la récupération des projets des établissements/organisations:', err);
+      setProjects([]);
+      setProjectTotalPages(1);
+      setProjectTotalCount(0);
+      setInitialLoad(false);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType]);
 
   // Fonction pour récupérer les projets de l'utilisateur (Mes projets)
   const fetchMyProjects = React.useCallback(async (page: number = 1) => {
@@ -446,8 +485,12 @@ const Projects: React.FC = () => {
         // Ne pas charger les projets publics
         await fetchMyProjects(page);
       } else if (state.showingPageType === 'user') {
-        // Pour les utilisateurs personnels : charger les projets publics (Nouveautés)
-        await fetchPublicProjects(page);
+        // Pour les utilisateurs personnels : mineurs < 15 → projets des établissements/orgs, sinon projets publics (Nouveautés)
+        if (isMinorPersonalUser) {
+          await fetchOrganizationProjects(page);
+        } else {
+          await fetchPublicProjects(page);
+        }
         // Charger aussi les projets de l'utilisateur (Mes projets)
         await fetchMyProjects(myProjectsPage);
       } else {
@@ -714,7 +757,7 @@ const Projects: React.FC = () => {
       setIsLoadingProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
+  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, fetchOrganizationProjects, isMinorPersonalUser, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -745,7 +788,11 @@ const Projects: React.FC = () => {
       fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
       fetchArchivedProjects();
     } else if (state.showingPageType === 'user') {
-      fetchPublicProjects(1);
+      if (isMinorPersonalUser) {
+        fetchOrganizationProjects(1);
+      } else {
+        fetchPublicProjects(1);
+      }
       fetchMyProjects(1);
       fetchMLDSProjects(1);
       fetchArchivedProjects();
@@ -758,7 +805,7 @@ const Projects: React.FC = () => {
       fetchArchivedProjects();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType]); // Retirer state.user.available_contexts pour éviter les re-renders, le contexte est lu depuis localStorage
+  }, [state.showingPageType, isMinorPersonalUser]); // isMinorPersonalUser: under-15 users get org projects on Nouveautés
 
   // Fetch projects when projectPage changes (for pro/edu dashboards and user "Nouveautés" tab)
   useEffect(() => {
@@ -804,7 +851,11 @@ const Projects: React.FC = () => {
       // Teachers only see their own projects
       fetchMyProjects(myProjectsPage);
     } else if (state.showingPageType === 'user' && activeTab === 'nouveautes') {
-      fetchPublicProjects(projectPage);
+      if (isMinorPersonalUser) {
+        fetchOrganizationProjects(projectPage);
+      } else {
+        fetchPublicProjects(projectPage);
+      }
     } else if (!isPersonalUser) {
       // Pour les rôles pro et edu, recharger les projets avec la page
       // Éviter le doublon au premier rendu : skip si on est sur page 1 avec filtre 'my-org' et que le fetch initial n'a pas encore été fait
@@ -815,7 +866,7 @@ const Projects: React.FC = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectPage, organizationFilter, allFilteredProjects]);
+  }, [projectPage, organizationFilter, allFilteredProjects, isMinorPersonalUser]);
 
   // Fetch my projects when myProjectsPage changes (for user/teacher "Mes projets" tab)
   useEffect(() => {
@@ -898,7 +949,11 @@ const Projects: React.FC = () => {
       fetchMLDSProjects(1);
     } else if (state.showingPageType === 'user') {
       if (activeTab === 'nouveautes') {
-        fetchPublicProjects(1);
+        if (isMinorPersonalUser) {
+          fetchOrganizationProjects(1);
+        } else {
+          fetchPublicProjects(1);
+        }
       } else if (activeTab === 'mlds-projects') {
         fetchMLDSProjects(1);
       }
@@ -1284,13 +1339,16 @@ const Projects: React.FC = () => {
           <h2>{(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Rechercher une idée de projet sur Kinship' : 'Gestion des projets'}</h2>
         </div>
         <div className="projects-actions">
+          {state.showingPageType !== 'user' && !isMinorPersonalUser && (
+            <div className="dropdown" style={{ position: 'relative' }}>
+              <button className="btn btn-outline" disabled title="Disponible très bientôt" onClick={handleExportProjects}>
+                <i className="fas fa-download"></i> Exporter
+              </button>
+            </div>
+          )}
+          {state.showingPageType !== 'user' && !isMinorPersonalUser && (
           <div className="dropdown" style={{ position: 'relative' }}>
-            <button className="btn btn-outline" disabled title="Disponible très bientôt" onClick={handleExportProjects}>
-              <i className="fas fa-download"></i> Exporter
-            </button>
-          </div>
-          <div className="dropdown" style={{ position: 'relative' }}>
-            {(state.showingPageType === 'pro' || state.showingPageType === 'user') ? (
+            {state.showingPageType === 'pro' ? (
               <button
                 className="btn btn-primary"
                 onClick={handleCreateProject}
@@ -1363,12 +1421,14 @@ const Projects: React.FC = () => {
               </>
             )}
           </div>
+          )}
         </div>
       </div>
 
       {/* Tabs for all users */}
         <div className="filter-tabs" style={{ marginBottom: '24px' }}>
         {/* For users: show Nouveautés, Mes projets, Brouillons, MLDS, and Archives tabs */}
+        {/* For users: show Nouveautés / Projets de mes établissements (minors), Mes projets, Brouillons, and MLDS tabs */}
         {state.showingPageType === 'user' && (
           <>
           <button 
@@ -1378,7 +1438,9 @@ const Projects: React.FC = () => {
               setProjectPage(1); // Reset pagination when switching tabs
             }}
           >
-              Nouveautés ({nouveautesProjectsCount})
+              {isMinorPersonalUser
+                ? `Projets de mes établissements/organisations (${projectTotalCount})`
+                : `Nouveautés (${nouveautesProjectsCount})`}
           </button>
             <button 
               className={`filter-tab ${activeTab === 'mes-projets' ? 'active' : ''}`}

@@ -30,6 +30,17 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
     setShowAllParticipants(!showAllParticipants);
   };
 
+  const creatorDisplayName = (() => {
+    const cb = event.createdBy;
+    if (!cb) return null;
+    if (typeof cb === 'object' && 'first_name' in cb && 'last_name' in cb) {
+      return [cb.first_name, cb.last_name].filter(Boolean).join(' ') || null;
+    }
+    const creatorId = typeof cb === 'string' ? cb : '';
+    const member = creatorId ? members.find(m => m.id === creatorId) : null;
+    return member ? `${member.firstName} ${member.lastName}`.trim() : null;
+  })();
+
   return (
     <div className="event-card" onClick={onClick}>
       <div className="event-header">
@@ -161,7 +172,13 @@ const EventCard: React.FC<EventCardProps> = ({ event, members, onClick, onEdit, 
             <span>{event.participants.length} participants</span>
           </div>
         </div>
-        
+
+        {creatorDisplayName && (
+          <div className="event-creator">
+            <span className="event-creator-label">Créé par:</span> {creatorDisplayName}
+          </div>
+        )}
+
         <div className="event-participants">
           <div className="participants-label">Participants:</div>
           <div className="participants-list">

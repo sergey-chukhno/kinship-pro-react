@@ -65,10 +65,15 @@ const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
   const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
   const isTeacherContext = state.showingPageType === 'teacher';
+  const isProContext = state.showingPageType === 'pro';
   const currentSchoolRole = getSelectedOrganizationRole(state.user, state.showingPageType);
   const isSchoolAdmin = currentSchoolRole === 'admin' || currentSchoolRole === 'superadmin';
   const { showSuccess, showError } = useToast();
   const showStaffTab = !isTeacherContext;
+
+  // Pro dashboard: Staff tab = superadmin, admin, referent; Members tab = intervenant, member
+  const PRO_STAFF_ROLES = ['superadmin', 'admin', 'referent'];
+  const PRO_MEMBER_ROLES = ['intervenant', 'member'];
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addMemberModalVariant, setAddMemberModalVariant] = useState<'major' | 'minor'>('major');
@@ -83,8 +88,8 @@ const Members: React.FC = () => {
   const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community' | 'students'>(
-    isTeacherContext ? 'class' : 'members'
+  const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community' | 'students' | 'staff'>(
+    isTeacherContext ? 'class' : isProContext ? 'staff' : 'members'
   );
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isClassStudentsModalOpen, setIsClassStudentsModalOpen] = useState(false);
@@ -641,13 +646,20 @@ const Members: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]);
 
+  // Pro dashboard: ensure activeTab is staff or members when on pro (e.g. after switching from edu)
   useEffect(() => {
-    if (!isSchoolContext) {
+    if (isProContext && activeTab !== 'staff' && activeTab !== 'members') {
+      setActiveTab('staff');
+    }
+  }, [isProContext, activeTab]);
+
+  useEffect(() => {
+    if (!isSchoolContext && !isProContext) {
       setActiveTab('members');
     } else if (isTeacherContext && activeTab === 'members') {
       setActiveTab('class');
     }
-  }, [isSchoolContext, isTeacherContext, activeTab]);
+  }, [isSchoolContext, isTeacherContext, isProContext, activeTab]);
 
   // Reset classes page to 1 when filters change
   useEffect(() => {
@@ -762,6 +774,30 @@ const Members: React.FC = () => {
 
   const baseFilteredMembers = members.filter(applyMemberFilters);
   const filteredSchoolStaff = schoolStaffList.filter(applyMemberFilters);
+
+  // Pro dashboard: split by organization role for Staff vs Members tabs
+  const proStaffMembers = useMemo(() => {
+    if (!isProContext) return [];
+    return members.filter((m) => {
+      const role = ((m as any).membershipRole || '').toLowerCase();
+      return PRO_STAFF_ROLES.includes(role);
+    });
+  }, [members, isProContext]);
+  const proOrdinaryMembers = useMemo(() => {
+    if (!isProContext) return [];
+    return members.filter((m) => {
+      const role = ((m as any).membershipRole || '').toLowerCase();
+      return !PRO_STAFF_ROLES.includes(role);
+    });
+  }, [members, isProContext]);
+  const filteredProStaff = useMemo(
+    () => proStaffMembers.filter(applyMemberFilters),
+    [proStaffMembers, searchTerm, roleFilter, competenceFilter, subSkillFilter, availabilityFilter]
+  );
+  const filteredProMembers = useMemo(
+    () => proOrdinaryMembers.filter(applyMemberFilters),
+    [proOrdinaryMembers, searchTerm, roleFilter, competenceFilter, subSkillFilter, availabilityFilter]
+  );
 
   const teacherSchoolOptions = isTeacherContext
     ? (state.user.available_contexts?.schools || []).map((school: any) => ({
@@ -1740,18 +1776,35 @@ const Members: React.FC = () => {
         </div>
       )}
 
-      {/* Contenu du tab “Membres” */}
-      {showStaffTab && activeTab === 'members' && (
+      {/* Tabs for pro dashboard: Staff and Members */}
+      {isProContext && (
+        <div className="tabs-container">
+          <button
+            className={`tab-btn ${activeTab === 'staff' ? 'active' : ''}`}
+            onClick={() => setActiveTab('staff')}
+          >
+            Staff
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'members' ? 'active' : ''}`}
+            onClick={() => setActiveTab('members')}
+          >
+            Members
+          </button>
+        </div>
+      )}
+
+      {/* Contenu du tab “Membres” (edu Staff) ou Pro Staff / Members */}
+      {((showStaffTab && activeTab === 'members' && !isProContext) || (isProContext && (activeTab === 'staff' || activeTab === 'members'))) && (
         <>
           {renderFilterBar()}
           <div className="min-h-[65vh]">
-            {/* Staff = pro: from members; edu: from dedicated staff API (all teachers + admins) */}
+            {/* Edu: Staff tab = filteredSchoolStaff. Pro: Staff tab = filteredProStaff, Members tab = filteredProMembers */}
             {(() => {
-              const staffMembers: Member[] =
-                state.showingPageType === 'pro'
-                  ? baseFilteredMembers
-                  : filteredSchoolStaff;
-              const staffLoading = state.showingPageType === 'pro'
+              const staffMembers: Member[] = isProContext
+                ? (activeTab === 'staff' ? filteredProStaff : filteredProMembers)
+                : filteredSchoolStaff;
+              const staffLoading = isProContext
                 ? (isMembersLoading && membersInitialLoad)
                 : isStaffLoading;
 

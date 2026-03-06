@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { mockMembers } from '../../data/mockData';
 import { Badge } from '../../types';
 import BadgeCard from '../Badges/BadgeCard';
+import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
 import BadgeModal from '../Modals/BadgeModal';
 import BadgeAnalyticsModal from '../Modals/BadgeAnalyticsModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
@@ -18,6 +19,7 @@ import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
+import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 import './Analytics.css';
 import './Badges.css';
 
@@ -51,6 +53,10 @@ const Badges: React.FC = () => {
   const [projectOptionsUser, setProjectOptionsUser] = useState<Array<{ id: number; title: string }>>([]);
   const [loadingSeriesStats, setLoadingSeriesStats] = useState(false);
   const [loadingProjectsUser, setLoadingProjectsUser] = useState(false);
+
+  // Cartography (org view): series options from API for dynamic dropdown
+  const [cartographySeriesOptions, setCartographySeriesOptions] = useState<string[]>([]);
+  const [loadingCartographySeries, setLoadingCartographySeries] = useState(false);
 
   // API data states
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -94,18 +100,29 @@ const Badges: React.FC = () => {
         if (selectedSeries) {
           filters.series = selectedSeries; // Use exact database series name
         }
-        
         if (selectedLevel) {
           filters.level = selectedLevel.replace('Niveau ', 'level_');
         }
-        
         response = await getUserBadges(page, perPage, filters);
-        const payload = Array.isArray(response.data) ? response.data : [];
-        setRawBadgeData(payload); // Store raw for PDF export (same as orgs)
+        let payload = Array.isArray(response.data) ? response.data : [];
+        const totalPagesFromApi = response.meta?.total_pages || 1;
+        const totalCountFromApi = response.meta?.total_count || payload.length;
+        // For series with competence progress (Compétences à s'orienter, Métiers de la mer), load all pages so progress is complete
+        if (isSeriesWithCompetenceProgress(selectedSeries) && totalPagesFromApi > 1) {
+          for (let p = 2; p <= totalPagesFromApi; p++) {
+            const nextResp = await getUserBadges(p, perPage, filters);
+            const nextData = Array.isArray(nextResp.data) ? nextResp.data : [];
+            payload = payload.concat(nextData);
+          }
+          setTotalPages(1);
+          setTotalBadges(payload.length);
+        } else {
+          setTotalPages(totalPagesFromApi);
+          setTotalBadges(totalCountFromApi);
+        }
+        setRawBadgeData(payload);
         const mapped = payload.map(mapBackendUserBadgeToBadge);
         setBadges(mapped);
-        setTotalPages(response.meta?.total_pages || 1);
-        setTotalBadges(response.meta?.total_count || 0);
       } else if (state.showingPageType === 'edu' && organizationId) {
         // School: fetch assigned badges
         response = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries || undefined);
@@ -158,6 +175,31 @@ const Badges: React.FC = () => {
     setCurrentPage(1);
     fetchBadges(1);
   }, [fetchBadges]);
+
+  // Cartography (edu/pro/teacher): fetch available series from API for dynamic dropdown
+  useEffect(() => {
+    if (state.showingPageType !== 'edu' && state.showingPageType !== 'pro' && state.showingPageType !== 'teacher') return;
+    const fetchSeries = async () => {
+      setLoadingCartographySeries(true);
+      try {
+        const list = await getBadges();
+        const seriesSet = new Set<string>();
+        (Array.isArray(list) ? list : []).forEach((b: any) => { if (b.series) seriesSet.add(b.series); });
+        const sorted = Array.from(seriesSet).sort((a, b) => a.localeCompare(b));
+        setCartographySeriesOptions(sorted);
+        setSelectedSeries((prev) => {
+          if (sorted.length === 0) return prev;
+          if (sorted.includes(prev)) return prev;
+          return sorted.includes('Série TouKouLeur') ? 'Série TouKouLeur' : sorted[0];
+        });
+      } catch (e) {
+        console.error('Error fetching cartography series options', e);
+      } finally {
+        setLoadingCartographySeries(false);
+      }
+    };
+    fetchSeries();
+  }, [state.showingPageType]);
 
   // Mes statistiques (personal user): fetch badge series options
   useEffect(() => {
@@ -336,6 +378,43 @@ const Badges: React.FC = () => {
 
   const sections = getSections(selectedSeries || 'Série TouKouLeur');
 
+  // For personal user + series with competence progress: aggregate by (name, level), full vs received competencies
+  const competencesOrienterProgressByLevel = useMemo(() => {
+    if (state.showingPageType !== 'user' || !isSeriesWithCompetenceProgress(selectedSeries) || rawBadgeData.length === 0) {
+      return {} as Record<string, Array<{ badge: Badge; badgeId?: string; fullExpertiseNames: string[]; receivedExpertiseNames: string[] }>>;
+    }
+    const groupKey = (item: any) => `${item?.badge?.name ?? ''}|${item?.badge?.level ?? ''}`;
+    const groups = new Map<string, any[]>();
+    rawBadgeData.forEach((item: any) => {
+      const key = groupKey(item);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    });
+    const list: Array<{ badge: Badge; badgeId?: string; fullExpertiseNames: string[]; receivedExpertiseNames: string[] }> = [];
+    groups.forEach((groupItems) => {
+      const first = groupItems[0];
+      const expertises = first?.badge?.expertises ?? [];
+      const fullExpertiseNames = expertises.map((e: any) => (typeof e === 'string' ? e : e?.name ?? '')).filter(Boolean);
+      const receivedSet = new Set<string>();
+      groupItems.forEach((ub: any) => {
+        (ub.skills_indicated || []).forEach((s: string) => {
+          if (fullExpertiseNames.includes(s)) receivedSet.add(s);
+        });
+      });
+      const receivedExpertiseNames = Array.from(receivedSet);
+      const badge = mapBackendUserBadgeToBadge(first);
+      const badgeId = first?.badge?.id?.toString();
+      list.push({ badge, badgeId, fullExpertiseNames, receivedExpertiseNames });
+    });
+    const byLevel: Record<string, typeof list> = {};
+    list.forEach((item) => {
+      const levelKey = item.badge.level;
+      if (!byLevel[levelKey]) byLevel[levelKey] = [];
+      byLevel[levelKey].push(item);
+    });
+    return byLevel;
+  }, [state.showingPageType, selectedSeries, rawBadgeData]);
+
   // Mes statistiques: Compétences par niveau (same logic as Analytics)
   const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
   const LEVEL_LABELS_STATS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
@@ -506,11 +585,28 @@ const Badges: React.FC = () => {
                       value={selectedSeries}
                       onChange={(e) => setSelectedSeries(e.target.value)}
                       className="filter-select big-select"
+                      disabled={state.showingPageType !== 'user' && loadingCartographySeries}
                     >
-                      <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
-                      <option value="Série Parcours des possibles">Série Parcours des possibles</option>
-                      <option value="Série Audiovisuelle">Série Audiovisuelle</option>
-                      <option value="Série Parcours professionnel">Série Parcours professionnel</option>
+                      {state.showingPageType === 'user' && badgeSeriesOptionsStats.length === 0 && (
+                        <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
+                      )}
+                      {state.showingPageType === 'user' && badgeSeriesOptionsStats.map((s) => (
+                        <option key={s} value={s}>{displaySeries(s)}</option>
+                      ))}
+                      {state.showingPageType !== 'user' && loadingCartographySeries && (
+                        <option value={selectedSeries}>Chargement…</option>
+                      )}
+                      {state.showingPageType !== 'user' && !loadingCartographySeries && cartographySeriesOptions.length === 0 && (
+                        <>
+                          <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
+                          <option value="Série Parcours des possibles">Série Parcours des possibles</option>
+                          <option value="Série Audiovisuelle">Série Audiovisuelle</option>
+                          <option value="Série Parcours professionnel">Série Parcours professionnel</option>
+                        </>
+                      )}
+                      {state.showingPageType !== 'user' && !loadingCartographySeries && cartographySeriesOptions.length > 0 && cartographySeriesOptions.map((s) => (
+                        <option key={s} value={s}>{displaySeries(s)}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="filter-group">
@@ -546,11 +642,50 @@ const Badges: React.FC = () => {
                       <h4>Aucun badge trouvé</h4>
                       <p>Les badges attribués apparaîtront ici.</p>
                     </div>
+                  ) : state.showingPageType === 'user' && isSeriesWithCompetenceProgress(selectedSeries) ? (
+                    /* Progress card (greyed image, segmented bar, legend) for Compétences à s'orienter & Métiers de la mer */
+                    sections.map((section) => {
+                      const rawSectionItems = competencesOrienterProgressByLevel[section.key] || [];
+                      const sectionItems = rawSectionItems.filter((item) => {
+                        const matchesSearch = !searchTerm || item.badge.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.badge.description.toLowerCase().includes(searchTerm.toLowerCase());
+                        const matchesLevel = !selectedLevel || item.badge.level.includes(selectedLevel);
+                        return matchesSearch && matchesLevel;
+                      });
+                      if (sectionItems.length === 0) return null;
+                      return (
+                        <div key={section.key} className="level-divider">
+                          <div className="level-header">
+                            <div className="level-title" style={{ color: section.color }}>
+                              {section.icon ? (
+                                <img src={section.icon} alt={section.label} className="domain-icon" />
+                              ) : (
+                                <div className="level-color-square" style={{ backgroundColor: section.color }}></div>
+                              )}
+                              <span>{section.label}</span>
+                            </div>
+                            <div className="bg-red-500 level-count">
+                              {sectionItems.length} badge{sectionItems.length > 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          <div className="badges-grid">
+                            {sectionItems.map((item) => (
+                              <CompetencesOrienterProgressCard
+                                key={`${item.badge.name}|${item.badge.level}`}
+                                badge={item.badge}
+                                fullExpertiseNames={item.fullExpertiseNames}
+                                receivedExpertiseNames={item.receivedExpertiseNames}
+                                badgeId={item.badgeId}
+                                onClick={() => handleBadgeClick(item.badge)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })
                   ) : (
                     sections.map((section) => {
                       const sectionBadges = badgesByLevel[section.key] || [];
                       if (sectionBadges.length === 0) return null;
-                      
                       return (
                         <div key={section.key} className="level-divider">
                           <div className="level-header">
@@ -566,13 +701,10 @@ const Badges: React.FC = () => {
                               {sectionBadges.length} badge{sectionBadges.length > 1 ? 's' : ''}
                             </div>
                           </div>
-                          
                           <div className="badges-grid">
                             {sectionBadges.map((badge) => {
-                              // Get attribution count for this badge (name + level)
                               const badgeKey = `${badge.name}|${badge.level}`;
                               const attributionCount = badgeAttributionCounts[badgeKey] || 0;
-                              
                               return (
                                 <BadgeCard
                                   key={badge.id}

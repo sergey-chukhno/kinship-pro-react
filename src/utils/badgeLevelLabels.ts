@@ -50,6 +50,11 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
+  // Série Métiers de la mer: "Niveau 1", "Niveau 2" (no suffix)
+  if (series === 'Série Métiers de la mer') {
+    return `Niveau ${levelNumber}`;
+  }
+
   // Série Compétences à s'orienter - Collège
   if (series === "Série Compétences à s'orienter - Collège") {
     switch (levelNumber) {
@@ -58,7 +63,7 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
       case '2':
         return 'Niveau 2 - Appropriation';
       case '3':
-        return 'Niveau 3- Application';
+        return 'Niveau 3 - Application';
       case '4':
         return 'Niveau 4 - Autonomie';
       default:

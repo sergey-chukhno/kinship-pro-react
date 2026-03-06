@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPersonalUserOrganizations, joinSchool, joinCompany } from '../../api/Projects';
+import { getPersonalUserOrganizations, joinSchool, joinCompany, getJoinableCompaniesForMinor } from '../../api/Projects';
 import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
 import { useSchoolSearch } from '../../hooks/useSchoolSearch';
 import { useToast } from '../../hooks/useToast';
 import { getCompanies } from '../../api/RegistrationRessource';
 import { useAppContext } from '../../context/AppContext';
 import { isStudentRole } from '../../utils/roleUtils';
+import { isUnder15 } from '../../utils/ageUtils';
 import './OrganizationsSection.css';
 
 interface Organization {
@@ -28,6 +29,11 @@ const OrganizationsSection: React.FC = () => {
   // Masquer la section Organisations pour les rôles teacher et school (edu)
   const shouldHideCompaniesSection = state.showingPageType === 'teacher' || state.showingPageType === 'edu';
 
+  // For personal users under 15: only show Organisations subsection if they have at least one confirmed school
+  const isMinorPersonalUser = state.showingPageType === 'user' && isUnder15(state.user?.birthday);
+  const hasConfirmedSchools = schools.some((s) => s.my_status === 'confirmed');
+  const shouldHideOrganisationsSubsectionForMinor = isMinorPersonalUser && !hasConfirmedSchools;
+
   // School search
   const {
     schools: schoolSearchResults,
@@ -41,7 +47,7 @@ const OrganizationsSection: React.FC = () => {
   const [companySearchResults, setCompanySearchResults] = useState<Organization[]>([]);
   const [isSearchingCompanies, setIsSearchingCompanies] = useState(false);
 
-  // Debounced company search
+  // Debounced company search (for minors under 15: use joinable companies from school partners only)
   useEffect(() => {
     if (companySearchQuery.length < 2) {
       setCompanySearchResults([]);
@@ -51,15 +57,27 @@ const OrganizationsSection: React.FC = () => {
     const timer = setTimeout(async () => {
       setIsSearchingCompanies(true);
       try {
-        const response = await getCompanies({ search: companySearchQuery });
-        const data = response?.data?.data ?? response?.data ?? response ?? [];
-        const companies = Array.isArray(data) ? data.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          city: c.city,
-          logo_url: c.logo_url,
-        })) : [];
-        setCompanySearchResults(companies);
+        if (isMinorPersonalUser) {
+          const response = await getJoinableCompaniesForMinor({ search: companySearchQuery });
+          const list = response?.data ?? [];
+          const mapped = Array.isArray(list) ? list.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            city: c.city,
+            logo_url: c.logo_url,
+          })) : [];
+          setCompanySearchResults(mapped);
+        } else {
+          const response = await getCompanies({ search: companySearchQuery });
+          const data = response?.data?.data ?? response?.data ?? response ?? [];
+          const companies = Array.isArray(data) ? data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            city: c.city,
+            logo_url: c.logo_url,
+          })) : [];
+          setCompanySearchResults(companies);
+        }
       } catch (error) {
         console.error('Error searching companies:', error);
         setCompanySearchResults([]);
@@ -69,7 +87,7 @@ const OrganizationsSection: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [companySearchQuery]);
+  }, [companySearchQuery, isMinorPersonalUser]);
 
   const loadOrganizations = useCallback(async () => {
     setIsLoading(true);
@@ -257,8 +275,8 @@ const OrganizationsSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Companies Section - Masquée pour teachers et school (edu) */}
-      {!shouldHideCompaniesSection && (
+      {/* Companies Section - Masquée pour teachers et school (edu); pour les mineurs sans école confirmée, masquer toute la subsection */}
+      {!shouldHideCompaniesSection && !shouldHideOrganisationsSubsectionForMinor && (
         <div className="organization-type-section">
           <h3>Organisations</h3>
           <p className="section-description">

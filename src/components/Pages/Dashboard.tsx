@@ -41,6 +41,7 @@ import { getLocalBadgeImage } from '../../utils/badgeImages';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
+import { isUnder15 } from '../../utils/ageUtils';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
@@ -1437,6 +1438,11 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
+        {isUnder15(state.user?.birthday) && (
+          <div className="checkin-alert" style={{ margin: '0 0 1rem', backgroundColor: '#e0f2fe', borderColor: '#0ea5e9', color: '#0c4a6e' }}>
+            Vous avez moins de 15 ans. Votre compte dispose de fonctionnalités limitées. Vous pouvez toutefois participer aux projets de vos établissements ou organisations et recevoir des badges.
+          </div>
+        )}
         <div className="dashboard-main-content personal-dashboard-content">
           <div className="personal-dashboard-stats-row">
             {userDashboardStatsLoading ? (
