@@ -59,7 +59,9 @@ export function buildMldsBilanPayload(bilanData: BilanData): MldsBilanPayload {
   const comment = (s: string) => (s.trim() || undefined);
   return {
     hse: num(bilanData.hse.newValue),
+    hse_comment: comment(bilanData.hse.comment),
     hv: num(bilanData.hv.newValue),
+    hv_comment: comment(bilanData.hv.comment),
     financial_transport: num(bilanData.credits_fonctionnement.newValue),
     financial_transport_comment: comment(bilanData.credits_fonctionnement.comment),
     financial_service: num(bilanData.credits_pedagogiques.newValue),

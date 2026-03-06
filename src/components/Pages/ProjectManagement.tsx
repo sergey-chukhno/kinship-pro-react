@@ -3984,7 +3984,7 @@ const ProjectManagement: React.FC = () => {
     // ========== BILAN À LA CLÔTURE ==========
     if (pdfBilan && typeof pdfBilan === 'object') {
       const hasBilan = pdfBilan.hse != null || pdfBilan.hv != null || pdfBilan.financial_transport != null || pdfBilan.financial_service != null || pdfBilan.financial_operating != null || pdfBilan.expected_participants != null ||
-        pdfBilan.financial_transport_comment || pdfBilan.financial_service_comment || pdfBilan.financial_operating_comment || pdfBilan.expected_participants_comment;
+        pdfBilan.hse_comment || pdfBilan.hv_comment || pdfBilan.financial_transport_comment || pdfBilan.financial_service_comment || pdfBilan.financial_operating_comment || pdfBilan.expected_participants_comment;
       if (hasBilan) {
         checkPage(40);
         y += 2;
@@ -4029,8 +4029,8 @@ const ProjectManagement: React.FC = () => {
         const mldsHvFB = mldsInfo.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
 
         const rows: Array<{ poste: string; valeur: string; comment: string; isTotal?: boolean }> = [];
-        if (pdfBilan.hse != null) rows.push({ poste: 'HSE', valeur: `${fmt(pdfBilan.hse)} h`, comment: '' });
-        if (pdfBilan.hv != null) rows.push({ poste: 'HV', valeur: `${fmt(pdfBilan.hv)} €/h`, comment: '' });
+        if (pdfBilan.hse != null || pdfBilan.hse_comment) rows.push({ poste: 'HSE', valeur: pdfBilan.hse != null ? `${fmt(pdfBilan.hse)} h` : '—', comment: String(pdfBilan.hse_comment || '') });
+        if (pdfBilan.hv != null || pdfBilan.hv_comment) rows.push({ poste: 'HV', valeur: pdfBilan.hv != null ? `${fmt(pdfBilan.hv)} €/h` : '—', comment: String(pdfBilan.hv_comment || '') });
         if (pdfBilan.financial_transport != null || pdfBilan.financial_transport_comment) rows.push({ poste: 'Crédits transport', valeur: pdfBilan.financial_transport != null ? `${fmt(pdfBilan.financial_transport)} €` : '—', comment: String(pdfBilan.financial_transport_comment || '') });
         if (pdfBilan.financial_service != null || pdfBilan.financial_service_comment) rows.push({ poste: 'Crédits pédagogiques', valeur: pdfBilan.financial_service != null ? `${fmt(pdfBilan.financial_service)} €` : '—', comment: String(pdfBilan.financial_service_comment || '') });
         if (pdfBilan.financial_operating != null || pdfBilan.financial_operating_comment) rows.push({ poste: 'Autres financements', valeur: pdfBilan.financial_operating != null ? `${fmt(pdfBilan.financial_operating)} €` : '—', comment: String(pdfBilan.financial_operating_comment || '') });
@@ -6261,7 +6261,9 @@ const ProjectManagement: React.FC = () => {
                                     ) : (
                                       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem', fontSize: '0.9rem' }}>
                                         {bilanHse !== null && <span><strong>HSE :</strong> {formatBilanVal(bilanHse)} h</span>}
+                                        {mldsBilan.hse_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hse_comment}</span>}
                                         {bilanHv !== null && <span><strong>HV :</strong> {formatBilanVal(bilanHv)} €</span>}
+                                        {mldsBilan.hv_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hv_comment}</span>}
                                         <span><strong>Total :</strong> {formatBilanVal((bilanHse ?? initHse ?? 0) * (bilanHv ?? initHv ?? HV_DEFAULT_RATE))} €</span>
                                       </div>
                                     )}

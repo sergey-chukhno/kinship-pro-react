@@ -80,7 +80,9 @@ export interface MLDSInformationAttributes {
 /** Payload for POST /api/v1/projects/:id/mlds_bilan */
 export interface MldsBilanPayload {
     hse?: number;
+    hse_comment?: string;
     hv?: number;
+    hv_comment?: string;
     financial_transport?: number;
     financial_transport_comment?: string;
     financial_service?: number;
