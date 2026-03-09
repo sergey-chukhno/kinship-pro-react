@@ -332,6 +332,10 @@ export interface OrganizationStatsOverview {
   events_count?: number;
   /** Company stats: number of network members excluding current user (pro dashboard) */
   network_count?: number;
+  /** Teacher stats: number of assigned classes */
+  total_classes?: number;
+  /** Teacher stats: badges assigned by teacher (number in overview) */
+  badges_assigned?: number;
 }
 
 export interface MembersByRoleStats {
