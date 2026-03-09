@@ -3926,9 +3926,9 @@ const ProjectManagement: React.FC = () => {
         const rate = Number.parseFloat(String(mldsInfo.financial_hv)) || HV_DEFAULT_RATE;
         const euros = hours * rate;
         totalCredits += euros;
-        addFinRow('Heures supplémentaires effectives (HSE)', `${hours.toFixed(2)} h`);
-        addFinRow('Valeur horaire (HV)', `${rate.toFixed(2)} €/h`);
-        addFinRow('Sous-total HSE', `${euros.toFixed(2)} €`, true);
+        addFinRow('Heures supplémentaires effectives (HV)', `${hours.toFixed(2)} h`);
+        addFinRow('Valeur taux horaire', `${rate.toFixed(2)} €/h`);
+        addFinRow('Sous-total', `${euros.toFixed(2)} €`, true);
       }
 
       // Transport
@@ -4029,8 +4029,8 @@ const ProjectManagement: React.FC = () => {
         const mldsHvFB = mldsInfo.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
 
         const rows: Array<{ poste: string; valeur: string; comment: string; isTotal?: boolean }> = [];
-        if (pdfBilan.hse != null || pdfBilan.hse_comment) rows.push({ poste: 'HSE', valeur: pdfBilan.hse != null ? `${fmt(pdfBilan.hse)} h` : '—', comment: String(pdfBilan.hse_comment || '') });
-        if (pdfBilan.hv != null || pdfBilan.hv_comment) rows.push({ poste: 'HV', valeur: pdfBilan.hv != null ? `${fmt(pdfBilan.hv)} €/h` : '—', comment: String(pdfBilan.hv_comment || '') });
+        if (pdfBilan.hse != null || pdfBilan.hse_comment) rows.push({ poste: 'HV', valeur: pdfBilan.hse != null ? `${fmt(pdfBilan.hse)} h` : '—', comment: String(pdfBilan.hse_comment || '') });
+        if (pdfBilan.hv != null || pdfBilan.hv_comment) rows.push({ poste: 'Taux horaire', valeur: pdfBilan.hv != null ? `${fmt(pdfBilan.hv)} €/h` : '—', comment: String(pdfBilan.hv_comment || '') });
         if (pdfBilan.financial_transport != null || pdfBilan.financial_transport_comment) rows.push({ poste: 'Crédits transport', valeur: pdfBilan.financial_transport != null ? `${fmt(pdfBilan.financial_transport)} €` : '—', comment: String(pdfBilan.financial_transport_comment || '') });
         if (pdfBilan.financial_service != null || pdfBilan.financial_service_comment) rows.push({ poste: 'Crédits pédagogiques', valeur: pdfBilan.financial_service != null ? `${fmt(pdfBilan.financial_service)} €` : '—', comment: String(pdfBilan.financial_service_comment || '') });
         if (pdfBilan.financial_operating != null || pdfBilan.financial_operating_comment) rows.push({ poste: 'Autres financements', valeur: pdfBilan.financial_operating != null ? `${fmt(pdfBilan.financial_operating)} €` : '—', comment: String(pdfBilan.financial_operating_comment || '') });
@@ -6215,7 +6215,7 @@ const ProjectManagement: React.FC = () => {
                             <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                               {apiProjectData.mlds_information.financial_hse != null && (
                                 <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HSE</div>
+                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
                                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
                                     {Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)).toFixed(2)} heure{Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) > 1 ? 's' : ''}
                                   </div>
@@ -6223,7 +6223,7 @@ const ProjectManagement: React.FC = () => {
                               )}
                               {apiProjectData.mlds_information.financial_hv != null && (
                                 <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
+                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Taux horaire</div>
                                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
                                     {Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)).toFixed(2)} €
                                   </div>
@@ -6260,9 +6260,9 @@ const ProjectManagement: React.FC = () => {
                                       <div style={{ fontSize: '0.9rem', color: '#6b7280', fontStyle: 'italic' }}>Aucun changement</div>
                                     ) : (
                                       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem', fontSize: '0.9rem' }}>
-                                        {bilanHse !== null && <span><strong>HSE :</strong> {formatBilanVal(bilanHse)} h</span>}
+                                        {bilanHse !== null && <span><strong>HV :</strong> {formatBilanVal(bilanHse)} h</span>}
                                         {mldsBilan.hse_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hse_comment}</span>}
-                                        {bilanHv !== null && <span><strong>HV :</strong> {formatBilanVal(bilanHv)} €</span>}
+                                        {bilanHv !== null && <span><strong>Taux horaire :</strong> {formatBilanVal(bilanHv)} €</span>}
                                         {mldsBilan.hv_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hv_comment}</span>}
                                         <span><strong>Total :</strong> {formatBilanVal((bilanHse ?? initHse ?? 0) * (bilanHv ?? initHv ?? HV_DEFAULT_RATE))} €</span>
                                       </div>
@@ -7664,7 +7664,7 @@ const ProjectManagement: React.FC = () => {
                       border: '1px solid #e5e7eb'
                     }}>
                       <div className="form-group" style={{ marginBottom: '0' }}>
-                        <label htmlFor="mlds-financial-hse">HSE</label>
+                        <label htmlFor="mlds-financial-hse">HV</label>
                         <input
                           type="number"
                           id="mlds-financial-hse"
@@ -7678,7 +7678,7 @@ const ProjectManagement: React.FC = () => {
                         />
                       </div>
                       <div className="form-group" style={{ marginBottom: '0' }}>
-                        <label htmlFor="mlds-financial-hv">HV (taux €/h)</label>
+                        <label htmlFor="mlds-financial-hv">Taux €/h</label>
                         <input
                           type="number"
                           id="mlds-financial-hv"

@@ -17,7 +17,15 @@ import { useToast } from '../../hooks/useToast';
 /** Taux HV par défaut (€/heure) — utilisé pour HSE × HV */
 const HV_DEFAULT_RATE = 50.73;
 
-const STUDENT_SYSTEM_ROLES = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant'];
+// Rôles système considérés comme "élèves" (tous contextes)
+const STUDENT_SYSTEM_ROLES = [
+  'eleve_primaire',
+  'collegien',
+  'lyceen',
+  'etudiant',
+  'student',
+  'eleve'
+];
 
 interface MLDSProjectModalProps {
   onClose: () => void;
@@ -545,18 +553,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     }
 
     const currentUserId = state.user?.id?.toString();
-    const selectedMemberIds = [
-      ...formData.coResponsibles.map(id => id.toString()),
-      ...formData.participants.map(id => id.toString())
-    ];
-
     let availableMembers = members.filter((member: any) => {
       if (!member) return false;
       const memberIdStr = member.id?.toString();
       if (currentUserId && memberIdStr === currentUserId) {
         return false;
       }
-      return !selectedMemberIds.includes(memberIdStr);
+      return true;
     });
 
     if (searchTerm.trim()) {
@@ -577,13 +580,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     return availableMembers;
   };
 
-  // Co-responsibles: for teacher use school staff (coResponsibleOptions), for edu filter out students
+  // Co-responsables : enseignants / adultes, jamais les élèves
   const getFilteredCoResponsibles = (searchTerm: string) => {
     if (state.showingPageType === 'teacher' && selectedSchoolId) {
-      const selectedIds = [
-        ...formData.coResponsibles.map(id => id.toString()),
-        ...formData.participants.map(id => id.toString())
-      ];
+      const selectedIds = formData.coResponsibles.map(id => id.toString());
       const currentUserId = state.user?.id?.toString();
       let list = (coResponsibleOptions || []).filter((m: any) => {
         const id = m?.id?.toString();
@@ -602,36 +602,37 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
       return list;
     }
     const baseList = getFilteredMembers(searchTerm);
-    if (state.showingPageType === 'edu') {
-      return baseList.filter((m: any) => {
+    // Dans tous les contextes, on exclut les rôles "élèves" et ceux déjà co‑responsables
+    return baseList.filter((m: any) => {
+      const role = (m.role_in_system || m.role || '').toString().toLowerCase();
+      const id = m?.id?.toString();
+      const alreadyCoResponsible = formData.coResponsibles.includes(id || '');
+      return !STUDENT_SYSTEM_ROLES.includes(role) && !alreadyCoResponsible;
+    });
+  };
+
+  // Participants : même pool que co-responsables (adultes), sélection indépendante
+  const getFilteredParticipants = (searchTerm: string) => {
+    // Cas particulier teacher : on se base sur les mêmes données que les co-responsables (personnels de l'établissement)
+    if (state.showingPageType === 'teacher' && selectedSchoolId) {
+      const selectedParticipantIds = formData.participants.map(id => id.toString());
+      const currentUserId = state.user?.id?.toString();
+
+      let list = (coResponsibleOptions || []).filter((m: any) => {
+        const id = m?.id?.toString();
+        if (!id) return false;
+        if (currentUserId && id === currentUserId) return false;
+        if (selectedParticipantIds.includes(id)) return false;
+        return true;
+      });
+
+      // Adultes uniquement
+      list = list.filter((m: any) => {
         const role = (m.role_in_system || m.role || '').toString().toLowerCase();
         return !STUDENT_SYSTEM_ROLES.includes(role);
       });
-    }
-    return baseList;
-  };
 
-  // Participants: for teacher, filter members by selected school
-  const getFilteredParticipants = (searchTerm: string) => {
-    if (state.showingPageType === 'teacher' && selectedSchoolId) {
-      const selectedIds = new Set([
-        ...formData.coResponsibles.map(id => id.toString()),
-        ...formData.participants.map(id => id.toString())
-      ]);
-      const currentUserId = state.user?.id?.toString();
-      let list = (members || []).filter((m: any) => {
-        const id = m?.id?.toString();
-        if (currentUserId && id === currentUserId) return false;
-        if (selectedIds.has(id)) return false;
-        // Filter by selected school: member must have a class in that school
-        if (m.classes && Array.isArray(m.classes)) {
-          return m.classes.some((cls: any) => {
-            const classSchoolId = cls.school_id || cls.school?.id;
-            return classSchoolId?.toString() === selectedSchoolId;
-          });
-        }
-        return false;
-      });
+      // Recherche
       if (searchTerm.trim()) {
         const lower = searchTerm.toLowerCase();
         list = list.filter((m: any) =>
@@ -640,9 +641,18 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
           (m.role || '').toLowerCase().includes(lower)
         );
       }
+
       return list;
     }
-    return getFilteredMembers(searchTerm);
+
+    // Autres contextes : même logique que co-responsables, mais filtrée sur les participants sélectionnés
+    const baseList = getFilteredMembers(searchTerm);
+    return baseList.filter((m: any) => {
+      const role = (m.role_in_system || m.role || '').toString().toLowerCase();
+      const id = m?.id?.toString();
+      const alreadyParticipant = formData.participants.includes(id || '');
+      return !STUDENT_SYSTEM_ROLES.includes(role) && !alreadyParticipant;
+    });
   };
 
   const getFilteredPartners = (searchTerm: string) => {
@@ -1630,7 +1640,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                 border: '1px solid #e5e7eb'
               }}>
                 <div className="form-group" style={{ marginBottom: '0' }}>
-                  <label htmlFor="mldsFinancialHSE">HSE</label>
+                  <label htmlFor="mldsFinancialHSE">HV</label>
                   <input
                     type="number"
                     id="mldsFinancialHSE"
@@ -1644,7 +1654,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: '0' }}>
-                  <label htmlFor="mldsFinancialHV">HV (taux €/h)</label>
+                  <label htmlFor="mldsFinancialHV">Taux (€/h)</label>
                   <input
                     type="number"
                     id="mldsFinancialHV"
@@ -1850,8 +1860,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                     {(
                       calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
                       calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
-                      calculateFinancialLinesTotal(formData.mldsFinancialService) +
-                      (Number.parseFloat(formData.mldsFinancialHSE) || 0) * (Number.parseFloat(formData.mldsFinancialHV) || HV_DEFAULT_RATE)
+                      calculateFinancialLinesTotal(formData.mldsFinancialService) 
                     ).toFixed(2)} €
                   </span>
                 </div>
