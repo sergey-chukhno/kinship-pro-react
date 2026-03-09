@@ -62,10 +62,10 @@ function getStatCardNavigation(
   }
   if (showingPageType === 'edu') {
     if (key === 'total_members') return { path: '/members?tab=members', page: 'members' };
-    if (key === 'total_teachers') return { path: '/members?tab=members', page: 'members' };
-    if (key === 'total_students') return { path: '/members?tab=students', page: 'members' };
     if (key === 'total_levels') return { path: '/members?tab=class', page: 'members' };
+    if (key === 'active_partnerships') return { path: '/network?card=partners', page: 'network' };
     if (key === 'total_projects') return { path: '/projects', page: 'projects' };
+    if (key === 'events_count') return { path: '/events', page: 'events' };
     if (key === 'badges_assigned') return { path: '/badges', page: 'badges' };
   }
   if (showingPageType === 'teacher') {
@@ -1236,12 +1236,22 @@ const Dashboard: React.FC = () => {
   const eduStaffCount = state.showingPageType === 'edu' && membersByRole
     ? (membersByRole.superadmin ?? 0) + (membersByRole.admin ?? 0) + (membersByRole.referent ?? 0)
     : undefined;
-  const statCards = [
+  // Edu dashboard: order is Membres du personnel éducatif, Classes, Mes partenaires, Projets, Événements, Badges
+  const eduStatCards = state.showingPageType === 'edu' ? [
+    { key: 'total_members', label: 'Membres du personnel éducatif', icon: '/icons_logo/Icon=Membres grand.svg', value: eduStaffCount, variant: 'stat-card' as const },
+    { key: 'total_levels', label: 'Classes', icon: '/icons_logo/Icon=Badges.svg', value: overview?.total_levels, variant: 'stat-card' as const },
+    { key: 'active_partnerships', label: 'Mes partenaires', icon: '/icons_logo/Icon=Reseau.svg', value: overview?.active_partnerships, variant: 'stat-card' as const },
+    { key: 'total_projects', label: 'Projets', icon: '/icons_logo/Icon=Projet grand.svg', value: overview?.total_projects, variant: 'stat-card2' as const },
+    { key: 'events_count', label: 'Événements', icon: '/icons_logo/Icon=Event grand.svg', value: overview?.events_count, variant: 'stat-card2' as const },
+    { key: 'badges_assigned', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg', value: badgesAssigned?.total, variant: 'stat-card2' as const },
+  ] : [];
+
+  const statCards = state.showingPageType === 'edu' ? eduStatCards : [
     {
       key: 'total_members',
-      label: state.showingPageType === 'edu' ? 'Membres du personnel éducatif' : 'Membres actifs',
+      label: state.showingPageType === 'pro' ? 'Membres actifs' : 'Membres du personnel éducatif',
       icon: '/icons_logo/Icon=Membres grand.svg',
-      value: state.showingPageType === 'edu' ? eduStaffCount : overview?.total_members,
+      value: state.showingPageType === 'pro' ? overview?.total_members : eduStaffCount,
       variant: 'stat-card',
     },
     {
@@ -1258,13 +1268,12 @@ const Dashboard: React.FC = () => {
       value: state.showingPageType === 'pro' ? overview?.network_count : overview?.total_students,
       variant: 'stat-card',
     },
-    // Classes card for edu dashboard (placed after Élèves)
-    ...(state.showingPageType === 'edu' ? [{
+    ...(state.showingPageType === 'teacher' ? [{
       key: 'total_levels',
       label: 'Classes',
       icon: '/icons_logo/Icon=Badges.svg',
       value: overview?.total_levels,
-      variant: 'stat-card2',
+      variant: 'stat-card2' as const,
     }] : []),
     {
       key: 'total_projects',
@@ -1273,7 +1282,6 @@ const Dashboard: React.FC = () => {
       value: overview?.total_projects,
       variant: 'stat-card2',
     },
-    // Badges card - shown for both pro and edu dashboards
     {
       key: 'badges_assigned',
       label: 'Badges',
@@ -1281,7 +1289,6 @@ const Dashboard: React.FC = () => {
       value: badgesAssigned?.total,
       variant: 'stat-card2',
     },
-    // Événements card - pro dashboard only (after Badges)
     ...(state.showingPageType === 'pro' ? [{
       key: 'events_count',
       label: 'Événements',
