@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole, removeCompanyMember, importCompanyMembersCsv } from '../../api/CompanyDashboard/Members';
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel, addExistingStudentToLevel } from '../../api/SchoolDashboard/Levels';
@@ -63,6 +64,7 @@ const availabilityToLabels = (availability: any = {}) => {
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
+  const [searchParams] = useSearchParams();
   const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
   const isTeacherContext = state.showingPageType === 'teacher';
   const isProContext = state.showingPageType === 'pro';
@@ -91,6 +93,16 @@ const Members: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community' | 'students' | 'staff'>(
     isTeacherContext ? 'class' : isProContext ? 'staff' : 'members'
   );
+
+  // Sync URL ?tab= to activeTab (for deep links from dashboard stat cards)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    const validTabs: Array<'members' | 'class' | 'community' | 'students' | 'staff'> = ['members', 'class', 'community', 'students', 'staff'];
+    if (tabParam && validTabs.includes(tabParam as 'members' | 'class' | 'community' | 'students' | 'staff')) {
+      setActiveTab(tabParam as 'members' | 'class' | 'community' | 'students' | 'staff');
+    }
+  }, [searchParams]);
+
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isClassStudentsModalOpen, setIsClassStudentsModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<{ id: number; name: string } | null>(null);

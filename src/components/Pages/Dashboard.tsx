@@ -45,6 +45,37 @@ import { isUnder15 } from '../../utils/ageUtils';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
+/** Returns navigation target for dashboard stat card (pro / edu / teacher). */
+function getStatCardNavigation(
+  showingPageType: 'pro' | 'edu' | 'teacher' | 'user',
+  cardKey: string
+): { path: string; page: PageType } | null {
+  if (showingPageType === 'user') return null;
+  const key = cardKey as string;
+  if (showingPageType === 'pro') {
+    if (key === 'total_members') return { path: '/members', page: 'members' };
+    if (key === 'active_partnerships') return { path: '/network?card=partners', page: 'network' };
+    if (key === 'network_count') return { path: '/network?card=members', page: 'network' };
+    if (key === 'total_projects') return { path: '/projects', page: 'projects' };
+    if (key === 'badges_assigned') return { path: '/badges', page: 'badges' };
+    if (key === 'events_count') return { path: '/events', page: 'events' };
+  }
+  if (showingPageType === 'edu') {
+    if (key === 'total_teachers') return { path: '/members?tab=staff', page: 'members' };
+    if (key === 'total_students') return { path: '/members?tab=students', page: 'members' };
+    if (key === 'total_levels') return { path: '/members?tab=class', page: 'members' };
+    if (key === 'total_projects') return { path: '/projects', page: 'projects' };
+    if (key === 'badges_assigned') return { path: '/badges', page: 'badges' };
+  }
+  if (showingPageType === 'teacher') {
+    if (key === 'total_students') return { path: '/members?tab=students', page: 'members' };
+    if (key === 'total_levels') return { path: '/members?tab=class', page: 'members' };
+    if (key === 'total_projects') return { path: '/projects', page: 'projects' };
+    if (key === 'badges_assigned') return { path: '/badges', page: 'badges' };
+  }
+  return null;
+}
+
 type DashboardProject = {
   id: number | string;
   title: string;
@@ -1654,8 +1685,9 @@ const Dashboard: React.FC = () => {
               {statCards.map((card) => {
                 if ((card.label === "Enseignants" || card.label === "Membres actifs") && state.showingPageType === 'teacher') return null;
                 const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
-                return (
-                  <div key={card.key} className={card.variant}>
+                const nav = getStatCardNavigation(state.showingPageType, card.key);
+                const content = (
+                  <>
                     <div className="stat-icon">
                       <img src={card.icon} alt={card.label} />
                     </div>
@@ -1663,6 +1695,24 @@ const Dashboard: React.FC = () => {
                       <div className="stat-value">{formatStatValue(card.value)}</div>
                       <div className={labelClass}>{card.label}</div>
                     </div>
+                  </>
+                );
+                if (nav) {
+                  return (
+                    <button
+                      key={card.key}
+                      type="button"
+                      className={`${card.variant} stat-card-clickable`}
+                      onClick={() => { setCurrentPage(nav.page); navigate(nav.path); }}
+                      title={`Voir ${card.label}`}
+                    >
+                      {content}
+                    </button>
+                  );
+                }
+                return (
+                  <div key={card.key} className={card.variant}>
+                    {content}
                   </div>
                 );
               })}
