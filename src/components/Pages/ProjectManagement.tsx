@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -14,6 +14,7 @@ import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEd
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
+import CloseProjectBilanModal, { BilanData, buildMldsBilanPayload } from '../Modals/CloseProjectBilanModal';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
@@ -71,6 +72,9 @@ function normalizeAvailabilityToLabels(availability: any): string[] {
   if (availability.available && labels.length === 0) labels.push('Disponible');
   return labels;
 }
+
+/** Taux HV par défaut (€/heure) — utilisé pour HSE × HV */
+const HV_DEFAULT_RATE = 50.73;
 
 // Component for displaying skills with "Voir plus"/"Voir moins" functionality
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
@@ -226,7 +230,7 @@ const ProjectManagement: React.FC = () => {
     startDate: '',
     endDate: '',
     pathways: [] as string[],
-    status: 'coming' as 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended',
+    status: 'coming' as 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived',
     visibility: 'public' as 'public' | 'private',
     isPartnership: false,
     coResponsibles: [] as string[],
@@ -242,13 +246,15 @@ const ProjectManagement: React.FC = () => {
     mldsCompetenciesDeveloped: '',
     mldsExpectedParticipants: '',
     mldsFinancialHSE: '',
-    mldsFinancialHV: '',
-    mldsFinancialTransport: '',
-    mldsFinancialOperating: '',
-    mldsFinancialService: '',
+    mldsFinancialHV: '50.73',
+    mldsFinancialTransport: [] as Array<{ transport_name: string; price: string }>,
+    mldsFinancialOperating: [] as Array<{ operating_name: string; price: string }>,
+    mldsFinancialService: [] as Array<{ service_name: string; price: string }>,
+    mldsNetworkIssueAddressed: '',
     mldsOrganizationNames: [] as string[],
     mldsSchoolLevelIds: [] as string[] // IDs of school levels
   });
+  const editFormInitializedRef = useRef(false);
   const [editImagePreview, setEditImagePreview] = useState<string>('');
   const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
@@ -382,8 +388,8 @@ const ProjectManagement: React.FC = () => {
   const isMLDSProject = apiProjectData?.mlds_information != null;
 
   // Check if project is ended - disable all actions if true
-  const isProjectEnded = project?.status === 'ended';
-  
+  const isProjectEnded = project?.status === 'ended' || project?.status === 'archived';
+
   // State for project statistics
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -694,7 +700,7 @@ const ProjectManagement: React.FC = () => {
             !userProjectMember ||
             userProjectMember.can_assign_badges_in_project !== newUserProjectMember.can_assign_badges_in_project ||
             JSON.stringify(userProjectMember.user?.available_contexts) !==
-              JSON.stringify(newUserProjectMember.user?.available_contexts);
+            JSON.stringify(newUserProjectMember.user?.available_contexts);
 
           if (needsUpdate) {
             setUserProjectMember(newUserProjectMember);
@@ -783,9 +789,11 @@ const ProjectManagement: React.FC = () => {
     switch (status) {
       case 'draft': return 'Brouillon';
       case 'to_process': return 'À traiter';
+      case 'pending_validation': return 'À valider';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminé';
+      case 'archived': return 'Archivé';
       default: return status;
     }
   };
@@ -794,9 +802,11 @@ const ProjectManagement: React.FC = () => {
     switch (status) {
       case 'draft': return 'draft';
       case 'to_process': return 'to-process';
+      case 'pending_validation': return 'to-validate';
       case 'coming': return 'coming';
       case 'in_progress': return 'in-progress';
       case 'ended': return 'ended';
+      case 'archived': return 'archived';
       default: return 'coming';
     }
   };
@@ -805,7 +815,7 @@ const ProjectManagement: React.FC = () => {
    * Open the close-project confirmation modal.
    */
   const openCloseProjectModal = () => {
-    if (!project?.id || project.status !== 'in_progress') return;
+    if (!project?.id || (project.status !== 'in_progress' && project.status !== 'coming')) return;
     if (userProjectRole !== 'owner') {
       showError('Seul le responsable du projet peut le clôturer.');
       return;
@@ -816,7 +826,7 @@ const ProjectManagement: React.FC = () => {
   /**
    * Close the project: set status to "ended" (called after user confirms in modal).
    */
-  const confirmCloseProject = async () => {
+  const confirmCloseProject = async (bilanData?: BilanData) => {
     if (!project?.id) return;
     setIsClosingProject(true);
     try {
@@ -825,6 +835,12 @@ const ProjectManagement: React.FC = () => {
         showError('ID de projet invalide');
         setIsCloseProjectModalOpen(false);
         return;
+      }
+
+      // Envoyer le bilan MLDS si fourni (POST /api/v1/projects/:id/mlds_bilan)
+      if (bilanData) {
+        const mldsPayload = buildMldsBilanPayload(bilanData);
+        await postMldsBilan(projectId, mldsPayload);
       }
 
       const payload = {
@@ -852,6 +868,46 @@ const ProjectManagement: React.FC = () => {
       }
     } finally {
       setIsClosingProject(false);
+    }
+  };
+
+  /**
+   * Archive the project: set status to "archived".
+   * Only available when project is already ended.
+   */
+  const handleArchiveProject = async () => {
+    if (!project?.id || project.status !== 'ended') return;
+    try {
+      const projectId = parseInt(project.id);
+      if (Number.isNaN(projectId)) {
+        showError('ID de projet invalide');
+        return;
+      }
+
+      const payload = {
+        project: {
+          status: 'archived' as const
+        }
+      };
+
+      await updateProject(projectId, payload as any, null, []);
+
+      const response = await getProjectById(projectId);
+      const apiProject = response.data;
+      const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
+
+      setProject(mappedProject);
+      setSelectedProject(mappedProject);
+      setApiProjectData(apiProject);
+      showSuccess('Projet archivé avec succès');
+    } catch (error: any) {
+      console.error('Error archiving project:', error);
+      const message =
+        error?.response?.data?.details?.join(', ') ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Erreur lors de l’archivage du projet';
+      showError(message);
     }
   };
 
@@ -1457,7 +1513,7 @@ const ProjectManagement: React.FC = () => {
   const getEditFilteredCoResponsibles = (searchTerm: string) => {
     // Use co-responsible options (from teacher school API) if available, otherwise use regular members
     const sourceMembers = (editCoResponsibleOptions.length > 0) ? editCoResponsibleOptions : editAvailableMembers;
-    
+
     // Filter out already selected co-responsibles
     let available = sourceMembers.filter((member: any) =>
       !editForm.coResponsibles.includes(member.id.toString())
@@ -1504,17 +1560,17 @@ const ProjectManagement: React.FC = () => {
   const getEditTeachersInClass = (schoolLevelId: string): any[] => {
     const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === schoolLevelId);
     if (!classItem) return [];
-    
+
     // Récupérer les IDs des enseignants de la classe
     const teacherIds = classItem.teacher_ids || (classItem.teachers || []).map((t: any) => t.id || t);
     if (!teacherIds || teacherIds.length === 0) return [];
-    
+
     // Filtrer les membres disponibles (editCoResponsibleOptions pour teacher/school, ou editAvailableMembers pour autres contextes)
     const availableMembers = editCoResponsibleOptions.length > 0 ? editCoResponsibleOptions : editAvailableMembers;
-    
+
     // Exclure le propriétaire du projet
     const ownerId = apiProjectData?.owner?.id?.toString();
-    
+
     return availableMembers.filter((member: any) => {
       if (!member?.id) return false;
       if (ownerId && member.id?.toString() === ownerId) return false;
@@ -1630,9 +1686,9 @@ const ProjectManagement: React.FC = () => {
 
   const handleEditPartnerSelect = (partnerId: string) => {
     const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
-    
+
     if (!partnership) return;
-    
+
     const ownerId = apiProjectData?.owner?.id != null ? apiProjectData.owner.id.toString() : null;
     const contactUsersRaw = (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
       id: c.id,
@@ -1645,9 +1701,9 @@ const ProjectManagement: React.FC = () => {
     const contactUsers = ownerId
       ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
       : contactUsersRaw;
-    
+
     const isAlreadySelected = editForm.partners.includes(partnerId);
-    
+
     if (isAlreadySelected) {
       // Désélectionner le partenariat
       const contactIds = contactUsers.map((c: any) => c.id.toString());
@@ -1672,11 +1728,11 @@ const ProjectManagement: React.FC = () => {
         ...prev,
         partners: [...prev.partners, partnerId]
       }));
-      
+
       // Construire le nom du partenariat pour l'affichage
       const partnerOrgs = partnership.partners || [];
       const partnershipName = partnerOrgs.map((p: any) => p.name).join(', ') || partnership.name || '';
-      
+
       // Ouvrir la popup de sélection des co-responsables
       setEditPartnershipCoResponsiblesPopup({
         partnershipId: partnerId,
@@ -1684,11 +1740,87 @@ const ProjectManagement: React.FC = () => {
         contactUsers
       });
       setEditPartnershipCoResponsiblesSearchTerm('');
-      
+
       // Ajouter les contact users à editPartnershipContactMembers pour l'affichage
       setEditPartnershipContactMembers(prev => [...prev, ...contactUsers]);
     }
   };
+
+  useEffect(() => {
+    if (!project || !apiProjectData || editFormInitializedRef.current) return;
+
+    const mldsInfo = apiProjectData.mlds_information;
+
+    let currentCoResponsibles: string[] = [];
+    if (apiProjectData.co_responsibles && Array.isArray(apiProjectData.co_responsibles)) {
+      currentCoResponsibles = apiProjectData.co_responsibles
+        .map((cr: any) => cr.id?.toString())
+        .filter(Boolean);
+    } else if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
+      currentCoResponsibles = apiProjectData.co_owners
+        .map((cr: any) => cr.id?.toString())
+        .filter(Boolean);
+    }
+
+    let currentPartnerships: string[] = [];
+    if (apiProjectData.partnership_ids?.length) {
+      currentPartnerships = apiProjectData.partnership_ids.map((id: number) => id.toString());
+    } else if (apiProjectData.partnership_id) {
+      currentPartnerships = [apiProjectData.partnership_id.toString()];
+    } else if (apiProjectData.partnership?.id) {
+      currentPartnerships = [apiProjectData.partnership.id.toString()];
+    }
+    const isPartnerProject = apiProjectData.is_partner_project || false;
+
+    setEditForm({
+      title: project.title,
+      description: project.description,
+      tags: [...(project.tags || [])],
+      startDate: project.startDate,
+      endDate: project.endDate,
+      pathways: (project.pathways && project.pathways.length > 0)
+        ? [...project.pathways]
+        : (project.pathway ? [project.pathway] : []),
+      status: project.status || 'coming',
+      visibility: isMLDSProject ? 'private' : (project.visibility || 'public'),
+      isPartnership: isPartnerProject,
+      coResponsibles: currentCoResponsibles,
+      partners: currentPartnerships,
+      participants: [],
+      mldsRequestedBy: mldsInfo?.requested_by || 'departement',
+      mldsDepartment: mldsInfo?.department_number || mldsInfo?.department_code || '',
+      mldsTargetAudience: mldsInfo?.target_audience || 'students_without_solution',
+      mldsActionObjectives: mldsInfo?.action_objectives || [],
+      mldsActionObjectivesOther: mldsInfo?.action_objectives_other || '',
+      mldsObjectives: mldsInfo?.objectives || '',
+      mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
+      mldsExpectedParticipants: mldsInfo?.expected_participants?.toString() || '',
+      mldsFinancialHSE: mldsInfo?.financial_hse ?? '',
+      mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : '50.73',
+      mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport)
+        ? mldsInfo.financial_transport
+        : (mldsInfo?.financial_transport != null
+          ? [{ transport_name: '', price: String(mldsInfo.financial_transport) }]
+          : []),
+      mldsFinancialOperating: Array.isArray(mldsInfo?.financial_operating)
+        ? mldsInfo.financial_operating
+        : (mldsInfo?.financial_operating != null
+          ? [{ operating_name: '', price: String(mldsInfo.financial_operating) }]
+          : []),
+      mldsFinancialService: Array.isArray(mldsInfo?.financial_service)
+        ? mldsInfo.financial_service
+        : (mldsInfo?.financial_service != null
+          ? [{ service_name: '', price: String(mldsInfo.financial_service) }]
+          : []),
+      mldsNetworkIssueAddressed: mldsInfo?.network_issue_addressed ?? '',
+      mldsOrganizationNames: mldsInfo?.organization_names || [],
+      mldsSchoolLevelIds: (
+        (mldsInfo?.school_level_ids || apiProjectData.school_level_ids || []) as number[]
+      ).map((id: number) => id.toString())
+    });
+    setEditImagePreview(project.image || '');
+    editFormInitializedRef.current = true;
+  }, [project, apiProjectData, isMLDSProject]);
 
   const handleEdit = async () => {
     // Prevent editing if project is ended
@@ -1697,31 +1829,7 @@ const ProjectManagement: React.FC = () => {
       return;
     }
 
-    const mldsInfo = apiProjectData?.mlds_information;
-
-    // Get current co-responsibles and partnerships
-    // Check both co_responsibles and co_owners to ensure we get all co-responsibles
-    let currentCoResponsibles: string[] = [];
-    if (apiProjectData?.co_responsibles && Array.isArray(apiProjectData.co_responsibles)) {
-      currentCoResponsibles = apiProjectData.co_responsibles.map((cr: any) => cr.id?.toString()).filter(Boolean);
-    } else if (apiProjectData?.co_owners && Array.isArray(apiProjectData.co_owners)) {
-      // Fallback to co_owners if co_responsibles doesn't exist
-      currentCoResponsibles = apiProjectData.co_owners.map((cr: any) => cr.id?.toString()).filter(Boolean);
-    }
-
-    console.log('🔍 [handleEdit] Current co-responsibles IDs:', currentCoResponsibles);
-
-    // Get all partnership IDs (can be multiple)
-    let currentPartnerships: string[] = [];
-    if (apiProjectData?.partnership_ids?.length) {
-      currentPartnerships = apiProjectData.partnership_ids.map((id: number) => id.toString());
-    } else if (apiProjectData?.partnership_id) {
-      currentPartnerships = [apiProjectData.partnership_id.toString()];
-    } else if (apiProjectData?.partnership?.id) {
-      currentPartnerships = [apiProjectData.partnership.id.toString()];
-    }
-    const isPartnerProject = apiProjectData?.is_partner_project || false;
-
+    // Reset edit-related UI state (participants, classes, partnerships, etc.)
     setEditPartnershipContactMembers([]);
     setEditClassSelectionMode({});
     setEditClassManualParticipantIds({});
@@ -1734,43 +1842,7 @@ const ProjectManagement: React.FC = () => {
     setEditPartnershipCoResponsiblesSearchTerm('');
     setEditPathwaySearchTerm('');
     setEditPathwayDropdownOpen(false);
-    setEditForm({
-      title: project.title,
-      description: project.description,
-      tags: [...(project.tags || [])],
-      startDate: project.startDate,
-      endDate: project.endDate,
-      pathways: (project.pathways && project.pathways.length > 0)
-        ? [...project.pathways]
-        : (project.pathway ? [project.pathway] : []),
-      status: project.status || 'coming',
-      visibility: isMLDSProject ? 'private' : (project.visibility || 'public'), // MLDS projects are always private
-      isPartnership: isPartnerProject,
-      coResponsibles: currentCoResponsibles,
-      partners: currentPartnerships,
-      participants: [], // Will be set below from project members
-      // MLDS fields
-      mldsRequestedBy: mldsInfo?.requested_by || 'departement',
-      mldsDepartment: mldsInfo?.department_number || mldsInfo?.department_code || '',
-      mldsTargetAudience: mldsInfo?.target_audience || 'students_without_solution',
-      mldsActionObjectives: mldsInfo?.action_objectives || [],
-      mldsActionObjectivesOther: mldsInfo?.action_objectives_other || '',
-      mldsObjectives: mldsInfo?.objectives || '',
-      mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
-      mldsExpectedParticipants: mldsInfo?.expected_participants?.toString() || '',
-      mldsFinancialHSE: mldsInfo?.financial_hse || '',
-      mldsFinancialHV: mldsInfo?.financial_hv || '',
-      mldsFinancialTransport: mldsInfo?.financial_transport || '',
-      mldsFinancialOperating: mldsInfo?.financial_operating || '',
-      mldsFinancialService: mldsInfo?.financial_service || '',
-      mldsOrganizationNames: mldsInfo?.organization_names || [],
-      // For MLDS: use mlds_information.school_level_ids
-      // For non-MLDS school projects: use root school_level_ids (as returned by API)
-      mldsSchoolLevelIds: (
-        (mldsInfo?.school_level_ids || apiProjectData?.school_level_ids || []) as number[]
-      ).map((id: number) => id.toString())
-    });
-    setEditImagePreview(project.image || '');
+    console.log('🔍 [handleEdit] Project data:', project);
     setIsEditModalOpen(true);
 
     // Load members
@@ -1790,7 +1862,6 @@ const ProjectManagement: React.FC = () => {
       // Debug: log available members IDs
       console.log('🔍 [handleEdit] Available members:', membersResult?.length || 0);
       console.log('🔍 [handleEdit] Available member IDs:', membersResult?.map((m: any) => m.id?.toString()).slice(0, 5));
-      console.log('🔍 [handleEdit] Co-responsibles to select:', currentCoResponsibles);
     } catch (err) {
       console.error('Error fetching members:', err);
       setEditAvailableMembers([]);
@@ -1811,7 +1882,7 @@ const ProjectManagement: React.FC = () => {
         // Essayer d'abord school.id, puis school_id dans le level
         const firstLevel = apiProjectData.school_levels[0];
         projectSchoolId = firstLevel?.school?.id || firstLevel?.school_id || null;
-        
+
         // Si toujours null, chercher dans tous les levels
         if (!projectSchoolId) {
           for (const level of apiProjectData.school_levels) {
@@ -1915,11 +1986,21 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleSaveEditInternal = async (
-    desiredStatus?: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended'
+    desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived'
   ) => {
     try {
-      const effectiveStatus: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended' =
+      const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived' =
         desiredStatus || editForm.status;
+        console.log("🔍 [handleSaveEditInternal] Effective status:", effectiveStatus);
+        console.log("🔍 [handleSaveEditInternal] Edit form:", editForm);
+
+      // Validate network issue addressed for MLDS projects when status is to_process, in_progress, coming, or pending_validation
+      if (isMLDSProject && (effectiveStatus === 'to_process' || effectiveStatus === 'in_progress' || effectiveStatus === 'coming' || effectiveStatus === 'pending_validation')) {
+        if (!editForm.mldsNetworkIssueAddressed || editForm.mldsNetworkIssueAddressed.trim() === '') {
+          showError('Veuillez remplir la problématique du réseau à laquelle l\'action répond');
+          return;
+        }
+      }
 
       // For MLDS projects, force visibility to private
       const formDataWithVisibility = isMLDSProject
@@ -1960,9 +2041,10 @@ const ProjectManagement: React.FC = () => {
           expected_participants: editForm.mldsExpectedParticipants ? parseInt(editForm.mldsExpectedParticipants) : null,
           financial_hse: editForm.mldsFinancialHSE ? Number.parseFloat(editForm.mldsFinancialHSE) : null,
           financial_hv: editForm.mldsFinancialHV ? Number.parseFloat(editForm.mldsFinancialHV) : null,
-          financial_transport: editForm.mldsFinancialTransport ? Number.parseFloat(editForm.mldsFinancialTransport) : null,
-          financial_operating: editForm.mldsFinancialOperating ? Number.parseFloat(editForm.mldsFinancialOperating) : null,
-          financial_service: editForm.mldsFinancialService ? Number.parseFloat(editForm.mldsFinancialService) : null
+          financial_transport: editForm.mldsFinancialTransport.length > 0 ? editForm.mldsFinancialTransport.filter(line => line.transport_name.trim() || line.price.trim()) : null,
+          financial_operating: editForm.mldsFinancialOperating.length > 0 ? editForm.mldsFinancialOperating.filter(line => line.operating_name.trim() || line.price.trim()) : null,
+          financial_service: editForm.mldsFinancialService.length > 0 ? editForm.mldsFinancialService.filter(line => line.service_name.trim() || line.price.trim()) : null,
+          network_issue_addressed: editForm.mldsNetworkIssueAddressed || null
           // organization_names is automatically generated by backend from school_level_ids
         };
       } else {
@@ -2047,7 +2129,7 @@ const ProjectManagement: React.FC = () => {
     const isTeacher =
       isMLDSProject && (state.showingPageType === 'teacher' || state.user?.role === 'teacher');
 
-    let statusForSubmit: 'draft' | 'to_process' | 'coming' | 'in_progress' | 'ended';
+    let statusForSubmit: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived';
 
     if (isTeacher) {
       // Cas spécial : enseignants avec projets MLDS → "À traiter"
@@ -2060,7 +2142,7 @@ const ProjectManagement: React.FC = () => {
         // Réinitialiser les heures pour comparer uniquement les dates
         today.setHours(0, 0, 0, 0);
         startDate.setHours(0, 0, 0, 0);
-        
+
         // Si la date de début est dans le passé, le projet est "en cours"
         // Sinon, il est "à venir"
         if (startDate <= today) {
@@ -2080,6 +2162,76 @@ const ProjectManagement: React.FC = () => {
   const handleSaveEditDraft = async () => {
     setEditForm(prev => ({ ...prev, status: 'draft' }));
     await handleSaveEditInternal('draft');
+  };
+
+  /**
+   * Passer le projet MLDS en validation (statut "à valider")
+   * Visible pour admin/superadmin d'école quand le projet est en "à traiter"
+   */
+  const handlePassToValidation = async () => {
+    if (!apiProjectData || !isMLDSProject || project.status !== 'to_process') {
+      return;
+    }
+    try {
+      await handleSaveEditInternal('pending_validation');
+      showSuccess('Projet passé en validation avec succès');
+    } catch (error: any) {
+      console.error('Error passing project to validation:', error);
+      const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors du passage en validation';
+      showError(errorMessage);
+    }
+  };
+
+  /**
+   * Refuser le projet MLDS (retour au statut "brouillon")
+   * Visible pour admin/superadmin d'école quand le projet est en "à traiter"
+   */
+  const handleRefuseProject = async () => {
+    if (!apiProjectData || !isMLDSProject || project.status !== 'to_process') {
+      return;
+    }
+    if (!window.confirm('Êtes-vous sûr de vouloir refuser ce projet ? Il sera remis en brouillon.')) {
+      return;
+    }
+    try {
+      await handleSaveEditInternal('draft');
+      showSuccess('Projet refusé et remis en brouillon');
+    } catch (error: any) {
+      console.error('Error refusing project:', error);
+      const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors du refus du projet';
+      showError(errorMessage);
+    }
+  };
+
+  /**
+   * Valider le projet MLDS (passer en "en cours" ou "à venir" selon la date de début)
+   * Visible uniquement pour superadmin quand le projet est en "à valider"
+   */
+  const handleValidateProject = async () => {
+    if (!apiProjectData || !isMLDSProject || project.status !== 'pending_validation') {
+      return;
+    }
+    try {
+      // Déterminer le statut selon la date de début
+      let newStatus: 'in_progress' | 'coming' = 'coming';
+      if (project.startDate) {
+        const startDate = new Date(project.startDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        startDate.setHours(0, 0, 0, 0);
+        if (startDate <= today) {
+          newStatus = 'in_progress';
+        } else {
+          newStatus = 'coming';
+        }
+      }
+      await handleSaveEditInternal(newStatus);
+      showSuccess(`Projet validé et passé en "${getStatusText(newStatus)}"`);
+    } catch (error: any) {
+      console.error('Error validating project:', error);
+      const errorMessage = error.response?.data?.details?.join(', ') || error.response?.data?.message || error.message || 'Erreur lors de la validation du projet';
+      showError(errorMessage);
+    }
   };
 
   const setEditClassMode = (classId: string, mode: 'manual' | 'all') => {
@@ -2105,25 +2257,82 @@ const ProjectManagement: React.FC = () => {
     });
   };
 
+  // Helper functions for managing financial lines in edit form
+  const addEditFinancialLine = (fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService') => {
+    setEditForm(prev => {
+      if (fieldName === 'mldsFinancialTransport') {
+        return { ...prev, [fieldName]: [...prev[fieldName], { transport_name: '', price: '' }] };
+      } else if (fieldName === 'mldsFinancialOperating') {
+        return { ...prev, [fieldName]: [...prev[fieldName], { operating_name: '', price: '' }] };
+      } else {
+        return { ...prev, [fieldName]: [...prev[fieldName], { service_name: '', price: '' }] };
+      }
+    });
+  };
+
+  const removeEditFinancialLine = (fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService', index: number) => {
+    setEditForm(prev => {
+      const arr = prev[fieldName] as Array<unknown>;
+      const filtered = arr.filter((_: unknown, i: number) => i !== index);
+      type FinancialLinesType =
+        | Array<{ transport_name: string; price: string }>
+        | Array<{ operating_name: string; price: string }>
+        | Array<{ service_name: string; price: string }>;
+      return {
+        ...prev,
+        [fieldName]: filtered as FinancialLinesType
+      };
+    });
+  };
+
+  const updateEditFinancialLine = (
+    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService',
+    index: number,
+    field: 'name' | 'price',
+    value: string
+  ) => {
+    setEditForm(prev => {
+      const newArray = [...prev[fieldName]];
+      if (fieldName === 'mldsFinancialTransport') {
+        newArray[index] = { ...newArray[index], transport_name: field === 'name' ? value : (newArray[index] as any).transport_name, price: field === 'price' ? value : (newArray[index] as any).price };
+      } else if (fieldName === 'mldsFinancialOperating') {
+        newArray[index] = { ...newArray[index], operating_name: field === 'name' ? value : (newArray[index] as any).operating_name, price: field === 'price' ? value : (newArray[index] as any).price };
+      } else {
+        newArray[index] = { ...newArray[index], service_name: field === 'name' ? value : (newArray[index] as any).service_name, price: field === 'price' ? value : (newArray[index] as any).price };
+      }
+      return { ...prev, [fieldName]: newArray };
+    });
+  };
+
+  // Calculate total from financial lines array
+  const calculateFinancialLinesTotal = (
+    lines: Array<{ transport_name?: string; operating_name?: string; service_name?: string; price: string }>
+  ): number => {
+    return lines.reduce((sum, line) => {
+      const price = Number.parseFloat(line.price) || 0;
+      return sum + price;
+    }, 0);
+  };
+
   const handleEditSchoolLevelToggle = (schoolLevelId: string) => {
     const isAlreadySelected = editForm.mldsSchoolLevelIds.includes(schoolLevelId);
     if (isAlreadySelected) {
       // Récupérer les co-responsables de cette classe avant de la supprimer
       const coResponsiblesToRemove = editClassCoResponsibles[schoolLevelId] || [];
-      
+
       setEditForm(prev => {
         const updatedSchoolLevelIds = prev.mldsSchoolLevelIds.filter(id => id !== schoolLevelId);
         const memberIdsInClass = getEditStudentsInClass(schoolLevelId).map((m: any) => m.id?.toString()).filter(Boolean);
         const participantsToRemove = new Set(memberIdsInClass);
         const updatedParticipants = prev.participants.filter(id => !participantsToRemove.has(id.toString()));
-        
+
         // Retirer les co-responsables de cette classe
         const coResponsiblesToRemoveSet = new Set(coResponsiblesToRemove);
         const updatedCoResponsibles = prev.coResponsibles.filter(id => !coResponsiblesToRemoveSet.has(id));
-        
-        return { 
-          ...prev, 
-          mldsSchoolLevelIds: updatedSchoolLevelIds, 
+
+        return {
+          ...prev,
+          mldsSchoolLevelIds: updatedSchoolLevelIds,
           participants: updatedParticipants,
           coResponsibles: updatedCoResponsibles
         };
@@ -2185,7 +2394,7 @@ const ProjectManagement: React.FC = () => {
   // Synchroniser editForm.coResponsibles à partir des co-responsables sélectionnés par classe et par partenariat
   useEffect(() => {
     if (!isEditModalOpen) return;
-    
+
     // Récupérer tous les co-responsables des classes actuellement sélectionnées uniquement
     const fromClasses: string[] = [];
     editForm.mldsSchoolLevelIds.forEach(classId => {
@@ -2193,7 +2402,7 @@ const ProjectManagement: React.FC = () => {
         if (!fromClasses.includes(id)) fromClasses.push(id);
       });
     });
-    
+
     // Récupérer tous les co-responsables des partenariats actuellement sélectionnés uniquement
     const fromPartnerships: string[] = [];
     editForm.partners.forEach(partnershipId => {
@@ -2201,15 +2410,15 @@ const ProjectManagement: React.FC = () => {
         if (!fromPartnerships.includes(id)) fromPartnerships.push(id);
       });
     });
-    
+
     // Récupérer les IDs de tous les co-responsables qui viennent des classes et partenariats sélectionnés
     const allSelectedIds = new Set([...fromClasses, ...fromPartnerships]);
-    
+
     // Récupérer les co-responsables qui ne viennent pas des classes ni des partenariats (sélection manuelle globale)
     setEditForm(prev => {
       // Garder uniquement les co-responsables qui ne viennent pas des classes ni des partenariats sélectionnés
       const nonClassOrPartnershipCoResponsibles = prev.coResponsibles.filter(id => !allSelectedIds.has(id));
-      
+
       // Fusionner avec les co-responsables des classes et partenariats sélectionnés
       const allCoResponsibles = Array.from(new Set([...nonClassOrPartnershipCoResponsibles, ...fromClasses, ...fromPartnerships]));
       return { ...prev, coResponsibles: allCoResponsibles };
@@ -2257,16 +2466,16 @@ const ProjectManagement: React.FC = () => {
   const handleTagChange = (index: number, value: string) => {
     const newTags = [...editForm.tags];
     newTags[index] = value;
-    setEditForm({ ...editForm, tags: newTags });
+    setEditForm(prev => ({ ...prev, tags: newTags }));
   };
 
   const addTag = () => {
-    setEditForm({ ...editForm, tags: [...editForm.tags, ''] });
+    setEditForm(prev => ({ ...prev, tags: [...prev.tags, ''] }));
   };
 
   const removeTag = (index: number) => {
     const newTags = editForm.tags.filter((_, i) => i !== index);
-    setEditForm({ ...editForm, tags: newTags });
+    setEditForm(prev => ({ ...prev, tags: newTags }));
   };
 
   // Request handlers
@@ -3315,331 +3524,304 @@ const ProjectManagement: React.FC = () => {
 
     const doc = new jsPDF();
     const mldsInfo = apiProjectData.mlds_information;
-    let yPosition = 25;
-    const lineHeight = 5.5;
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 25;
-    const textColor = [40, 40, 40]; // Gris très foncé
-    const labelColor = [120, 120, 120]; // Gris moyen
-    const accentColor = [100, 100, 100]; // Gris foncé pour compatibilité
-    const primaryColor = [41, 98, 255]; // Bleu pour compatibilité
+    const pdfBilan = mldsInfo.mlds_bilan ?? mldsInfo.mnt;
+    const fmt = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? v.toFixed(2) : String(v)) : '—');
+    let y = 0;
+    const lh = 5.5;
+    const pH = doc.internal.pageSize.getHeight();
+    const pW = doc.internal.pageSize.getWidth();
+    const ml = 20; // marge gauche
+    const mr = 20; // marge droite
+    const contentW = pW - ml - mr;
 
-    // Helper function to check if we need a new page
-    const checkNewPage = (requiredSpace = 10) => {
-      if (yPosition + requiredSpace > pageHeight - margin) {
+    // Couleurs institutionnelles Éducation nationale
+    const bleuEN = [0, 63, 135];       // Bleu foncé EN
+    const bleuClair = [230, 240, 250];  // Fond bleu clair
+    const vertBilan = [22, 101, 52];    // Vert pour bilan
+    const vertClair = [240, 253, 244];  // Fond vert clair
+    const gris = [55, 65, 81];          // Texte principal
+    const grisLabel = [107, 114, 128];  // Labels
+    const grisClair = [229, 231, 235];  // Lignes séparation
+
+    const checkPage = (space = 12) => {
+      if (y + space > pH - 25) {
         doc.addPage();
-        addPageNumber();
-        yPosition = margin;
+        y = 25;
         return true;
       }
           return false;
     };
 
-    // Helper function to add page number
-    const addPageNumber = () => {
-      const pageCount = doc.getCurrentPageInfo().pageNumber;
-      doc.setFontSize(8);
-      doc.setTextColor(180, 180, 180);
-      doc.text(`Page ${pageCount}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    const addFooters = () => {
+      const totalPages = doc.getNumberOfPages();
+      const today = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+        doc.setLineWidth(0.3);
+        doc.line(ml, pH - 18, pW - mr, pH - 18);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+        doc.text(`Édité le ${today}`, ml, pH - 12);
+        doc.text(`Page ${i} / ${totalPages}`, pW - mr, pH - 12, { align: 'right' });
+        doc.text('Document généré par Kinship — Mission de Lutte contre le Décrochage Scolaire', pW / 2, pH - 12, { align: 'center' });
+      }
     };
 
-    // Helper function to add text with word wrap
-    const addWrappedText = (text: string, x: number, maxWidth: number, isBold = false) => {
-      if (isBold) {
-        doc.setFont('helvetica', 'bold');
-      } else {
-        doc.setFont('helvetica', 'normal');
-      }
-      const lines = doc.splitTextToSize(text, maxWidth);
+    const wrapped = (text: string, x: number, maxW: number, bold = false) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      const lines = doc.splitTextToSize(text, maxW);
       lines.forEach((line: string) => {
-        checkNewPage();
-        doc.text(line, x, yPosition);
-        yPosition += lineHeight;
+        checkPage();
+        doc.text(line, x, y);
+        y += lh;
       });
     };
 
-    // Helper function to add section header
-    const addSectionHeader = (title: string) => {
-      checkNewPage(15);
-      yPosition += 2;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(title.toUpperCase(), margin, yPosition);
-      doc.setDrawColor(220, 220, 220);
-      doc.setLineWidth(0.3);
-      doc.line(margin, yPosition + 2, pageWidth - margin, yPosition + 2);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      yPosition += 7;
-    };
+    // ========== EN-TÊTE ==========
+    // Bandeau bleu EN
+    doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+    doc.rect(0, 0, pW, 38, 'F');
 
-    // Clean minimal header
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    // Titre blanc sur bandeau
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Projet MLDS', margin, yPosition);
-    yPosition += 7;
-    doc.setFontSize(9);
-    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-    doc.text('Mission de Lutte contre le Décrochage Scolaire - Volet Persévérance', margin, yPosition);
-    yPosition += 10;
-    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    const titleLines = doc.splitTextToSize(project.title, pageWidth - 2 * margin);
-    titleLines.forEach((line: string) => {
-      doc.text(line, margin, yPosition);
-      yPosition += 6;
-    });
-
-    // ==================== INFORMATIONS GÉNÉRALES ====================
-    addSectionHeader('Informations générales');
+    doc.text('Fiche Projet MLDS', ml, 16);
     doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Mission de Lutte contre le Décrochage Scolaire — Volet Persévérance', ml, 24);
+
+    // Date et statut en haut à droite
+    const statusText = getStatusText(project.status);
+    doc.setFontSize(8);
+    doc.text(`Statut : ${statusText}`, pW - mr, 16, { align: 'right' });
+    doc.text(`Période : ${formatDateRange(project.startDate, project.endDate)}`, pW - mr, 22, { align: 'right' });
+
+    // Organisation sous le bandeau
+    y = 32;
+    if (project.organization) {
+      doc.setFontSize(8);
+      doc.text(project.organization, pW - mr, y, { align: 'right' });
+    }
+
+    // Titre du projet
+    y = 48;
+    doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    const titleLines = doc.splitTextToSize(project.title, contentW);
+    titleLines.forEach((line: string) => {
+      doc.text(line, ml, y);
+      y += 7;
+    });
+    y += 2;
+
+    // Ligne de séparation fine
+    doc.setDrawColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+    doc.setLineWidth(0.6);
+    doc.line(ml, y, pW - mr, y);
+    y += 8;
+
+    // ========== INFORMATIONS GÉNÉRALES ==========
+    // Encadré bleu clair avec infos clés
+    doc.setFillColor(bleuClair[0], bleuClair[1], bleuClair[2]);
+    const infoBoxY = y;
+    const infoBoxH = 28;
+    doc.roundedRect(ml, infoBoxY, contentW, infoBoxH, 2, 2, 'F');
+
+    const col1 = ml + 5;
+    const col2 = ml + contentW * 0.35;
+    const col3 = ml + contentW * 0.65;
+
+    // Ligne 1 dans l'encadré
+    y = infoBoxY + 7;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+    doc.text('PARCOURS', col1, y);
+    doc.text('PARTICIPANTS', col2, y);
+    doc.text('RESPONSABLE', col3, y);
+    y += 4;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(gris[0], gris[1], gris[2]);
+    doc.text(project.pathway ? project.pathway.toUpperCase() : '—', col1, y);
+    doc.text(`${projectStats?.overview?.total_members || project.participants || 0}`, col2, y);
+    doc.text(project.responsible?.name || '—', col3, y);
+
+    // Ligne 2 dans l'encadré
+    y += 6;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+    if (mldsInfo.expected_participants != null) doc.text('EFFECTIFS PRÉVISIONNELS', col1, y);
+    if (project.responsible?.email) doc.text('EMAIL', col3, y);
+    y += 4;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(gris[0], gris[1], gris[2]);
+    if (mldsInfo.expected_participants != null) doc.text(`${mldsInfo.expected_participants} participants`, col1, y);
+    if (project.responsible?.email) doc.text(project.responsible.email, col3, y);
+
+    y = infoBoxY + infoBoxH + 8;
 
     // Description
     if (project.description) {
-      checkNewPage(8);
+      checkPage(15);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('Description', margin, yPosition);
-      yPosition += lineHeight;
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      addWrappedText(project.description, margin, pageWidth - 2 * margin);
-      yPosition += 2;
-    }
-
-    // Grid layout for key info
-    checkNewPage(15);
-    const col1 = margin;
-    const col2 = margin + 50;
-
-    // Row 1: Statut, Période
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-    doc.text('STATUT', col1, yPosition);
-    doc.text('PÉRIODE', col2, yPosition);
-    yPosition += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    doc.text(getStatusText(project.status), col1, yPosition);
-    doc.text(formatDateRange(project.startDate, project.endDate), col2, yPosition);
-    yPosition += lineHeight + 3;
-
-    // Row 2: Parcours, Organisation
-    if (project.pathway || project.organization) {
-      checkNewPage(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      if (project.pathway) doc.text('PARCOURS', col1, yPosition);
-      if (project.organization) doc.text('ORGANISATION', col2, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Description du projet', ml, y);
+      y += 6;
       doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      if (project.pathway) doc.text(project.pathway.toUpperCase(), col1, yPosition);
-      if (project.organization) {
-        const orgLines = doc.splitTextToSize(project.organization, 60);
-        doc.text(orgLines[0], col2, yPosition);
-      }
-      yPosition += lineHeight + 3;
-    }
-
-    // Row 3: Participants
-    checkNewPage(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-    doc.text('PARTICIPANTS', col1, yPosition);
-    yPosition += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-    doc.text(`${projectStats?.overview?.total_members || project.participants || 0}`, col1, yPosition);
-    yPosition += lineHeight + 3;
-
-    // Responsable du projet
-    if (project.responsible) {
-      checkNewPage(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('RESPONSABLE DU PROJET', margin, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      doc.text(project.responsible.name, margin, yPosition);
-      yPosition += lineHeight;
-      if (project.responsible.role || project.responsible.profession) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-        doc.text(project.responsible.role || project.responsible.profession, margin, yPosition);
-        yPosition += lineHeight - 0.5;
-      }
-      if (project.responsible.email) {
-        doc.setFontSize(8);
-        doc.text(project.responsible.email, margin, yPosition);
-        yPosition += lineHeight;
-      }
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      yPosition += 2;
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      wrapped(project.description, ml, contentW);
+      y += 3;
     }
 
     // Co-responsables
     if (project.coResponsibles && project.coResponsibles.length > 0) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('CO-RESPONSABLES', margin, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Co-responsables', ml, y);
+      y += 5;
       doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
       project.coResponsibles.forEach((coResp) => {
-        checkNewPage(10);
-        doc.text(coResp.name, margin, yPosition);
-        if (coResp.email) {
-          doc.text(` - ${coResp.email}`, margin + 45, yPosition);
-        }
-        yPosition += lineHeight;
+        checkPage(6);
+        const txt = coResp.email ? `${coResp.name} — ${coResp.email}` : coResp.name;
+        doc.text(`• ${txt}`, ml + 2, y);
+        y += lh;
       });
-      yPosition += 2;
+      y += 3;
     }
 
-    // Partenaire(s)
+    // Partenaires
     const partnersList = (project.partners && project.partners.length > 0) ? project.partners : (project.partner ? [project.partner] : []);
     if (partnersList.length > 0) {
-      checkNewPage(8 + partnersList.length * (lineHeight + 2));
+      checkPage(12);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text(partnersList.length > 1 ? 'PARTENAIRES' : 'PARTENAIRE', margin, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text(partnersList.length > 1 ? 'Partenaires' : 'Partenaire', ml, y);
+      y += 5;
       doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      partnersList.forEach((p) => {
-        doc.text(p.name, margin, yPosition);
-        yPosition += lineHeight;
-      });
-      yPosition += 2;
-    }
-
-    // Tags
-    if (project.tags && project.tags.length > 0) {
-      checkNewPage(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('TAGS', margin, yPosition);
-      yPosition += 4;
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-      const tagsText = project.tags.map(tag => `#${tag}`).join('  ');
-      addWrappedText(tagsText, margin, pageWidth - 2 * margin);
-      yPosition += 2;
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      partnersList.forEach((p) => {
+        checkPage(6);
+        doc.text(`• ${p.name}`, ml + 2, y);
+        y += lh;
+      });
+      y += 3;
     }
 
     // Organisations porteuses
     if (mldsInfo.organization_names && mldsInfo.organization_names.length > 0) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(labelColor[0], labelColor[1], labelColor[2]);
-      doc.text('ORGANISATIONS PORTEUSES', margin, yPosition);
-      yPosition += 4;
-      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Établissements porteurs', ml, y);
+      y += 5;
       doc.setFontSize(9);
-      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
       mldsInfo.organization_names.forEach((org: string) => {
-        checkNewPage(7);
-        doc.text(`• ${org}`, margin, yPosition);
-        yPosition += lineHeight - 1;
+        checkPage(6);
+        doc.text(`• ${org}`, ml + 2, y);
+        y += lh;
       });
-
-      yPosition += 2;
+      y += 3;
     }
 
-    // ==================== INFORMATIONS MLDS ====================
-    yPosition += 3;
-    addSectionHeader('INFORMATIONS MLDS');
-    doc.setFontSize(10);
-
-    // Demande faite par et Public ciblé sur la même ligne si possible
-    if (mldsInfo.requested_by) {
-      checkNewPage(8);
+    // Tags
+    if (project.tags && project.tags.length > 0) {
+      checkPage(10);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Demande faite par', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Mots-clés', ml, y);
+      y += 5;
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      const requestedByText = mldsInfo.requested_by === 'departement' ? 'Département' : 'Réseau foquale';
-      doc.text(requestedByText, margin + 45, yPosition);
-      yPosition += lineHeight + 2;
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      wrapped(project.tags.map(tag => `#${tag}`).join('   '), ml, contentW);
+      y += 3;
+    }
+
+    // ========== SECTION MLDS ==========
+    checkPage(20);
+    y += 2;
+    doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+    doc.roundedRect(ml, y, contentW, 8, 1, 1, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DISPOSITIF MLDS', ml + 4, y + 5.5);
+    y += 14;
+
+    // Demande faite par
+    if (mldsInfo.requested_by) {
+      checkPage(10);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('DEMANDE FAITE PAR', ml, y);
+      y += 4;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      doc.text(mldsInfo.requested_by === 'departement' ? 'Département' : 'Réseau foquale', ml, y);
+      y += lh + 2;
     }
 
     // Public ciblé
     if (mldsInfo.target_audience) {
-      checkNewPage(10);
+      checkPage(10);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Public ciblé', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      yPosition += lineHeight;
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('PUBLIC CIBLÉ', ml, y);
+      y += 4;
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
       let targetText = '';
       if (mldsInfo.target_audience === 'students_without_solution') targetText = 'Élèves sans solution à la rentrée';
       else if (mldsInfo.target_audience === 'students_at_risk') targetText = 'Élèves en situation de décrochage repérés par le GPDS';
       else if (mldsInfo.target_audience === 'school_teams') targetText = 'Équipes des établissements';
-      addWrappedText(targetText, margin + 2, 168);
-      yPosition += 1;
-    }
-
-    // Effectifs prévisionnel
-    if (mldsInfo.expected_participants != null) {
-      checkNewPage(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Effectifs prévisionnel', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${mldsInfo.expected_participants} participants`, margin + 50, yPosition);
-      yPosition += lineHeight + 2;
+      wrapped(targetText, ml, contentW);
+      y += 2;
     }
 
     // Objectifs pédagogiques
     if (mldsInfo.objectives) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Objectifs pédagogiques', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      yPosition += lineHeight;
-      doc.setFont('helvetica', 'normal');
-      addWrappedText(mldsInfo.objectives, margin + 2, 168);
-      yPosition += 1;
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('OBJECTIFS PÉDAGOGIQUES', ml, y);
+      y += 4;
+      doc.setFontSize(9);
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      wrapped(mldsInfo.objectives, ml, contentW);
+      y += 2;
     }
 
     // Objectifs de l'action
     if (mldsInfo.action_objectives && mldsInfo.action_objectives.length > 0) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Objectifs de l\'action', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      yPosition += lineHeight;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('OBJECTIFS DE L\'ACTION', ml, y);
+      y += 5;
 
       const objectiveLabels: { [key: string]: string } = {
         'path_security': 'Sécurisation des parcours (liaison inter-cycles)',
@@ -3652,38 +3834,40 @@ const ProjectManagement: React.FC = () => {
         'other': 'Autre'
       };
 
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
       mldsInfo.action_objectives.forEach((obj: string) => {
-        checkNewPage(7);
-        const label = objectiveLabels[obj] || obj;
-        doc.text(`• ${label}`, margin + 2, yPosition);
-        yPosition += lineHeight - 1;
+        checkPage(6);
+        doc.text(`• ${objectiveLabels[obj] || obj}`, ml + 2, y);
+        y += lh;
       });
 
       if (mldsInfo.action_objectives_other) {
-        checkNewPage(7);
+        checkPage(6);
         doc.setFont('helvetica', 'italic');
-        doc.text(`  ${mldsInfo.action_objectives_other}`, margin + 4, yPosition);
+        doc.text(`  ${mldsInfo.action_objectives_other}`, ml + 4, y);
         doc.setFont('helvetica', 'normal');
-        yPosition += lineHeight;
+        y += lh;
       }
-      doc.setFontSize(10);
-      yPosition += 1;
+      y += 2;
     }
 
     // Compétences développées
     if (mldsInfo.competencies_developed) {
-      checkNewPage(10);
+      checkPage(12);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-      doc.text('Compétences développées', margin, yPosition);
-      doc.setTextColor(0, 0, 0);
-      yPosition += lineHeight;
-      doc.setFont('helvetica', 'normal');
-      addWrappedText(mldsInfo.competencies_developed, margin + 2, 168);
-      yPosition += 1;
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text('COMPÉTENCES DÉVELOPPÉES', ml, y);
+      y += 4;
+      doc.setFontSize(9);
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      wrapped(mldsInfo.competencies_developed, ml, contentW);
+      y += 2;
     }
 
-    // Moyens financiers
+    // ========== MOYENS FINANCIERS ==========
     const hasFinancials = mldsInfo.financial_hse != null ||
       mldsInfo.financial_hv != null ||
       mldsInfo.financial_transport != null ||
@@ -3691,118 +3875,215 @@ const ProjectManagement: React.FC = () => {
       mldsInfo.financial_service != null;
 
     if (hasFinancials) {
-      yPosition += 3;
-      addSectionHeader('MOYENS FINANCIERS DEMANDÉS');
+      checkPage(25);
+      y += 2;
+      doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.roundedRect(ml, y, contentW, 8, 1, 1, 'F');
+      doc.setTextColor(255, 255, 255);
       doc.setFontSize(10);
-
-      // HSE and HV on same line if possible
-      if (mldsInfo.financial_hse != null || mldsInfo.financial_hv != null) {
-        checkNewPage(8);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-        doc.text('Heures supplémentaires', margin, yPosition);
-        doc.setTextColor(0, 0, 0);
-        yPosition += lineHeight;
-
-        if (mldsInfo.financial_hse != null) {
-          const amount = Number.parseFloat(mldsInfo.financial_hse);
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          doc.text('HSE', margin + 2, yPosition);
-          doc.text(`${amount.toFixed(2)} heures`, margin + 40, yPosition);
-          yPosition += lineHeight;
-        }
-
-        if (mldsInfo.financial_hv != null) {
-          const amount = Number.parseFloat(mldsInfo.financial_hv);
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
-          doc.text('HV', margin + 2, yPosition);
-          doc.text(`${amount.toFixed(2)} €`, margin + 40, yPosition);
-          yPosition += lineHeight;
-        }
-        doc.setFontSize(10);
-        yPosition += 1;
-      }
-
-      // Crédits
-      let totalCredits = 0;
-      const hasCredits = mldsInfo.financial_transport != null ||
-        mldsInfo.financial_operating != null ||
-        mldsInfo.financial_service != null;
-
-      if (hasCredits) {
-        checkNewPage(15);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-        doc.text('Crédits', margin, yPosition);
-        doc.setTextColor(0, 0, 0);
-        yPosition += lineHeight;
-        doc.setFontSize(9);
-
-        if (mldsInfo.financial_transport != null) {
-          const amount = Number.parseFloat(mldsInfo.financial_transport);
-          totalCredits += amount;
-          checkNewPage(6);
-          doc.setFont('helvetica', 'normal');
-          doc.text('Transport', margin + 2, yPosition);
-          doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
-          yPosition += lineHeight;
-        }
-
-        if (mldsInfo.financial_operating != null) {
-          const amount = Number.parseFloat(mldsInfo.financial_operating);
-          totalCredits += amount;
-          checkNewPage(6);
-          doc.setFont('helvetica', 'normal');
-          doc.text('Fonctionnement', margin + 2, yPosition);
-          doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
-          yPosition += lineHeight;
-        }
-
-        if (mldsInfo.financial_service != null) {
-          const amount = Number.parseFloat(mldsInfo.financial_service);
-          totalCredits += amount;
-          checkNewPage(6);
-          doc.setFont('helvetica', 'normal');
-          doc.text('Prestataires', margin + 2, yPosition);
-          doc.text(`${amount.toFixed(2)} €`, margin + 50, yPosition);
-          yPosition += lineHeight;
-        }
-
-        // Sous-total crédits (utiliser le backend si disponible)
-        const creditsTotal = mldsInfo.total_financial_credits
-          ? Number.parseFloat(mldsInfo.total_financial_credits)
-          : totalCredits;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text('Sous-total', margin + 2, yPosition);
-        doc.text(`${creditsTotal.toFixed(2)} €`, margin + 50, yPosition);
-        yPosition += lineHeight + 2;
-        doc.setFontSize(10);
-      }
-
-      // Total général avec style (calculer uniquement avec les crédits, sans HSE et HV)
-      checkNewPage(10);
-      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.setLineWidth(0.5);
-      doc.line(margin, yPosition - 1, pageWidth - margin, yPosition - 1);
-      yPosition += 2;
-
-      // Utiliser total_financial_credits du backend si disponible, sinon calculer avec les crédits uniquement
-      const totalGeneral = mldsInfo.total_financial_credits
-        ? Number.parseFloat(mldsInfo.total_financial_credits)
-        : totalCredits;
-      doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-      doc.text('TOTAL GÉNÉRAL', margin, yPosition + 2);
-      doc.text(`${totalGeneral.toFixed(2)} €`, pageWidth - margin, yPosition + 2, { align: 'right' });
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(10);
+      doc.text('MOYENS FINANCIERS', ml + 4, y + 5.5);
+      y += 14;
+
+      // Tableau financier
+      const tableX = ml;
+      const colLabel = contentW * 0.55;
+      const colVal = contentW * 0.45;
+      const rowH = 7;
+      let totalCredits = 0;
+
+      // En-tête tableau
+      doc.setFillColor(bleuClair[0], bleuClair[1], bleuClair[2]);
+      doc.rect(tableX, y - 4, contentW, rowH, 'F');
+      doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+      doc.setLineWidth(0.2);
+      doc.rect(tableX, y - 4, colLabel, rowH);
+      doc.rect(tableX + colLabel, y - 4, colVal, rowH);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Poste budgétaire', tableX + 3, y + 0.5);
+      doc.text('Montant', tableX + colLabel + 3, y + 0.5);
+      y += rowH;
+
+      const addFinRow = (label: string, value: string, isBold = false) => {
+        checkPage(rowH + 2);
+        doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+        doc.setLineWidth(0.15);
+        doc.rect(tableX, y - 4, colLabel, rowH);
+        doc.rect(tableX + colLabel, y - 4, colVal, rowH);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+        doc.setTextColor(gris[0], gris[1], gris[2]);
+        doc.text(label, tableX + 3, y + 0.5);
+        doc.text(value, tableX + colLabel + 3, y + 0.5);
+        y += rowH;
+      };
+
+      // HSE
+      if (mldsInfo.financial_hse != null) {
+        const hours = Number.parseFloat(String(mldsInfo.financial_hse));
+        const rate = Number.parseFloat(String(mldsInfo.financial_hv)) || HV_DEFAULT_RATE;
+        const euros = hours * rate;
+        totalCredits += euros;
+        addFinRow('Heures supplémentaires effectives (HSE)', `${hours.toFixed(2)} h`);
+        addFinRow('Valeur horaire (HV)', `${rate.toFixed(2)} €/h`);
+        addFinRow('Sous-total HSE', `${euros.toFixed(2)} €`, true);
+      }
+
+      // Transport
+      const transportLines = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport : [];
+      if (transportLines.length > 0) {
+        transportLines.forEach((line: any) => {
+          const amount = Number.parseFloat(line.price || '0') || 0;
+          totalCredits += amount;
+          const name = line.transport_name || 'Transport';
+          addFinRow(`Transport — ${name.length > 35 ? name.substring(0, 32) + '...' : name}`, `${amount.toFixed(2)} €`);
+        });
+      }
+
+      // Fonctionnement
+      const operatingLines = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating : [];
+      if (operatingLines.length > 0) {
+        operatingLines.forEach((line: any) => {
+          const amount = Number.parseFloat(line.price || '0') || 0;
+          totalCredits += amount;
+          const name = line.operating_name || 'Fonctionnement';
+          addFinRow(`Fonctionnement — ${name.length > 30 ? name.substring(0, 27) + '...' : name}`, `${amount.toFixed(2)} €`);
+        });
+      }
+
+      // Prestataires
+      const serviceLines = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service : [];
+      if (serviceLines.length > 0) {
+        serviceLines.forEach((line: any) => {
+          const amount = Number.parseFloat(line.price || '0') || 0;
+          totalCredits += amount;
+          const name = line.service_name || 'Prestataire';
+          addFinRow(`Prestataire — ${name.length > 30 ? name.substring(0, 27) + '...' : name}`, `${amount.toFixed(2)} €`);
+        });
+      }
+
+      // Total général
+      checkPage(12);
+      doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.rect(tableX, y - 4, contentW, rowH + 1, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      const totalGeneral = mldsInfo.total_financial != null
+        ? Number.parseFloat(String(mldsInfo.total_financial))
+        : (mldsInfo.total_financial_credits != null
+          ? Number.parseFloat(String(mldsInfo.total_financial_credits))
+          : totalCredits);
+      doc.text('TOTAL GÉNÉRAL', tableX + 3, y + 1);
+      doc.text(`${totalGeneral.toFixed(2)} €`, tableX + colLabel + 3, y + 1);
+      y += rowH + 6;
     }
 
-    // Save the PDF
+    // ========== BILAN À LA CLÔTURE ==========
+    if (pdfBilan && typeof pdfBilan === 'object') {
+      const hasBilan = pdfBilan.hse != null || pdfBilan.hv != null || pdfBilan.financial_transport != null || pdfBilan.financial_service != null || pdfBilan.financial_operating != null || pdfBilan.expected_participants != null ||
+        pdfBilan.hse_comment || pdfBilan.hv_comment || pdfBilan.financial_transport_comment || pdfBilan.financial_service_comment || pdfBilan.financial_operating_comment || pdfBilan.expected_participants_comment;
+      if (hasBilan) {
+        checkPage(40);
+        y += 2;
+
+        // Bandeau vert bilan
+        doc.setFillColor(vertBilan[0], vertBilan[1], vertBilan[2]);
+        doc.roundedRect(ml, y, contentW, 8, 1, 1, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('BILAN À LA CLÔTURE', ml + 4, y + 5.5);
+        y += 14;
+
+        // Tableau bilan
+        const tableX = ml;
+        const colPoste = contentW * 0.38;
+        const colValeur = contentW * 0.2;
+        const colComment = contentW * 0.42;
+        const rowH = 7;
+
+        // En-tête
+        doc.setFillColor(vertClair[0], vertClair[1], vertClair[2]);
+        doc.rect(tableX, y - 4, contentW, rowH, 'F');
+        doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+        doc.setLineWidth(0.2);
+        doc.rect(tableX, y - 4, colPoste, rowH);
+        doc.rect(tableX + colPoste, y - 4, colValeur, rowH);
+        doc.rect(tableX + colPoste + colValeur, y - 4, colComment, rowH);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(vertBilan[0], vertBilan[1], vertBilan[2]);
+        doc.text('Poste', tableX + 3, y + 0.5);
+        doc.text('Valeur', tableX + colPoste + 3, y + 0.5);
+        doc.text('Commentaire', tableX + colPoste + colValeur + 3, y + 0.5);
+        y += rowH;
+
+        // Fallback mlds_information values
+        const mldsTransportFB = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+        const mldsServiceFB = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+        const mldsOperatingFB = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+        const mldsHseFB = mldsInfo.financial_hse != null ? Number(mldsInfo.financial_hse) : 0;
+        const mldsHvFB = mldsInfo.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
+
+        const rows: Array<{ poste: string; valeur: string; comment: string; isTotal?: boolean }> = [];
+        if (pdfBilan.hse != null || pdfBilan.hse_comment) rows.push({ poste: 'HSE', valeur: pdfBilan.hse != null ? `${fmt(pdfBilan.hse)} h` : '—', comment: String(pdfBilan.hse_comment || '') });
+        if (pdfBilan.hv != null || pdfBilan.hv_comment) rows.push({ poste: 'HV', valeur: pdfBilan.hv != null ? `${fmt(pdfBilan.hv)} €/h` : '—', comment: String(pdfBilan.hv_comment || '') });
+        if (pdfBilan.financial_transport != null || pdfBilan.financial_transport_comment) rows.push({ poste: 'Crédits transport', valeur: pdfBilan.financial_transport != null ? `${fmt(pdfBilan.financial_transport)} €` : '—', comment: String(pdfBilan.financial_transport_comment || '') });
+        if (pdfBilan.financial_service != null || pdfBilan.financial_service_comment) rows.push({ poste: 'Crédits pédagogiques', valeur: pdfBilan.financial_service != null ? `${fmt(pdfBilan.financial_service)} €` : '—', comment: String(pdfBilan.financial_service_comment || '') });
+        if (pdfBilan.financial_operating != null || pdfBilan.financial_operating_comment) rows.push({ poste: 'Autres financements', valeur: pdfBilan.financial_operating != null ? `${fmt(pdfBilan.financial_operating)} €` : '—', comment: String(pdfBilan.financial_operating_comment || '') });
+        if (pdfBilan.expected_participants != null || pdfBilan.expected_participants_comment) rows.push({ poste: 'Participants effectifs', valeur: pdfBilan.expected_participants != null ? fmt(pdfBilan.expected_participants) : '—', comment: String(pdfBilan.expected_participants_comment || '') });
+
+        // Totaux avec fallback
+        const hseNum = pdfBilan.hse != null ? Number(pdfBilan.hse) : mldsHseFB;
+        const hvNum = pdfBilan.hv != null ? Number(pdfBilan.hv) : mldsHvFB;
+        const transportNum = pdfBilan.financial_transport != null ? Number(pdfBilan.financial_transport) : mldsTransportFB;
+        const serviceNum = pdfBilan.financial_service != null ? Number(pdfBilan.financial_service) : mldsServiceFB;
+        const operatingNum = pdfBilan.financial_operating != null ? Number(pdfBilan.financial_operating) : mldsOperatingFB;
+        const totalCreditsBilan = transportNum + serviceNum + operatingNum;
+        const totalBilan = hseNum * hvNum + totalCreditsBilan;
+
+        rows.push({ poste: 'Total des crédits', valeur: `${totalCreditsBilan.toFixed(2)} €`, comment: '', isTotal: true });
+        rows.push({ poste: 'Total général', valeur: `${totalBilan.toFixed(2)} €`, comment: '', isTotal: true });
+
+        doc.setFontSize(8);
+        rows.forEach((row) => {
+          checkPage(rowH + 4);
+          const commentLines = row.comment ? doc.splitTextToSize(row.comment, colComment - 6) : [];
+          const cellH = Math.max(rowH, commentLines.length * lh + 3);
+
+          if (row.isTotal) {
+            doc.setFillColor(vertClair[0], vertClair[1], vertClair[2]);
+            doc.rect(tableX, y - 4, contentW, cellH, 'F');
+          }
+
+          doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+          doc.setLineWidth(0.15);
+          doc.rect(tableX, y - 4, colPoste, cellH);
+          doc.rect(tableX + colPoste, y - 4, colValeur, cellH);
+          doc.rect(tableX + colPoste + colValeur, y - 4, colComment, cellH);
+          doc.setFont('helvetica', row.isTotal ? 'bold' : 'normal');
+          doc.setTextColor(row.isTotal ? vertBilan[0] : gris[0], row.isTotal ? vertBilan[1] : gris[1], row.isTotal ? vertBilan[2] : gris[2]);
+          doc.text(row.poste, tableX + 3, y + 0.5, { maxWidth: colPoste - 6 });
+          doc.text(row.valeur, tableX + colPoste + 3, y + 0.5);
+          if (commentLines.length > 0) {
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+            commentLines.forEach((line: string, i: number) => {
+              doc.text(line, tableX + colPoste + colValeur + 3, y + 0.5 + i * lh);
+            });
+          }
+          y += cellH;
+        });
+      }
+    }
+
+    // Ajouter les pieds de page sur toutes les pages
+    addFooters();
+
+    // Sauvegarder
     const fileName = `MLDS_${project.title.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
 
@@ -4055,7 +4336,7 @@ const ProjectManagement: React.FC = () => {
             <i className="fas fa-link"></i> Copier le lien
           </button>
           {/* Close project button: only for owner, when project is in progress */}
-          {!isProjectEnded && project.status === 'in_progress' && userProjectRole === 'owner' && !isReadOnlyMode && (
+          {!isProjectEnded && (project.status === 'in_progress' || project.status === 'coming') && userProjectRole === 'owner' && !isReadOnlyMode && (
             <button
               type="button"
               className="btn btn-secondary"
@@ -4065,6 +4346,18 @@ const ProjectManagement: React.FC = () => {
             >
               <i className="fas fa-check-circle"></i>
               {isClosingProject ? 'Clôture...' : 'Clôturer le projet'}
+            </button>
+          )}
+          {/* Archive button: only for owner, when project is ended */}
+          {project.status === 'ended' && userProjectRole === 'owner' && !isReadOnlyMode && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleArchiveProject}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minHeight: '50px' }}
+            >
+              <i className="fas fa-box-archive"></i>
+              Archiver le projet
             </button>
           )}
           {isMLDSProject && (
@@ -4135,6 +4428,51 @@ const ProjectManagement: React.FC = () => {
                     {getStatusText(project.status)}
                   </span>
                 </div>
+                {/* Boutons de validation pour projets MLDS - Admin/Superadmin d'école */}
+                {isMLDSProject && 
+                 state.showingPageType === 'edu' && 
+                 apiProjectData && 
+                 (isUserAdminOfProjectOrg(apiProjectData, state.user) || isUserSuperadminOfProjectOrg(apiProjectData, state.user)) &&
+                 project.status === 'to_process' && (
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handlePassToValidation}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <i className="fas fa-check-circle"></i>
+                      Passer en validation
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleRefuseProject}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <i className="fas fa-times-circle"></i>
+                      Refuser
+                    </button>
+                  </div>
+                )}
+                {/* Bouton de validation finale - Superadmin uniquement */}
+                {isMLDSProject && 
+                 state.showingPageType === 'edu' &&
+                 apiProjectData && 
+                 isUserSuperadmin(state.user) &&
+                 project.status === 'pending_validation' && (
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleValidateProject}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <i className="fas fa-check-double"></i>
+                      Valider le projet
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="project-actions-header">
                 {/* Join button or role pill - show for all users when appropriate */}
@@ -5700,7 +6038,10 @@ const ProjectManagement: React.FC = () => {
               </div>
             )}
 
-            {activeTab === 'mlds-info' && isMLDSProject && (
+            {activeTab === 'mlds-info' && isMLDSProject && (() => {
+              const mldsBilan = apiProjectData.mlds_information?.mlds_bilan ?? apiProjectData.mlds_information?.mnt;
+              const formatBilanVal = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? Number(v).toFixed(2) : String(v)) : '—');
+              return (
               <div className="tab-content active">
                 <div className="badges-section">
                   <div className="badges-section-header">
@@ -5708,6 +6049,18 @@ const ProjectManagement: React.FC = () => {
                   </div>
 
                   <div className="overview-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                    {/* Problématique réseau traitée */}
+                    {apiProjectData.mlds_information.network_issue_addressed && (
+                      <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                        <div className="stat-content">
+                          <div className="stat-label"> Problématique du réseau à laquelle l&apos;action répond </div>
+                          <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                            {apiProjectData.mlds_information.network_issue_addressed}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Demande faite par */}
                     {apiProjectData.mlds_information.requested_by && (
                       <div className="stat-card">
@@ -5783,6 +6136,13 @@ const ProjectManagement: React.FC = () => {
                         <div className="stat-content">
                           <div className="stat-value">{apiProjectData.mlds_information.expected_participants}</div>
                           <div className="stat-label">Effectifs prévisionnel</div>
+                          {mldsBilan && (mldsBilan.expected_participants != null || mldsBilan.expected_participants_comment) && (
+                            <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
+                              <div style={{ fontSize: '0.80rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
+                              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>{mldsBilan.expected_participants ?? '0'}</div>
+                              {mldsBilan.expected_participants_comment && <div style={{ marginTop: '0.35rem', fontSize: '0.8125rem', color: '#4b5563', lineHeight: 1.4 }}>{mldsBilan.expected_participants_comment}</div>}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -5857,7 +6217,7 @@ const ProjectManagement: React.FC = () => {
                                 <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
                                   <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HSE</div>
                                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
-                                    {Number.parseFloat(apiProjectData.mlds_information.financial_hse).toFixed(2)} heures
+                                    {Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)).toFixed(2)} heure{Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) > 1 ? 's' : ''}
                                   </div>
                                 </div>
                               )}
@@ -5865,39 +6225,132 @@ const ProjectManagement: React.FC = () => {
                                 <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
                                   <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
                                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
-                                    {Number.parseFloat(apiProjectData.mlds_information.financial_hv).toFixed(2)} €
+                                    {Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)).toFixed(2)} €
                                   </div>
                                 </div>
                               )}
+                              
                             </div>
+                            <div>
+                            {apiProjectData.mlds_information.total_financial_hours != null && apiProjectData.mlds_information.financial_hse != null && (
+                                <div style={{ padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', flex: 1 }}>
+                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total</div>
+                                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
+                                    {(() => {
+                                      const totalHours = Number.parseFloat(String(apiProjectData.mlds_information.total_financial_hours)) || 0;
+                                      return `${totalHours.toFixed(2)} €`;
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                               {/* Total bilan  mldsBilan.hse *  mldsBilan.hv */}
+                               {mldsBilan && (mldsBilan.hse != null || mldsBilan.hv != null) && (() => {
+                                const initHse = apiProjectData.mlds_information.financial_hse != null ? Number(apiProjectData.mlds_information.financial_hse) : null;
+                                const initHv = apiProjectData.mlds_information.financial_hv != null ? Number(apiProjectData.mlds_information.financial_hv) : null;
+                                const bilanHse = mldsBilan.hse != null ? Number(mldsBilan.hse) : null;
+                                const bilanHv = mldsBilan.hv != null ? Number(mldsBilan.hv) : null;
+                                const hseChanged = bilanHse !== null && bilanHse !== initHse;
+                                const hvChanged = bilanHv !== null && bilanHv !== initHv;
+                                const hasChanged = hseChanged || hvChanged;
 
-                            <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                                return (
+                                  <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
+                                    {!hasChanged ? (
+                                      <div style={{ fontSize: '0.9rem', color: '#6b7280', fontStyle: 'italic' }}>Aucun changement</div>
+                                    ) : (
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem', fontSize: '0.9rem' }}>
+                                        {bilanHse !== null && <span><strong>HSE :</strong> {formatBilanVal(bilanHse)} h</span>}
+                                        {mldsBilan.hse_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hse_comment}</span>}
+                                        {bilanHv !== null && <span><strong>HV :</strong> {formatBilanVal(bilanHv)} €</span>}
+                                        {mldsBilan.hv_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hv_comment}</span>}
+                                        <span><strong>Total :</strong> {formatBilanVal((bilanHse ?? initHse ?? 0) * (bilanHv ?? initHv ?? HV_DEFAULT_RATE))} €</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                              </div>
+
+                            <div style={{ marginTop: '0.10rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
                               <div style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.75rem' }}>Crédits</div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {apiProjectData.mlds_information.financial_transport != null && (
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Frais de transport</span>
-                                    <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                                      {Number.parseFloat(apiProjectData.mlds_information.financial_transport).toFixed(2)} €
-                                    </span>
-                                  </div>
-                                )}
-                                {apiProjectData.mlds_information.financial_operating != null && (
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Frais de fonctionnement</span>
-                                    <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                                      {Number.parseFloat(apiProjectData.mlds_information.financial_operating).toFixed(2)} €
-                                    </span>
-                                  </div>
-                                )}
-                                {apiProjectData.mlds_information.financial_service != null && (
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Prestataires de service</span>
-                                    <span style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-                                      {Number.parseFloat(apiProjectData.mlds_information.financial_service).toFixed(2)} €
-                                    </span>
-                                  </div>
-                                )}
+                                {(() => {
+                                  const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport) 
+                                    ? apiProjectData.mlds_information.financial_transport 
+                                    : [];
+                                  const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating) 
+                                    ? apiProjectData.mlds_information.financial_operating 
+                                    : [];
+                                  const serviceLines = Array.isArray(apiProjectData.mlds_information.financial_service) 
+                                    ? apiProjectData.mlds_information.financial_service 
+                                    : [];
+
+                                  return (
+                                    <>
+                                      {transportLines.length > 0 && (
+                                        <div>
+                                          <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>Frais de transport</div>
+                                          {transportLines.map((line: any, idx: number) => (
+                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
+                                              <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.transport_name || 'Non spécifié'}</span>
+                                              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
+                                                {Number.parseFloat(line.price || '0').toFixed(2)} €
+                                              </span>
+                                            </div>
+                                          ))}
+                                          {mldsBilan && (mldsBilan.financial_transport != null || mldsBilan.financial_transport_comment) && (
+                                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
+                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
+                                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_transport)} €</div>
+                                              {mldsBilan.financial_transport_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_transport_comment}</div>}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                      {operatingLines.length > 0 && (
+                                        <div>
+                                          <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>Frais de fonctionnement</div>
+                                          {operatingLines.map((line: any, idx: number) => (
+                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
+                                              <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.operating_name || 'Non spécifié'}</span>
+                                              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
+                                                {Number.parseFloat(line.price || '0').toFixed(2)} €
+                                              </span>
+                                            </div>
+                                          ))}
+                                          {mldsBilan && (mldsBilan.financial_operating != null || mldsBilan.financial_operating_comment) && (
+                                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
+                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
+                                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_operating)} €</div>
+                                              {mldsBilan.financial_operating_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_operating_comment}</div>}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                      {serviceLines.length > 0 && (
+                                        <div>
+                                          <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>Prestataires de service</div>
+                                          {serviceLines.map((line: any, idx: number) => (
+                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
+                                              <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.service_name || 'Non spécifié'}</span>
+                                              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
+                                                {Number.parseFloat(line.price || '0').toFixed(2)} €
+                                              </span>
+                                            </div>
+                                          ))}
+                                          {mldsBilan && (mldsBilan.financial_service != null || mldsBilan.financial_service_comment) && (
+                                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
+                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
+                                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_service)} €</div>
+                                              {mldsBilan.financial_service_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_service_comment}</div>}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                                 <div style={{
                                   marginTop: '0.5rem',
                                   padding: '0.75rem',
@@ -5909,14 +6362,33 @@ const ProjectManagement: React.FC = () => {
                                 }}>
                                   <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits</span>
                                   <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
-                                    {apiProjectData.mlds_information.total_financial_credits
-                                      ? Number.parseFloat(apiProjectData.mlds_information.total_financial_credits).toFixed(2)
-                                      : (
-                                        (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
-                                        (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
-                                        (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
-                                      ).toFixed(2)
-                                    } €
+                                    {(() => {
+                                      const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport) 
+                                        ? apiProjectData.mlds_information.financial_transport 
+                                        : [];
+                                      const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating) 
+                                        ? apiProjectData.mlds_information.financial_operating 
+                                        : [];
+                                      const serviceLines = Array.isArray(apiProjectData.mlds_information.financial_service) 
+                                        ? apiProjectData.mlds_information.financial_service 
+                                        : [];
+                                      
+                                      const transportTotal = transportLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                      const operatingTotal = operatingLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                      const serviceTotal = serviceLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                      
+                                      const creditsFromApi = apiProjectData.mlds_information.total_financial_credits != null
+                                        ? Number.parseFloat(String(apiProjectData.mlds_information.total_financial_credits))
+                                        : null;
+                                      return creditsFromApi != null
+                                        ? creditsFromApi.toFixed(2)
+                                        : (
+                                            transportTotal +
+                                            operatingTotal +
+                                            serviceTotal +
+                                            (Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) || 0) * (Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)) || HV_DEFAULT_RATE)
+                                          ).toFixed(2);
+                                    })()} €
                                   </span>
                                 </div>
                               </div>
@@ -5934,91 +6406,82 @@ const ProjectManagement: React.FC = () => {
                             }}>
                               <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>Total général</span>
                               <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
-                                {(
-                                  (Number.parseFloat(apiProjectData.mlds_information.financial_transport) || 0) +
-                                  (Number.parseFloat(apiProjectData.mlds_information.financial_operating) || 0) +
-                                  (Number.parseFloat(apiProjectData.mlds_information.financial_service) || 0)
-                                ).toFixed(2)} €
+                                {(() => {
+                                  if (apiProjectData.mlds_information.total_financial != null) {
+                                    return Number.parseFloat(String(apiProjectData.mlds_information.total_financial)).toFixed(2);
+                                  }
+                                  const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport) 
+                                    ? apiProjectData.mlds_information.financial_transport 
+                                    : [];
+                                  const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating) 
+                                    ? apiProjectData.mlds_information.financial_operating 
+                                    : [];
+                                  const serviceLines = Array.isArray(apiProjectData.mlds_information.financial_service) 
+                                    ? apiProjectData.mlds_information.financial_service 
+                                    : [];
+                                  
+                                  const transportTotal = transportLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                  const operatingTotal = operatingLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                  const serviceTotal = serviceLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                  
+                                  return (
+                                    transportTotal +
+                                    operatingTotal +
+                                    serviceTotal +
+                                    (Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) || 0) * (Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)) || HV_DEFAULT_RATE)
+                                  ).toFixed(2);
+                                })()} €
                               </span>
                             </div>
+                            {mldsBilan && (() => {
+                              const mldsInfo = apiProjectData?.mlds_information;
+                              const mldsTransportFallback = Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+                              const mldsServiceFallback = Array.isArray(mldsInfo?.financial_service) ? mldsInfo.financial_service.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+                              const mldsOperatingFallback = Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+                              const mldsHseFallback = mldsInfo?.financial_hse != null ? Number(mldsInfo.financial_hse) : 0;
+                              const mldsHvFallback = mldsInfo?.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
+
+                              const h = mldsBilan.hse != null ? Number(mldsBilan.hse) : mldsHseFallback;
+                              const v = mldsBilan.hv != null ? Number(mldsBilan.hv) : mldsHvFallback;
+                              const tr = mldsBilan.financial_transport != null ? Number(mldsBilan.financial_transport) : mldsTransportFallback;
+                              const sv = mldsBilan.financial_service != null ? Number(mldsBilan.financial_service) : mldsServiceFallback;
+                              const op = mldsBilan.financial_operating != null ? Number(mldsBilan.financial_operating) : mldsOperatingFallback;
+                              const totalCredits = tr + sv + op;
+                              const totalBilan = h * v + tr + sv + op;
+                              if (totalBilan === 0) return null;
+                              return (
+                                <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.5rem' }}>Bilan à la clôture</div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.9rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#374151' }}>Total des crédits</span><span style={{ fontWeight: 700, color: '#111827' }}>{totalCredits.toFixed(2)} €</span></div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#374151' }}>Total général</span><span style={{ fontWeight: 700, color: '#111827' }}>{totalBilan.toFixed(2)} €</span></div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       )}
+
                   </div>
                 </div>
               </div>
-            )}
+            );
+            })()}
           </>
         )}
 
       </div>
 
-      {/* Close project confirmation modal (same style as project deletion in Projects.tsx) */}
+      {/* Modal bilan à la clôture du projet */}
       {isCloseProjectModalOpen && (
-        <div className="modal-overlay" onClick={() => !isClosingProject && setIsCloseProjectModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3>Confirmer la clôture du projet</h3>
-              <button className="modal-close" onClick={() => !isClosingProject && setIsCloseProjectModalOpen(false)} disabled={isClosingProject}>
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
-            <div className="modal-body">
-              <div style={{
-                padding: '1.5rem',
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1rem'
-              }}>
-                <div style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '50%',
-                  backgroundColor: '#fef3c7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '0.5rem'
-                }}>
-                  <i className="fas fa-lock" style={{ fontSize: '2rem', color: '#d97706' }}></i>
-                </div>
-                <div>
-                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
-                    Êtes-vous sûr de vouloir clôturer ce projet ?
-                  </h4>
-                  <p style={{ fontSize: '0.95rem', color: '#6b7280', marginBottom: '1rem' }}>
-                    Le projet sera marqué comme <strong>terminé</strong>. Toutes les actions seront figées : plus d&apos;ajout ni de modification de participants, équipes, documents ou badges.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button
-                className="btn btn-outline"
-                onClick={() => setIsCloseProjectModalOpen(false)}
-                disabled={isClosingProject}
-                style={{ minWidth: '100px' }}
-              >
-                Annuler
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={confirmCloseProject}
-                disabled={isClosingProject}
-                style={{
-                  minWidth: '100px',
-                  backgroundColor: '#d97706',
-                  borderColor: '#d97706'
-                }}
-              >
-                <i className="fas fa-check-circle" style={{ marginRight: '0.5rem' }}></i>
-                {isClosingProject ? 'Clôture...' : 'Clôturer le projet'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <CloseProjectBilanModal
+          projectTitle={project?.title ?? apiProjectData?.title ?? 'Projet'}
+          mldsInfo={apiProjectData?.mlds_information ?? project?.mlds_information ?? null}
+          onClose={() => !isClosingProject && setIsCloseProjectModalOpen(false)}
+          onConfirm={(bilanData) => confirmCloseProject(bilanData)}
+          isSubmitting={isClosingProject}
+        />
       )}
 
       {/* Edit Project Modal */}
@@ -6040,18 +6503,33 @@ const ProjectManagement: React.FC = () => {
                   type="text"
                   id="project-title"
                   value={editForm.title}
-                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
                   className="form-input"
                   placeholder="Entrez le titre du projet"
                 />
               </div>
+
+              {isMLDSProject && (
+                <div className="form-group">
+                  <label htmlFor="networkIssueAddressed"> Problématique du réseau à laquelle l&apos;action répond <span style={{ color: 'red' }}>*</span></label>
+                  <textarea
+                    id="project-network-issue-addressed"
+                    value={editForm.mldsNetworkIssueAddressed}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, mldsNetworkIssueAddressed: e.target.value }))}
+                    className="form-input"
+                    placeholder="Diagnostique, constats, indicateurs, besoins identifiés, freins"
+                    rows={4}
+                    required={editForm.status === 'to_process' || editForm.status === 'in_progress' || editForm.status === 'coming'}
+                  />
+                </div>
+              )}
 
               <div className="form-group">
                 <label htmlFor="project-description">Description du projet</label>
                 <textarea
                   id="project-description"
                   value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                   className="form-textarea"
                   rows={4}
                   placeholder="Entrez la description du projet"
@@ -6101,7 +6579,7 @@ const ProjectManagement: React.FC = () => {
                     type="date"
                     id="project-start-date"
                     value={editForm.startDate}
-                    onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, startDate: e.target.value }))}
                     className="form-input"
                   />
                 </div>
@@ -6111,7 +6589,7 @@ const ProjectManagement: React.FC = () => {
                     type="date"
                     id="project-end-date"
                     value={editForm.endDate}
-                    onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, endDate: e.target.value }))}
                     className="form-input"
                   />
                 </div>
@@ -6124,7 +6602,7 @@ const ProjectManagement: React.FC = () => {
                   <select
                     id="project-visibility"
                     value={editForm.visibility}
-                    onChange={(e) => setEditForm({ ...editForm, visibility: e.target.value as 'public' | 'private' })}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, visibility: e.target.value as 'public' | 'private' }))}
                     className="form-input"
                   >
                     <option value="public">Projet public</option>
@@ -6260,7 +6738,7 @@ const ProjectManagement: React.FC = () => {
                   <div className="form-label">Ajouter une/des classe(s) au projet</div>
                   {availableSchoolLevels.length > 0 ? (
                     <>
-                      <div className="multi-select-container" style={{ }}>
+                      <div className="multi-select-container" style={{}}>
                         {availableSchoolLevels.map(classItem => (
                           <label
                             key={classItem.id}
@@ -6431,11 +6909,11 @@ const ProjectManagement: React.FC = () => {
                                     cursor: 'pointer',
                                     ...(checked
                                       ? {
-                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
-                                          border: '1px solid #5570F1',
-                                          borderRadius: '8px',
-                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
-                                        }
+                                        backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                        border: '1px solid #5570F1',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                      }
                                       : {})
                                   }}
                                 >
@@ -6491,7 +6969,7 @@ const ProjectManagement: React.FC = () => {
                       {(() => {
                         const teachers = getFilteredEditClassCoResponsibles(editClassCoResponsiblesPopup.classId, editClassCoResponsiblesSearchTerm);
                         const selectedIds = editClassCoResponsibles[editClassCoResponsiblesPopup.classId] || [];
-                        
+
                         if (teachers.length === 0) {
                           return (
                             <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
@@ -6516,11 +6994,11 @@ const ProjectManagement: React.FC = () => {
                                     cursor: 'pointer',
                                     ...(isSelected
                                       ? {
-                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
-                                          border: '1px solid #5570F1',
-                                          borderRadius: '8px',
-                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
-                                        }
+                                        backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                        border: '1px solid #5570F1',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                      }
                                       : {})
                                   }}
                                 >
@@ -6588,7 +7066,7 @@ const ProjectManagement: React.FC = () => {
                       {(() => {
                         const contactUsers = getFilteredEditPartnershipCoResponsibles(editPartnershipCoResponsiblesPopup.contactUsers, editPartnershipCoResponsiblesSearchTerm);
                         const selectedIds = editPartnershipCoResponsibles[editPartnershipCoResponsiblesPopup.partnershipId] || [];
-                        
+
                         if (contactUsers.length === 0) {
                           return (
                             <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
@@ -6613,11 +7091,11 @@ const ProjectManagement: React.FC = () => {
                                     cursor: 'pointer',
                                     ...(isSelected
                                       ? {
-                                          backgroundColor: 'rgba(85, 112, 241, 0.1)',
-                                          border: '1px solid #5570F1',
-                                          borderRadius: '8px',
-                                          boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
-                                        }
+                                        backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                        border: '1px solid #5570F1',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                      }
                                       : {})
                                   }}
                                 >
@@ -6670,7 +7148,7 @@ const ProjectManagement: React.FC = () => {
                       Ajoutez des classes ci-dessus et choisissez « Sélectionner manuellement » ou « Tout sélectionner » pour ajouter des participants. Ils seront enregistrés avec le projet.
                     </p>
                   ) : (
-                    <div className="selected-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
+                    <div className="selected-items" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                       {(() => {
                         const showLevelSummary = editForm.mldsSchoolLevelIds.length > 0;
                         if (showLevelSummary) {
@@ -7050,7 +7528,7 @@ const ProjectManagement: React.FC = () => {
                             name="mldsDepartment"
                             className="form-select"
                             value={editForm.mldsDepartment}
-                            onChange={(e) => setEditForm({ ...editForm, mldsDepartment: e.target.value })}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, mldsDepartment: e.target.value }))}
                             required={editForm.mldsRequestedBy === 'departement'}
                           >
                             <option value="">Sélectionnez un département</option>
@@ -7071,7 +7549,7 @@ const ProjectManagement: React.FC = () => {
                         name="mldsTargetAudience"
                         className="form-select"
                         value={editForm.mldsTargetAudience}
-                        onChange={(e) => setEditForm({ ...editForm, mldsTargetAudience: e.target.value })}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, mldsTargetAudience: e.target.value }))}
                         required
                       >
                         <option value="students_without_solution">Élèves sans solution à la rentrée</option>
@@ -7089,7 +7567,7 @@ const ProjectManagement: React.FC = () => {
                       name="mldsExpectedParticipants"
                       className="form-input"
                       value={editForm.mldsExpectedParticipants}
-                      onChange={(e) => setEditForm({ ...editForm, mldsExpectedParticipants: e.target.value })}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsExpectedParticipants: e.target.value }))}
                       placeholder="Nombre de participants attendus"
                       min="0"
                     />
@@ -7102,7 +7580,7 @@ const ProjectManagement: React.FC = () => {
                       name="mldsObjectives"
                       className="form-textarea"
                       value={editForm.mldsObjectives}
-                      onChange={(e) => setEditForm({ ...editForm, mldsObjectives: e.target.value })}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsObjectives: e.target.value }))}
                       rows={3}
                       placeholder="Décrire les objectifs de remobilisation et de persévérance scolaire..."
                     />
@@ -7116,7 +7594,7 @@ const ProjectManagement: React.FC = () => {
                         { value: 'professional_discovery', label: 'La découverte des filières professionnelles' },
                         { value: 'student_mobility', label: 'Le développement de la mobilité des élèves' },
                         { value: 'cps_development', label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré' },
-                        { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, PAE, autres)' },
+                        { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, Avenir Pro Plus, autres)' },
                         { value: 'family_links', label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire' },
                         { value: 'professional_development', label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)' },
                         { value: 'other', label: 'Autre' }
@@ -7130,9 +7608,9 @@ const ProjectManagement: React.FC = () => {
                             checked={editForm.mldsActionObjectives.includes(objective.value)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setEditForm({ ...editForm, mldsActionObjectives: [...editForm.mldsActionObjectives, objective.value] });
+                                setEditForm(prev => ({ ...prev, mldsActionObjectives: [...prev.mldsActionObjectives, objective.value] }));
                               } else {
-                                setEditForm({ ...editForm, mldsActionObjectives: editForm.mldsActionObjectives.filter(v => v !== objective.value) });
+                                setEditForm(prev => ({ ...prev, mldsActionObjectives: prev.mldsActionObjectives.filter(v => v !== objective.value) }));
                               }
                             }}
                           />
@@ -7151,7 +7629,7 @@ const ProjectManagement: React.FC = () => {
                           name="mldsActionObjectivesOther"
                           className="form-textarea"
                           value={editForm.mldsActionObjectivesOther}
-                          onChange={(e) => setEditForm({ ...editForm, mldsActionObjectivesOther: e.target.value })}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, mldsActionObjectivesOther: e.target.value }))}
                           placeholder="Décrivez l'autre objectif..."
                           rows={2}
                           style={{ marginTop: '8px' }}
@@ -7167,7 +7645,7 @@ const ProjectManagement: React.FC = () => {
                       name="mldsCompetenciesDeveloped"
                       className="form-textarea"
                       value={editForm.mldsCompetenciesDeveloped}
-                      onChange={(e) => setEditForm({ ...editForm, mldsCompetenciesDeveloped: e.target.value })}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsCompetenciesDeveloped: e.target.value }))}
                       rows={3}
                       placeholder="Décrivez les compétences que les participants développeront..."
                     />
@@ -7193,22 +7671,22 @@ const ProjectManagement: React.FC = () => {
                           name="mldsFinancialHSE"
                           className="form-input"
                           value={editForm.mldsFinancialHSE}
-                          onChange={(e) => setEditForm({ ...editForm, mldsFinancialHSE: e.target.value })}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, mldsFinancialHSE: e.target.value }))}
                           placeholder="Nombre d'heures"
                           min="0"
                           step="0.01"
                         />
                       </div>
                       <div className="form-group" style={{ marginBottom: '0' }}>
-                        <label htmlFor="mlds-financial-hv">HV</label>
+                        <label htmlFor="mlds-financial-hv">HV (taux €/h)</label>
                         <input
                           type="number"
                           id="mlds-financial-hv"
                           name="mldsFinancialHV"
                           className="form-input"
                           value={editForm.mldsFinancialHV}
-                          onChange={(e) => setEditForm({ ...editForm, mldsFinancialHV: e.target.value })}
-                          placeholder="Montant en €"
+                          onChange={(e) => setEditForm(prev => ({ ...prev, mldsFinancialHV: e.target.value }))}
+                          placeholder="Taux en €/heure"
                           min="0"
                           step="0.01"
                         />
@@ -7236,47 +7714,160 @@ const ProjectManagement: React.FC = () => {
                         gridTemplateColumns: '1fr',
                         gap: '1rem'
                       }}>
+                        {/* Frais de transport */}
                         <div className="form-group" style={{ marginBottom: '0' }}>
-                          <label htmlFor="mlds-financial-transport">Frais de transport</label>
-                          <input
-                            type="number"
-                            id="mlds-financial-transport"
-                            name="mldsFinancialTransport"
-                            className="form-input"
-                            value={editForm.mldsFinancialTransport}
-                            onChange={(e) => setEditForm({ ...editForm, mldsFinancialTransport: e.target.value })}
-                            placeholder="Montant en €"
-                            min="0"
-                            step="0.01"
-                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <label htmlFor="mlds-financial-transport">Frais de transport</label>
+                            <button
+                              type="button"
+                              onClick={() => addEditFinancialLine('mldsFinancialTransport')}
+                              className="btn btn-outline btn-sm"
+                              style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            >
+                              <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                              Ajouter une ligne
+                            </button>
+                          </div>
+                          {editForm.mldsFinancialTransport.length === 0 ? (
+                            <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+                              Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.
+                            </div>
+                          ) : (
+                            editForm.mldsFinancialTransport.map((line, index) => (
+                              <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                                <input
+                                  type="text"
+                                  className="form-input"
+                                  value={line.transport_name}
+                                  onChange={(e) => updateEditFinancialLine('mldsFinancialTransport', index, 'name', e.target.value)}
+                                  placeholder="Nom du transport"
+                                  style={{ flex: 2 }}
+                                />
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  value={line.price}
+                                  onChange={(e) => updateEditFinancialLine('mldsFinancialTransport', index, 'price', e.target.value)}
+                                  placeholder="Prix en €"
+                                  min="0"
+                                  step="0.01"
+                                  style={{ flex: 1 }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeEditFinancialLine('mldsFinancialTransport', index)}
+                                  className="btn btn-outline btn-sm"
+                                  style={{ padding: '8px 12px', color: '#dc2626' }}
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              </div>
+                            ))
+                          )}
                         </div>
+
+                        {/* Frais de fonctionnement */}
                         <div className="form-group" style={{ marginBottom: '0' }}>
-                          <label htmlFor="mlds-financial-operating">Frais de fonctionnement</label>
-                          <input
-                            type="number"
-                            id="mlds-financial-operating"
-                            name="mldsFinancialOperating"
-                            className="form-input"
-                            value={editForm.mldsFinancialOperating}
-                            onChange={(e) => setEditForm({ ...editForm, mldsFinancialOperating: e.target.value })}
-                            placeholder="Montant en €"
-                            min="0"
-                            step="0.01"
-                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <label htmlFor="mlds-financial-operating">Frais de fonctionnement</label>
+                            <button
+                              type="button"
+                              onClick={() => addEditFinancialLine('mldsFinancialOperating')}
+                              className="btn btn-outline btn-sm"
+                              style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            >
+                              <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                              Ajouter une ligne
+                            </button>
+                          </div>
+                          {editForm.mldsFinancialOperating.length === 0 ? (
+                            <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+                              Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.
+                            </div>
+                          ) : (
+                            editForm.mldsFinancialOperating.map((line, index) => (
+                              <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                                <input
+                                  type="text"
+                                  className="form-input"
+                                  value={line.operating_name}
+                                  onChange={(e) => updateEditFinancialLine('mldsFinancialOperating', index, 'name', e.target.value)}
+                                  placeholder="Nom du fonctionnement"
+                                  style={{ flex: 2 }}
+                                />
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  value={line.price}
+                                  onChange={(e) => updateEditFinancialLine('mldsFinancialOperating', index, 'price', e.target.value)}
+                                  placeholder="Prix en €"
+                                  min="0"
+                                  step="0.01"
+                                  style={{ flex: 1 }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeEditFinancialLine('mldsFinancialOperating', index)}
+                                  className="btn btn-outline btn-sm"
+                                  style={{ padding: '8px 12px', color: '#dc2626' }}
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              </div>
+                            ))
+                          )}
                         </div>
+
+                        {/* Prestataires de service */}
                         <div className="form-group" style={{ marginBottom: '0' }}>
-                          <label htmlFor="mlds-financial-service">Prestataires de service</label>
-                          <input
-                            type="number"
-                            id="mlds-financial-service"
-                            name="mldsFinancialService"
-                            className="form-input"
-                            value={editForm.mldsFinancialService}
-                            onChange={(e) => setEditForm({ ...editForm, mldsFinancialService: e.target.value })}
-                            placeholder="Montant en €"
-                            min="0"
-                            step="0.01"
-                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <label htmlFor="mlds-financial-service">Prestataires de service</label>
+                            <button
+                              type="button"
+                              onClick={() => addEditFinancialLine('mldsFinancialService')}
+                              className="btn btn-outline btn-sm"
+                              style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            >
+                              <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                              Ajouter une ligne
+                            </button>
+                          </div>
+                          {editForm.mldsFinancialService.length === 0 ? (
+                            <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+                              Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.
+                            </div>
+                          ) : (
+                            editForm.mldsFinancialService.map((line, index) => (
+                              <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                                <input
+                                  type="text"
+                                  className="form-input"
+                                  value={line.service_name}
+                                  onChange={(e) => updateEditFinancialLine('mldsFinancialService', index, 'name', e.target.value)}
+                                  placeholder="Nom du service"
+                                  style={{ flex: 2 }}
+                                />
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  value={line.price}
+                                  onChange={(e) => updateEditFinancialLine('mldsFinancialService', index, 'price', e.target.value)}
+                                  placeholder="Prix en €"
+                                  min="0"
+                                  step="0.01"
+                                  style={{ flex: 1 }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeEditFinancialLine('mldsFinancialService', index)}
+                                  className="btn btn-outline btn-sm"
+                                  style={{ padding: '8px 12px', color: '#dc2626' }}
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </button>
+                              </div>
+                            ))
+                          )}
                         </div>
                       </div>
                       <div style={{
@@ -7291,9 +7882,10 @@ const ProjectManagement: React.FC = () => {
                         <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits :</span>
                         <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
                           {(
-                            (Number.parseFloat(editForm.mldsFinancialTransport) || 0) +
-                            (Number.parseFloat(editForm.mldsFinancialOperating) || 0) +
-                            (Number.parseFloat(editForm.mldsFinancialService) || 0)
+                            calculateFinancialLinesTotal(editForm.mldsFinancialTransport) +
+                            calculateFinancialLinesTotal(editForm.mldsFinancialOperating) +
+                            calculateFinancialLinesTotal(editForm.mldsFinancialService) 
+                            
                           ).toFixed(2)} €
                         </span>
                       </div>
@@ -7314,9 +7906,10 @@ const ProjectManagement: React.FC = () => {
                       </span>
                       <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
                         {(
-                          (Number.parseFloat(editForm.mldsFinancialTransport) || 0) +
-                          (Number.parseFloat(editForm.mldsFinancialOperating) || 0) +
-                          (Number.parseFloat(editForm.mldsFinancialService) || 0)
+                          calculateFinancialLinesTotal(editForm.mldsFinancialTransport) +
+                          calculateFinancialLinesTotal(editForm.mldsFinancialOperating) +
+                          calculateFinancialLinesTotal(editForm.mldsFinancialService) +
+                          (Number.parseFloat(editForm.mldsFinancialHSE) || 0) * (Number.parseFloat(editForm.mldsFinancialHV) || HV_DEFAULT_RATE)
                         ).toFixed(2)} €
                       </span>
                     </div>
@@ -7325,7 +7918,7 @@ const ProjectManagement: React.FC = () => {
               )}
             </div>
 
-            <div className="modal-footer">
+            <div className="modal-footer flex !flex-wrap gap-2 justify-center flex-1">
               <button className="btn btn-outline" onClick={handleCancelEdit}>
                 Annuler
               </button>
@@ -7647,14 +8240,14 @@ const ProjectManagement: React.FC = () => {
               <button className="btn btn-outline" onClick={() => setIsViewTeamModalOpen(false)}>
                 Fermer
               </button>
-                  {!isProjectEnded && !isReadOnlyMode && (
-              <button className="btn btn-primary" onClick={() => {
-                setIsViewTeamModalOpen(false);
-                handleEditTeam(selectedTeam);
-              }}>
-                <i className="fas fa-edit"></i>
-                Modifier l'équipe
-              </button>
+              {!isProjectEnded && !isReadOnlyMode && (
+                <button className="btn btn-primary" onClick={() => {
+                  setIsViewTeamModalOpen(false);
+                  handleEditTeam(selectedTeam);
+                }}>
+                  <i className="fas fa-edit"></i>
+                  Modifier l'équipe
+                </button>
               )}
             </div>
           </div>

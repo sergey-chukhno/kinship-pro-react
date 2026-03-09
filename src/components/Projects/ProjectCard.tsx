@@ -9,17 +9,32 @@ interface ProjectCardProps {
   onManage?: (project: Project) => void;
   onDelete?: (project: Project) => void;
   onClose?: (project: Project) => void;
+  onDuplicate?: (project: Project) => void;
   isPersonalUser?: boolean;
   canManage?: boolean;
   canDelete?: boolean;
+  canDuplicate?: boolean;
   isOwnerOrCoOwner?: boolean;
 }
 
-const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, onDelete, onClose, isPersonalUser = false, canManage = false, canDelete = false, isOwnerOrCoOwner = false }) => {
+const ProjectCard: React.FC<ProjectCardProps> = ({
+  project,
+  onEdit,
+  onManage,
+  onDelete,
+  onClose,
+  onDuplicate,
+  isPersonalUser = false,
+  canManage = false,
+  canDelete = false,
+  canDuplicate = false,
+  isOwnerOrCoOwner = false
+}) => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   // Check if project is ended - disable all actions if true
   const isProjectEnded = project.status === 'ended';
+  const isProjectArchived = project.status === 'archived';
   // Format date from YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -31,6 +46,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
     switch (status) {
       case 'draft': return 'status-draft';
       case 'to_process': return 'status-to-process';
+      case 'pending_validation': return 'status-to-validate';
       case 'À venir': return 'status-coming';
       case 'En cours': return 'status-in-progress';
       case 'Terminée': return 'status-ended';
@@ -45,6 +61,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
     switch (status) {
       case 'draft': return 'Brouillon';
       case 'to_process': return 'À traiter';
+      case 'pending_validation': return 'À valider';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
       case 'ended': return 'Terminée';
@@ -156,13 +173,19 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onManage, on
               Clôturer
             </button>
           )}
+          {canDuplicate && onDuplicate  && (
+            <button className="btn btn-outline btn-sm" onClick={() => onDuplicate(project)}>
+              <i className="fas fa-copy"></i>
+              Dupliquer
+            </button>
+          )}
           {canDelete && onDelete && !isProjectEnded && (
             <button className="btn btn-outline btn-sm btn-danger" onClick={() => onDelete(project)}>
               <i className="fas fa-trash"></i>
               Supprimer
             </button>
           )}
-          {canManage && !isProjectEnded ? (
+          {canManage && !isProjectEnded && !isProjectArchived ? (
             <button className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
               <i className="fas fa-cog"></i>
               Gérer
