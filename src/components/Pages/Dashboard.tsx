@@ -61,6 +61,7 @@ function getStatCardNavigation(
     if (key === 'events_count') return { path: '/events', page: 'events' };
   }
   if (showingPageType === 'edu') {
+    if (key === 'total_members') return { path: '/members?tab=members', page: 'members' };
     if (key === 'total_teachers') return { path: '/members?tab=staff', page: 'members' };
     if (key === 'total_students') return { path: '/members?tab=students', page: 'members' };
     if (key === 'total_levels') return { path: '/members?tab=class', page: 'members' };
@@ -1230,12 +1231,16 @@ const Dashboard: React.FC = () => {
   const overview = statsData?.overview;
   const branches = statsData?.branches;
   const badgesAssigned = statsData?.badges_assigned;
+  const membersByRole = statsData?.members_by_role;
+  const eduStaffCount = state.showingPageType === 'edu' && membersByRole
+    ? (membersByRole.superadmin ?? 0) + (membersByRole.admin ?? 0) + (membersByRole.referent ?? 0)
+    : undefined;
   const statCards = [
     {
       key: 'total_members',
-      label: 'Membres actifs',
+      label: state.showingPageType === 'edu' ? 'Membres du personnel éducatif' : 'Membres actifs',
       icon: '/icons_logo/Icon=Membres grand.svg',
-      value: overview?.total_members,
+      value: state.showingPageType === 'edu' ? eduStaffCount : overview?.total_members,
       variant: 'stat-card',
     },
     {
@@ -1683,7 +1688,7 @@ const Dashboard: React.FC = () => {
           <div className="dashboard-stats">
             <div className="stats-grid">
               {statCards.map((card) => {
-                if ((card.label === "Enseignants" || card.label === "Membres actifs") && state.showingPageType === 'teacher') return null;
+                if ((card.key === 'total_members' || card.label === "Enseignants") && state.showingPageType === 'teacher') return null;
                 const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
                 const nav = getStatCardNavigation(state.showingPageType, card.key);
                 const content = (

@@ -76,6 +76,9 @@ const Members: React.FC = () => {
   // Pro dashboard: Staff tab = superadmin, admin, referent; Members tab = intervenant, member
   const PRO_STAFF_ROLES = ['superadmin', 'admin', 'referent'];
   const PRO_MEMBER_ROLES = ['intervenant', 'member'];
+  // Edu Staff: also include users with teacher or school admin system role (User::TEACHER_ROLES / SCHOOL_ADMIN_ROLES)
+  const EDU_TEACHER_SYSTEM_ROLES = ['secondary_school_teacher', 'primary_school_teacher', 'administrative_staff', 'cpe_student_life', 'education_rectorate_personnel', 'other', 'other_teacher'];
+  const EDU_SCHOOL_ADMIN_SYSTEM_ROLES = ['directeur_ecole', 'principal', 'directeur_academique', 'responsable_academique', 'proviseur', 'other', 'other_school_admin'];
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addMemberModalVariant, setAddMemberModalVariant] = useState<'major' | 'minor'>('major');
@@ -811,6 +814,41 @@ const Members: React.FC = () => {
     [proOrdinaryMembers, searchTerm, roleFilter, competenceFilter, subSkillFilter, availabilityFilter]
   );
 
+  // Edu dashboard: Staff tab = org roles (superadmin, admin, referent) OR teacher/school admin system role
+  const isEduContext = isSchoolContext && !isTeacherContext;
+  const eduStaffMembers = useMemo(() => {
+    if (!isEduContext) return [];
+    return members.filter((m) => {
+      const membershipRole = ((m as any).membershipRole || '').toLowerCase();
+      const systemRole = ((m as any).systemRole || (m as any).rawRole || '').toLowerCase();
+      const isOrgStaff = PRO_STAFF_ROLES.includes(membershipRole);
+      const isTeacherBySystemRole = EDU_TEACHER_SYSTEM_ROLES.includes(systemRole);
+      const isSchoolAdminBySystemRole = EDU_SCHOOL_ADMIN_SYSTEM_ROLES.includes(systemRole);
+      return isOrgStaff || isTeacherBySystemRole || isSchoolAdminBySystemRole;
+    });
+  }, [members, isEduContext]);
+  const filteredEduStaff = useMemo(
+    () => eduStaffMembers.filter(applyMemberFilters),
+    [eduStaffMembers, searchTerm, roleFilter, competenceFilter, subSkillFilter, availabilityFilter]
+  );
+
+  // Edu dashboard: Communauté = org roles intervenant + member, excluding system students
+  const EDU_COMMUNITY_ROLES = ['intervenant', 'member'];
+  const eduCommunautéMembers = useMemo(() => {
+    if (!isEduContext) return [];
+    const studentRolesList = ['eleve_primaire', 'collegien', 'collégien', 'lyceen', 'lycéen', 'etudiant', 'étudiant', 'student', 'eleve', 'élève'];
+    return members.filter((m) => {
+      const membershipRole = ((m as any).membershipRole || '').toLowerCase();
+      const roleForStudent = ((m as any).systemRole || (m as any).rawRole || (m as any).roles?.[0] || '').toLowerCase();
+      const isStudent = studentRolesList.includes(roleForStudent);
+      return EDU_COMMUNITY_ROLES.includes(membershipRole) && !isStudent;
+    });
+  }, [members, isEduContext]);
+  const filteredEduCommunauté = useMemo(
+    () => eduCommunautéMembers.filter(applyMemberFilters),
+    [eduCommunautéMembers, searchTerm, roleFilter, competenceFilter, subSkillFilter, availabilityFilter]
+  );
+
   const teacherSchoolOptions = isTeacherContext
     ? (state.user.available_contexts?.schools || []).map((school: any) => ({
         id: school.id,
@@ -1330,7 +1368,7 @@ const Members: React.FC = () => {
 
       setMembers(prev =>
         prev.map(m =>
-          m.id === member.id ? { ...m, roles: [newRole], role: newRole } : m
+          m.id === member.id ? { ...m, roles: [newRole], role: newRole, membershipRole: newRole } as Member & { membershipRole?: string } : m
         )
       );
 
@@ -1347,7 +1385,9 @@ const Members: React.FC = () => {
         if (state.showingPageType === 'edu') await fetchSchoolStaff();
       }
 
-      if (source === 'community' && (state.showingPageType === 'edu' || state.showingPageType === 'teacher')) {
+      if (source === 'community' && isEduContext) {
+        await fetchMembers();
+      } else if (source === 'community' && state.showingPageType === 'teacher') {
         await fetchCommunityVolunteers(communityPage);
       }
 
@@ -1589,12 +1629,8 @@ const Members: React.FC = () => {
         
         // Refresh members list
         await fetchMembers();
-        if (isEdu) await fetchSchoolStaff();
-        
-        // Refresh community volunteers if applicable
-        if (isEdu) {
-          await fetchCommunityVolunteers(communityPage);
-        }
+        if (isTeacherContext) await fetchSchoolStaff();
+        if (state.showingPageType === 'teacher') await fetchCommunityVolunteers(communityPage);
       }
 
       // Close modal and reset state
@@ -1811,12 +1847,14 @@ const Members: React.FC = () => {
         <>
           {renderFilterBar()}
           <div className="min-h-[65vh]">
-            {/* Edu: Staff tab = filteredSchoolStaff. Pro: Staff tab = filteredProStaff, Members tab = filteredProMembers */}
+            {/* Edu: Staff tab = filteredEduStaff (org roles superadmin, admin, referent). Pro: Staff tab = filteredProStaff, Members tab = filteredProMembers. Teacher: filteredSchoolStaff. */}
             {(() => {
               const staffMembers: Member[] = isProContext
                 ? (activeTab === 'staff' ? filteredProStaff : filteredProMembers)
-                : filteredSchoolStaff;
-              const staffLoading = isProContext
+                : isEduContext
+                  ? filteredEduStaff
+                  : filteredSchoolStaff;
+              const staffLoading = isProContext || isEduContext
                 ? (isMembersLoading && membersInitialLoad)
                 : isStaffLoading;
 
@@ -2139,8 +2177,8 @@ const Members: React.FC = () => {
             <>
               {renderFilterBar()}
               <div className="members-grid">
-                {filteredCommunityMembers.length > 0 ? (
-                  filteredCommunityMembers.map((communityItem) => {
+                {(isEduContext ? filteredEduCommunauté : filteredCommunityMembers).length > 0 ? (
+                  (isEduContext ? filteredEduCommunauté : filteredCommunityMembers).map((communityItem) => {
                     const communityForDisplay = {
                       ...communityItem,
                       roles: translateRoles(communityItem.roles),
@@ -2178,8 +2216,8 @@ const Members: React.FC = () => {
                   </div>
                 )}
               </div>
-              {/* Pagination Communauté */}
-              {communityTotalPages > 1 && communityTotalCount > 0 && (
+              {/* Pagination Communauté (volunteers API only; edu uses main members list, no pagination) */}
+              {!isEduContext && communityTotalPages > 1 && communityTotalCount > 0 && (
                 <div className="pagination-container">
                   <div className="pagination-info">
                     Page {communityPage} sur {communityTotalPages} ({communityTotalCount} résultat{communityTotalCount > 1 ? 's' : ''})
