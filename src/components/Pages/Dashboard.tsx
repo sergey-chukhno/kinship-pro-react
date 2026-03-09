@@ -1215,10 +1215,10 @@ const Dashboard: React.FC = () => {
       variant: 'stat-card',
     },
     {
-      key: state.showingPageType === 'pro' ? 'total_branches' : 'total_students',
-      label: state.showingPageType === 'pro' ? 'Sous-organisations' : 'Élèves',
-      icon: '/icons_logo/Icon=Reseau.svg',
-      value: state.showingPageType === 'pro' ? branches?.total_branches : overview?.total_students,
+      key: state.showingPageType === 'pro' ? 'network_count' : 'total_students',
+      label: state.showingPageType === 'pro' ? 'Membres de mon réseau' : 'Élèves',
+      icon: state.showingPageType === 'pro' ? '/icons_logo/Icon=Membres.svg' : '/icons_logo/Icon=Reseau.svg',
+      value: state.showingPageType === 'pro' ? overview?.network_count : overview?.total_students,
       variant: 'stat-card',
     },
     // Classes card for edu dashboard (placed after Élèves)
@@ -1244,6 +1244,14 @@ const Dashboard: React.FC = () => {
       value: badgesAssigned?.total,
       variant: 'stat-card2',
     },
+    // Événements card - pro dashboard only (after Badges)
+    ...(state.showingPageType === 'pro' ? [{
+      key: 'events_count',
+      label: 'Événements',
+      icon: '/icons_logo/Icon=Event grand.svg',
+      value: overview?.events_count,
+      variant: 'stat-card2' as const,
+    }] : []),
   ];
 
   const chartDataset = useMemo<{
