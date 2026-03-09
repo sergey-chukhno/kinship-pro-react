@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import AttachOrganizationModal from '../Modals/AttachOrganizationModal';
 import PartnershipModal from '../Modals/PartnershipModal';
 import OrganizationDetailsModal from '../Modals/OrganizationDetailsModal';
@@ -136,6 +136,7 @@ const getPartnershipKindLabel = (kind: string | null | undefined): string => {
 const Network: React.FC = () => {
   const { state, setCurrentPage } = useAppContext();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showSuccess, showError } = useToast();
   const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
@@ -251,7 +252,16 @@ const Network: React.FC = () => {
   const [activeCard, setActiveCard] = useState<'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members' | null>(
     isPersonalUserInitial ? 'schools' : 'partners'
   );
-  
+
+  // Sync URL ?card= to activeCard (for deep links from dashboard stat cards)
+  useEffect(() => {
+    const cardParam = searchParams.get('card');
+    const validCardParams = ['partners', 'branches', 'members', 'schools', 'companies', 'network-members'];
+    if (cardParam && validCardParams.includes(cardParam)) {
+      setActiveCard(cardParam as 'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members');
+    }
+  }, [searchParams]);
+
   // Local search term for filtering within activeCard tabs
   const [localSearchTerm, setLocalSearchTerm] = useState('');
   

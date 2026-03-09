@@ -1336,7 +1336,7 @@ const Projects: React.FC = () => {
       <div className="flex justify-between items-start">
         <div className="flex gap-2 items-center w-full section-title-left">
           <img src="/icons_logo/Icon=projet.svg" alt="Projets" className="section-icon" />
-          <h2>{(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Rechercher une idée de projet sur Kinship' : 'Gestion des projets'}</h2>
+          <h2>{state.showingPageType === 'user' ? 'Rechercher une idée de projet sur Kinship' : 'Gestion des projets'}</h2>
         </div>
         <div className="projects-actions">
           {state.showingPageType !== 'user' && !isMinorPersonalUser && (

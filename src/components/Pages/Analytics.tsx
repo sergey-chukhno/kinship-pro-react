@@ -797,26 +797,26 @@ const Analytics: React.FC = () => {
             const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
             return (
               <g key={s.level}>
-                <polygon
+          <polygon
                   points={points.map((p) => `${p.x},${p.y}`).join(' ')}
                   fill={`${s.color}20`}
-                  stroke="none"
-                />
-                <path
+            stroke="none"
+          />
+          <path
                   d={pathD}
-                  fill="none"
+            fill="none"
                   stroke={s.color}
-                  strokeWidth="0.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  onMouseEnter={(e) => {
+            strokeWidth="0.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            onMouseEnter={(e) => {
                     setHoveredSeries(s);
-                    setMousePosition({ x: e.clientX, y: e.clientY });
-                  }}
+              setMousePosition({ x: e.clientX, y: e.clientY });
+            }}
                   onMouseMove={(e) => setMousePosition({ x: e.clientX, y: e.clientY })}
                   onMouseLeave={() => setHoveredSeries(null)}
-                  style={{ cursor: 'pointer' }}
-                />
+            style={{ cursor: 'pointer' }}
+          />
               </g>
             );
           })}
@@ -828,15 +828,15 @@ const Analytics: React.FC = () => {
             const y = centerY + dist * Math.sin(angle);
             const lines = wrapRadarLabel(label);
             return (
-              <text
+            <text
                 key={i}
                 x={x}
                 y={y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                className="radar-label"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="radar-label"
                 fontSize="2.9"
-                fill="#6b7280"
+              fill="#6b7280"
               >
                 {lines.map((line, j) => (
                   <tspan key={j} x={x} dy={j === 0 ? `${(lines.length - 1) * -0.6}em` : '1.2em'}>
@@ -974,28 +974,28 @@ const Analytics: React.FC = () => {
                 <div className="analytics-stats-message">Chargement…</div>
               ) : (
                 <>
-                  <StatCard
-                    title="Badges totaux"
+              <StatCard
+                title="Badges totaux"
                     value={totalBadges}
                     subtitle={`${totalBadges} attribués`}
-                    icon="/icons_logo/Icon=Badges.svg"
-                    color="#5570F1"
-                    iconType="image"
-                  />
-                  <StatCard
-                    title="Moyenne par membre"
+                icon="/icons_logo/Icon=Badges.svg"
+                color="#5570F1"
+                iconType="image"
+              />
+              <StatCard
+                title="Moyenne par membre"
                     value={averagePerMember}
-                    subtitle="Badges par personne"
-                    icon="fas fa-user-graduate"
-                    color="#10B981"
-                  />
-                  <StatCard
-                    title="Attributions ce mois"
+                subtitle="Badges par personne"
+                icon="fas fa-user-graduate"
+                color="#10B981"
+              />
+              <StatCard
+                title="Attributions ce mois"
                     value={badgesThisMonth}
-                    subtitle="Nouveaux badges"
-                    icon="fas fa-star"
-                    color="#EF4444"
-                  />
+                subtitle="Nouveaux badges"
+                icon="fas fa-star"
+                color="#EF4444"
+              />
                 </>
               )}
             </div>
@@ -1028,11 +1028,11 @@ const Analytics: React.FC = () => {
                 ) : seriesDistribution.length === 0 ? (
                   <div className="analytics-chart-empty">Aucune donnée pour les critères sélectionnés.</div>
                 ) : (
-                  <DonutChart
+                <DonutChart
                     data={seriesDistribution}
                     colors={['#5570F1', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899']}
                     valueLabel="badges"
-                  />
+                />
                 )}
               </ChartCard>
 
@@ -1075,10 +1075,10 @@ const Analytics: React.FC = () => {
                 ) : loadingMonthlyChart ? (
                   <div className="analytics-chart-loading">Chargement…</div>
                 ) : (
-                  <BarChart
+                <BarChart
                     data={monthlyAttributions}
-                    color="#10B981"
-                  />
+                  color="#10B981"
+                />
                 )}
               </ChartCard>
 
@@ -1121,10 +1121,10 @@ const Analytics: React.FC = () => {
                 ) : loadingTrendChart ? (
                   <div className="analytics-chart-loading">Chargement…</div>
                 ) : (
-                  <LineChart
+                <LineChart
                     data={trendAttributions}
-                    color="#10B981"
-                  />
+                  color="#10B981"
+                />
                 )}
               </ChartCard>
 

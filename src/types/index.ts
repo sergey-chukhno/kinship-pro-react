@@ -328,6 +328,14 @@ export interface OrganizationStatsOverview {
   active_contract: boolean;
   is_branch: boolean;
   is_main_school: boolean;
+  /** Company stats: number of organization events (pro dashboard) */
+  events_count?: number;
+  /** Company stats: number of network members excluding current user (pro dashboard) */
+  network_count?: number;
+  /** Teacher stats: number of assigned classes */
+  total_classes?: number;
+  /** Teacher stats: badges assigned by teacher (number in overview) */
+  badges_assigned?: number;
 }
 
 export interface MembersByRoleStats {
