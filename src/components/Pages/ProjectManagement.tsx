@@ -506,7 +506,7 @@ const ProjectManagement: React.FC = () => {
     
     fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id, userProjectRole, state.showingPageType]);
+  }, [project?.id, userProjectRole, state.showingPageType, apiProjectData]);
 
   // Fetch pending requests when project ID changes or requests tab is active
   useEffect(() => {
@@ -657,7 +657,7 @@ const ProjectManagement: React.FC = () => {
     if (!shouldShowTabs() && userProjectRole !== 'participant avec droit de badges') return;
     fetchProjectBadgesData(badgePage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [badgePage, badgeSeriesFilter, badgeLevelFilter, debouncedBadgeReceiverQuery, userProjectRole, state.user?.id]);
+  }, [badgePage, badgeSeriesFilter, badgeLevelFilter, debouncedBadgeReceiverQuery, userProjectRole, state.user?.id, apiProjectData]);
 
   // Fetch project documents when Documents tab is opened (admin only)
   useEffect(() => {
