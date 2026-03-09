@@ -86,7 +86,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
   const pathwayDropdownClickInProgress = React.useRef<boolean>(false);
   // Contact users from selected partnership, pre-selected as co-responsibles (for display)
   const [partnershipContactMembers, setPartnershipContactMembers] = useState<any[]>([]);
-
+  
   // Teacher project context: 'independent' or 'school'
   const [teacherProjectContext, setTeacherProjectContext] = useState<'independent' | 'school'>('school');
   const [selectedSchoolId, setSelectedSchoolId] = useState<number | undefined>(undefined);
@@ -741,8 +741,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
         });
         const contactIds = partnershipContactMembers.map((c: any) => c.id.toString());
         
-        setFormData(prev => ({
-          ...prev,
+      setFormData(prev => ({
+        ...prev,
           isPartnership: false,
           partners: [],
           coResponsibles: prev.coResponsibles.filter(id => {
@@ -1041,19 +1041,19 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
 
     if (effectiveStatus !== 'draft') {
       if (!isPathwayValid || !effectiveStatus) {
-        setSubmitError('Veuillez remplir tous les champs obligatoires');
+      setSubmitError('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    if (state.showingPageType === 'teacher' && teacherProjectContext === 'school') {
+      const availableSchools = state.user.available_contexts?.schools || [];
+      if (availableSchools.length === 0) {
+        setSubmitError('Vous ne pouvez pas créer un projet pour une école car vous n\'avez aucune école avec un statut confirmé. Veuillez sélectionner "Enseignant Indépendant".');
         return;
       }
-
-      if (state.showingPageType === 'teacher' && teacherProjectContext === 'school') {
-        const availableSchools = state.user.available_contexts?.schools || [];
-        if (availableSchools.length === 0) {
-          setSubmitError('Vous ne pouvez pas créer un projet pour une école car vous n\'avez aucune école avec un statut confirmé. Veuillez sélectionner "Enseignant Indépendant".');
-          return;
-        }
-        if (!selectedSchoolId) {
-          setSubmitError('Veuillez sélectionner une école');
-          return;
+      if (!selectedSchoolId) {
+        setSubmitError('Veuillez sélectionner une école');
+        return;
         }
       }
     }
@@ -1578,7 +1578,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                               if (newContext === 'independent') {
                                 setSelectedSchoolId(undefined);
                               } else if (newContext === 'school' && hasSchools) {
-                                const sortedSchools = [...availableSchools].sort((a: any, b: any) =>
+                                const sortedSchools = [...availableSchools].sort((a: any, b: any) => 
                                   (a.name || '').localeCompare(b.name || '')
                                 );
                                 setSelectedSchoolId(sortedSchools[0]?.id);
@@ -1592,16 +1592,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                             </option>
                           </select>
                           {!hasSchools && teacherProjectContext === 'school' && (
-                            <div style={{
-                              marginTop: '8px',
-                              padding: '8px',
-                              backgroundColor: '#fff3cd',
+                            <div style={{ 
+                              marginTop: '8px', 
+                              padding: '8px', 
+                              backgroundColor: '#fff3cd', 
                               border: '1px solid #ffc107',
                               borderRadius: '4px',
                               fontSize: '14px',
                               color: '#856404'
                             }}>
-                              <strong>⚠️</strong> Vous n'avez aucune école avec un statut confirmé.
+                              <strong>⚠️</strong> Vous n'avez aucune école avec un statut confirmé. 
                               Veuillez sélectionner "Enseignant Indépendant" pour créer votre projet.
                             </div>
                           )}
@@ -1612,34 +1612,34 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                 )}
                 {state.showingPageType !== 'teacher' && (
                   <>
-                    <label htmlFor="projectOrganization">Organisation *</label>
+                <label htmlFor="projectOrganization">Organisation *</label>
                     {isOrgReadOnly ? (
-                      <input
-                        type="text"
-                        id="projectOrganization"
-                        name="organization"
-                        value={formData.organization}
-                        readOnly
-                        className="form-input"
-                        style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
-                      />
-                    ) : (
-                      <select
-                        id="projectOrganization"
-                        name="organization"
-                        required
-                        value={formData.organization}
-                        onChange={handleInputChange}
-                        className="form-select"
-                      >
-                        <option value="">Sélectionner une organisation</option>
-                        {state.user.available_contexts?.companies?.map((c: any) => (
-                          <option key={c.id} value={c.name}>{c.name}</option>
-                        ))}
-                        {state.user.available_contexts?.schools?.map((s: any) => (
-                          <option key={s.id} value={s.name}>{s.name}</option>
-                        ))}
-                      </select>
+                  <input
+                    type="text"
+                    id="projectOrganization"
+                    name="organization"
+                    value={formData.organization}
+                    readOnly
+                    className="form-input"
+                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed' }}
+                  />
+                ) : (
+                  <select
+                    id="projectOrganization"
+                    name="organization"
+                    required
+                    value={formData.organization}
+                    onChange={handleInputChange}
+                    className="form-select"
+                  >
+                    <option value="">Sélectionner une organisation</option>
+                    {state.user.available_contexts?.companies?.map((c: any) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                    {state.user.available_contexts?.schools?.map((s: any) => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                  </select>
                     )}
                   </>
                 )}
@@ -1653,14 +1653,14 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                   return (
                     <div>
                       <label htmlFor="selectedSchool">Sélectionner une école *</label>
-                      <select
+                <select
                         id="selectedSchool"
                         value={selectedSchoolId || ''}
                         onChange={(e) => {
                           const schoolId = e.target.value ? parseInt(e.target.value) : undefined;
                           setSelectedSchoolId(schoolId);
                         }}
-                        className="form-select"
+                  className="form-select"
                         required={teacherProjectContext === 'school'}
                       >
                         <option value="">Sélectionner une école</option>
@@ -1671,7 +1671,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                             {school.name}
                           </option>
                         ))}
-                      </select>
+                </select>
                     </div>
                   );
                 })()}
@@ -2285,7 +2285,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                       })}
                     </div>
                   )}
-                  <div className="selection-list">
+                    <div className="selection-list">
                     {getFilteredPartners(searchTerms.partner).map((partnership) => {
                       const partnerOrgs = partnership.partners || [];
                       const firstPartner = partnerOrgs[0];
@@ -2304,10 +2304,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                           <div className="item-info">
                             <div className="item-name">
                               {partnerOrgs.map((p: any) => p.name).join(', ')}
-                            </div>
-                            <div className="item-role">{formatPartnershipDisplayName(partnership.name)}</div>
                           </div>
+                            <div className="item-role">{formatPartnershipDisplayName(partnership.name)}</div>
                         </div>
+                    </div>
                       );
                     })}
                   </div>
@@ -2480,30 +2480,30 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                                   </div>
                                 ))}
                                 {memberEntries.map(({ memberId }) => {
-                                  const member = getSelectedMember(memberId);
+                          const member = getSelectedMember(memberId);
                                   const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
                                   const classSchoolNames = member?.classes?.length ? (member.classes as any[]).map((c: any) => c?.school?.name).filter(Boolean).join(', ') : '';
                                   const memberOrg = (typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '')) || schoolLabel || classSchoolNames || '';
-                                  return member ? (
-                                    <div key={memberId} className="selected-member">
-                                      <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
-                                      <div className="selected-info">
-                                        <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                          return member ? (
+                            <div key={memberId} className="selected-member">
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                              <div className="selected-info">
+                                <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
                                         <div className="selected-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
                                         {memberOrg && (
                                           <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
                                         )}
-                                      </div>
-                                      <button
-                                        type="button"
-                                        className="remove-selection"
-                                        onClick={() => handleMemberSelect('participants', memberId)}
-                                      >
-                                        <i className="fas fa-times"></i>
-                                      </button>
-                                    </div>
-                                  ) : null;
-                                })}
+                              </div>
+                              <button
+                                type="button"
+                                className="remove-selection"
+                                onClick={() => handleMemberSelect('participants', memberId)}
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            </div>
+                          ) : null;
+                        })}
                               </>
                             );
                           }
@@ -2623,20 +2623,20 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                               : ((member.organization?.name ?? '') || ((member.classes as any[])?.[0]?.school?.name ?? '')))
                             : '';
                           return (
-                            <div
-                              key={member.id}
-                              className="selection-item"
-                              onClick={() => handleMemberSelect('participants', member.id)}
-                            >
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
-                              <div className="item-info">
-                                <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                          <div
+                            key={member.id}
+                            className="selection-item"
+                            onClick={() => handleMemberSelect('participants', member.id)}
+                          >
+                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                            <div className="item-info">
+                              <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
                                 <div className="item-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
                                 {memberOrg && (
                                   <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {memberOrg}</div>
                                 )}
-                              </div>
                             </div>
+                          </div>
                           );
                         })
                       )}

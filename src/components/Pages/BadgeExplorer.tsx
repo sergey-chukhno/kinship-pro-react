@@ -1183,7 +1183,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                 <p className="badge-explorer-row-description">{group.description}</p>
               </div>
             ) : null}
-          </div>
+              </div>
           <div className="badge-explorer-row-right">
             <div className="badge-explorer-level-images">
               {group.levels.map((levelBadge) => {
@@ -1218,14 +1218,14 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                       }}
                     >
                       Voir les infos du badge
-                    </button>
-                  </div>
+                        </button>
+                      </div>
                 );
               })}
+                    </div>
+                  </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
     );
   };
 
@@ -1241,9 +1241,9 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
             type="button"
           >
             <i className="fas fa-arrow-left"></i>
-          </button>
+                        </button>
           <h1 className="badge-explorer-page-title">Explorer les parcours Kinship</h1>
-        </div>
+                      </div>
         <p className="badge-explorer-intro">{INTRO_MESSAGE}</p>
         <div className="badge-explorer-cards-grid">
           {PARCOURS.map((parcours) => {
@@ -1260,7 +1260,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                     <img src={parcours.icon} alt="" className="parcours-card-icon-img" />
                   )}
                   <h2 className="parcours-card-title">{parcours.title}</h2>
-                </div>
+                    </div>
                 <div className="parcours-card-body">
                   <p className="parcours-card-objectif"><strong>Objectif :</strong> {parcours.objectif}</p>
                   {parcours.cadreLegitimite && parcours.cadreLegitimite.length > 0 && (
@@ -1272,8 +1272,8 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                       <div className="parcours-card-cadre-content">
                         {parcours.cadreLegitimite.map((para, idx) => (
                           <p key={idx} className="parcours-card-cadre-para">{formatBold(para)}</p>
-                        ))}
-                      </div>
+                ))}
+              </div>
                     </details>
                   )}
                   <h3 className="parcours-card-series-heading">
@@ -1291,7 +1291,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                               <i className="fas fa-medal parcours-card-series-item-icon-fa" aria-hidden />
                             )}
                             <span className="parcours-card-series-name">{s.displayName}</span>
-                          </div>
+            </div>
                           {s.description && (
                             <span className="parcours-card-series-desc">{formatBold(s.description)}</span>
                           )}
@@ -1313,7 +1313,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                         <i className="fas fa-trophy parcours-card-demarche-line-icon" aria-hidden />
                         {parcours.demarcheReconnue.line2}
                       </p>
-                    </div>
+              </div>
                   )}
                   <div className="parcours-card-actions">
                     <button
@@ -1322,19 +1322,19 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                       onClick={() => handleExplorerCeParcours(parcours)}
                     >
                       Explorer ce parcours
-                    </button>
+                        </button>
                     {isAllComingSoon && (
                       <p className="parcours-card-construction">
                         {parcours.id === '2' ? '👉 Parcours en cours de construction' : 'Parcours en construction'}
                       </p>
                     )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
             );
           })}
-        </div>
-      </div>
+              </div>
+            </div>
     );
   }
 
@@ -1350,9 +1350,9 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
             type="button"
           >
             <i className="fas fa-arrow-left"></i>
-          </button>
+                        </button>
           <h1 className="badge-explorer-page-title">{selectedParcours.title}</h1>
-        </div>
+                      </div>
         <div className="parcours-detail-series-list">
           {selectedParcours.series.map((series) => {
             const seriesIconUrl = getSeriesIconUrl(series);
@@ -1364,7 +1364,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                   ) : (
                     <i className="fas fa-medal parcours-detail-series-icon-placeholder" aria-hidden />
                   )}
-                </div>
+                    </div>
                 <div className="parcours-detail-series-content">
                   <h3 className="parcours-detail-series-name">{series.displayName}</h3>
                   {series.axes && series.axes.length > 0 ? (
@@ -1373,9 +1373,9 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                         <div key={idx} className="parcours-detail-series-axis">
                           <strong className="parcours-detail-series-axis-title">{axis.title}</strong>
                           <p className="parcours-detail-series-axis-desc">👉 {axis.description}</p>
-                        </div>
-                      ))}
-                    </div>
+                  </div>
+                ))}
+              </div>
                   ) : series.description ? (
                     <p className="parcours-detail-series-desc">{series.description}</p>
                   ) : null}
@@ -1386,13 +1386,13 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                     disabled={series.comingSoon}
                   >
                     {series.comingSoon ? 'À venir' : 'Explorer les badges de la série'}
-                  </button>
-                </div>
-              </div>
+                        </button>
+                      </div>
+                    </div>
             );
           })}
-        </div>
-      </div>
+                  </div>
+              </div>
     );
   }
 
@@ -1409,10 +1409,10 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               type="button"
             >
               <i className="fas fa-arrow-left"></i>
-            </button>
+                        </button>
             <h1>{selectedSeries?.displayName ?? 'Série'}</h1>
-          </div>
-        </div>
+                      </div>
+                    </div>
         {selectedSeries?.description && (
           <p className="series-description">{renderDescriptionWithBold(selectedSeries.description)}</p>
         )}
@@ -1422,7 +1422,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               <div className="stat-item">
                 <i className="fas fa-medal"></i>
                 <span>{displayBadgeCount} badge{displayBadgeCount > 1 ? 's' : ''}</span>
-              </div>
+                  </div>
               <div className="stat-item">
                 <i className="fas fa-chart-line"></i>
                 <span>{Object.keys(badgesByLevel).filter(k => (badgesByLevel[k]?.length ?? 0) > 0).length} niveau{(Object.keys(badgesByLevel).filter(k => (badgesByLevel[k]?.length ?? 0) > 0).length) > 1 ? 'x' : ''}</span>
@@ -1457,8 +1457,8 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                   ))
                 )}
               </select>
+              </div>
             </div>
-          </div>
         )}
       </div>
 
@@ -1467,11 +1467,11 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
           <div className="loading-container">
             <div className="loading-spinner"></div>
             <p className="loading-text">Chargement des badges...</p>
-          </div>
+              </div>
         ) : error ? (
           <div className="error-container">
             <p className="error-text">{error}</p>
-          </div>
+              </div>
         ) : contentAxes ? (
           <div className="badge-explorer-by-title-list">
             {filteredAxisSelection ? (
@@ -1527,29 +1527,29 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                         className={`fas ${isExpanded ? 'fa-chevron-down' : 'fa-chevron-right'}`}
                         aria-hidden
                       />
-                    </button>
+                        </button>
                     <div
                       id={contentId}
                       className={`badge-explorer-axis-content ${isExpanded ? '' : 'collapsed'}`}
                       aria-hidden={!isExpanded}
                     >
                       {axis.groups.map((group) => renderBadgeRow(group))}
-                    </div>
+                      </div>
                   </section>
                 );
               })
             )}
-          </div>
+                    </div>
         ) : badgesByName.length === 0 ? (
           <div className="empty-level-message">
             <p>Aucun badge disponible pour cette série</p>
-          </div>
+                  </div>
         ) : (
           <div className="badge-explorer-by-title-list">
             {badgesByName.map((group) => renderBadgeRow(group))}
-          </div>
+              </div>
         )}
-      </div>
+            </div>
       {badgeInfoModalBadge && (
         <BadgeInfoModal
           badge={badgeInfoModalBadge}
