@@ -69,10 +69,11 @@ function getStatCardNavigation(
     if (key === 'badges_assigned') return { path: '/badges', page: 'badges' };
   }
   if (showingPageType === 'teacher') {
-    if (key === 'total_members') return { path: '/members?tab=members', page: 'members' };
+    if (key === 'total_levels' || key === 'total_classes') return { path: '/members?tab=class', page: 'members' };
     if (key === 'total_students') return { path: '/members?tab=students', page: 'members' };
-    if (key === 'total_levels') return { path: '/members?tab=class', page: 'members' };
+    if (key === 'network_count') return { path: '/network?card=network-members', page: 'network' };
     if (key === 'total_projects') return { path: '/projects', page: 'projects' };
+    if (key === 'events_count') return { path: '/events', page: 'events' };
     if (key === 'badges_assigned') return { path: '/badges', page: 'badges' };
   }
   return null;
@@ -1246,7 +1247,17 @@ const Dashboard: React.FC = () => {
     { key: 'badges_assigned', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg', value: badgesAssigned?.total, variant: 'stat-card2' as const },
   ] : [];
 
-  const statCards = state.showingPageType === 'edu' ? eduStatCards : [
+  // Teacher dashboard: order is Classes, Élèves, Membres de mon réseau, Projets, Événements, Badges (same styling as edu)
+  const teacherStatCards = state.showingPageType === 'teacher' ? [
+    { key: 'total_levels', label: 'Classes', icon: '/icons_logo/Icon=Badges.svg', value: overview?.total_classes, variant: 'stat-card' as const },
+    { key: 'total_students', label: 'Élèves', icon: '/icons_logo/Icon=Reseau.svg', value: overview?.total_students, variant: 'stat-card' as const },
+    { key: 'network_count', label: 'Membres de mon réseau', icon: '/icons_logo/Icon=Membres.svg', value: overview?.network_count, variant: 'stat-card' as const },
+    { key: 'total_projects', label: 'Projets', icon: '/icons_logo/Icon=Projet grand.svg', value: overview?.total_projects, variant: 'stat-card2' as const },
+    { key: 'events_count', label: 'Événements', icon: '/icons_logo/Icon=Event grand.svg', value: overview?.events_count, variant: 'stat-card2' as const },
+    { key: 'badges_assigned', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg', value: overview?.badges_assigned ?? badgesAssigned?.total, variant: 'stat-card2' as const },
+  ] : [];
+
+  const statCards = state.showingPageType === 'edu' ? eduStatCards : state.showingPageType === 'teacher' ? teacherStatCards : [
     {
       key: 'total_members',
       label: state.showingPageType === 'pro' ? 'Membres actifs' : 'Membres du personnel éducatif',
@@ -1262,19 +1273,12 @@ const Dashboard: React.FC = () => {
       variant: 'stat-card',
     },
     {
-      key: state.showingPageType === 'pro' ? 'network_count' : 'total_students',
-      label: state.showingPageType === 'pro' ? 'Membres de mon réseau' : 'Élèves',
-      icon: state.showingPageType === 'pro' ? '/icons_logo/Icon=Membres.svg' : '/icons_logo/Icon=Reseau.svg',
-      value: state.showingPageType === 'pro' ? overview?.network_count : overview?.total_students,
+      key: 'network_count',
+      label: 'Membres de mon réseau',
+      icon: '/icons_logo/Icon=Membres.svg',
+      value: overview?.network_count,
       variant: 'stat-card',
     },
-    ...(state.showingPageType === 'teacher' ? [{
-      key: 'total_levels',
-      label: 'Classes',
-      icon: '/icons_logo/Icon=Badges.svg',
-      value: overview?.total_levels,
-      variant: 'stat-card2' as const,
-    }] : []),
     {
       key: 'total_projects',
       label: 'Projets',
@@ -1696,7 +1700,6 @@ const Dashboard: React.FC = () => {
           <div className="dashboard-stats">
             <div className="stats-grid">
               {statCards.map((card) => {
-                if ((card.key === 'total_members' || card.label === 'Enseignants') && state.showingPageType === 'teacher') return null;
                 const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
                 const nav = getStatCardNavigation(state.showingPageType, card.key);
                 const content = (
