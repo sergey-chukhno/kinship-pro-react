@@ -62,13 +62,14 @@ function getStatCardNavigation(
   }
   if (showingPageType === 'edu') {
     if (key === 'total_members') return { path: '/members?tab=members', page: 'members' };
-    if (key === 'total_teachers') return { path: '/members?tab=staff', page: 'members' };
+    if (key === 'total_teachers') return { path: '/members?tab=members', page: 'members' };
     if (key === 'total_students') return { path: '/members?tab=students', page: 'members' };
     if (key === 'total_levels') return { path: '/members?tab=class', page: 'members' };
     if (key === 'total_projects') return { path: '/projects', page: 'projects' };
     if (key === 'badges_assigned') return { path: '/badges', page: 'badges' };
   }
   if (showingPageType === 'teacher') {
+    if (key === 'total_members') return { path: '/members?tab=members', page: 'members' };
     if (key === 'total_students') return { path: '/members?tab=students', page: 'members' };
     if (key === 'total_levels') return { path: '/members?tab=class', page: 'members' };
     if (key === 'total_projects') return { path: '/projects', page: 'projects' };
@@ -1688,7 +1689,7 @@ const Dashboard: React.FC = () => {
           <div className="dashboard-stats">
             <div className="stats-grid">
               {statCards.map((card) => {
-                if ((card.key === 'total_members' || card.label === "Enseignants") && state.showingPageType === 'teacher') return null;
+                if ((card.key === 'total_members' || card.label === 'Enseignants') && state.showingPageType === 'teacher') return null;
                 const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
                 const nav = getStatCardNavigation(state.showingPageType, card.key);
                 const content = (
