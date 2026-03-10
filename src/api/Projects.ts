@@ -19,6 +19,13 @@ export interface PartnershipPartner {
     zip_code?: string;
 }
 
+export interface PartnershipUserContext {
+    first_name: string;
+    last_name: string;
+    organization_role: string | null;
+    organization_name: string | null;
+}
+
 export interface Partnership {
     id: number;
     initiator_type?: string;
@@ -34,6 +41,11 @@ export interface Partnership {
     description?: string;
     has_sponsorship?: boolean;
     partnership_kind?: string | null;
+    initiator_user?: PartnershipUserContext | null;
+    confirmed_at?: string | null;
+    confirmed_by_user?: PartnershipUserContext | null;
+    rejected_at?: string | null;
+    rejected_by_user?: PartnershipUserContext | null;
 }
 
 export interface OrganizationMember {
@@ -333,7 +345,7 @@ export const rejectPartnership = async (
         ? `/api/v1/schools/${organizationId}/partnerships/${partnershipId}/reject`
         : `/api/v1/companies/${organizationId}/partnerships/${partnershipId}/reject`;
 
-    const response = await apiClient.put(endpoint);
+    const response = await apiClient.patch(endpoint);
     return response.data;
 };
 

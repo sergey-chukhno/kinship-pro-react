@@ -177,6 +177,13 @@ const PartnershipRequests: React.FC = () => {
     const isInitiator = Boolean(organizationId && p.initiator_id === organizationId);
     const message = p.description || '';
     const date = p.created_at ? new Date(p.created_at).toLocaleDateString('fr-FR') : '';
+    const confirmedDate =
+      p.confirmed_at ? new Date(p.confirmed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+    const rejectedDate =
+      p.rejected_at ? new Date(p.rejected_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '';
+    const initiatorUser = p.initiator_user;
+    const confirmedByUser = p.confirmed_by_user;
+    const rejectedByUser = p.rejected_by_user;
 
     const statusLabel =
       p.status === 'pending' ? 'En attente' : p.status === 'confirmed' ? 'Accepté' : p.status === 'rejected' ? 'Refusé' : p.status;
@@ -208,6 +215,17 @@ const PartnershipRequests: React.FC = () => {
           {message && (
             <div className="organization-description" style={{ marginBottom: '12px' }}>
               <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{message}</p>
+            </div>
+          )}
+
+          {initiatorUser && (
+            <div className="detail-item" style={{ marginBottom: '12px' }}>
+              <i className="fas fa-user" style={{ marginRight: '6px' }}></i>
+              <span>
+                Demande initiée par : {initiatorUser.first_name} {initiatorUser.last_name}
+                {initiatorUser.organization_role && `, ${initiatorUser.organization_role}`}
+                {initiatorUser.organization_name && ` — ${initiatorUser.organization_name}`}
+              </span>
             </div>
           )}
 
@@ -260,6 +278,42 @@ const PartnershipRequests: React.FC = () => {
             <div className="detail-item" style={{ marginBottom: '12px' }}>
               <i className="fas fa-calendar" style={{ marginRight: '6px' }}></i>
               <span>Créée le {date}</span>
+            </div>
+          )}
+
+          {p.status === 'confirmed' && confirmedByUser && (
+            <div className="detail-item" style={{ marginBottom: '6px' }}>
+              <i className="fas fa-user-check" style={{ marginRight: '6px' }}></i>
+              <span>
+                Acceptée par : {confirmedByUser.first_name} {confirmedByUser.last_name}
+                {confirmedByUser.organization_role && `, ${confirmedByUser.organization_role}`}
+                {confirmedByUser.organization_name && ` — ${confirmedByUser.organization_name}`}
+              </span>
+            </div>
+          )}
+
+          {p.status === 'confirmed' && confirmedDate && (
+            <div className="detail-item" style={{ marginBottom: '12px' }}>
+              <i className="fas fa-calendar-check" style={{ marginRight: '6px' }}></i>
+              <span>Acceptée le {confirmedDate}</span>
+            </div>
+          )}
+
+          {p.status === 'rejected' && rejectedByUser && (
+            <div className="detail-item" style={{ marginBottom: '6px' }}>
+              <i className="fas fa-user-times" style={{ marginRight: '6px' }}></i>
+              <span>
+                Refusée par : {rejectedByUser.first_name} {rejectedByUser.last_name}
+                {rejectedByUser.organization_role && `, ${rejectedByUser.organization_role}`}
+                {rejectedByUser.organization_name && ` — ${rejectedByUser.organization_name}`}
+              </span>
+            </div>
+          )}
+
+          {p.status === 'rejected' && rejectedDate && (
+            <div className="detail-item" style={{ marginBottom: '12px' }}>
+              <i className="fas fa-calendar-times" style={{ marginRight: '6px' }}></i>
+              <span>Refusée le {rejectedDate}</span>
             </div>
           )}
 
