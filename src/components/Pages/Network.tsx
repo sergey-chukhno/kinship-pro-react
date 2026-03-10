@@ -2484,15 +2484,53 @@ const Network: React.FC = () => {
           <h2>Mon réseau Kinship</h2>
         </div>
         <div className="network-actions">
-          {/* <button className="btn btn-outline" onClick={() => handlePartnershipProposal()}>
-            <i className="fas fa-handshake"></i> {(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Rejoindre une communauté' : 'Proposer un partenariat'}
-          </button> */}
-          {/* Personal users (teacher/user) cannot attach to organizations */}
-          {/* {(state.showingPageType !== 'teacher' && state.showingPageType !== 'user') && (
-            <button className="btn btn-primary" onClick={() => handleAttachRequest()}>
-            <i className="fas fa-link"></i> Demander un rattachement
-          </button>
-          )} */}
+          {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
+            <>
+              <button
+                className="btn btn-outline"
+                onClick={() => {
+                  setCurrentPage('partnership-requests');
+                  navigate('/partnership-requests');
+                }}
+              >
+                <i className="fas fa-handshake"></i>
+                Gérer les demandes de partenariat
+                {requestsTotalCount > 0 && (
+                  <span
+                    className="pending-requests-badge"
+                    style={{
+                      backgroundColor: state.showingPageType === 'pro'
+                        ? '#5570F1'
+                        : '#10b981',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      marginLeft: '8px',
+                      minWidth: '24px',
+                      textAlign: 'center',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    +{requestsTotalCount}
+                  </span>
+                )}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setActiveCard(null);
+                  setSelectedType('join-organization');
+                }}
+              >
+                <i className="fas fa-plus"></i>
+                Ajouter un partenaire
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -2682,26 +2720,19 @@ const Network: React.FC = () => {
       <div className="network-filters">
 
         <div className="filter-tabs">
-          {/* Always visible tab for joining organizations */}
-          <button 
-            className={`filter-tab ${selectedType === 'join-organization' ? 'active' : ''}`}
-            onClick={() => { setActiveCard(null); setSelectedType('join-organization'); }}
-          >
-            + Rejoindre un établissement ou une organisation supplémentaire
-          </button>
+          {/* Always visible tab for joining organizations (teachers/users); for edu/pro this is handled by header button */}
+          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
+            <button 
+              className={`filter-tab ${selectedType === 'join-organization' ? 'active' : ''}`}
+              onClick={() => { setActiveCard(null); setSelectedType('join-organization'); }}
+            >
+              + Rejoindre un établissement ou une organisation supplémentaire
+            </button>
+          )}
           {/* Hide schools and companies tabs for personal users and organization dashboards */}
           {/* Show partnership requests and branch requests tabs only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
             <>
-              {/* Show partnership requests tab only if there are requests */}
-              {requestsTotalCount > 0 && (
-                <button 
-                  className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
-                  onClick={() => { setActiveCard(null); setSelectedType('partnership-requests'); }}
-                >
-                  Demandes de partenariats ({requestsTotalCount})
-                </button>
-              )}
               {/* Show branch requests tab only if there are requests */}
               {filteredBranchRequests.length > 0 && (
                 <button 
@@ -2733,15 +2764,7 @@ const Network: React.FC = () => {
               Demandes de partenariat à mon établissement ({teacherPartnershipRequests.length})
             </button>
           )}
-          {/* School (edu): demandes de partenariat envoyées par les enseignants — visible uniquement s'il y a au moins une demande */}
-          {state.showingPageType === 'edu' && schoolTeacherPartnershipRequests.length > 0 && (
-            <button 
-              className={`filter-tab ${selectedType === 'school-teacher-partnership-requests' ? 'active' : ''}`}
-              onClick={() => { setActiveCard(null); setSelectedType('school-teacher-partnership-requests'); }}
-            >
-              Demandes partenariat par les enseignants ({schoolTeacherPartnershipRequests.length})
-            </button>
-          )}
+          {/* School (edu): demandes de partenariat par les enseignants are managed in "Gérer les demandes de partenariat" */}
         </div>
 
         {/* Search Bar - Only show in join-organization tab */}

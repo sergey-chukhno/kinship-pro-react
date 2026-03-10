@@ -8,6 +8,7 @@ import Dashboard from '../Pages/Dashboard';
 import Events from '../Pages/Events';
 import Members from '../Pages/Members';
 import MembershipRequests from '../Pages/MembershipRequests';
+import PartnershipRequests from '../Pages/PartnershipRequests';
 import Network from '../Pages/Network';
 import Notifications from '../Pages/Notifications';
 import ProjectManagement from '../Pages/ProjectManagement';
@@ -119,6 +120,8 @@ const MainLayout: React.FC = () => {
         return <PersonalSettings />;
       case 'membership-requests':
         return <MembershipRequests />;
+      case 'partnership-requests':
+        return <PartnershipRequests />;
       case 'project-management':
         return <ProjectManagement />;
       default:
