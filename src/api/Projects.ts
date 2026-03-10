@@ -225,7 +225,7 @@ export const getTeacherSchoolMembers = async (
 export const getPartnerships = async (
     organizationId: number,
     organizationType: 'school' | 'company',
-    params?: { page?: number; per_page?: number; status?: string }
+    params?: { page?: number; per_page?: number; status?: string; incoming_only?: boolean }
 ): Promise<{ data: Partnership[]; meta?: any }> => {
     const endpoint = organizationType === 'school'
         ? `/api/v1/schools/${organizationId}/partnerships`

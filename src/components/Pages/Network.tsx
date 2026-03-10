@@ -202,6 +202,7 @@ const Network: React.FC = () => {
   const [requestsPage, setRequestsPage] = useState(1);
   const [requestsTotalPages, setRequestsTotalPages] = useState(1);
   const [requestsTotalCount, setRequestsTotalCount] = useState(0);
+  const [incomingRequestsCount, setIncomingRequestsCount] = useState(0);
 
   // Sub-organizations state
   const [subOrganizations, setSubOrganizations] = useState<any[]>([]);
@@ -1003,7 +1004,7 @@ const Network: React.FC = () => {
     const organizationType = getOrganizationType(state.showingPageType);
 
     if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
-      setRequestsTotalCount(0);
+      setIncomingRequestsCount(0);
       return;
     }
 
@@ -1011,19 +1012,19 @@ const Network: React.FC = () => {
       const params: any = {
         page: 1,
         per_page: 1,
-        status: 'pending'
+        status: 'pending',
+        incoming_only: true
       };
 
       const response = await getPartnerships(organizationId, organizationType, params);
       const meta = response.meta;
 
       if (meta) {
-        setRequestsTotalCount(meta.total_count || 0);
-        setRequestsTotalPages(meta.total_pages || 1);
+        setIncomingRequestsCount(meta.total_count || 0);
       }
     } catch (err) {
       console.error('Error fetching partnership requests count:', err);
-      setRequestsTotalCount(0);
+      setIncomingRequestsCount(0);
     }
   }, [state.user, state.showingPageType]);
 
@@ -1697,9 +1698,9 @@ const Network: React.FC = () => {
       // Show success toast
       showSuccess('Partenariat accepté avec succès');
       
-      // Remove from requests and update count
+      // Remove from requests and update badge count (incoming only)
       setPartnershipRequests(prev => prev.filter(p => p.id !== partnershipId));
-      setRequestsTotalCount(prev => Math.max(0, prev - 1));
+      setIncomingRequestsCount(prev => Math.max(0, prev - 1));
       
       // Refresh partners list and count (the partnership is now confirmed)
       await fetchPartnersCount();
@@ -1723,9 +1724,9 @@ const Network: React.FC = () => {
 
     try {
       await rejectPartnership(organizationId, organizationType, partnershipId);
-      // Remove from requests and update count
+      // Remove from requests and update badge count (incoming only)
       setPartnershipRequests(prev => prev.filter(p => p.id !== partnershipId));
-      setRequestsTotalCount(prev => Math.max(0, prev - 1));
+      setIncomingRequestsCount(prev => Math.max(0, prev - 1));
     } catch (err) {
       console.error('Error rejecting partnership:', err);
       setRequestsError('Erreur lors du rejet du partenariat');
@@ -2495,7 +2496,7 @@ const Network: React.FC = () => {
               >
                 <i className="fas fa-handshake"></i>
                 Gérer les demandes de partenariat
-                {requestsTotalCount > 0 && (
+                {incomingRequestsCount > 0 && (
                   <span
                     className="pending-requests-badge"
                     style={{
@@ -2515,7 +2516,7 @@ const Network: React.FC = () => {
                       justifyContent: 'center'
                     }}
                   >
-                    +{requestsTotalCount}
+                    +{incomingRequestsCount}
                   </span>
                 )}
               </button>
