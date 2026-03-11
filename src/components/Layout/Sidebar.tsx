@@ -145,18 +145,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
   };
 
-  const navigationItems = [
-    { id: 'dashboard' as PageType, label: 'Tableau de bord', icon: '/icons_logo/Icon=Tableau de bord.svg' },
-    { id: 'members' as PageType, label: state.showingPageType === 'teacher' ? 'Classes' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
-    { id: 'events' as PageType, label: 'Événements', icon: '/icons_logo/Icon=Event.svg', disabled: false },
-    { id: 'projects' as PageType, label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
-    { id: 'badges' as PageType, label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
-    ...(state.showingPageType !== 'teacher'
-      ? [{ id: 'analytics' as PageType, label: 'Statistiques et KPI', icon: '/icons_logo/Icon=Analytics.svg' }]
-      : []),
-    { id: 'network' as PageType, label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' }
+  // Dropdown under "Tableau de bord": five sections only (no dashboard link inside)
+  const dashboardDropdownItems: Array<{ id: PageType; label: string; icon: string }> = [
+    { id: 'members', label: state.showingPageType === 'teacher' ? 'Classes' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
+    { id: 'events', label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
+    { id: 'projects', label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
+    { id: 'badges', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
+    { id: 'network', label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' }
   ];
 
+  const isDashboardSectionActive =
+    currentPage === 'dashboard' ||
+    ['members', 'events', 'projects', 'badges', 'network'].includes(currentPage);
 
   const unreadNotifications = 0; //state.notifications.filter(n => !n.isRead).length;
 
@@ -169,30 +169,85 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       </div>
 
       <nav className="side-nav">
-        {navigationItems.map((item) => (
-          item.disabled ? (
-            <div key={item.id} className="side-link disabled" title="Disponible très prochainement">
-              <img src={item.icon} alt={item.label} className="side-icon" />
-              {item.label}
-            </div>
-          ) : (
-            <a
-              key={item.id}
-              href={`/${item.id}`}
-              data-target={item.id}
-              className={`side-link ${currentPage === item.id ? 'active' : ''}`}
-              aria-current={currentPage === item.id ? 'page' : undefined}
-              onClick={(e) => {
-                e.preventDefault();
-                onPageChange(item.id);
-                navigate(`/${item.id}`);
-              }}
-            >
-              <img src={item.icon} alt={item.label} className="side-icon" />
-              {item.label}
-            </a>
-          )
-        ))}
+        {/* Tableau de bord: link (navigates to /dashboard) + chevron (opens dropdown with five sections) */}
+        <div className="dashboard-nav-row">
+          <a
+            href="/dashboard"
+            data-target="dashboard"
+            className={`side-link dashboard-link ${isDashboardSectionActive ? 'active' : ''}`}
+            aria-current={currentPage === 'dashboard' ? 'page' : undefined}
+            onClick={(e) => {
+              e.preventDefault();
+              onPageChange('dashboard');
+              navigate('/dashboard');
+            }}
+          >
+            <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="side-icon" />
+            Tableau de bord
+          </a>
+          <Menu as="div" className="dashboard-nav-dropdown">
+            {({ open }: { open: boolean }) => (
+              <>
+                <Menu.Button
+                  className={`dashboard-chevron-btn ${open ? 'open' : ''}`}
+                  aria-label="Ouvrir le menu des sections"
+                  aria-haspopup="menu"
+                  aria-expanded={open}
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                >
+                  <img src="/icons_logo/Icon=Chevron droit.svg" alt="" className="chevron-icon" />
+                </Menu.Button>
+                <Transition
+                  enter="transition ease-out duration-100"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
+                  leave="transition ease-in duration-75"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
+                >
+                  <Menu.Items className="sidebar-nav-dropdown-menu" anchor="bottom start">
+                    {dashboardDropdownItems.map((item) => (
+                      <Menu.Item key={item.id}>
+                        {({ active }: { active: boolean }) => (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className={`sidebar-nav-dropdown-item ${active ? 'active' : ''} ${currentPage === item.id ? 'current' : ''}`}
+                            onClick={() => {
+                              onPageChange(item.id);
+                              navigate(`/${item.id}`);
+                            }}
+                          >
+                            <img src={item.icon} alt="" className="side-icon" />
+                            {item.label}
+                          </button>
+                        )}
+                      </Menu.Item>
+                    ))}
+                  </Menu.Items>
+                </Transition>
+              </>
+            )}
+          </Menu>
+        </div>
+
+        {/* Statistiques et KPI (edu/pro only) */}
+        {state.showingPageType !== 'teacher' && (
+          <a
+            href="/analytics"
+            data-target="analytics"
+            className={`side-link ${currentPage === 'analytics' ? 'active' : ''}`}
+            aria-current={currentPage === 'analytics' ? 'page' : undefined}
+            onClick={(e) => {
+              e.preventDefault();
+              onPageChange('analytics');
+              navigate('/analytics');
+            }}
+          >
+            <img src="/icons_logo/Icon=Analytics.svg" alt="Statistiques et KPI" className="side-icon" />
+            Statistiques et KPI
+          </a>
+        )}
 
         <hr className="side-divider" aria-hidden="true" />
 
