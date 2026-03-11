@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { Event } from '../../types';
 import EventModal from '../Modals/EventModal';
@@ -37,6 +37,20 @@ const Events: React.FC = () => {
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [isDuplicateMode, setIsDuplicateMode] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Open create event modal from URL (e.g. from Sidebar "Actions rapides" -> Programmer un événement)
+  useEffect(() => {
+    if (searchParams.get('open') !== 'create') return;
+    setSelectedEvent(null);
+    setIsDuplicateMode(false);
+    setIsEventModalOpen(true);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('open');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Transform API response to frontend Event format
   const transformEventResponse = (apiEvent: EventResponse): Event => {

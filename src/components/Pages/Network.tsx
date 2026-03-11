@@ -136,7 +136,7 @@ const getPartnershipKindLabel = (kind: string | null | undefined): string => {
 const Network: React.FC = () => {
   const { state, setCurrentPage } = useAppContext();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { showSuccess, showError } = useToast();
   const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
@@ -268,6 +268,18 @@ const Network: React.FC = () => {
       setActiveCard(cardParam as 'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members' | 'school-partners');
     }
   }, [searchParams]);
+
+  // Open add-partner flow from URL (e.g. from Sidebar "Actions rapides" -> Ajouter un partenaire)
+  useEffect(() => {
+    if (searchParams.get('open') !== 'add-partner') return;
+    setActiveCard(null);
+    setSelectedType('join-organization');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('open');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Local search term for filtering within activeCard tabs
   const [localSearchTerm, setLocalSearchTerm] = useState('');
