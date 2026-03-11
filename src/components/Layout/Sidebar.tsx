@@ -154,9 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     { id: 'network', label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' }
   ];
 
-  const isDashboardSectionActive =
-    currentPage === 'dashboard' ||
-    ['members', 'events', 'projects', 'badges', 'network'].includes(currentPage);
+  const isDashboardSectionActive = currentPage === 'dashboard';
 
   const unreadNotifications = 0; //state.notifications.filter(n => !n.isRead).length;
 
