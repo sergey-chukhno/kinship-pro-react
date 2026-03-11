@@ -12,7 +12,7 @@ import MemberCard from '../Members/MemberCard';
 import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest } from '../../api/Projects';
+import { getPartnerships, getTeacherSchoolPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest } from '../../api/Projects';
 import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
 import { isStudentRole } from '../../utils/roleUtils';
 import { getSkills } from '../../api/Skills';
@@ -136,7 +136,7 @@ const getPartnershipKindLabel = (kind: string | null | undefined): string => {
 const Network: React.FC = () => {
   const { state, setCurrentPage } = useAppContext();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { showSuccess, showError } = useToast();
   const [isPartnershipModalOpen, setIsPartnershipModalOpen] = useState(false);
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
@@ -202,6 +202,7 @@ const Network: React.FC = () => {
   const [requestsPage, setRequestsPage] = useState(1);
   const [requestsTotalPages, setRequestsTotalPages] = useState(1);
   const [requestsTotalCount, setRequestsTotalCount] = useState(0);
+  const [incomingRequestsCount, setIncomingRequestsCount] = useState(0);
 
   // Sub-organizations state
   const [subOrganizations, setSubOrganizations] = useState<any[]>([]);
@@ -229,6 +230,12 @@ const Network: React.FC = () => {
   const [schoolTeacherPartnershipRequestsError, setSchoolTeacherPartnershipRequestsError] = useState<string | null>(null);
   const [selectedSchoolTeacherPartnershipRequest, setSelectedSchoolTeacherPartnershipRequest] = useState<TeacherPartnershipRequest | null>(null);
 
+  // Teacher: partners of my schools (Partenaires de mes établissements)
+  const [schoolPartnersList, setSchoolPartnersList] = useState<Organization[]>([]);
+  const [schoolPartnersCount, setSchoolPartnersCount] = useState(0);
+  const [schoolPartnersLoading, setSchoolPartnersLoading] = useState(false);
+  const [schoolPartnersError, setSchoolPartnersError] = useState<string | null>(null);
+
   // Personal user requests state (for "Mes demandes" tab - pending/accepted/rejected)
   const [myRequests, setMyRequests] = useState<{ schools: any[]; companies: any[] }>({ schools: [], companies: [] });
   const [myRequestsLoading, setMyRequestsLoading] = useState(false);
@@ -249,18 +256,30 @@ const Network: React.FC = () => {
 
   // Active card state (for school/company dashboards and personal user dashboards)
   const isPersonalUserInitial = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-  const [activeCard, setActiveCard] = useState<'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members' | null>(
+  const [activeCard, setActiveCard] = useState<'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members' | 'school-partners' | null>(
     isPersonalUserInitial ? 'schools' : 'partners'
   );
 
   // Sync URL ?card= to activeCard (for deep links from dashboard stat cards)
   useEffect(() => {
     const cardParam = searchParams.get('card');
-    const validCardParams = ['partners', 'branches', 'members', 'schools', 'companies', 'network-members'];
+    const validCardParams = ['partners', 'branches', 'members', 'schools', 'companies', 'network-members', 'school-partners'];
     if (cardParam && validCardParams.includes(cardParam)) {
-      setActiveCard(cardParam as 'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members');
+      setActiveCard(cardParam as 'partners' | 'branches' | 'members' | 'schools' | 'companies' | 'network-members' | 'school-partners');
     }
   }, [searchParams]);
+
+  // Open add-partner flow from URL (e.g. from Sidebar "Actions rapides" -> Ajouter un partenaire)
+  useEffect(() => {
+    if (searchParams.get('open') !== 'add-partner') return;
+    setActiveCard(null);
+    setSelectedType('join-organization');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('open');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Local search term for filtering within activeCard tabs
   const [localSearchTerm, setLocalSearchTerm] = useState('');
@@ -997,7 +1016,7 @@ const Network: React.FC = () => {
     const organizationType = getOrganizationType(state.showingPageType);
 
     if (!organizationId || !organizationType || (organizationType !== 'school' && organizationType !== 'company')) {
-      setRequestsTotalCount(0);
+      setIncomingRequestsCount(0);
       return;
     }
 
@@ -1005,19 +1024,19 @@ const Network: React.FC = () => {
       const params: any = {
         page: 1,
         per_page: 1,
-        status: 'pending'
+        status: 'pending',
+        incoming_only: true
       };
 
       const response = await getPartnerships(organizationId, organizationType, params);
       const meta = response.meta;
 
       if (meta) {
-        setRequestsTotalCount(meta.total_count || 0);
-        setRequestsTotalPages(meta.total_pages || 1);
+        setIncomingRequestsCount(meta.total_count || 0);
       }
     } catch (err) {
       console.error('Error fetching partnership requests count:', err);
-      setRequestsTotalCount(0);
+      setIncomingRequestsCount(0);
     }
   }, [state.user, state.showingPageType]);
 
@@ -1206,6 +1225,76 @@ const Network: React.FC = () => {
     }
     fetchMyOrganizations();
   }, [state.showingPageType, fetchMyRequests, fetchMyOrganizations]);
+
+  // Teacher: fetch partners of all my schools (for "Partenaires de mes établissements" card)
+  const fetchSchoolPartnersForTeacher = useCallback(async () => {
+    const confirmedSchools = (myOrganizations.schools || []).filter((s: any) => s.my_status === 'confirmed');
+    if (confirmedSchools.length === 0) {
+      setSchoolPartnersList([]);
+      setSchoolPartnersCount(0);
+      return;
+    }
+    const myConfirmedSchoolIds = new Set(confirmedSchools.map((s: any) => Number(s.id)));
+    setSchoolPartnersLoading(true);
+    setSchoolPartnersError(null);
+    try {
+      const allPartners: Array<{ id: number; name: string; members_count?: number; city?: string; zip_code?: string; email?: string }> = [];
+      const seenIds = new Set<number>();
+      for (const school of confirmedSchools) {
+        const schoolId = Number(school.id);
+        const { data: partnerships } = await getTeacherSchoolPartnerships(schoolId, { status: 'confirmed' });
+        (partnerships || []).forEach((p: Partnership) => {
+          (p.partners || []).forEach((partner: any) => {
+            const partnerId = Number(partner.id);
+            if (partner.id != null && partner.id !== schoolId && !seenIds.has(partnerId) && !myConfirmedSchoolIds.has(partnerId)) {
+              seenIds.add(partnerId);
+              allPartners.push({
+                id: partner.id,
+                name: partner.name,
+                members_count: partner.members_count,
+                city: partner.city,
+                zip_code: partner.zip_code,
+                email: partner.email
+              });
+            }
+          });
+        });
+      }
+      const asOrganizations: Organization[] = allPartners.map(partner => ({
+        id: String(partner.id),
+        name: partner.name || '',
+        type: 'partner' as const,
+        description: '',
+        members_count: partner.members_count || 0,
+        location: partner.city && partner.zip_code ? `${partner.city}, ${partner.zip_code}` : partner.city || partner.zip_code || '',
+        logo: undefined,
+        status: 'active' as const,
+        joinedDate: '',
+        contactPerson: '',
+        email: partner.email || '',
+        website: ''
+      }));
+      setSchoolPartnersList(asOrganizations);
+      setSchoolPartnersCount(asOrganizations.length);
+    } catch (err) {
+      console.error('Error fetching school partners for teacher:', err);
+      setSchoolPartnersError(err instanceof Error ? err.message : 'Erreur');
+      setSchoolPartnersList([]);
+      setSchoolPartnersCount(0);
+    } finally {
+      setSchoolPartnersLoading(false);
+    }
+  }, [myOrganizations.schools]);
+
+  useEffect(() => {
+    if (state.showingPageType === 'teacher' && (myOrganizations.schools || []).length >= 0) {
+      fetchSchoolPartnersForTeacher();
+    } else {
+      setSchoolPartnersList([]);
+      setSchoolPartnersCount(0);
+      setSchoolPartnersError(null);
+    }
+  }, [state.showingPageType, fetchSchoolPartnersForTeacher]);
 
   // Function to count all unique partners (confirmed only, excluding pending)
   const countAllPartners = useCallback((): number => {
@@ -1621,9 +1710,9 @@ const Network: React.FC = () => {
       // Show success toast
       showSuccess('Partenariat accepté avec succès');
       
-      // Remove from requests and update count
+      // Remove from requests and update badge count (incoming only)
       setPartnershipRequests(prev => prev.filter(p => p.id !== partnershipId));
-      setRequestsTotalCount(prev => Math.max(0, prev - 1));
+      setIncomingRequestsCount(prev => Math.max(0, prev - 1));
       
       // Refresh partners list and count (the partnership is now confirmed)
       await fetchPartnersCount();
@@ -1647,9 +1736,9 @@ const Network: React.FC = () => {
 
     try {
       await rejectPartnership(organizationId, organizationType, partnershipId);
-      // Remove from requests and update count
+      // Remove from requests and update badge count (incoming only)
       setPartnershipRequests(prev => prev.filter(p => p.id !== partnershipId));
-      setRequestsTotalCount(prev => Math.max(0, prev - 1));
+      setIncomingRequestsCount(prev => Math.max(0, prev - 1));
     } catch (err) {
       console.error('Error rejecting partnership:', err);
       setRequestsError('Erreur lors du rejet du partenariat');
@@ -2387,6 +2476,8 @@ const Network: React.FC = () => {
             email: company.email || '',
             website: ''
           })))
+        : activeCard === 'school-partners'
+        ? filterByLocalSearch(schoolPartnersList)
         : []) // network-members are displayed separately
     : [];
 
@@ -2406,15 +2497,53 @@ const Network: React.FC = () => {
           <h2>Mon réseau Kinship</h2>
         </div>
         <div className="network-actions">
-          {/* <button className="btn btn-outline" onClick={() => handlePartnershipProposal()}>
-            <i className="fas fa-handshake"></i> {(state.showingPageType === 'teacher' || state.showingPageType === 'user') ? 'Rejoindre une communauté' : 'Proposer un partenariat'}
-          </button> */}
-          {/* Personal users (teacher/user) cannot attach to organizations */}
-          {/* {(state.showingPageType !== 'teacher' && state.showingPageType !== 'user') && (
-            <button className="btn btn-primary" onClick={() => handleAttachRequest()}>
-            <i className="fas fa-link"></i> Demander un rattachement
-          </button>
-          )} */}
+          {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
+            <>
+              <button
+                className="btn btn-outline"
+                onClick={() => {
+                  setCurrentPage('partnership-requests');
+                  navigate('/partnership-requests');
+                }}
+              >
+                <i className="fas fa-handshake"></i>
+                Gérer les demandes de partenariat
+                {incomingRequestsCount > 0 && (
+                  <span
+                    className="pending-requests-badge"
+                    style={{
+                      backgroundColor: state.showingPageType === 'pro'
+                        ? '#5570F1'
+                        : '#10b981',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      marginLeft: '8px',
+                      minWidth: '24px',
+                      textAlign: 'center',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    +{incomingRequestsCount}
+                  </span>
+                )}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setActiveCard(null);
+                  setSelectedType('join-organization');
+                }}
+              >
+                <i className="fas fa-plus"></i>
+                Ajouter un partenaire
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -2489,22 +2618,41 @@ const Network: React.FC = () => {
               <p>Mes établissements scolaires</p>
             </div>
           </div>
-          <div 
-            className={`summary-card ${activeCard === 'companies' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveCard('companies');
-              setSelectedType(null);
-            }}
-            style={{ cursor: 'pointer' }}
-          >
-            <div className="summary-icon">
-              <img src="/icons_logo/Icon=Reseau.svg" alt="Mes organisations" className="summary-icon-img" />
+          {state.showingPageType === 'teacher' ? (
+            <div 
+              className={`summary-card ${activeCard === 'school-partners' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveCard('school-partners');
+                setSelectedType(null);
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="summary-icon">
+                <img src="/icons_logo/Icon=Reseau.svg" alt="Partenaires de mes établissements" className="summary-icon-img" />
+              </div>
+              <div className="summary-content">
+                <h3>{schoolPartnersCount}</h3>
+                <p>Partenaires de mes établissements</p>
+              </div>
             </div>
-            <div className="summary-content">
-              <h3>{globalCompaniesTotalCount}</h3>
-              <p>Mes organisations</p>
+          ) : (
+            <div 
+              className={`summary-card ${activeCard === 'companies' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveCard('companies');
+                setSelectedType(null);
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="summary-icon">
+                <img src="/icons_logo/Icon=Reseau.svg" alt="Mes organisations" className="summary-icon-img" />
+              </div>
+              <div className="summary-content">
+                <h3>{globalCompaniesTotalCount}</h3>
+                <p>Mes organisations</p>
+              </div>
             </div>
-          </div>
+          )}
           <div 
             className={`summary-card ${activeCard === 'network-members' ? 'active' : ''}`}
             onClick={() => {
@@ -2528,6 +2676,7 @@ const Network: React.FC = () => {
       {activeCard && (
         activeCard === 'schools' || 
         activeCard === 'companies' || 
+        activeCard === 'school-partners' ||
         activeCard === 'network-members' ||
         activeCard === 'partners' ||
         activeCard === 'branches' ||
@@ -2544,6 +2693,8 @@ const Network: React.FC = () => {
                   ? "Rechercher un établissement par nom, ville..."
                   : activeCard === 'companies'
                   ? "Rechercher une organisation par nom, ville..."
+                  : activeCard === 'school-partners'
+                  ? "Rechercher un partenaire par nom, ville..."
                   : activeCard === 'partners'
                   ? "Rechercher un partenaire par nom, ville..."
                   : activeCard === 'branches'
@@ -2582,26 +2733,19 @@ const Network: React.FC = () => {
       <div className="network-filters">
 
         <div className="filter-tabs">
-          {/* Always visible tab for joining organizations */}
-          <button 
-            className={`filter-tab ${selectedType === 'join-organization' ? 'active' : ''}`}
-            onClick={() => { setActiveCard(null); setSelectedType('join-organization'); }}
-          >
-            + Rejoindre un établissement ou une organisation supplémentaire
-          </button>
+          {/* Always visible tab for joining organizations (teachers/users); for edu/pro this is handled by header button */}
+          {(state.showingPageType === 'teacher' || state.showingPageType === 'user') && (
+            <button 
+              className={`filter-tab ${selectedType === 'join-organization' ? 'active' : ''}`}
+              onClick={() => { setActiveCard(null); setSelectedType('join-organization'); }}
+            >
+              + Rejoindre un établissement ou une organisation supplémentaire
+            </button>
+          )}
           {/* Hide schools and companies tabs for personal users and organization dashboards */}
           {/* Show partnership requests and branch requests tabs only for school (edu) and pro (company) roles */}
           {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
             <>
-              {/* Show partnership requests tab only if there are requests */}
-              {requestsTotalCount > 0 && (
-                <button 
-                  className={`filter-tab ${selectedType === 'partnership-requests' ? 'active' : ''}`}
-                  onClick={() => { setActiveCard(null); setSelectedType('partnership-requests'); }}
-                >
-                  Demandes de partenariats ({requestsTotalCount})
-                </button>
-              )}
               {/* Show branch requests tab only if there are requests */}
               {filteredBranchRequests.length > 0 && (
                 <button 
@@ -2633,15 +2777,7 @@ const Network: React.FC = () => {
               Demandes de partenariat à mon établissement ({teacherPartnershipRequests.length})
             </button>
           )}
-          {/* School (edu): demandes de partenariat envoyées par les enseignants — visible uniquement s'il y a au moins une demande */}
-          {state.showingPageType === 'edu' && schoolTeacherPartnershipRequests.length > 0 && (
-            <button 
-              className={`filter-tab ${selectedType === 'school-teacher-partnership-requests' ? 'active' : ''}`}
-              onClick={() => { setActiveCard(null); setSelectedType('school-teacher-partnership-requests'); }}
-            >
-              Demandes partenariat par les enseignants ({schoolTeacherPartnershipRequests.length})
-            </button>
-          )}
+          {/* School (edu): demandes de partenariat par les enseignants are managed in "Gérer les demandes de partenariat" */}
         </div>
 
         {/* Search Bar - Only show in join-organization tab */}
@@ -2668,10 +2804,10 @@ const Network: React.FC = () => {
           </div>
         )}
 
-        {/* Filters for personal user network and organization dashboards - Show on all tabs except schools */}
+        {/* Filters for personal user network and organization dashboards - Show on all tabs except schools and school-partners */}
         {(
           (isPersonalUser && (selectedType === 'my-requests' || selectedType === 'search' || selectedType === 'join-organization')) || 
-          (isPersonalUserDashboard && activeCard && activeCard !== 'schools') ||
+          (isPersonalUserDashboard && activeCard && activeCard !== 'schools' && activeCard !== 'school-partners') ||
           (isOrgDashboard && (selectedType === 'search' || selectedType === 'join-organization' || activeCard === 'members'))
         ) && (
           <div className="network-user-filters" style={{ 
@@ -3070,6 +3206,12 @@ const Network: React.FC = () => {
         {schoolTeacherPartnershipRequestsError && selectedType === 'school-teacher-partnership-requests' && (
           <div className="error-message">{schoolTeacherPartnershipRequestsError}</div>
         )}
+        {schoolPartnersLoading && state.showingPageType === 'teacher' && activeCard === 'school-partners' && (
+          <div className="loading-message">Chargement des partenaires de vos établissements...</div>
+        )}
+        {schoolPartnersError && state.showingPageType === 'teacher' && activeCard === 'school-partners' && (
+          <div className="error-message">{schoolPartnersError}</div>
+        )}
         {/* Search Results Header - Only show in join-organization tab when there are results */}
         {selectedType === 'join-organization' && 
          filteredSearchResults.length > 0 && 
@@ -3086,10 +3228,10 @@ const Network: React.FC = () => {
         {searchError && (selectedType === 'search' || selectedType === 'join-organization') && (
           <div className="error-message">{searchError}</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !teacherPartnershipRequestsLoading && !schoolTeacherPartnershipRequestsLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !schoolPartnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !teacherPartnershipRequestsLoading && !schoolTeacherPartnershipRequestsLoading && isPersonalUser && selectedType === 'partner' && filteredNetworkUsers.length === 0 && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
-        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !teacherPartnershipRequestsLoading && !schoolTeacherPartnershipRequestsLoading && !(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && !(isPersonalUserDashboard && activeCard === 'network-members') && (
+        {displayItems.length === 0 && !schoolsLoading && !companiesLoading && !partnersLoading && !schoolPartnersLoading && !requestsLoading && !subOrgsLoading && !branchRequestsLoading && !myRequestsLoading && !searchLoading && !networkMembersLoading && !teacherPartnershipRequestsLoading && !schoolTeacherPartnershipRequestsLoading && !(isPersonalUser && selectedType === 'partner') && !(isOrgDashboard && activeCard === 'members') && !(isPersonalUserDashboard && activeCard === 'network-members') && (
           <div className="empty-message">Aucun résultat trouvé</div>
         )}
         
@@ -3219,7 +3361,7 @@ const Network: React.FC = () => {
           selectedType === 'teacher-partnership-requests' ||
           selectedType === 'school-teacher-partnership-requests' ||
           (isOrgDashboard && (activeCard === 'partners' || activeCard === 'branches')) || 
-          (isPersonalUserDashboard && (activeCard === 'schools' || activeCard === 'companies')) ||
+          (isPersonalUserDashboard && (activeCard === 'schools' || activeCard === 'companies' || activeCard === 'school-partners')) ||
           (!(isOrgDashboard && activeCard) && !(isPersonalUserDashboard && activeCard))) && (
           <div className="grid !grid-cols-3">
             {displayItems.length > 0 ? (
@@ -4395,7 +4537,9 @@ const Network: React.FC = () => {
                 : undefined
             }
             onPartnership={
-              !isPartner && !isSubOrganization && selectedType !== 'my-requests' && !isOwnOrganization && !isAlreadyConfirmedMember && !hasPendingJoinRequest
+              (state.showingPageType === 'teacher' && activeCard === 'school-partners')
+                ? undefined
+                : !isPartner && !isSubOrganization && selectedType !== 'my-requests' && !isOwnOrganization && !isAlreadyConfirmedMember && !hasPendingJoinRequest
                 ? () => handlePartnershipProposal(selectedOrganizationForDetails)
                 : undefined
             }

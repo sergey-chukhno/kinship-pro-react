@@ -26,6 +26,7 @@ import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
 import { translateRole } from '../../utils/roleTranslations';
+import { useSearchParams } from 'react-router-dom';
 
 /** Safely render a value that may be a string or an object with id/name/type/city (e.g. organization from API). */
 function toDisplayString(value: unknown): string {
@@ -507,6 +508,19 @@ const ProjectManagement: React.FC = () => {
     fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id, userProjectRole, state.showingPageType, apiProjectData]);
+
+  // Open assign-badge modal from URL (e.g. from Sidebar "Actions rapides" -> Attribuer un badge, after selecting project)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (!project?.id || searchParams.get('open') !== 'assign-badge') return;
+    setSelectedParticipantForBadge(null);
+    setIsBadgeModalOpen(true);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('open');
+      return next;
+    }, { replace: true });
+  }, [project?.id, searchParams, setSearchParams]);
 
   // Fetch pending requests when project ID changes or requests tab is active
   useEffect(() => {

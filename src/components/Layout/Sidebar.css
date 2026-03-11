@@ -95,11 +95,205 @@
   z-index: 10;
 }
 
+/* Dashboard row: link (Tableau de bord) + chevron that opens sections dropdown */
+.dashboard-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 40px;
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+
+.dashboard-nav-row:hover {
+  background: rgba(85, 112, 241, 0.08);
+}
+
+.dashboard-nav-row .dashboard-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 40px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  text-decoration: none;
+  color: var(--text-primary, #374151);
+  transition: all 0.2s ease;
+}
+
+.dashboard-nav-row .dashboard-link:hover {
+  background: transparent;
+}
+
+.dashboard-nav-dropdown {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dashboard-chevron-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  border-radius: 0 40px 40px 0;
+  transition: background 0.2s ease;
+}
+
+.dashboard-chevron-btn:hover {
+  background: rgba(85, 112, 241, 0.12);
+}
+
+.dashboard-chevron-btn .chevron-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.75;
+  transition: transform 0.2s ease;
+}
+
+.dashboard-chevron-btn.open .chevron-icon {
+  transform: rotate(90deg);
+}
+
+.sidebar-nav-dropdown-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 2000;
+  min-width: 240px;
+  max-width: 280px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
+  outline: none;
+}
+
+.sidebar-nav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text-primary, #374151);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.2s ease;
+}
+
+.sidebar-nav-dropdown-item .side-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.65;
+  flex-shrink: 0;
+}
+
+.sidebar-nav-dropdown-item:hover,
+.sidebar-nav-dropdown-item.active {
+  background: rgba(85, 112, 241, 0.08);
+}
+
+.sidebar-nav-dropdown-item.current {
+  background: rgba(85, 112, 241, 0.12);
+  font-weight: 600;
+}
+
 .side-divider {
   height: 1px;
   background: var(--border, #e5e7eb);
   border: 0;
   margin: 8px 20px 0 20px;
+}
+
+/* Actions rapides */
+.sidebar-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sidebar-quick-actions-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #6b7280);
+  padding: 0 16px;
+}
+
+.sidebar-quick-actions-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.side-link.quick-action-btn {
+  justify-content: flex-start;
+  border-radius: 40px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  font-family: inherit;
+  text-align: left;
+}
+
+.side-link.quick-action-btn:hover {
+  background: rgba(85, 112, 241, 0.08);
+}
+
+.quick-action-menu {
+  position: relative;
+  width: 100%;
+}
+
+.quick-action-menu .quick-action-btn {
+  appearance: none;
+}
+
+.sidebar-quick-actions-dropdown {
+  z-index: 2000;
+  min-width: 260px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
+  outline: none;
+}
+
+.sidebar-quick-action-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--text-primary, #374151);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.2s ease;
+}
+
+.sidebar-quick-action-item:hover,
+.sidebar-quick-action-item.active {
+  background: rgba(85, 112, 241, 0.08);
 }
 
 .notif-badge {
