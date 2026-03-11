@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { Project } from '../../types';
 import ProjectModal from '../Modals/ProjectModal';
@@ -771,6 +771,31 @@ const Projects: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isProjectDropdownOpen]);
+
+  // Open create modal from URL (e.g. from Sidebar "Actions rapides" -> Créer un projet)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const open = searchParams.get('open');
+    const variant = searchParams.get('variant');
+    if (open !== 'create') return;
+    setSelectedProject(null);
+    setDuplicateSourceProject(null);
+    if (variant === 'mlds') {
+      if (state.showingPageType === 'user') {
+        setIsSubscriptionModalOpen(true);
+      } else {
+        setIsMLDSProjectModalOpen(true);
+      }
+    } else {
+      setIsProjectModalOpen(true);
+    }
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('open');
+      next.delete('variant');
+      return next;
+    }, { replace: true });
+  }, [searchParams, state.showingPageType, setSearchParams]);
 
   // --- Fetch des projets au chargement ---
   useEffect(() => {
