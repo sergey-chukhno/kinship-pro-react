@@ -100,11 +100,18 @@
   white-space: nowrap;
 }
 
+.member-tags {
+  min-width: 0;
+}
+
 .member-pill--warning {
   background: #fef3c7;
   color: #b45309;
   white-space: normal;
   max-width: 100%;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .member-classes {

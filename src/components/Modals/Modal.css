@@ -2120,6 +2120,18 @@ html[data-theme="dark"] .badge-explorer-card .badge-icon i {
   margin-top: 1rem;
 }
 
+/* Read-only permissions (display only, not editable) */
+.permissions-grid--readonly .permission-checkbox {
+  cursor: default;
+  opacity: 0.95;
+}
+.permissions-grid--readonly .permission-checkbox:hover {
+  background-color: transparent;
+}
+.permissions-grid--readonly .permission-checkbox input[type="checkbox"]:disabled {
+  cursor: default;
+}
+
 .permission-item {
   display: flex;
   align-items: center;
