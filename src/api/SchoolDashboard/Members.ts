@@ -1,14 +1,14 @@
 import axiosClient from "../config";
 
-export function getSchoolMembersAccepted(SchoolId: number, perPage: number = 12, options?: { includeDetails?: boolean }) {
+export function getSchoolMembersAccepted(SchoolId: number, perPage: number = 12, options?: { includeDetails?: boolean; page?: number }) {
     // Use members endpoint to include staff + students; filtering is done on the frontend
-    return axiosClient.get(`/api/v1/schools/${SchoolId}/members`, {
-        params: {
-            status: 'confirmed',
-            per_page: perPage,
-            include_details: options?.includeDetails
-        }
-    });
+    const params: Record<string, unknown> = {
+        status: 'confirmed',
+        per_page: perPage,
+        include_details: options?.includeDetails
+    };
+    if (options?.page != null) params.page = options.page;
+    return axiosClient.get(`/api/v1/schools/${SchoolId}/members`, { params });
 }
 
 export function getSchoolMembersPending(SchoolId: number) {

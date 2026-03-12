@@ -279,12 +279,32 @@ const Members: React.FC = () => {
       if (!contextId) return;
       if (isEdu) setCurrentSchoolId(contextId);
 
-      // 2. Bascule de l'appel API (Liste de base)
-      const membersRes = isEdu
-        ? await getSchoolMembersAccepted(contextId, 200, { includeDetails: true })
-        : await getCompanyMembersAccepted(contextId, 200, { includeDetails: true });
+      // 2. Fetch all pages so Staff/Communauté/Élèves tabs see the full list (fix pagination: only first 200 were loaded)
+      const perPage = 200;
+      const maxPages = 10; // safety cap: max 2000 members
+      const firstRes = isEdu
+        ? await getSchoolMembersAccepted(contextId, perPage, { includeDetails: true, page: 1 })
+        : await getCompanyMembersAccepted(contextId, perPage, { includeDetails: true, page: 1 });
 
-      const basicMembers = membersRes.data.data || membersRes.data || [];
+      let basicMembers: any[] = firstRes.data?.data || firstRes.data || [];
+      const meta = firstRes.data?.meta;
+      const totalPages = meta?.total_pages ?? 1;
+
+      if (totalPages > 1) {
+        const pagesToFetch = Math.min(totalPages - 1, maxPages - 1); // remaining pages (we have page 1)
+        const extraPages = await Promise.all(
+          Array.from({ length: pagesToFetch }, (_, i) => {
+            const page = i + 2;
+            return isEdu
+              ? getSchoolMembersAccepted(contextId, perPage, { includeDetails: true, page })
+              : getCompanyMembersAccepted(contextId, perPage, { includeDetails: true, page });
+          })
+        );
+        for (const res of extraPages) {
+          const pageData = res.data?.data || res.data || [];
+          basicMembers = basicMembers.concat(Array.isArray(pageData) ? pageData : []);
+        }
+      }
 
       const mappedMembers = basicMembers.map((m: any) => {
         const availabilityList = availabilityToLabels(m.availability);
