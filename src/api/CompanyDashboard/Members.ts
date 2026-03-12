@@ -1,13 +1,13 @@
 import axiosClient from "../config";
 
-export function getCompanyMembersAccepted(companyId: number, perPage: number = 12, options?: { includeDetails?: boolean }) {
-    return axiosClient.get(`/api/v1/companies/${companyId}/members`, {
-        params: {
-            status: 'confirmed',
-            per_page: perPage,
-            include_details: options?.includeDetails
-        }
-    });
+export function getCompanyMembersAccepted(companyId: number, perPage: number = 12, options?: { includeDetails?: boolean; page?: number }) {
+    const params: Record<string, unknown> = {
+        status: 'confirmed',
+        per_page: perPage,
+        include_details: options?.includeDetails
+    };
+    if (options?.page != null) params.page = options.page;
+    return axiosClient.get(`/api/v1/companies/${companyId}/members`, { params });
 }
 
 export function getCompanyMembersPending(companyId: number) {
