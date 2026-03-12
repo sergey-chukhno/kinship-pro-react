@@ -269,17 +269,92 @@ const Network: React.FC = () => {
     }
   }, [searchParams]);
 
-  // Open add-partner flow from URL (e.g. from Sidebar "Actions rapides" -> Ajouter un partenaire)
+  // Open add-partner / partnership-modal / teacher-partnership from URL (e.g. from Sidebar "Sélectionner un partenaire" modal)
   useEffect(() => {
-    if (searchParams.get('open') !== 'add-partner') return;
-    setActiveCard(null);
-    setSelectedType('join-organization');
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.delete('open');
-      return next;
-    }, { replace: true });
-  }, [searchParams, setSearchParams]);
+    const open = searchParams.get('open');
+    if (!open) return;
+
+    if (open === 'add-partner') {
+      setActiveCard(null);
+      setSelectedType('join-organization');
+      const q = searchParams.get('q');
+      if (q) setSearchTerm(decodeURIComponent(q));
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('open');
+        next.delete('q');
+        return next;
+      }, { replace: true });
+      return;
+    }
+
+    if (open === 'partnership-modal' && (state.showingPageType === 'edu' || state.showingPageType === 'pro')) {
+      const partnerId = searchParams.get('partner_id');
+      const partnerType = searchParams.get('partner_type'); // 'school' | 'company'
+      const partnerName = searchParams.get('partner_name') || '';
+      if (partnerId && partnerType) {
+        const orgType = partnerType === 'company' ? 'companies' : 'schools';
+        const org: Organization = {
+          id: partnerId,
+          name: decodeURIComponent(partnerName) || (orgType === 'schools' ? 'Établissement' : 'Organisation'),
+          type: orgType,
+          description: '',
+          members_count: 0,
+          location: '',
+          joinedDate: '',
+          contactPerson: '',
+          email: '',
+          status: 'active',
+        };
+        setSelectedOrganization(org);
+        setSelectedType('join-organization');
+        setActiveCard(null);
+        setIsPartnershipModalOpen(true);
+      }
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('open');
+        next.delete('partner_id');
+        next.delete('partner_type');
+        next.delete('partner_name');
+        return next;
+      }, { replace: true });
+      return;
+    }
+
+    if (open === 'teacher-partnership' && state.showingPageType === 'teacher') {
+      const partnerId = searchParams.get('partner_id');
+      const partnerType = searchParams.get('partner_type');
+      const partnerName = searchParams.get('partner_name') || '';
+      if (partnerId && partnerType) {
+        const orgType = partnerType === 'company' ? 'companies' : 'schools';
+        const org: Organization = {
+          id: partnerId,
+          name: decodeURIComponent(partnerName) || (orgType === 'schools' ? 'Établissement' : 'Organisation'),
+          type: orgType,
+          description: '',
+          members_count: 0,
+          location: '',
+          joinedDate: '',
+          contactPerson: '',
+          email: '',
+          status: 'active',
+        };
+        setSelectedOrganizationForPartnership(org);
+        setSelectedType('join-organization');
+        setActiveCard(null);
+        setIsSelectSchoolModalOpen(true);
+      }
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('open');
+        next.delete('partner_id');
+        next.delete('partner_type');
+        next.delete('partner_name');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams, setSearchParams, state.showingPageType]);
 
   // Local search term for filtering within activeCard tabs
   const [localSearchTerm, setLocalSearchTerm] = useState('');
