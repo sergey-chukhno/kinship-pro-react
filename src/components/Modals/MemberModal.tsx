@@ -127,12 +127,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
   });
   const hasRoleLabel = (label: string) => displayRoles.includes(label);
 
-  const [permissions, setPermissions] = useState({
-    members: hasRoleLabel('Admin'),
-    projects: hasRoleLabel('Admin') || hasRoleLabel('Référent'),
-    badges: hasRoleLabel('Admin') || hasRoleLabel('Référent') || hasRoleLabel('Intervenant'),
-    events: hasRoleLabel('Admin') || hasRoleLabel('Référent')
-  });
+  // Permission display is read-only (derived from role); no state so users don't think they can change it
+  const permissionMembers = hasRoleLabel('Admin');
+  const permissionProjects = hasRoleLabel('Admin') || hasRoleLabel('Référent');
+  const permissionBadges = hasRoleLabel('Admin') || hasRoleLabel('Référent') || hasRoleLabel('Intervenant');
+  const permissionEvents = hasRoleLabel('Admin') || hasRoleLabel('Référent');
   const [progressModalBadge, setProgressModalBadge] = useState<{
     badge: { name: string; level: string; series: string; image_url?: string | null };
     fullExpertiseNames: string[];
@@ -190,13 +189,6 @@ const MemberModal: React.FC<MemberModalProps> = ({
     setExpandedDescriptions(prev => ({
       ...prev,
       [badgeKey]: !prev[badgeKey]
-    }));
-  };
-
-  const handlePermissionChange = (permission: keyof typeof permissions) => {
-    setPermissions(prev => ({
-      ...prev,
-      [permission]: !prev[permission]
     }));
   };
 
@@ -824,52 +816,36 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
               </div>
 
-              {/* Permissions Section - hidden for members with temporary email */}
+              {/* Permissions Section - read-only, derived from role (hidden for members with temporary email) */}
               {!hideDeleteButton && !member.hasTemporaryEmail && (
                 <div className="info-section">
                   <h3>Permissions</h3>
-                  <p className="section-subtitle">Le membre peut gérer :</p>
-                  <div className="permissions-grid">
+                  <p className="section-subtitle">Selon son rôle dans l&apos;organisation, ce membre peut gérer :</p>
+                  <div className="permissions-grid permissions-grid--readonly">
                   <div className="permission-item">
                     <label className="permission-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={permissions.members}
-                        onChange={() => handlePermissionChange('members')}
-                      />
+                      <input type="checkbox" checked={permissionMembers} disabled readOnly aria-hidden />
                       <span className="checkmark"></span>
                       <span className="permission-label">Membres</span>
                     </label>
                   </div>
                   <div className="permission-item">
                     <label className="permission-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={permissions.projects}
-                        onChange={() => handlePermissionChange('projects')}
-                      />
+                      <input type="checkbox" checked={permissionProjects} disabled readOnly aria-hidden />
                       <span className="checkmark"></span>
                       <span className="permission-label">Projets</span>
                     </label>
                   </div>
                   <div className="permission-item">
                     <label className="permission-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={permissions.badges}
-                        onChange={() => handlePermissionChange('badges')}
-                      />
+                      <input type="checkbox" checked={permissionBadges} disabled readOnly aria-hidden />
                       <span className="checkmark"></span>
                       <span className="permission-label">Badges</span>
                     </label>
                   </div>
                   <div className="permission-item">
                     <label className="permission-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={permissions.events}
-                        onChange={() => handlePermissionChange('events')}
-                      />
+                      <input type="checkbox" checked={permissionEvents} disabled readOnly aria-hidden />
                       <span className="checkmark"></span>
                       <span className="permission-label">Événements</span>
                     </label>
