@@ -103,7 +103,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
         )}
         <div className="member-info">
           <h3 className="member-name">{member.firstName} {member.lastName}</h3>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: 4 }}>
+          <div className="member-tags" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: 4 }}>
             {categoryTag && (
               <span
                 className="organization-type"
@@ -175,8 +175,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
               </>
             )}
             {(member.hasTemporaryEmail || member.confirmedAt === null) && (
-              <span className="member-pill member-pill--warning" title="Email temporaire ou non confirmé – en attente d'activation du compte">
-                En attente d'activation
+              <span className="member-pill member-pill--warning" title="Compte temporaire en attente d'activation">
+                Compte temporaire en attente d&apos;activation
               </span>
             )}
           </div>
