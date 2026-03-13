@@ -7,6 +7,7 @@ import './Sidebar.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
+import SelectPartnerModal from '../Modals/SelectPartnerModal';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -17,6 +18,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const { state, setShowingPageType, setSelectedProject } = useAppContext();
   const navigate = useNavigate();
   const [isSelectProjectForBadgeOpen, setIsSelectProjectForBadgeOpen] = useState(false);
+  const [isSelectPartnerModalOpen, setIsSelectPartnerModalOpen] = useState(false);
 
   // Get currently selected context
   const getCurrentContext = useMemo(() => {
@@ -338,10 +340,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
               <button
                 type="button"
                 className="side-link quick-action-btn"
-                onClick={() => {
-                  onPageChange('network');
-                  navigate('/network?open=add-partner');
-                }}
+                onClick={() => setIsSelectPartnerModalOpen(true)}
               >
                 <img src="/icons_logo/Icon=Reseau.svg" alt="" className="side-icon" />
                 Ajouter un partenaire
@@ -388,6 +387,32 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
             onPageChange('project-management');
             navigate('/project-management?open=assign-badge');
             setIsSelectProjectForBadgeOpen(false);
+          }}
+        />
+      )}
+
+      {isSelectPartnerModalOpen && (
+        <SelectPartnerModal
+          isOpen={isSelectPartnerModalOpen}
+          onClose={() => setIsSelectPartnerModalOpen(false)}
+          onSelectPartner={(org) => {
+            setIsSelectPartnerModalOpen(false);
+            onPageChange('network');
+            const params = new URLSearchParams();
+            const open = state.showingPageType === 'teacher' ? 'teacher-partnership' : 'partnership-modal';
+            params.set('open', open);
+            params.set('partner_id', org.id);
+            params.set('partner_type', org.type === 'schools' ? 'school' : 'company');
+            if (org.name) params.set('partner_name', org.name);
+            navigate(`/network?${params.toString()}`);
+          }}
+          onViewAllResults={(searchTerm) => {
+            setIsSelectPartnerModalOpen(false);
+            onPageChange('network');
+            const params = new URLSearchParams();
+            params.set('open', 'add-partner');
+            if (searchTerm) params.set('q', searchTerm);
+            navigate(`/network?${params.toString()}`);
           }}
         />
       )}
