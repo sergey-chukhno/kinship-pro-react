@@ -295,7 +295,7 @@ const ProjectManagement: React.FC = () => {
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
   const [collapsedComments, setCollapsedComments] = useState<Set<string>>(new Set());
-  
+
   // Badge filters
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
@@ -333,7 +333,7 @@ const ProjectManagement: React.FC = () => {
     selectedMembers: [] as string[]
   });
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
-  
+
   // Kanban tasks state
   const [tasks, setTasks] = useState([
     {
@@ -365,7 +365,7 @@ const ProjectManagement: React.FC = () => {
       createdBy: 'Sophie Martin'
     }
   ]);
-  
+
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
   const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
@@ -394,27 +394,27 @@ const ProjectManagement: React.FC = () => {
   // State for project statistics
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
-  
+
   // State for user project role and join / close functionality
   const [userProjectRole, setUserProjectRole] = useState<string | null>(null);
   const [isJoiningProject, setIsJoiningProject] = useState(false);
   const [isClosingProject, setIsClosingProject] = useState(false);
   const [isCloseProjectModalOpen, setIsCloseProjectModalOpen] = useState(false);
-  
+
   // State for badge assignment permissions
   const [canAssignBadges, setCanAssignBadges] = useState(false);
   const [userProjectMember, setUserProjectMember] = useState<any>(null);
-  
+
   // Fetch project data from API when component mounts or project ID changes
   useEffect(() => {
     const fetchProjectData = async () => {
       const selectedProject = state.selectedProject;
-      
+
       // Only fetch if we have a project with an ID
       if (!selectedProject || !selectedProject.id) {
         return;
       }
-      
+
       setIsLoadingProject(true);
       try {
         const projectId = parseInt(selectedProject.id);
@@ -423,10 +423,10 @@ const ProjectManagement: React.FC = () => {
           setIsLoadingProject(false);
           return;
         }
-        
+
         const response = await getProjectById(projectId);
         const apiProject = response.data;
-        
+
         // Store raw API data for permission checks
         setApiProjectData(apiProject);
 
@@ -439,29 +439,29 @@ const ProjectManagement: React.FC = () => {
             ? state.user?.available_contexts?.companies?.find((c: any) => c.id === selectedOrgId)
             : null;
         console.log('🔍 [ProjectManagement] Current user organization:', selectedOrg?.name || 'N/A');
-        
+
         // Determine user's role in the project
         const role = getUserProjectRole(apiProject, state.user?.id?.toString());
         setUserProjectRole(role);
-        
+
         // Debug: Log co-owners from API
         console.log('API Project co_owners:', apiProject.co_owners);
         console.log('API Project co_owners count:', apiProject.co_owners?.length || 0);
-        
+
         // Map API data to frontend format
         const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
 
         // Debug: Log mapped project organization info
         console.log('🔍 [ProjectManagement] Mapped project.organization:', mappedProject.organization);
         console.log('🔍 [ProjectManagement] Mapped project.responsible?.organization:', mappedProject.responsible?.organization);
-        
+
         // Debug: Log mapped co-responsibles
         console.log('Mapped project coResponsibles:', mappedProject.coResponsibles);
         console.log('Mapped project coResponsibles count:', mappedProject.coResponsibles?.length || 0);
-        
+
         // Update project state
         setProject(mappedProject);
-        
+
         // Also update context to keep it in sync (only if the ID is different to avoid loops)
         if (state.selectedProject?.id !== mappedProject.id) {
           setSelectedProject(mappedProject);
@@ -475,7 +475,7 @@ const ProjectManagement: React.FC = () => {
         setIsLoadingProject(false);
       }
     };
-    
+
     fetchProjectData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.selectedProject?.id, state.showingPageType]); // Retirer setSelectedProject des dépendances
@@ -504,7 +504,7 @@ const ProjectManagement: React.FC = () => {
         setIsLoadingStats(false);
       }
     };
-    
+
     fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id, userProjectRole, state.showingPageType, apiProjectData]);
@@ -526,13 +526,13 @@ const ProjectManagement: React.FC = () => {
   useEffect(() => {
     const fetchRequests = async () => {
       if (!project?.id || activeTab !== 'requests') return;
-      
+
       setIsLoadingRequests(true);
       try {
         const projectId = parseInt(project.id);
         if (!isNaN(projectId)) {
           const pendingMembers = await getProjectPendingMembers(projectId);
-          
+
           // Map API data to UI format
           const mappedRequests = pendingMembers.map((member: any) => ({
             id: member.id?.toString() || member.user_id?.toString(),
@@ -550,7 +550,7 @@ const ProjectManagement: React.FC = () => {
               ? member.user.school_level.name
               : ''
           }));
-          
+
           setRequests(mappedRequests);
         }
       } catch (error) {
@@ -560,7 +560,7 @@ const ProjectManagement: React.FC = () => {
         setIsLoadingRequests(false);
       }
     };
-    
+
     fetchRequests();
   }, [project?.id, activeTab]);
 
@@ -616,7 +616,7 @@ const ProjectManagement: React.FC = () => {
         console.log('[loadParticipants] Fetched', members.length, 'members for', combinedKey);
         // Only update state if not cancelled and still loading for this key
         if (!isCancelled && lastLoadedProjectIdRef.current === combinedKey) {
-        setParticipants(members);
+          setParticipants(members);
           console.log('[loadParticipants] Updated participants state');
         } else {
           console.log('[loadParticipants] SKIP state update: cancelled or key changed', {
@@ -628,7 +628,7 @@ const ProjectManagement: React.FC = () => {
       } catch (error) {
         if (!isCancelled) {
           console.error('[loadParticipants] Error loading participants:', error);
-        showError('Erreur lors du chargement des participants');
+          showError('Erreur lors du chargement des participants');
           // Reset refs on error to allow retry
           if (lastLoadedProjectIdRef.current === combinedKey) {
             lastLoadedProjectIdRef.current = null;
@@ -646,7 +646,7 @@ const ProjectManagement: React.FC = () => {
         }
       }
     };
-    
+
     loadParticipants();
 
     // Cleanup function to cancel if effect runs again before completion
@@ -667,7 +667,7 @@ const ProjectManagement: React.FC = () => {
   // Fetch project badges only when the user can see badges (tab or "Badges que j'ai attribués" section)
   // Avoids fetching all badges when role is "participant" and then overwriting with stale response when role becomes "participant avec droit de badges"
   useEffect(() => {
-      if (!project?.id) return;
+    if (!project?.id) return;
     if (!shouldShowTabs() && userProjectRole !== 'participant avec droit de badges') return;
     fetchProjectBadgesData(badgePage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -691,17 +691,17 @@ const ProjectManagement: React.FC = () => {
 
     const findUserProjectMember = async () => {
       if (!project?.id) return;
-      
+
       try {
         const projectId = parseInt(project.id);
         if (isNaN(projectId)) return;
-        
+
         const members = await getProjectMembers(projectId);
         const currentUserMember = members.find((m: any) => {
           const userId = m.user?.id?.toString() || m.user_id?.toString();
           return userId === state.user?.id?.toString();
         });
-        
+
         if (currentUserMember) {
           const newUserProjectMember = {
             can_assign_badges_in_project: currentUserMember.can_assign_badges_in_project || false,
@@ -733,7 +733,7 @@ const ProjectManagement: React.FC = () => {
         setCanAssignBadges(false);
       }
     };
-    
+
     findUserProjectMember();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id, state.user?.id, userProjectRole]);
@@ -785,7 +785,7 @@ const ProjectManagement: React.FC = () => {
   // State for requests (pending project join requests)
   const [requests, setRequests] = useState<any[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
-  
+
   // State for available members (for adding participants)
   const [availableMembers, setAvailableMembers] = useState<any[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -928,17 +928,17 @@ const ProjectManagement: React.FC = () => {
   // Utility function to calculate days remaining until project end date
   const calculateDaysRemaining = (endDate: string): number => {
     if (!endDate) return 0;
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Parse endDate (format: YYYY-MM-DD or ISO string)
     const end = new Date(endDate);
     end.setHours(0, 0, 0, 0);
-    
+
     const diffTime = end.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     return diffDays;
   };
 
@@ -981,21 +981,21 @@ const ProjectManagement: React.FC = () => {
   // Handler for joining a project
   const handleJoinProject = async () => {
     if (!project?.id) return;
-    
+
     setIsJoiningProject(true);
     try {
       const projectId = parseInt(project.id);
       await joinProject(projectId);
-      
+
       // Show success notification
       showSuccess('Votre demande de rejoindre le projet a été faite');
-      
+
       // Reload project data to update status
       const response = await getProjectById(projectId);
       const apiProject = response.data;
       const role = getUserProjectRole(apiProject, state.user?.id?.toString());
       setUserProjectRole(role);
-      
+
       // Update apiProjectData to reflect the change
       setApiProjectData(apiProject);
     } catch (error: any) {
@@ -1031,7 +1031,7 @@ const ProjectManagement: React.FC = () => {
     }
 
     // User can join if they're not a participant and don't have admin access
-        return true;
+    return true;
   };
 
   /**
@@ -1075,28 +1075,28 @@ const ProjectManagement: React.FC = () => {
     }
 
     const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
-    
+
     // For personal users, check role
     if (isPersonalUser) {
       // No tabs if not a member
       if (!userProjectRole) {
         return false;
       }
-      
+
       // No tabs for simple participants
       if (userProjectRole === 'participant' || userProjectRole === 'participant avec droit de badges') {
         return false;
       }
-      
+
       // Show tabs for admins (owner, co-owner, admin)
       if (userProjectRole === 'owner' || userProjectRole === 'co-owner' || userProjectRole === 'admin') {
         return true;
       }
-      
+
       // Default: no tabs
       return false;
     }
-    
+
     // For organizational users (pro/edu), check permissions
     if (!apiProjectData || !state.user) {
       return false;
@@ -1104,7 +1104,7 @@ const ProjectManagement: React.FC = () => {
 
     // Check if user is project owner/co-owner/admin
     if (userProjectRole === 'owner' || userProjectRole === 'co-owner' || userProjectRole === 'admin') {
-    return true;
+      return true;
     }
 
     // Check if user is org admin of project's organization
@@ -1124,13 +1124,13 @@ const ProjectManagement: React.FC = () => {
   const fetchAllProjectMembers = async (overrideApiProject?: any): Promise<any[]> => {
     const projectData = overrideApiProject ?? apiProjectData;
     if (!project?.id || !projectData) return [];
-    
+
     const projectId = parseInt(project.id);
     const allMembers: any[] = [];
-    
+
     // Track user IDs that have already been added to avoid duplicates
     const addedUserIds = new Set<string>();
-    
+
     // Helper function to convert availability object to array of labels
     const availabilityToLabels = (availability: any = {}) => {
       if (!availability || typeof availability !== 'object') return [];
@@ -1177,7 +1177,7 @@ const ProjectManagement: React.FC = () => {
     if (projectData.owner && !projectData.owner.is_deleted) {
       const ownerId = projectData.owner.id.toString();
       addedUserIds.add(ownerId);
-      
+
       const ownerParticipant = {
         id: `owner-${projectData.owner.id}`,
         memberId: ownerId,
@@ -1201,7 +1201,7 @@ const ProjectManagement: React.FC = () => {
         canRemove: canUserRemoveParticipant(ownerParticipant, userProjectRole)
       });
     }
-    
+
     // Add co-owners (skip if soft-deleted - they shouldn't appear in badge assignment list)
     if (projectData.co_owners && Array.isArray(projectData.co_owners)) {
       projectData.co_owners.forEach((coOwner: any) => {
@@ -1211,7 +1211,7 @@ const ProjectManagement: React.FC = () => {
         if (projectData.owner && coOwner.id === projectData.owner.id) return;
         const coOwnerId = coOwner.id.toString();
         addedUserIds.add(coOwnerId);
-        
+
         const coOwnerParticipant = {
           id: `co-owner-${coOwner.id}`,
           memberId: coOwnerId,
@@ -1236,7 +1236,7 @@ const ProjectManagement: React.FC = () => {
         });
       });
     }
-    
+
     // Add project members (confirmed only)
     // Exclude co-owners and owner to avoid duplicates
     try {
@@ -1247,16 +1247,16 @@ const ProjectManagement: React.FC = () => {
         // Exclude owner (already added from projectData.owner; backend may return virtual owner in list_members)
         if (m.project_role === 'owner') return false;
         const userId = m.user?.id?.toString() || m.user_id?.toString();
-        
+
         // Exclude co-owners (already added from projectData.co_owners)
         if (addedUserIds.has(userId)) return false;
-        
+
         // Exclude co-owners by role (safety check in case they weren't in co_owners array)
         if (m.project_role === 'co_owner') return false;
-        
+
         return true;
       });
-      
+
       confirmedMembers.forEach((member: any) => {
         // Skip soft-deleted users - they shouldn't appear in badge assignment list
         if (member.user?.is_deleted) return;
@@ -1287,7 +1287,7 @@ const ProjectManagement: React.FC = () => {
     } catch (error) {
       console.error('Error fetching project members:', error);
     }
-    
+
     // Sort by role: owner -> co-owners -> admins -> members
     const roleOrder: { [key: string]: number } = {
       'owner': 1,
@@ -1295,7 +1295,7 @@ const ProjectManagement: React.FC = () => {
       'admin': 3,
       'member': 4
     };
-    
+
     return allMembers.sort((a, b) => {
       const orderA = roleOrder[a.role] || 99;
       const orderB = roleOrder[b.role] || 99;
@@ -1357,13 +1357,13 @@ const ProjectManagement: React.FC = () => {
         return [];
       }
     }
-    
+
     const isEdu = state.showingPageType === 'edu';
     const organizationType = isEdu ? 'school' : 'company';
-    
+
     // Get organization ID from project or user context
     let organizationId: number | null = null;
-    
+
     if (isEdu) {
       // For schools, get from project's school_levels or user context
       if (apiProjectData.school_levels && apiProjectData.school_levels.length > 0) {
@@ -1379,18 +1379,18 @@ const ProjectManagement: React.FC = () => {
         organizationId = getSelectedOrganizationId(state.user, state.showingPageType) || null;
       }
     }
-    
+
     if (!organizationId) return [];
-    
+
     const allMembers: any[] = [];
-    
+
     try {
       // Get main organization members (handle pagination)
       let page = 1;
       let hasMore = true;
       while (hasMore) {
         const response = await apiClient.get(
-          organizationType === 'school' 
+          organizationType === 'school'
             ? `/api/v1/schools/${organizationId}/members`
             : `/api/v1/companies/${organizationId}/members`,
           {
@@ -1401,7 +1401,7 @@ const ProjectManagement: React.FC = () => {
             }
           }
         );
-        
+
         const members = response.data?.data || [];
         if (members.length === 0) {
           hasMore = false;
@@ -1417,7 +1417,7 @@ const ProjectManagement: React.FC = () => {
             availability: member.availability || [],
             organization: member.organization_name || ''
           })));
-          
+
           // Check if there are more pages
           const totalPages = response.data?.meta?.total_pages || 1;
           if (page >= totalPages) {
@@ -1427,14 +1427,14 @@ const ProjectManagement: React.FC = () => {
           }
         }
       }
-      
+
       // If company and main company, get branch members
       if (!isEdu) {
         try {
           const branchesResponse = await apiClient.get(`/api/v1/companies/${organizationId}/branches`);
           const branches = branchesResponse.data?.data || [];
           const shareMembers = branchesResponse.data?.meta?.share_members_with_branches || false;
-          
+
           if (shareMembers && branches.length > 0) {
             for (const branch of branches) {
               try {
@@ -1452,7 +1452,7 @@ const ProjectManagement: React.FC = () => {
                       }
                     }
                   );
-                  
+
                   const branchMembers = branchResponse.data?.data || [];
                   if (branchMembers.length === 0) {
                     branchHasMore = false;
@@ -1468,7 +1468,7 @@ const ProjectManagement: React.FC = () => {
                       availability: member.availability || [],
                       organization: branch.name || ''
                     })));
-                    
+
                     // Check if there are more pages
                     const branchTotalPages = branchResponse.data?.meta?.total_pages || 1;
                     if (branchPage >= branchTotalPages) {
@@ -1493,14 +1493,14 @@ const ProjectManagement: React.FC = () => {
       console.error('Error fetching organization members:', error);
       return [];
     }
-    
+
     // Remove duplicates and exclude existing participants
     const existingMemberIds = participants.map(p => p.memberId);
-    const uniqueMembers = allMembers.filter((member, index, self) => 
+    const uniqueMembers = allMembers.filter((member, index, self) =>
       index === self.findIndex(m => m.memberId === member.memberId) &&
       !existingMemberIds.includes(member.memberId)
     );
-    
+
     return uniqueMembers;
   };
 
@@ -1940,7 +1940,21 @@ const ProjectManagement: React.FC = () => {
 
       if (organizationType && organizationId && (organizationType === 'school' || organizationType === 'company')) {
         const partnershipsResponse = await getPartnerships(organizationId, organizationType);
-        setEditAvailablePartnerships(partnershipsResponse.data || []);
+        let partnerships = partnershipsResponse.data || [];
+
+        // Pour les projets MLDS, ne garder que les partenariats dont les organisations
+        // sont des établissements (type School) et sans organisation de type Company
+        if (isMLDSProject) {
+          partnerships = partnerships.filter((partnership: any) => {
+            const partners = partnership.partners || [];
+            if (!Array.isArray(partners) || partners.length === 0) return false;
+            const hasSchool = partners.some((p: any) => p?.type?.toLowerCase() === 'school');
+            const hasCompany = partners.some((p: any) => p?.type?.toLowerCase() === 'company');
+            return hasSchool && !hasCompany;
+          });
+        }
+
+        setEditAvailablePartnerships(partnerships);
       }
     } catch (err) {
       console.error('Error fetching partnerships:', err);
@@ -2005,8 +2019,8 @@ const ProjectManagement: React.FC = () => {
     try {
       const effectiveStatus: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived' =
         desiredStatus || editForm.status;
-        console.log("🔍 [handleSaveEditInternal] Effective status:", effectiveStatus);
-        console.log("🔍 [handleSaveEditInternal] Edit form:", editForm);
+      console.log("🔍 [handleSaveEditInternal] Effective status:", effectiveStatus);
+      console.log("🔍 [handleSaveEditInternal] Edit form:", editForm);
 
       // Validate network issue addressed for MLDS projects when status is to_process, in_progress, coming, or pending_validation
       if (isMLDSProject && (effectiveStatus === 'to_process' || effectiveStatus === 'in_progress' || effectiveStatus === 'coming' || effectiveStatus === 'pending_validation')) {
@@ -2071,7 +2085,7 @@ const ProjectManagement: React.FC = () => {
           (payload.project as any).school_level_ids = [];
         }
       }
-      
+
       // Convert image preview to File if different from current image
       let mainImageFile: File | null = null;
       if (editImagePreview && editImagePreview !== project.image) {
@@ -2080,7 +2094,7 @@ const ProjectManagement: React.FC = () => {
           mainImageFile = base64ToFile(editImagePreview, 'main-image.jpg');
         }
       }
-      
+
       // Validate image if provided
       if (mainImageFile) {
         const sizeValidation = validateImageSize(mainImageFile);
@@ -2088,32 +2102,32 @@ const ProjectManagement: React.FC = () => {
           alert(sizeValidation.error);
           return;
         }
-        
+
         const formatValidation = validateImageFormat(mainImageFile);
         if (!formatValidation.valid) {
           alert(formatValidation.error);
           return;
         }
       }
-      
+
       // Call backend API
       const projectId = parseInt(project.id);
       if (isNaN(projectId)) {
         alert('ID de projet invalide');
         return;
       }
-      
+
       await updateProject(projectId, payload, mainImageFile, undefined);
-      
+
       // Reload project from API to get updated data
       const response = await getProjectById(projectId);
       const apiProject = response.data;
       const mappedProject = mapApiProjectToFrontendProject(apiProject, state.showingPageType, state.user);
-      
+
       // Update project state
       setProject(mappedProject);
       setSelectedProject(mappedProject);
-      
+
       // Update apiProjectData to reflect changes
       setApiProjectData(apiProject);
 
@@ -2128,7 +2142,7 @@ const ProjectManagement: React.FC = () => {
         }
       }
 
-    setIsEditModalOpen(false);
+      setIsEditModalOpen(false);
       setEditImagePreview('');
       showSuccess('Projet mis à jour avec succès');
     } catch (error: any) {
@@ -2496,26 +2510,26 @@ const ProjectManagement: React.FC = () => {
   const handleAcceptRequest = async (requestId: string) => {
     const request = requests.find(r => r.id === requestId);
     if (!request || !project?.id) return;
-    
+
     try {
       const projectId = parseInt(project.id);
       const userId = parseInt(request.memberId);
-      
+
       if (isNaN(projectId) || isNaN(userId)) {
         showError('Données invalides');
         return;
       }
-      
+
       // Update member status from pending to confirmed
       await updateProjectMember(projectId, userId, {
         status: 'confirmed'
       });
-      
+
       showSuccess('Demande acceptée avec succès');
       console.log("Requests", requests)
       // Remove from requests
       setRequests(requests.filter(r => r.id !== requestId));
-      
+
       // Reload project stats to update participant count
       if (project.id) {
         const stats = await getProjectStats(parseInt(project.id));
@@ -2531,23 +2545,23 @@ const ProjectManagement: React.FC = () => {
   const handleRejectRequest = async (requestId: string) => {
     const request = requests.find(r => r.id === requestId);
     if (!request || !project?.id) return;
-    
+
     try {
       const projectId = parseInt(project.id);
       const userId = parseInt(request.memberId);
-      
+
       if (isNaN(projectId) || isNaN(userId)) {
         showError('Données invalides');
         return;
       }
-      
+
       // Remove member (reject request)
       await removeProjectMember(projectId, userId);
-      
+
       showSuccess('Demande rejetée');
-      
+
       // Remove from requests
-    setRequests(requests.filter(r => r.id !== requestId));
+      setRequests(requests.filter(r => r.id !== requestId));
     } catch (error: any) {
       console.error('Error rejecting request:', error);
       const errorMessage = error.response?.data?.message || 'Erreur lors du rejet de la demande';
@@ -2565,7 +2579,7 @@ const ProjectManagement: React.FC = () => {
 
     const participant = participants.find(p => p.id === participantId);
     if (!participant || !project?.id) return;
-    
+
     // Check if can be removed
     if (!participant.canRemove) {
       // Provide specific error message based on participant role
@@ -2580,39 +2594,39 @@ const ProjectManagement: React.FC = () => {
       }
       return;
     }
-    
+
     // Confirm action
     if (!window.confirm(`Êtes-vous sûr de vouloir retirer ${participant.name} du projet ?`)) {
       return;
     }
-    
+
     try {
       const projectId = parseInt(project.id);
       const userId = parseInt(participant.memberId);
-      
+
       if (isNaN(projectId) || isNaN(userId)) {
         showError('Données invalides');
         return;
       }
-      
+
       await removeProjectMember(projectId, userId);
-      
+
       showSuccess(`${participant.name} a été retiré du projet`);
-      
+
       // Reload participants
       // Reset refs to allow reload
       lastLoadedProjectIdRef.current = null;
       previousIdsRef.current = { projectId: null, apiProjectId: null };
       const members = await fetchAllProjectMembers();
       setParticipants(members);
-      
+
       // Reload project stats
       const stats = await getProjectStats(projectId);
       setProjectStats(stats);
     } catch (error: any) {
       console.error('Error removing participant:', error);
       const errorMessage = error.response?.data?.message || 'Erreur lors du retrait du participant';
-      
+
       // Specific error messages based on backend response
       if (error.response?.status === 403) {
         // Map backend error messages to French
@@ -2831,7 +2845,7 @@ const ProjectManagement: React.FC = () => {
 
   const handleBadgeAssignment = async (badgeData: any) => {
     console.log('Badge assigned:', badgeData);
-    
+
     // Refresh project stats to update badge count
     if (project?.id) {
       try {
@@ -2844,10 +2858,10 @@ const ProjectManagement: React.FC = () => {
         console.error('Error refreshing project stats:', error);
       }
     }
-    
+
     // Refresh badge attributions list from backend (stay on current page)
     fetchProjectBadgesData(badgePage);
-    
+
     // Badge assignment is handled by the modal's success message
     // Close modal after success message is shown
     setTimeout(() => {
@@ -2898,12 +2912,12 @@ const ProjectManagement: React.FC = () => {
   // Fetch project teams
   const fetchProjectTeams = async () => {
     if (!project?.id) return;
-    
+
     setIsLoadingTeams(true);
     try {
       const projectId = parseInt(project.id);
       const apiTeams = await getProjectTeams(projectId);
-      
+
       // apiTeams is already an array (Team[])
       const mappedTeams = apiTeams.map((team: any, index: number) => {
         const mapped = mapApiTeamToFrontendTeam(team);
@@ -2914,9 +2928,9 @@ const ProjectManagement: React.FC = () => {
     } catch (error: any) {
       console.error('Error fetching teams:', error);
       console.error('Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error ||
-                          'Erreur lors du chargement des équipes';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.error ||
+        'Erreur lors du chargement des équipes';
       showError(errorMessage);
     } finally {
       setIsLoadingTeams(false);
@@ -2931,31 +2945,31 @@ const ProjectManagement: React.FC = () => {
       showError('Impossible de supprimer une équipe d\'un projet terminé');
       return;
     }
-    
+
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) {
       return;
     }
-    
+
     try {
       const projectId = parseInt(project.id);
       const id = parseInt(teamId);
       await deleteProjectTeam(projectId, id);
       showSuccess('Équipe supprimée avec succès');
-      
+
       // Reload teams
       await fetchProjectTeams();
     } catch (error: any) {
       console.error('Error deleting team:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error ||
-                          'Erreur lors de la suppression de l\'équipe';
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.error ||
+        'Erreur lors de la suppression de l\'équipe';
       showError(errorMessage);
     }
   };
 
   const handleSaveTeam = async () => {
     if (!project?.id) return;
-    
+
     if (!newTeamForm.name.trim()) {
       showError('Veuillez saisir un nom d\'équipe');
       return;
@@ -2982,36 +2996,36 @@ const ProjectManagement: React.FC = () => {
       chiefId: newTeamForm.chiefId,
       members: newTeamForm.selectedMembers
     };
-    
+
     try {
       const projectId = parseInt(project.id);
       const backendPayload = mapFrontendTeamToBackend(teamData);
-      
+
       console.log('Team data before mapping:', teamData);
       console.log('Backend payload:', backendPayload);
 
-    if (selectedTeam) {
+      if (selectedTeam) {
         // Update existing team
         const teamId = parseInt(selectedTeam.id);
         await updateProjectTeam(projectId, teamId, backendPayload);
         showSuccess('Équipe modifiée avec succès');
-    } else {
-      // Create new team
+      } else {
+        // Create new team
         await createProjectTeam(projectId, backendPayload);
         showSuccess('Équipe créée avec succès');
       }
-      
+
       // Reload teams
       await fetchProjectTeams();
-      
+
       // Reset form
       handleCancelTeamForm();
     } catch (error: any) {
       console.error('Error saving team:', error);
-      const errorMessage = error.response?.data?.details?.join(', ') || 
-                          error.response?.data?.error ||
-                          error.response?.data?.message ||
-                          'Erreur lors de la sauvegarde de l\'équipe';
+      const errorMessage = error.response?.data?.details?.join(', ') ||
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        'Erreur lors de la sauvegarde de l\'équipe';
       showError(errorMessage);
     }
   };
@@ -3031,48 +3045,48 @@ const ProjectManagement: React.FC = () => {
 
   const getParticipantById = (participantId: string) => {
     if (!participantId) return null;
-    
+
     // Try to find by id (formatted like "owner-188")
     let participant = participants.find(p => p.id === participantId);
-    
+
     // If not found, try to find by memberId (numeric ID like "188")
     if (!participant) {
       participant = participants.find(p => p.memberId === participantId);
     }
-    
+
     // If still not found, try to extract numeric ID and match
     if (!participant) {
       const numericId = participantId.match(/(\d+)$/)?.[1];
       if (numericId) {
-        participant = participants.find(p => 
-          p.memberId === numericId || 
+        participant = participants.find(p =>
+          p.memberId === numericId ||
           p.id === numericId ||
           p.id?.endsWith(`-${numericId}`)
         );
       }
     }
-    
+
     return participant || null;
   };
 
   // const getAvailableParticipants = (excludeTeamId?: string) => {
   //   if (!excludeTeamId) return participants;
-    
+
   //   const team = teams.find(t => t.id === excludeTeamId);
   //   if (!team) return participants;
-    
+
   //   return participants.filter(p => !team.members.includes(p.id));
   // };
 
   const getFilteredParticipants = () => {
-    const available = participants.filter(participant => 
+    const available = participants.filter(participant =>
       !newTeamForm.selectedMembers.includes(participant.id)
     );
-    
+
     if (!memberSearchTerm.trim()) {
       return available;
     }
-    
+
     const searchLower = memberSearchTerm.toLowerCase();
     return available.filter(participant => {
       const p = participant as any;
@@ -3122,7 +3136,7 @@ const ProjectManagement: React.FC = () => {
       return;
     }
 
-    const assigneeName = newTaskForm.assigneeType === 'team' 
+    const assigneeName = newTaskForm.assigneeType === 'team'
       ? teams.find(t => t.id === newTaskForm.assigneeId)?.name || ''
       : participants.find(p => p.id === newTaskForm.assigneeId)?.name || '';
 
@@ -3211,7 +3225,7 @@ const ProjectManagement: React.FC = () => {
     try {
       const members = await fetchAvailableMembers();
       setAvailableMembers(members);
-    setIsAddParticipantModalOpen(true);
+      setIsAddParticipantModalOpen(true);
     } catch (error) {
       console.error('Error loading available members:', error);
       showError('Erreur lors du chargement des membres disponibles');
@@ -3232,40 +3246,40 @@ const ProjectManagement: React.FC = () => {
     organization: string;
   }) => {
     if (!project?.id) return;
-    
+
     try {
       const projectId = parseInt(project.id);
       const userId = parseInt(participantData.memberId);
-      
+
       console.log('Adding participant:', { projectId, userId, participantData });
-      
+
       if (isNaN(projectId) || isNaN(userId) || !participantData.memberId) {
         console.error('Invalid data:', { projectId, userId, memberId: participantData.memberId });
         showError('Données invalides');
         return;
       }
-      
+
       // Add member via API
       await addProjectMember(projectId, userId);
-      
+
       showSuccess(`${participantData.name} a été ajouté au projet`);
-      
+
       // Reload participants
       // Reset refs to allow reload
       lastLoadedProjectIdRef.current = null;
       previousIdsRef.current = { projectId: null, apiProjectId: null };
       const members = await fetchAllProjectMembers();
       setParticipants(members);
-      
+
       // Reload project stats
       const stats = await getProjectStats(projectId);
       setProjectStats(stats);
-      
-    setIsAddParticipantModalOpen(false);
+
+      setIsAddParticipantModalOpen(false);
     } catch (error: any) {
       console.error('Error adding participant:', error);
       const errorMessage = error.response?.data?.message || 'Erreur lors de l\'ajout du participant';
-      
+
       // Specific error messages
       if (error.response?.status === 403) {
         if (errorMessage.includes('cannot be added')) {
@@ -3290,16 +3304,16 @@ const ProjectManagement: React.FC = () => {
     if (participant.role === 'owner' || participant.role === 'co-owner') {
       return participant.role; // For display, but selector disabled
     }
-    
+
     if (participant.role === 'admin') {
       return 'admin';
     }
-    
+
     // Member with badge permission
     if (participant.role === 'member' && participant.canAssignBadges) {
       return 'member-with-badges';
     }
-    
+
     // Regular member
     return 'member';
   };
@@ -3334,24 +3348,24 @@ const ProjectManagement: React.FC = () => {
    */
   const canCreateAdmins = (): boolean => {
     if (!apiProjectData || !state.user?.id) return false;
-    
+
     const userIdStr = state.user.id.toString();
-    
+
     // Check if user is owner
     if (apiProjectData.owner?.id?.toString() === userIdStr) {
       return true;
     }
-    
+
     // Check if user is co-owner
     if (apiProjectData.co_owners && Array.isArray(apiProjectData.co_owners)) {
-      const isCoOwner = apiProjectData.co_owners.some((co: any) => 
+      const isCoOwner = apiProjectData.co_owners.some((co: any) =>
         co.id?.toString() === userIdStr
       );
       if (isCoOwner) {
         return true;
       }
     }
-    
+
     return false;
   };
 
@@ -3360,22 +3374,22 @@ const ProjectManagement: React.FC = () => {
    */
   const canUserRemoveParticipant = (participant: any, currentUserRole: string | null): boolean => {
     if (!currentUserRole) return false;
-    
+
     // Owner can remove everyone except themselves
     if (currentUserRole === 'owner') {
       return participant.role !== 'owner';
     }
-    
+
     // Co-owner can remove members and admins, but not co-owners or owner
     if (currentUserRole === 'co-owner') {
       return participant.role === 'member' || participant.role === 'admin';
     }
-    
+
     // Admin can only remove regular members
     if (currentUserRole === 'admin') {
       return participant.role === 'member';
     }
-    
+
     return false;
   };
 
@@ -3391,11 +3405,11 @@ const ProjectManagement: React.FC = () => {
    */
   const handleRoleChange = async (participant: any, newRoleValue: string) => {
     if (!project?.id || !canChangeRole(participant)) return;
-    
+
     // Parse new role value
     let role: 'member' | 'admin' = 'member';
     let canAssignBadges = false;
-    
+
     if (newRoleValue === 'admin') {
       // Check if current user can create admins
       if (!canCreateAdmins()) {
@@ -3416,34 +3430,34 @@ const ProjectManagement: React.FC = () => {
       role = 'member';
       canAssignBadges = false;
     }
-    
+
     try {
       const projectId = parseInt(project.id);
       const userId = parseInt(participant.memberId);
-      
+
       if (isNaN(projectId) || isNaN(userId)) {
         showError('Données invalides');
         return;
       }
-      
+
       await updateProjectMember(projectId, userId, {
         role: role,
         can_assign_badges_in_project: canAssignBadges
       });
-      
+
       showSuccess(`Rôle de ${participant.name} mis à jour avec succès`);
-      
+
       // Reload participants to reflect changes (more reliable than local update)
       const members = await fetchAllProjectMembers();
       setParticipants(members);
-      
+
       // Reload project stats
       const stats = await getProjectStats(projectId);
       setProjectStats(stats);
     } catch (error: any) {
       console.error('Error updating role:', error);
       const errorMessage = error.response?.data?.message || 'Erreur lors de la mise à jour du rôle';
-      
+
       // Specific error messages
       if (error.response?.status === 403) {
         if (errorMessage.includes('Only project owner or co-owner can create admins')) {
@@ -3471,7 +3485,7 @@ const ProjectManagement: React.FC = () => {
 
   // Photo navigation functions
   const allPhotos = project.image ? [project.image, ...(project.additionalPhotos || [])] : (project.additionalPhotos || []);
-  
+
   const nextPhoto = () => {
     setCurrentPhotoIndex((prev) => (prev + 1) % allPhotos.length);
   };
@@ -3563,7 +3577,7 @@ const ProjectManagement: React.FC = () => {
         y = 25;
         return true;
       }
-          return false;
+      return false;
     };
 
     const addFooters = () => {
@@ -4335,8 +4349,8 @@ const ProjectManagement: React.FC = () => {
       {/* Header with Return Button */}
       <div className="project-management-header">
         <div className="header-left">
-          <button 
-            className="return-btn" 
+          <button
+            className="return-btn"
             onClick={handleReturnToProjects}
             title="Retour aux projets"
           >
@@ -4430,7 +4444,7 @@ const ProjectManagement: React.FC = () => {
               )}
             </div>
           </div>
-          
+
           {/* Right Column: Project Details */}
           <div className="project-details-column">
             {/* Top Part: Title, Status, Actions */}
@@ -4443,65 +4457,65 @@ const ProjectManagement: React.FC = () => {
                   </span>
                 </div>
                 {/* Boutons de validation pour projets MLDS - Admin/Superadmin d'école */}
-                {isMLDSProject && 
-                 state.showingPageType === 'edu' && 
-                 apiProjectData && 
-                 (isUserAdminOfProjectOrg(apiProjectData, state.user) || isUserSuperadminOfProjectOrg(apiProjectData, state.user)) &&
-                 project.status === 'to_process' && (
-                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={handlePassToValidation}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                    >
-                      <i className="fas fa-check-circle"></i>
-                      Passer en validation
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={handleRefuseProject}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                    >
-                      <i className="fas fa-times-circle"></i>
-                      Refuser
-                    </button>
-                  </div>
-                )}
+                {isMLDSProject &&
+                  state.showingPageType === 'edu' &&
+                  apiProjectData &&
+                  (isUserAdminOfProjectOrg(apiProjectData, state.user) || isUserSuperadminOfProjectOrg(apiProjectData, state.user)) &&
+                  project.status === 'to_process' && (
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handlePassToValidation}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                      >
+                        <i className="fas fa-check-circle"></i>
+                        Passer en validation
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={handleRefuseProject}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                      >
+                        <i className="fas fa-times-circle"></i>
+                        Refuser
+                      </button>
+                    </div>
+                  )}
                 {/* Bouton de validation finale - Superadmin uniquement */}
-                {isMLDSProject && 
-                 state.showingPageType === 'edu' &&
-                 apiProjectData && 
-                 isUserSuperadmin(state.user) &&
-                 project.status === 'pending_validation' && (
-                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={handleValidateProject}
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                    >
-                      <i className="fas fa-check-double"></i>
-                      Valider le projet
-                    </button>
-                  </div>
-                )}
+                {isMLDSProject &&
+                  state.showingPageType === 'edu' &&
+                  apiProjectData &&
+                  isUserSuperadmin(state.user) &&
+                  project.status === 'pending_validation' && (
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handleValidateProject}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                      >
+                        <i className="fas fa-check-double"></i>
+                        Valider le projet
+                      </button>
+                    </div>
+                  )}
               </div>
               <div className="project-actions-header">
                 {/* Join button or role pill - show for all users when appropriate */}
                 {canUserJoinProject() ? (
                   <div className="project-join-section" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <button 
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={handleJoinProject}
-                        disabled={isJoiningProject}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                      >
-                        <i className="fas fa-plus"></i>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={handleJoinProject}
+                      disabled={isJoiningProject}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <i className="fas fa-plus"></i>
                       {isJoiningProject ? 'Envoi...' : 'Rejoindre'}
-                      </button>
+                    </button>
                   </div>
                 ) : userProjectRole ? (
                   <span className="role-badge" style={{
@@ -4518,9 +4532,9 @@ const ProjectManagement: React.FC = () => {
                 ) : null}
                 {/* Edit button for owner only (hidden for superadmin in read-only view) */}
                 {apiProjectData && userProjectRole === 'owner' && !isProjectEnded && !isReadOnlyMode && (
-                <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
-                  <i className="fas fa-edit"></i>
-                </button>
+                  <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
+                    <i className="fas fa-edit"></i>
+                  </button>
                 )}
               </div>
             </div>
@@ -4531,7 +4545,7 @@ const ProjectManagement: React.FC = () => {
                 <p>{project.description}</p>
               </div>
               {project.description.length > 150 && (
-                <button 
+                <button
                   className="description-toggle-btn"
                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
                 >
@@ -4573,14 +4587,14 @@ const ProjectManagement: React.FC = () => {
                     : (project.pathway ? [project.pathway] : []);
                   if (pathwayList.length === 0) return null;
                   return (
-                <div className="pathway-section">
-                  <div className="section-label">Parcours</div>
-                  <div className="pathway-container">
+                    <div className="pathway-section">
+                      <div className="section-label">Parcours</div>
+                      <div className="pathway-container">
                         {pathwayList.map((p: string, index: number) => (
                           <span key={`${p}-${index}`} className={`pathway-pill pathway-${pathwaySlug(p)}`}>{p}</span>
                         ))}
-                  </div>
-                </div>
+                      </div>
+                    </div>
                   );
                 })()}
                 <div className="tags-section">
@@ -4713,7 +4727,19 @@ const ProjectManagement: React.FC = () => {
               {((project.partners && project.partners.length > 0) || project.partner) && (
                 <div className="project-partner-section">
                   <div className="project-manager-header">
-                    <h4>Partenaire{((project.partners?.length ?? 0) > 1 ? 's' : '')}</h4>
+                    <div className="flex gap-2 items-center">
+                      <h4>Partenaire{((project.partners?.length ?? 0) > 1 ? 's' : '')}</h4>
+                      <span className="info-tooltip-wrapper">
+                        <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                        <div className="info-tooltip">
+                          <div style={{ fontWeight: '600', marginBottom: '8px' }}>En ajoutant un partenaire présent sur Kinship :</div>
+                          <ul>
+                            <li>Son Admin ou Superadmin pourra être désigné co-responsable du projet. </li>
+                            <li>Il pourra co-rédiger, co-gérer et suivre le projet MLDS avec vous.</li>
+                          </ul>
+                        </div>
+                      </span>
+                    </div>
                   </div>
                   <div className="flex flex-col !items-start project-partner-info">
                     {(project.partners && project.partners.length > 0
@@ -4721,18 +4747,18 @@ const ProjectManagement: React.FC = () => {
                       : project.partner ? [project.partner] : []
                     ).map((p) => (
                       <div key={p.id} className="manager-left">
-                      <div className="manager-avatar">
+                        <div className="manager-avatar">
                           <AvatarImage
                             src={p.logo || '/default-avatar.png'}
                             alt={p.name}
                             className="manager-avatar-img"
                           />
-                      </div>
-                      <div className="manager-details">
+                        </div>
+                        <div className="manager-details">
                           {/* <div className="manager-name">{p.name}</div> */}
                           <div className="manager-name">{toDisplayString(p.organization)}</div>
+                        </div>
                       </div>
-                    </div>
                     ))}
                   </div>
                 </div>
@@ -4761,317 +4787,317 @@ const ProjectManagement: React.FC = () => {
               </button>
             </div>
             {badgeHolderSubView === 'badges' && (
-          <div className="tab-content active">
-            <div className="badges-section">
-              <div className="badges-section-header">
-                <h3>Badges que j&apos;ai attribués</h3>
-              </div>
-              <div className="badges-filters">
-                <div className="filter-group">
-                  <label>Par série</label>
-                  <select
-                    value={badgeSeriesFilter}
-                    onChange={(e) => {
-                      setBadgeSeriesFilter(e.target.value);
-                      setBadgeLevelFilter('');
-                      setBadgeDomainFilter('');
-                      setBadgePage(1);
-                    }}
-                  >
-                    <option value="">Toutes les séries</option>
-                    <option value="Série Soft Skills 4LAB">Soft Skills 4LAB</option>
-                    <option value="Série Parcours des possibles">Série Parcours des possibles</option>
-                    <option value="Série Audiovisuelle">Série Audiovisuelle</option>
-                    <option value="Série Parcours professionnel">Série Parcours professionnel</option>
-                  </select>
-                </div>
-                {(badgeSeriesFilter === 'Série Soft Skills 4LAB' ||
-                  badgeSeriesFilter === 'Série Parcours des possibles' ||
-                  badgeSeriesFilter === 'Série Audiovisuelle' ||
-                  badgeSeriesFilter === 'Série Parcours professionnel') && (
-                  <div className="filter-group">
-                    <label>Par niveau</label>
-                    <select
-                      value={badgeLevelFilter}
-                      onChange={(e) => {
-                        setBadgeLevelFilter(e.target.value);
-                        setBadgePage(1);
-                      }}
-                    >
-                      <option value="">Tous les niveaux</option>
-                      <option value="1">Niveau 1</option>
-                      <option value="2">Niveau 2</option>
-                      <option value="3">Niveau 3</option>
-                      <option value="4">Niveau 4</option>
-                    </select>
+              <div className="tab-content active">
+                <div className="badges-section">
+                  <div className="badges-section-header">
+                    <h3>Badges que j&apos;ai attribués</h3>
                   </div>
-                )}
-                <div className="filter-group">
-                  <label>Attribué à</label>
-                  <input
-                    type="text"
-                    className="filter-select"
-                    placeholder="Rechercher par nom…"
-                    value={badgeReceiverFilter}
-                    onChange={(e) => {
-                      setBadgeReceiverFilter(e.target.value);
-                      setBadgePage(1);
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="view-toggle badges-view-toggle">
-                <button
-                  type="button"
-                  className={`view-btn ${badgeViewMode === 'cards' ? 'active' : ''}`}
-                  onClick={() => setBadgeViewMode('cards')}
-                >
-                  <i className="fas fa-th-large"></i> Cartes
-                </button>
-                <button
-                  type="button"
-                  className={`view-btn ${badgeViewMode === 'list' ? 'active' : ''}`}
-                  onClick={() => setBadgeViewMode('list')}
-                >
-                  <i className="fas fa-list"></i> Liste
-                </button>
-              </div>
-              <div className="badges-list">
-                {badgeViewMode === 'cards' && projectBadges.map((attribution) => (
-                  <div key={attribution.id} className="badge-attribution-card">
-                    <div className="badge-attribution-header">
-                      <div className="badge-image">
-                        <img src={attribution.badgeImage} alt={attribution.badgeTitle} />
-                        {attribution.badgeSeries !== 'Série CPS' && (
-                          <span className={`badge-level-pill level-${attribution.badgeLevel || '1'}`}>
-                            Niveau {attribution.badgeLevel || '1'}
-                          </span>
-                        )}
-                        {attribution.badgeSeries === 'Série CPS' && (
-                          <span className="badge-domain-pill">
-                            Domaine - {attribution.domaineEngagement || 'Cognitives'}
-                          </span>
-                        )}
-                        <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
-                          {attribution.badgeSeries || 'Série TouKouLeur'}
-                        </span>
-                      </div>
-                      <div className="badge-info">
-                        <h4 className="badge-title">{attribution.badgeTitle}</h4>
-                        {attribution.badgeSeries !== 'Série CPS' && (
-                          <p className="badge-domain">Domaine: {attribution.domaineEngagement}</p>
-                        )}
-                      </div>
+                  <div className="badges-filters">
+                    <div className="filter-group">
+                      <label>Par série</label>
+                      <select
+                        value={badgeSeriesFilter}
+                        onChange={(e) => {
+                          setBadgeSeriesFilter(e.target.value);
+                          setBadgeLevelFilter('');
+                          setBadgeDomainFilter('');
+                          setBadgePage(1);
+                        }}
+                      >
+                        <option value="">Toutes les séries</option>
+                        <option value="Série Soft Skills 4LAB">Soft Skills 4LAB</option>
+                        <option value="Série Parcours des possibles">Série Parcours des possibles</option>
+                        <option value="Série Audiovisuelle">Série Audiovisuelle</option>
+                        <option value="Série Parcours professionnel">Série Parcours professionnel</option>
+                      </select>
                     </div>
-                    <div className="badge-attribution-details">
-                      <div className="attribution-info">
-                        <div className="attributed-to">
-                          <h5>Attribué à:</h5>
-                          <div className="person-info">
-                            <div className="person-info-header">
-                              <AvatarImage src={attribution.participantAvatar || DEFAULT_AVATAR_SRC} alt={attribution.participantName} />
-                              {attribution.participantIsDeleted ? (
-                                <DeletedUserDisplay
-                                  user={{ full_name: attribution.participantName, is_deleted: true }}
-                                  showEmail={false}
-                                  className="person-name"
-                                />
-                              ) : (
-                                <span className="person-name">{attribution.participantName}</span>
-                              )}
-                            </div>
-                          </div>
+                    {(badgeSeriesFilter === 'Série Soft Skills 4LAB' ||
+                      badgeSeriesFilter === 'Série Parcours des possibles' ||
+                      badgeSeriesFilter === 'Série Audiovisuelle' ||
+                      badgeSeriesFilter === 'Série Parcours professionnel') && (
+                        <div className="filter-group">
+                          <label>Par niveau</label>
+                          <select
+                            value={badgeLevelFilter}
+                            onChange={(e) => {
+                              setBadgeLevelFilter(e.target.value);
+                              setBadgePage(1);
+                            }}
+                          >
+                            <option value="">Tous les niveaux</option>
+                            <option value="1">Niveau 1</option>
+                            <option value="2">Niveau 2</option>
+                            <option value="3">Niveau 3</option>
+                            <option value="4">Niveau 4</option>
+                          </select>
                         </div>
-                        <div className="attributed-by">
-                          <h5>Attribué par:</h5>
-                          <div className="person-info">
-                            <div className="person-info-header">
-                              <AvatarImage src={attribution.attributedByAvatar || DEFAULT_AVATAR_SRC} alt={attribution.attributedByName} />
-                              {attribution.attributedByIsDeleted ? (
-                                <DeletedUserDisplay
-                                  user={{ full_name: attribution.attributedByName, is_deleted: true }}
-                                  showEmail={false}
-                                  className="person-name"
-                                />
-                              ) : (
-                                <span className="person-name">{attribution.attributedByName}</span>
-                              )}
-                            </div>
-                            {(attribution.attributedByJob || attribution.attributedByRole) && (
-                              <span className="person-email" style={{ display: 'block', marginTop: '2px' }}>
-                                {[attribution.attributedByJob, attribution.attributedByRole ? translateRole(attribution.attributedByRole) : ''].filter(Boolean).join(' · ')}
+                      )}
+                    <div className="filter-group">
+                      <label>Attribué à</label>
+                      <input
+                        type="text"
+                        className="filter-select"
+                        placeholder="Rechercher par nom…"
+                        value={badgeReceiverFilter}
+                        onChange={(e) => {
+                          setBadgeReceiverFilter(e.target.value);
+                          setBadgePage(1);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="view-toggle badges-view-toggle">
+                    <button
+                      type="button"
+                      className={`view-btn ${badgeViewMode === 'cards' ? 'active' : ''}`}
+                      onClick={() => setBadgeViewMode('cards')}
+                    >
+                      <i className="fas fa-th-large"></i> Cartes
+                    </button>
+                    <button
+                      type="button"
+                      className={`view-btn ${badgeViewMode === 'list' ? 'active' : ''}`}
+                      onClick={() => setBadgeViewMode('list')}
+                    >
+                      <i className="fas fa-list"></i> Liste
+                    </button>
+                  </div>
+                  <div className="badges-list">
+                    {badgeViewMode === 'cards' && projectBadges.map((attribution) => (
+                      <div key={attribution.id} className="badge-attribution-card">
+                        <div className="badge-attribution-header">
+                          <div className="badge-image">
+                            <img src={attribution.badgeImage} alt={attribution.badgeTitle} />
+                            {attribution.badgeSeries !== 'Série CPS' && (
+                              <span className={`badge-level-pill level-${attribution.badgeLevel || '1'}`}>
+                                Niveau {attribution.badgeLevel || '1'}
                               </span>
                             )}
-                            {attribution.attributedByOrganization && (
-                              <span className="person-organization">{attribution.attributedByOrganization}</span>
+                            {attribution.badgeSeries === 'Série CPS' && (
+                              <span className="badge-domain-pill">
+                                Domaine - {attribution.domaineEngagement || 'Cognitives'}
+                              </span>
+                            )}
+                            <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
+                              {attribution.badgeSeries || 'Série TouKouLeur'}
+                            </span>
+                          </div>
+                          <div className="badge-info">
+                            <h4 className="badge-title">{attribution.badgeTitle}</h4>
+                            {attribution.badgeSeries !== 'Série CPS' && (
+                              <p className="badge-domain">Domaine: {attribution.domaineEngagement}</p>
                             )}
                           </div>
                         </div>
-                      </div>
-                      {attribution.commentaire && (
-                        <div className={`badge-comment ${collapsedComments.has(attribution.id) ? 'collapsed' : ''}`}>
-                          <h5 onClick={() => toggleComment(attribution.id)}>
-                            Commentaire:
-                            <span className={`comment-toggle ${collapsedComments.has(attribution.id) ? '' : 'expanded'}`}>
-                              <i className="fas fa-chevron-down"></i>
-                            </span>
-                          </h5>
-                          <p>{attribution.commentaire}</p>
-                        </div>
-                      )}
-                      {(attribution.preuveFiles?.length || attribution.preuve) && (
-                        <div className={`badge-preuve ${collapsedComments.has(`${attribution.id}-preuve`) ? 'collapsed' : ''}`}>
-                          <h5 onClick={() => toggleComment(`${attribution.id}-preuve`)}>
-                            Preuve:
-                            <span className={`comment-toggle ${collapsedComments.has(`${attribution.id}-preuve`) ? '' : 'expanded'}`}>
-                              <i className="fas fa-chevron-down"></i>
-                            </span>
-                          </h5>
-                          <div className="file-info">
-                            <i className="fas fa-file"></i>
-                            <div className="file-list">
-                              {(attribution.preuveFiles && attribution.preuveFiles.length > 0 ? attribution.preuveFiles : [attribution.preuve])
-                                .filter(Boolean)
-                                .map((file: BadgeFile | undefined, index: number) => (
-                                  <div key={index} className="file-item">
-                                    {file?.url ? (
-                                      <a href={file.url} target="_blank" rel="noopener noreferrer" className="file-link">
-                                        {file.name || 'Document'}
-                                      </a>
-                                    ) : (
-                                      <span>{file?.name || 'Document'}</span>
-                                    )}
-                                    {file?.size && <small> ({file.size})</small>}
-                                  </div>
-                                ))}
+                        <div className="badge-attribution-details">
+                          <div className="attribution-info">
+                            <div className="attributed-to">
+                              <h5>Attribué à:</h5>
+                              <div className="person-info">
+                                <div className="person-info-header">
+                                  <AvatarImage src={attribution.participantAvatar || DEFAULT_AVATAR_SRC} alt={attribution.participantName} />
+                                  {attribution.participantIsDeleted ? (
+                                    <DeletedUserDisplay
+                                      user={{ full_name: attribution.participantName, is_deleted: true }}
+                                      showEmail={false}
+                                      className="person-name"
+                                    />
+                                  ) : (
+                                    <span className="person-name">{attribution.participantName}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="attributed-by">
+                              <h5>Attribué par:</h5>
+                              <div className="person-info">
+                                <div className="person-info-header">
+                                  <AvatarImage src={attribution.attributedByAvatar || DEFAULT_AVATAR_SRC} alt={attribution.attributedByName} />
+                                  {attribution.attributedByIsDeleted ? (
+                                    <DeletedUserDisplay
+                                      user={{ full_name: attribution.attributedByName, is_deleted: true }}
+                                      showEmail={false}
+                                      className="person-name"
+                                    />
+                                  ) : (
+                                    <span className="person-name">{attribution.attributedByName}</span>
+                                  )}
+                                </div>
+                                {(attribution.attributedByJob || attribution.attributedByRole) && (
+                                  <span className="person-email" style={{ display: 'block', marginTop: '2px' }}>
+                                    {[attribution.attributedByJob, attribution.attributedByRole ? translateRole(attribution.attributedByRole) : ''].filter(Boolean).join(' · ')}
+                                  </span>
+                                )}
+                                {attribution.attributedByOrganization && (
+                                  <span className="person-organization">{attribution.attributedByOrganization}</span>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          {attribution.commentaire && (
+                            <div className={`badge-comment ${collapsedComments.has(attribution.id) ? 'collapsed' : ''}`}>
+                              <h5 onClick={() => toggleComment(attribution.id)}>
+                                Commentaire:
+                                <span className={`comment-toggle ${collapsedComments.has(attribution.id) ? '' : 'expanded'}`}>
+                                  <i className="fas fa-chevron-down"></i>
+                                </span>
+                              </h5>
+                              <p>{attribution.commentaire}</p>
+                            </div>
+                          )}
+                          {(attribution.preuveFiles?.length || attribution.preuve) && (
+                            <div className={`badge-preuve ${collapsedComments.has(`${attribution.id}-preuve`) ? 'collapsed' : ''}`}>
+                              <h5 onClick={() => toggleComment(`${attribution.id}-preuve`)}>
+                                Preuve:
+                                <span className={`comment-toggle ${collapsedComments.has(`${attribution.id}-preuve`) ? '' : 'expanded'}`}>
+                                  <i className="fas fa-chevron-down"></i>
+                                </span>
+                              </h5>
+                              <div className="file-info">
+                                <i className="fas fa-file"></i>
+                                <div className="file-list">
+                                  {(attribution.preuveFiles && attribution.preuveFiles.length > 0 ? attribution.preuveFiles : [attribution.preuve])
+                                    .filter(Boolean)
+                                    .map((file: BadgeFile | undefined, index: number) => (
+                                      <div key={index} className="file-item">
+                                        {file?.url ? (
+                                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="file-link">
+                                            {file.name || 'Document'}
+                                          </a>
+                                        ) : (
+                                          <span>{file?.name || 'Document'}</span>
+                                        )}
+                                        {file?.size && <small> ({file.size})</small>}
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <div className="badge-date">
+                            <small>Attribué le {formatDate(attribution.dateAttribution)}</small>
+                          </div>
                         </div>
-                      )}
-                      <div className="badge-date">
-                        <small>Attribué le {formatDate(attribution.dateAttribution)}</small>
+                      </div>
+                    ))}
+                    {badgeViewMode === 'list' && projectBadges.length > 0 && (
+                      <div className="badges-table-scroll">
+                        <table className="badges-attribution-table">
+                          <thead>
+                            <tr>
+                              <th>Badge</th>
+                              <th>Titre</th>
+                              <th>Série</th>
+                              <th>Niveau</th>
+                              <th>Attribué à</th>
+                              <th>Attribué par</th>
+                              <th>Preuve</th>
+                              <th>Commentaire</th>
+                              <th>Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {projectBadges.map((attribution) => {
+                              const firstPreuve = attribution.preuveFiles?.length
+                                ? attribution.preuveFiles[0]
+                                : attribution.preuve;
+                              const preuveUrl = firstPreuve?.url;
+                              const preuveLabel = firstPreuve?.name || (attribution.preuveFiles?.length ? `${attribution.preuveFiles.length} document(s)` : 'Document');
+                              return (
+                                <tr key={attribution.id}>
+                                  <td>
+                                    <img src={attribution.badgeImage} alt={attribution.badgeTitle} className="badge-list-icon" />
+                                  </td>
+                                  <td>{attribution.badgeTitle}</td>
+                                  <td>{attribution.badgeSeries || '—'}</td>
+                                  <td>
+                                    {attribution.badgeSeries === 'Série CPS'
+                                      ? (attribution.domaineEngagement || '—')
+                                      : `Niveau ${attribution.badgeLevel || '1'}`}
+                                  </td>
+                                  <td>{attribution.participantName || '—'}</td>
+                                  <td>{attribution.attributedByName || '—'}</td>
+                                  <td>
+                                    {preuveUrl ? (
+                                      <a href={preuveUrl} target="_blank" rel="noopener noreferrer" className="badge-list-preuve-link">
+                                        {preuveLabel}
+                                      </a>
+                                    ) : (
+                                      attribution.preuveFiles?.length || attribution.preuve ? preuveLabel : '—'
+                                    )}
+                                  </td>
+                                  <td title={attribution.commentaire || ''} className="badge-list-comment">
+                                    {attribution.commentaire ? (attribution.commentaire.length > 60 ? `${attribution.commentaire.slice(0, 60)}…` : attribution.commentaire) : '—'}
+                                  </td>
+                                  <td>{formatDate(attribution.dateAttribution)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {!isLoadingProjectBadges && projectBadges.length === 0 && (
+                      <div className="empty-state">
+                        <div className="empty-icon">
+                          <i className="fas fa-award"></i>
+                        </div>
+                        <h4>Aucun badge attribué</h4>
+                        <p>Les badges que vous avez attribués dans ce projet apparaîtront ici.</p>
+                      </div>
+                    )}
+                    {isLoadingProjectBadges && (
+                      <div className="empty-state">
+                        <div className="empty-icon">
+                          <i className="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <h4>Chargement des badges...</h4>
+                        <p>Merci de patienter.</p>
+                      </div>
+                    )}
+                    {projectBadgesError && (
+                      <div className="empty-state">
+                        <div className="empty-icon">
+                          <i className="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h4>Erreur</h4>
+                        <p>{projectBadgesError}</p>
+                      </div>
+                    )}
+                  </div>
+                  {badgeTotalPages > 1 && !isLoadingProjectBadges && projectBadges.length > 0 && (
+                    <div className="pagination-container">
+                      <div className="pagination-info">
+                        Page {badgePage} sur {badgeTotalPages} ({badgeTotalCount} badge{badgeTotalCount > 1 ? 's' : ''})
+                      </div>
+                      <div className="pagination-controls">
+                        <button
+                          className="pagination-btn"
+                          onClick={() => {
+                            const newPage = badgePage - 1;
+                            setBadgePage(newPage);
+                            fetchProjectBadgesData(newPage);
+                          }}
+                          disabled={badgePage === 1 || isLoadingProjectBadges}
+                        >
+                          <i className="fas fa-chevron-left"></i> Précédent
+                        </button>
+                        <button
+                          className="pagination-btn"
+                          onClick={() => {
+                            const newPage = badgePage + 1;
+                            setBadgePage(newPage);
+                            fetchProjectBadgesData(newPage);
+                          }}
+                          disabled={badgePage >= badgeTotalPages || isLoadingProjectBadges}
+                        >
+                          Suivant <i className="fas fa-chevron-right"></i>
+                        </button>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {badgeViewMode === 'list' && projectBadges.length > 0 && (
-                  <div className="badges-table-scroll">
-                    <table className="badges-attribution-table">
-                      <thead>
-                        <tr>
-                          <th>Badge</th>
-                          <th>Titre</th>
-                          <th>Série</th>
-                          <th>Niveau</th>
-                          <th>Attribué à</th>
-                          <th>Attribué par</th>
-                          <th>Preuve</th>
-                          <th>Commentaire</th>
-                          <th>Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {projectBadges.map((attribution) => {
-                          const firstPreuve = attribution.preuveFiles?.length
-                            ? attribution.preuveFiles[0]
-                            : attribution.preuve;
-                          const preuveUrl = firstPreuve?.url;
-                          const preuveLabel = firstPreuve?.name || (attribution.preuveFiles?.length ? `${attribution.preuveFiles.length} document(s)` : 'Document');
-                          return (
-                            <tr key={attribution.id}>
-                              <td>
-                                <img src={attribution.badgeImage} alt={attribution.badgeTitle} className="badge-list-icon" />
-                              </td>
-                              <td>{attribution.badgeTitle}</td>
-                              <td>{attribution.badgeSeries || '—'}</td>
-                              <td>
-                                {attribution.badgeSeries === 'Série CPS'
-                                  ? (attribution.domaineEngagement || '—')
-                                  : `Niveau ${attribution.badgeLevel || '1'}`}
-                              </td>
-                              <td>{attribution.participantName || '—'}</td>
-                              <td>{attribution.attributedByName || '—'}</td>
-                              <td>
-                                {preuveUrl ? (
-                                  <a href={preuveUrl} target="_blank" rel="noopener noreferrer" className="badge-list-preuve-link">
-                                    {preuveLabel}
-                                  </a>
-                                ) : (
-                                  attribution.preuveFiles?.length || attribution.preuve ? preuveLabel : '—'
-                                )}
-                              </td>
-                              <td title={attribution.commentaire || ''} className="badge-list-comment">
-                                {attribution.commentaire ? (attribution.commentaire.length > 60 ? `${attribution.commentaire.slice(0, 60)}…` : attribution.commentaire) : '—'}
-                              </td>
-                              <td>{formatDate(attribution.dateAttribution)}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {!isLoadingProjectBadges && projectBadges.length === 0 && (
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <i className="fas fa-award"></i>
-                    </div>
-                    <h4>Aucun badge attribué</h4>
-                    <p>Les badges que vous avez attribués dans ce projet apparaîtront ici.</p>
-                  </div>
-                )}
-                {isLoadingProjectBadges && (
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <i className="fas fa-spinner fa-spin"></i>
-                    </div>
-                    <h4>Chargement des badges...</h4>
-                    <p>Merci de patienter.</p>
-                  </div>
-                )}
-                {projectBadgesError && (
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <i className="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <h4>Erreur</h4>
-                    <p>{projectBadgesError}</p>
-                  </div>
-                )}
-              </div>
-              {badgeTotalPages > 1 && !isLoadingProjectBadges && projectBadges.length > 0 && (
-                <div className="pagination-container">
-                  <div className="pagination-info">
-                    Page {badgePage} sur {badgeTotalPages} ({badgeTotalCount} badge{badgeTotalCount > 1 ? 's' : ''})
-                  </div>
-                  <div className="pagination-controls">
-                    <button
-                      className="pagination-btn"
-                      onClick={() => {
-                        const newPage = badgePage - 1;
-                        setBadgePage(newPage);
-                        fetchProjectBadgesData(newPage);
-                      }}
-                      disabled={badgePage === 1 || isLoadingProjectBadges}
-                    >
-                      <i className="fas fa-chevron-left"></i> Précédent
-                    </button>
-                    <button
-                      className="pagination-btn"
-                      onClick={() => {
-                        const newPage = badgePage + 1;
-                        setBadgePage(newPage);
-                        fetchProjectBadgesData(newPage);
-                      }}
-                      disabled={badgePage >= badgeTotalPages || isLoadingProjectBadges}
-                    >
-                      Suivant <i className="fas fa-chevron-right"></i>
-                    </button>
-                  </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
             )}
             {badgeHolderSubView === 'participants' && renderParticipantsSection(false, false)}
           </div>
@@ -5079,51 +5105,51 @@ const ProjectManagement: React.FC = () => {
 
         {/* Project Management Tabs */}
         {shouldShowTabs() && (
-        <div className="project-management-tabs">
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Vue d'ensemble
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
-            onClick={() => setActiveTab('requests')}
-          >
-            Demandes
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
-            onClick={() => setActiveTab('participants')}
-          >
-            Participants
-          </button>
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
-            onClick={() => setActiveTab('equipes')}
-          >
-            Équipes
-          </button>
+          <div className="project-management-tabs">
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              Vue d'ensemble
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('requests')}
+            >
+              Demandes
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
+              onClick={() => setActiveTab('participants')}
+            >
+              Participants
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
+              onClick={() => setActiveTab('equipes')}
+            >
+              Équipes
+            </button>
             {false && (
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
-            onClick={() => setActiveTab('kanban')}
-          >
-            Kanban
-          </button>
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
+                onClick={() => setActiveTab('kanban')}
+              >
+                Kanban
+              </button>
             )}
-          <button 
-            type="button" 
-            className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
-            onClick={() => setActiveTab('badges')}
-          >
-            Badges
-          </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
+              onClick={() => setActiveTab('badges')}
+            >
+              Badges
+            </button>
             <button
               type="button"
               className={`tab-btn ${activeTab === 'documents' ? 'active' : ''}`}
@@ -5159,121 +5185,121 @@ const ProjectManagement: React.FC = () => {
           }}>
             <i className="fas fa-eye"></i>
             <span>Vue lecture seule (superadmin) — vous pouvez consulter tous les onglets et participants sans modifier le projet.</span>
-        </div>
+          </div>
         )}
 
         {/* Tab Content */}
         {shouldShowTabs() && (
           <>
-        {activeTab === 'overview' && (
-          <div className="tab-content active overview-tab-content">
-            <div className="overview-grid">
-              {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
-              {false && (
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-chart-line"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">{project.progress || 0}%</div>
-                  <div className="stat-label">Progression</div>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${project.progress || 0}%` }}></div>
-                  </div>
-                </div>
-              </div>
-              )}
-              
-              {/* Carte Jours restants */}
-              {(() => {
-                const daysRemaining = calculateDaysRemaining(project.endDate);
-                const status = getDaysRemainingStatus(daysRemaining);
-                
-                return (
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-clock"></i>
-                </div>
-                <div className="stat-content">
-                      <div className="stat-value">{Math.max(0, daysRemaining)}</div>
-                  <div className="stat-label">Jours restants</div>
-                      <div className={`stat-change ${status.className}`}>
-                        {status.text}
-                </div>
-              </div>
-                  </div>
-                );
-              })()}
-              
-              {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
-              {false && (
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-tasks"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">12/18</div>
-                  <div className="stat-label">Tâches complétées</div>
-                  <div className="task-progress">
-                    {Array.from({ length: 18 }, (_, i) => (
-                      <div key={i} className={`task-bar ${i < 12 ? 'completed' : ''}`}></div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              )}
-              
-              {/* Carte Participants */}
-              {(() => {
-                const newMembersThisMonth = calculateNewMembersThisMonth(apiProjectData);
-                
-                return (
-              <div className="stat-card">
-                <div className="stat-icon">
-                      <i className="fas fa-users"></i>
-                </div>
-                <div className="stat-content">
-                      <div className="stat-value">
-                        {isLoadingStats ? '...' : (projectStats?.overview?.total_members || 0)}
-                </div>
-                      <div className="stat-label">Participants</div>
-                      <div className="stat-change positive">
-                        +{newMembersThisMonth} nouveaux ce mois
-              </div>
+            {activeTab === 'overview' && (
+              <div className="tab-content active overview-tab-content">
+                <div className="overview-grid">
+                  {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
+                  {false && (
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <i className="fas fa-chart-line"></i>
+                      </div>
+                      <div className="stat-content">
+                        <div className="stat-value">{project.progress || 0}%</div>
+                        <div className="stat-label">Progression</div>
+                        <div className="progress-bar">
+                          <div className="progress-fill" style={{ width: `${project.progress || 0}%` }}></div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })()}
-              
-              {/* Carte Badges attribués */}
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-award"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">
-                    {isLoadingStats ? '...' : (projectStats?.badges?.total || 0)}
-                  </div>
-                  <div className="stat-label">Badges attribués</div>
-                  <div className="stat-change positive">
-                    +{isLoadingStats ? '...' : (projectStats?.badges?.this_month || 0)} ce mois
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                  )}
 
-        {activeTab === 'participants' && (
-          <div className="tab-content">
-            <div className="members-section">
-              <div className="members-table">
-                {participants.map((participant) => (
-                  <div key={participant.id} className="member-row">
-                    <div className="member-avatar">
-                      <AvatarImage src={participant.avatar} alt={participant.name} />
+                  {/* Carte Jours restants */}
+                  {(() => {
+                    const daysRemaining = calculateDaysRemaining(project.endDate);
+                    const status = getDaysRemainingStatus(daysRemaining);
+
+                    return (
+                      <div className="stat-card">
+                        <div className="stat-icon">
+                          <i className="fas fa-clock"></i>
+                        </div>
+                        <div className="stat-content">
+                          <div className="stat-value">{Math.max(0, daysRemaining)}</div>
+                          <div className="stat-label">Jours restants</div>
+                          <div className={`stat-change ${status.className}`}>
+                            {status.text}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Temporairement masqué - Fonctionnalité Kanban non implémentée */}
+                  {false && (
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <i className="fas fa-tasks"></i>
+                      </div>
+                      <div className="stat-content">
+                        <div className="stat-value">12/18</div>
+                        <div className="stat-label">Tâches complétées</div>
+                        <div className="task-progress">
+                          {Array.from({ length: 18 }, (_, i) => (
+                            <div key={i} className={`task-bar ${i < 12 ? 'completed' : ''}`}></div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    <div className="member-info">
+                  )}
+
+                  {/* Carte Participants */}
+                  {(() => {
+                    const newMembersThisMonth = calculateNewMembersThisMonth(apiProjectData);
+
+                    return (
+                      <div className="stat-card">
+                        <div className="stat-icon">
+                          <i className="fas fa-users"></i>
+                        </div>
+                        <div className="stat-content">
+                          <div className="stat-value">
+                            {isLoadingStats ? '...' : (projectStats?.overview?.total_members || 0)}
+                          </div>
+                          <div className="stat-label">Participants</div>
+                          <div className="stat-change positive">
+                            +{newMembersThisMonth} nouveaux ce mois
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Carte Badges attribués */}
+                  <div className="stat-card">
+                    <div className="stat-icon">
+                      <i className="fas fa-award"></i>
+                    </div>
+                    <div className="stat-content">
+                      <div className="stat-value">
+                        {isLoadingStats ? '...' : (projectStats?.badges?.total || 0)}
+                      </div>
+                      <div className="stat-label">Badges attribués</div>
+                      <div className="stat-change positive">
+                        +{isLoadingStats ? '...' : (projectStats?.badges?.this_month || 0)} ce mois
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'participants' && (
+              <div className="tab-content">
+                <div className="members-section">
+                  <div className="members-table">
+                    {participants.map((participant) => (
+                      <div key={participant.id} className="member-row">
+                        <div className="member-avatar">
+                          <AvatarImage src={participant.avatar} alt={participant.name} />
+                        </div>
+                        <div className="member-info">
                           {participant.is_deleted ? (
                             <DeletedUserDisplay
                               user={{
@@ -5284,337 +5310,337 @@ const ProjectManagement: React.FC = () => {
                               showEmail={false}
                             />
                           ) : (
-                      <div className="member-name">{participant.name}</div>
+                            <div className="member-name">{participant.name}</div>
                           )}
                           {toDisplayString(participant.organization) && (
-                        <div className="member-organization" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                            <div className="member-organization" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                               {toDisplayString(participant.organization)}
-                    </div>
-                      )}
+                            </div>
+                          )}
                           {(participant as any).school_level_name && (
                             <div className="member-school-level" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                               {(participant as any).school_level_name}
                             </div>
                           )}
                           {(translateRole((participant as any).userRole) || participant.profession) && (
-                        <div className="member-profession" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                            <div className="member-profession" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                               {(participant as any).userRole ? translateRole((participant as any).userRole) : participant.profession}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className={`member-badge ${participant.role === 'owner' ? 'badge-admin' : participant.role === 'co-owner' ? 'badge-admin' : participant.role === 'admin' ? 'badge-admin' : ''}`}>
-                      {participant.role === 'owner' ? 'Responsable du projet' : 
-                       participant.role === 'co-owner' ? 'Co-responsable du projet' : 
-                       participant.role === 'admin' ? 'Admin' : 
-                       'Membre'}
-                    </div>
-                    <div className="member-skills">
-                      {(participant.skills || []).map((skill: string, idx: number) => (
-                        <span key={idx} className="tag skill">
-                          <i className="fas fa-star"></i> {skill}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="member-availability">
-                      {(participant.availability || []).map((day: string, idx: number) => (
-                        <span key={idx} className="tag availability">{day}</span>
-                      ))}
-                    </div>
-                    <div className="member-actions">
+                        <div className={`member-badge ${participant.role === 'owner' ? 'badge-admin' : participant.role === 'co-owner' ? 'badge-admin' : participant.role === 'admin' ? 'badge-admin' : ''}`}>
+                          {participant.role === 'owner' ? 'Responsable du projet' :
+                            participant.role === 'co-owner' ? 'Co-responsable du projet' :
+                              participant.role === 'admin' ? 'Admin' :
+                                'Membre'}
+                        </div>
+                        <div className="member-skills">
+                          {(participant.skills || []).map((skill: string, idx: number) => (
+                            <span key={idx} className="tag skill">
+                              <i className="fas fa-star"></i> {skill}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="member-availability">
+                          {(participant.availability || []).map((day: string, idx: number) => (
+                            <span key={idx} className="tag availability">{day}</span>
+                          ))}
+                        </div>
+                        <div className="member-actions">
                           {canAssignBadges && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
-                        <button 
-                          type="button" 
-                          className="btn-icon badge-btn" 
-                          title="Attribuer un badge"
-                          onClick={() => {
-                            setSelectedParticipantForBadge(participant.memberId);
-                            setIsBadgeModalOpen(true);
-                          }}
-                        >
-                          <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
-                        </button>
-                      )}
-                      {/* Show remove button if user can see it and participant can be removed */}
+                            <button
+                              type="button"
+                              className="btn-icon badge-btn"
+                              title="Attribuer un badge"
+                              onClick={() => {
+                                setSelectedParticipantForBadge(participant.memberId);
+                                setIsBadgeModalOpen(true);
+                              }}
+                            >
+                              <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
+                            </button>
+                          )}
+                          {/* Show remove button if user can see it and participant can be removed */}
                           {canUserSeeRemoveButton(userProjectRole) && participant.canRemove && !isProjectEnded && !isReadOnlyMode && (
-                        <button 
-                          type="button" 
-                          className="btn-icon" 
-                          title="Retirer"
-                          onClick={() => handleRemoveParticipant(participant.id)}
-                        >
-                        <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
-                      </button>
-                      )}
-                    </div>
+                            <button
+                              type="button"
+                              className="btn-icon"
+                              title="Retirer"
+                              onClick={() => handleRemoveParticipant(participant.id)}
+                            >
+                              <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {activeTab === 'requests' && (
-          <div className="tab-content active">
-            <div className="requests-section">
-              <div className="section-header">
-                <h3>Demandes de participation</h3>
-                <span className="request-count">{requests.length} demande{requests.length > 1 ? 's' : ''}</span>
-              </div>
-              
-              {isLoadingRequests ? (
-                <div className="no-requests">
-                  <i className="fas fa-spinner fa-spin"></i>
-                  <p>Chargement des demandes...</p>
-                </div>
-              ) : requests.length === 0 ? (
-                <div className="no-requests">
-                  <i className="fas fa-inbox no-requests-icon"></i>
-                  <h3>Aucune demande en attente</h3>
-                  <p>Toutes les demandes de participation ont été traitées</p>
-                </div>
-              ) : (
-                <div className="requests-grid">
-                  {requests.map((request) => (
-                    <div key={request.id} className="request-card">
-                      <div className="request-header">
-                        <div className="request-avatar">
-                          <AvatarImage src={request.avatar} alt={request.name} />
-                        </div>
-                        <div className="request-info">
-                          <h4 className="request-name">{request.name}</h4>
-                          <p className="request-profession">{request.profession}</p>
-                          <p className="request-email">{request.email}</p>
-                          <p className="request-date">Demandé le {request.requestDate}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="request-skills">
-                        <h4>Compétences</h4>
-                        <div className="skills-list">
-                          {request.skills.map((skill: string, index: number) => (
-                            <span key={index} className="skill-pill">{skill}</span>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      <div className="request-availability">
-                        <h4>Disponibilités</h4>
-                        <div className="availability-list">
+            {activeTab === 'requests' && (
+              <div className="tab-content active">
+                <div className="requests-section">
+                  <div className="section-header">
+                    <h3>Demandes de participation</h3>
+                    <span className="request-count">{requests.length} demande{requests.length > 1 ? 's' : ''}</span>
+                  </div>
+
+                  {isLoadingRequests ? (
+                    <div className="no-requests">
+                      <i className="fas fa-spinner fa-spin"></i>
+                      <p>Chargement des demandes...</p>
+                    </div>
+                  ) : requests.length === 0 ? (
+                    <div className="no-requests">
+                      <i className="fas fa-inbox no-requests-icon"></i>
+                      <h3>Aucune demande en attente</h3>
+                      <p>Toutes les demandes de participation ont été traitées</p>
+                    </div>
+                  ) : (
+                    <div className="requests-grid">
+                      {requests.map((request) => (
+                        <div key={request.id} className="request-card">
+                          <div className="request-header">
+                            <div className="request-avatar">
+                              <AvatarImage src={request.avatar} alt={request.name} />
+                            </div>
+                            <div className="request-info">
+                              <h4 className="request-name">{request.name}</h4>
+                              <p className="request-profession">{request.profession}</p>
+                              <p className="request-email">{request.email}</p>
+                              <p className="request-date">Demandé le {request.requestDate}</p>
+                            </div>
+                          </div>
+
+                          <div className="request-skills">
+                            <h4>Compétences</h4>
+                            <div className="skills-list">
+                              {request.skills.map((skill: string, index: number) => (
+                                <span key={index} className="skill-pill">{skill}</span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="request-availability">
+                            <h4>Disponibilités</h4>
+                            <div className="availability-list">
                               {request !== null && request?.availability.length !== 0 && request?.availability?.map((day: string, index: number) => (
-                            <span key={index} className="availability-pill">{day}</span>
-                          ))}
-                        </div>
-                      </div>
-                      
+                                <span key={index} className="availability-pill">{day}</span>
+                              ))}
+                            </div>
+                          </div>
+
                           {!isReadOnlyMode && (
-                      <div className="request-actions">
-                        <div className="action-buttons">
-                          <button 
-                            className="btn-accept"
-                            onClick={() => handleAcceptRequest(request.id)}
-                          >
-                            <i className="fas fa-check"></i>
-                            Accepter
-                          </button>
-                          <button 
-                            className="btn-reject"
-                            onClick={() => handleRejectRequest(request.id)}
-                          >
-                            <i className="fas fa-times"></i>
-                            Rejeter
-                          </button>
+                            <div className="request-actions">
+                              <div className="action-buttons">
+                                <button
+                                  className="btn-accept"
+                                  onClick={() => handleAcceptRequest(request.id)}
+                                >
+                                  <i className="fas fa-check"></i>
+                                  Accepter
+                                </button>
+                                <button
+                                  className="btn-reject"
+                                  onClick={() => handleRejectRequest(request.id)}
+                                >
+                                  <i className="fas fa-times"></i>
+                                  Rejeter
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                </div>
-              )}
-            </div>
-                        ))}
-                      </div>
+                      ))}
+                    </div>
                   )}
-            </div>
-          </div>
-        )}
+                </div>
+              </div>
+            )}
 
             {activeTab === 'participants' && renderParticipantsSection(!isProjectEnded && !isReadOnlyMode, true)}
 
-        {activeTab === 'equipes' && (
-          <div className="tab-content active">
-            <div className="teams-section">
-              <div className="section-header">
-                <div className="section-title-left">
-                  <img src="/icons_logo/Icon=Membres.svg" alt="Équipes" className="section-icon" />
-                  <h3>Gestion des équipes</h3>
-                </div>
-                <div className="section-actions">
-                  <span className="team-count">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
-                      {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
-                  <button className="btn btn-primary" onClick={handleCreateTeam}>
-                    <i className="fas fa-plus"></i>
-                    Créer une équipe
-                  </button>
-                  )}
-                </div>
-              </div>
-
-              {isLoadingTeams ? (
-                <div className="loading-state">
-                  <p>Chargement des équipes...</p>
-                </div>
-              ) : teams.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-state-icon">
-                    <i className="fas fa-users"></i>
-                  </div>
-                  <h4>Aucune équipe créée</h4>
-                  <p>Créez votre première équipe pour organiser vos participants et améliorer la collaboration.</p>
-                      {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
-                  <button className="btn btn-primary" onClick={handleCreateTeam}>
-                    <i className="fas fa-plus"></i>
-                    Créer une équipe
-                  </button>
-                  )}
-                </div>
-              ) : (
-                <div className="teams-table-container">
-                  <div className="teams-table">
-                    <div className="teams-table-header">
-                      <div className="team-col-name">Équipe</div>
-                      <div className="team-col-chief">Chef d'équipe</div>
-                      <div className="team-col-members">Membres</div>
-                      <div className="team-col-actions">Actions</div>
+            {activeTab === 'equipes' && (
+              <div className="tab-content active">
+                <div className="teams-section">
+                  <div className="section-header">
+                    <div className="section-title-left">
+                      <img src="/icons_logo/Icon=Membres.svg" alt="Équipes" className="section-icon" />
+                      <h3>Gestion des équipes</h3>
                     </div>
-                    <div className="teams-table-body">
-                      {teams.map((team) => {
-                        const chief = getParticipantById(team.chiefId);
-                        const teamMembers = team.members.map((memberId: string) => getParticipantById(memberId)).filter(Boolean);
-                        
-                        return (
-                          <div key={team.id} className="team-row">
-                            <div className="team-col-name">
-                              <div className="team-info">
-                                <div className="team-number">Équipe {team.number}</div>
-                                <div className="team-name">{team.name}</div>
-                              </div>
-                            </div>
-                            <div className="team-col-chief">
-                              {chief ? (
-                                <div className="chief-info">
-                                  <AvatarImage src={chief.avatar} alt={chief.name} className="chief-avatar" />
-                                  <div className="chief-details">
-                                    <div className="chief-name">{chief.name}</div>
-                                    <div className="chief-role">{chief.profession}</div>
+                    <div className="section-actions">
+                      <span className="team-count">{teams.length} équipe{teams.length > 1 ? 's' : ''}</span>
+                      {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
+                        <button className="btn btn-primary" onClick={handleCreateTeam}>
+                          <i className="fas fa-plus"></i>
+                          Créer une équipe
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {isLoadingTeams ? (
+                    <div className="loading-state">
+                      <p>Chargement des équipes...</p>
+                    </div>
+                  ) : teams.length === 0 ? (
+                    <div className="empty-state">
+                      <div className="empty-state-icon">
+                        <i className="fas fa-users"></i>
+                      </div>
+                      <h4>Aucune équipe créée</h4>
+                      <p>Créez votre première équipe pour organiser vos participants et améliorer la collaboration.</p>
+                      {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
+                        <button className="btn btn-primary" onClick={handleCreateTeam}>
+                          <i className="fas fa-plus"></i>
+                          Créer une équipe
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="teams-table-container">
+                      <div className="teams-table">
+                        <div className="teams-table-header">
+                          <div className="team-col-name">Équipe</div>
+                          <div className="team-col-chief">Chef d'équipe</div>
+                          <div className="team-col-members">Membres</div>
+                          <div className="team-col-actions">Actions</div>
+                        </div>
+                        <div className="teams-table-body">
+                          {teams.map((team) => {
+                            const chief = getParticipantById(team.chiefId);
+                            const teamMembers = team.members.map((memberId: string) => getParticipantById(memberId)).filter(Boolean);
+
+                            return (
+                              <div key={team.id} className="team-row">
+                                <div className="team-col-name">
+                                  <div className="team-info">
+                                    <div className="team-number">Équipe {team.number}</div>
+                                    <div className="team-name">{team.name}</div>
                                   </div>
                                 </div>
-                              ) : (
-                                <span className="no-chief">Non défini</span>
-                              )}
-                            </div>
-                            <div className="team-col-members">
-                              <div className="members-display">
-                                <div className="members-avatars">
-                                  {teamMembers.slice(0, 5).map((member: any) => member && (
-                                    <div key={member.id} className="member-avatar-small" title={member.name}>
-                                      <AvatarImage src={member.avatar} alt={member.name} />
+                                <div className="team-col-chief">
+                                  {chief ? (
+                                    <div className="chief-info">
+                                      <AvatarImage src={chief.avatar} alt={chief.name} className="chief-avatar" />
+                                      <div className="chief-details">
+                                        <div className="chief-name">{chief.name}</div>
+                                        <div className="chief-role">{chief.profession}</div>
+                                      </div>
                                     </div>
-                                  ))}
-                                  {teamMembers.length > 5 && (
-                                    <div className="member-avatar-small more-members" title={`${teamMembers.length - 5} autres membres`}>
-                                      +{teamMembers.length - 5}
-                                    </div>
+                                  ) : (
+                                    <span className="no-chief">Non défini</span>
                                   )}
                                 </div>
-                                <div className="member-count">{teamMembers.length} membre{teamMembers.length > 1 ? 's' : ''}</div>
-                              </div>
-                            </div>
-                            <div className="team-col-actions">
-                              <div className="team-actions">
-                                <button 
-                                  className="btn-icon view-btn" 
-                                  title="Voir les détails"
-                                  onClick={() => handleViewTeamDetails(team)}
-                                >
-                                  <i className="fas fa-eye"></i>
-                                </button>
+                                <div className="team-col-members">
+                                  <div className="members-display">
+                                    <div className="members-avatars">
+                                      {teamMembers.slice(0, 5).map((member: any) => member && (
+                                        <div key={member.id} className="member-avatar-small" title={member.name}>
+                                          <AvatarImage src={member.avatar} alt={member.name} />
+                                        </div>
+                                      ))}
+                                      {teamMembers.length > 5 && (
+                                        <div className="member-avatar-small more-members" title={`${teamMembers.length - 5} autres membres`}>
+                                          +{teamMembers.length - 5}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="member-count">{teamMembers.length} membre{teamMembers.length > 1 ? 's' : ''}</div>
+                                  </div>
+                                </div>
+                                <div className="team-col-actions">
+                                  <div className="team-actions">
+                                    <button
+                                      className="btn-icon view-btn"
+                                      title="Voir les détails"
+                                      onClick={() => handleViewTeamDetails(team)}
+                                    >
+                                      <i className="fas fa-eye"></i>
+                                    </button>
                                     {shouldShowTabs() && !isProjectEnded && !isReadOnlyMode && (
-                                  <>
-                                <button 
-                                  className="btn-icon edit-btn" 
-                                  title="Modifier l'équipe"
-                                  onClick={() => handleEditTeam(team)}
-                                >
-                                  <i className="fas fa-edit"></i>
-                                </button>
-                                <button 
-                                  className="btn-icon delete-btn" 
-                                  title="Supprimer l'équipe"
-                                  onClick={() => handleDeleteTeam(team.id)}
-                                >
-                                  <i className="fas fa-trash"></i>
-                                </button>
-                                  </>
-                                )}
+                                      <>
+                                        <button
+                                          className="btn-icon edit-btn"
+                                          title="Modifier l'équipe"
+                                          onClick={() => handleEditTeam(team)}
+                                        >
+                                          <i className="fas fa-edit"></i>
+                                        </button>
+                                        <button
+                                          className="btn-icon delete-btn"
+                                          title="Supprimer l'équipe"
+                                          onClick={() => handleDeleteTeam(team.id)}
+                                        >
+                                          <i className="fas fa-trash"></i>
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-
-
-        {activeTab === 'badges' && (
-          <div className="tab-content active">
-            <div className="badges-section">
-              <div className="badges-section-header">
-                <h3>Badges attribués</h3>
               </div>
-              
-              <div className="badges-filters">
-                <div className="filter-group">
-                  <label>Par série</label>
-                  <select 
-                    value={badgeSeriesFilter} 
-                    onChange={(e) => {
-                      setBadgeSeriesFilter(e.target.value);
-                      setBadgeLevelFilter('');
-                      setBadgeDomainFilter('');
+            )}
+
+
+            {activeTab === 'badges' && (
+              <div className="tab-content active">
+                <div className="badges-section">
+                  <div className="badges-section-header">
+                    <h3>Badges attribués</h3>
+                  </div>
+
+                  <div className="badges-filters">
+                    <div className="filter-group">
+                      <label>Par série</label>
+                      <select
+                        value={badgeSeriesFilter}
+                        onChange={(e) => {
+                          setBadgeSeriesFilter(e.target.value);
+                          setBadgeLevelFilter('');
+                          setBadgeDomainFilter('');
                           setBadgePage(1); // Reset to page 1 when filter changes
-                    }}
-                  >
-                    <option value="">Toutes les séries</option>
-                    <option value="Série Soft Skills 4LAB">Soft Skills 4LAB</option>
+                        }}
+                      >
+                        <option value="">Toutes les séries</option>
+                        <option value="Série Soft Skills 4LAB">Soft Skills 4LAB</option>
                         <option value="Série Parcours des possibles">Série Parcours des possibles</option>
                         <option value="Série Audiovisuelle">Série Audiovisuelle</option>
                         <option value="Série Parcours professionnel">Série Parcours professionnel</option>
-                  </select>
-                </div>
-                
+                      </select>
+                    </div>
+
                     {(badgeSeriesFilter === 'Série Soft Skills 4LAB' ||
                       badgeSeriesFilter === 'Série Parcours des possibles' ||
                       badgeSeriesFilter === 'Série Audiovisuelle' ||
                       badgeSeriesFilter === 'Série Parcours professionnel') && (
-                  <div className="filter-group">
-                    <label>Par niveau</label>
-                    <select 
-                      value={badgeLevelFilter} 
+                        <div className="filter-group">
+                          <label>Par niveau</label>
+                          <select
+                            value={badgeLevelFilter}
                             onChange={(e) => {
                               setBadgeLevelFilter(e.target.value);
                               setBadgePage(1); // Reset to page 1 when filter changes
                             }}
-                    >
-                      <option value="">Tous les niveaux</option>
-                      <option value="1">Niveau 1</option>
-                      <option value="2">Niveau 2</option>
-                      <option value="3">Niveau 3</option>
-                      <option value="4">Niveau 4</option>
-                    </select>
-                  </div>
-                )}
-                  <div className="filter-group">
+                          >
+                            <option value="">Tous les niveaux</option>
+                            <option value="1">Niveau 1</option>
+                            <option value="2">Niveau 2</option>
+                            <option value="3">Niveau 3</option>
+                            <option value="4">Niveau 4</option>
+                          </select>
+                        </div>
+                      )}
+                    <div className="filter-group">
                       <label>Attribué à</label>
                       <input
                         type="text"
@@ -5626,7 +5652,7 @@ const ProjectManagement: React.FC = () => {
                           setBadgePage(1);
                         }}
                       />
-                  </div>
+                    </div>
                   </div>
 
                   <div className="view-toggle badges-view-toggle">
@@ -5644,45 +5670,45 @@ const ProjectManagement: React.FC = () => {
                     >
                       <i className="fas fa-list"></i> Liste
                     </button>
-              </div>
-              
-              <div className="badges-list">
+                  </div>
+
+                  <div className="badges-list">
                     {badgeViewMode === 'cards' && projectBadges.map((attribution) => (
-                    <div key={attribution.id} className="badge-attribution-card">
-                      <div className="badge-attribution-header">
-                        <div className="badge-image">
-                          <img src={attribution.badgeImage} alt={attribution.badgeTitle} />
-                          {/* Level pill - bottom left */}
-                          {attribution.badgeSeries !== 'Série CPS' && (
-                            <span className={`badge-level-pill level-${attribution.badgeLevel || '1'}`}>
-                              Niveau {attribution.badgeLevel || '1'}
-                            </span>
-                          )}
-                          {/* Domain pill for CPS - bottom left */}
-                          {attribution.badgeSeries === 'Série CPS' && (
-                            <span className="badge-domain-pill">
-                              Domaine - {attribution.domaineEngagement || 'Cognitives'}
-                            </span>
-                          )}
-                          {/* Series pill - bottom right */}
+                      <div key={attribution.id} className="badge-attribution-card">
+                        <div className="badge-attribution-header">
+                          <div className="badge-image">
+                            <img src={attribution.badgeImage} alt={attribution.badgeTitle} />
+                            {/* Level pill - bottom left */}
+                            {attribution.badgeSeries !== 'Série CPS' && (
+                              <span className={`badge-level-pill level-${attribution.badgeLevel || '1'}`}>
+                                Niveau {attribution.badgeLevel || '1'}
+                              </span>
+                            )}
+                            {/* Domain pill for CPS - bottom left */}
+                            {attribution.badgeSeries === 'Série CPS' && (
+                              <span className="badge-domain-pill">
+                                Domaine - {attribution.domaineEngagement || 'Cognitives'}
+                              </span>
+                            )}
+                            {/* Series pill - bottom right */}
                             <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
-                            {attribution.badgeSeries || 'Série TouKouLeur'}
-                          </span>
+                              {attribution.badgeSeries || 'Série TouKouLeur'}
+                            </span>
+                          </div>
+                          <div className="badge-info">
+                            <h4 className="badge-title">{attribution.badgeTitle}</h4>
+                            {attribution.badgeSeries !== 'Série CPS' && (
+                              <p className="badge-domain">Domaine: {attribution.domaineEngagement}</p>
+                            )}
+                          </div>
                         </div>
-                        <div className="badge-info">
-                          <h4 className="badge-title">{attribution.badgeTitle}</h4>
-                          {attribution.badgeSeries !== 'Série CPS' && (
-                            <p className="badge-domain">Domaine: {attribution.domaineEngagement}</p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="badge-attribution-details">
-                        <div className="attribution-info">
-                          <div className="attributed-to">
-                            <h5>Attribué à:</h5>
-                            <div className="person-info">
-                              <div className="person-info-header">
+
+                        <div className="badge-attribution-details">
+                          <div className="attribution-info">
+                            <div className="attributed-to">
+                              <h5>Attribué à:</h5>
+                              <div className="person-info">
+                                <div className="person-info-header">
                                   <AvatarImage src={attribution.participantAvatar || DEFAULT_AVATAR_SRC} alt={attribution.participantName} />
                                   {attribution.participantIsDeleted ? (
                                     <DeletedUserDisplay
@@ -5694,15 +5720,15 @@ const ProjectManagement: React.FC = () => {
                                       className="person-name"
                                     />
                                   ) : (
-                                <span className="person-name">{attribution.participantName}</span>
+                                    <span className="person-name">{attribution.participantName}</span>
                                   )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="attributed-by">
-                            <h5>Attribué par:</h5>
-                            <div className="person-info">
-                              <div className="person-info-header">
+                            <div className="attributed-by">
+                              <h5>Attribué par:</h5>
+                              <div className="person-info">
+                                <div className="person-info-header">
                                   <AvatarImage src={attribution.attributedByAvatar || DEFAULT_AVATAR_SRC} alt={attribution.attributedByName} />
                                   {attribution.attributedByIsDeleted ? (
                                     <DeletedUserDisplay
@@ -5714,43 +5740,43 @@ const ProjectManagement: React.FC = () => {
                                       className="person-name"
                                     />
                                   ) : (
-                                <span className="person-name">{attribution.attributedByName}</span>
+                                    <span className="person-name">{attribution.attributedByName}</span>
                                   )}
-                              </div>
+                                </div>
                                 {(attribution.attributedByJob || attribution.attributedByRole) && (
                                   <span className="person-email" style={{ display: 'block', marginTop: '2px' }}>
                                     {[attribution.attributedByJob, attribution.attributedByRole ? translateRole(attribution.attributedByRole) : ''].filter(Boolean).join(' · ')}
                                   </span>
                                 )}
                                 {attribution.attributedByOrganization && (
-                              <span className="person-organization">{attribution.attributedByOrganization}</span>
+                                  <span className="person-organization">{attribution.attributedByOrganization}</span>
                                 )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        
-                        {attribution.commentaire && (
-                          <div className={`badge-comment ${collapsedComments.has(attribution.id) ? 'collapsed' : ''}`}>
-                            <h5 onClick={() => toggleComment(attribution.id)}>
-                              Commentaire:
-                              <span className={`comment-toggle ${collapsedComments.has(attribution.id) ? '' : 'expanded'}`}>
-                                <i className="fas fa-chevron-down"></i>
-                              </span>
-                            </h5>
-                            <p>{attribution.commentaire}</p>
-                          </div>
-                        )}
-                        
+
+                          {attribution.commentaire && (
+                            <div className={`badge-comment ${collapsedComments.has(attribution.id) ? 'collapsed' : ''}`}>
+                              <h5 onClick={() => toggleComment(attribution.id)}>
+                                Commentaire:
+                                <span className={`comment-toggle ${collapsedComments.has(attribution.id) ? '' : 'expanded'}`}>
+                                  <i className="fas fa-chevron-down"></i>
+                                </span>
+                              </h5>
+                              <p>{attribution.commentaire}</p>
+                            </div>
+                          )}
+
                           {(attribution.preuveFiles?.length || attribution.preuve) && (
-                          <div className={`badge-preuve ${collapsedComments.has(`${attribution.id}-preuve`) ? 'collapsed' : ''}`}>
-                            <h5 onClick={() => toggleComment(`${attribution.id}-preuve`)}>
-                              Preuve:
-                              <span className={`comment-toggle ${collapsedComments.has(`${attribution.id}-preuve`) ? '' : 'expanded'}`}>
-                                <i className="fas fa-chevron-down"></i>
-                              </span>
-                            </h5>
-                            <div className="file-info">
-                              <i className="fas fa-file"></i>
+                            <div className={`badge-preuve ${collapsedComments.has(`${attribution.id}-preuve`) ? 'collapsed' : ''}`}>
+                              <h5 onClick={() => toggleComment(`${attribution.id}-preuve`)}>
+                                Preuve:
+                                <span className={`comment-toggle ${collapsedComments.has(`${attribution.id}-preuve`) ? '' : 'expanded'}`}>
+                                  <i className="fas fa-chevron-down"></i>
+                                </span>
+                              </h5>
+                              <div className="file-info">
+                                <i className="fas fa-file"></i>
                                 <div className="file-list">
                                   {(attribution.preuveFiles && attribution.preuveFiles.length > 0
                                     ? attribution.preuveFiles
@@ -5768,17 +5794,17 @@ const ProjectManagement: React.FC = () => {
                                     </div>
                                   ))}
                                 </div>
+                              </div>
                             </div>
+                          )}
+
+                          <div className="badge-date">
+                            <small>Attribué le {formatDate(attribution.dateAttribution)}</small>
                           </div>
-                        )}
-                        
-                        <div className="badge-date">
-                          <small>Attribué le {formatDate(attribution.dateAttribution)}</small>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                
+                    ))}
+
                     {badgeViewMode === 'list' && projectBadges.length > 0 && (
                       <div className="badges-table-scroll">
                         <table className="badges-attribution-table">
@@ -5837,36 +5863,36 @@ const ProjectManagement: React.FC = () => {
                       </div>
                     )}
 
-                {!isLoadingProjectBadges && projectBadges.length === 0 && (
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <i className="fas fa-award"></i>
-                    </div>
-                    <h4>Aucun badge attribué</h4>
-                    <p>Les badges attribués dans ce projet apparaîtront ici.</p>
+                    {!isLoadingProjectBadges && projectBadges.length === 0 && (
+                      <div className="empty-state">
+                        <div className="empty-icon">
+                          <i className="fas fa-award"></i>
+                        </div>
+                        <h4>Aucun badge attribué</h4>
+                        <p>Les badges attribués dans ce projet apparaîtront ici.</p>
+                      </div>
+                    )}
+
+                    {isLoadingProjectBadges && (
+                      <div className="empty-state">
+                        <div className="empty-icon">
+                          <i className="fas fa-spinner fa-spin"></i>
+                        </div>
+                        <h4>Chargement des badges...</h4>
+                        <p>Merci de patienter.</p>
+                      </div>
+                    )}
+
+                    {projectBadgesError && (
+                      <div className="empty-state">
+                        <div className="empty-icon">
+                          <i className="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h4>Erreur</h4>
+                        <p>{projectBadgesError}</p>
+                      </div>
+                    )}
                   </div>
-                )}
-                
-                {isLoadingProjectBadges && (
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <i className="fas fa-spinner fa-spin"></i>
-                    </div>
-                    <h4>Chargement des badges...</h4>
-                    <p>Merci de patienter.</p>
-                  </div>
-                )}
-                
-                {projectBadgesError && (
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <i className="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <h4>Erreur</h4>
-                    <p>{projectBadgesError}</p>
-                  </div>
-                )}
-              </div>
 
                   {/* Pagination */}
                   {badgeTotalPages > 1 && !isLoadingProjectBadges && projectBadges.length > 0 && (
@@ -6032,23 +6058,23 @@ const ProjectManagement: React.FC = () => {
                       )}
                     </div>
                   )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'kanban' && (
-          <div className="tab-content active">
-            <div className="kanban-section">
-              <div className="section-header">
-                <div className="section-title-left">
-                  <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Kanban" className="section-icon" />
-                  <h3>Tableau Kanban</h3>
-                </div>
-                <div className="flex flex-col gap-2 items-center">
-                  <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'kanban' && (
+              <div className="tab-content active">
+                <div className="kanban-section">
+                  <div className="section-header">
+                    <div className="section-title-left">
+                      <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Kanban" className="section-icon" />
+                      <h3>Tableau Kanban</h3>
                     </div>
+                    <div className="flex flex-col gap-2 items-center">
+                      <span className="px-2 py-1 text-sm rounded-xl bg-[#F59E0B] text-white">Disponible très prochainement</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -6056,431 +6082,431 @@ const ProjectManagement: React.FC = () => {
               const mldsBilan = apiProjectData.mlds_information?.mlds_bilan ?? apiProjectData.mlds_information?.mnt;
               const formatBilanVal = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? Number(v).toFixed(2) : String(v)) : '—');
               return (
-              <div className="tab-content active">
-                <div className="badges-section">
-                  <div className="badges-section-header">
-                    <h3>Informations MLDS - Volet Persévérance Scolaire</h3>
-                  </div>
+                <div className="tab-content active">
+                  <div className="badges-section">
+                    <div className="badges-section-header">
+                      <h3>Informations MLDS - Volet Persévérance Scolaire</h3>
+                    </div>
 
-                  <div className="overview-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                    {/* Problématique réseau traitée */}
-                    {apiProjectData.mlds_information.network_issue_addressed && (
-                      <div className="stat-card" style={{ gridColumn: 'span 2' }}>
-                        <div className="stat-content">
-                          <div className="stat-label"> Problématique du réseau à laquelle l&apos;action répond </div>
-                          <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
-                            {apiProjectData.mlds_information.network_issue_addressed}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Demande faite par */}
-                    {apiProjectData.mlds_information.requested_by && (
-                      <div className="stat-card">
-                        <div className="stat-content">
-                          <div className="stat-label">Demande faite par</div>
-                          <div className="stat-value" style={{ fontSize: '1.25rem', marginTop: '0.5rem' }}>
-                            {apiProjectData.mlds_information.requested_by === 'departement' ? (
-                              <>
-                                Département
-                                {apiProjectData.mlds_information.department_number && (
-                                  <div style={{ fontSize: '1rem', marginTop: '0.5rem', color: '#6b7280', fontWeight: 'normal' }}>
-                                    {(() => {
-                                      const dept = departments.find(d => d.code === apiProjectData.mlds_information.department_number);
-                                      return dept ? `${dept.code} - ${dept.nom}` : apiProjectData.mlds_information.department_number;
-                                    })()}
-                              </div>
-                            )}
-          </>
-                            ) : (
-                              'Réseau foquale'
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Public ciblé */}
-                    {apiProjectData.mlds_information.target_audience && (
-                      <div className="stat-card">
-                        <div className="stat-content">
-                          <div className="stat-label">Public ciblé</div>
-                          <div className="stat-value" style={{ fontSize: '1rem', marginTop: '0.5rem', fontWeight: 'normal' }}>
-                            {apiProjectData.mlds_information.target_audience === 'students_without_solution' && 'Élèves sans solution à la rentrée'}
-                            {apiProjectData.mlds_information.target_audience === 'students_at_risk' && 'Élèves en situation de décrochage repérés par le GPDS'}
-                            {apiProjectData.mlds_information.target_audience === 'school_teams' && 'Équipes des établissements'}
-      </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Organisations porteuses */}
-                    {apiProjectData.mlds_information.organization_names && apiProjectData.mlds_information.organization_names.length > 0 && (
-                      <div className="!items-start stat-card" style={{ gridColumn: 'span 1' }}>
-                        <div className="stat-content">
-                          <div className="stat-label">Organisations porteuses</div>
-                          <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            {apiProjectData.mlds_information.organization_names.map((org: string | { id?: number; name?: string; type?: string; city?: string }, index: number) => (
-                              <span
-                                key={index}
-                                style={{
-                                  padding: '0.5rem 0.75rem',
-                                  backgroundColor: '#e0f2fe',
-                                  color: '#0369a1',
-                                  borderRadius: '0.375rem',
-                                  fontSize: '0.9rem',
-                                  fontWeight: '500'
-                                }}
-                              >
-                                {toDisplayString(org)}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Effectifs prévisionnel */}
-                    {apiProjectData.mlds_information.expected_participants != null && (
-                      <div className="stat-card">
-                        <div className="stat-icon">
-                          <i className="fas fa-users"></i>
-                        </div>
-                        <div className="stat-content">
-                          <div className="stat-value">{apiProjectData.mlds_information.expected_participants}</div>
-                          <div className="stat-label">Effectifs prévisionnel</div>
-                          {mldsBilan && (mldsBilan.expected_participants != null || mldsBilan.expected_participants_comment) && (
-                            <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
-                              <div style={{ fontSize: '0.80rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
-                              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>{mldsBilan.expected_participants ?? '0'}</div>
-                              {mldsBilan.expected_participants_comment && <div style={{ marginTop: '0.35rem', fontSize: '0.8125rem', color: '#4b5563', lineHeight: 1.4 }}>{mldsBilan.expected_participants_comment}</div>}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Objectifs pédagogiques */}
-                    {apiProjectData.mlds_information.objectives && (
-                      <div className="stat-card" style={{ gridColumn: 'span 1' }}>
-                        <div className="stat-content">
-                          <div className="stat-label">Objectifs pédagogiques</div>
-                          <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
-                            {apiProjectData.mlds_information.objectives}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Objectifs de l'action */}
-                    {apiProjectData.mlds_information.action_objectives && apiProjectData.mlds_information.action_objectives.length > 0 && (
-                      <div className="stat-card" style={{ gridColumn: 'span 1' }}>
-                        <div className="stat-content">
-                          <div className="stat-label">Objectifs de l'action</div>
-                          <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            {apiProjectData.mlds_information.action_objectives.map((obj: string, index: number) => (
-                              <div key={index} style={{ fontSize: '0.9rem', color: '#374151', display: 'flex', alignItems: 'start', gap: '0.5rem' }}>
-                                <i className="fas fa-check-circle" style={{ color: '#10b981', marginTop: '0.25rem' }}></i>
-                                <span className='text-left'>
-                                  {obj === 'path_security' && 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles'}
-                                  {obj === 'professional_discovery' && 'La découverte des filières professionnelles'}
-                                  {obj === 'student_mobility' && 'Le développement de la mobilité des élèves'}
-                                  {obj === 'cps_development' && 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré'}
-                                  {obj === 'territory_partnership' && 'Le rapprochement des établissements avec les partenaires du territoire'}
-                                  {obj === 'family_links' && 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire'}
-                                  {obj === 'professional_development' && 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes'}
-                                  {obj === 'other' && 'Autre'}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                          {apiProjectData.mlds_information.action_objectives_other && (
-                            <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: '0.5rem' }}>
-                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>Autre objectif :</div>
-                              <div style={{ fontSize: '0.9rem', color: '#374151' }}>{apiProjectData.mlds_information.action_objectives_other}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Compétences développées */}
-                    {apiProjectData.mlds_information.competencies_developed && (
-                      <div className="stat-card" style={{ gridColumn: 'span 2' }}>
-                        <div className="stat-content">
-                          <div className="stat-label">Compétences développées par l'action</div>
-                          <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
-                            {apiProjectData.mlds_information.competencies_developed}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Moyens financiers */}
-                    {(apiProjectData.mlds_information.financial_hse != null ||
-                      apiProjectData.mlds_information.financial_hv != null ||
-                      apiProjectData.mlds_information.financial_transport != null ||
-                      apiProjectData.mlds_information.financial_operating != null ||
-                      apiProjectData.mlds_information.financial_service != null) && (
+                    <div className="overview-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                      {/* Problématique réseau traitée */}
+                      {apiProjectData.mlds_information.network_issue_addressed && (
                         <div className="stat-card" style={{ gridColumn: 'span 2' }}>
                           <div className="stat-content">
-                            <div className="stat-label">Moyens financiers demandés</div>
-                            <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                              {apiProjectData.mlds_information.financial_hse != null && (
-                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
-                                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
-                                    {Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)).toFixed(2)} heure{Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) > 1 ? 's' : ''}
-                                  </div>
-                                </div>
-                              )}
-                              {apiProjectData.mlds_information.financial_hv != null && (
-                                <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Taux horaire</div>
-                                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
-                                    {Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)).toFixed(2)} €
-                                  </div>
-                                </div>
-                              )}
-                              
+                            <div className="stat-label"> Problématique du réseau à laquelle l&apos;action répond </div>
+                            <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                              {apiProjectData.mlds_information.network_issue_addressed}
                             </div>
-                            <div>
-                            {apiProjectData.mlds_information.total_financial_hours != null && apiProjectData.mlds_information.financial_hse != null && (
-                                <div style={{ padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', flex: 1 }}>
-                                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total</div>
-                                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
-                                    {(() => {
-                                      const totalHours = Number.parseFloat(String(apiProjectData.mlds_information.total_financial_hours)) || 0;
-                                      return `${totalHours.toFixed(2)} €`;
-                                    })()}
-                                  </div>
-                                </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Demande faite par */}
+                      {apiProjectData.mlds_information.requested_by && (
+                        <div className="stat-card">
+                          <div className="stat-content">
+                            <div className="stat-label">Demande faite par</div>
+                            <div className="stat-value" style={{ fontSize: '1.25rem', marginTop: '0.5rem' }}>
+                              {apiProjectData.mlds_information.requested_by === 'departement' ? (
+                                <>
+                                  Département
+                                  {apiProjectData.mlds_information.department_number && (
+                                    <div style={{ fontSize: '1rem', marginTop: '0.5rem', color: '#6b7280', fontWeight: 'normal' }}>
+                                      {(() => {
+                                        const dept = departments.find(d => d.code === apiProjectData.mlds_information.department_number);
+                                        return dept ? `${dept.code} - ${dept.nom}` : apiProjectData.mlds_information.department_number;
+                                      })()}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                'Réseau foquale'
                               )}
-                               {/* Total bilan  mldsBilan.hse *  mldsBilan.hv */}
-                               {mldsBilan && (mldsBilan.hse != null || mldsBilan.hv != null) && (() => {
-                                const initHse = apiProjectData.mlds_information.financial_hse != null ? Number(apiProjectData.mlds_information.financial_hse) : null;
-                                const initHv = apiProjectData.mlds_information.financial_hv != null ? Number(apiProjectData.mlds_information.financial_hv) : null;
-                                const bilanHse = mldsBilan.hse != null ? Number(mldsBilan.hse) : null;
-                                const bilanHv = mldsBilan.hv != null ? Number(mldsBilan.hv) : null;
-                                const hseChanged = bilanHse !== null && bilanHse !== initHse;
-                                const hvChanged = bilanHv !== null && bilanHv !== initHv;
-                                const hasChanged = hseChanged || hvChanged;
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-                                return (
-                                  <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
-                                    {!hasChanged ? (
-                                      <div style={{ fontSize: '0.9rem', color: '#6b7280', fontStyle: 'italic' }}>Aucun changement</div>
-                                    ) : (
-                                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem', fontSize: '0.9rem' }}>
-                                        {bilanHse !== null && <span><strong>HV :</strong> {formatBilanVal(bilanHse)} h</span>}
-                                        {mldsBilan.hse_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hse_comment}</span>}
-                                        {bilanHv !== null && <span><strong>Taux horaire :</strong> {formatBilanVal(bilanHv)} €</span>}
-                                        {mldsBilan.hv_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hv_comment}</span>}
-                                        <span><strong>Total :</strong> {formatBilanVal((bilanHse ?? initHse ?? 0) * (bilanHv ?? initHv ?? HV_DEFAULT_RATE))} €</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })()}
+                      {/* Public ciblé */}
+                      {apiProjectData.mlds_information.target_audience && (
+                        <div className="stat-card">
+                          <div className="stat-content">
+                            <div className="stat-label">Public ciblé</div>
+                            <div className="stat-value" style={{ fontSize: '1rem', marginTop: '0.5rem', fontWeight: 'normal' }}>
+                              {apiProjectData.mlds_information.target_audience === 'students_without_solution' && 'Élèves sans solution à la rentrée'}
+                              {apiProjectData.mlds_information.target_audience === 'students_at_risk' && 'Élèves en situation de décrochage repérés par le GPDS'}
+                              {apiProjectData.mlds_information.target_audience === 'school_teams' && 'Équipes des établissements'}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Organisations porteuses */}
+                      {apiProjectData.mlds_information.organization_names && apiProjectData.mlds_information.organization_names.length > 0 && (
+                        <div className="!items-start stat-card" style={{ gridColumn: 'span 1' }}>
+                          <div className="stat-content">
+                            <div className="stat-label">Organisations porteuses</div>
+                            <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              {apiProjectData.mlds_information.organization_names.map((org: string | { id?: number; name?: string; type?: string; city?: string }, index: number) => (
+                                <span
+                                  key={index}
+                                  style={{
+                                    padding: '0.5rem 0.75rem',
+                                    backgroundColor: '#e0f2fe',
+                                    color: '#0369a1',
+                                    borderRadius: '0.375rem',
+                                    fontSize: '0.9rem',
+                                    fontWeight: '500'
+                                  }}
+                                >
+                                  {toDisplayString(org)}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Effectifs prévisionnel */}
+                      {apiProjectData.mlds_information.expected_participants != null && (
+                        <div className="stat-card">
+                          <div className="stat-icon">
+                            <i className="fas fa-users"></i>
+                          </div>
+                          <div className="stat-content">
+                            <div className="stat-value">{apiProjectData.mlds_information.expected_participants}</div>
+                            <div className="stat-label">Effectifs prévisionnel</div>
+                            {mldsBilan && (mldsBilan.expected_participants != null || mldsBilan.expected_participants_comment) && (
+                              <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
+                                <div style={{ fontSize: '0.80rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>{mldsBilan.expected_participants ?? '0'}</div>
+                                {mldsBilan.expected_participants_comment && <div style={{ marginTop: '0.35rem', fontSize: '0.8125rem', color: '#4b5563', lineHeight: 1.4 }}>{mldsBilan.expected_participants_comment}</div>}
                               </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
-                            <div style={{ marginTop: '0.10rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                              <div style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.75rem' }}>Crédits</div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {(() => {
-                                  const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport) 
-                                    ? apiProjectData.mlds_information.financial_transport 
-                                    : [];
-                                  const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating) 
-                                    ? apiProjectData.mlds_information.financial_operating 
-                                    : [];
-                                  const serviceLines = Array.isArray(apiProjectData.mlds_information.financial_service) 
-                                    ? apiProjectData.mlds_information.financial_service 
-                                    : [];
+                      {/* Objectifs pédagogiques */}
+                      {apiProjectData.mlds_information.objectives && (
+                        <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                          <div className="stat-content">
+                            <div className="stat-label">Objectifs pédagogiques</div>
+                            <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                              {apiProjectData.mlds_information.objectives}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Objectifs de l'action */}
+                      {apiProjectData.mlds_information.action_objectives && apiProjectData.mlds_information.action_objectives.length > 0 && (
+                        <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                          <div className="stat-content">
+                            <div className="stat-label">Objectifs de l'action</div>
+                            <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                              {apiProjectData.mlds_information.action_objectives.map((obj: string, index: number) => (
+                                <div key={index} style={{ fontSize: '0.9rem', color: '#374151', display: 'flex', alignItems: 'start', gap: '0.5rem' }}>
+                                  <i className="fas fa-check-circle" style={{ color: '#10b981', marginTop: '0.25rem' }}></i>
+                                  <span className='text-left'>
+                                    {obj === 'path_security' && 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles'}
+                                    {obj === 'professional_discovery' && 'La découverte des filières professionnelles'}
+                                    {obj === 'student_mobility' && 'Le développement de la mobilité des élèves'}
+                                    {obj === 'cps_development' && 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré'}
+                                    {obj === 'territory_partnership' && 'Le rapprochement des établissements avec les partenaires du territoire'}
+                                    {obj === 'family_links' && 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire'}
+                                    {obj === 'professional_development' && 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes'}
+                                    {obj === 'other' && 'Autre'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            {apiProjectData.mlds_information.action_objectives_other && (
+                              <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: '0.5rem' }}>
+                                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.5rem' }}>Autre objectif :</div>
+                                <div style={{ fontSize: '0.9rem', color: '#374151' }}>{apiProjectData.mlds_information.action_objectives_other}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Compétences développées */}
+                      {apiProjectData.mlds_information.competencies_developed && (
+                        <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                          <div className="stat-content">
+                            <div className="stat-label">Compétences développées par l'action</div>
+                            <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                              {apiProjectData.mlds_information.competencies_developed}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Moyens financiers */}
+                      {(apiProjectData.mlds_information.financial_hse != null ||
+                        apiProjectData.mlds_information.financial_hv != null ||
+                        apiProjectData.mlds_information.financial_transport != null ||
+                        apiProjectData.mlds_information.financial_operating != null ||
+                        apiProjectData.mlds_information.financial_service != null) && (
+                          <div className="stat-card" style={{ gridColumn: 'span 2' }}>
+                            <div className="stat-content">
+                              <div className="stat-label">Moyens financiers demandés</div>
+                              <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                {apiProjectData.mlds_information.financial_hse != null && (
+                                  <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
+                                      {Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)).toFixed(2)} heure{Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) > 1 ? 's' : ''}
+                                    </div>
+                                  </div>
+                                )}
+                                {apiProjectData.mlds_information.financial_hv != null && (
+                                  <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Taux horaire</div>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
+                                      {Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)).toFixed(2)} €
+                                    </div>
+                                  </div>
+                                )}
+
+                              </div>
+                              <div>
+                                {apiProjectData.mlds_information.total_financial_hours != null && apiProjectData.mlds_information.financial_hse != null && (
+                                  <div style={{ padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', flex: 1 }}>
+                                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total</div>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
+                                      {(() => {
+                                        const totalHours = Number.parseFloat(String(apiProjectData.mlds_information.total_financial_hours)) || 0;
+                                        return `${totalHours.toFixed(2)} €`;
+                                      })()}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Total bilan  mldsBilan.hse *  mldsBilan.hv */}
+                                {mldsBilan && (mldsBilan.hse != null || mldsBilan.hv != null) && (() => {
+                                  const initHse = apiProjectData.mlds_information.financial_hse != null ? Number(apiProjectData.mlds_information.financial_hse) : null;
+                                  const initHv = apiProjectData.mlds_information.financial_hv != null ? Number(apiProjectData.mlds_information.financial_hv) : null;
+                                  const bilanHse = mldsBilan.hse != null ? Number(mldsBilan.hse) : null;
+                                  const bilanHv = mldsBilan.hv != null ? Number(mldsBilan.hv) : null;
+                                  const hseChanged = bilanHse !== null && bilanHse !== initHse;
+                                  const hvChanged = bilanHv !== null && bilanHv !== initHv;
+                                  const hasChanged = hseChanged || hvChanged;
 
                                   return (
-                                    <>
-                                      {transportLines.length > 0 && (
-                                        <div>
-                                          <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>Frais de transport</div>
-                                          {transportLines.map((line: any, idx: number) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
-                                              <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.transport_name || 'Non spécifié'}</span>
-                                              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
-                                                {Number.parseFloat(line.price || '0').toFixed(2)} €
-                                              </span>
-                                            </div>
-                                          ))}
-                                          {mldsBilan && (mldsBilan.financial_transport != null || mldsBilan.financial_transport_comment) && (
-                                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
-                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
-                                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_transport)} €</div>
-                                              {mldsBilan.financial_transport_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_transport_comment}</div>}
-                                            </div>
-                                          )}
+                                    <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
+                                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
+                                      {!hasChanged ? (
+                                        <div style={{ fontSize: '0.9rem', color: '#6b7280', fontStyle: 'italic' }}>Aucun changement</div>
+                                      ) : (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem', fontSize: '0.9rem' }}>
+                                          {bilanHse !== null && <span><strong>HV :</strong> {formatBilanVal(bilanHse)} h</span>}
+                                          {mldsBilan.hse_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hse_comment}</span>}
+                                          {bilanHv !== null && <span><strong>Taux horaire :</strong> {formatBilanVal(bilanHv)} €</span>}
+                                          {mldsBilan.hv_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hv_comment}</span>}
+                                          <span><strong>Total :</strong> {formatBilanVal((bilanHse ?? initHse ?? 0) * (bilanHv ?? initHv ?? HV_DEFAULT_RATE))} €</span>
                                         </div>
                                       )}
-                                      {operatingLines.length > 0 && (
-                                        <div>
-                                          <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>Frais de fonctionnement</div>
-                                          {operatingLines.map((line: any, idx: number) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
-                                              <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.operating_name || 'Non spécifié'}</span>
-                                              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
-                                                {Number.parseFloat(line.price || '0').toFixed(2)} €
-                                              </span>
-                                            </div>
-                                          ))}
-                                          {mldsBilan && (mldsBilan.financial_operating != null || mldsBilan.financial_operating_comment) && (
-                                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
-                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
-                                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_operating)} €</div>
-                                              {mldsBilan.financial_operating_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_operating_comment}</div>}
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                      {serviceLines.length > 0 && (
-                                        <div>
-                                          <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>Prestataires de service</div>
-                                          {serviceLines.map((line: any, idx: number) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
-                                              <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.service_name || 'Non spécifié'}</span>
-                                              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
-                                                {Number.parseFloat(line.price || '0').toFixed(2)} €
-                                              </span>
-                                            </div>
-                                          ))}
-                                          {mldsBilan && (mldsBilan.financial_service != null || mldsBilan.financial_service_comment) && (
-                                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
-                                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
-                                              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_service)} €</div>
-                                              {mldsBilan.financial_service_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_service_comment}</div>}
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </>
+                                    </div>
                                   );
                                 })()}
-                                <div style={{
-                                  marginTop: '0.5rem',
-                                  padding: '0.75rem',
-                                  backgroundColor: '#e0f2fe',
-                                  borderRadius: '0.5rem',
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center'
-                                }}>
-                                  <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits</span>
-                                  <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
-                                    {(() => {
-                                      const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport) 
-                                        ? apiProjectData.mlds_information.financial_transport 
-                                        : [];
-                                      const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating) 
-                                        ? apiProjectData.mlds_information.financial_operating 
-                                        : [];
-                                      const serviceLines = Array.isArray(apiProjectData.mlds_information.financial_service) 
-                                        ? apiProjectData.mlds_information.financial_service 
-                                        : [];
-                                      
-                                      const transportTotal = transportLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                      const operatingTotal = operatingLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                      const serviceTotal = serviceLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                      
-                                      const creditsFromApi = apiProjectData.mlds_information.total_financial_credits != null
-                                        ? Number.parseFloat(String(apiProjectData.mlds_information.total_financial_credits))
-                                        : null;
-                                      return creditsFromApi != null
-                                        ? creditsFromApi.toFixed(2)
-                                        : (
+                              </div>
+
+                              <div style={{ marginTop: '0.10rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                                <div style={{ fontSize: '1rem', fontWeight: 600, color: '#374151', marginBottom: '0.75rem' }}>Crédits</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                  {(() => {
+                                    const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport)
+                                      ? apiProjectData.mlds_information.financial_transport
+                                      : [];
+                                    const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating)
+                                      ? apiProjectData.mlds_information.financial_operating
+                                      : [];
+                                    const serviceLines = Array.isArray(apiProjectData.mlds_information.financial_service)
+                                      ? apiProjectData.mlds_information.financial_service
+                                      : [];
+
+                                    return (
+                                      <>
+                                        {transportLines.length > 0 && (
+                                          <div>
+                                            <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>Frais de transport</div>
+                                            {transportLines.map((line: any, idx: number) => (
+                                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
+                                                <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.transport_name || 'Non spécifié'}</span>
+                                                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
+                                                  {Number.parseFloat(line.price || '0').toFixed(2)} €
+                                                </span>
+                                              </div>
+                                            ))}
+                                            {mldsBilan && (mldsBilan.financial_transport != null || mldsBilan.financial_transport_comment) && (
+                                              <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
+                                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
+                                                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_transport)} €</div>
+                                                {mldsBilan.financial_transport_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_transport_comment}</div>}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                        {operatingLines.length > 0 && (
+                                          <div>
+                                            <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>Frais de fonctionnement</div>
+                                            {operatingLines.map((line: any, idx: number) => (
+                                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
+                                                <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.operating_name || 'Non spécifié'}</span>
+                                                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
+                                                  {Number.parseFloat(line.price || '0').toFixed(2)} €
+                                                </span>
+                                              </div>
+                                            ))}
+                                            {mldsBilan && (mldsBilan.financial_operating != null || mldsBilan.financial_operating_comment) && (
+                                              <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
+                                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
+                                                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_operating)} €</div>
+                                                {mldsBilan.financial_operating_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_operating_comment}</div>}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                        {serviceLines.length > 0 && (
+                                          <div>
+                                            <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>Prestataires de service</div>
+                                            {serviceLines.map((line: any, idx: number) => (
+                                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
+                                                <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.service_name || 'Non spécifié'}</span>
+                                                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
+                                                  {Number.parseFloat(line.price || '0').toFixed(2)} €
+                                                </span>
+                                              </div>
+                                            ))}
+                                            {mldsBilan && (mldsBilan.financial_service != null || mldsBilan.financial_service_comment) && (
+                                              <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
+                                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
+                                                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{formatBilanVal(mldsBilan.financial_service)} €</div>
+                                                {mldsBilan.financial_service_comment && <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{mldsBilan.financial_service_comment}</div>}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                  <div style={{
+                                    marginTop: '0.5rem',
+                                    padding: '0.75rem',
+                                    backgroundColor: '#e0f2fe',
+                                    borderRadius: '0.5rem',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                  }}>
+                                    <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits</span>
+                                    <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
+                                      {(() => {
+                                        const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport)
+                                          ? apiProjectData.mlds_information.financial_transport
+                                          : [];
+                                        const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating)
+                                          ? apiProjectData.mlds_information.financial_operating
+                                          : [];
+                                        const serviceLines = Array.isArray(apiProjectData.mlds_information.financial_service)
+                                          ? apiProjectData.mlds_information.financial_service
+                                          : [];
+
+                                        const transportTotal = transportLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                        const operatingTotal = operatingLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                        const serviceTotal = serviceLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+
+                                        const creditsFromApi = apiProjectData.mlds_information.total_financial_credits != null
+                                          ? Number.parseFloat(String(apiProjectData.mlds_information.total_financial_credits))
+                                          : null;
+                                        return creditsFromApi != null
+                                          ? creditsFromApi.toFixed(2)
+                                          : (
                                             transportTotal +
                                             operatingTotal +
                                             serviceTotal +
                                             (Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) || 0) * (Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)) || HV_DEFAULT_RATE)
                                           ).toFixed(2);
-                                    })()} €
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div style={{
-                              marginTop: '1rem',
-                              padding: '1rem',
-                              background: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%)',
-                              borderRadius: '0.5rem',
-                              border: '2px solid #0369a1',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}>
-                              <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>Total général</span>
-                              <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
-                                {(() => {
-                                  if (apiProjectData.mlds_information.total_financial != null) {
-                                    return Number.parseFloat(String(apiProjectData.mlds_information.total_financial)).toFixed(2);
-                                  }
-                                  const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport) 
-                                    ? apiProjectData.mlds_information.financial_transport 
-                                    : [];
-                                  const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating) 
-                                    ? apiProjectData.mlds_information.financial_operating 
-                                    : [];
-                                  const serviceLines = Array.isArray(apiProjectData.mlds_information.financial_service) 
-                                    ? apiProjectData.mlds_information.financial_service 
-                                    : [];
-                                  
-                                  const transportTotal = transportLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                  const operatingTotal = operatingLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                  const serviceTotal = serviceLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                  
-                                  return (
-                                    transportTotal +
-                                    operatingTotal +
-                                    serviceTotal +
-                                    (Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) || 0) * (Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)) || HV_DEFAULT_RATE)
-                                  ).toFixed(2);
-                                })()} €
-                              </span>
-                            </div>
-                            {mldsBilan && (() => {
-                              const mldsInfo = apiProjectData?.mlds_information;
-                              const mldsTransportFallback = Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
-                              const mldsServiceFallback = Array.isArray(mldsInfo?.financial_service) ? mldsInfo.financial_service.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
-                              const mldsOperatingFallback = Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
-                              const mldsHseFallback = mldsInfo?.financial_hse != null ? Number(mldsInfo.financial_hse) : 0;
-                              const mldsHvFallback = mldsInfo?.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
-
-                              const h = mldsBilan.hse != null ? Number(mldsBilan.hse) : mldsHseFallback;
-                              const v = mldsBilan.hv != null ? Number(mldsBilan.hv) : mldsHvFallback;
-                              const tr = mldsBilan.financial_transport != null ? Number(mldsBilan.financial_transport) : mldsTransportFallback;
-                              const sv = mldsBilan.financial_service != null ? Number(mldsBilan.financial_service) : mldsServiceFallback;
-                              const op = mldsBilan.financial_operating != null ? Number(mldsBilan.financial_operating) : mldsOperatingFallback;
-                              const totalCredits = tr + sv + op;
-                              const totalBilan = h * v + tr + sv + op;
-                              if (totalBilan === 0) return null;
-                              return (
-                                <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
-                                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.5rem' }}>Bilan à la clôture</div>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.9rem' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#374151' }}>Total des crédits</span><span style={{ fontWeight: 700, color: '#111827' }}>{totalCredits.toFixed(2)} €</span></div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#374151' }}>Total général</span><span style={{ fontWeight: 700, color: '#111827' }}>{totalBilan.toFixed(2)} €</span></div>
+                                      })()} €
+                                    </span>
                                   </div>
                                 </div>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      )}
+                              </div>
 
+                              <div style={{
+                                marginTop: '1rem',
+                                padding: '1rem',
+                                background: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%)',
+                                borderRadius: '0.5rem',
+                                border: '2px solid #0369a1',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}>
+                                <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>Total général</span>
+                                <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
+                                  {(() => {
+                                    if (apiProjectData.mlds_information.total_financial != null) {
+                                      return Number.parseFloat(String(apiProjectData.mlds_information.total_financial)).toFixed(2);
+                                    }
+                                    const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport)
+                                      ? apiProjectData.mlds_information.financial_transport
+                                      : [];
+                                    const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating)
+                                      ? apiProjectData.mlds_information.financial_operating
+                                      : [];
+                                    const serviceLines = Array.isArray(apiProjectData.mlds_information.financial_service)
+                                      ? apiProjectData.mlds_information.financial_service
+                                      : [];
+
+                                    const transportTotal = transportLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                    const operatingTotal = operatingLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+                                    const serviceTotal = serviceLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
+
+                                    return (
+                                      transportTotal +
+                                      operatingTotal +
+                                      serviceTotal +
+                                      (Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) || 0) * (Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)) || HV_DEFAULT_RATE)
+                                    ).toFixed(2);
+                                  })()} €
+                                </span>
+                              </div>
+                              {mldsBilan && (() => {
+                                const mldsInfo = apiProjectData?.mlds_information;
+                                const mldsTransportFallback = Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+                                const mldsServiceFallback = Array.isArray(mldsInfo?.financial_service) ? mldsInfo.financial_service.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+                                const mldsOperatingFallback = Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+                                const mldsHseFallback = mldsInfo?.financial_hse != null ? Number(mldsInfo.financial_hse) : 0;
+                                const mldsHvFallback = mldsInfo?.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
+
+                                const h = mldsBilan.hse != null ? Number(mldsBilan.hse) : mldsHseFallback;
+                                const v = mldsBilan.hv != null ? Number(mldsBilan.hv) : mldsHvFallback;
+                                const tr = mldsBilan.financial_transport != null ? Number(mldsBilan.financial_transport) : mldsTransportFallback;
+                                const sv = mldsBilan.financial_service != null ? Number(mldsBilan.financial_service) : mldsServiceFallback;
+                                const op = mldsBilan.financial_operating != null ? Number(mldsBilan.financial_operating) : mldsOperatingFallback;
+                                const totalCredits = tr + sv + op;
+                                const totalBilan = h * v + tr + sv + op;
+                                if (totalBilan === 0) return null;
+                                return (
+                                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.5rem' }}>Bilan à la clôture</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.9rem' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#374151' }}>Total des crédits</span><span style={{ fontWeight: 700, color: '#111827' }}>{totalCredits.toFixed(2)} €</span></div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#374151' }}>Total général</span><span style={{ fontWeight: 700, color: '#111827' }}>{totalBilan.toFixed(2)} €</span></div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
+              );
             })()}
           </>
         )}
@@ -6508,7 +6534,7 @@ const ProjectManagement: React.FC = () => {
                 <i className="fas fa-times"></i>
               </button>
             </div>
-            
+
             <div className="modal-body">
               <div className="form-group">
                 <label htmlFor="project-title">Titre du projet</label>
@@ -6531,7 +6557,8 @@ const ProjectManagement: React.FC = () => {
                     value={editForm.mldsNetworkIssueAddressed}
                     onChange={(e) => setEditForm(prev => ({ ...prev, mldsNetworkIssueAddressed: e.target.value }))}
                     className="form-input"
-                    placeholder="Diagnostique, constats, indicateurs, besoins identifiés, freins"
+                    placeholder="S&#39;appuyer sur des données quantitatives et
+qualitatives (indicateurs, besoins identifiés, freins…)"
                     rows={4}
                     required={editForm.status === 'to_process' || editForm.status === 'in_progress' || editForm.status === 'coming'}
                   />
@@ -6546,7 +6573,8 @@ const ProjectManagement: React.FC = () => {
                   onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
                   className="form-textarea"
                   rows={4}
-                  placeholder="Entrez la description du projet"
+                  placeholder="Description de l'action
+persévérance et de ses objectifs"
                 />
               </div>
 
@@ -6703,8 +6731,8 @@ const ProjectManagement: React.FC = () => {
                           {editAvailablePathways.filter((p: any) => !editPathwaySearchTerm.trim() || (p.name_fr || p.name || '').toLowerCase().includes(editPathwaySearchTerm.toLowerCase())).length === 0 && (
                             <div className="pathway-dropdown-empty">Aucun parcours trouvé</div>
                           )}
-              </div>
-              )}
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
@@ -6712,38 +6740,38 @@ const ProjectManagement: React.FC = () => {
 
               {/* Tags - Masqué pour les projets MLDS */}
               {!isMLDSProject && (
-              <div className="form-group">
-                <label>Tags du projet</label>
-                <div className="tags-input-container">
-                  {editForm.tags.map((tag, index) => (
-                    <div key={index} className="tag-input-row">
-                      <input
-                        type="text"
-                        value={tag}
-                        onChange={(e) => handleTagChange(index, e.target.value)}
-                        className="form-input tag-input"
-                        placeholder="Entrez un tag"
-                      />
-                      <button
-                        type="button"
-                        className="btn-icon remove-tag-btn"
-                        onClick={() => removeTag(index)}
-                        title="Supprimer ce tag"
-                      >
-                        <i className="fas fa-times"></i>
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="btn btn-outline add-tag-btn"
-                    onClick={addTag}
-                  >
-                    <i className="fas fa-plus"></i>
-                    Ajouter un tag
-                  </button>
+                <div className="form-group">
+                  <label>Tags du projet</label>
+                  <div className="tags-input-container">
+                    {editForm.tags.map((tag, index) => (
+                      <div key={index} className="tag-input-row">
+                        <input
+                          type="text"
+                          value={tag}
+                          onChange={(e) => handleTagChange(index, e.target.value)}
+                          className="form-input tag-input"
+                          placeholder="Entrez un tag"
+                        />
+                        <button
+                          type="button"
+                          className="btn-icon remove-tag-btn"
+                          onClick={() => removeTag(index)}
+                          title="Supprimer ce tag"
+                        >
+                          <i className="fas fa-times"></i>
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="btn btn-outline add-tag-btn"
+                      onClick={addTag}
+                    >
+                      <i className="fas fa-plus"></i>
+                      Ajouter un tag
+                    </button>
+                  </div>
                 </div>
-              </div>
               )}
 
               {/* Organisation porteuse - sous Parcours/Tags (projets école) + popup sélection participants par classe */}
@@ -7291,7 +7319,19 @@ const ProjectManagement: React.FC = () => {
                   <div className="multi-select-checkmark">
                     <i className="fas fa-check"></i>
                   </div>
-                  <span className="multi-select-label">Ajouter un partenaire</span>
+                  <div>
+                    <span className="multi-select-label">Ajouter un partenaire {isMLDSProject ? 'du réseau FOQUALE présent sur Kinship  ' : '  '}</span>
+                    <span className="info-tooltip-wrapper">
+                      <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                      <div className="info-tooltip">
+                        <div style={{ fontWeight: '600', marginBottom: '8px' }}>En ajoutant un partenaire présent sur Kinship :</div>
+                        <ul>
+                          <li>Son Admin ou Superadmin pourra être désigné co-responsable du projet. </li>
+                          <li>Il pourra co-rédiger, co-gérer et suivre le projet MLDS avec vous.</li>
+                        </ul>
+                      </div>
+                    </span>
+                  </div>
                 </label>
               </div>
 
@@ -7304,8 +7344,8 @@ const ProjectManagement: React.FC = () => {
                       <i className="fas fa-search search-icon"></i>
                       <input
                         type="text"
-                        className="form-input"
-                        placeholder="Rechercher un partenaire..."
+                        className="form-input placeholder:text-sm"
+                        placeholder="ex : établissements du réseau FOQUALE, DCIO, Pôle Persévérance Scolaire — Académie de Nice, autres réseaux FOQUALE (pour les projets inter-réseaux)"
                         value={editSearchTerms.partner}
                         onChange={(e) => handleEditSearchChange('partner', e.target.value)}
                       />
@@ -7394,7 +7434,7 @@ const ProjectManagement: React.FC = () => {
 
               {/* Co-responsables */}
               <div className="form-group">
-                <label htmlFor="projectCoResponsibles" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label htmlFor="projectCoResponsibles" style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
                   Co-responsable(s)
                   <span className="info-tooltip-wrapper">
                     <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
@@ -7661,7 +7701,8 @@ const ProjectManagement: React.FC = () => {
                       value={editForm.mldsCompetenciesDeveloped}
                       onChange={(e) => setEditForm(prev => ({ ...prev, mldsCompetenciesDeveloped: e.target.value }))}
                       rows={3}
-                      placeholder="Décrivez les compétences que les participants développeront..."
+                      placeholder="Commencer par un verbe d&#39;action pour lister les compétences
+développées par les participants"
                     />
                   </div>
 
@@ -7898,8 +7939,8 @@ const ProjectManagement: React.FC = () => {
                           {(
                             calculateFinancialLinesTotal(editForm.mldsFinancialTransport) +
                             calculateFinancialLinesTotal(editForm.mldsFinancialOperating) +
-                            calculateFinancialLinesTotal(editForm.mldsFinancialService) 
-                            
+                            calculateFinancialLinesTotal(editForm.mldsFinancialService)
+
                           ).toFixed(2)} €
                         </span>
                       </div>
@@ -7982,7 +8023,7 @@ const ProjectManagement: React.FC = () => {
             const orgs: Array<{ id: number; name: string; type: 'School' | 'Company'; role?: string }> = [];
             const contexts = userProjectMember.user.available_contexts;
             const badgeRoles = ['superadmin', 'admin', 'referent', 'référent', 'intervenant'];
-            
+
             if (contexts.schools) {
               contexts.schools.forEach((school: any) => {
                 if (badgeRoles.includes(school.role?.toLowerCase() || '')) {
@@ -7990,7 +8031,7 @@ const ProjectManagement: React.FC = () => {
                 }
               });
             }
-            
+
             if (contexts.companies) {
               contexts.companies.forEach((company: any) => {
                 if (badgeRoles.includes(company.role?.toLowerCase() || '')) {
@@ -7998,7 +8039,7 @@ const ProjectManagement: React.FC = () => {
                 }
               });
             }
-            
+
             return orgs.length > 0 ? orgs : undefined;
           })() : undefined}
         />
@@ -8014,7 +8055,7 @@ const ProjectManagement: React.FC = () => {
                 <i className="fas fa-times"></i>
               </button>
             </div>
-            
+
             <div className="modal-body">
               <div className="form-group">
                 <label htmlFor="teamName">Nom de l'équipe *</label>
@@ -8064,8 +8105,8 @@ const ProjectManagement: React.FC = () => {
                               <div className="selected-name">{selected.name}</div>
                               <div className="selected-role">{selected.profession}</div>
                             </div>
-                            <button 
-                              type="button" 
+                            <button
+                              type="button"
                               className="remove-selection"
                               onClick={() => setNewTeamForm({ ...newTeamForm, chiefId: '' })}
                             >
@@ -8078,8 +8119,8 @@ const ProjectManagement: React.FC = () => {
                   )}
                   <div className="selection-list">
                     {getFilteredParticipants().slice(0, 3).map((participant) => (
-                      <div 
-                        key={participant.id} 
+                      <div
+                        key={participant.id}
                         className="selection-item"
                         onClick={() => setNewTeamForm({ ...newTeamForm, chiefId: participant.id })}
                       >
@@ -8095,7 +8136,7 @@ const ProjectManagement: React.FC = () => {
                               showEmail={false}
                             />
                           ) : (
-                          <div className="item-name">{participant.name}</div>
+                            <div className="item-name">{participant.name}</div>
                           )}
                           <div className="item-role">{participant.profession}</div>
                         </div>
@@ -8129,8 +8170,8 @@ const ProjectManagement: React.FC = () => {
                               <div className="selected-name">{member.name}</div>
                               <div className="selected-role">{member.profession}</div>
                             </div>
-                            <button 
-                              type="button" 
+                            <button
+                              type="button"
                               className="remove-selection"
                               onClick={() => {
                                 setNewTeamForm({
@@ -8149,8 +8190,8 @@ const ProjectManagement: React.FC = () => {
                   )}
                   <div className="selection-list">
                     {getFilteredParticipants().slice(0, 3).map((participant) => (
-                      <div 
-                        key={participant.id} 
+                      <div
+                        key={participant.id}
                         className="selection-item"
                         onClick={() => {
                           if (!newTeamForm.selectedMembers.includes(participant.id)) {
@@ -8203,14 +8244,14 @@ const ProjectManagement: React.FC = () => {
                     <span className="team-number-badge">Équipe {selectedTeam.number}</span>
                   </div>
                 </div>
-                
+
                 {selectedTeam.description && (
                   <div className="team-details-section">
                     <h5>Description</h5>
                     <p>{selectedTeam.description}</p>
                   </div>
                 )}
-                
+
                 <div className="team-details-section">
                   <h5>Chef d'équipe</h5>
                   {(() => {
@@ -8229,7 +8270,7 @@ const ProjectManagement: React.FC = () => {
                     );
                   })()}
                 </div>
-                
+
                 <div className="team-details-section">
                   <h5>Membres de l'équipe ({selectedTeam.members.length})</h5>
                   <div className="team-members-grid">
@@ -8290,7 +8331,7 @@ const ProjectManagement: React.FC = () => {
                   placeholder="Ex: Développement de la fonctionnalité X"
                 />
               </div>
-              
+
               <div className="form-group">
                 <label htmlFor="taskDescription">Description</label>
                 <textarea
@@ -8302,7 +8343,7 @@ const ProjectManagement: React.FC = () => {
                   rows={3}
                 />
               </div>
-              
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Type d'assignation *</label>
@@ -8315,7 +8356,7 @@ const ProjectManagement: React.FC = () => {
                     <option value="team">Équipe</option>
                   </select>
                 </div>
-                
+
                 <div className="form-group">
                   <label>Assigné à *</label>
                   <select
@@ -8340,7 +8381,7 @@ const ProjectManagement: React.FC = () => {
                   </select>
                 </div>
               </div>
-              
+
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="taskStartDate">Date de début</label>
@@ -8352,7 +8393,7 @@ const ProjectManagement: React.FC = () => {
                     onChange={(e) => setNewTaskForm({ ...newTaskForm, startDate: e.target.value })}
                   />
                 </div>
-                
+
                 <div className="form-group">
                   <label htmlFor="taskDueDate">Date d'échéance</label>
                   <input
@@ -8364,7 +8405,7 @@ const ProjectManagement: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="form-group">
                 <label>Priorité</label>
                 <select

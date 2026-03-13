@@ -311,7 +311,15 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
 
         if (organizationType && organizationId) {
           const response = await getPartnerships(organizationId, organizationType);
-          setAvailablePartnerships(response.data || []);
+          const allPartnerships = response.data || [];
+          const schoolOnlyPartnerships = allPartnerships.filter((partnership: any) => {
+            const partners = partnership.partners || [];
+            if (!Array.isArray(partners) || partners.length === 0) return false;
+            const hasSchool = partners.some((p: any) => p?.type?.toLowerCase() === 'school');
+            const hasCompany = partners.some((p: any) => p?.type?.toLowerCase() === 'company');
+            return hasSchool && !hasCompany;
+          });
+          setAvailablePartnerships(schoolOnlyPartnerships);
         }
       } catch (err) {
         console.error('Error fetching partnerships:', err);
@@ -1177,7 +1185,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                 value={formData.networkIssueAddressed}
                 required={formData.status === 'to_process' || formData.status === 'in_progress' || formData.status === 'coming'}
                 onChange={handleInputChange}
-                placeholder="Diagnostique, constats, indicateurs, besoins identifiés, freins"
+                placeholder="S&#39;appuyer sur des données quantitatives et
+qualitatives (indicateurs, besoins identifiés, freins…)"
                 rows={4}
               />
             </div>
@@ -1190,7 +1199,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                 className="form-textarea"
                 value={formData.description}
                 onChange={handleInputChange}
-                placeholder="Décrivez le projet MLDS et ses objectifs..."
+                placeholder="Description de l'action
+persévérance et de ses objectifs"
                 rows={4}
               />
             </div>
@@ -1300,7 +1310,20 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                 <div className="multi-select-checkmark">
                   <i className="fas fa-check"></i>
                 </div>
-                <span className="multi-select-label">Ajouter un partenaire</span>
+                <div className="">
+                  <span className="multi-select-label">Ajouter un partenaire du réseau FOQUALE présent sur Kinship {"  "}</span>
+                  <span className="info-tooltip-wrapper">
+                    <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                    <div className="info-tooltip">
+                      <div style={{ fontWeight: '600', marginBottom: '8px' }}>En ajoutant un partenaire présent sur Kinship :</div>
+                      <ul>
+                        <li>Son Admin ou Superadmin pourra être désigné co-responsable du projet. </li>
+                        <li>Il pourra co-rédiger, co-gérer et suivre le projet MLDS avec vous.</li>
+                      </ul>
+                    </div>
+                  </span>
+
+                </div>
               </label>
             </div>
 
@@ -1313,8 +1336,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                     <i className="fas fa-search search-icon"></i>
                     <input
                       type="text"
-                      className="form-input"
-                      placeholder="Rechercher un partenaire..."
+                      className="form-input placeholder:text-sm"
+                      placeholder="ex : établissements du réseau FOQUALE, DCIO, Pôle Persévérance Scolaire — Académie de Nice, autres réseaux FOQUALE (pour les projets inter-réseaux)"
                       value={searchTerms.partner}
                       onChange={(e) => handleSearchChange('partner', e.target.value)}
                     />
@@ -1397,7 +1420,22 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
 
             {/* Co-responsables */}
             <div className="form-group">
-              <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+                <span className="info-tooltip-wrapper">
+                  <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                  <div className="info-tooltip">
+                    <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+                    <ul>
+                      <li>voir le projet dans leur profil</li>
+                      <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+                      <li>attribuer des badges</li>
+                      <li>faire des équipes et donner des rôles dans équipe</li>
+                      <li>plus tard attribuer des tâches (Kanban)</li>
+                    </ul>
+                  </div>
+                </span>
+              </div>
               <div className="compact-selection">
                 <div className="search-input-container">
                   <i className="fas fa-search search-icon"></i>
@@ -1615,14 +1653,28 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
             </div>
 
             <div className="form-group">
-              <label htmlFor="mldsCompetenciesDeveloped">Compétences développées par l'action</label>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                <label htmlFor="mldsCompetenciesDeveloped">Compétences développées par l'action</label>
+                <span className="info-tooltip-wrapper">
+                  <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                  <div className="info-tooltip">
+                    <div style={{ fontWeight: '600', marginBottom: '8px' }}>Compétences développées par l'action :</div>
+                    <ul>
+                      <li>Les compétences que vous décrivez ici seront traduites en badges Kinship
+                        attribués aux élèves participants. Elles apparaîtront dans les Stats &amp; KPI de votre
+                        action.</li>
+                    </ul>
+                  </div>
+                </span>
+              </div>
               <textarea
                 id="mldsCompetenciesDeveloped"
                 name="mldsCompetenciesDeveloped"
                 className="form-textarea"
                 value={formData.mldsCompetenciesDeveloped}
                 onChange={handleInputChange}
-                placeholder="Décrivez les compétences que les participants développeront..."
+                placeholder="Commencer par un verbe d&#39;action pour lister les compétences
+développées par les participants"
                 rows={3}
               />
             </div>
@@ -1860,7 +1912,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                     {(
                       calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
                       calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
-                      calculateFinancialLinesTotal(formData.mldsFinancialService) 
+                      calculateFinancialLinesTotal(formData.mldsFinancialService)
                     ).toFixed(2)} €
                   </span>
                 </div>
