@@ -247,7 +247,9 @@ const ProjectManagement: React.FC = () => {
     mldsCompetenciesDeveloped: '',
     mldsExpectedParticipants: '',
     mldsFinancialHSE: '',
-    mldsFinancialHV: '50.73',
+    // Taux horaire (€/h) : stocké dans mldsFinancialRate, mldsFinancialHV conservé pour compat éventuelle
+    mldsFinancialHV: '',
+    mldsFinancialRate: '50.73',
     mldsFinancialTransport: [] as Array<{ transport_name: string; price: string }>,
     mldsFinancialOperating: [] as Array<{ operating_name: string; price: string }>,
     mldsFinancialService: [] as Array<{ service_name: string; price: string }>,
@@ -826,7 +828,7 @@ const ProjectManagement: React.FC = () => {
   };
 
   /**
-   * Open the close-project confirmation modal.
+   * Open the close-project flow: for MLDS projects, open the bilan modal; for others, close directly (status → ended).
    */
   const openCloseProjectModal = () => {
     if (!project?.id || (project.status !== 'in_progress' && project.status !== 'coming')) return;
@@ -834,7 +836,11 @@ const ProjectManagement: React.FC = () => {
       showError('Seul le responsable du projet peut le clôturer.');
       return;
     }
-    setIsCloseProjectModalOpen(true);
+    if (isMLDSProject) {
+      setIsCloseProjectModalOpen(true);
+    } else {
+      confirmCloseProject();
+    }
   };
 
   /**
@@ -1810,7 +1816,13 @@ const ProjectManagement: React.FC = () => {
       mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
       mldsExpectedParticipants: mldsInfo?.expected_participants?.toString() || '',
       mldsFinancialHSE: mldsInfo?.financial_hse ?? '',
-      mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : '50.73',
+      // Champ historique (non utilisé directement dans l'UI mais présent dans le type)
+      mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : '',
+      // Taux horaire : lire d'abord financial_rate, puis tomber sur financial_hv pour compatibilité
+      mldsFinancialRate:
+        mldsInfo?.financial_rate != null
+          ? String(mldsInfo.financial_rate)
+          : (mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : '50.73'),
       mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport)
         ? mldsInfo.financial_transport
         : (mldsInfo?.financial_transport != null
@@ -2069,6 +2081,7 @@ const ProjectManagement: React.FC = () => {
           expected_participants: editForm.mldsExpectedParticipants ? parseInt(editForm.mldsExpectedParticipants) : null,
           financial_hse: editForm.mldsFinancialHSE ? Number.parseFloat(editForm.mldsFinancialHSE) : null,
           financial_hv: editForm.mldsFinancialHV ? Number.parseFloat(editForm.mldsFinancialHV) : null,
+          financial_rate: editForm.mldsFinancialRate ? Number.parseFloat(editForm.mldsFinancialRate) : null,
           financial_transport: editForm.mldsFinancialTransport.length > 0 ? editForm.mldsFinancialTransport.filter(line => line.transport_name.trim() || line.price.trim()) : null,
           financial_operating: editForm.mldsFinancialOperating.length > 0 ? editForm.mldsFinancialOperating.filter(line => line.operating_name.trim() || line.price.trim()) : null,
           financial_service: editForm.mldsFinancialService.length > 0 ? editForm.mldsFinancialService.filter(line => line.service_name.trim() || line.price.trim()) : null,
@@ -3895,217 +3908,210 @@ const ProjectManagement: React.FC = () => {
       y += 2;
     }
 
-    // ========== MOYENS FINANCIERS ==========
-    const hasFinancials = mldsInfo.financial_hse != null ||
+    // ========== MOYENS FINANCIERS (+ BILAN en colonnes si présent) ==========
+  const hasFinancials = mldsInfo.financial_hse != null ||
+      mldsInfo.financial_rate != null ||
       mldsInfo.financial_hv != null ||
       mldsInfo.financial_transport != null ||
       mldsInfo.financial_operating != null ||
       mldsInfo.financial_service != null;
 
+    const hasBilan = pdfBilan && typeof pdfBilan === 'object' && (
+      pdfBilan.hse != null || pdfBilan.hv != null || pdfBilan.financial_rate != null ||
+      pdfBilan.financial_transport != null || pdfBilan.financial_service != null || pdfBilan.financial_operating != null || pdfBilan.expected_participants != null ||
+      pdfBilan.hse_comment || pdfBilan.hv_comment || (pdfBilan as any).financial_rate_comment ||
+      pdfBilan.financial_transport_comment || pdfBilan.financial_service_comment || pdfBilan.financial_operating_comment || pdfBilan.expected_participants_comment
+    );
+
     if (hasFinancials) {
-      checkPage(25);
+      checkPage(hasBilan ? 35 : 25);
       y += 2;
       doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
       doc.roundedRect(ml, y, contentW, 8, 1, 1, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text('MOYENS FINANCIERS', ml + 4, y + 5.5);
+      doc.text(hasBilan ? 'MOYENS FINANCIERS ET BILAN À LA CLÔTURE' : 'MOYENS FINANCIERS', ml + 4, y + 5.5);
       y += 14;
 
-      // Tableau financier
       const tableX = ml;
-      const colLabel = contentW * 0.55;
-      const colVal = contentW * 0.45;
       const rowH = 7;
+      const lh = 3.5;
+
+      // Largeurs : 1 seul tableau avec colonnes bilan en plus si hasBilan
+      const colPoste = hasBilan ? contentW * 0.28 : contentW * 0.55;
+      const colMontant = hasBilan ? contentW * 0.18 : contentW * 0.45;
+      const colBilanVal = hasBilan ? contentW * 0.18 : 0;
+      const colBilanComment = hasBilan ? contentW * 0.36 : 0;
+
       let totalCredits = 0;
+      const mldsTransportSum = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+      const mldsServiceSum = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+      const mldsOperatingSum = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+      const mldsHvHours = Number.parseFloat(String(mldsInfo.financial_hv ?? 0));
+      const mldsRate = Number.parseFloat(String(mldsInfo.financial_rate ?? HV_DEFAULT_RATE));
+      const sousTotalHv = mldsHvHours * mldsRate;
+      totalCredits += sousTotalHv;
 
-      // En-tête tableau
-      doc.setFillColor(bleuClair[0], bleuClair[1], bleuClair[2]);
-      doc.rect(tableX, y - 4, contentW, rowH, 'F');
-      doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
-      doc.setLineWidth(0.2);
-      doc.rect(tableX, y - 4, colLabel, rowH);
-      doc.rect(tableX + colLabel, y - 4, colVal, rowH);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
-      doc.text('Poste budgétaire', tableX + 3, y + 0.5);
-      doc.text('Montant', tableX + colLabel + 3, y + 0.5);
-      y += rowH;
-
-      const addFinRow = (label: string, value: string, isBold = false) => {
-        checkPage(rowH + 2);
-        doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
-        doc.setLineWidth(0.15);
-        doc.rect(tableX, y - 4, colLabel, rowH);
-        doc.rect(tableX + colLabel, y - 4, colVal, rowH);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-        doc.setTextColor(gris[0], gris[1], gris[2]);
-        doc.text(label, tableX + 3, y + 0.5);
-        doc.text(value, tableX + colLabel + 3, y + 0.5);
-        y += rowH;
-      };
+      type UnifiedRow = { poste: string; montant: string; bilanVal: string; bilanComment: string; isTotal?: boolean };
+      const unifiedRows: UnifiedRow[] = [];
 
       // HSE
       if (mldsInfo.financial_hse != null) {
-        const hours = Number.parseFloat(String(mldsInfo.financial_hse));
-        const rate = Number.parseFloat(String(mldsInfo.financial_hv)) || HV_DEFAULT_RATE;
-        const euros = hours * rate;
-        totalCredits += euros;
-        addFinRow('Heures supplémentaires effectives (HV)', `${hours.toFixed(2)} h`);
-        addFinRow('Valeur taux horaire', `${rate.toFixed(2)} €/h`);
-        addFinRow('Sous-total', `${euros.toFixed(2)} €`, true);
+        const h = Number.parseFloat(String(mldsInfo.financial_hse));
+        const bVal = hasBilan && pdfBilan.hse != null ? `${Number(pdfBilan.hse).toFixed(2)} h` : '';
+        const bCom = hasBilan && pdfBilan.hse_comment ? String(pdfBilan.hse_comment) : '';
+        unifiedRows.push({ poste: 'HSE', montant: `${h.toFixed(2)} h`, bilanVal: bVal, bilanComment: bCom });
       }
 
-      // Transport
-      const transportLines = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport : [];
-      if (transportLines.length > 0) {
+      // Heures HV
+      if (mldsInfo.financial_hv != null || mldsInfo.financial_rate != null) {
+        const hvBilanVal = hasBilan && pdfBilan.hv != null ? `${Number(pdfBilan.hv).toFixed(2)} h` : '';
+        const hvBilanComment = hasBilan ? String(pdfBilan.hv_comment || '') : '';
+        unifiedRows.push({ poste: 'HV', montant: `${mldsHvHours.toFixed(2)} h`, bilanVal: hvBilanVal, bilanComment: hvBilanComment });
+        const tauxBilanVal = hasBilan && pdfBilan.financial_rate != null ? `${Number(pdfBilan.financial_rate).toFixed(2)} €/h` : '';
+        const tauxBilanComment = hasBilan ? String((pdfBilan as any).financial_rate_comment || '') : '';
+        unifiedRows.push({ poste: 'Taux horaire', montant: `${mldsRate.toFixed(2)} €/h`, bilanVal: tauxBilanVal, bilanComment: tauxBilanComment });
+        unifiedRows.push({ poste: 'Sous-total (HV × taux)', montant: `${sousTotalHv.toFixed(2)} €`, bilanVal: '', bilanComment: '', isTotal: true });
+      }
+
+      // Transport : 1 ligne agrégée si hasBilan, sinon détail
+      if (hasBilan) {
+        totalCredits += mldsTransportSum + mldsServiceSum + mldsOperatingSum;
+        unifiedRows.push({ poste: 'Transport', montant: mldsTransportSum > 0 ? `${mldsTransportSum.toFixed(2)} €` : '—', bilanVal: pdfBilan.financial_transport != null ? `${Number(pdfBilan.financial_transport).toFixed(2)} €` : '', bilanComment: String(pdfBilan.financial_transport_comment || '') });
+        unifiedRows.push({ poste: 'Fonctionnement', montant: mldsOperatingSum > 0 ? `${mldsOperatingSum.toFixed(2)} €` : '—', bilanVal: pdfBilan.financial_operating != null ? `${Number(pdfBilan.financial_operating).toFixed(2)} €` : '', bilanComment: String(pdfBilan.financial_operating_comment || '') });
+        unifiedRows.push({ poste: 'Prestataires', montant: mldsServiceSum > 0 ? `${mldsServiceSum.toFixed(2)} €` : '—', bilanVal: pdfBilan.financial_service != null ? `${Number(pdfBilan.financial_service).toFixed(2)} €` : '', bilanComment: String(pdfBilan.financial_service_comment || '') });
+        if (pdfBilan.expected_participants != null || pdfBilan.expected_participants_comment) {
+          unifiedRows.push({ poste: 'Participants effectifs', montant: mldsInfo.expected_participants != null ? String(mldsInfo.expected_participants) : '—', bilanVal: pdfBilan.expected_participants != null ? String(pdfBilan.expected_participants) : '—', bilanComment: String(pdfBilan.expected_participants_comment || '') });
+        }
+      } else {
+        const transportLines = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport : [];
         transportLines.forEach((line: any) => {
           const amount = Number.parseFloat(line.price || '0') || 0;
           totalCredits += amount;
           const name = line.transport_name || 'Transport';
-          addFinRow(`Transport — ${name.length > 35 ? name.substring(0, 32) + '...' : name}`, `${amount.toFixed(2)} €`);
+          unifiedRows.push({ poste: `Transport — ${name.length > 35 ? name.substring(0, 32) + '...' : name}`, montant: `${amount.toFixed(2)} €`, bilanVal: '', bilanComment: '' });
         });
-      }
-
-      // Fonctionnement
-      const operatingLines = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating : [];
-      if (operatingLines.length > 0) {
+        const operatingLines = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating : [];
         operatingLines.forEach((line: any) => {
           const amount = Number.parseFloat(line.price || '0') || 0;
           totalCredits += amount;
           const name = line.operating_name || 'Fonctionnement';
-          addFinRow(`Fonctionnement — ${name.length > 30 ? name.substring(0, 27) + '...' : name}`, `${amount.toFixed(2)} €`);
+          unifiedRows.push({ poste: `Fonctionnement — ${name.length > 30 ? name.substring(0, 27) + '...' : name}`, montant: `${amount.toFixed(2)} €`, bilanVal: '', bilanComment: '' });
         });
-      }
-
-      // Prestataires
-      const serviceLines = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service : [];
-      if (serviceLines.length > 0) {
+        const serviceLines = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service : [];
         serviceLines.forEach((line: any) => {
           const amount = Number.parseFloat(line.price || '0') || 0;
           totalCredits += amount;
           const name = line.service_name || 'Prestataire';
-          addFinRow(`Prestataire — ${name.length > 30 ? name.substring(0, 27) + '...' : name}`, `${amount.toFixed(2)} €`);
+          unifiedRows.push({ poste: `Prestataire — ${name.length > 30 ? name.substring(0, 27) + '...' : name}`, montant: `${amount.toFixed(2)} €`, bilanVal: '', bilanComment: '' });
         });
       }
 
-      // Total général
-      checkPage(12);
-      doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
-      doc.rect(tableX, y - 4, contentW, rowH + 1, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      const totalGeneral = mldsInfo.total_financial != null
-        ? Number.parseFloat(String(mldsInfo.total_financial))
-        : (mldsInfo.total_financial_credits != null
-          ? Number.parseFloat(String(mldsInfo.total_financial_credits))
-          : totalCredits);
-      doc.text('TOTAL GÉNÉRAL', tableX + 3, y + 1);
-      doc.text(`${totalGeneral.toFixed(2)} €`, tableX + colLabel + 3, y + 1);
-      y += rowH + 6;
-    }
+      const totalGeneral = mldsInfo.total_financial != null ? Number.parseFloat(String(mldsInfo.total_financial)) : (mldsInfo.total_financial_credits != null ? Number.parseFloat(String(mldsInfo.total_financial_credits)) : totalCredits);
+      const totalCreditsBilan = hasBilan ? (Number(pdfBilan.financial_transport ?? 0) + Number(pdfBilan.financial_operating ?? 0) + Number(pdfBilan.financial_service ?? 0)) : 0;
+      const totalBilan = hasBilan ? (mldsHvHours * Number(pdfBilan.financial_rate ?? pdfBilan.hv ?? mldsRate) + totalCreditsBilan) : 0;
 
-    // ========== BILAN À LA CLÔTURE ==========
-    if (pdfBilan && typeof pdfBilan === 'object') {
-      const hasBilan = pdfBilan.hse != null || pdfBilan.hv != null || pdfBilan.financial_transport != null || pdfBilan.financial_service != null || pdfBilan.financial_operating != null || pdfBilan.expected_participants != null ||
-        pdfBilan.hse_comment || pdfBilan.hv_comment || pdfBilan.financial_transport_comment || pdfBilan.financial_service_comment || pdfBilan.financial_operating_comment || pdfBilan.expected_participants_comment;
+      unifiedRows.push({ poste: 'Total des crédits', montant: `${(mldsTransportSum + mldsServiceSum + mldsOperatingSum).toFixed(2)} €`, bilanVal: hasBilan ? `${totalCreditsBilan.toFixed(2)} €` : '', bilanComment: '', isTotal: true });
+      unifiedRows.push({ poste: 'TOTAL GÉNÉRAL', montant: `${totalGeneral.toFixed(2)} €`, bilanVal: hasBilan ? `${totalBilan.toFixed(2)} €` : '', bilanComment: '', isTotal: true });
+
+      // En-tête du tableau : colonnes moyens en bleu, colonnes bilan en vert
+      doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+      doc.setLineWidth(0.2);
+      doc.setFillColor(bleuClair[0], bleuClair[1], bleuClair[2]);
+      doc.rect(tableX, y - 4, colPoste, rowH, 'F');
+      doc.rect(tableX + colPoste, y - 4, colMontant, rowH, 'F');
       if (hasBilan) {
-        checkPage(40);
-        y += 2;
-
-        // Bandeau vert bilan
-        doc.setFillColor(vertBilan[0], vertBilan[1], vertBilan[2]);
-        doc.roundedRect(ml, y, contentW, 8, 1, 1, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text('BILAN À LA CLÔTURE', ml + 4, y + 5.5);
-        y += 14;
-
-        // Tableau bilan
-        const tableX = ml;
-        const colPoste = contentW * 0.38;
-        const colValeur = contentW * 0.2;
-        const colComment = contentW * 0.42;
-        const rowH = 7;
-
-        // En-tête
         doc.setFillColor(vertClair[0], vertClair[1], vertClair[2]);
-        doc.rect(tableX, y - 4, contentW, rowH, 'F');
-        doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
-        doc.setLineWidth(0.2);
-        doc.rect(tableX, y - 4, colPoste, rowH);
-        doc.rect(tableX + colPoste, y - 4, colValeur, rowH);
-        doc.rect(tableX + colPoste + colValeur, y - 4, colComment, rowH);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
+        doc.rect(tableX + colPoste + colMontant, y - 4, colBilanVal, rowH, 'F');
+        doc.rect(tableX + colPoste + colMontant + colBilanVal, y - 4, colBilanComment, rowH, 'F');
+        doc.rect(tableX + colPoste + colMontant, y - 4, colBilanVal, rowH);
+        doc.rect(tableX + colPoste + colMontant + colBilanVal, y - 4, colBilanComment, rowH);
+      }
+      doc.rect(tableX, y - 4, colPoste, rowH);
+      doc.rect(tableX + colPoste, y - 4, colMontant, rowH);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+      doc.text('Poste budgétaire', tableX + 3, y + 0.5);
+      doc.text('Montant demandé', tableX + colPoste + 3, y + 0.5);
+      if (hasBilan) {
         doc.setTextColor(vertBilan[0], vertBilan[1], vertBilan[2]);
-        doc.text('Poste', tableX + 3, y + 0.5);
-        doc.text('Valeur', tableX + colPoste + 3, y + 0.5);
-        doc.text('Commentaire', tableX + colPoste + colValeur + 3, y + 0.5);
-        y += rowH;
+        doc.text('Valeur bilan', tableX + colPoste + colMontant + 3, y + 0.5);
+        doc.text('Commentaire bilan', tableX + colPoste + colMontant + colBilanVal + 3, y + 0.5);
+      }
+      y += rowH;
 
-        // Fallback mlds_information values
-        const mldsTransportFB = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
-        const mldsServiceFB = Array.isArray(mldsInfo.financial_service) ? mldsInfo.financial_service.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
-        const mldsOperatingFB = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
-        const mldsHseFB = mldsInfo.financial_hse != null ? Number(mldsInfo.financial_hse) : 0;
-        const mldsHvFB = mldsInfo.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
+      unifiedRows.forEach((row) => {
+        checkPage(rowH + 4);
+        const commentLines = hasBilan && row.bilanComment ? doc.splitTextToSize(row.bilanComment, colBilanComment - 6) : [];
+        const cellH = Math.max(rowH, commentLines.length * lh + 3);
 
-        const rows: Array<{ poste: string; valeur: string; comment: string; isTotal?: boolean }> = [];
-        if (pdfBilan.hse != null || pdfBilan.hse_comment) rows.push({ poste: 'HV', valeur: pdfBilan.hse != null ? `${fmt(pdfBilan.hse)} h` : '—', comment: String(pdfBilan.hse_comment || '') });
-        if (pdfBilan.hv != null || pdfBilan.hv_comment) rows.push({ poste: 'Taux horaire', valeur: pdfBilan.hv != null ? `${fmt(pdfBilan.hv)} €/h` : '—', comment: String(pdfBilan.hv_comment || '') });
-        if (pdfBilan.financial_transport != null || pdfBilan.financial_transport_comment) rows.push({ poste: 'Crédits transport', valeur: pdfBilan.financial_transport != null ? `${fmt(pdfBilan.financial_transport)} €` : '—', comment: String(pdfBilan.financial_transport_comment || '') });
-        if (pdfBilan.financial_service != null || pdfBilan.financial_service_comment) rows.push({ poste: 'Crédits pédagogiques', valeur: pdfBilan.financial_service != null ? `${fmt(pdfBilan.financial_service)} €` : '—', comment: String(pdfBilan.financial_service_comment || '') });
-        if (pdfBilan.financial_operating != null || pdfBilan.financial_operating_comment) rows.push({ poste: 'Autres financements', valeur: pdfBilan.financial_operating != null ? `${fmt(pdfBilan.financial_operating)} €` : '—', comment: String(pdfBilan.financial_operating_comment || '') });
-        if (pdfBilan.expected_participants != null || pdfBilan.expected_participants_comment) rows.push({ poste: 'Participants effectifs', valeur: pdfBilan.expected_participants != null ? fmt(pdfBilan.expected_participants) : '—', comment: String(pdfBilan.expected_participants_comment || '') });
-
-        // Totaux avec fallback
-        const hseNum = pdfBilan.hse != null ? Number(pdfBilan.hse) : mldsHseFB;
-        const hvNum = pdfBilan.hv != null ? Number(pdfBilan.hv) : mldsHvFB;
-        const transportNum = pdfBilan.financial_transport != null ? Number(pdfBilan.financial_transport) : mldsTransportFB;
-        const serviceNum = pdfBilan.financial_service != null ? Number(pdfBilan.financial_service) : mldsServiceFB;
-        const operatingNum = pdfBilan.financial_operating != null ? Number(pdfBilan.financial_operating) : mldsOperatingFB;
-        const totalCreditsBilan = transportNum + serviceNum + operatingNum;
-        const totalBilan = hseNum * hvNum + totalCreditsBilan;
-
-        rows.push({ poste: 'Total des crédits', valeur: `${totalCreditsBilan.toFixed(2)} €`, comment: '', isTotal: true });
-        rows.push({ poste: 'Total général', valeur: `${totalBilan.toFixed(2)} €`, comment: '', isTotal: true });
-
-        doc.setFontSize(8);
-        rows.forEach((row) => {
-          checkPage(rowH + 4);
-          const commentLines = row.comment ? doc.splitTextToSize(row.comment, colComment - 6) : [];
-          const cellH = Math.max(rowH, commentLines.length * lh + 3);
-
-          if (row.isTotal) {
+        if (row.isTotal) {
+          doc.setFillColor(bleuEN[0], bleuEN[1], bleuEN[2]);
+          doc.rect(tableX, y - 4, colPoste + colMontant, cellH, 'F');
+          if (hasBilan) {
             doc.setFillColor(vertClair[0], vertClair[1], vertClair[2]);
-            doc.rect(tableX, y - 4, contentW, cellH, 'F');
+            doc.rect(tableX + colPoste + colMontant, y - 4, colBilanVal + colBilanComment, cellH, 'F');
           }
-
           doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
           doc.setLineWidth(0.15);
           doc.rect(tableX, y - 4, colPoste, cellH);
-          doc.rect(tableX + colPoste, y - 4, colValeur, cellH);
-          doc.rect(tableX + colPoste + colValeur, y - 4, colComment, cellH);
-          doc.setFont('helvetica', row.isTotal ? 'bold' : 'normal');
-          doc.setTextColor(row.isTotal ? vertBilan[0] : gris[0], row.isTotal ? vertBilan[1] : gris[1], row.isTotal ? vertBilan[2] : gris[2]);
-          doc.text(row.poste, tableX + 3, y + 0.5, { maxWidth: colPoste - 6 });
-          doc.text(row.valeur, tableX + colPoste + 3, y + 0.5);
-          if (commentLines.length > 0) {
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
-            commentLines.forEach((line: string, i: number) => {
-              doc.text(line, tableX + colPoste + colValeur + 3, y + 0.5 + i * lh);
-            });
+          doc.rect(tableX + colPoste, y - 4, colMontant, cellH);
+          if (hasBilan) {
+            doc.rect(tableX + colPoste + colMontant, y - 4, colBilanVal, cellH);
+            doc.rect(tableX + colPoste + colMontant + colBilanVal, y - 4, colBilanComment, cellH);
           }
-          y += cellH;
-        });
-      }
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.text(row.poste, tableX + 3, y + 0.5, { maxWidth: colPoste - 6 });
+          doc.text(row.montant, tableX + colPoste + 3, y + 0.5);
+          if (hasBilan) {
+            doc.setTextColor(vertBilan[0], vertBilan[1], vertBilan[2]);
+            doc.text(row.bilanVal || '—', tableX + colPoste + colMontant + 3, y + 0.5);
+            if (commentLines.length > 0) {
+              doc.setFont('helvetica', 'normal');
+              commentLines.forEach((line: string, i: number) => {
+                doc.text(line, tableX + colPoste + colMontant + colBilanVal + 3, y + 0.5 + i * lh);
+              });
+            }
+            doc.setTextColor(255, 255, 255);
+          }
+        } else {
+          doc.setDrawColor(grisClair[0], grisClair[1], grisClair[2]);
+          doc.setLineWidth(0.15);
+          doc.rect(tableX, y - 4, colPoste, cellH);
+          doc.rect(tableX + colPoste, y - 4, colMontant, cellH);
+          if (hasBilan) {
+            doc.setFillColor(vertClair[0], vertClair[1], vertClair[2]);
+            doc.rect(tableX + colPoste + colMontant, y - 4, colBilanVal, cellH, 'F');
+            doc.rect(tableX + colPoste + colMontant + colBilanVal, y - 4, colBilanComment, cellH, 'F');
+            doc.rect(tableX + colPoste + colMontant, y - 4, colBilanVal, cellH);
+            doc.rect(tableX + colPoste + colMontant + colBilanVal, y - 4, colBilanComment, cellH);
+          }
+          doc.setTextColor(gris[0], gris[1], gris[2]);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.text(row.poste, tableX + 3, y + 0.5, { maxWidth: colPoste - 6 });
+          doc.text(row.montant, tableX + colPoste + 3, y + 0.5);
+          if (hasBilan) {
+            doc.setTextColor(vertBilan[0], vertBilan[1], vertBilan[2]);
+            doc.text(row.bilanVal || '—', tableX + colPoste + colMontant + 3, y + 0.5);
+            if (commentLines.length > 0) {
+              doc.setFont('helvetica', 'normal');
+              doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+              commentLines.forEach((line: string, i: number) => {
+                doc.text(line, tableX + colPoste + colMontant + colBilanVal + 3, y + 0.5 + i * lh);
+              });
+              doc.setTextColor(gris[0], gris[1], gris[2]);
+            }
+          }
+        }
+        y += cellH;
+      });
+
+      y += 6;
     }
 
     // Ajouter les pieds de page sur toutes les pages
@@ -6245,6 +6251,7 @@ const ProjectManagement: React.FC = () => {
 
                       {/* Moyens financiers */}
                       {(apiProjectData.mlds_information.financial_hse != null ||
+                        apiProjectData.mlds_information.financial_rate != null ||
                         apiProjectData.mlds_information.financial_hv != null ||
                         apiProjectData.mlds_information.financial_transport != null ||
                         apiProjectData.mlds_information.financial_operating != null ||
@@ -6252,43 +6259,57 @@ const ProjectManagement: React.FC = () => {
                           <div className="stat-card" style={{ gridColumn: 'span 2' }}>
                             <div className="stat-content">
                               <div className="stat-label">Moyens financiers demandés</div>
-                              <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                              <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                                 {apiProjectData.mlds_information.financial_hse != null && (
                                   <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
-                                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
+                                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HSE</div>
                                     <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
                                       {Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)).toFixed(2)} heure{Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) > 1 ? 's' : ''}
                                     </div>
                                   </div>
                                 )}
-                                {apiProjectData.mlds_information.financial_hv != null && (
+                                    {apiProjectData.mlds_information.financial_hv != null && (
+                                  <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
+                                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>HV</div>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
+                                      {Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)).toFixed(2)} heure{Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)) > 1 ? 's' : ''}
+                                    </div>
+                                  </div>
+                                )}
+                                {(apiProjectData.mlds_information.financial_rate != null ||
+                                  apiProjectData.mlds_information.financial_hv != null) && (
                                   <div style={{ padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.5rem' }}>
                                     <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Taux horaire</div>
                                     <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#111827' }}>
-                                      {Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)).toFixed(2)} €
+                                      {Number.parseFloat(String(apiProjectData.mlds_information.financial_rate)).toFixed(2)} €
                                     </div>
                                   </div>
                                 )}
 
                               </div>
                               <div>
-                                {apiProjectData.mlds_information.total_financial_hours != null && apiProjectData.mlds_information.financial_hse != null && (
+                                {(apiProjectData.mlds_information.financial_hv != null ||
+                                  apiProjectData.mlds_information.financial_rate != null) && (
                                   <div style={{ padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', flex: 1 }}>
-                                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total</div>
+                                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total (HV × taux)</div>
                                     <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
                                       {(() => {
-                                        const totalHours = Number.parseFloat(String(apiProjectData.mlds_information.total_financial_hours)) || 0;
-                                        return `${totalHours.toFixed(2)} €`;
+                                        const hvHours = Number.parseFloat(String(apiProjectData.mlds_information.financial_hv ?? 0)) || 0;
+                                        const rate = Number.parseFloat(String(apiProjectData.mlds_information.financial_rate ?? HV_DEFAULT_RATE)) || HV_DEFAULT_RATE;
+                                        const total = hvHours * rate;
+                                        return `${total.toFixed(2)} €`;
                                       })()}
                                     </div>
                                   </div>
                                 )}
-                                {/* Total bilan  mldsBilan.hse *  mldsBilan.hv */}
-                                {mldsBilan && (mldsBilan.hse != null || mldsBilan.hv != null) && (() => {
+                                {/* Total bilan  mldsBilan.hv *  mldsBilan.rate */}
+                                {mldsBilan && (mldsBilan.hv != null || mldsBilan.financial_rate != null) && (() => {
                                   const initHse = apiProjectData.mlds_information.financial_hse != null ? Number(apiProjectData.mlds_information.financial_hse) : null;
-                                  const initHv = apiProjectData.mlds_information.financial_hv != null ? Number(apiProjectData.mlds_information.financial_hv) : null;
-                                  const bilanHse = mldsBilan.hse != null ? Number(mldsBilan.hse) : null;
+                                  const initHv =  (apiProjectData.mlds_information.financial_hv != null ? Number(apiProjectData.mlds_information.financial_hv) : null);
+                                  const initRate = (apiProjectData.mlds_information.financial_rate != null ? Number(apiProjectData.mlds_information.financial_rate) : null);
+                                    const bilanHse = mldsBilan.hse != null ? Number(mldsBilan.hse) : null;
                                   const bilanHv = mldsBilan.hv != null ? Number(mldsBilan.hv) : null;
+                                  const bilanRate = mldsBilan.financial_rate != null ? Number(mldsBilan.financial_rate) : null;
                                   const hseChanged = bilanHse !== null && bilanHse !== initHse;
                                   const hvChanged = bilanHv !== null && bilanHv !== initHv;
                                   const hasChanged = hseChanged || hvChanged;
@@ -6300,11 +6321,13 @@ const ProjectManagement: React.FC = () => {
                                         <div style={{ fontSize: '0.9rem', color: '#6b7280', fontStyle: 'italic' }}>Aucun changement</div>
                                       ) : (
                                         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem', fontSize: '0.9rem' }}>
-                                          {bilanHse !== null && <span><strong>HV :</strong> {formatBilanVal(bilanHse)} h</span>}
+                                          {bilanHse !== null && <span><strong>HSE :</strong> {formatBilanVal(bilanHse)} h</span>}
                                           {mldsBilan.hse_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hse_comment}</span>}
-                                          {bilanHv !== null && <span><strong>Taux horaire :</strong> {formatBilanVal(bilanHv)} €</span>}
+                                          {bilanHv !== null && <span><strong>HV :</strong> {formatBilanVal(bilanHv)} h</span>}
                                           {mldsBilan.hv_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.hv_comment}</span>}
-                                          <span><strong>Total :</strong> {formatBilanVal((bilanHse ?? initHse ?? 0) * (bilanHv ?? initHv ?? HV_DEFAULT_RATE))} €</span>
+                                          {bilanHv !== null && <span><strong>Taux horaire :</strong> {formatBilanVal(bilanRate)} €</span>}
+                                          {mldsBilan.financial_rate_comment && <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic' }}>{mldsBilan.financial_rate_comment}</span>}
+                                          <span><strong>Total :</strong> {formatBilanVal((bilanHv ?? initHv ?? 0) * (bilanRate ?? initRate ?? HV_DEFAULT_RATE))} €</span>
                                         </div>
                                       )}
                                     </div>
@@ -6420,14 +6443,8 @@ const ProjectManagement: React.FC = () => {
                                         const creditsFromApi = apiProjectData.mlds_information.total_financial_credits != null
                                           ? Number.parseFloat(String(apiProjectData.mlds_information.total_financial_credits))
                                           : null;
-                                        return creditsFromApi != null
-                                          ? creditsFromApi.toFixed(2)
-                                          : (
-                                            transportTotal +
-                                            operatingTotal +
-                                            serviceTotal +
-                                            (Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) || 0) * (Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)) || HV_DEFAULT_RATE)
-                                          ).toFixed(2);
+                                        const fallbackCredits = transportTotal + operatingTotal + serviceTotal;
+                                        return (creditsFromApi != null ? creditsFromApi : fallbackCredits).toFixed(2);
                                       })()} €
                                     </span>
                                   </div>
@@ -6464,11 +6481,14 @@ const ProjectManagement: React.FC = () => {
                                     const operatingTotal = operatingLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
                                     const serviceTotal = serviceLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
 
+                                    const hvHours = Number.parseFloat(String(apiProjectData.mlds_information.financial_hv ?? 0)) || 0;
+                                    const rate = Number.parseFloat(String(apiProjectData.mlds_information.financial_rate ?? HV_DEFAULT_RATE)) || HV_DEFAULT_RATE;
+
                                     return (
                                       transportTotal +
                                       operatingTotal +
                                       serviceTotal +
-                                      (Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)) || 0) * (Number.parseFloat(String(apiProjectData.mlds_information.financial_hv)) || HV_DEFAULT_RATE)
+                                      hvHours * rate
                                     ).toFixed(2);
                                   })()} €
                                 </span>
@@ -6478,8 +6498,9 @@ const ProjectManagement: React.FC = () => {
                                 const mldsTransportFallback = Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
                                 const mldsServiceFallback = Array.isArray(mldsInfo?.financial_service) ? mldsInfo.financial_service.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
                                 const mldsOperatingFallback = Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
-                                const mldsHseFallback = mldsInfo?.financial_hse != null ? Number(mldsInfo.financial_hse) : 0;
-                                const mldsHvFallback = mldsInfo?.financial_hv != null ? Number(mldsInfo.financial_hv) : HV_DEFAULT_RATE;
+        const mldsHseFallback = mldsInfo?.financial_hse != null ? Number(mldsInfo.financial_hse) : 0;
+        const mldsHvFallback = mldsInfo?.financial_hv != null ? Number(mldsInfo.financial_hv) : 0;
+        const mldsRateFallback = mldsInfo?.financial_rate != null ? Number(mldsInfo.financial_rate) : HV_DEFAULT_RATE;
 
                                 const h = mldsBilan.hse != null ? Number(mldsBilan.hse) : mldsHseFallback;
                                 const v = mldsBilan.hv != null ? Number(mldsBilan.hv) : mldsHvFallback;
@@ -6487,7 +6508,8 @@ const ProjectManagement: React.FC = () => {
                                 const sv = mldsBilan.financial_service != null ? Number(mldsBilan.financial_service) : mldsServiceFallback;
                                 const op = mldsBilan.financial_operating != null ? Number(mldsBilan.financial_operating) : mldsOperatingFallback;
                                 const totalCredits = tr + sv + op;
-                                const totalBilan = h * v + tr + sv + op;
+                                const rate = mldsBilan.financial_rate != null ? Number(mldsBilan.financial_rate) : mldsRateFallback;
+                                const totalBilan = ( v * rate) + tr + sv + op;
                                 if (totalBilan === 0) return null;
                                 return (
                                   <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
@@ -6513,8 +6535,8 @@ const ProjectManagement: React.FC = () => {
 
       </div>
 
-      {/* Modal bilan à la clôture du projet */}
-      {isCloseProjectModalOpen && (
+      {/* Modal bilan à la clôture du projet (MLDS uniquement) */}
+      {isCloseProjectModalOpen && isMLDSProject && (
         <CloseProjectBilanModal
           projectTitle={project?.title ?? apiProjectData?.title ?? 'Projet'}
           mldsInfo={apiProjectData?.mlds_information ?? project?.mlds_information ?? null}
@@ -7716,10 +7738,11 @@ développées par les participants"
                       padding: '16px',
                       background: '#f9fafb',
                       borderRadius: '8px',
-                      border: '1px solid #e5e7eb'
+                      border: '1px solid #e5e7eb',
+                      
                     }}>
                       <div className="form-group" style={{ marginBottom: '0' }}>
-                        <label htmlFor="mlds-financial-hse">HV</label>
+                        <label htmlFor="mlds-financial-hse">HSE</label>
                         <input
                           type="number"
                           id="mlds-financial-hse"
@@ -7727,13 +7750,13 @@ développées par les participants"
                           className="form-input"
                           value={editForm.mldsFinancialHSE}
                           onChange={(e) => setEditForm(prev => ({ ...prev, mldsFinancialHSE: e.target.value }))}
-                          placeholder="Nombre d'heures"
+                          placeholder="Nombre d'heures HSE"
                           min="0"
                           step="0.01"
                         />
                       </div>
                       <div className="form-group" style={{ marginBottom: '0' }}>
-                        <label htmlFor="mlds-financial-hv">Taux €/h</label>
+                        <label htmlFor="mlds-financial-hv">HV</label>
                         <input
                           type="number"
                           id="mlds-financial-hv"
@@ -7741,6 +7764,20 @@ développées par les participants"
                           className="form-input"
                           value={editForm.mldsFinancialHV}
                           onChange={(e) => setEditForm(prev => ({ ...prev, mldsFinancialHV: e.target.value }))}
+                          placeholder="Nombre d'heures HV"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: '0' }}>
+                        <label htmlFor="mlds-financial-rate">Taux €/h</label>
+                        <input
+                          type="number"
+                          id="mlds-financial-rate"
+                          name="mldsFinancialRate"
+                          className="form-input"
+                          value={editForm.mldsFinancialRate}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, mldsFinancialRate: e.target.value }))}
                           placeholder="Taux en €/heure"
                           min="0"
                           step="0.01"
@@ -7964,7 +8001,8 @@ développées par les participants"
                           calculateFinancialLinesTotal(editForm.mldsFinancialTransport) +
                           calculateFinancialLinesTotal(editForm.mldsFinancialOperating) +
                           calculateFinancialLinesTotal(editForm.mldsFinancialService) +
-                          (Number.parseFloat(editForm.mldsFinancialHSE) || 0) * (Number.parseFloat(editForm.mldsFinancialHV) || HV_DEFAULT_RATE)
+                          (Number.parseFloat(editForm.mldsFinancialHV) || 0) *
+                            (Number.parseFloat(editForm.mldsFinancialRate) || HV_DEFAULT_RATE)
                         ).toFixed(2)} €
                       </span>
                     </div>

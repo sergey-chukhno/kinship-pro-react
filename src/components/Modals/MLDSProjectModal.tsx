@@ -68,7 +68,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     mldsCompetencies: [] as string[],
     // Financial means
     mldsFinancialHSE: '', // HSE (nombre d'heures)
-    mldsFinancialHV: '50.73', // HV (taux €/heure, modifiable)
+    // Taux horaire (€/h) - stocké dans mldsFinancialRate, mldsFinancialHV conservé pour compat éventuelle
+    mldsFinancialHV: '', // (déprécié)
+    mldsFinancialRate: '50.73', // RATE (taux €/heure, modifiable)
     mldsFinancialTransport: [] as Array<{ transport_name: string; price: string }>, // Frais de transport
     mldsFinancialOperating: [] as Array<{ operating_name: string; price: string }>, // Frais de fonctionnement
     mldsFinancialService: [] as Array<{ service_name: string; price: string }>, // Prestataires de service
@@ -161,7 +163,12 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
       mldsObjectives: mldsInfo?.objectives || '',
       mldsCompetencies: [],
       mldsFinancialHSE: mldsInfo?.financial_hse != null ? String(mldsInfo.financial_hse) : '',
+      // Taux horaire : lire d'abord financial_rate, puis tomber sur financial_hv pour compatibilité
       mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : prev.mldsFinancialHV,
+      mldsFinancialRate:
+        mldsInfo?.financial_rate != null
+          ? String(mldsInfo.financial_rate)
+          : (mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : prev.mldsFinancialRate),
       mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport : [],
       mldsFinancialOperating: Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating : [],
       mldsFinancialService: Array.isArray(mldsInfo?.financial_service) ? mldsInfo.financial_service : [],
@@ -859,6 +866,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
             expected_participants: formData.mldsExpectedParticipants ? Number.parseInt(formData.mldsExpectedParticipants, 10) : null,
             financial_hse: formData.mldsFinancialHSE ? Number.parseFloat(formData.mldsFinancialHSE) : null,
             financial_hv: formData.mldsFinancialHV ? Number.parseFloat(formData.mldsFinancialHV) : null,
+            financial_rate: formData.mldsFinancialRate ? Number.parseFloat(formData.mldsFinancialRate) : null,
             financial_transport: formData.mldsFinancialTransport.length > 0 ? formData.mldsFinancialTransport.filter(line => line.transport_name.trim() || line.price.trim()) : null,
             financial_operating: formData.mldsFinancialOperating.length > 0 ? formData.mldsFinancialOperating.filter(line => line.operating_name.trim() || line.price.trim()) : null,
             financial_service: formData.mldsFinancialService.length > 0 ? formData.mldsFinancialService.filter(line => line.service_name.trim() || line.price.trim()) : null,
@@ -1692,7 +1700,7 @@ développées par les participants"
                 border: '1px solid #e5e7eb'
               }}>
                 <div className="form-group" style={{ marginBottom: '0' }}>
-                  <label htmlFor="mldsFinancialHSE">HV</label>
+                  <label htmlFor="mldsFinancialHSE">HSE</label>
                   <input
                     type="number"
                     id="mldsFinancialHSE"
@@ -1700,19 +1708,33 @@ développées par les participants"
                     className="form-input"
                     value={formData.mldsFinancialHSE}
                     onChange={handleInputChange}
-                    placeholder="Nombre d'heures"
+                    placeholder="Nombre d'heures HSE"
                     min="0"
                     step="0.01"
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: '0' }}>
-                  <label htmlFor="mldsFinancialHV">Taux (€/h)</label>
+                  <label htmlFor="mldsFinancialHV">HV</label>
                   <input
                     type="number"
                     id="mldsFinancialHV"
                     name="mldsFinancialHV"
                     className="form-input"
                     value={formData.mldsFinancialHV}
+                    onChange={handleInputChange}
+                    placeholder="Nombre d'heures HV"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: '0' }}>
+                  <label htmlFor="mldsFinancialRate">Taux (€/h)</label>
+                  <input
+                    type="number"
+                    id="mldsFinancialRate"
+                    name="mldsFinancialRate"
+                    className="form-input"
+                    value={formData.mldsFinancialRate}
                     onChange={handleInputChange}
                     placeholder="Taux en €/heure"
                     min="0"
@@ -1936,7 +1958,8 @@ développées par les participants"
                     calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
                     calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
                     calculateFinancialLinesTotal(formData.mldsFinancialService) +
-                    (Number.parseFloat(formData.mldsFinancialHSE) || 0) * (Number.parseFloat(formData.mldsFinancialHV) || HV_DEFAULT_RATE)
+                    (Number.parseFloat(formData.mldsFinancialHV) || 0) *
+                      (Number.parseFloat(formData.mldsFinancialRate) || HV_DEFAULT_RATE)
                   ).toFixed(2)} €
                 </span>
               </div>

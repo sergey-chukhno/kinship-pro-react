@@ -1078,8 +1078,13 @@ const Projects: React.FC = () => {
   };
 
   const handleCloseProject = (project: Project) => {
-    setProjectToClose(project);
-    setIsCloseProjectModalOpen(true);
+    const isMlds = project?.mlds_information != null;
+    if (isMlds) {
+      setProjectToClose(project);
+      setIsCloseProjectModalOpen(true);
+    } else {
+      confirmCloseProject(undefined, project);
+    }
   };
 
   const cancelCloseProject = () => {
@@ -1087,14 +1092,15 @@ const Projects: React.FC = () => {
     setProjectToClose(null);
   };
 
-  const confirmCloseProject = async (bilanData?: BilanData) => {
-    if (!projectToClose) return;
+  const confirmCloseProject = async (bilanData?: BilanData, projectOverride?: Project) => {
+    const proj = projectOverride ?? projectToClose;
+    if (!proj) return;
 
     setIsClosingProject(true);
     try {
-      const projectId = Number.parseInt(projectToClose.id, 10);
+      const projectId = Number.parseInt(proj.id, 10);
       if (Number.isNaN(projectId)) {
-        console.error('Invalid project ID:', projectToClose.id);
+        console.error('Invalid project ID:', proj.id);
         showError('Identifiant du projet invalide.');
         setIsClosingProject(false);
         return;
@@ -1114,9 +1120,9 @@ const Projects: React.FC = () => {
       });
 
       // Update local state
-      setProjects(prev => prev.map(p => p.id === projectToClose.id ? { ...p, status: 'ended' } : p));
-      setMyProjects(prev => prev.map(p => p.id === projectToClose.id ? { ...p, status: 'ended' } : p));
-      setMldsProjects(prev => prev.map(p => p.id === projectToClose.id ? { ...p, status: 'ended' } : p));
+      setProjects(prev => prev.map(p => p.id === proj.id ? { ...p, status: 'ended' } : p));
+      setMyProjects(prev => prev.map(p => p.id === proj.id ? { ...p, status: 'ended' } : p));
+      setMldsProjects(prev => prev.map(p => p.id === proj.id ? { ...p, status: 'ended' } : p));
 
       setIsCloseProjectModalOpen(false);
       setProjectToClose(null);
@@ -2105,8 +2111,8 @@ const Projects: React.FC = () => {
         </div>
       )}
 
-      {/* Modal bilan à la clôture du projet */}
-      {isCloseProjectModalOpen && projectToClose && (
+      {/* Modal bilan à la clôture du projet (projets MLDS uniquement) */}
+      {isCloseProjectModalOpen && projectToClose && projectToClose.mlds_information != null && (
         <CloseProjectBilanModal
           projectTitle={projectToClose.title}
           mldsInfo={projectToClose.mlds_information ?? null}
