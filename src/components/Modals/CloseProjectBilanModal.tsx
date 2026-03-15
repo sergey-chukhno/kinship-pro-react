@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import './Modal.css';
 import type { MLDSInformationAttributes, MldsBilanPayload } from '../../api/Projects';
 
-export type BilanFieldKey = 'hse' | 'hv' | 'credits_pedagogiques' | 'credits_fonctionnement' | 'autres_financements' | 'expected_participants';
+export type BilanFieldKey = 'hse' | 'hv' | 'financial_rate' | 'credits_pedagogiques' | 'credits_fonctionnement' | 'autres_financements' | 'expected_participants';
 
 export interface BilanFieldData {
   newValue: string;
@@ -12,6 +12,7 @@ export interface BilanFieldData {
 export interface BilanData {
   hse: BilanFieldData;
   hv: BilanFieldData;
+  financial_rate: BilanFieldData;
   credits_pedagogiques: BilanFieldData;
   credits_fonctionnement: BilanFieldData;
   autres_financements: BilanFieldData;
@@ -26,7 +27,7 @@ interface CloseProjectBilanModalProps {
   /** MLDS data (financial + expected_participants), aligned with MLDSInformationAttributes in api/Projects.ts */
   mldsInfo?: Pick<
     MLDSInformationAttributes,
-    'financial_hse' | 'financial_hv' | 'financial_transport' | 'financial_operating' | 'financial_service' | 'expected_participants'
+    'financial_hse' | 'financial_rate' | 'financial_hv' | 'financial_transport' | 'financial_operating' | 'financial_service' | 'expected_participants'
   > | null;
   isSubmitting?: boolean;
 }
@@ -34,6 +35,7 @@ interface CloseProjectBilanModalProps {
 const FIELD_LABELS: Record<BilanFieldKey, string> = {
   hse: 'HSE',
   hv: 'HV',
+  financial_rate: 'Taux horaire',
   credits_pedagogiques: 'Crédits pédagogiques',
   credits_fonctionnement: 'Crédits de fonctionnement',
   autres_financements: 'Autres financements',
@@ -46,30 +48,42 @@ function sumFinancialLines(lines: Array<{ price?: string }> | null | undefined):
   return lines.reduce((acc, line) => acc + (Number.parseFloat(String(line.price || '0')) || 0), 0);
 }
 
-/** Build API payload for POST /api/v1/projects/:id/mlds_bilan from modal form data. */
+/** Build API payload for POST /api/v1/projects/:id/mlds_bilan from modal form data.
+ * Always returns an object with all keys present; empty values are null (numbers) or "" (strings).
+ * When no new value is entered (no variance), the comment is set to "aucun ecart".
+ */
 export function buildMldsBilanPayload(bilanData: BilanData): MldsBilanPayload {
-  const num = (s: string) => {
-    const v = Number.parseFloat(s.trim());
-    return Number.isNaN(v) ? undefined : v;
+  const num = (s: string): number | null => {
+    if (s == null || String(s).trim() === '') return null;
+    const v = Number.parseFloat(String(s).trim());
+    return Number.isNaN(v) ? null : v;
   };
-  const int = (s: string) => {
-    const v = Number.parseInt(s.trim(), 10);
-    return Number.isNaN(v) ? undefined : v;
+  const int = (s: string): number | null => {
+    if (s == null || String(s).trim() === '') return null;
+    const v = Number.parseInt(String(s).trim(), 10);
+    return Number.isNaN(v) ? null : v;
   };
-  const comment = (s: string) => (s.trim() || undefined);
+  /** Si pas de nouvelle valeur (aucun écart), commentaire = "aucun ecart" ; sinon le commentaire saisi. */
+  const comment = (newValue: string, userComment: string): string => {
+    const hasNewValue = newValue != null && String(newValue).trim() !== '';
+    if (!hasNewValue) return 'aucun ecart';
+    return userComment != null && String(userComment).trim() !== '' ? String(userComment).trim() : '';
+  };
   return {
     hse: num(bilanData.hse.newValue),
-    hse_comment: comment(bilanData.hse.comment),
+    hse_comment: comment(bilanData.hse.newValue, bilanData.hse.comment),
     hv: num(bilanData.hv.newValue),
-    hv_comment: comment(bilanData.hv.comment),
+    hv_comment: comment(bilanData.hv.newValue, bilanData.hv.comment),
+    financial_rate: num(bilanData.financial_rate.newValue),
+    financial_rate_comment: comment(bilanData.financial_rate.newValue, bilanData.financial_rate.comment),
     financial_transport: num(bilanData.credits_fonctionnement.newValue),
-    financial_transport_comment: comment(bilanData.credits_fonctionnement.comment),
+    financial_transport_comment: comment(bilanData.credits_fonctionnement.newValue, bilanData.credits_fonctionnement.comment),
     financial_service: num(bilanData.credits_pedagogiques.newValue),
-    financial_service_comment: comment(bilanData.credits_pedagogiques.comment),
+    financial_service_comment: comment(bilanData.credits_pedagogiques.newValue, bilanData.credits_pedagogiques.comment),
     financial_operating: num(bilanData.autres_financements.newValue),
-    financial_operating_comment: comment(bilanData.autres_financements.comment),
+    financial_operating_comment: comment(bilanData.autres_financements.newValue, bilanData.autres_financements.comment),
     expected_participants: int(bilanData.expected_participants.newValue),
-    expected_participants_comment: comment(bilanData.expected_participants.comment),
+    expected_participants_comment: comment(bilanData.expected_participants.newValue, bilanData.expected_participants.comment),
   };
 }
 
@@ -85,6 +99,7 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
     // Crédits pédagogiques = financial_service | Crédits de fonctionnement = financial_transport | Autres financements = financial_operating
     const hse = mldsInfo?.financial_hse != null ? Number(mldsInfo.financial_hse) : null;
     const hv = mldsInfo?.financial_hv != null ? Number(mldsInfo.financial_hv) : null;
+    const financialRate = mldsInfo?.financial_rate != null ? Number(mldsInfo.financial_rate) : null;
     const creditsPedagogiques = sumFinancialLines(mldsInfo?.financial_service ?? null);
     const creditsFonctionnement = sumFinancialLines(mldsInfo?.financial_transport ?? null);
     const autresFinancements = sumFinancialLines(mldsInfo?.financial_operating ?? null);
@@ -93,7 +108,8 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
     const formatNum = (v: number) => (Number.isNaN(v) ? '—' : v.toFixed(2));
     return {
       hse: hse != null ? `${formatNum(hse)} h` : '—',
-      hv: hv != null ? `${formatNum(hv)} €` : '—',
+      hv: hv != null ? `${formatNum(hv)} h` : '—',
+      financial_rate: financialRate != null ? `${formatNum(financialRate)} €/h` : '—',
       credits_pedagogiques: creditsPedagogiques > 0 ? `${formatNum(creditsPedagogiques)} €` : '—',
       credits_fonctionnement: creditsFonctionnement > 0 ? `${formatNum(creditsFonctionnement)} €` : '—',
       autres_financements: autresFinancements > 0 ? `${formatNum(autresFinancements)} €` : '—',
@@ -104,6 +120,7 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
   const [form, setForm] = useState<BilanData>({
     hse: { newValue: '', comment: '' },
     hv: { newValue: '', comment: '' },
+    financial_rate: { newValue: '', comment: '' },
     credits_pedagogiques: { newValue: '', comment: '' },
     credits_fonctionnement: { newValue: '', comment: '' },
     autres_financements: { newValue: '', comment: '' },
@@ -125,6 +142,7 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
   const keys: BilanFieldKey[] = [
     'hse',
     'hv',
+    'financial_rate',
     'credits_pedagogiques',
     'credits_fonctionnement',
     'autres_financements',
