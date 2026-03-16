@@ -162,6 +162,10 @@ export interface CreateProjectResponse {
     school_levels: any[];
 }
 
+export interface ProjectShareLinkResponse {
+    token: string;
+}
+
 /**
  * Fetch available tags (pathways)
  */
@@ -217,6 +221,16 @@ export const getTeacherSchoolMembers = async (
     const response = await apiClient.get(`/api/v1/teachers/schools/${schoolId}/members`, { params });
     const data = response.data?.data || response.data || [];
     return { data: Array.isArray(data) ? data : [], meta: response.data?.meta };
+};
+
+/**
+ * Generate (or fetch existing) share token for a project
+ */
+export const getOrCreateProjectShareLink = async (
+    projectId: number
+): Promise<ProjectShareLinkResponse> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/share_link`);
+    return response.data;
 };
 
 /**
