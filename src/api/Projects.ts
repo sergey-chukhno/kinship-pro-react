@@ -80,6 +80,9 @@ export interface MLDSInformationAttributes {
     competencies_developed?: string | null;
     expected_participants?: number | null;
     financial_hse?: number | null;
+    /** Taux horaire (€/h) principal pour MLDS */
+    financial_rate?: number | null;
+    /** Ancien champ de taux horaire, conservé pour compatibilité rétro */
     financial_hv?: number | null;
     financial_transport?: Array<{ transport_name: string; price: string }> | null;
     financial_operating?: Array<{ operating_name: string; price: string }> | null;
@@ -89,19 +92,21 @@ export interface MLDSInformationAttributes {
     network_issue_addressed?: string | null;
 }
 
-/** Payload for POST /api/v1/projects/:id/mlds_bilan */
+/** Payload for POST /api/v1/projects/:id/mlds_bilan. All keys are always present; empty values use null (numbers) or "" (strings). */
 export interface MldsBilanPayload {
-    hse?: number;
+    hse?: number | null;
     hse_comment?: string;
-    hv?: number;
+    hv?: number | null;
     hv_comment?: string;
-    financial_transport?: number;
+    financial_rate?: number | null;
+    financial_rate_comment?: string;
+    financial_transport?: number | null;
     financial_transport_comment?: string;
-    financial_service?: number;
+    financial_service?: number | null;
     financial_service_comment?: string;
-    financial_operating?: number;
+    financial_operating?: number | null;
     financial_operating_comment?: string;
-    expected_participants?: number;
+    expected_participants?: number | null;
     expected_participants_comment?: string;
 }
 

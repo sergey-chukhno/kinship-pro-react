@@ -17,7 +17,15 @@ import { useToast } from '../../hooks/useToast';
 /** Taux HV par défaut (€/heure) — utilisé pour HSE × HV */
 const HV_DEFAULT_RATE = 50.73;
 
-const STUDENT_SYSTEM_ROLES = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant'];
+// Rôles système considérés comme "élèves" (tous contextes)
+const STUDENT_SYSTEM_ROLES = [
+  'eleve_primaire',
+  'collegien',
+  'lyceen',
+  'etudiant',
+  'student',
+  'eleve'
+];
 
 interface MLDSProjectModalProps {
   onClose: () => void;
@@ -60,7 +68,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     mldsCompetencies: [] as string[],
     // Financial means
     mldsFinancialHSE: '', // HSE (nombre d'heures)
-    mldsFinancialHV: '50.73', // HV (taux €/heure, modifiable)
+    // Taux horaire (€/h) - stocké dans mldsFinancialRate, mldsFinancialHV conservé pour compat éventuelle
+    mldsFinancialHV: '', // (déprécié)
+    mldsFinancialRate: '50.73', // RATE (taux €/heure, modifiable)
     mldsFinancialTransport: [] as Array<{ transport_name: string; price: string }>, // Frais de transport
     mldsFinancialOperating: [] as Array<{ operating_name: string; price: string }>, // Frais de fonctionnement
     mldsFinancialService: [] as Array<{ service_name: string; price: string }>, // Prestataires de service
@@ -153,7 +163,12 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
       mldsObjectives: mldsInfo?.objectives || '',
       mldsCompetencies: [],
       mldsFinancialHSE: mldsInfo?.financial_hse != null ? String(mldsInfo.financial_hse) : '',
+      // Taux horaire : lire d'abord financial_rate, puis tomber sur financial_hv pour compatibilité
       mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : prev.mldsFinancialHV,
+      mldsFinancialRate:
+        mldsInfo?.financial_rate != null
+          ? String(mldsInfo.financial_rate)
+          : (mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : prev.mldsFinancialRate),
       mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport : [],
       mldsFinancialOperating: Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating : [],
       mldsFinancialService: Array.isArray(mldsInfo?.financial_service) ? mldsInfo.financial_service : [],
@@ -303,7 +318,15 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
 
         if (organizationType && organizationId) {
           const response = await getPartnerships(organizationId, organizationType);
-          setAvailablePartnerships(response.data || []);
+          const allPartnerships = response.data || [];
+          const schoolOnlyPartnerships = allPartnerships.filter((partnership: any) => {
+            const partners = partnership.partners || [];
+            if (!Array.isArray(partners) || partners.length === 0) return false;
+            const hasSchool = partners.some((p: any) => p?.type?.toLowerCase() === 'school');
+            const hasCompany = partners.some((p: any) => p?.type?.toLowerCase() === 'company');
+            return hasSchool && !hasCompany;
+          });
+          setAvailablePartnerships(schoolOnlyPartnerships);
         }
       } catch (err) {
         console.error('Error fetching partnerships:', err);
@@ -545,18 +568,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     }
 
     const currentUserId = state.user?.id?.toString();
-    const selectedMemberIds = [
-      ...formData.coResponsibles.map(id => id.toString()),
-      ...formData.participants.map(id => id.toString())
-    ];
-
     let availableMembers = members.filter((member: any) => {
       if (!member) return false;
       const memberIdStr = member.id?.toString();
       if (currentUserId && memberIdStr === currentUserId) {
         return false;
       }
-      return !selectedMemberIds.includes(memberIdStr);
+      return true;
     });
 
     if (searchTerm.trim()) {
@@ -577,13 +595,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     return availableMembers;
   };
 
-  // Co-responsibles: for teacher use school staff (coResponsibleOptions), for edu filter out students
+  // Co-responsables : enseignants / adultes, jamais les élèves
   const getFilteredCoResponsibles = (searchTerm: string) => {
     if (state.showingPageType === 'teacher' && selectedSchoolId) {
-      const selectedIds = [
-        ...formData.coResponsibles.map(id => id.toString()),
-        ...formData.participants.map(id => id.toString())
-      ];
+      const selectedIds = formData.coResponsibles.map(id => id.toString());
       const currentUserId = state.user?.id?.toString();
       let list = (coResponsibleOptions || []).filter((m: any) => {
         const id = m?.id?.toString();
@@ -602,36 +617,37 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
       return list;
     }
     const baseList = getFilteredMembers(searchTerm);
-    if (state.showingPageType === 'edu') {
-      return baseList.filter((m: any) => {
+    // Dans tous les contextes, on exclut les rôles "élèves" et ceux déjà co‑responsables
+    return baseList.filter((m: any) => {
+      const role = (m.role_in_system || m.role || '').toString().toLowerCase();
+      const id = m?.id?.toString();
+      const alreadyCoResponsible = formData.coResponsibles.includes(id || '');
+      return !STUDENT_SYSTEM_ROLES.includes(role) && !alreadyCoResponsible;
+    });
+  };
+
+  // Participants : même pool que co-responsables (adultes), sélection indépendante
+  const getFilteredParticipants = (searchTerm: string) => {
+    // Cas particulier teacher : on se base sur les mêmes données que les co-responsables (personnels de l'établissement)
+    if (state.showingPageType === 'teacher' && selectedSchoolId) {
+      const selectedParticipantIds = formData.participants.map(id => id.toString());
+      const currentUserId = state.user?.id?.toString();
+
+      let list = (coResponsibleOptions || []).filter((m: any) => {
+        const id = m?.id?.toString();
+        if (!id) return false;
+        if (currentUserId && id === currentUserId) return false;
+        if (selectedParticipantIds.includes(id)) return false;
+        return true;
+      });
+
+      // Adultes uniquement
+      list = list.filter((m: any) => {
         const role = (m.role_in_system || m.role || '').toString().toLowerCase();
         return !STUDENT_SYSTEM_ROLES.includes(role);
       });
-    }
-    return baseList;
-  };
 
-  // Participants: for teacher, filter members by selected school
-  const getFilteredParticipants = (searchTerm: string) => {
-    if (state.showingPageType === 'teacher' && selectedSchoolId) {
-      const selectedIds = new Set([
-        ...formData.coResponsibles.map(id => id.toString()),
-        ...formData.participants.map(id => id.toString())
-      ]);
-      const currentUserId = state.user?.id?.toString();
-      let list = (members || []).filter((m: any) => {
-        const id = m?.id?.toString();
-        if (currentUserId && id === currentUserId) return false;
-        if (selectedIds.has(id)) return false;
-        // Filter by selected school: member must have a class in that school
-        if (m.classes && Array.isArray(m.classes)) {
-          return m.classes.some((cls: any) => {
-            const classSchoolId = cls.school_id || cls.school?.id;
-            return classSchoolId?.toString() === selectedSchoolId;
-          });
-        }
-        return false;
-      });
+      // Recherche
       if (searchTerm.trim()) {
         const lower = searchTerm.toLowerCase();
         list = list.filter((m: any) =>
@@ -640,9 +656,18 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
           (m.role || '').toLowerCase().includes(lower)
         );
       }
+
       return list;
     }
-    return getFilteredMembers(searchTerm);
+
+    // Autres contextes : même logique que co-responsables, mais filtrée sur les participants sélectionnés
+    const baseList = getFilteredMembers(searchTerm);
+    return baseList.filter((m: any) => {
+      const role = (m.role_in_system || m.role || '').toString().toLowerCase();
+      const id = m?.id?.toString();
+      const alreadyParticipant = formData.participants.includes(id || '');
+      return !STUDENT_SYSTEM_ROLES.includes(role) && !alreadyParticipant;
+    });
   };
 
   const getFilteredPartners = (searchTerm: string) => {
@@ -841,6 +866,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
             expected_participants: formData.mldsExpectedParticipants ? Number.parseInt(formData.mldsExpectedParticipants, 10) : null,
             financial_hse: formData.mldsFinancialHSE ? Number.parseFloat(formData.mldsFinancialHSE) : null,
             financial_hv: formData.mldsFinancialHV ? Number.parseFloat(formData.mldsFinancialHV) : null,
+            financial_rate: formData.mldsFinancialRate ? Number.parseFloat(formData.mldsFinancialRate) : null,
             financial_transport: formData.mldsFinancialTransport.length > 0 ? formData.mldsFinancialTransport.filter(line => line.transport_name.trim() || line.price.trim()) : null,
             financial_operating: formData.mldsFinancialOperating.length > 0 ? formData.mldsFinancialOperating.filter(line => line.operating_name.trim() || line.price.trim()) : null,
             financial_service: formData.mldsFinancialService.length > 0 ? formData.mldsFinancialService.filter(line => line.service_name.trim() || line.price.trim()) : null,
@@ -1167,7 +1193,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                 value={formData.networkIssueAddressed}
                 required={formData.status === 'to_process' || formData.status === 'in_progress' || formData.status === 'coming'}
                 onChange={handleInputChange}
-                placeholder="Diagnostique, constats, indicateurs, besoins identifiés, freins"
+                placeholder="S&#39;appuyer sur des données quantitatives et
+qualitatives (indicateurs, besoins identifiés, freins…)"
                 rows={4}
               />
             </div>
@@ -1180,7 +1207,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                 className="form-textarea"
                 value={formData.description}
                 onChange={handleInputChange}
-                placeholder="Décrivez le projet MLDS et ses objectifs..."
+                placeholder="Description de l'action
+persévérance et de ses objectifs"
                 rows={4}
               />
             </div>
@@ -1290,7 +1318,20 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                 <div className="multi-select-checkmark">
                   <i className="fas fa-check"></i>
                 </div>
-                <span className="multi-select-label">Ajouter un partenaire</span>
+                <div className="">
+                  <span className="multi-select-label">Ajouter un partenaire du réseau FOQUALE présent sur Kinship {"  "}</span>
+                  <span className="info-tooltip-wrapper">
+                    <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                    <div className="info-tooltip">
+                      <div style={{ fontWeight: '600', marginBottom: '8px' }}>En ajoutant un partenaire présent sur Kinship :</div>
+                      <ul>
+                        <li>Son Admin ou Superadmin pourra être désigné co-responsable du projet. </li>
+                        <li>Il pourra co-rédiger, co-gérer et suivre le projet MLDS avec vous.</li>
+                      </ul>
+                    </div>
+                  </span>
+
+                </div>
               </label>
             </div>
 
@@ -1303,8 +1344,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                     <i className="fas fa-search search-icon"></i>
                     <input
                       type="text"
-                      className="form-input"
-                      placeholder="Rechercher un partenaire..."
+                      className="form-input placeholder:text-sm"
+                      placeholder="ex : établissements du réseau FOQUALE, DCIO, Pôle Persévérance Scolaire — Académie de Nice, autres réseaux FOQUALE (pour les projets inter-réseaux)"
                       value={searchTerms.partner}
                       onChange={(e) => handleSearchChange('partner', e.target.value)}
                     />
@@ -1387,7 +1428,22 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
 
             {/* Co-responsables */}
             <div className="form-group">
-              <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                <label htmlFor="projectCoResponsibles">Co-responsable(s)</label>
+                <span className="info-tooltip-wrapper">
+                  <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                  <div className="info-tooltip">
+                    <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+                    <ul>
+                      <li>voir le projet dans leur profil</li>
+                      <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+                      <li>attribuer des badges</li>
+                      <li>faire des équipes et donner des rôles dans équipe</li>
+                      <li>plus tard attribuer des tâches (Kanban)</li>
+                    </ul>
+                  </div>
+                </span>
+              </div>
               <div className="compact-selection">
                 <div className="search-input-container">
                   <i className="fas fa-search search-icon"></i>
@@ -1605,14 +1661,28 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
             </div>
 
             <div className="form-group">
-              <label htmlFor="mldsCompetenciesDeveloped">Compétences développées par l'action</label>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                <label htmlFor="mldsCompetenciesDeveloped">Compétences développées par l'action</label>
+                <span className="info-tooltip-wrapper">
+                  <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                  <div className="info-tooltip">
+                    <div style={{ fontWeight: '600', marginBottom: '8px' }}>Compétences développées par l'action :</div>
+                    <ul>
+                      <li>Les compétences que vous décrivez ici seront traduites en badges Kinship
+                        attribués aux élèves participants. Elles apparaîtront dans les Stats &amp; KPI de votre
+                        action.</li>
+                    </ul>
+                  </div>
+                </span>
+              </div>
               <textarea
                 id="mldsCompetenciesDeveloped"
                 name="mldsCompetenciesDeveloped"
                 className="form-textarea"
                 value={formData.mldsCompetenciesDeveloped}
                 onChange={handleInputChange}
-                placeholder="Décrivez les compétences que les participants développeront..."
+                placeholder="Commencer par un verbe d&#39;action pour lister les compétences
+développées par les participants"
                 rows={3}
               />
             </div>
@@ -1638,19 +1708,33 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                     className="form-input"
                     value={formData.mldsFinancialHSE}
                     onChange={handleInputChange}
-                    placeholder="Nombre d'heures"
+                    placeholder="Nombre d'heures HSE"
                     min="0"
                     step="0.01"
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: '0' }}>
-                  <label htmlFor="mldsFinancialHV">HV (taux €/h)</label>
+                  <label htmlFor="mldsFinancialHV">HV</label>
                   <input
                     type="number"
                     id="mldsFinancialHV"
                     name="mldsFinancialHV"
                     className="form-input"
                     value={formData.mldsFinancialHV}
+                    onChange={handleInputChange}
+                    placeholder="Nombre d'heures HV"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: '0' }}>
+                  <label htmlFor="mldsFinancialRate">Taux (€/h)</label>
+                  <input
+                    type="number"
+                    id="mldsFinancialRate"
+                    name="mldsFinancialRate"
+                    className="form-input"
+                    value={formData.mldsFinancialRate}
                     onChange={handleInputChange}
                     placeholder="Taux en €/heure"
                     min="0"
@@ -1850,8 +1934,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                     {(
                       calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
                       calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
-                      calculateFinancialLinesTotal(formData.mldsFinancialService) +
-                      (Number.parseFloat(formData.mldsFinancialHSE) || 0) * (Number.parseFloat(formData.mldsFinancialHV) || HV_DEFAULT_RATE)
+                      calculateFinancialLinesTotal(formData.mldsFinancialService)
                     ).toFixed(2)} €
                   </span>
                 </div>
@@ -1875,7 +1958,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
                     calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
                     calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
                     calculateFinancialLinesTotal(formData.mldsFinancialService) +
-                    (Number.parseFloat(formData.mldsFinancialHSE) || 0) * (Number.parseFloat(formData.mldsFinancialHV) || HV_DEFAULT_RATE)
+                    (Number.parseFloat(formData.mldsFinancialHV) || 0) *
+                      (Number.parseFloat(formData.mldsFinancialRate) || HV_DEFAULT_RATE)
                   ).toFixed(2)} €
                 </span>
               </div>
