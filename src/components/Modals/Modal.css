@@ -2132,6 +2132,28 @@ html[data-theme="dark"] .badge-explorer-card .badge-icon i {
   cursor: default;
 }
 
+.share-link-field {
+  margin-top: 1rem;
+}
+
+.share-link-row {
+  display: flex;
+  width: 100%;
+}
+
+.share-link-input {
+  flex: 1;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e5e7eb);
+  background-color: #f9fafb;
+  color: var(--text-primary, #374151);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
 .permission-item {
   display: flex;
   align-items: center;

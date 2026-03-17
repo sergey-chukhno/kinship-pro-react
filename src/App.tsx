@@ -9,6 +9,7 @@ import ResetPassword from './components/Pages/ResetPassword';
 import CheckinStudent from './components/Pages/CheckinStudent';
 import PublicBadgeCartography from './components/Pages/PublicBadgeCartography';
 import PublicProjectInfo from './components/Pages/PublicProjectInfo';
+import SharedProjectInfo from './components/Pages/SharedProjectInfo';
 import SelectedStudentsBadgeCartography from './components/Pages/SelectedStudentsBadgeCartography';
 import './App.css';
 
@@ -24,6 +25,7 @@ function App() {
             <Route path="/badge-cartography/:token" element={<PublicBadgeCartography />} />
             <Route path="/badge-cartography-selected/:token" element={<SelectedStudentsBadgeCartography />} />
             <Route path="/p/:id" element={<PublicProjectInfo />} />
+            <Route path="/shared-project/:token" element={<SharedProjectInfo />} />
             <Route path="/*" element={<MainLayout />} />
           </Routes>
           <ToastContainer

@@ -3,10 +3,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags, getOrCreateProjectShareLink } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
+import ShareProjectLinkModal from '../Modals/ShareProjectLinkModal';
 import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
@@ -309,6 +310,9 @@ const ProjectManagement: React.FC = () => {
   const [isLoadingProjectBadges, setIsLoadingProjectBadges] = useState(false);
   const [projectBadgesError, setProjectBadgesError] = useState<string | null>(null);
   const [badgePage, setBadgePage] = useState(1);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [isLoadingShareLink, setIsLoadingShareLink] = useState(false);
   const [badgeTotalPages, setBadgeTotalPages] = useState(1);
   const [badgeTotalCount, setBadgeTotalCount] = useState(0);
   const [badgeViewMode, setBadgeViewMode] = useState<'cards' | 'list'>('cards');
@@ -3486,10 +3490,20 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
-  const handleCopyLink = () => {
-    const projectUrl = `${window.location.origin}/p/${project.id}`;
-    navigator.clipboard.writeText(projectUrl);
-    showSuccess('Lien copié');
+  const handleCopyLink = async () => {
+    if (!project?.id || isLoadingShareLink) return;
+    try {
+      setIsLoadingShareLink(true);
+      const response = await getOrCreateProjectShareLink(Number(project.id));
+      setShareToken(response.token);
+      setIsShareModalOpen(true);
+    } catch (error: any) {
+      // If share-link generation fails, surface a clear error instead of silently copying /p/:id
+      console.error('Error generating project share link:', error);
+      showError('Impossible de générer le lien de partage');
+    } finally {
+      setIsLoadingShareLink(false);
+    }
   };
 
   const handleReturnToProjects = () => {
@@ -4366,9 +4380,6 @@ const ProjectManagement: React.FC = () => {
           <h2>Gestion du projet</h2>
         </div>
         <div className="header-right">
-          <button type="button" className="btn btn-outline" onClick={handleCopyLink}>
-            <i className="fas fa-link"></i> Copier le lien
-          </button>
           {/* Close project button: only for owner, when project is in progress */}
           {!isProjectEnded && (project.status === 'in_progress' || project.status === 'coming') && userProjectRole === 'owner' && !isReadOnlyMode && (
             <button
@@ -4536,10 +4547,27 @@ const ProjectManagement: React.FC = () => {
                     {getRoleDisplayText(userProjectRole)}
                   </span>
                 ) : null}
-                {/* Edit button for owner only (hidden for superadmin in read-only view) */}
+                {/* Edit button: owner only, hidden for superadmin in read-only view */}
                 {apiProjectData && userProjectRole === 'owner' && !isProjectEnded && !isReadOnlyMode && (
-                  <button type="button" className="btn-icon edit-btn" onClick={handleEdit} title="Modifier le projet">
+                  <button
+                    type="button"
+                    className="btn-icon edit-btn"
+                    onClick={handleEdit}
+                    title="Modifier le projet"
+                  >
                     <i className="fas fa-edit"></i>
+                  </button>
+                )}
+                {/* Share button: any user who can see the project, only for public non-ended projects */}
+                {project?.visibility === 'public' && !isProjectEnded && (
+                  <button
+                    type="button"
+                    className="btn-icon"
+                    onClick={handleCopyLink}
+                    title="Partager un lien vers le projet"
+                    disabled={isLoadingShareLink}
+                  >
+                    <i className="fas fa-link"></i>
                   </button>
                 )}
               </div>
@@ -8468,6 +8496,12 @@ développées par les participants"
           </div>
         </div>
       )}
+
+      <ShareProjectLinkModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        token={shareToken}
+      />
     </section>
   );
 };
