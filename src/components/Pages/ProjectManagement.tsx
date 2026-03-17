@@ -4527,27 +4527,28 @@ const ProjectManagement: React.FC = () => {
                     {getRoleDisplayText(userProjectRole)}
                   </span>
                 ) : null}
-                {/* Edit + Share buttons (owner only, hidden for superadmin in read-only view) */}
+                {/* Edit button: owner only, hidden for superadmin in read-only view */}
                 {apiProjectData && userProjectRole === 'owner' && !isProjectEnded && !isReadOnlyMode && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn-icon edit-btn"
-                      onClick={handleEdit}
-                      title="Modifier le projet"
-                    >
-                      <i className="fas fa-edit"></i>
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-icon"
-                      onClick={handleCopyLink}
-                      title="Partager un lien vers le projet"
-                      disabled={isLoadingShareLink}
-                    >
-                      <i className="fas fa-link"></i>
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    className="btn-icon edit-btn"
+                    onClick={handleEdit}
+                    title="Modifier le projet"
+                  >
+                    <i className="fas fa-edit"></i>
+                  </button>
+                )}
+                {/* Share button: any user who can see the project, only for public non-ended projects */}
+                {project?.visibility === 'public' && !isProjectEnded && (
+                  <button
+                    type="button"
+                    className="btn-icon"
+                    onClick={handleCopyLink}
+                    title="Partager un lien vers le projet"
+                    disabled={isLoadingShareLink}
+                  >
+                    <i className="fas fa-link"></i>
+                  </button>
                 )}
               </div>
             </div>
