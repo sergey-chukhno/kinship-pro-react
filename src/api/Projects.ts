@@ -73,6 +73,8 @@ export interface LinkAttribute {
 export interface MLDSInformationAttributes {
     requested_by?: string;
     department_number?: string | null;
+    /** Type de projet MLDS (ex: perseverance, remediation) */
+    type_mlds?: string | null;
     school_level_ids?: number[];
     target_audience?: string;
     action_objectives?: string[];
@@ -898,6 +900,10 @@ export const createProject = async (
         
         if (mlds.requested_by) {
             formData.append('project[mlds_information_attributes][requested_by]', mlds.requested_by);
+        }
+        
+        if (mlds.type_mlds) {
+            formData.append('project[mlds_information_attributes][type]', mlds.type_mlds);
         }
         
         if (mlds.school_level_ids && mlds.school_level_ids.length > 0) {

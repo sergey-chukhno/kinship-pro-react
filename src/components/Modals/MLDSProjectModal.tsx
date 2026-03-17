@@ -31,9 +31,15 @@ interface MLDSProjectModalProps {
   onClose: () => void;
   onSave: (projectData: Omit<Project, 'id'>) => void;
   initialDataFromProject?: Project | null;
+  variant?: 'perseverance' | 'remediation';
 }
 
-const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, initialDataFromProject }) => {
+const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
+  onClose,
+  onSave,
+  initialDataFromProject,
+  variant = 'perseverance',
+}) => {
   const { state } = useAppContext();
   const { showError } = useToast();
 
@@ -210,6 +216,11 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     { value: 'school_teams', label: 'Équipes des établissements' }
   ];
 
+  const remediationTargetAudienceOptions = [
+    { value: 'mlds_assigned', label: 'Élèves affectés à la MLDS' },
+    { value: 'pafi_tdo', label: 'Élèves en PAFI TDO' },
+  ];
+
   const mldsActionObjectivesOptions = [
     {
       value: 'path_security',
@@ -238,6 +249,45 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     {
       value: 'professional_development',
       label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)'
+    },
+    {
+      value: 'other',
+      label: 'Autre'
+    }
+  ];
+
+  const remediationActionObjectivesOptions = [
+    {
+      value: 'professional_discovery',
+      label: 'La découverte des filières professionnelles'
+    },
+    {
+      value: 'aec_development',
+      label: 'Parcours d\'éducation artistique et culturelle'
+    },
+    {
+      value: 'future_path_development',
+      label: 'Parcours d\'avenir'
+    },
+    {
+      value: 'citizen_path_development',
+      label: 'Parcours citoyen'
+    },
+    {
+      value: 'pe_development',
+      label: 'Apprendre par l\'éducation physique et sportive'
+    },
+    {
+      value: 'disciplinary_courses',
+      label: 'Cours disciplinaires'
+    },
+    {
+      value: 'job_discovery',
+      label: 'Découverte des métiers'
+    },
+    {
+      value: 'training_discovery',
+      label: 'Découverte des formations'
     },
     {
       value: 'other',
@@ -858,6 +908,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
           mlds_information_attributes: {
             requested_by: formData.mldsRequestedBy,
             department_number: formData.mldsRequestedBy === 'departement' && formData.mldsDepartment ? formData.mldsDepartment : null,
+            type_mlds: isRemediation ? 'remediation' : 'perseverance',
             school_level_ids: schoolLevelIds,
             target_audience: formData.mldsTargetAudience,
             action_objectives: formData.mldsActionObjectives,
@@ -1000,6 +1051,26 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     await submitProject('draft');
   };
 
+  const isRemediation = variant === 'remediation';
+  const successMessage = isRemediation
+    ? 'Votre projet MLDS Volet Remédiation a été créé et est maintenant visible.'
+    : 'Votre projet MLDS Volet Persévérance Scolaire a été créé et est maintenant visible.';
+  const headerTitle = isRemediation
+    ? 'Créer un projet MLDS Volet Remédiation'
+    : 'Créer un projet MLDS Volet Persévérance Scolaire';
+  const headerSubtitle = isRemediation
+    ? 'Mission de Lutte contre le Décrochage Scolaire - Volet Remédiation'
+    : 'Mission de Lutte contre le Décrochage Scolaire - Volet Persévérance Scolaire';
+  const sectionTitle = isRemediation ? 'Volet Remédiation' : 'Volet Persévérance Scolaire';
+
+  const remediationNetworkIssueOptions = [
+    { value: 'sas_rentree', label: 'SAS de rentrée' },
+    { value: 'sas_positionnement', label: 'SAS de positionnement' },
+    { value: 'actions_remobilisation', label: 'Actions de remobilisation' },
+    { value: 'actions_remise_niveau', label: 'Actions de remise à niveau (disciplinaire, réalisé par des enseignants)' },
+    { value: 'securisation_parcours', label: 'Sécurisation des parcours' },
+  ];
+
   if (showSuccess && successData) {
     return (
       <div className="modal-overlay" onClick={onClose} role="presentation">
@@ -1016,9 +1087,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
             </div>
           )}
           <p className="success-project-title">{successData.title}</p>
-          <p className="success-message">
-            Votre projet MLDS Volet Persévérance Scolaire a été créé et est maintenant visible.
-          </p>
+          <p className="success-message">{successMessage}</p>
         </div>
       </div>
     );
@@ -1034,10 +1103,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
         <div className="flex flex-col gap-2 modal-header">
           <h2>
             <i className="fas fa-graduation-cap" style={{ marginRight: '12px' }}></i>
-            Créer un projet MLDS Volet Persévérance Scolaire
+            {headerTitle}
           </h2>
           <p className="modal-subtitle">
-            Mission de Lutte contre le Décrochage Scolaire - Volet Persévérance Scolaire
+            {headerSubtitle}
           </p>
         </div>
 
@@ -1185,18 +1254,63 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
               />
             </div>
             <div className="form-group">
-              <label htmlFor="networkIssueAddressed"> Problématique du réseau à laquelle l&apos;action répond <span style={{ color: 'red' }}>*</span></label>
-              <textarea
-                id="networkIssueAddressed"
-                name="networkIssueAddressed"
-                className="form-input"
-                value={formData.networkIssueAddressed}
-                required={formData.status === 'to_process' || formData.status === 'in_progress' || formData.status === 'coming'}
-                onChange={handleInputChange}
-                placeholder="S&#39;appuyer sur des données quantitatives et
+              <div className="form-label">
+                {isRemediation ? 'Actions concernées' : "Problématique du réseau à laquelle l'action répond"}{' '}
+                <span style={{ color: 'red' }}>*</span>
+              </div>
+              {isRemediation ? (
+                <div className="multi-select-container">
+                  {remediationNetworkIssueOptions.map((opt) => {
+                    const selectedValues = formData.networkIssueAddressed
+                      ? formData.networkIssueAddressed.split(' | ')
+                      : [];
+                    const checked = selectedValues.includes(opt.label);
+                    return (
+                      <label
+                        key={opt.value}
+                        className={`multi-select-item !flex items-center gap-2 ${checked ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const current = formData.networkIssueAddressed
+                              ? formData.networkIssueAddressed.split(' | ')
+                              : [];
+                            const next = checked
+                              ? current.filter((v) => v !== opt.label)
+                              : [...current, opt.label];
+                            setFormData((prev) => ({
+                              ...prev,
+                              networkIssueAddressed: next.join(' | '),
+                            }));
+                          }}
+                        />
+                        <div className="multi-select-checkmark">
+                          <i className="fas fa-check"></i>
+                        </div>
+                        <span className="multi-select-label">{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <textarea
+                  id="networkIssueAddressed"
+                  name="networkIssueAddressed"
+                  className="form-input"
+                  value={formData.networkIssueAddressed}
+                  required={
+                    formData.status === 'to_process' ||
+                    formData.status === 'in_progress' ||
+                    formData.status === 'coming'
+                  }
+                  onChange={handleInputChange}
+                  placeholder="S&#39;appuyer sur des données quantitatives et
 qualitatives (indicateurs, besoins identifiés, freins…)"
-                rows={4}
-              />
+                  rows={4}
+                />
+              )}
             </div>
 
             <div className="form-group">
@@ -1298,9 +1412,9 @@ persévérance et de ses objectifs"
                   value={formData.mldsTargetAudience}
                   onChange={handleInputChange}
                 >
-                  {mldsTargetAudienceOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
+                {(isRemediation ? remediationTargetAudienceOptions : mldsTargetAudienceOptions).map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
                 </select>
               </div>
             </div>
@@ -1607,7 +1721,7 @@ persévérance et de ses objectifs"
 
           {/* MLDS Specific Section */}
           <div className="form-section">
-            <h3 className="form-section-title">Volet Persévérance Scolaire</h3>
+            <h3 className="form-section-title">{sectionTitle}</h3>
 
             {/* <div className="form-group">
               <label htmlFor="mldsObjectives">Objectifs pédagogiques</label>
@@ -1626,7 +1740,7 @@ persévérance et de ses objectifs"
             <div className="form-group">
               <div className="form-label">Objectifs de l'action</div>
               <div className="multi-select-container">
-                {mldsActionObjectivesOptions.map(objective => (
+                {(isRemediation ? remediationActionObjectivesOptions : mldsActionObjectivesOptions).map(objective => (
                   <label
                     key={objective.value}
                     className={`multi-select-item  !flex items-center gap-2 ${formData.mldsActionObjectives.includes(objective.value) ? 'selected' : ''}`}

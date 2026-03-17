@@ -27,6 +27,7 @@ const Projects: React.FC = () => {
   const { selectedProject } = state;
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isMLDSProjectModalOpen, setIsMLDSProjectModalOpen] = useState(false);
+  const [mldsProjectVariant, setMldsProjectVariant] = useState<'perseverance' | 'remediation'>('perseverance');
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -780,7 +781,10 @@ const Projects: React.FC = () => {
     if (open !== 'create') return;
     setSelectedProject(null);
     setDuplicateSourceProject(null);
-    if (variant === 'mlds') {
+    if (variant === 'mlds' || variant === 'mlds-remediation') {
+      const nextVariant: 'perseverance' | 'remediation' =
+        variant === 'mlds-remediation' ? 'remediation' : 'perseverance';
+      setMldsProjectVariant(nextVariant);
       if (state.showingPageType === 'user') {
         setIsSubscriptionModalOpen(true);
       } else {
@@ -1007,10 +1011,25 @@ const Projects: React.FC = () => {
       setIsSubscriptionModalOpen(true);
     } else {
       // Open MLDS project creation modal for organizational users
+      setMldsProjectVariant('perseverance');
       setSelectedProject(null);
       setDuplicateSourceProject(null);
       setIsMLDSProjectModalOpen(true);
-    setIsProjectDropdownOpen(false);
+      setIsProjectDropdownOpen(false);
+    }
+  };
+
+  const handleCreateMLDSRemediationProject = () => {
+    const isPersonalUser = state.showingPageType === 'user';
+
+    if (isPersonalUser) {
+      setIsSubscriptionModalOpen(true);
+    } else {
+      setMldsProjectVariant('remediation');
+      setSelectedProject(null);
+      setDuplicateSourceProject(null);
+      setIsMLDSProjectModalOpen(true);
+      setIsProjectDropdownOpen(false);
     }
   };
 
@@ -1429,8 +1448,8 @@ const Projects: React.FC = () => {
                       <i className="fas fa-folder" style={{ marginRight: '8px' }}></i>
                       Projet classique
                     </button>
-                    <button
-                      onClick={handleCreateMLDSProject}
+                  <button
+                    onClick={handleCreateMLDSProject}
                       style={{
                         width: '100%',
                         padding: '12px 16px',
@@ -1443,10 +1462,28 @@ const Projects: React.FC = () => {
                       }}
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                    >
-                      <i className="fas fa-graduation-cap" style={{ marginRight: '8px' }}></i>
-                      Projet MLDS Volet Persévérance Scolaire
-                    </button>
+                  >
+                    <i className="fas fa-graduation-cap" style={{ marginRight: '8px' }}></i>
+                    Projet MLDS Volet Persévérance Scolaire
+                  </button>
+                  <button
+                    onClick={handleCreateMLDSRemediationProject}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: 'none',
+                      background: 'white',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
+                  >
+                    <i className="fas fa-chalkboard-teacher" style={{ marginRight: '8px' }}></i>
+                    Projet MLDS Volet Remédiation
+                  </button>
                   </div>
                 )}
               </>
@@ -2027,6 +2064,7 @@ const Projects: React.FC = () => {
       {isMLDSProjectModalOpen && (
         <MLDSProjectModal
           initialDataFromProject={duplicateSourceProject}
+          variant={mldsProjectVariant}
           onClose={() => {
             setIsMLDSProjectModalOpen(false);
             setSelectedProject(null);

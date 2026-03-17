@@ -3632,7 +3632,11 @@ const ProjectManagement: React.FC = () => {
     doc.text('Fiche Projet MLDS', ml, 16);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text('Mission de Lutte contre le Décrochage Scolaire — Volet Persévérance', ml, 24);
+    if (apiProjectData.mlds_information.type_mlds === 'remediation') {
+      doc.text('Mission de Lutte contre le Décrochage Scolaire — Volet Remédiation', ml, 24);
+    } else {
+      doc.text('Mission de Lutte contre le Décrochage Scolaire — Volet Persévérance Scolaire', ml, 24);
+    }
 
     // Date et statut en haut à droite
     const statusText = getStatusText(project.status);
@@ -3837,8 +3841,43 @@ const ProjectManagement: React.FC = () => {
       if (mldsInfo.target_audience === 'students_without_solution') targetText = 'Élèves sans solution à la rentrée';
       else if (mldsInfo.target_audience === 'students_at_risk') targetText = 'Élèves en situation de décrochage repérés par le GPDS';
       else if (mldsInfo.target_audience === 'school_teams') targetText = 'Équipes des établissements';
+      else if (mldsInfo.target_audience === 'mlds_assigned') targetText = 'Élèves affectés à la MLDS';
+      else if (mldsInfo.target_audience === 'pafi_tdo') targetText = 'Élèves en PAFI TDO';
       wrapped(targetText, ml, contentW);
       y += 2;
+    }
+
+    // Problématique réseau / Actions concernées (remédiation)
+    if (mldsInfo.network_issue_addressed) {
+      const isRemediationType =
+        (mldsInfo as any)?.type === 'remediation' ||
+        (mldsInfo as any)?.type_mlds === 'remediation';
+
+      checkPage(12);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(grisLabel[0], grisLabel[1], grisLabel[2]);
+      doc.text(isRemediationType ? 'ACTIONS CONCERNÉES' : 'PROBLÉMATIQUE DU RÉSEAU', ml, y);
+      y += 4;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+
+      if (isRemediationType) {
+        const items = String(mldsInfo.network_issue_addressed)
+          .split(' | ')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        items.forEach((label) => {
+          checkPage(6);
+          doc.text(`• ${label}`, ml + 2, y);
+          y += lh;
+        });
+        y += 2;
+      } else {
+        wrapped(String(mldsInfo.network_issue_addressed), ml, contentW);
+        y += 2;
+      }
     }
 
     // Objectifs pédagogiques
@@ -3872,6 +3911,13 @@ const ProjectManagement: React.FC = () => {
         'territory_partnership': 'Rapprochement avec les partenaires du territoire',
         'family_links': 'Renforcement des liens familles-élèves',
         'professional_development': 'Co-développement professionnel',
+        'art_culture_path': 'Parcours d\'éducation artistique et culturel',
+        'avenir_path': 'Parcours avenir',
+        'citizen_path': 'Parcours citoyen',
+        'physical_education': 'Apprendre par l\'éducation physique et sportive',
+        'disciplinary_course': 'Cours disciplinaire',
+        'job_discovery': 'Découverte des métiers',
+        'training_discovery': 'Découverte des formations',
         'other': 'Autre'
       };
 
@@ -6091,7 +6137,7 @@ const ProjectManagement: React.FC = () => {
                 <div className="tab-content active">
                   <div className="badges-section">
                     <div className="badges-section-header">
-                      <h3>Informations MLDS - Volet Persévérance Scolaire</h3>
+                      <h3>Informations MLDS - Volet {apiProjectData.mlds_information.type_mlds === 'remediation' ? 'Remédiation' : 'Persévérance Scolaire'}</h3>
                     </div>
 
                     <div className="overview-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
@@ -6099,10 +6145,32 @@ const ProjectManagement: React.FC = () => {
                       {apiProjectData.mlds_information.network_issue_addressed && (
                         <div className="stat-card" style={{ gridColumn: 'span 2' }}>
                           <div className="stat-content">
-                            <div className="stat-label"> Problématique du réseau à laquelle l&apos;action répond </div>
-                            <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
-                              {apiProjectData.mlds_information.network_issue_addressed}
+                            <div className="stat-label">
+                              {apiProjectData.mlds_information.type_mlds === 'remediation'
+                                ? 'Actions concernées'
+                                : "Problématique du réseau à laquelle l'action répond"}
                             </div>
+                            {apiProjectData.mlds_information.type_mlds === 'remediation' ? (
+                              <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {String(apiProjectData.mlds_information.network_issue_addressed)
+                                  .split('|')
+                                  .map((s) => s.trim())
+                                  .filter(Boolean)
+                                  .map((label: string, index: number) => (
+                                    <div
+                                      key={`${label}-${index}`}
+                                      style={{ fontSize: '0.9rem', color: '#374151', display: 'flex', alignItems: 'start', gap: '0.5rem' }}
+                                    >
+                                      <i className="fas fa-check-circle" style={{ color: '#10b981', marginTop: '0.25rem' }}></i>
+                                      <span className="text-left">{label}</span>
+                                    </div>
+                                  ))}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '0.95rem', marginTop: '0.75rem', lineHeight: '1.6', color: '#374151' }}>
+                                {apiProjectData.mlds_information.network_issue_addressed}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -6222,6 +6290,13 @@ const ProjectManagement: React.FC = () => {
                                     {obj === 'territory_partnership' && 'Le rapprochement des établissements avec les partenaires du territoire'}
                                     {obj === 'family_links' && 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire'}
                                     {obj === 'professional_development' && 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes'}
+                                    {obj === 'aec_development' && "Parcours d'éducation artistique et culturelle"}
+                                    {obj === 'future_path_development' && 'Parcours d\'avenir'}
+                                    {obj === 'citizen_path_development' && 'Parcours citoyen'}
+                                    {obj === 'pe_development' && "Apprendre par l'éducation physique et sportive"}
+                                    {obj === 'disciplinary_courses' && 'Cours disciplinaires'}
+                                    {obj === 'job_discovery' && 'Découverte des métiers'}
+                                    {obj === 'training_discovery' && 'Découverte des formations'}
                                     {obj === 'other' && 'Autre'}
                                   </span>
                                 </div>
@@ -6573,17 +6648,68 @@ const ProjectManagement: React.FC = () => {
 
               {isMLDSProject && (
                 <div className="form-group">
-                  <label htmlFor="networkIssueAddressed"> Problématique du réseau à laquelle l&apos;action répond <span style={{ color: 'red' }}>*</span></label>
-                  <textarea
-                    id="project-network-issue-addressed"
-                    value={editForm.mldsNetworkIssueAddressed}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, mldsNetworkIssueAddressed: e.target.value }))}
-                    className="form-input"
-                    placeholder="S&#39;appuyer sur des données quantitatives et
+                  <div className="form-label">
+                    {((apiProjectData.mlds_information as any)?.type === 'remediation' ||
+                      (apiProjectData.mlds_information as any)?.type_mlds === 'remediation')
+                      ? 'Actions concernées'
+                      : "Problématique du réseau à laquelle l'action répond"}{' '}
+                    <span style={{ color: 'red' }}>*</span>
+                  </div>
+                  {((apiProjectData.mlds_information as any)?.type === 'remediation' ||
+                    (apiProjectData.mlds_information as any)?.type_mlds === 'remediation') ? (
+                    <div className="multi-select-container">
+                      {[
+                        { value: 'sas_rentree', label: 'SAS de rentrée' },
+                        { value: 'sas_positionnement', label: 'SAS de positionnement' },
+                        { value: 'actions_remobilisation', label: 'Actions de remobilisation' },
+                        { value: 'actions_remise_niveau', label: 'Actions de remise à niveau (disciplinaire, réalisé par des enseignants)' },
+                        { value: 'securisation_parcours', label: 'Sécurisation des parcours' },
+                      ].map((opt) => {
+                        const selectedValues = editForm.mldsNetworkIssueAddressed
+                          ? editForm.mldsNetworkIssueAddressed.split(' | ')
+                          : [];
+                        const checked = selectedValues.includes(opt.label);
+                        return (
+                          <label
+                            key={opt.value}
+                            className={`multi-select-item !flex items-center gap-2 ${checked ? 'selected' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                const current = editForm.mldsNetworkIssueAddressed
+                                  ? editForm.mldsNetworkIssueAddressed.split(' | ')
+                                  : [];
+                                const next = checked
+                                  ? current.filter((v) => v !== opt.label)
+                                  : [...current, opt.label];
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  mldsNetworkIssueAddressed: next.join(' | '),
+                                }));
+                              }}
+                            />
+                            <div className="multi-select-checkmark">
+                              <i className="fas fa-check"></i>
+                            </div>
+                            <span className="multi-select-label">{opt.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <textarea
+                      id="project-network-issue-addressed"
+                      value={editForm.mldsNetworkIssueAddressed}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsNetworkIssueAddressed: e.target.value }))}
+                      className="form-input"
+                      placeholder="S&#39;appuyer sur des données quantitatives et
 qualitatives (indicateurs, besoins identifiés, freins…)"
-                    rows={4}
-                    required={editForm.status === 'to_process' || editForm.status === 'in_progress' || editForm.status === 'coming'}
-                  />
+                      rows={4}
+                      required={editForm.status === 'to_process' || editForm.status === 'in_progress' || editForm.status === 'coming'}
+                    />
+                  )}
                 </div>
               )}
 
@@ -7567,7 +7693,7 @@ persévérance et de ses objectifs"
               {/* MLDS-specific fields */}
               {isMLDSProject && (
                 <div className="form-section">
-                  <h3 className="form-section-title">Volet Persévérance Scolaire</h3>
+                  <h3 className="form-section-title">Volet {apiProjectData.mlds_information.type_mlds === 'remediation' ? 'Remédiation' : 'Persévérance Scolaire'}</h3>
 
                   <div className="form-row">
                     <div className="form-group">
@@ -7628,9 +7754,18 @@ persévérance et de ses objectifs"
                         onChange={(e) => setEditForm(prev => ({ ...prev, mldsTargetAudience: e.target.value }))}
                         required
                       >
+                        {apiProjectData.mlds_information.type_mlds === 'remediation' ? (
+                          <>
+                        <option value="mlds_assigned">Élèves affectés à la MLDS</option>
+                        <option value="pafi_tdo">Élèves en PAFI TDO</option>
+                        </>
+                        ) : (
+                          <>
                         <option value="students_without_solution">Élèves sans solution à la rentrée</option>
                         <option value="students_at_risk">Élèves en situation de décrochage repérés par le GPDS</option>
                         <option value="school_teams">Équipes des établissements</option>
+                        </>
+                        )}
                       </select>
                     </div>
                   </div>
@@ -7665,16 +7800,36 @@ persévérance et de ses objectifs"
                   <div className="form-group">
                     <div className="form-label">Objectifs de l'action</div>
                     <div className="multi-select-container">
-                      {[
-                        { value: 'path_security', label: 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles' },
-                        { value: 'professional_discovery', label: 'La découverte des filières professionnelles' },
-                        { value: 'student_mobility', label: 'Le développement de la mobilité des élèves' },
-                        { value: 'cps_development', label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré' },
-                        { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, Avenir Pro Plus, autres)' },
-                        { value: 'family_links', label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire' },
-                        { value: 'professional_development', label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)' },
-                        { value: 'other', label: 'Autre' }
-                      ].map((objective) => (
+                      {(
+                        ((apiProjectData.mlds_information as any)?.type === 'remediation' ||
+                          (apiProjectData.mlds_information as any)?.type_mlds === 'remediation')
+                          ? [
+                              { value: 'professional_discovery', label: 'La découverte des filières professionnelles' },
+                              { value: 'student_mobility', label: 'Le développement de la mobilité des élèves' },
+                              { value: 'cps_development', label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré' },
+                              { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, Avenir Pro Plus, autres)' },
+                              { value: 'family_links', label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire' },
+                              { value: 'professional_development', label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)' },
+                              { value: 'art_culture_path', label: "Parcours d'éducation artistique et culturel" },
+                              { value: 'avenir_path', label: 'Parcours avenir' },
+                              { value: 'citizen_path', label: 'Parcours citoyen' },
+                              { value: 'physical_education', label: "Apprendre par l'éducation physique et sportive" },
+                              { value: 'disciplinary_course', label: 'Cours disciplinaire' },
+                              { value: 'job_discovery', label: 'Découverte des métiers' },
+                              { value: 'training_discovery', label: 'Découverte des formations' },
+                              { value: 'other', label: 'Autre' },
+                            ]
+                          : [
+                              { value: 'path_security', label: 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles' },
+                              { value: 'professional_discovery', label: 'La découverte des filières professionnelles' },
+                              { value: 'student_mobility', label: 'Le développement de la mobilité des élèves' },
+                              { value: 'cps_development', label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré' },
+                              { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, Avenir Pro Plus, autres)' },
+                              { value: 'family_links', label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire' },
+                              { value: 'professional_development', label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)' },
+                              { value: 'other', label: 'Autre' },
+                            ]
+                      ).map((objective) => (
                         <label
                           key={objective.value}
                           className={`multi-select-item !flex items-center gap-2 ${editForm.mldsActionObjectives.includes(objective.value) ? 'selected' : ''}`}

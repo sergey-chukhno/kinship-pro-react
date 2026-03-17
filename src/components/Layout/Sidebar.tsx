@@ -302,6 +302,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                           </button>
                         )}
                       </Menu.Item>
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            type="button"
+                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                            onClick={() => {
+                              onPageChange('projects');
+                              navigate('/projects?open=create&variant=mlds-remediation');
+                            }}
+                          >
+                            Projet MLDS Volet Remédiation
+                          </button>
+                        )}
+                      </Menu.Item>
                     </Menu.Items>
                   </Transition>
                 </Menu>
