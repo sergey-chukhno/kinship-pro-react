@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import { getCurrentUser } from '../../api/Authentication';
 import { getCompanyMembersAccepted, getCompanyMembersPending, updateCompanyMemberRole, removeCompanyMember, importCompanyMembersCsv } from '../../api/CompanyDashboard/Members';
+import { createCompanyGroup, deleteCompanyGroup, getCompanyGroup, getCompanyGroups, updateCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import { addSchoolLevel, getSchoolLevels, deleteSchoolLevel, updateSchoolLevel, addExistingStudentToLevel } from '../../api/SchoolDashboard/Levels';
 import { getSchoolMembersAccepted, getSchoolMembersPending, getSchoolVolunteers, getSchoolStaff, updateSchoolMemberRole, removeSchoolMember, importSchoolMembersCsv } from '../../api/SchoolDashboard/Members';
 import { getSkills } from '../../api/Skills';
@@ -13,8 +14,10 @@ import { useToast } from '../../hooks/useToast';
 import { translateSkill, translateSubSkill } from '../../translations/skills';
 import { ClassList, Member } from '../../types';
 import ClassCard from '../Class/ClassCard';
+import GroupCard, { GroupCardData } from '../Group/GroupCard';
 import MemberCard from '../Members/MemberCard';
 import AddClassModal from '../Modals/AddClassModal';
+import GroupModal, { GroupModalData, GroupModalMode } from '../Modals/GroupModal';
 import AddMemberModal from '../Modals/AddMemberModal';
 import AddStudentModal from '../Modals/AddStudentModal';
 import ClassStudentsModal from '../Modals/ClassStudentsModal';
@@ -93,16 +96,16 @@ const Members: React.FC = () => {
   const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community' | 'students' | 'staff'>(
+  const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community' | 'students' | 'staff' | 'groups'>(
     isTeacherContext ? 'class' : isProContext ? 'staff' : 'members'
   );
 
   // Sync URL ?tab= to activeTab (for deep links from dashboard stat cards)
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    const validTabs: Array<'members' | 'class' | 'community' | 'students' | 'staff'> = ['members', 'class', 'community', 'students', 'staff'];
-    if (tabParam && validTabs.includes(tabParam as 'members' | 'class' | 'community' | 'students' | 'staff')) {
-      setActiveTab(tabParam as 'members' | 'class' | 'community' | 'students' | 'staff');
+    const validTabs: Array<'members' | 'class' | 'community' | 'students' | 'staff' | 'groups'> = ['members', 'class', 'community', 'students', 'staff', 'groups'];
+    if (tabParam && validTabs.includes(tabParam as any)) {
+      setActiveTab(tabParam as any);
     }
   }, [searchParams]);
 
@@ -110,6 +113,14 @@ const Members: React.FC = () => {
   const [isClassStudentsModalOpen, setIsClassStudentsModalOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<{ id: number; name: string } | null>(null);
   const [editingClass, setEditingClass] = useState<ClassList | null>(null);
+
+  // Pro Groups tab state
+  const [groups, setGroups] = useState<GroupCardData[]>([]);
+  const [isGroupsLoading, setIsGroupsLoading] = useState(false);
+  const [groupSearchTerm, setGroupSearchTerm] = useState('');
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [groupModalMode, setGroupModalMode] = useState<GroupModalMode>('view');
+  const [activeGroup, setActiveGroup] = useState<GroupModalData | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const addMemberDropdownRef = useRef<HTMLDivElement>(null);
@@ -422,6 +433,35 @@ const Members: React.FC = () => {
     }
   };
 
+  const fetchGroups = useCallback(async () => {
+    if (!isProContext) return;
+    try {
+      setIsGroupsLoading(true);
+      const currentUser = await getCurrentUser();
+      const companyId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
+      if (!companyId) {
+        setGroups([]);
+        return;
+      }
+      const res = await getCompanyGroups(companyId);
+      const raw = res.data?.data || res.data || [];
+      const list = Array.isArray(raw) ? raw : [];
+      const mapped: GroupCardData[] = list.map((g: any) => ({
+        id: Number(g.id),
+        name: g.name,
+        createdAt: g.created_at,
+        createdByName: g.created_by?.full_name || g.created_by?.fullName || '',
+        membersCount: typeof g.members_count === 'number' ? g.members_count : (typeof g.membersCount === 'number' ? g.membersCount : undefined),
+      }));
+      setGroups(mapped);
+    } catch (e) {
+      console.error('Error fetching groups:', e);
+      setGroups([]);
+    } finally {
+      setIsGroupsLoading(false);
+    }
+  }, [isProContext, state.showingPageType]);
+
   const fetchLevels = async () => {
     try {
       setLoading(true);
@@ -683,7 +723,7 @@ const Members: React.FC = () => {
 
   // Pro dashboard: ensure activeTab is staff or members when on pro (e.g. after switching from edu)
   useEffect(() => {
-    if (isProContext && activeTab !== 'staff' && activeTab !== 'members') {
+    if (isProContext && activeTab !== 'staff' && activeTab !== 'members' && activeTab !== 'groups') {
       setActiveTab('staff');
     }
   }, [isProContext, activeTab]);
@@ -695,6 +735,13 @@ const Members: React.FC = () => {
       setActiveTab('class');
     }
   }, [isSchoolContext, isTeacherContext, isProContext, activeTab]);
+
+  // Pro Groups: lazy-load on tab open
+  useEffect(() => {
+    if (isProContext && activeTab === 'groups') {
+      fetchGroups();
+    }
+  }, [isProContext, activeTab, fetchGroups]);
 
   // Reset classes page to 1 when filters change
   useEffect(() => {
@@ -825,6 +872,15 @@ const Members: React.FC = () => {
       return !PRO_STAFF_ROLES.includes(role);
     });
   }, [members, isProContext]);
+
+  const isCurrentProUserStaff = useMemo(() => {
+    if (!isProContext) return false;
+    const companyId = getSelectedCompanyId(state.user, state.showingPageType);
+    if (!companyId) return false;
+    const companyCtx = state.user?.available_contexts?.companies?.find((c: any) => c.id === companyId);
+    const role = (companyCtx?.role || '').toLowerCase();
+    return PRO_STAFF_ROLES.includes(role);
+  }, [isProContext, state.user, state.showingPageType]);
   const filteredProStaff = useMemo(
     () => proStaffMembers.filter(applyMemberFilters),
     [proStaffMembers, searchTerm, roleFilter, competenceFilter, subSkillFilter, availabilityFilter]
@@ -1859,6 +1915,12 @@ const Members: React.FC = () => {
           >
             Members
           </button>
+          <button
+            className={`tab-btn ${activeTab === 'groups' ? 'active' : ''}`}
+            onClick={() => setActiveTab('groups')}
+          >
+            Groups
+          </button>
         </div>
       )}
 
@@ -2179,6 +2241,161 @@ const Members: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Pro-only: Groups tab */}
+      {isProContext && activeTab === 'groups' && (
+        <div className="min-h-[75vh]">
+          <div className="flex flex-col gap-4 mb-4">
+            <div className="flex flex-wrap gap-4 items-center">
+              {isCurrentProUserStaff && (
+                <button
+                  className="view-btn"
+                  onClick={() => {
+                    setGroupModalMode('create');
+                    setActiveGroup({ name: '', memberIds: [] });
+                    setIsGroupModalOpen(true);
+                  }}
+                >
+                  <i className="fas fa-plus"></i> Add a group
+                </button>
+              )}
+              <div className="flex-1 min-w-[200px] max-w-[400px]">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search groups by name or creator"
+                    value={groupSearchTerm}
+                    onChange={(e) => setGroupSearchTerm(e.target.value)}
+                    className="!pl-10 form-input"
+                  />
+                  <i className="absolute left-3 top-1/2 text-gray-400 transform -translate-y-1/2 fas fa-search"></i>
+                </div>
+              </div>
+              <button className="btn btn-outline" onClick={() => fetchGroups()} disabled={isGroupsLoading}>
+                <i className="fas fa-rotate"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div className="members-grid">
+            {isGroupsLoading ? (
+              <div className="w-full text-center text-gray-500">Chargement…</div>
+            ) : (() => {
+              const q = groupSearchTerm.trim().toLowerCase();
+              const filtered = q
+                ? groups.filter((g) => (g.name || '').toLowerCase().includes(q) || (g.createdByName || '').toLowerCase().includes(q))
+                : groups;
+              if (filtered.length === 0) {
+                return <div className="w-full text-center text-gray-500">Aucun groupe trouvé</div>;
+              }
+              return filtered.map((g) => (
+                <GroupCard
+                  key={g.id}
+                  group={g}
+                  onClick={async () => {
+                    try {
+                      const currentUser = await getCurrentUser();
+                      const companyId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
+                      if (!companyId) return;
+                      const res = await getCompanyGroup(companyId, g.id);
+                      const data = res.data?.data || res.data;
+                      const membersArr = Array.isArray(data?.members) ? data.members : [];
+                      const memberIds = membersArr.map((m: any) => Number(m.id)).filter((id: number) => !Number.isNaN(id));
+                      setActiveGroup({
+                        id: Number(data.id),
+                        name: data.name || g.name,
+                        createdAt: data.created_at || g.createdAt,
+                        createdByName: data.created_by?.full_name || g.createdByName,
+                        memberIds,
+                      });
+                      setGroupModalMode('view');
+                      setIsGroupModalOpen(true);
+                    } catch (e) {
+                      console.error('Error opening group:', e);
+                      showError("Impossible d'ouvrir le groupe");
+                    }
+                  }}
+                  onEdit={isCurrentProUserStaff ? async () => {
+                    try {
+                      const currentUser = await getCurrentUser();
+                      const companyId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
+                      if (!companyId) return;
+                      const res = await getCompanyGroup(companyId, g.id);
+                      const data = res.data?.data || res.data;
+                      const membersArr = Array.isArray(data?.members) ? data.members : [];
+                      const memberIds = membersArr.map((m: any) => Number(m.id)).filter((id: number) => !Number.isNaN(id));
+                      setActiveGroup({
+                        id: Number(data.id),
+                        name: data.name || g.name,
+                        createdAt: data.created_at || g.createdAt,
+                        createdByName: data.created_by?.full_name || g.createdByName,
+                        memberIds,
+                      });
+                      setGroupModalMode('edit');
+                      setIsGroupModalOpen(true);
+                    } catch (e) {
+                      console.error('Error editing group:', e);
+                      showError("Impossible d'ouvrir le groupe en édition");
+                    }
+                  } : undefined}
+                  onDelete={isCurrentProUserStaff ? async () => {
+                    if (!window.confirm('Supprimer ce groupe ?')) return;
+                    try {
+                      const currentUser = await getCurrentUser();
+                      const companyId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
+                      if (!companyId) return;
+                      await deleteCompanyGroup(companyId, g.id);
+                      await fetchGroups();
+                      showSuccess('Groupe supprimé');
+                    } catch (e) {
+                      console.error('Error deleting group:', e);
+                      showError('Erreur lors de la suppression');
+                    }
+                  } : undefined}
+                />
+              ));
+            })()}
+          </div>
+
+          <GroupModal
+            isOpen={isGroupModalOpen && activeGroup != null}
+            mode={groupModalMode}
+            group={activeGroup || { name: '', memberIds: [] }}
+            availableMembers={members.map((m: any) => ({
+              id: String(m.id),
+              fullName: m.fullName || `${m.firstName || ''} ${m.lastName || ''}`.trim(),
+              email: m.email || '',
+              avatar: m.avatar || DEFAULT_AVATAR_SRC
+            }))}
+            canEdit={isCurrentProUserStaff}
+            onClose={() => {
+              setIsGroupModalOpen(false);
+              setActiveGroup(null);
+            }}
+            onSave={async ({ name, memberIds }) => {
+              const currentUser = await getCurrentUser();
+              const companyId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
+              if (!companyId) throw new Error('No company context');
+              if (groupModalMode === 'create') {
+                await createCompanyGroup(companyId, { group: { name, member_ids: memberIds } });
+              } else {
+                const groupId = activeGroup?.id;
+                if (!groupId) throw new Error('No group id');
+                await updateCompanyGroup(companyId, groupId, { group: { name, member_ids: memberIds } });
+              }
+              await fetchGroups();
+            }}
+            onDelete={groupModalMode === 'create' ? undefined : async () => {
+              const currentUser = await getCurrentUser();
+              const companyId = getSelectedOrganizationId(currentUser.data, state.showingPageType);
+              const groupId = activeGroup?.id;
+              if (!companyId || !groupId) return;
+              await deleteCompanyGroup(companyId, groupId);
+              await fetchGroups();
+            }}
+          />
         </div>
       )}
 
