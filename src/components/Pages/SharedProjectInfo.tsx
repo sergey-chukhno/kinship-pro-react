@@ -2,10 +2,35 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { axiosClientWithoutToken } from '../../api/config';
 import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
+import { translateRole } from '../../utils/roleTranslations';
+import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './PublicProjectInfo.css';
 import './ProjectManagement.css';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
+
+/** Safely render a value that may be a string or an object with name. */
+function toDisplayString(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && value !== null && 'name' in value && typeof (value as { name?: unknown }).name === 'string') {
+    return (value as { name: string }).name;
+  }
+  if (typeof value === 'object' && value !== null) return '';
+  return String(value);
+}
+
+/** Slug pour la classe CSS des pathway-pill (accents normalisés, espaces -> _). */
+function pathwaySlug(name: string): string {
+  const accented = 'àâäéèêëïîôùûüçæœ';
+  const plain = 'aaaeeeeiioouucaeoe';
+  let s = String(name ?? '').toLowerCase().trim();
+  for (let i = 0; i < accented.length; i++) {
+    s = s.replace(new RegExp(accented[i], 'g'), plain[i]);
+  }
+  s = s.replace(/[^a-z0-9\s_]/g, '');
+  return s.replace(/\s+/g, '_') || 'other';
+}
 
 function formatDate(dateString: string): string {
   if (!dateString || dateString.trim() === '') return 'Non renseigné';
@@ -266,7 +291,173 @@ const SharedProjectInfo: React.FC = () => {
                 <span className="meta-text">{project.badges ?? 0} badges</span>
               </div>
             </div>
-            {/* Tags / parcours etc. */}
+            <div className="project-tags-row">
+              {(() => {
+                const pathwayList: string[] = (project.pathways && project.pathways.length > 0)
+                  ? project.pathways
+                  : (project.pathway ? [project.pathway] : []);
+                if (pathwayList.length === 0) return null;
+                return (
+                  <div className="pathway-section">
+                    <div className="section-label">Parcours</div>
+                    <div className="pathway-container">
+                      {pathwayList.map((p: string, index: number) => (
+                        <span key={`${p}-${index}`} className={`pathway-pill pathway-${pathwaySlug(p)}`}>{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="tags-section">
+                <div className="section-label">Tags</div>
+                <div className="project-tags">
+                  {project.tags?.map((tag: string, index: number) => (
+                    <span key={index} className="tag">#{tag}</span>
+                  ))}
+                </div>
+              </div>
+              {(() => {
+                const schoolLevels =
+                  (apiProjectData?.school_levels as any[] | undefined) ||
+                  ((project as any)?.school_levels as any[] | undefined) ||
+                  [];
+
+                if (!Array.isArray(schoolLevels) || schoolLevels.length === 0) return null;
+
+                return (
+                  <div className="school_level-section">
+                    <div className="section-label">Classes</div>
+                    <div className="project-tags">
+                      {schoolLevels.map((school_level: any) => (
+                        <span key={school_level.id?.toString() || school_level.name} className="tag">
+                          {school_level.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          <div className="project-details-bottom">
+            {/* Responsable du projet */}
+            <div className="project-manager-section">
+              <div className="project-manager-header">
+                <h4>Responsable du projet</h4>
+              </div>
+              <div className="project-manager-info">
+                <div className="manager-left">
+                  <div className="manager-avatar">
+                    <AvatarImage src={project.responsible?.avatar || DEFAULT_AVATAR_SRC} alt="Project Manager" />
+                  </div>
+                  <div className="manager-details">
+                    <div className="manager-name">{project.responsible?.name || project.owner}</div>
+                    <div className="manager-role">
+                      {(() => {
+                        const r = project.responsible;
+                        const systemLabel = r?.role_in_system ? translateRole(r.role_in_system) : '';
+                        const orgLabel = r?.role ? translateRole(r.role) : '';
+                        return [systemLabel, orgLabel].filter(Boolean).join(' • ');
+                      })()}
+                    </div>
+                  </div>
+                </div>
+                <div className="manager-right">
+                  <div className="manager-organization">
+                    <img src="/icons_logo/Icon=projet.svg" alt="Organization" className="manager-icon" />
+                    <span className="manager-text">{toDisplayString(project.responsible?.organization)}</span>
+                  </div>
+                  <div className="manager-email">
+                    <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
+                    <span className="manager-text">{project.responsible?.email || ''}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Co-responsables */}
+            {project.coResponsibles && project.coResponsibles.length > 0 && (
+              <div className="project-co-responsibles-section">
+                <div className="project-manager-header">
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    Co-responsables
+                    <span className="info-tooltip-wrapper">
+                      <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+                      <div className="info-tooltip">
+                        <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+                        <ul>
+                          <li>voir le projet dans leur profil</li>
+                          <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+                          <li>attribuer des badges</li>
+                          <li>faire des équipes et donner des rôles dans équipe</li>
+                          <li>plus tard attribuer des tâches (Kanban)</li>
+                        </ul>
+                      </div>
+                    </span>
+                  </h4>
+                </div>
+                <div className="co-responsibles-list">
+                  {project.coResponsibles.map((coResponsible: any, index: number) => (
+                    <div key={coResponsible.id || index} className="co-responsible-item">
+                      <div className="manager-left">
+                        <div className="manager-avatar">
+                          <AvatarImage src={coResponsible.avatar || DEFAULT_AVATAR_SRC} alt={coResponsible.name} />
+                        </div>
+                        <div className="manager-details">
+                          <div className="manager-name">{coResponsible.name}</div>
+                          <div className="manager-role">
+                            {(() => {
+                              const systemLabel = coResponsible.role_in_system ? translateRole(coResponsible.role_in_system) : '';
+                              const orgLabel = coResponsible.role ? translateRole(coResponsible.role) : '';
+                              return [systemLabel, orgLabel].filter(Boolean).join(' • ');
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="manager-right">
+                        <div className="manager-organization">
+                          <img src="/icons_logo/Icon=projet.svg" alt="Organization" className="manager-icon" />
+                          <span className="manager-text">{toDisplayString(coResponsible.organization)}</span>
+                        </div>
+                        <div className="manager-email">
+                          <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
+                          <span className="manager-text">{coResponsible.email}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Partenaire(s) - from partnership_details */}
+            {((project.partners && project.partners.length > 0) || project.partner) && (
+              <div className="project-partner-section">
+                <div className="project-manager-header">
+                  <h4>Partenaire{((project.partners?.length ?? 0) > 1 ? 's' : '')}</h4>
+                </div>
+                <div className="flex flex-col !items-start project-partner-info">
+                  {(project.partners && project.partners.length > 0
+                    ? project.partners
+                    : project.partner ? [project.partner] : []
+                  ).map((p: any) => (
+                    <div key={p.id} className="manager-left">
+                      <div className="manager-avatar">
+                        <AvatarImage
+                          src={p.logo || '/default-avatar.png'}
+                          alt={p.name}
+                          className="manager-avatar-img"
+                        />
+                      </div>
+                      <div className="manager-details">
+                        <div className="manager-name">{toDisplayString(p.organization)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
