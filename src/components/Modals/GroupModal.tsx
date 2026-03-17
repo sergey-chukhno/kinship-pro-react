@@ -103,7 +103,7 @@ const GroupModal: React.FC<Props> = ({ isOpen, mode, group, availableMembers, ca
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content group-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>
             {mode === 'create' ? 'Créer un groupe' : mode === 'edit' ? 'Modifier le groupe' : 'Groupe'}
@@ -121,7 +121,7 @@ const GroupModal: React.FC<Props> = ({ isOpen, mode, group, availableMembers, ca
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isReadOnly}
-              placeholder="Ex: Ambassadeurs, Mentors, RH…"
+              placeholder="Groupe 1, Groupe 2, Groupe RH..."
             />
           </div>
 
@@ -138,10 +138,11 @@ const GroupModal: React.FC<Props> = ({ isOpen, mode, group, availableMembers, ca
 
           <div className="form-group">
             <label>Membres du groupe</label>
-            <div className="search-bar" style={{ maxWidth: '520px' }}>
-              <i className="fas fa-search" />
+            <div className="search-input-container" style={{ maxWidth: '520px' }}>
+              <i className="fas fa-search search-icon" />
               <input
                 type="text"
+                className="form-input"
                 placeholder="Rechercher un membre..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -163,7 +164,7 @@ const GroupModal: React.FC<Props> = ({ isOpen, mode, group, availableMembers, ca
                     background: '#f9fafb'
                   }}
                 >
-                  <AvatarImage src={m.avatar || DEFAULT_AVATAR_SRC} alt={m.fullName} />
+                  <AvatarImage className="group-member-avatar group-member-avatar--sm" src={m.avatar || DEFAULT_AVATAR_SRC} alt={m.fullName} />
                   <span>{m.fullName}</span>
                   {!isReadOnly && (
                     <button
@@ -182,7 +183,7 @@ const GroupModal: React.FC<Props> = ({ isOpen, mode, group, availableMembers, ca
             </div>
 
             {!isReadOnly && (
-              <div style={{ marginTop: '12px', maxHeight: '260px', overflow: 'auto', border: '1px solid #e5e7eb', borderRadius: '10px' }}>
+              <div className="group-member-options">
                 {filteredMembers.map((m) => {
                   const id = Number(m.id);
                   const checked = selectedIds.includes(id);
@@ -191,20 +192,10 @@ const GroupModal: React.FC<Props> = ({ isOpen, mode, group, availableMembers, ca
                       key={m.id}
                       type="button"
                       onClick={() => toggleMember(id)}
-                      style={{
-                        width: '100%',
-                        textAlign: 'left',
-                        padding: '10px 12px',
-                        border: 'none',
-                        background: checked ? '#eef2ff' : 'white',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px'
-                      }}
+                      className={`group-member-option ${checked ? 'selected' : ''}`}
                     >
                       <input type="checkbox" checked={checked} readOnly />
-                      <AvatarImage src={m.avatar || DEFAULT_AVATAR_SRC} alt={m.fullName} />
+                      <AvatarImage className="group-member-avatar" src={m.avatar || DEFAULT_AVATAR_SRC} alt={m.fullName} />
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span style={{ fontWeight: 600 }}>{m.fullName}</span>
                         <span style={{ fontSize: '13px', color: '#6b7280' }}>{m.email}</span>

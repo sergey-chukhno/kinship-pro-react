@@ -1913,13 +1913,13 @@ const Members: React.FC = () => {
             className={`tab-btn ${activeTab === 'members' ? 'active' : ''}`}
             onClick={() => setActiveTab('members')}
           >
-            Members
+            Membres
           </button>
           <button
             className={`tab-btn ${activeTab === 'groups' ? 'active' : ''}`}
             onClick={() => setActiveTab('groups')}
           >
-            Groups
+            Groupes
           </button>
         </div>
       )}
@@ -2258,14 +2258,14 @@ const Members: React.FC = () => {
                     setIsGroupModalOpen(true);
                   }}
                 >
-                  <i className="fas fa-plus"></i> Add a group
+                  <i className="fas fa-plus"></i> Ajouter un groupe
                 </button>
               )}
               <div className="flex-1 min-w-[200px] max-w-[400px]">
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search groups by name or creator"
+                    placeholder="Rechercher un groupe par nom ou créateur"
                     value={groupSearchTerm}
                     onChange={(e) => setGroupSearchTerm(e.target.value)}
                     className="!pl-10 form-input"
@@ -2273,9 +2273,6 @@ const Members: React.FC = () => {
                   <i className="absolute left-3 top-1/2 text-gray-400 transform -translate-y-1/2 fas fa-search"></i>
                 </div>
               </div>
-              <button className="btn btn-outline" onClick={() => fetchGroups()} disabled={isGroupsLoading}>
-                <i className="fas fa-rotate"></i> Refresh
-              </button>
             </div>
           </div>
 
