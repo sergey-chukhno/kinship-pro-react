@@ -2825,6 +2825,52 @@ html[data-theme="dark"] .badge-explorer-card .badge-icon i {
   position: relative;
 }
 
+/* ===== GROUP MODAL ===== */
+.group-modal .group-member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: block;
+  border: 2px solid var(--border, #e5e7eb);
+}
+
+.group-modal .group-member-avatar--sm {
+  width: 20px;
+  height: 20px;
+  border-width: 1px;
+}
+
+.group-modal .group-member-options {
+  margin-top: 12px;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.group-modal .group-member-option {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.group-modal .group-member-option:hover {
+  background: rgba(85, 112, 241, 0.05);
+}
+
+.group-modal .group-member-option.selected {
+  background: #eef2ff;
+}
+
 /* ===== ADDITIONAL IMAGES GRID ===== */
 .additional-images-grid {
   display: grid;
