@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { useToast } from '../../hooks/useToast';
 
@@ -37,6 +37,13 @@ const GroupModal: React.FC<Props> = ({ isOpen, mode, group, availableMembers, ca
   const [selectedIds, setSelectedIds] = useState<number[]>(group.memberIds || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isReadOnly = mode === 'view' || !canEdit;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(group.name || '');
+    setSelectedIds(group.memberIds || []);
+    setSearch('');
+  }, [isOpen, mode, group.id, group.name, group.memberIds]);
 
   const selectedMemberMap = useMemo(() => {
     const map = new Map<number, MemberLite>();
