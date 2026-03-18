@@ -2143,12 +2143,19 @@ const ProjectManagement: React.FC = () => {
       payload.project.status = effectiveStatus;
 
       // Add co-responsibles, partnership and participants
-      payload.project.co_responsible_ids = editForm.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+      const coResponsibleIds = editForm.coResponsibles
+        .map(id => Number.parseInt(id, 10))
+        .filter(id => !Number.isNaN(id));
+      payload.project.co_responsible_ids = coResponsibleIds;
       payload.project.partnership_ids = editForm.partners.length > 0
         ? editForm.partners.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
         : undefined;
       if (editForm.participants.length > 0) {
-        payload.project.participant_ids = editForm.participants.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+        const coResponsibleSet = new Set(coResponsibleIds);
+        payload.project.participant_ids = editForm.participants
+          .map(id => Number.parseInt(id, 10))
+          .filter(id => !Number.isNaN(id))
+          .filter(id => !coResponsibleSet.has(id));
       }
       if (state.showingPageType === 'pro') {
         payload.project.group_ids = (editForm.groupIds || []).map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
