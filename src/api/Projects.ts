@@ -122,6 +122,7 @@ export interface CreateProjectPayload {
         private: boolean;
         status: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived';
         school_level_ids?: number[];
+        group_ids?: number[];
         skill_ids?: number[];
         tag_ids?: number[];
         company_ids?: number[];
@@ -869,6 +870,12 @@ export const createProject = async (
         });
     }
 
+    if (project.group_ids && project.group_ids.length > 0) {
+        project.group_ids.forEach(id => {
+            formData.append('project[group_ids][]', id.toString());
+        });
+    }
+
     if (project.partnership_ids && project.partnership_ids.length > 0) {
         project.partnership_ids.forEach(id => {
             formData.append('project[partnership_ids][]', id.toString());
@@ -1052,6 +1059,7 @@ export interface UpdateProjectPayload {
         status?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived';
         private?: boolean;
         school_level_ids?: number[];
+        group_ids?: number[];
         tag_ids?: number[];
         keyword_ids?: string[];
         links_attributes?: LinkAttribute[];
@@ -1125,6 +1133,12 @@ export const updateProject = async (
     if (project.keyword_ids && project.keyword_ids.length > 0) {
         project.keyword_ids.forEach(keyword => {
             formData.append('project[keyword_ids][]', keyword);
+        });
+    }
+
+    if (project.group_ids && project.group_ids.length > 0) {
+        project.group_ids.forEach(id => {
+            formData.append('project[group_ids][]', id.toString());
         });
     }
 

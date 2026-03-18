@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { getTags, getPartnerships, getTeacherSchoolPartnerships, getTeacherSchoolMembers, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
 import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
+import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import {
   mapFrontendToBackend,
   base64ToFile,
@@ -48,7 +49,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
     partners: [] as string[],
     additionalImages: [] as string[],
     // School levels (organisations porteuses)
-    schoolLevelIds: [] as string[]
+    schoolLevelIds: [] as string[],
+    // Pro: groups attached to project
+    groupIds: [] as string[]
   });
 
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -77,6 +80,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
   /** Toutes les classes de l’enseignant (API teachers/classes), pour filtrer par école sélectionnée */
   const [teacherClassesAll, setTeacherClassesAll] = useState<any[]>([]);
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
+  const [availableCompanyGroups, setAvailableCompanyGroups] = useState<any[]>([]);
+  const [isLoadingCompanyGroups, setIsLoadingCompanyGroups] = useState(false);
+  const [groupMembersByGroupId, setGroupMembersByGroupId] = useState<Record<string, number[]>>({});
   const [availablePathways, setAvailablePathways] = useState<any[]>([]);
   const [isLoadingPathways, setIsLoadingPathways] = useState(false);
   const [pathwaySearchTerm, setPathwaySearchTerm] = useState('');
@@ -118,6 +124,30 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
   // Search functionality with exclusion of already selected members
   // Members are mutually exclusive: cannot be both co-responsible AND participant
   // Project creator (owner) is excluded from selection as they are automatically added
+
+  // Pro: load company groups for group attachment selector
+  useEffect(() => {
+    const loadGroups = async () => {
+      if (state.showingPageType !== 'pro') return;
+      try {
+        setIsLoadingCompanyGroups(true);
+        const companyId = getSelectedOrganizationId(state.user, state.showingPageType);
+        if (!companyId) {
+          setAvailableCompanyGroups([]);
+          return;
+        }
+        const res = await getCompanyGroups(companyId);
+        const raw = res.data?.data || res.data || [];
+        setAvailableCompanyGroups(Array.isArray(raw) ? raw : []);
+      } catch (e) {
+        console.error('Error fetching company groups:', e);
+        setAvailableCompanyGroups([]);
+      } finally {
+        setIsLoadingCompanyGroups(false);
+      }
+    };
+    loadGroups();
+  }, [state.showingPageType, state.user]);
   const getFilteredMembers = (searchTerm: string) => {
     // Defensive check: ensure members is an array
     if (!members || !Array.isArray(members)) {
@@ -270,7 +300,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
       ...prev,
       participants: [],
       coResponsibles: [],
-      schoolLevelIds: []
+      schoolLevelIds: [],
+      groupIds: prev.groupIds || []
     }));
     setClassSelectionMode({});
     setClassManualParticipantIds({});
@@ -305,7 +336,8 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
         isPartnership: !!(project.partners?.length || project.partner), // Infer from existing data
         partners: (project.partners?.length ? project.partners.map((p: { id: string }) => p.id) : (project.partner?.id ? [project.partner.id.toString()] : [])),
         additionalImages: [],
-        schoolLevelIds: [] // Will be populated from API if project has school levels
+        schoolLevelIds: [], // Will be populated from API if project has school levels
+        groupIds: (project as any)?.groupIds || (project as any)?.group_ids || []
       });
       setImagePreview(project.image || '');
     } else {
@@ -1277,6 +1309,48 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
     setDocumentFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const groupDerivedParticipantIds = (() => {
+    const ids: string[] = [];
+    (formData.groupIds || []).forEach((gid) => {
+      const memberIds = groupMembersByGroupId[gid] || [];
+      memberIds.forEach((id) => ids.push(String(id)));
+    });
+    return new Set(ids);
+  })();
+
+  const handleGroupToggle = async (groupId: string) => {
+    if (state.showingPageType !== 'pro') return;
+    const companyId = getSelectedOrganizationId(state.user, state.showingPageType);
+    if (!companyId) return;
+
+    const isSelected = formData.groupIds.includes(groupId);
+    const nextGroupIds = isSelected ? formData.groupIds.filter((id) => id !== groupId) : [...formData.groupIds, groupId];
+    setFormData((prev) => ({ ...prev, groupIds: nextGroupIds }));
+
+    // Fetch members for newly selected groups (cache per group id)
+    if (!isSelected && !groupMembersByGroupId[groupId]) {
+      try {
+        const res = await getCompanyGroup(companyId, Number(groupId));
+        const data = res.data?.data || res.data;
+        const membersArr = Array.isArray(data?.members) ? data.members : [];
+        const memberIds = membersArr.map((m: any) => Number(m.id)).filter((id: number) => !Number.isNaN(id));
+        setGroupMembersByGroupId((prev) => ({ ...prev, [groupId]: memberIds }));
+      } catch (e) {
+        console.error('Error fetching company group members:', e);
+      }
+    }
+
+    // If selecting groups, ensure we don't keep duplicates in manual participants selection.
+    // (Members included via groups should not be manually selectable.)
+    if (!isSelected) {
+      const cached = groupMembersByGroupId[groupId] || [];
+      if (cached.length > 0) {
+        const toRemove = new Set(cached.map((id) => String(id)));
+        setFormData((prev) => ({ ...prev, participants: prev.participants.filter((id) => !toRemove.has(String(id))) }));
+      }
+    }
+  };
+
   const handleSearchChange = (field: string, value: string) => {
     setSearchTerms(prev => ({
       ...prev,
@@ -1291,6 +1365,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
         : [...formData.coResponsibles, memberId];
       setFormData(prev => ({ ...prev, coResponsibles: newCoResponsibles }));
     } else if (field === 'participants') {
+      // Prevent selecting a participant that will be included via selected groups.
+      // Allow removing if already selected.
+      const isAlreadySelected = formData.participants.includes(memberId);
+      if (!isAlreadySelected && groupDerivedParticipantIds.has(memberId.toString())) return;
       const newParticipants = formData.participants.includes(memberId)
         ? formData.participants.filter(id => id !== memberId)
         : [...formData.participants, memberId];
@@ -1856,6 +1934,46 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                         </div>
                       );
                     })}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Pro: Groups */}
+            {state.showingPageType === 'pro' && (
+              <div className="form-group">
+                <div className="form-label">Ajouter un/des groupe(s) au projet</div>
+                {isLoadingCompanyGroups ? (
+                  <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                    <span>Chargement des groupes...</span>
+                  </div>
+                ) : (
+                  <>
+                    {availableCompanyGroups.length === 0 ? (
+                      <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>Aucun groupe disponible</div>
+                    ) : (
+                      <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        {availableCompanyGroups.map((g: any) => (
+                          <label
+                            key={g.id}
+                            className={`multi-select-item !flex items-center gap-2 ${formData.groupIds.includes(g.id.toString()) ? 'selected' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={formData.groupIds.includes(g.id.toString())}
+                              onChange={() => handleGroupToggle(g.id.toString())}
+                            />
+                            <div className="multi-select-checkmark">
+                              <i className="fas fa-check"></i>
+                            </div>
+                            <span className="multi-select-label">
+                              {g.name} {typeof g.members_count === 'number' ? `(${g.members_count} membre${g.members_count > 1 ? 's' : ''})` : ''}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -2586,11 +2704,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                               const schoolLabel = member?.schools?.length ? (member.schools as any[]).map((s: any) => s.name).join(', ') : null;
                               const classSchoolNames = member?.classes?.length ? (member.classes as any[]).map((c: any) => c?.school?.name).filter(Boolean).join(', ') : '';
                               const memberOrg = (typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '')) || schoolLabel || classSchoolNames || '';
+                              const isGroupDerived = groupDerivedParticipantIds.has(member.id?.toString());
                               return (
                                 <div
                                   key={member.id}
                                   className="selection-item"
-                                  onClick={() => handleMemberSelect('participants', member.id)}
+                                  style={isGroupDerived ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                                  onClick={() => {
+                                    if (isGroupDerived) return;
+                                    handleMemberSelect('participants', member.id);
+                                  }}
                                 >
                                   <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                                   <div className="item-info">
@@ -2622,11 +2745,16 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                               ? member.organization
                               : ((member.organization?.name ?? '') || ((member.classes as any[])?.[0]?.school?.name ?? '')))
                             : '';
+                          const isGroupDerived = groupDerivedParticipantIds.has(member.id?.toString());
                           return (
                           <div
                             key={member.id}
                             className="selection-item"
-                            onClick={() => handleMemberSelect('participants', member.id)}
+                            style={isGroupDerived ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+                            onClick={() => {
+                              if (isGroupDerived) return;
+                              handleMemberSelect('participants', member.id);
+                            }}
                           >
                             <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
                             <div className="item-info">

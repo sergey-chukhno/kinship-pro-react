@@ -125,6 +125,7 @@ export const mapFrontendToBackend = (
         partner?: string;
         partners?: string[];
         schoolLevelIds?: string[];
+        groupIds?: string[];
     },
     context: 'company' | 'school' | 'teacher' | 'general',
     organizationId: number | undefined,
@@ -193,6 +194,10 @@ export const mapFrontendToBackend = (
         ? formData.schoolLevelIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
         : undefined;
 
+    const groupIds = context === 'company' && formData.groupIds
+        ? formData.groupIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
+        : undefined;
+
     // Build payload
     const payload: CreateProjectPayload = {
         context,
@@ -216,7 +221,8 @@ export const mapFrontendToBackend = (
             })(),
             project_members_attributes: projectMembers.length > 0 ? projectMembers : undefined,
             links_attributes: links.length > 0 ? links : undefined,
-            school_level_ids: schoolLevelIds
+            school_level_ids: schoolLevelIds,
+            group_ids: groupIds
         }
     };
 
