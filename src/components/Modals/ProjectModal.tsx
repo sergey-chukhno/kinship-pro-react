@@ -83,6 +83,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
   const [availableCompanyGroups, setAvailableCompanyGroups] = useState<any[]>([]);
   const [isLoadingCompanyGroups, setIsLoadingCompanyGroups] = useState(false);
   const [groupMembersByGroupId, setGroupMembersByGroupId] = useState<Record<string, number[]>>({});
+  const [groupMembersDetailsByGroupId, setGroupMembersDetailsByGroupId] = useState<Record<string, any[]>>({});
+  const [groupDetailPopup, setGroupDetailPopup] = useState<{ groupId: string; groupName: string } | null>(null);
+  const [isLoadingGroupMembers, setIsLoadingGroupMembers] = useState(false);
   const [availablePathways, setAvailablePathways] = useState<any[]>([]);
   const [isLoadingPathways, setIsLoadingPathways] = useState(false);
   const [pathwaySearchTerm, setPathwaySearchTerm] = useState('');
@@ -1318,6 +1321,23 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
     return new Set(ids);
   })();
 
+  const ensureGroupMembersLoaded = async (companyId: number, groupId: string) => {
+    if (groupMembersByGroupId[groupId] && groupMembersDetailsByGroupId[groupId]) return;
+    try {
+      setIsLoadingGroupMembers(true);
+      const res = await getCompanyGroup(companyId, Number(groupId));
+      const data = res.data?.data || res.data;
+      const membersArr = Array.isArray(data?.members) ? data.members : [];
+      const memberIds = membersArr.map((m: any) => Number(m.id)).filter((id: number) => !Number.isNaN(id));
+      setGroupMembersByGroupId((prev) => ({ ...prev, [groupId]: memberIds }));
+      setGroupMembersDetailsByGroupId((prev) => ({ ...prev, [groupId]: membersArr }));
+    } catch (e) {
+      console.error('Error fetching company group members:', e);
+    } finally {
+      setIsLoadingGroupMembers(false);
+    }
+  };
+
   const handleGroupToggle = async (groupId: string) => {
     if (state.showingPageType !== 'pro') return;
     const companyId = getSelectedOrganizationId(state.user, state.showingPageType);
@@ -1327,6 +1347,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
     const nextGroupIds = isSelected ? formData.groupIds.filter((id) => id !== groupId) : [...formData.groupIds, groupId];
     setFormData((prev) => ({ ...prev, groupIds: nextGroupIds }));
 
+    if (isSelected && groupDetailPopup?.groupId === groupId) {
+      setGroupDetailPopup(null);
+    }
+
     // Fetch members for newly selected groups (cache per group id)
     if (!isSelected && !groupMembersByGroupId[groupId]) {
       try {
@@ -1335,6 +1359,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
         const membersArr = Array.isArray(data?.members) ? data.members : [];
         const memberIds = membersArr.map((m: any) => Number(m.id)).filter((id: number) => !Number.isNaN(id));
         setGroupMembersByGroupId((prev) => ({ ...prev, [groupId]: memberIds }));
+        setGroupMembersDetailsByGroupId((prev) => ({ ...prev, [groupId]: membersArr }));
       } catch (e) {
         console.error('Error fetching company group members:', e);
       }
@@ -1976,6 +2001,48 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                     )}
                   </>
                 )}
+
+                {/* Pour chaque groupe coché : afficher un résumé + bouton "Voir les membres" */}
+                {formData.groupIds.map((groupId) => {
+                  const groupItem = availableCompanyGroups.find((g: any) => g.id?.toString() === groupId);
+                  const groupName = groupItem?.name || groupId;
+                  const cachedMembers = groupMembersDetailsByGroupId[groupId] || [];
+                  const count =
+                    typeof groupItem?.members_count === 'number'
+                      ? groupItem.members_count
+                      : (groupMembersByGroupId[groupId]?.length ?? cachedMembers.length);
+
+                  return (
+                    <div key={groupId} className="form-group" style={{ marginTop: '12px', paddingLeft: '8px', borderLeft: '3px solid #e5e7eb' }}>
+                      <div className="form-label" style={{ fontSize: '0.9rem', marginBottom: '8px' }}>{groupName}</div>
+                      <div className="flex flex-wrap gap-2" style={{ marginBottom: '8px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          onClick={async () => {
+                            const companyId = getSelectedOrganizationId(state.user, state.showingPageType);
+                            if (!companyId) return;
+                            await ensureGroupMembersLoaded(companyId, groupId);
+                            setGroupDetailPopup({ groupId, groupName });
+                          }}
+                        >
+                          <i className="fas fa-users" />
+                          <span>Voir les membres ({count || 0})</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          onClick={() => handleGroupToggle(groupId)}
+                        >
+                          <i className="fas fa-times" />
+                          <span>Retirer</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -2110,6 +2177,67 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                             );
                           })}
                         </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Popup détail groupe : liste des membres (lecture seule) */}
+            {groupDetailPopup && (
+              <div
+                className="modal-overlay"
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => setGroupDetailPopup(null)}
+              >
+                <div
+                  className="modal-content"
+                  style={{ background: 'white', borderRadius: '8px', maxWidth: '420px', width: '92%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{groupDetailPopup.groupName}</h3>
+                    <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setGroupDetailPopup(null)}>
+                      <i className="fas fa-times" />
+                    </button>
+                  </div>
+                  <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                    {(() => {
+                      const membersArr = groupMembersDetailsByGroupId[groupDetailPopup.groupId] || [];
+
+                      if (isLoadingGroupMembers && membersArr.length === 0) {
+                        return (
+                          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                            <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                            <span>Chargement des membres...</span>
+                          </div>
+                        );
+                      }
+
+                      if (membersArr.length === 0) {
+                        return <p style={{ color: '#6b7280' }}>Aucun membre dans ce groupe.</p>;
+                      }
+
+                      return (
+                        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                          {membersArr.map((m: any) => {
+                            const name = m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email || 'Membre';
+                            return (
+                              <li key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <AvatarImage
+                                  src={m.avatar_url || m.avatarUrl || '/default-avatar.png'}
+                                  alt={name}
+                                  className="item-avatar"
+                                />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                                  <div style={{ fontWeight: 600, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                  {m.email && <div style={{ color: '#6b7280', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</div>}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
                       );
                     })()}
                   </div>
