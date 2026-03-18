@@ -26,6 +26,7 @@ import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
+import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import { translateRole } from '../../utils/roleTranslations';
 import { useSearchParams } from 'react-router-dom';
 
@@ -238,6 +239,8 @@ const ProjectManagement: React.FC = () => {
     coResponsibles: [] as string[],
     partners: [] as string[],
     participants: [] as string[],
+    // Pro: groups attached to project
+    groupIds: [] as string[],
     // MLDS fields
     mldsRequestedBy: 'departement',
     mldsDepartment: '',
@@ -268,6 +271,12 @@ const ProjectManagement: React.FC = () => {
   const [editAvailablePartnerships, setEditAvailablePartnerships] = useState<any[]>([]);
   const [editPartnershipContactMembers, setEditPartnershipContactMembers] = useState<any[]>([]);
   const [isLoadingEditMembers, setIsLoadingEditMembers] = useState(false);
+  const [editAvailableCompanyGroups, setEditAvailableCompanyGroups] = useState<any[]>([]);
+  const [isLoadingEditCompanyGroups, setIsLoadingEditCompanyGroups] = useState(false);
+  const [editGroupMembersByGroupId, setEditGroupMembersByGroupId] = useState<Record<string, number[]>>({});
+  const [editGroupMembersDetailsByGroupId, setEditGroupMembersDetailsByGroupId] = useState<Record<string, any[]>>({});
+  const [editGroupDetailPopup, setEditGroupDetailPopup] = useState<{ groupId: string; groupName: string } | null>(null);
+  const [isLoadingEditGroupMembers, setIsLoadingEditGroupMembers] = useState(false);
   const [departments, setDepartments] = useState<Array<{ code: string; nom: string }>>([]);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
   const [editSearchTerms, setEditSearchTerms] = useState({
@@ -1708,6 +1717,55 @@ const ProjectManagement: React.FC = () => {
     });
   };
 
+  const editGroupDerivedParticipantIds = (() => {
+    const ids: string[] = [];
+    (editForm.groupIds || []).forEach((gid) => {
+      const memberIds = editGroupMembersByGroupId[gid] || [];
+      memberIds.forEach((id) => ids.push(String(id)));
+    });
+    return new Set(ids);
+  })();
+
+  const ensureEditGroupMembersLoaded = async (companyId: number, groupId: string) => {
+    if (editGroupMembersByGroupId[groupId] && editGroupMembersDetailsByGroupId[groupId]) return;
+    try {
+      setIsLoadingEditGroupMembers(true);
+      const res = await getCompanyGroup(companyId, Number(groupId));
+      const data = res.data?.data || res.data;
+      const membersArr = Array.isArray(data?.members) ? data.members : [];
+      const memberIds = membersArr.map((m: any) => Number(m.id)).filter((id: number) => !Number.isNaN(id));
+      setEditGroupMembersByGroupId((prev) => ({ ...prev, [groupId]: memberIds }));
+      setEditGroupMembersDetailsByGroupId((prev) => ({ ...prev, [groupId]: membersArr }));
+    } catch (e) {
+      console.error('Error fetching company group members (edit modal):', e);
+    } finally {
+      setIsLoadingEditGroupMembers(false);
+    }
+  };
+
+  const handleEditGroupToggle = async (groupId: string) => {
+    if (state.showingPageType !== 'pro') return;
+    const companyId = getSelectedOrganizationId(state.user, state.showingPageType);
+    if (!companyId) return;
+
+    const isSelected = (editForm.groupIds || []).includes(groupId);
+    const nextGroupIds = isSelected ? (editForm.groupIds || []).filter((id) => id !== groupId) : [...(editForm.groupIds || []), groupId];
+    setEditForm((prev) => ({ ...prev, groupIds: nextGroupIds }));
+
+    if (isSelected && editGroupDetailPopup?.groupId === groupId) {
+      setEditGroupDetailPopup(null);
+    }
+
+    if (!isSelected) {
+      await ensureEditGroupMembersLoaded(companyId, groupId);
+      const cached = editGroupMembersByGroupId[groupId] || [];
+      if (cached.length > 0) {
+        const toRemove = new Set(cached.map((id) => String(id)));
+        setEditForm((prev) => ({ ...prev, participants: prev.participants.filter((id) => !toRemove.has(String(id))) }));
+      }
+    }
+  };
+
   const handleEditPartnerSelect = (partnerId: string) => {
     const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
 
@@ -1811,6 +1869,7 @@ const ProjectManagement: React.FC = () => {
       coResponsibles: currentCoResponsibles,
       partners: currentPartnerships,
       participants: [],
+      groupIds: ((apiProjectData.group_ids || (apiProjectData as any).groupIds || []) as number[]).map((id: number) => id.toString()),
       mldsRequestedBy: mldsInfo?.requested_by || 'departement',
       mldsDepartment: mldsInfo?.department_number || mldsInfo?.department_code || '',
       mldsTargetAudience: mldsInfo?.target_audience || 'students_without_solution',
@@ -1872,6 +1931,10 @@ const ProjectManagement: React.FC = () => {
     setEditPartnershipCoResponsiblesSearchTerm('');
     setEditPathwaySearchTerm('');
     setEditPathwayDropdownOpen(false);
+    setEditAvailableCompanyGroups([]);
+    setEditGroupMembersByGroupId({});
+    setEditGroupMembersDetailsByGroupId({});
+    setEditGroupDetailPopup(null);
     console.log('🔍 [handleEdit] Project data:', project);
     setIsEditModalOpen(true);
 
@@ -1897,6 +1960,26 @@ const ProjectManagement: React.FC = () => {
       setEditAvailableMembers([]);
     } finally {
       setIsLoadingEditMembers(false);
+    }
+
+    // Pro: load company groups for group attachment selector (edit modal)
+    if (state.showingPageType === 'pro') {
+      try {
+        setIsLoadingEditCompanyGroups(true);
+        const companyId = getSelectedOrganizationId(state.user, state.showingPageType);
+        if (!companyId) {
+          setEditAvailableCompanyGroups([]);
+        } else {
+          const res = await getCompanyGroups(companyId);
+          const raw = res.data?.data || res.data || [];
+          setEditAvailableCompanyGroups(Array.isArray(raw) ? raw : []);
+        }
+      } catch (e) {
+        console.error('Error fetching company groups (edit modal):', e);
+        setEditAvailableCompanyGroups([]);
+      } finally {
+        setIsLoadingEditCompanyGroups(false);
+      }
     }
 
     // Load co-responsibles options (school staff + community) when teacher and project has a school
@@ -2067,6 +2150,9 @@ const ProjectManagement: React.FC = () => {
       if (editForm.participants.length > 0) {
         payload.project.participant_ids = editForm.participants.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
       }
+      if (state.showingPageType === 'pro') {
+        payload.project.group_ids = (editForm.groupIds || []).map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+      }
 
       // Add MLDS information if it's an MLDS project
       if (isMLDSProject) {
@@ -2149,7 +2235,10 @@ const ProjectManagement: React.FC = () => {
       setApiProjectData(apiProject);
 
       // Refetch project members when participants or co-responsibles were in the payload (GET /api/v1/projects/:id/members)
-      const hadMembersPayload = payload.project.co_responsible_ids !== undefined || payload.project.participant_ids !== undefined;
+      const hadMembersPayload =
+        payload.project.co_responsible_ids !== undefined ||
+        payload.project.participant_ids !== undefined ||
+        (payload.project as any).group_ids !== undefined;
       if (hadMembersPayload) {
         try {
           const members = await fetchAllProjectMembers(apiProject);
@@ -6901,6 +6990,88 @@ persévérance et de ses objectifs"
                 </div>
               )}
 
+              {/* Pro: Groups (edit modal) */}
+              {state.showingPageType === 'pro' && (
+                <div className="form-group">
+                  <div className="form-label">Ajouter un/des groupe(s) au projet</div>
+                  {isLoadingEditCompanyGroups ? (
+                    <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                      <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                      <span>Chargement des groupes...</span>
+                    </div>
+                  ) : (
+                    <>
+                      {editAvailableCompanyGroups.length === 0 ? (
+                        <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>Aucun groupe disponible</div>
+                      ) : (
+                        <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                          {editAvailableCompanyGroups.map((g: any) => (
+                            <label
+                              key={g.id}
+                              className={`multi-select-item !flex items-center gap-2 ${(editForm.groupIds || []).includes(g.id.toString()) ? 'selected' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={(editForm.groupIds || []).includes(g.id.toString())}
+                                onChange={() => handleEditGroupToggle(g.id.toString())}
+                              />
+                              <div className="multi-select-checkmark">
+                                <i className="fas fa-check"></i>
+                              </div>
+                              <span className="multi-select-label">
+                                {g.name} {typeof g.members_count === 'number' ? `(${g.members_count} membre${g.members_count > 1 ? 's' : ''})` : ''}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Pour chaque groupe coché : afficher un résumé + bouton "Voir les membres" */}
+                  {(editForm.groupIds || []).map((groupId) => {
+                    const groupItem = editAvailableCompanyGroups.find((g: any) => g.id?.toString() === groupId);
+                    const groupName = groupItem?.name || groupId;
+                    const cachedMembers = editGroupMembersDetailsByGroupId[groupId] || [];
+                    const count =
+                      typeof groupItem?.members_count === 'number'
+                        ? groupItem.members_count
+                        : (editGroupMembersByGroupId[groupId]?.length ?? cachedMembers.length);
+
+                    return (
+                      <div key={groupId} className="form-group" style={{ marginTop: '12px', paddingLeft: '8px', borderLeft: '3px solid #e5e7eb' }}>
+                        <div className="form-label" style={{ fontSize: '0.9rem', marginBottom: '8px' }}>{groupName}</div>
+                        <div className="flex flex-wrap gap-2" style={{ marginBottom: '8px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            onClick={async () => {
+                              const companyId = getSelectedOrganizationId(state.user, state.showingPageType);
+                              if (!companyId) return;
+                              await ensureEditGroupMembersLoaded(companyId, groupId);
+                              setEditGroupDetailPopup({ groupId, groupName });
+                            }}
+                          >
+                            <i className="fas fa-users" />
+                            <span>Voir les membres ({count || 0})</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            onClick={() => handleEditGroupToggle(groupId)}
+                          >
+                            <i className="fas fa-times" />
+                            <span>Retirer</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Popup détail classe (sélection manuelle ou vue) */}
               {editClassDetailPopup && (
                 <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setEditClassDetailPopup(null)}>
@@ -7027,6 +7198,67 @@ persévérance et de ses objectifs"
                               );
                             })}
                           </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Popup détail groupe : liste des membres (lecture seule) */}
+              {editGroupDetailPopup && (
+                <div
+                  className="modal-overlay"
+                  style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={() => setEditGroupDetailPopup(null)}
+                >
+                  <div
+                    className="modal-content"
+                    style={{ background: 'white', borderRadius: '8px', maxWidth: '420px', width: '92%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{editGroupDetailPopup.groupName}</h3>
+                      <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setEditGroupDetailPopup(null)}>
+                        <i className="fas fa-times" />
+                      </button>
+                    </div>
+                    <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                      {(() => {
+                        const membersArr = editGroupMembersDetailsByGroupId[editGroupDetailPopup.groupId] || [];
+
+                        if (isLoadingEditGroupMembers && membersArr.length === 0) {
+                          return (
+                            <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                              <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                              <span>Chargement des membres...</span>
+                            </div>
+                          );
+                        }
+
+                        if (membersArr.length === 0) {
+                          return <p style={{ color: '#6b7280' }}>Aucun membre dans ce groupe.</p>;
+                        }
+
+                        return (
+                          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                            {membersArr.map((m: any) => {
+                              const name = m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email || 'Membre';
+                              return (
+                                <li key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <AvatarImage
+                                    src={m.avatar_url || m.avatarUrl || '/default-avatar.png'}
+                                    alt={name}
+                                    className="item-avatar"
+                                  />
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                                    {m.email && <div style={{ color: '#6b7280', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</div>}
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
                         );
                       })()}
                     </div>
