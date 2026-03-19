@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { getSharedEvent, joinSharedEvent, SharedEventResponse } from '../../api/Events';
 import { getBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
-import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import '../Modals/Modal.css';
@@ -52,8 +51,7 @@ const SharedEventInfo: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { state } = useAppContext();
-  const { showError, showSuccess } = useToast();
+  const { showError, showSuccess, showInfo } = useToast();
 
   const [event, setEvent] = useState<SharedEventResponse | null>(null);
   const [eventBadges, setEventBadges] = useState<BadgeAPI[]>([]);
@@ -103,12 +101,18 @@ const SharedEventInfo: React.FC = () => {
     fetchBadges();
   }, [badgeIds]);
 
+  const redirectToLoginForJoin = () => {
+    showInfo('Connectez-vous pour demander à rejoindre cet événement.');
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    navigate(`/login?redirect=${redirect}`);
+  };
+
   const handleJoinEvent = async () => {
     if (!token) return;
 
-    if (!state.user) {
-      const redirect = encodeURIComponent(location.pathname + location.search);
-      navigate(`/login?redirect=${redirect}`);
+    const jwt = localStorage.getItem('jwt_token')?.trim();
+    if (!jwt) {
+      redirectToLoginForJoin();
       return;
     }
 
@@ -118,6 +122,10 @@ const SharedEventInfo: React.FC = () => {
       showSuccess("Votre demande pour rejoindre l'événement a été prise en compte");
     } catch (err: any) {
       console.error('Error joining event from shared link:', err);
+      if (err?.response?.status === 401) {
+        redirectToLoginForJoin();
+        return;
+      }
       const message =
         err?.response?.data?.message ||
         err?.response?.data?.detail ||
