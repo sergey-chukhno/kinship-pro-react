@@ -1,4 +1,4 @@
-import apiClient from './config';
+import apiClient, { axiosClientWithoutToken } from './config';
 
 // Types for Event API
 export interface EventFormData {
@@ -70,6 +70,23 @@ export interface EventsListResponse {
     current_page: number;
     total_pages: number;
   };
+}
+
+export interface ShareLinkResponse {
+  token: string;
+}
+
+export interface SharedEventResponse {
+  title: string;
+  description?: string | null;
+  date: string;
+  time: string;
+  duration: number;
+  type: string;
+  location?: string | null;
+  status: string;
+  image?: string | null;
+  badges?: string[];
 }
 
 /**
@@ -1518,6 +1535,41 @@ export const removeCompanyEventParticipant = async (
     `/api/v1/companies/${companyId}/events/${eventId}/participants/${participantId}`
   );
   return response.data.data || response.data;
+};
+
+/**
+ * Generate (or fetch existing) share token for a company event
+ */
+export const shareCompanyEventLink = async (
+  companyId: number,
+  eventId: number
+): Promise<ShareLinkResponse> => {
+  const response = await apiClient.post(`/api/v1/companies/${companyId}/events/${eventId}/share_link`);
+  return response.data;
+};
+
+/**
+ * Public read-only access to an event via share token (no auth)
+ */
+export const getSharedEvent = async (token: string): Promise<SharedEventResponse> => {
+  const response = await axiosClientWithoutToken.get(`/api/v1/events/shared/${token}`);
+  return response.data;
+};
+
+/**
+ * Join an event via share token (requires auth)
+ */
+export const joinSharedEvent = async (token: string): Promise<any> => {
+  const response = await axiosClientWithoutToken.post(
+    `/api/v1/events/shared/${token}/join`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('jwt_token') || ''}`
+      }
+    }
+  );
+  return response.data;
 };
 
 /**

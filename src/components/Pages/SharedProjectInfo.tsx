@@ -6,7 +6,6 @@ import { translateRole } from '../../utils/roleTranslations';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './PublicProjectInfo.css';
 import './ProjectManagement.css';
-import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 
 /** Safely render a value that may be a string or an object with name. */
@@ -75,8 +74,7 @@ const SharedProjectInfo: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { state } = useAppContext();
-  const { showError, showSuccess } = useToast();
+  const { showError, showSuccess, showInfo } = useToast();
 
   const [project, setProject] = useState<any>(null);
   const [apiProjectData, setApiProjectData] = useState<any>(null);
@@ -113,13 +111,18 @@ const SharedProjectInfo: React.FC = () => {
     fetchProject();
   }, [token]);
 
+  const redirectToLoginForJoin = () => {
+    showInfo('Connectez-vous pour demander à rejoindre ce projet.');
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    navigate(`/login?redirect=${redirect}`);
+  };
+
   const handleJoinProject = async () => {
     if (!apiProjectData?.id) return;
 
-    // If user is not logged in, redirect to login and keep current URL as return path
-    if (!state.user) {
-      const redirect = encodeURIComponent(location.pathname + location.search);
-      navigate(`/login?redirect=${redirect}`);
+    const jwt = localStorage.getItem('jwt_token')?.trim();
+    if (!jwt) {
+      redirectToLoginForJoin();
       return;
     }
 
@@ -130,7 +133,7 @@ const SharedProjectInfo: React.FC = () => {
         {},
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('jwt_token') || ''}`,
+            Authorization: `Bearer ${jwt}`,
           },
         }
       );
@@ -141,6 +144,10 @@ const SharedProjectInfo: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error joining project from shared link:', err);
+      if (err?.response?.status === 401) {
+        redirectToLoginForJoin();
+        return;
+      }
       const message =
         err?.response?.data?.message ||
         err?.response?.data?.detail ||
