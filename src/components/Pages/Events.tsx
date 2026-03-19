@@ -76,6 +76,8 @@ const Events: React.FC = () => {
       type: apiEvent.type as Event['type'],
       location: apiEvent.location || '',
       participants: transformedParticipants,
+      groupIds: apiEvent.group_ids?.map((gid) => gid.toString()) || [],
+      manualParticipantIds: apiEvent.manual_participant_ids || [],
       badges: apiEvent.badges?.map(b => b.toString()) || [],
       image: apiEvent.image || '',
       status: apiEvent.status as Event['status'],

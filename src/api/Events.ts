@@ -12,6 +12,7 @@ export interface EventFormData {
   status?: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   badges?: string[];
   participants?: string[];         // Peut être combiné avec csv_file
+  group_ids?: number[];           // Pro: groupes attachés à l'événement
   organization_id?: number;        // Optionnel (notamment pour teacher)
   school_id?: number;              // Optionnel (teacher)
 }
@@ -52,6 +53,8 @@ export interface EventResponse {
   status: string;
   badges?: number[];
   participants?: EventParticipantResponse[];
+  group_ids?: number[];
+  manual_participant_ids?: string[];
   image?: string;
   created_at: string;
   createdBy?: string | EventCreatorResponse | null;
@@ -119,6 +122,12 @@ export const createSchoolEvent = async (
       });
     }
 
+    if (event.group_ids !== undefined) {
+      jsonPayload.event.group_ids = (event.group_ids || []).map((gid: string | number) =>
+        typeof gid === 'string' ? parseInt(gid, 10) : gid
+      );
+    }
+
     const response = await apiClient.post(
       `/api/v1/schools/${schoolId}/events`,
       jsonPayload
@@ -149,6 +158,11 @@ export const createSchoolEvent = async (
   }
   if (event.status) {
     formData.append('event[status]', event.status);
+  }
+
+  // Pro: ensure group_ids key is present even when empty (detach behavior)
+  if (event.group_ids !== undefined) {
+    formData.append('event[group_ids]', JSON.stringify(event.group_ids || []));
   }
 
   // Add badges if provided
@@ -254,6 +268,13 @@ export const createCompanyEvent = async (
       });
     }
 
+    // Pro: group attachment (JSON path — same as FormData when hasFiles is false)
+    if (event.group_ids !== undefined) {
+      jsonPayload.event.group_ids = (event.group_ids || []).map((gid: string | number) =>
+        typeof gid === 'string' ? parseInt(gid, 10) : gid
+      );
+    }
+
     const response = await apiClient.post(
       `/api/v1/companies/${companyId}/events`,
       jsonPayload
@@ -284,6 +305,11 @@ export const createCompanyEvent = async (
   }
   if (event.status) {
     formData.append('event[status]', event.status);
+  }
+
+  // Pro: ensure group_ids key is present even when empty (detach behavior)
+  if (event.group_ids !== undefined) {
+    formData.append('event[group_ids]', JSON.stringify(event.group_ids || []));
   }
 
   // Add badges if provided
