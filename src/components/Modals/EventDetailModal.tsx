@@ -18,6 +18,8 @@ import { getLocalBadgeImage } from '../../utils/badgeImages';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import EventCompleteModal from './EventCompleteModal';
+import ShareEventLinkModal from './ShareEventLinkModal';
+import { shareCompanyEventLink } from '../../api/Events';
 
 interface EventDetailModalProps {
   event: Event;
@@ -41,6 +43,9 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
   const { state } = useAppContext();
   const { showSuccess, showError } = useToast();
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
   const [eventBadges, setEventBadges] = useState<BadgeAPI[]>([]);
   const eventDocuments = (event as any).documents || [];
   const eventHasBadges = Boolean(event.badges && event.badges.length > 0);
@@ -149,6 +154,32 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
     }
   };
 
+  const handleShare = async () => {
+    try {
+      if (state.showingPageType !== 'pro') {
+        showError("Le partage d'événement n'est disponible que dans l'espace entreprise");
+        return;
+      }
+
+      const companyId = getOrganizationId(state.user, state.showingPageType);
+      const eventId = parseInt(event.id);
+      if (!companyId || Number.isNaN(eventId)) {
+        showError("Impossible de générer le lien de partage");
+        return;
+      }
+
+      setIsGeneratingShareLink(true);
+      const { token } = await shareCompanyEventLink(companyId, eventId);
+      setShareToken(token);
+      setIsShareModalOpen(true);
+    } catch (error: any) {
+      console.error('Error generating event share link:', error);
+      showError(error?.response?.data?.message || "Erreur lors de la génération du lien de partage");
+    } finally {
+      setIsGeneratingShareLink(false);
+    }
+  };
+
   // Load event badges
   useEffect(() => {
     const fetchEventBadges = async () => {
@@ -207,6 +238,18 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <span>Modifier</span>
             </button>
           )}
+          {state.showingPageType === 'pro' && isEventCreator && (
+            <button
+              className="flex gap-2 items-center btn-primary btn-sm btn-outline"
+              onClick={handleShare}
+              title="Partager l'événement"
+              disabled={isGeneratingShareLink}
+              style={{ opacity: isGeneratingShareLink ? 0.7 : 1 }}
+            >
+              <i className="fas fa-share-alt"></i>
+              <span>{isGeneratingShareLink ? 'Génération...' : "Partager l'événement"}</span>
+            </button>
+          )}
           {onDelete && state.showingPageType !== 'user' && isEventCreator && (
             <button
               className="flex gap-2 items-center btn-sm"
@@ -226,6 +269,12 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
             <i className="fas fa-times"></i>
           </button>
         </div>
+
+        <ShareEventLinkModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          token={shareToken}
+        />
 
         {/* Event Title */}
         <h1 className="event-detail-title">{event.title}</h1>

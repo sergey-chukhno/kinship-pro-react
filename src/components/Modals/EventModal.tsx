@@ -3,6 +3,7 @@ import { Event, BadgeAPI, Member } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges } from '../../api/Badges';
 import { getOrganizationMembers, getTeacherStudents } from '../../api/Projects';
+import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { base64ToFile } from '../../utils/projectMapper';
 import { 
@@ -30,6 +31,16 @@ interface EventModalProps {
 
 interface NewParticipant {
   id: string; // Temporary ID for display
+  identityKey: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  birthday?: string;
+  fullName: string;
+}
+
+interface CsvRow {
+  identityKey: string;
   firstName: string;
   lastName: string;
   email?: string;
@@ -49,6 +60,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
     type: 'session' as 'session' | 'workshop' | 'training' | 'meeting' | 'other',
     location: '',
     participants: [] as string[],
+    // Pro: groups attached to the event
+    groupIds: [] as string[],
     badges: [] as string[],
     image: ''
   });
@@ -66,7 +79,16 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
   const [organizationMembers, setOrganizationMembers] = useState<Member[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [newParticipants, setNewParticipants] = useState<NewParticipant[]>([]);
+  const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<number | undefined>(undefined);
+
+  // Pro: groups attachment UI
+  const [availableCompanyGroups, setAvailableCompanyGroups] = useState<any[]>([]);
+  const [isLoadingCompanyGroups, setIsLoadingCompanyGroups] = useState(false);
+  const [groupMembersByGroupId, setGroupMembersByGroupId] = useState<Record<string, number[]>>({});
+  const [groupMembersDetailsByGroupId, setGroupMembersDetailsByGroupId] = useState<Record<string, any[]>>({});
+  const [groupDetailPopup, setGroupDetailPopup] = useState<{ groupId: string; groupName: string } | null>(null);
+  const [isLoadingGroupMembers, setIsLoadingGroupMembers] = useState(false);
   const displaySeries = useCallback((seriesName: string) => {
     return seriesName.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
   }, []);
@@ -124,6 +146,67 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
     });
   }, [organizationMembers, participantSearch]);
 
+  // Derived participant IDs from selected groups (prevents manual duplication)
+  const groupDerivedParticipantIds = useMemo(() => {
+    const ids: string[] = [];
+    (formData.groupIds || []).forEach((gid) => {
+      const memberIds = groupMembersByGroupId[gid] || [];
+      memberIds.forEach((id) => ids.push(String(id)));
+    });
+    return new Set(ids);
+  }, [formData.groupIds, groupMembersByGroupId]);
+
+  const ensureGroupMembersLoaded = async (companyId: number, groupId: string) => {
+    if (groupMembersByGroupId[groupId] && groupMembersDetailsByGroupId[groupId]) return;
+    try {
+      setIsLoadingGroupMembers(true);
+      const res = await getCompanyGroup(companyId, Number(groupId));
+      const data = res.data?.data || res.data;
+      const membersArr = Array.isArray(data?.members) ? data.members : [];
+      const memberIds = membersArr.map((m: any) => Number(m.id)).filter((id: number) => !Number.isNaN(id));
+      setGroupMembersByGroupId((prev) => ({ ...prev, [groupId]: memberIds }));
+      setGroupMembersDetailsByGroupId((prev) => ({ ...prev, [groupId]: membersArr }));
+    } catch (e) {
+      console.error('Error fetching company group members:', e);
+    } finally {
+      setIsLoadingGroupMembers(false);
+    }
+  };
+
+  const handleGroupToggle = async (groupId: string) => {
+    if (state.showingPageType !== 'pro') return;
+
+    const companyId = getOrganizationId(state.user, state.showingPageType);
+    if (!companyId) return;
+
+    const isSelected = formData.groupIds.includes(groupId);
+    const nextGroupIds = isSelected
+      ? formData.groupIds.filter((id) => id !== groupId)
+      : [...formData.groupIds, groupId];
+
+    setFormData((prev) => ({ ...prev, groupIds: nextGroupIds }));
+
+    if (isSelected && groupDetailPopup?.groupId === groupId) {
+      setGroupDetailPopup(null);
+    }
+
+    // Fetch members for newly selected group, then remove them from manual participants
+    if (!isSelected && !groupMembersByGroupId[groupId]) {
+      await ensureGroupMembersLoaded(companyId, groupId);
+    }
+
+    if (!isSelected) {
+      const cached = groupMembersByGroupId[groupId] || [];
+      if (cached.length > 0) {
+        const toRemove = new Set(cached.map((id) => String(id)));
+        setFormData((prev) => ({
+          ...prev,
+          participants: prev.participants.filter((id) => !toRemove.has(String(id))),
+        }));
+      }
+    }
+  };
+
   // Fetch available badges on component mount
   useEffect(() => {
     const fetchBadges = async () => {
@@ -136,6 +219,34 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
     };
     fetchBadges();
   }, []);
+
+  // Pro: load company groups for event group attachment selector
+  useEffect(() => {
+    const loadGroups = async () => {
+      if (state.showingPageType !== 'pro') return;
+
+      const companyId = getOrganizationId(state.user, state.showingPageType);
+      if (!companyId) {
+        setAvailableCompanyGroups([]);
+        return;
+      }
+
+      setIsLoadingCompanyGroups(true);
+      try {
+        const res = await getCompanyGroups(companyId);
+        const raw = res.data?.data || res.data || [];
+        setAvailableCompanyGroups(Array.isArray(raw) ? raw : []);
+      } catch (e) {
+        console.error('Error fetching company groups:', e);
+        setAvailableCompanyGroups([]);
+      } finally {
+        setIsLoadingCompanyGroups(false);
+      }
+    };
+
+    loadGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.showingPageType, state.user?.id]);
 
   const organizationsForTeacher = useMemo(() => {
     const contexts = state.user?.available_contexts;
@@ -251,9 +362,15 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
   useEffect(() => {
     const seed = event || initialData;
     if (seed) {
-      const participantIds = (seed.participants || []).map(p => 
-        typeof p === 'object' ? p.id.toString() : p.toString()
-      );
+      const proSeedGroupIds = (seed as any)?.groupIds || [];
+      const proSeedManualParticipantIds = (seed as any)?.manualParticipantIds;
+
+      const participantIds =
+        state.showingPageType === 'pro' && Array.isArray(proSeedManualParticipantIds)
+          ? proSeedManualParticipantIds
+          : (seed.participants || []).map(p =>
+              typeof p === 'object' ? p.id.toString() : p.toString()
+            );
 
       setFormData({
         title: seed.title || '',
@@ -264,11 +381,24 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         type: seed.type || 'session',
         location: seed.location || '',
         participants: participantIds,
+        groupIds: state.showingPageType === 'pro' ? proSeedGroupIds : [],
         badges: seed.badges || [],
         image: seed.image || ''
       });
       setImagePreview(seed.image || '');
       setNewParticipants([]);
+      setCsvRows([]);
+
+      if (state.showingPageType === 'pro' && Array.isArray(proSeedGroupIds) && proSeedGroupIds.length > 0) {
+        const companyId = getOrganizationId(state.user, state.showingPageType);
+        if (companyId) {
+          Promise.all(
+            proSeedGroupIds.map((gid: string) => ensureGroupMembersLoaded(companyId, gid))
+          ).catch(() => {
+            // ignore; group member loading will be best-effort
+          });
+        }
+      }
     } else {
       const today = new Date();
       setFormData(prev => ({
@@ -277,6 +407,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         time: today.toTimeString().slice(0, 5)
       }));
       setNewParticipants([]);
+      setCsvRows([]);
     }
   }, [event, initialData]);
 
@@ -316,8 +447,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
     setDocuments((prev) => prev.filter((f) => f.name !== name));
   };
 
-  // Helper function to create CSV file from new participants
-  const createCsvFileFromParticipants = (participants: NewParticipant[]): File | null => {
+  // Helper function to create CSV file from parsed CSV rows
+  const createCsvFileFromParticipants = (
+    participants: Array<{ firstName: string; lastName: string; email?: string; birthday?: string }>
+  ): File | null => {
     if (participants.length === 0) return null;
 
     // Create CSV content
@@ -364,7 +497,13 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         school_id: state.showingPageType === 'teacher' ? selectedOrganizationId : undefined,
         participants: formData.participants.length > 0
           ? formData.participants
-          : undefined
+          : undefined,
+        group_ids:
+          state.showingPageType === 'pro'
+            ? formData.groupIds
+                .map((gid) => Number.parseInt(gid, 10))
+                .filter((id) => !Number.isNaN(id))
+            : undefined
       };
 
       // Convert image to File if present
@@ -390,10 +529,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         }
       }
 
-      // Create CSV file from new participants if any
+      // Create CSV file from the union of parsed CSV rows (additive; required to add existing users too)
       let csvFile: File | null = null;
-      if (newParticipants.length > 0) {
-        csvFile = createCsvFileFromParticipants(newParticipants);
+      if (csvRows.length > 0) {
+        csvFile = createCsvFileFromParticipants(csvRows);
       }
 
       // Prepare payload
@@ -450,6 +589,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         type: createdEvent.type as Event['type'],
         location: createdEvent.location || '',
         participants: createdEvent.participants?.map(p => p.toString()) || [],
+        groupIds: (createdEvent.group_ids || []).map((gid: any) => gid.toString()),
+        manualParticipantIds: createdEvent.manual_participant_ids || [],
         badges: createdEvent.badges?.map(b => b.toString()) || [],
         image: createdEvent.image || '',
         status: createdEvent.status as Event['status'],
@@ -463,6 +604,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
 
       // Clear new participants after successful save
       setNewParticipants([]);
+      setCsvRows([]);
     } catch (error: any) {
       console.error('Error creating event:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Erreur lors de la création de l\'événement';
@@ -472,7 +614,9 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
   };
 
   const handleAddParticipant = (participantId: string) => {
-    if (participantId && !formData.participants.includes(participantId)) {
+    if (!participantId) return;
+    if (groupDerivedParticipantIds.has(participantId)) return;
+    if (!formData.participants.includes(participantId)) {
       setFormData(prev => ({
         ...prev,
         participants: [...prev.participants, participantId]
@@ -489,7 +633,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
     }));
   };
 
-  // Parse CSV file and match participants
+  // Parse CSV file and merge/add participants (idempotent; no CSV replace)
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -504,21 +648,25 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
       return;
     }
 
-    // Clear previous CSV upload results (replace instead of append)
-    setNewParticipants([]);
-    // Note: We'll replace all participants on CSV upload
-    // If you want to keep manually added participants, you'd need to track their origin
+    const existingCsvRowKeys = new Set(csvRows.map((r) => r.identityKey));
+    const existingNewParticipantKeys = new Set(newParticipants.map((p) => p.identityKey));
+
+    const buildIdentityKey = (row: { email?: string; firstName: string; lastName: string; birthday?: string }) => {
+      const emailNorm = (row.email || '').trim().toLowerCase();
+      if (emailNorm) return `email:${emailNorm}`;
+      const bday = (row.birthday || '').trim();
+      return `name+bday:${row.firstName.trim().toLowerCase()}|${row.lastName.trim().toLowerCase()}|${bday}`;
+    };
 
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const text = event.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim());
+        const lines = text.split('\n').filter((line) => line.trim());
         if (lines.length === 0) {
           setCsvUploadError('Le fichier CSV est vide');
           return;
         }
-
 
         // Find header row and column indices
         let headerRowIndex = -1;
@@ -530,23 +678,21 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         // Check first few lines for header (Google Forms format sometimes has header at line 3)
         for (let i = 0; i < Math.min(5, lines.length); i++) {
           const line = lines[i].toLowerCase();
-          const parts = line.includes(',') 
-            ? line.split(',').map(p => p.trim())
-            : line.split(';').map(p => p.trim());
-          
-          const emailIdx = parts.findIndex(p => 
-            p.includes('email') || p.includes('e-mail') || p.includes('adresse e-mail')
-          );
-          const firstNameIdx = parts.findIndex(p => 
+          const parts = line.includes(',')
+            ? line.split(',').map((p) => p.trim())
+            : line.split(';').map((p) => p.trim());
+
+          const emailIdx = parts.findIndex((p) => p.includes('email') || p.includes('e-mail') || p.includes('adresse e-mail'));
+          const firstNameIdx = parts.findIndex((p) =>
             p.includes('prénom') || p.includes('prenom') || p.includes('first') || p.includes('firstname')
           );
-          const lastNameIdx = parts.findIndex(p => 
-            (p.includes('nom') && !p.includes('prénom') && !p.includes('prenom')) || 
-            p.includes('last') || p.includes('lastname') || (p.includes('name') && !p.includes('first'))
+          const lastNameIdx = parts.findIndex((p) =>
+            (p.includes('nom') && !p.includes('prénom') && !p.includes('prenom')) ||
+            p.includes('last') ||
+            p.includes('lastname') ||
+            (p.includes('name') && !p.includes('first'))
           );
-          const birthdayIdx = parts.findIndex(p => 
-            p.includes('naissance') || p.includes('birthday') || p.includes('birth') || p.includes('date')
-          );
+          const birthdayIdx = parts.findIndex((p) => p.includes('naissance') || p.includes('birthday') || p.includes('birth') || p.includes('date'));
 
           if (emailIdx >= 0 || firstNameIdx >= 0 || lastNameIdx >= 0 || birthdayIdx >= 0) {
             headerRowIndex = i;
@@ -558,12 +704,13 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           }
         }
 
-        // If no header found, assume first line is header or data starts at line 0
         const dataStartIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 0;
 
         // Check if required columns are present
         if (headerRowIndex < 0) {
-          setCsvUploadError('En-tête non trouvé dans le fichier CSV. Le fichier doit contenir les colonnes : Prénom, Nom, Date de naissance. Veuillez utiliser le template fourni.');
+          setCsvUploadError(
+            'En-tête non trouvé dans le fichier CSV. Le fichier doit contenir les colonnes : Prénom, Nom, Date de naissance. Veuillez utiliser le template fourni.'
+          );
           return;
         }
 
@@ -577,41 +724,40 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           return;
         }
 
-        // Parse CSV (handle both comma and semicolon separators)
-        const participants: string[] = [];
+        const csvRowsToAdd: CsvRow[] = [];
         const newParticipantsToAdd: NewParticipant[] = [];
         const rowsWithoutBirthday: number[] = [];
+        let matchedExistingInThisFile = 0;
 
         for (let i = dataStartIndex; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
 
           // Try comma first, then semicolon
-          const parts = line.includes(',') 
-            ? line.split(',').map(p => p.trim().replace(/^"|"$/g, ''))
-            : line.split(';').map(p => p.trim().replace(/^"|"$/g, ''));
+          const parts = line.includes(',')
+            ? line.split(',').map((p) => p.trim().replace(/^"|"$/g, ''))
+            : line.split(';').map((p) => p.trim().replace(/^"|"$/g, ''));
 
-          // Extract data based on column indices or try to infer
+          // Extract data based on column indices
           let email = '';
           let firstName = '';
           let lastName = '';
           let birthday = '';
 
-          // Use column indices from header (header is required, checked above)
           if (emailIndex >= 0 && emailIndex < parts.length) email = parts[emailIndex];
           if (firstNameIndex >= 0 && firstNameIndex < parts.length) firstName = parts[firstNameIndex];
           if (lastNameIndex >= 0 && lastNameIndex < parts.length) lastName = parts[lastNameIndex];
           if (birthdayIndex >= 0 && birthdayIndex < parts.length) birthday = parts[birthdayIndex];
 
-          // Check if row has name but no birthday
+          if (!firstName && !lastName) continue;
+
           if (firstName && lastName && !birthday.trim()) {
-            rowsWithoutBirthday.push(i + 1); // +1 for human-readable line number
+            rowsWithoutBirthday.push(i + 1);
           }
 
-          // Normalize birthday format (handle various formats)
+          // Normalize birthday format
           let normalizedBirthday = '';
           if (birthday) {
-            // Try to parse and normalize date
             const dateMatch = birthday.match(/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})/);
             if (dateMatch) {
               const [, d, m, y] = dateMatch;
@@ -622,86 +768,107 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
             }
           }
 
-          // Try to find existing member by birthday + name + firstname
-          let found = false;
+          const rowBirthday = normalizedBirthday || birthday || undefined;
+          const identityKey = buildIdentityKey({ email, firstName, lastName, birthday: rowBirthday });
+
+          // Existing member match
+          let memberFound = false;
           if (normalizedBirthday && firstName && lastName) {
-            const member = organizationMembers.find(m => {
+            const member = organizationMembers.find((m) => {
               const memberBirthday = m.birthday;
-              const nameMatch = m.firstName.toLowerCase() === firstName.toLowerCase() &&
-                               m.lastName.toLowerCase() === lastName.toLowerCase();
-              const birthdayMatch = memberBirthday && 
-                memberBirthday.split('T')[0] === normalizedBirthday.split('T')[0];
-              return nameMatch && birthdayMatch;
+              const nameMatch =
+                (m.firstName || '').toLowerCase() === firstName.toLowerCase() &&
+                (m.lastName || '').toLowerCase() === lastName.toLowerCase();
+              const birthdayMatch =
+                memberBirthday && memberBirthday.split('T')[0] === normalizedBirthday.split('T')[0];
+              return nameMatch && Boolean(birthdayMatch);
             });
-
-            if (member && !formData.participants.includes(member.id) && !participants.includes(member.id)) {
-              participants.push(member.id);
-              found = true;
-            }
+            if (member) memberFound = true;
           }
 
-          // Also try by email if not found
-          if (!found && email) {
-            const member = organizationMembers.find(m => 
-              m.email.toLowerCase() === email.toLowerCase()
-            );
-            if (member && !formData.participants.includes(member.id) && !participants.includes(member.id)) {
-              participants.push(member.id);
-              found = true;
-            }
+          if (!memberFound && email) {
+            const member = organizationMembers.find((m) => (m.email || '').toLowerCase() === email.toLowerCase());
+            if (member) memberFound = true;
           }
 
-          // If not found and we have at least firstName and lastName, add as new participant
-          if (!found && firstName && lastName) {
-            const tempId = `new-${Date.now()}-${i}`;
-            const newParticipant: NewParticipant = {
-              id: tempId,
+          // Union-add CSV rows by identity (idempotent across uploads)
+          const shouldAddCsvRow = !existingCsvRowKeys.has(identityKey);
+          if (shouldAddCsvRow) {
+            const csvRow: CsvRow = {
+              identityKey,
               firstName,
               lastName,
               email: email || undefined,
-              birthday: normalizedBirthday || birthday || undefined,
-              fullName: `${firstName} ${lastName}`
+              birthday: rowBirthday,
+              fullName: `${firstName} ${lastName}`.trim()
             };
-            newParticipantsToAdd.push(newParticipant);
+            csvRowsToAdd.push(csvRow);
+            existingCsvRowKeys.add(identityKey);
+          }
+
+          if (memberFound) {
+            matchedExistingInThisFile += 1;
+            continue;
+          }
+
+          if (!memberFound && firstName && lastName) {
+            // Stage "new participant" rows only when the identity isn't already staged
+            if (!existingNewParticipantKeys.has(identityKey)) {
+              const tempId = `new-${Date.now()}-${i}`;
+              const newParticipant: NewParticipant = {
+                id: tempId,
+                identityKey,
+                firstName,
+                lastName,
+                email: email || undefined,
+                birthday: rowBirthday,
+                fullName: `${firstName} ${lastName}`.trim()
+              };
+              newParticipantsToAdd.push(newParticipant);
+              existingNewParticipantKeys.add(identityKey);
+            }
           }
         }
 
-        // Block import if any rows are missing birthday
         if (rowsWithoutBirthday.length > 0) {
-          const rowsList = rowsWithoutBirthday.length <= 5
-            ? rowsWithoutBirthday.join(', ')
-            : `${rowsWithoutBirthday.slice(0, 5).join(', ')}... et ${rowsWithoutBirthday.length - 5} autre(s)`;
-          setCsvUploadError(`Date de naissance manquante pour ${rowsWithoutBirthday.length} ligne(s) : ${rowsList}. Chaque participant doit avoir une date de naissance.`);
+          const rowsList =
+            rowsWithoutBirthday.length <= 5
+              ? rowsWithoutBirthday.join(', ')
+              : `${rowsWithoutBirthday.slice(0, 5).join(', ')}... et ${rowsWithoutBirthday.length - 5} autre(s)`;
+          setCsvUploadError(
+            `Date de naissance manquante pour ${rowsWithoutBirthday.length} ligne(s) : ${rowsList}. Chaque participant doit avoir une date de naissance.`
+          );
           return;
         }
 
-        // Replace participants from CSV (keep manually added ones if needed)
-        // For complete replacement, replace all participants
-        // For partial replacement, we'd need to track which came from CSV
-        // Here we do complete replacement of all participants on CSV upload
-        setFormData(prev => ({
-          ...prev,
-          participants: participants
-        }));
+        // Merge/add into state (no replacement)
+        if (csvRowsToAdd.length > 0) {
+          setCsvRows((prev) => {
+            const map = new Map(prev.map((r) => [r.identityKey, r]));
+            csvRowsToAdd.forEach((r) => map.set(r.identityKey, r));
+            return Array.from(map.values());
+          });
+        }
 
-        // Replace new participants (complete replacement)
-        setNewParticipants(newParticipantsToAdd);
+        if (newParticipantsToAdd.length > 0) {
+          setNewParticipants((prev) => {
+            const map = new Map(prev.map((p) => [p.identityKey, p]));
+            newParticipantsToAdd.forEach((p) => {
+              if (!map.has(p.identityKey)) map.set(p.identityKey, p);
+            });
+            return Array.from(map.values());
+          });
+        }
 
-        // Set success/error messages
-        if (participants.length > 0 || newParticipantsToAdd.length > 0) {
-          const messages = [];
-          if (participants.length > 0) {
-            messages.push(`${participants.length} participant(s) existant(s) ajouté(s)`);
-          }
-          if (newParticipantsToAdd.length > 0) {
-            messages.push(`${newParticipantsToAdd.length} nouveau(x) participant(s) à créer`);
-          }
+        if (csvRowsToAdd.length > 0 || newParticipantsToAdd.length > 0) {
+          const messages: string[] = [];
+          if (matchedExistingInThisFile > 0) messages.push(`${matchedExistingInThisFile} participant(s) existant(s) ajoutés`);
+          if (newParticipantsToAdd.length > 0) messages.push(`${newParticipantsToAdd.length} nouveau(x) participant(s) à créer`);
           setCsvUploadSuccess(messages.join(', '));
         } else {
           setCsvUploadError('Aucun participant valide trouvé dans le fichier CSV.');
         }
 
-        // Reset file input
         e.target.value = '';
       } catch (error) {
         console.error('Error parsing CSV:', error);
@@ -709,16 +876,17 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
       }
     };
 
-    reader.onerror = () => {
-      setCsvUploadError('Erreur lors de la lecture du fichier');
-    };
-
+    reader.onerror = () => setCsvUploadError('Erreur lors de la lecture du fichier');
     reader.readAsText(file);
   };
 
   // Remove new participant
   const handleRemoveNewParticipant = (participantId: string) => {
-    setNewParticipants(prev => prev.filter(p => p.id !== participantId));
+    const participant = newParticipants.find((p) => p.id === participantId);
+    if (participant?.identityKey) {
+      setCsvRows((prev) => prev.filter((r) => r.identityKey !== participant.identityKey));
+    }
+    setNewParticipants((prev) => prev.filter((p) => p.id !== participantId));
   };
 
   // Handle badge selection
@@ -1062,6 +1230,159 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                 />
               )}
             </div>
+
+            {/* Pro: Groups */}
+            {state.showingPageType === 'pro' && (
+              <div className="form-group" style={{ marginTop: '15px' }}>
+                <div className="form-label" style={{ fontWeight: 600, marginBottom: '10px' }}>
+                  <i className="fas fa-users" style={{ marginRight: '8px' }}></i>
+                  Ajouter un/des groupe(s) à l&apos;événement
+                </div>
+
+                {isLoadingCompanyGroups ? (
+                  <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                    <span>Chargement des groupes...</span>
+                  </div>
+                ) : (
+                  <>
+                    {availableCompanyGroups.length === 0 ? (
+                      <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>Aucun groupe disponible</div>
+                    ) : (
+                      <div className="multi-select-container" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        {availableCompanyGroups.map((g: any) => {
+                          const gid = g.id?.toString() || '';
+                          const selected = formData.groupIds.includes(gid);
+                          return (
+                            <label
+                              key={gid}
+                              className={`multi-select-item !flex items-center gap-2 ${selected ? 'selected' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => handleGroupToggle(gid)}
+                              />
+                              <div className="multi-select-checkmark">
+                                <i className="fas fa-check"></i>
+                              </div>
+                              <span className="multi-select-label">
+                                {g.name} {typeof g.members_count === 'number' ? `(${g.members_count} membre${g.members_count > 1 ? 's' : ''})` : ''}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Selected groups summary + member popup trigger */}
+                {formData.groupIds.map((groupId) => {
+                  const groupItem = availableCompanyGroups.find((g: any) => g.id?.toString() === groupId);
+                  const groupName = groupItem?.name || groupId;
+                  const cachedMembers = groupMembersDetailsByGroupId[groupId] || [];
+                  const count =
+                    typeof groupItem?.members_count === 'number'
+                      ? groupItem.members_count
+                      : (groupMembersByGroupId[groupId]?.length ?? cachedMembers.length);
+
+                  return (
+                    <div
+                      key={groupId}
+                      className="form-group"
+                      style={{ marginTop: '12px', paddingLeft: '8px', borderLeft: '3px solid #e5e7eb' }}
+                    >
+                      <div className="form-label" style={{ fontSize: '0.9rem', marginBottom: '8px' }}>{groupName}</div>
+                      <div className="flex flex-wrap gap-2" style={{ marginBottom: '8px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          onClick={async () => {
+                            const companyId = getOrganizationId(state.user, state.showingPageType);
+                            if (!companyId) return;
+                            await ensureGroupMembersLoaded(companyId, groupId);
+                            setGroupDetailPopup({ groupId, groupName });
+                          }}
+                        >
+                          <i className="fas fa-users" />
+                          <span>Voir les membres ({count || 0})</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          onClick={() => handleGroupToggle(groupId)}
+                        >
+                          <i className="fas fa-times" />
+                          <span>Retirer</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Popup détail groupe : liste des membres (lecture seule) */}
+            {groupDetailPopup && (
+              <div
+                className="modal-overlay"
+                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={() => setGroupDetailPopup(null)}
+              >
+                <div
+                  className="modal-content"
+                  style={{ background: 'white', borderRadius: '8px', maxWidth: '420px', width: '92%', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{groupDetailPopup.groupName}</h3>
+                    <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setGroupDetailPopup(null)}>
+                      <i className="fas fa-times" />
+                    </button>
+                  </div>
+                  <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                    {(() => {
+                      const membersArr = groupMembersDetailsByGroupId[groupDetailPopup.groupId] || [];
+                      if (isLoadingGroupMembers && membersArr.length === 0) {
+                        return (
+                          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                            <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                            <span>Chargement des membres...</span>
+                          </div>
+                        );
+                      }
+                      if (membersArr.length === 0) return <p style={{ color: '#6b7280' }}>Aucun membre dans ce groupe.</p>;
+
+                      return (
+                        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                          {membersArr.map((m: any) => {
+                            const name = m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email || 'Membre';
+                            return (
+                              <li key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <AvatarImage
+                                  src={m.avatar_url || m.avatarUrl || '/default-avatar.png'}
+                                  alt={name}
+                                  className="item-avatar"
+                                />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                                  <div style={{ fontWeight: 600, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {name}
+                                  </div>
+                                  {m.email && <div style={{ color: '#6b7280', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.email}</div>}
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* CSV Upload Section */}
             <div className="flex flex-col gap-2 csv-upload-section" style={{ marginTop: '15px', padding: '15px', border: '1px solid #e0e0e0', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
