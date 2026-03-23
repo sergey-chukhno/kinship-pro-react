@@ -13,7 +13,7 @@ const ShareProjectLinkModal: React.FC<ShareProjectLinkModalProps> = ({ isOpen, o
   const { showSuccess } = useToast();
 
   const shareUrl = token
-    ? `${process.env.REACT_APP_FRONTEND_URL}/shared-project/${token}`
+    ? `${process.env.REACT_APP_FRONTEND_URL}/shared/${token}`
     : '';
 
   useEffect(() => {
