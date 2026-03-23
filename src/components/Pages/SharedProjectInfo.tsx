@@ -118,7 +118,7 @@ const SharedProjectInfo: React.FC = () => {
   };
 
   const handleJoinProject = async () => {
-    if (!apiProjectData?.id) return;
+    if (!token) return;
 
     const jwt = localStorage.getItem('jwt_token')?.trim();
     if (!jwt) {
@@ -129,7 +129,7 @@ const SharedProjectInfo: React.FC = () => {
     try {
       setIsJoining(true);
       const response = await axiosClientWithoutToken.post(
-        `/api/v1/projects/${apiProjectData.id}/join`,
+        `/api/v1/projects/shared/${token}/join`,
         {},
         {
           headers: {
@@ -375,10 +375,6 @@ const SharedProjectInfo: React.FC = () => {
                     <img src="/icons_logo/Icon=projet.svg" alt="Organization" className="manager-icon" />
                     <span className="manager-text">{toDisplayString(project.responsible?.organization)}</span>
                   </div>
-                  <div className="manager-email">
-                    <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
-                    <span className="manager-text">{project.responsible?.email || ''}</span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -427,10 +423,6 @@ const SharedProjectInfo: React.FC = () => {
                           <img src="/icons_logo/Icon=projet.svg" alt="Organization" className="manager-icon" />
                           <span className="manager-text">{toDisplayString(coResponsible.organization)}</span>
                         </div>
-                        <div className="manager-email">
-                          <img src="/icons_logo/Icon=mail.svg" alt="Email" className="manager-icon" />
-                          <span className="manager-text">{coResponsible.email}</span>
-                        </div>
                       </div>
                     </div>
                   ))}
@@ -448,8 +440,8 @@ const SharedProjectInfo: React.FC = () => {
                   {(project.partners && project.partners.length > 0
                     ? project.partners
                     : project.partner ? [project.partner] : []
-                  ).map((p: any) => (
-                    <div key={p.id} className="manager-left">
+                  ).map((p: any, index: number) => (
+                    <div key={p.id || index} className="manager-left">
                       <div className="manager-avatar">
                         <AvatarImage
                           src={p.logo || '/default-avatar.png'}
