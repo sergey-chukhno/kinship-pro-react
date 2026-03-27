@@ -1186,7 +1186,7 @@ const Projects: React.FC = () => {
 
       // Envoyer le bilan MLDS si fourni (POST /api/v1/projects/:id/mlds_bilan)
       if (bilanData) {
-        const payload = buildMldsBilanPayload(bilanData);
+        const payload = buildMldsBilanPayload(bilanData, proj.mlds_information ?? null);
         await postMldsBilan(projectId, payload);
       }
 
@@ -2276,6 +2276,7 @@ const Projects: React.FC = () => {
       {/* Modal bilan à la clôture du projet (projets MLDS uniquement) */}
       {isCloseProjectModalOpen && projectToClose && projectToClose.mlds_information != null && (
         <CloseProjectBilanModal
+          key={projectToClose.id}
           projectTitle={projectToClose.title}
           mldsInfo={projectToClose.mlds_information ?? null}
           onClose={cancelCloseProject}
