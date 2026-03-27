@@ -963,6 +963,9 @@ const Projects: React.FC = () => {
       setMldsTargetAudienceFilter('all');
       setMldsActionObjectivesFilter('all');
       setMldsOrganizationFilter('all');
+      // Also reset general filters to avoid "empty list" surprises after MLDS filtering
+      setPathwayFilter('all');
+      setVisibilityFilter('all');
     }
     // Reset regular filters when entering MLDS tab
     if (activeTab === 'mlds-projects' || activeTab === 'mlds-remediation-projects') {
@@ -1999,7 +2002,7 @@ const Projects: React.FC = () => {
       ) : filteredProjects.length > 0 ? (
         <>
           <div className="projects-grid">
-            {filteredProjects.map((project) => {
+            {filteredProjects.map((project, index) => {
               const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
               
               // Get raw API project data for permission checks
@@ -2052,7 +2055,7 @@ const Projects: React.FC = () => {
               
               return (
                 <ProjectCard
-                  key={project.id}
+                  key={`${project.id ?? 'no-id'}-${project.title ?? 'untitled'}-${index}`}
                   project={project}
                   onEdit={!isProjectEnded ? () => handleEditProject(project) : undefined}
                   onManage={() => handleManageProject(project)} // Always allow viewing/managing

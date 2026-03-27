@@ -482,7 +482,18 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
 
     setFormData(prev => ({
       ...prev,
-      organization: selectedSchool?.name || ''
+      organization: selectedSchool?.name || '',
+      // Reset selections tied to the current school context
+      coResponsibles: [],
+      participants: [],
+      mldsOrganizations: []
+    }));
+
+    // Clear search inputs (avoid confusing stale selections)
+    setSearchTerms(prev => ({
+      ...prev,
+      coResponsibles: '',
+      participants: ''
     }));
   };
 
@@ -890,7 +901,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
       // Prepare MLDS-specific payload
       const mldsPayload = {
         context,
-        organization_id: organizationId,
+        organization_id: selectedSchoolId ? Number.parseInt(selectedSchoolId, 10) : formData.organization ? Number.parseInt(formData.organization, 10) : organizationId,
         project: {
           title: formData.title,
           description: formData.description,
