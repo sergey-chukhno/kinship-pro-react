@@ -70,9 +70,27 @@ export interface LinkAttribute {
     url: string;
 }
 
+/** Ligne HV — nom d’enseignant + heures HV (`hour`). */
+export interface FinancialHvLine {
+    teacher_name: string;
+    hour: string;
+}
+
+/** Prestataire : montant, heures d’intervention, devis optionnel (fichier via FormData `quote`) */
+export interface FinancialServiceLine {
+    service_name: string;
+    price: string;
+    hours?: string;
+    quote_url?: string | null;
+}
+
 export interface MLDSInformationAttributes {
+    /** Requis pour la mise à jour Rails (`accepts_nested_attributes_for`) */
+    id?: number;
     requested_by?: string;
     department_number?: string | null;
+    /** Type de projet MLDS (ex: perseverance, remediation) */
+    type_mlds?: string | null;
     school_level_ids?: number[];
     target_audience?: string;
     action_objectives?: string[];
@@ -82,32 +100,42 @@ export interface MLDSInformationAttributes {
     financial_hse?: number | null;
     /** Taux horaire (€/h) principal pour MLDS */
     financial_rate?: number | null;
-    /** Ancien champ de taux horaire, conservé pour compatibilité rétro */
+    /** Ancien champ (heures HV globales) — préférer financial_hv_lines pour le détail par enseignant */
     financial_hv?: number | null;
+    /** Crédits HV par enseignant (intégrés au total des crédits) */
+    financial_hv_lines?: FinancialHvLine[] | null;
     financial_transport?: Array<{ transport_name: string; price: string }> | null;
+    /** Frais de fonctionnement — inclus dans le total Crédits */
     financial_operating?: Array<{ operating_name: string; price: string }> | null;
-    financial_service?: Array<{ service_name: string; price: string }> | null;
+    /** Autres financements — hors total Crédits ; s’ajoutent au total général */
+    financial_autres_financements?: Array<{ autres_name: string; price: string }> | null;
+    financial_service?: FinancialServiceLine[] | null;
     objectives?: string | null;
     organization_names?: string[];
     network_issue_addressed?: string | null;
 }
 
-/** Payload for POST /api/v1/projects/:id/mlds_bilan. All keys are always present; empty values use null (numbers) or "" (strings). */
+/** Payload pour POST /api/v1/projects/:id/mlds_bilan (clôture MLDS). */
 export interface MldsBilanPayload {
     hse?: number | null;
-    hse_comment?: string;
-    hv?: number | null;
-    hv_comment?: string;
+    hse_comment?: string | null;
     financial_rate?: number | null;
-    financial_rate_comment?: string;
-    financial_transport?: number | null;
-    financial_transport_comment?: string;
-    financial_service?: number | null;
-    financial_service_comment?: string;
-    financial_operating?: number | null;
-    financial_operating_comment?: string;
+    financial_rate_comment?: string | null;
+    financial_transport_comment?: string | null;
+    financial_operating_comment?: string | null;
+    financial_service_comment?: string | null;
     expected_participants?: number | null;
-    expected_participants_comment?: string;
+    expected_participants_comment?: string | null;
+    financial_transport?: Array<{ transport_name: string; price: string; comment?: string | null }> | null;
+    financial_operating?: Array<{ operating_name: string; price: string; comment?: string | null }> | null;
+    financial_service?: Array<{
+        service_name: string;
+        price: string;
+        hours?: string;
+        comment?: string | null;
+    }> | null;
+    financial_hv_lines?: Array<{ teacher_name: string; hour: string; comment?: string | null }> | null;
+    financial_autres_financements?: Array<{ autres_name: string; price: string; comment?: string | null }> | null;
 }
 
 export interface CreateProjectPayload {
@@ -811,6 +839,124 @@ export const createProjectMultipart = async (
     return response.data;
 };
 
+/** Append MLDS nested attributes for multipart (création / mise à jour projet) */
+export const appendMldsInformationToFormData = (
+    formData: FormData,
+    mlds: MLDSInformationAttributes,
+    options?: { serviceQuoteFiles?: (File | null | undefined)[] }
+): void => {
+    const P = 'project[mlds_information_attributes]';
+
+    if (mlds.id != null) {
+        formData.append(`${P}[id]`, String(mlds.id));
+    }
+
+    if (mlds.requested_by) {
+        formData.append(`${P}[requested_by]`, mlds.requested_by);
+    }
+
+    if (mlds.department_number !== undefined && mlds.department_number !== null) {
+        formData.append(`${P}[department_number]`, String(mlds.department_number));
+    }
+
+    if (mlds.type_mlds) {
+        formData.append(`${P}[type_mlds]`, mlds.type_mlds);
+    }
+
+    if (mlds.school_level_ids && mlds.school_level_ids.length > 0) {
+        mlds.school_level_ids.forEach(id => {
+            formData.append(`${P}[school_level_ids][]`, id.toString());
+        });
+    }
+
+    if (mlds.target_audience) {
+        formData.append(`${P}[target_audience]`, mlds.target_audience);
+    }
+
+    if (mlds.action_objectives && mlds.action_objectives.length > 0) {
+        mlds.action_objectives.forEach(objective => {
+            formData.append(`${P}[action_objectives][]`, objective);
+        });
+    }
+
+    if (mlds.action_objectives_other !== undefined && mlds.action_objectives_other !== null) {
+        formData.append(`${P}[action_objectives_other]`, mlds.action_objectives_other);
+    }
+
+    if (mlds.competencies_developed !== undefined && mlds.competencies_developed !== null) {
+        formData.append(`${P}[competencies_developed]`, mlds.competencies_developed);
+    }
+
+    if (mlds.expected_participants !== undefined && mlds.expected_participants !== null) {
+        formData.append(`${P}[expected_participants]`, mlds.expected_participants.toString());
+    }
+
+    if (mlds.financial_hse !== undefined && mlds.financial_hse !== null) {
+        formData.append(`${P}[financial_hse]`, mlds.financial_hse.toString());
+    }
+
+    if (mlds.financial_rate !== undefined && mlds.financial_rate !== null) {
+        formData.append(`${P}[financial_rate]`, mlds.financial_rate.toString());
+    }
+
+    if (mlds.financial_hv !== undefined && mlds.financial_hv !== null) {
+        formData.append(`${P}[financial_hv]`, mlds.financial_hv.toString());
+    }
+
+    if (mlds.financial_hv_lines !== undefined && mlds.financial_hv_lines !== null && Array.isArray(mlds.financial_hv_lines)) {
+        mlds.financial_hv_lines.forEach((line: FinancialHvLine, index: number) => {
+            formData.append(`${P}[financial_hv_lines][${index}][teacher_name]`, line.teacher_name);
+            formData.append(`${P}[financial_hv_lines][${index}][hour]`, line.hour);
+        });
+    }
+
+    if (mlds.financial_transport !== undefined && mlds.financial_transport !== null && Array.isArray(mlds.financial_transport)) {
+        mlds.financial_transport.forEach((line: { transport_name: string; price: string }, index: number) => {
+            formData.append(`${P}[financial_transport][${index}][transport_name]`, line.transport_name);
+            formData.append(`${P}[financial_transport][${index}][price]`, line.price);
+        });
+    }
+
+    if (mlds.financial_operating !== undefined && mlds.financial_operating !== null && Array.isArray(mlds.financial_operating)) {
+        mlds.financial_operating.forEach((line: { operating_name: string; price: string }, index: number) => {
+            formData.append(`${P}[financial_operating][${index}][operating_name]`, line.operating_name);
+            formData.append(`${P}[financial_operating][${index}][price]`, line.price);
+        });
+    }
+
+    if (mlds.financial_autres_financements !== undefined && mlds.financial_autres_financements !== null && Array.isArray(mlds.financial_autres_financements)) {
+        mlds.financial_autres_financements.forEach((line: { autres_name: string; price: string }, index: number) => {
+            formData.append(`${P}[financial_autres_financements][${index}][autres_name]`, line.autres_name);
+            formData.append(`${P}[financial_autres_financements][${index}][price]`, line.price);
+        });
+    }
+
+    if (mlds.financial_service !== undefined && mlds.financial_service !== null && Array.isArray(mlds.financial_service)) {
+        mlds.financial_service.forEach((line: FinancialServiceLine, index: number) => {
+            formData.append(`${P}[financial_service][${index}][service_name]`, line.service_name);
+            formData.append(`${P}[financial_service][${index}][price]`, line.price);
+            if (line.hours !== undefined && line.hours !== null && line.hours !== '') {
+                formData.append(`${P}[financial_service][${index}][hours]`, String(line.hours));
+            }
+            const qf = options?.serviceQuoteFiles?.[index];
+            if (qf) {
+                formData.append(`${P}[financial_service][${index}][quote]`, qf);
+            }
+        });
+    }
+
+    if (mlds.objectives !== undefined && mlds.objectives !== null) {
+        formData.append(`${P}[objectives]`, mlds.objectives);
+    }
+    if (mlds.network_issue_addressed !== undefined && mlds.network_issue_addressed !== null) {
+        formData.append(`${P}[network_issue_addressed]`, mlds.network_issue_addressed);
+    }
+};
+
+export interface CreateProjectMultipartOptions {
+    serviceQuoteFiles?: (File | null | undefined)[];
+}
+
 /**
  * Main function to create a project
  * Automatically chooses JSON or Multipart based on presence of images
@@ -819,11 +965,13 @@ export const createProject = async (
     payload: CreateProjectPayload,
     mainImage?: File | null,
     additionalImages?: File[],
-    documents?: File[]
+    documents?: File[],
+    multipartOptions?: CreateProjectMultipartOptions
 ): Promise<CreateProjectResponse> => {
     // If no images, use JSON format
     const hasDocuments = !!documents && documents.length > 0;
-    if (!mainImage && (!additionalImages || additionalImages.length === 0) && !hasDocuments) {
+    const hasServiceQuotes = multipartOptions?.serviceQuoteFiles?.some(f => f != null) ?? false;
+    if (!mainImage && (!additionalImages || additionalImages.length === 0) && !hasDocuments && !hasServiceQuotes) {
         return createProjectJSON(payload);
     }
 
@@ -852,6 +1000,12 @@ export const createProject = async (
         formData.append('project[participants_number]', project.participants_number.toString());
     }
 
+    if (project.school_level_ids && project.school_level_ids.length > 0) {
+        project.school_level_ids.forEach(id => {
+            formData.append('project[school_level_ids][]', id.toString());
+        });
+    }
+
     if (project.tag_ids && project.tag_ids.length > 0) {
         project.tag_ids.forEach(id => {
             formData.append('project[tag_ids][]', id.toString());
@@ -861,6 +1015,12 @@ export const createProject = async (
     if (project.skill_ids && project.skill_ids.length > 0) {
         project.skill_ids.forEach(id => {
             formData.append('project[skill_ids][]', id.toString());
+        });
+    }
+
+    if (project.company_ids && project.company_ids.length > 0) {
+        project.company_ids.forEach(id => {
+            formData.append('project[company_ids][]', id.toString());
         });
     }
 
@@ -915,75 +1075,9 @@ export const createProject = async (
 
     // Add MLDS information attributes (Rails nested attributes format)
     if (project.mlds_information_attributes) {
-        const mlds = project.mlds_information_attributes;
-        
-        if (mlds.requested_by) {
-            formData.append('project[mlds_information_attributes][requested_by]', mlds.requested_by);
-        }
-        
-        if (mlds.school_level_ids && mlds.school_level_ids.length > 0) {
-            mlds.school_level_ids.forEach(id => {
-                formData.append('project[mlds_information_attributes][school_level_ids][]', id.toString());
-            });
-        }
-        
-        if (mlds.target_audience) {
-            formData.append('project[mlds_information_attributes][target_audience]', mlds.target_audience);
-        }
-        
-        if (mlds.action_objectives && mlds.action_objectives.length > 0) {
-            mlds.action_objectives.forEach(objective => {
-                formData.append('project[mlds_information_attributes][action_objectives][]', objective);
-            });
-        }
-        
-        if (mlds.action_objectives_other !== undefined && mlds.action_objectives_other !== null) {
-            formData.append('project[mlds_information_attributes][action_objectives_other]', mlds.action_objectives_other);
-        }
-        
-        if (mlds.competencies_developed !== undefined && mlds.competencies_developed !== null) {
-            formData.append('project[mlds_information_attributes][competencies_developed]', mlds.competencies_developed);
-        }
-        
-        if (mlds.expected_participants !== undefined && mlds.expected_participants !== null) {
-            formData.append('project[mlds_information_attributes][expected_participants]', mlds.expected_participants.toString());
-        }
-        
-        if (mlds.financial_hse !== undefined && mlds.financial_hse !== null) {
-            formData.append('project[mlds_information_attributes][financial_hse]', mlds.financial_hse.toString());
-        }
-        
-        if (mlds.financial_hv !== undefined && mlds.financial_hv !== null) {
-            formData.append('project[mlds_information_attributes][financial_hv]', mlds.financial_hv.toString());
-        }
-        
-        if (mlds.financial_transport !== undefined && mlds.financial_transport !== null && Array.isArray(mlds.financial_transport)) {
-            mlds.financial_transport.forEach((line: { transport_name: string; price: string }, index: number) => {
-                formData.append(`project[mlds_information_attributes][financial_transport][${index}][transport_name]`, line.transport_name);
-                formData.append(`project[mlds_information_attributes][financial_transport][${index}][price]`, line.price);
-            });
-        }
-        
-        if (mlds.financial_operating !== undefined && mlds.financial_operating !== null && Array.isArray(mlds.financial_operating)) {
-            mlds.financial_operating.forEach((line: { operating_name: string; price: string }, index: number) => {
-                formData.append(`project[mlds_information_attributes][financial_operating][${index}][operating_name]`, line.operating_name);
-                formData.append(`project[mlds_information_attributes][financial_operating][${index}][price]`, line.price);
-            });
-        }
-        
-        if (mlds.financial_service !== undefined && mlds.financial_service !== null && Array.isArray(mlds.financial_service)) {
-            mlds.financial_service.forEach((line: { service_name: string; price: string }, index: number) => {
-                formData.append(`project[mlds_information_attributes][financial_service][${index}][service_name]`, line.service_name);
-                formData.append(`project[mlds_information_attributes][financial_service][${index}][price]`, line.price);
-            });
-        }
-        
-        if (mlds.objectives !== undefined && mlds.objectives !== null) {
-            formData.append('project[mlds_information_attributes][objectives]', mlds.objectives);
-        }
-        if (mlds.network_issue_addressed !== undefined && mlds.network_issue_addressed !== null) {
-            formData.append('project[mlds_information_attributes][network_issue_addressed]', mlds.network_issue_addressed);
-        }
+        appendMldsInformationToFormData(formData, project.mlds_information_attributes, {
+            serviceQuoteFiles: multipartOptions?.serviceQuoteFiles
+        });
     }
 
     // Add images
@@ -1056,11 +1150,14 @@ export interface UpdateProjectPayload {
         description?: string;
         start_date?: string;
         end_date?: string;
+        participants_number?: number;
         status?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived';
         private?: boolean;
         school_level_ids?: number[];
+        skill_ids?: number[];
         group_ids?: number[];
         tag_ids?: number[];
+        company_ids?: number[];
         keyword_ids?: string[];
         links_attributes?: LinkAttribute[];
         co_responsible_ids?: number[];
@@ -1070,46 +1167,15 @@ export interface UpdateProjectPayload {
     };
 }
 
-const updateProjectJSON = async (
-    projectId: number,
-    payload: UpdateProjectPayload
-): Promise<CreateProjectResponse> => {
-    const response = await apiClient.patch(`/api/v1/projects/${projectId}`, payload);
-    return response.data;
-};
+export interface UpdateProjectMultipartOptions {
+    serviceQuoteFiles?: (File | null | undefined)[];
+}
 
-const updateProjectMultipart = async (
-    projectId: number,
-    formData: FormData
-): Promise<CreateProjectResponse> => {
-    const response = await apiClient.patch(
-        `/api/v1/projects/${projectId}`,
-        formData,
-        {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
-        }
-    );
-    return response.data;
-};
-
-export const updateProject = async (
-    projectId: number,
-    payload: UpdateProjectPayload,
-    mainImage?: File | null,
-    additionalImages?: File[]
-): Promise<CreateProjectResponse> => {
-    // If no images, use JSON format
-    if (!mainImage && (!additionalImages || additionalImages.length === 0)) {
-        return updateProjectJSON(projectId, payload);
-    }
-
-    // If images present, use multipart format
-    const formData = new FormData();
-
-    // Add project fields
-    const project = payload.project;
+/** Champs projet (hors MLDS) pour FormData PATCH */
+const appendUpdateProjectFieldsToFormData = (
+    formData: FormData,
+    project: UpdateProjectPayload['project']
+): void => {
     if (project.title) formData.append('project[title]', project.title);
     if (project.description) formData.append('project[description]', project.description);
     if (project.start_date) formData.append('project[start_date]', project.start_date);
@@ -1117,13 +1183,28 @@ export const updateProject = async (
     if (project.status) formData.append('project[status]', project.status);
     if (project.private !== undefined) formData.append('project[private]', project.private.toString());
 
+    if (project.participants_number !== undefined) {
+        formData.append('project[participants_number]', project.participants_number.toString());
+    }
+
     if (project.tag_ids && project.tag_ids.length > 0) {
         project.tag_ids.forEach(id => {
             formData.append('project[tag_ids][]', id.toString());
         });
     }
 
-    // School levels (non-MLDS school projects)
+    if (project.skill_ids && project.skill_ids.length > 0) {
+        project.skill_ids.forEach(id => {
+            formData.append('project[skill_ids][]', id.toString());
+        });
+    }
+
+    if (project.company_ids && project.company_ids.length > 0) {
+        project.company_ids.forEach(id => {
+            formData.append('project[company_ids][]', id.toString());
+        });
+    }
+
     if (project.school_level_ids) {
         project.school_level_ids.forEach(id => {
             formData.append('project[school_level_ids][]', id.toString());
@@ -1160,15 +1241,59 @@ export const updateProject = async (
         });
     }
 
-    // Add links (Rails nested attributes format for multipart/form-data)
     if (project.links_attributes && project.links_attributes.length > 0) {
         project.links_attributes.forEach((link, index) => {
             formData.append(`project[links_attributes][${index}][name]`, link.name);
             formData.append(`project[links_attributes][${index}][url]`, link.url);
         });
     }
+};
 
-    // Add images
+const updateProjectJSON = async (
+    projectId: number,
+    payload: UpdateProjectPayload
+): Promise<CreateProjectResponse> => {
+    const response = await apiClient.patch(`/api/v1/projects/${projectId}`, payload);
+    return response.data;
+};
+
+const updateProjectMultipart = async (
+    projectId: number,
+    formData: FormData
+): Promise<CreateProjectResponse> => {
+    const response = await apiClient.patch(
+        `/api/v1/projects/${projectId}`,
+        formData,
+        {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        }
+    );
+    return response.data;
+};
+
+export const updateProject = async (
+    projectId: number,
+    payload: UpdateProjectPayload,
+    mainImage?: File | null,
+    additionalImages?: File[],
+    multipartOptions?: UpdateProjectMultipartOptions
+): Promise<CreateProjectResponse> => {
+    const hasQuoteFiles = multipartOptions?.serviceQuoteFiles?.some(f => f != null) ?? false;
+    // If no images and no devis prestataires, use JSON format
+    if (!mainImage && (!additionalImages || additionalImages.length === 0) && !hasQuoteFiles) {
+        return updateProjectJSON(projectId, payload);
+    }
+
+    const formData = new FormData();
+    appendUpdateProjectFieldsToFormData(formData, payload.project);
+    if (payload.project.mlds_information_attributes) {
+        appendMldsInformationToFormData(formData, payload.project.mlds_information_attributes, {
+            serviceQuoteFiles: multipartOptions?.serviceQuoteFiles
+        });
+    }
+
     if (mainImage) {
         formData.append('project[main_picture]', mainImage);
     }
