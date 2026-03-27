@@ -225,6 +225,8 @@ export interface Event {
   badges?: string[]; // Array of badge IDs
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   projectId: string;
+  groupIds?: string[]; // Pro: groups attached to event
+  manualParticipantIds?: string[]; // Pro: manual participant ids (excludes group/csv derived)
   createdBy?: string | EventCreator | null;
   createdAt: string;
   documents?: any[];

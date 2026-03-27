@@ -125,6 +125,7 @@ export const mapFrontendToBackend = (
         partner?: string;
         partners?: string[];
         schoolLevelIds?: string[];
+        groupIds?: string[];
     },
     context: 'company' | 'school' | 'teacher' | 'general',
     organizationId: number | undefined,
@@ -193,6 +194,10 @@ export const mapFrontendToBackend = (
         ? formData.schoolLevelIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
         : undefined;
 
+    const groupIds = context === 'company' && formData.groupIds
+        ? formData.groupIds.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
+        : undefined;
+
     // Build payload
     const payload: CreateProjectPayload = {
         context,
@@ -216,7 +221,8 @@ export const mapFrontendToBackend = (
             })(),
             project_members_attributes: projectMembers.length > 0 ? projectMembers : undefined,
             links_attributes: links.length > 0 ? links : undefined,
-            school_level_ids: schoolLevelIds
+            school_level_ids: schoolLevelIds,
+            group_ids: groupIds
         }
     };
 
@@ -452,7 +458,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
     // Map owner to responsible
     const owner = apiProject.owner;
     const responsible = owner ? {
-        id: owner.id.toString(),
+        id: owner.id != null ? owner.id.toString() : '',
         name: owner.full_name || `${owner.first_name} ${owner.last_name}`,
         avatar: owner.avatar_url || '/default-avatar.png',
         profession: owner.job || owner.role || 'Membre',
@@ -466,7 +472,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
     
     // Map co-owners: use partner_organization.name when organization_source === 'partner'
     const coResponsibles = (apiProject.co_owners || []).map((coOwner: any) => ({
-        id: coOwner.id.toString(),
+        id: coOwner.id != null ? coOwner.id.toString() : '',
         name: coOwner.full_name || `${coOwner.first_name} ${coOwner.last_name}`,
         avatar: coOwner.avatar_url || '/default-avatar.png',
         profession: coOwner.job || 'Membre', // Profession réelle
@@ -483,7 +489,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
     const pathwaysFromApi = getPathwaysFromTags(apiProject.tags || []);
 
     return {
-        id: apiProject.id.toString(),
+        id: apiProject.id != null ? apiProject.id.toString() : '',
         title: apiProject.title,
         description: apiProject.description || '',
         status: apiProject.status,
