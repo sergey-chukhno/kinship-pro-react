@@ -1103,10 +1103,30 @@ const Projects: React.FC = () => {
   };
 
   const handleDuplicateProject = (project: Project) => {
-    const isMLDS = Boolean((project as any).mlds_information);
+    const raw = rawProjectsMap.get(project.id);
+    const mldsInfo =
+      (project as { mlds_information?: unknown }).mlds_information ?? raw?.mlds_information ?? null;
+    const isMldsProject =
+      mldsInfo != null ||
+      project.pathway === 'mlds' ||
+      (Array.isArray(project.pathways) && project.pathways.includes('mlds'));
+    const typeMlds = (mldsInfo as { type_mlds?: string; type?: string } | null)?.type_mlds
+      ?? (mldsInfo as { type_mlds?: string; type?: string } | null)?.type;
+    const mldsVariant: 'perseverance' | 'remediation' =
+      typeMlds === 'remediation' ? 'remediation' : 'perseverance';
+
+    let sourceForDuplicate: Project = project;
+    if (
+      (project as { mlds_information?: unknown }).mlds_information == null &&
+      raw?.mlds_information != null
+    ) {
+      sourceForDuplicate = { ...project, mlds_information: raw.mlds_information };
+    }
+
     setSelectedProject(null);
-    setDuplicateSourceProject(project);
-    if (isMLDS) {
+    setDuplicateSourceProject(sourceForDuplicate);
+    if (isMldsProject) {
+      setMldsProjectVariant(mldsVariant);
       setIsMLDSProjectModalOpen(true);
     } else {
       setIsProjectModalOpen(true);
