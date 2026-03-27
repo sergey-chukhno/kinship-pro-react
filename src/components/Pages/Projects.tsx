@@ -27,6 +27,7 @@ const Projects: React.FC = () => {
   const { selectedProject } = state;
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isMLDSProjectModalOpen, setIsMLDSProjectModalOpen] = useState(false);
+  const [mldsProjectVariant, setMldsProjectVariant] = useState<'perseverance' | 'remediation'>('perseverance');
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -40,6 +41,7 @@ const Projects: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [mldsProjects, setMldsProjects] = useState<Project[]>([]);
+  const [mldsRemediationProjects, setMldsRemediationProjects] = useState<Project[]>([]);
   // Store raw API project data for permission checks (projectId -> raw API project)
   const [rawProjectsMap, setRawProjectsMap] = useState<Map<string, any>>(new Map());
   // Store all filtered projects for client-side pagination (for filters that need client-side filtering)
@@ -63,6 +65,10 @@ const Projects: React.FC = () => {
   const [mldsProjectsPage, setMldsProjectsPage] = useState(1);
   const [mldsProjectsTotalPages, setMldsProjectsTotalPages] = useState(1);
   const [mldsProjectsTotalCount, setMldsProjectsTotalCount] = useState(0);
+  // Pagination state for "Projets MLDS Remédiation" tab
+  const [mldsRemediationProjectsPage, setMldsRemediationProjectsPage] = useState(1);
+  const [mldsRemediationProjectsTotalPages, setMldsRemediationProjectsTotalPages] = useState(1);
+  const [mldsRemediationProjectsTotalCount, setMldsRemediationProjectsTotalCount] = useState(0);
   
   // Tab state for all users
   // Teachers should only see their own projects, not public projects
@@ -71,7 +77,7 @@ const Projects: React.FC = () => {
   const isMinorPersonalUser = state.showingPageType === 'user' && isUnder15(state.user?.birthday);
   // For teachers, default to 'mes-projets' since they shouldn't see public projects
   // For regular users and pro/edu, default to 'nouveautes' to show public/org projects
-  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects' | 'brouillons' | 'archives'>(
+  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects' | 'mlds-remediation-projects' | 'brouillons' | 'archives'>(
     isTeacher ? 'mes-projets' : 'nouveautes'
   );
 
@@ -274,8 +280,11 @@ const Projects: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType]);
 
-  // Fonction pour récupérer les projets MLDS (avec mlds_information !== null)
-  const fetchMLDSProjects = React.useCallback(async (page: number = 1) => {
+  // Fonction pour récupérer les projets MLDS (avec mlds_information !== null), séparés par type_mlds/type
+  const fetchMLDSProjects = React.useCallback(async (
+    page: number = 1,
+    typeFilter: 'perseverance' | 'remediation' = 'perseverance'
+  ) => {
     setIsLoadingProjects(true);
     try {
       const currentUser = await getCurrentUser();
@@ -314,13 +323,20 @@ const Projects: React.FC = () => {
       }
       
       // Filtrer les projets MLDS (avec mlds_information) en excluant les projets archivés
-      const mldsProjectsData = rawProjects.filter(
+      const mldsProjectsDataAll = rawProjects.filter(
         (p: any) => p.mlds_information != null && p.status !== 'archived'
       );
+
+      const getMldsType = (p: any): 'perseverance' | 'remediation' => {
+        const t = p?.mlds_information?.type_mlds ?? p?.mlds_information?.type;
+        return t === 'remediation' ? 'remediation' : 'perseverance';
+      };
+
+      const mldsProjectsData = mldsProjectsDataAll.filter((p: any) => getMldsType(p) === typeFilter);
       
       // Store raw API projects for permission checks
       const newRawProjectsMap = new Map<string, any>();
-      mldsProjectsData.forEach((p: any) => {
+      mldsProjectsDataAll.forEach((p: any) => {
         if (p.id) {
           newRawProjectsMap.set(p.id.toString(), p);
         }
@@ -341,21 +357,36 @@ const Projects: React.FC = () => {
         return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
       });
       
-      setMldsProjects(formattedProjects);
+      if (typeFilter === 'remediation') {
+        setMldsRemediationProjects(formattedProjects);
+      } else {
+        setMldsProjects(formattedProjects);
+      }
       
       // Update pagination metadata
       const totalCount = mldsProjectsData.length;
       const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
-      setMldsProjectsTotalPages(totalPages);
-      setMldsProjectsTotalCount(totalCount);
+      if (typeFilter === 'remediation') {
+        setMldsRemediationProjectsTotalPages(totalPages);
+        setMldsRemediationProjectsTotalCount(totalCount);
+      } else {
+        setMldsProjectsTotalPages(totalPages);
+        setMldsProjectsTotalCount(totalCount);
+      }
       
       setInitialLoad(false);
     } catch (err) {
       console.error('Erreur lors de la récupération des projets MLDS:', err);
       showError('Erreur lors de la récupération des projets MLDS.');
-      setMldsProjects([]);
-      setMldsProjectsTotalPages(1);
-      setMldsProjectsTotalCount(0);
+      if (typeFilter === 'remediation') {
+        setMldsRemediationProjects([]);
+        setMldsRemediationProjectsTotalPages(1);
+        setMldsRemediationProjectsTotalCount(0);
+      } else {
+        setMldsProjects([]);
+        setMldsProjectsTotalPages(1);
+        setMldsProjectsTotalCount(0);
+      }
       setInitialLoad(false);
     } finally {
       setIsLoadingProjects(false);
@@ -780,7 +811,10 @@ const Projects: React.FC = () => {
     if (open !== 'create') return;
     setSelectedProject(null);
     setDuplicateSourceProject(null);
-    if (variant === 'mlds') {
+    if (variant === 'mlds' || variant === 'mlds-remediation') {
+      const nextVariant: 'perseverance' | 'remediation' =
+        variant === 'mlds-remediation' ? 'remediation' : 'perseverance';
+      setMldsProjectVariant(nextVariant);
       if (state.showingPageType === 'user') {
         setIsSubscriptionModalOpen(true);
       } else {
@@ -803,13 +837,15 @@ const Projects: React.FC = () => {
     setProjectPage(1);
     setMyProjectsPage(1);
     setMldsProjectsPage(1);
+    setMldsRemediationProjectsPage(1);
     setInitialLoad(true);
     setDraftProjects([]);
     filtersEffectInitialMount.current = true;
     initialProjectsFetched.current = false;
     if (isTeacher) {
       fetchMyProjects(1);
-      fetchMLDSProjects(1);
+      fetchMLDSProjects(1, 'perseverance');
+      fetchMLDSProjects(1, 'remediation');
       fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
       fetchArchivedProjects();
     } else if (state.showingPageType === 'user') {
@@ -819,13 +855,15 @@ const Projects: React.FC = () => {
         fetchPublicProjects(1);
       }
       fetchMyProjects(1);
-      fetchMLDSProjects(1);
+      fetchMLDSProjects(1, 'perseverance');
+      fetchMLDSProjects(1, 'remediation');
       fetchArchivedProjects();
     } else {
       // Pro / Edu: charger les projets au chargement initial
       fetchProjects(1);
       initialProjectsFetched.current = true;
-      fetchMLDSProjects(1);
+      fetchMLDSProjects(1, 'perseverance');
+      fetchMLDSProjects(1, 'remediation');
       fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
       fetchArchivedProjects();
     }
@@ -904,22 +942,33 @@ const Projects: React.FC = () => {
   // Fetch MLDS projects when mldsProjectsPage changes
   useEffect(() => {
     if (activeTab === 'mlds-projects') {
-      fetchMLDSProjects(mldsProjectsPage);
+      fetchMLDSProjects(mldsProjectsPage, 'perseverance');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mldsProjectsPage]);
 
+  // Fetch MLDS remediation projects when page changes
+  useEffect(() => {
+    if (activeTab === 'mlds-remediation-projects') {
+      fetchMLDSProjects(mldsRemediationProjectsPage, 'remediation');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mldsRemediationProjectsPage]);
+
   // Reset filters when switching tabs
   useEffect(() => {
     // Reset MLDS filters when leaving MLDS tab
-    if (activeTab !== 'mlds-projects') {
+    if (activeTab !== 'mlds-projects' && activeTab !== 'mlds-remediation-projects') {
       setMldsRequestedByFilter('all');
       setMldsTargetAudienceFilter('all');
       setMldsActionObjectivesFilter('all');
       setMldsOrganizationFilter('all');
+      // Also reset general filters to avoid "empty list" surprises after MLDS filtering
+      setPathwayFilter('all');
+      setVisibilityFilter('all');
     }
     // Reset regular filters when entering MLDS tab
-    if (activeTab === 'mlds-projects') {
+    if (activeTab === 'mlds-projects' || activeTab === 'mlds-remediation-projects') {
       setPathwayFilter('all');
       setVisibilityFilter('all');
     }
@@ -931,6 +980,12 @@ const Projects: React.FC = () => {
       setActiveTab(isTeacher ? 'mes-projets' : 'nouveautes');
     }
   }, [mldsProjects.length, activeTab, isTeacher]);
+
+  useEffect(() => {
+    if (mldsRemediationProjects.length === 0 && activeTab === 'mlds-remediation-projects') {
+      setActiveTab(isTeacher ? 'mes-projets' : 'nouveautes');
+    }
+  }, [mldsRemediationProjects.length, activeTab, isTeacher]);
 
   // Charger les brouillons quand state.user est dispo pour pro/edu (contextId peut être résolu)
   // Corrige le cas où l'effet initial a tourné avant que user soit chargé → compteur à 0
@@ -962,6 +1017,7 @@ const Projects: React.FC = () => {
     setProjectPage(1);
     setMyProjectsPage(1);
     setMldsProjectsPage(1);
+    setMldsRemediationProjectsPage(1);
 
     // Éviter un doublon au montage : l'effet [projectPage, ...] fait déjà le premier fetch pour pro/edu
     if (filtersEffectInitialMount.current) {
@@ -971,7 +1027,11 @@ const Projects: React.FC = () => {
 
     if (isTeacher) {
       fetchMyProjects(1);
-      fetchMLDSProjects(1);
+      if (activeTab === 'mlds-remediation-projects') {
+        fetchMLDSProjects(1, 'remediation');
+      } else {
+        fetchMLDSProjects(1, 'perseverance');
+      }
     } else if (state.showingPageType === 'user') {
       if (activeTab === 'nouveautes') {
         if (isMinorPersonalUser) {
@@ -980,11 +1040,14 @@ const Projects: React.FC = () => {
           fetchPublicProjects(1);
         }
       } else if (activeTab === 'mlds-projects') {
-        fetchMLDSProjects(1);
+        fetchMLDSProjects(1, 'perseverance');
+      } else if (activeTab === 'mlds-remediation-projects') {
+        fetchMLDSProjects(1, 'remediation');
       }
     } else if (!isPersonalUser) {
       fetchProjects(1);
-      fetchMLDSProjects(1);
+      fetchMLDSProjects(1, 'perseverance');
+      fetchMLDSProjects(1, 'remediation');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationFilter, statusFilter, pathwayFilter, searchTerm, startDate, endDate, visibilityFilter, mldsRequestedByFilter, mldsTargetAudienceFilter, mldsActionObjectivesFilter, mldsOrganizationFilter, isPersonalUser, isTeacher, activeTab]);
@@ -1007,10 +1070,25 @@ const Projects: React.FC = () => {
       setIsSubscriptionModalOpen(true);
     } else {
       // Open MLDS project creation modal for organizational users
+      setMldsProjectVariant('perseverance');
       setSelectedProject(null);
       setDuplicateSourceProject(null);
       setIsMLDSProjectModalOpen(true);
-    setIsProjectDropdownOpen(false);
+      setIsProjectDropdownOpen(false);
+    }
+  };
+
+  const handleCreateMLDSRemediationProject = () => {
+    const isPersonalUser = state.showingPageType === 'user';
+
+    if (isPersonalUser) {
+      setIsSubscriptionModalOpen(true);
+    } else {
+      setMldsProjectVariant('remediation');
+      setSelectedProject(null);
+      setDuplicateSourceProject(null);
+      setIsMLDSProjectModalOpen(true);
+      setIsProjectDropdownOpen(false);
     }
   };
 
@@ -1025,10 +1103,30 @@ const Projects: React.FC = () => {
   };
 
   const handleDuplicateProject = (project: Project) => {
-    const isMLDS = Boolean((project as any).mlds_information);
+    const raw = rawProjectsMap.get(project.id);
+    const mldsInfo =
+      (project as { mlds_information?: unknown }).mlds_information ?? raw?.mlds_information ?? null;
+    const isMldsProject =
+      mldsInfo != null ||
+      project.pathway === 'mlds' ||
+      (Array.isArray(project.pathways) && project.pathways.includes('mlds'));
+    const typeMlds = (mldsInfo as { type_mlds?: string; type?: string } | null)?.type_mlds
+      ?? (mldsInfo as { type_mlds?: string; type?: string } | null)?.type;
+    const mldsVariant: 'perseverance' | 'remediation' =
+      typeMlds === 'remediation' ? 'remediation' : 'perseverance';
+
+    let sourceForDuplicate: Project = project;
+    if (
+      (project as { mlds_information?: unknown }).mlds_information == null &&
+      raw?.mlds_information != null
+    ) {
+      sourceForDuplicate = { ...project, mlds_information: raw.mlds_information };
+    }
+
     setSelectedProject(null);
-    setDuplicateSourceProject(project);
-    if (isMLDS) {
+    setDuplicateSourceProject(sourceForDuplicate);
+    if (isMldsProject) {
+      setMldsProjectVariant(mldsVariant);
       setIsMLDSProjectModalOpen(true);
     } else {
       setIsProjectModalOpen(true);
@@ -1108,7 +1206,7 @@ const Projects: React.FC = () => {
 
       // Envoyer le bilan MLDS si fourni (POST /api/v1/projects/:id/mlds_bilan)
       if (bilanData) {
-        const payload = buildMldsBilanPayload(bilanData);
+        const payload = buildMldsBilanPayload(bilanData, proj.mlds_information ?? null);
         await postMldsBilan(projectId, payload);
       }
 
@@ -1197,6 +1295,8 @@ const Projects: React.FC = () => {
   
   if (activeTab === 'mlds-projects') {
     projectsToDisplay = mldsProjects;
+  } else if (activeTab === 'mlds-remediation-projects') {
+    projectsToDisplay = mldsRemediationProjects;
   } else if (activeTab === 'brouillons') {
     // Teacher and pro/edu: use dedicated draft list (loaded when tab is active)
     if (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu') {
@@ -1219,13 +1319,13 @@ const Projects: React.FC = () => {
   // Extract unique organization names from MLDS projects for filter
   const uniqueOrganizations = React.useMemo(() => {
     const orgSet = new Set<string>();
-    mldsProjects.forEach(project => {
+    [...mldsProjects, ...mldsRemediationProjects].forEach(project => {
       if (project.mlds_information?.organization_names && Array.isArray(project.mlds_information.organization_names)) {
         project.mlds_information.organization_names.forEach((org: string) => orgSet.add(org));
       }
     });
     return Array.from(orgSet).sort((a, b) => a.localeCompare(b));
-  }, [mldsProjects]);
+  }, [mldsProjects, mldsRemediationProjects]);
 
   // Calculate draft projects count (teacher/pro/edu: use draftProjects when loaded; else count from current lists)
   const draftProjectsCount = React.useMemo(() => {
@@ -1429,8 +1529,8 @@ const Projects: React.FC = () => {
                       <i className="fas fa-folder" style={{ marginRight: '8px' }}></i>
                       Projet classique
                     </button>
-                    <button
-                      onClick={handleCreateMLDSProject}
+                  <button
+                    onClick={handleCreateMLDSProject}
                       style={{
                         width: '100%',
                         padding: '12px 16px',
@@ -1443,10 +1543,28 @@ const Projects: React.FC = () => {
                       }}
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                    >
-                      <i className="fas fa-graduation-cap" style={{ marginRight: '8px' }}></i>
-                      Projet MLDS Volet Persévérance Scolaire
-                    </button>
+                  >
+                    <i className="fas fa-graduation-cap" style={{ marginRight: '8px' }}></i>
+                    Projet MLDS Volet Persévérance Scolaire
+                  </button>
+                  <button
+                    onClick={handleCreateMLDSRemediationProject}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: 'none',
+                      background: 'white',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
+                  >
+                    <i className="fas fa-chalkboard-teacher" style={{ marginRight: '8px' }}></i>
+                    Projet MLDS Volet Remédiation
+                  </button>
                   </div>
                 )}
               </>
@@ -1501,6 +1619,17 @@ const Projects: React.FC = () => {
                 Projets MLDS Volet Persévérance ({mldsProjectsTotalCount})
               </button>
             )}
+            {mldsRemediationProjectsTotalCount > 0 && (
+              <button
+                className={`filter-tab ${activeTab === 'mlds-remediation-projects' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('mlds-remediation-projects');
+                  setMldsRemediationProjectsPage(1);
+                }}
+              >
+                Projets MLDS Volet Remédiation ({mldsRemediationProjectsTotalCount})
+              </button>
+            )}
             <button
               className={`filter-tab ${activeTab === 'archives' ? 'active' : ''}`}
               onClick={() => {
@@ -1541,6 +1670,17 @@ const Projects: React.FC = () => {
                 }}
               >
                 Projets MLDS Volet Persévérance ({mldsProjectsTotalCount})
+              </button>
+            )}
+            {mldsRemediationProjectsTotalCount > 0 && (
+              <button
+                className={`filter-tab ${activeTab === 'mlds-remediation-projects' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('mlds-remediation-projects');
+                  setMldsRemediationProjectsPage(1);
+                }}
+              >
+                Projets MLDS Volet Remédiation ({mldsRemediationProjectsTotalCount})
               </button>
             )}
             <button
@@ -1585,6 +1725,17 @@ const Projects: React.FC = () => {
                 Projets MLDS Volet Persévérance ({mldsProjectsTotalCount})
               </button>
             )}
+            {mldsRemediationProjectsTotalCount > 0 && (
+              <button
+                className={`filter-tab ${activeTab === 'mlds-remediation-projects' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('mlds-remediation-projects');
+                  setMldsRemediationProjectsPage(1);
+                }}
+              >
+                Projets MLDS Volet Remédiation ({mldsRemediationProjectsTotalCount})
+              </button>
+            )}
             <button
               className={`filter-tab ${activeTab === 'archives' ? 'active' : ''}`}
               onClick={() => {
@@ -1612,7 +1763,7 @@ const Projects: React.FC = () => {
         <div className="filters-container">
           {/* Show MLDS-specific filters for MLDS tab, hide for brouillons */}
           {activeTab !== 'brouillons' && (
-            activeTab === 'mlds-projects' ? (
+            (activeTab === 'mlds-projects' || activeTab === 'mlds-remediation-projects') ? (
               <>
                 <div className="filter-group">
                   <label htmlFor="mlds-requested-by-filter">Demande faite par</label>
@@ -1636,9 +1787,18 @@ const Projects: React.FC = () => {
                     onChange={(e) => setMldsTargetAudienceFilter(e.target.value)}
                   >
                     <option value="all">Tous</option>
-                    <option value="students_without_solution">Élèves sans solution à la rentrée</option>
-                    <option value="students_at_risk">Élèves en situation de décrochage</option>
-                    <option value="school_teams">Équipes des établissements</option>
+                    {activeTab === 'mlds-remediation-projects' ? (
+                      <>
+                        <option value="mlds_assigned">Élèves affectés à la MLDS</option>
+                        <option value="pafi_tdo">Élèves en PAFI TDO</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="students_without_solution">Élèves sans solution à la rentrée</option>
+                        <option value="students_at_risk">Élèves en situation de décrochage</option>
+                        <option value="school_teams">Équipes des établissements</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div className="filter-group">
@@ -1650,14 +1810,35 @@ const Projects: React.FC = () => {
                     onChange={(e) => setMldsActionObjectivesFilter(e.target.value)}
                   >
                     <option value="all">Tous</option>
-                    <option value="path_security">Sécurisation des parcours</option>
-                    <option value="professional_discovery">Découverte professionnelle</option>
-                    <option value="orientation_support">Accompagnement à l&apos;orientation</option>
-                    <option value="training_support">Accompagnement à la formation</option>
-                    <option value="citizenship">Citoyenneté</option>
-                    <option value="family_links">Liens avec les familles</option>
-                    <option value="professional_development">Développement professionnel</option>
-                    <option value="other">Autre</option>
+                    {activeTab === 'mlds-remediation-projects' ? (
+                      <>
+                        <option value="professional_discovery">Découverte des filières professionnelles</option>
+                        <option value="student_mobility">Mobilité des élèves</option>
+                        <option value="cps_development">Développement des CPS</option>
+                        <option value="territory_partnership">Partenariats du territoire</option>
+                        <option value="family_links">Liens avec les familles</option>
+                        <option value="professional_development">Co-développement professionnel</option>
+                        <option value="art_culture_path">Parcours d&apos;éducation artistique et culturel</option>
+                        <option value="avenir_path">Parcours avenir</option>
+                        <option value="citizen_path">Parcours citoyen</option>
+                        <option value="physical_education">Éducation physique et sportive</option>
+                        <option value="disciplinary_course">Cours disciplinaire</option>
+                        <option value="job_discovery">Découverte des métiers</option>
+                        <option value="training_discovery">Découverte des formations</option>
+                        <option value="other">Autre</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="path_security">Sécurisation des parcours</option>
+                        <option value="professional_discovery">Découverte professionnelle</option>
+                        <option value="student_mobility">Mobilité des élèves</option>
+                        <option value="cps_development">Développement des CPS</option>
+                        <option value="territory_partnership">Partenariats du territoire</option>
+                        <option value="family_links">Liens avec les familles</option>
+                        <option value="professional_development">Développement professionnel</option>
+                        <option value="other">Autre</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div className="filter-group">
@@ -1841,7 +2022,7 @@ const Projects: React.FC = () => {
       ) : filteredProjects.length > 0 ? (
         <>
           <div className="projects-grid">
-            {filteredProjects.map((project) => {
+            {filteredProjects.map((project, index) => {
               const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
               
               // Get raw API project data for permission checks
@@ -1894,7 +2075,7 @@ const Projects: React.FC = () => {
               
               return (
                 <ProjectCard
-                  key={project.id}
+                  key={`${project.id ?? 'no-id'}-${project.title ?? 'untitled'}-${index}`}
                   project={project}
                   onEdit={!isProjectEnded ? () => handleEditProject(project) : undefined}
                   onManage={() => handleManageProject(project)} // Always allow viewing/managing
@@ -2027,6 +2208,7 @@ const Projects: React.FC = () => {
       {isMLDSProjectModalOpen && (
         <MLDSProjectModal
           initialDataFromProject={duplicateSourceProject}
+          variant={mldsProjectVariant}
           onClose={() => {
             setIsMLDSProjectModalOpen(false);
             setSelectedProject(null);
@@ -2114,6 +2296,7 @@ const Projects: React.FC = () => {
       {/* Modal bilan à la clôture du projet (projets MLDS uniquement) */}
       {isCloseProjectModalOpen && projectToClose && projectToClose.mlds_information != null && (
         <CloseProjectBilanModal
+          key={projectToClose.id}
           projectTitle={projectToClose.title}
           mldsInfo={projectToClose.mlds_information ?? null}
           onClose={cancelCloseProject}

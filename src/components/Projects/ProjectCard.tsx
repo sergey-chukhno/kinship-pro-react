@@ -35,6 +35,12 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   // Check if project is ended - disable all actions if true
   const isProjectEnded = project.status === 'ended';
   const isProjectArchived = project.status === 'archived';
+  const getArchivedKindLabel = (): string => {
+    const mldsInfo: any = (project as any).mlds_information;
+    if (!mldsInfo) return 'Classique';
+    const t = mldsInfo.type_mlds ?? mldsInfo.type;
+    return t === 'remediation' ? 'MLDS – Remédiation' : 'MLDS – Persévérance';
+  };
   // Format date from YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -91,6 +97,30 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           <span className={`status-pill ${getStatusColor(project.status)}`}>
             {getStatusText(project.status)}
           </span>
+          {isProjectArchived && (
+            <span
+              className="status-pill"
+              style={{
+                marginLeft: '8px',
+                backgroundColor: (() => {
+                  const mldsInfo: any = (project as any).mlds_information;
+                  if (!mldsInfo) return '#e5e7eb'; // gray-200
+                  const t = mldsInfo.type_mlds ?? mldsInfo.type;
+                  return t === 'remediation' ? '#ede9fe' : '#dbeafe'; // purple-100 / blue-100
+                })(),
+                color: (() => {
+                  const mldsInfo: any = (project as any).mlds_information;
+                  if (!mldsInfo) return '#374151'; // gray-700
+                  const t = mldsInfo.type_mlds ?? mldsInfo.type;
+                  return t === 'remediation' ? '#5b21b6' : '#1d4ed8'; // purple-800 / blue-700
+                })(),
+                border: '1px solid rgba(0,0,0,0.06)',
+              }}
+              title="Type de projet"
+            >
+              {getArchivedKindLabel()}
+            </span>
+          )}
         </div>
       </div>
 
