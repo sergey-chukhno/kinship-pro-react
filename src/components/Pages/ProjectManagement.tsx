@@ -238,7 +238,11 @@ const ProjectManagement: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(true);
+  const overviewDescriptionSectionRef = useRef<HTMLDivElement>(null);
+  const cardDescriptionFullBlockRef = useRef<HTMLDivElement>(null);
+  const pendingScrollToOverviewDescriptionRef = useRef(false);
+  const [coverImageLoaded, setCoverImageLoaded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     title: '',
@@ -1163,6 +1167,16 @@ const ProjectManagement: React.FC = () => {
     // Default: no tabs
     return false;
   };
+
+  useEffect(() => {
+    if (!pendingScrollToOverviewDescriptionRef.current) return;
+    if (activeTab !== 'overview') return;
+    pendingScrollToOverviewDescriptionRef.current = false;
+    const t = setTimeout(() => {
+      overviewDescriptionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => clearTimeout(t);
+  }, [activeTab]);
 
   /**
    * Fetch all project members including owner, co-owners, and confirmed members
@@ -4044,6 +4058,16 @@ const ProjectManagement: React.FC = () => {
     setCurrentPhotoIndex(index);
   };
 
+  const currentCoverSrc = allPhotos[currentPhotoIndex];
+
+  useEffect(() => {
+    if (allPhotos.length === 0) {
+      setCoverImageLoaded(true);
+      return;
+    }
+    setCoverImageLoaded(false);
+  }, [currentPhotoIndex, currentCoverSrc, allPhotos.length]);
+
   // Format date from ISO string or YYYY-MM-DD to DD-MM-YYYY
   const formatDate = (dateString: string) => {
     // Check if date string is valid
@@ -5598,6 +5622,38 @@ const ProjectManagement: React.FC = () => {
     (!isMLDSProject && activeTab === 'overview') ||
     (isMLDSProject && activeTab === 'mlds-info');
 
+  const handleDescriptionVoirPlus = () => {
+    if (!project?.description || project.description.length <= 150) return;
+    if (shouldShowTabs()) {
+      if (activeTab === 'overview') {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            overviewDescriptionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 80);
+        });
+        return;
+      }
+      pendingScrollToOverviewDescriptionRef.current = true;
+      setActiveTab('overview');
+    } else {
+      setIsDescriptionExpanded(true);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          cardDescriptionFullBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+      });
+    }
+  };
+
+  const handleDescriptionVoirMoins = () => {
+    setIsDescriptionExpanded(false);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        cardDescriptionFullBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    });
+  };
+
   return (
     <section className="project-management-container with-sidebar">
       {/* Header with Return Button */}
@@ -5654,82 +5710,19 @@ const ProjectManagement: React.FC = () => {
 
       {/* Project Info Section */}
       <div className="project-management-body">
-        {/* Onglets en premier : accessibles sans défiler après le bandeau « Gestion du projet » */}
-        {shouldShowTabs() && (
-          <div className="project-primary-tabnav-sticky" role="navigation" aria-label="Sections du projet">
-          <div className="project-management-tabs project-management-tabs--primary-nav">
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              Vue d'ensemble
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
-              onClick={() => setActiveTab('requests')}
-            >
-              Demandes
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
-              onClick={() => setActiveTab('participants')}
-            >
-              Participants
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
-              onClick={() => setActiveTab('equipes')}
-            >
-              Équipes
-            </button>
-            {false && (
-              <button
-                type="button"
-                className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
-                onClick={() => setActiveTab('kanban')}
-              >
-                Kanban
-              </button>
-            )}
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
-              onClick={() => setActiveTab('badges')}
-            >
-              Badges
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'documents' ? 'active' : ''}`}
-              onClick={() => setActiveTab('documents')}
-            >
-              Documents
-            </button>
-            {isMLDSProject && (
-              <button
-                type="button"
-                className={`tab-btn ${activeTab === 'mlds-info' ? 'active' : ''}`}
-                onClick={() => setActiveTab('mlds-info')}
-              >
-                Informations supplémentaires
-              </button>
-            )}
-          </div>
-          </div>
-        )}
-
-        <div className="project-info-section-redesigned project-overview-card">
-          <div className="project-overview-main-row">
-          {/* Visuel + titre / description / métadonnées — hauteur maîtrisée */}
+        <div className="project-info-section-redesigned project-info-section-redesigned--pm">
+          {/* Left Column: Project Image Gallery */}
           <div className="project-image-column">
             <div className="project-cover-large">
               {allPhotos.length > 0 ? (
                 <>
-                  <img src={allPhotos[currentPhotoIndex]} alt={project.title} />
+                  {!coverImageLoaded && <div className="cover-image-skeleton" />}
+                  <img
+                    src={allPhotos[currentPhotoIndex]}
+                    alt={project.title}
+                    onLoad={() => setCoverImageLoaded(true)}
+                    style={coverImageLoaded ? undefined : { opacity: 0, position: 'absolute' }}
+                  />
                   {allPhotos.length > 1 && (
                     <>
                       <button className="photo-nav-btn photo-nav-prev" onClick={prevPhoto}>
@@ -5877,27 +5870,37 @@ const ProjectManagement: React.FC = () => {
             </div>
 
             {/* Project Description */}
-            <div className="project-description-section">
-              <div className={`project-description-content ${isDescriptionExpanded ? 'expanded' : 'collapsed'}`}>
+            <div className="project-description-section" ref={cardDescriptionFullBlockRef}>
+              <div className={`project-description-content ${(!shouldShowTabs() && isDescriptionExpanded) ? 'expanded' : 'collapsed'}`}>
                 <p>{project.description}</p>
               </div>
               {project.description.length > 150 && (
-                <button
-                  className="description-toggle-btn"
-                  onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                >
-                  {isDescriptionExpanded ? (
-                    <>
-                      <span>Voir moins</span>
-                      <i className="fas fa-chevron-up"></i>
-                    </>
-                  ) : (
-                    <>
-                      <span>Voir plus</span>
-                      <i className="fas fa-chevron-down"></i>
-                    </>
-                  )}
-                </button>
+                shouldShowTabs() ? (
+                  <button
+                    className="description-toggle-btn"
+                    onClick={handleDescriptionVoirPlus}
+                  >
+                    <span>Voir plus</span>
+                    <i className="fas fa-chevron-down"></i>
+                  </button>
+                ) : (
+                  <button
+                    className="description-toggle-btn"
+                    onClick={isDescriptionExpanded ? handleDescriptionVoirMoins : handleDescriptionVoirPlus}
+                  >
+                    {isDescriptionExpanded ? (
+                      <>
+                        <span>Voir moins</span>
+                        <i className="fas fa-chevron-up"></i>
+                      </>
+                    ) : (
+                      <>
+                        <span>Voir plus</span>
+                        <i className="fas fa-chevron-down"></i>
+                      </>
+                    )}
+                  </button>
+                )
               )}
             </div>
 
@@ -5967,9 +5970,8 @@ const ProjectManagement: React.FC = () => {
                 })()}
               </div>
             </div>
-          </div>
 
-          <details className="project-team-details" open>
+          <details className="project-team-details">
             <summary className="project-team-details__summary">
               <span className="project-team-details__label">
                 <i className="fas fa-users project-team-details__icon" aria-hidden />
@@ -6459,6 +6461,72 @@ const ProjectManagement: React.FC = () => {
           </div>
         )}
 
+        {/* Project Management Tabs */}
+        {shouldShowTabs() && (
+          <div className="project-management-tabs">
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              Vue d'ensemble
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('requests')}
+            >
+              Demandes
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
+              onClick={() => setActiveTab('participants')}
+            >
+              Participants
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
+              onClick={() => setActiveTab('equipes')}
+            >
+              Équipes
+            </button>
+            {false && (
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
+                onClick={() => setActiveTab('kanban')}
+              >
+                Kanban
+              </button>
+            )}
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
+              onClick={() => setActiveTab('badges')}
+            >
+              Badges
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'documents' ? 'active' : ''}`}
+              onClick={() => setActiveTab('documents')}
+            >
+              Documents
+            </button>
+            {isMLDSProject && (
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === 'mlds-info' ? 'active' : ''}`}
+                onClick={() => setActiveTab('mlds-info')}
+              >
+                Informations supplémentaires
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Bannière vue lecture seule pour superadmin */}
         {(isSuperadminViewingReadOnly || isAdminViewingReadOnly) && (
           <div className="project-readonly-banner" style={{
@@ -6577,6 +6645,14 @@ const ProjectManagement: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Full description in overview tab */}
+                {project.description && (
+                  <div className="overview-description-section" ref={overviewDescriptionSectionRef}>
+                    <h3 className="overview-description-title">Description</h3>
+                    <p className="overview-description-text">{project.description}</p>
+                  </div>
+                )}
               </div>
             )}
 
