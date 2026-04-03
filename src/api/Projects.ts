@@ -91,9 +91,10 @@ export interface FinancialServiceLine {
 export interface MldsFinancialServiceLineAttribute {
     id?: number;
     _destroy?: string | boolean;
-    position: number;
-    service_name: string;
-    price: string;
+    /** Requis pour création / mise à jour ; omis si uniquement `_destroy` (suppression Rails) */
+    position?: number;
+    service_name?: string;
+    price?: string;
     hours?: string | null;
     comment?: string | null;
 }
@@ -984,23 +985,33 @@ export const appendMldsInformationToFormData = (
         Array.isArray(mlds.mlds_financial_service_lines_attributes)
     ) {
         const L = `${P}[mlds_financial_service_lines_attributes]`;
+        let activeQuoteIndex = 0;
         mlds.mlds_financial_service_lines_attributes.forEach((line: MldsFinancialServiceLineAttribute, index: number) => {
+            const isDestroy =
+                line._destroy != null && line._destroy !== false && line._destroy !== '';
+            if (isDestroy) {
+                if (line.id != null) {
+                    formData.append(`${L}[${index}][id]`, String(line.id));
+                }
+                formData.append(`${L}[${index}][_destroy]`, '1');
+                return;
+            }
             if (line.id != null) {
                 formData.append(`${L}[${index}][id]`, String(line.id));
             }
-            if (line._destroy != null && line._destroy !== false && line._destroy !== '') {
-                formData.append(`${L}[${index}][_destroy]`, String(line._destroy));
+            if (line.position !== undefined) {
+                formData.append(`${L}[${index}][position]`, String(line.position));
             }
-            formData.append(`${L}[${index}][position]`, String(line.position));
-            formData.append(`${L}[${index}][service_name]`, line.service_name);
-            formData.append(`${L}[${index}][price]`, line.price);
+            formData.append(`${L}[${index}][service_name]`, line.service_name ?? '');
+            formData.append(`${L}[${index}][price]`, line.price ?? '');
             if (line.hours !== undefined && line.hours !== null && String(line.hours).trim() !== '') {
                 formData.append(`${L}[${index}][hours]`, String(line.hours));
             }
             if (line.comment !== undefined && line.comment !== null) {
                 formData.append(`${L}[${index}][comment]`, line.comment);
             }
-            const qf = options?.serviceQuoteFiles?.[index];
+            const qf = options?.serviceQuoteFiles?.[activeQuoteIndex];
+            activeQuoteIndex += 1;
             if (qf) {
                 formData.append(`${L}[${index}][quote]`, qf);
             }
