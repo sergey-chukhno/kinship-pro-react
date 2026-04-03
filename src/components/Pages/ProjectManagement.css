@@ -12,7 +12,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .header-left {
@@ -68,17 +68,143 @@
   padding: 0;
 }
 
-.project-info-section-redesigned {
+/* Même classe utilisée ailleurs (SharedProjectInfo, etc.) — grille 2 colonnes */
+.project-info-section-redesigned:not(.project-overview-card) {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  align-items: start;
   gap: 2rem;
   margin-bottom: 2rem;
   padding: 0;
-  background: white;
+  background: var(--card-bg, #ffffff);
   border-radius: 16px;
   border: 1px solid var(--border, #e5e7eb);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+}
+
+.project-info-section-redesigned.project-overview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  padding: 0;
+  background: var(--card-bg, #ffffff);
+  border-radius: 16px;
+  border: 1px solid var(--border, #e5e7eb);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.project-overview-main-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.25rem 1.5rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.project-overview-main-row .project-image-column {
+  flex: 0 0 auto;
+  width: min(100%, 280px);
+  max-width: 280px;
+  /* flex-start : ne pas étirer la colonne quand la description est dépliée (évite bande vide / image géante) */
+  align-self: flex-start;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.project-overview-main-row .project-details-column {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 0;
+  gap: 1rem;
+}
+
+.project-overview-main-row .project-details-top {
+  margin-bottom: 0.5rem;
+}
+
+.project-overview-main-row .project-team-details {
+  flex: 1 1 100%;
+  width: 100%;
+  border-top: 1px solid var(--border, #e5e7eb);
+  background: var(--card-bg, #ffffff);
+}
+
+.project-team-details__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary, #1f2937);
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.project-team-details__summary::-webkit-details-marker {
+  display: none;
+}
+
+.project-team-details__summary:hover {
+  background: rgba(85, 112, 241, 0.04);
+}
+
+.project-team-details__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.project-team-details__icon {
+  color: var(--primary, #5570f1);
+  font-size: 1rem;
+}
+
+.project-team-details__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+}
+
+.project-team-details__hint--open {
+  display: none;
+}
+
+.project-team-details[open] .project-team-details__hint--closed {
+  display: none;
+}
+
+.project-team-details[open] .project-team-details__hint--open {
+  display: inline;
+}
+
+.project-team-details__chevron {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+.project-team-details[open] .project-team-details__chevron {
+  transform: rotate(180deg);
+}
+
+.project-details-bottom--collapsible {
+  border-top: none;
+  padding: 0 1.25rem 1.25rem;
+  margin: 0;
 }
 
 .project-image-column {
@@ -97,6 +223,12 @@
   overflow: hidden;
   position: relative;
   border-radius: 12px;
+}
+
+.project-overview-main-row .project-cover-large {
+  height: 220px;
+  max-height: min(36vh, 280px);
+  flex-shrink: 0;
 }
 
 .project-cover-large img {
@@ -323,7 +455,7 @@
   left: 0;
   right: 0;
   height: 1.5rem;
-  background: linear-gradient(transparent, white);
+  background: linear-gradient(transparent, var(--card-bg, #ffffff));
   pointer-events: none;
 }
 
@@ -421,6 +553,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.project-overview-main-row .project-meta-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
 }
 
 .meta-item {
@@ -644,7 +783,47 @@
   border-radius: 12px 12px 0 0;
   border: 1px solid var(--border, #e5e7eb);
   border-bottom: none;
+}
+
+/* overflow:hidden casse position:sticky — réservé aux barres secondaires (ex. badges) */
+.project-management-tabs:not(.project-management-tabs--primary-nav) {
   overflow: hidden;
+}
+
+/* Conteneur sticky : fond = zone scroll (main), pas d’overflow sur l’élément sticky */
+.project-primary-tabnav-sticky {
+  position: sticky;
+  top: -17px;
+  z-index: 40;
+  margin-bottom: 1.25rem;
+  padding-top: 4px;
+  margin-top: -4px;
+  background: var(--bg-primary, #f9fafb);
+  box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.12);
+}
+
+html[data-theme="dark"] .project-primary-tabnav-sticky {
+  background: var(--bg-primary, #1a1a1a);
+  box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.45);
+}
+
+/* Barre d’onglets principale : sous le titre de page ; défilement horizontal sur la barre, pas sur le parent sticky */
+.project-management-tabs--primary-nav {
+  position: relative;
+  border-radius: 12px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  margin-bottom: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  flex-wrap: nowrap;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.project-management-tabs--primary-nav .tab-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .tab-btn {
@@ -675,11 +854,16 @@
 /* Tab Content */
 .tab-content {
   background: white;
-  border-radius: 0 0 12px 12px;
+  border-radius: 12px;
   border: 1px solid var(--border, #e5e7eb);
-  border-top: none;
   padding: 2rem;
   min-height: 400px;
+}
+
+/* Onglets juste au-dessus du panneau (ex. participant avec droit de badges) */
+.project-management-tabs + .tab-content {
+  border-radius: 0 0 12px 12px;
+  border-top: none;
 }
 
 .tab-content.active {
@@ -1353,16 +1537,41 @@
     justify-content: center;
   }
 
-  .project-info-section-redesigned {
+  .project-overview-main-row {
+    padding: 1rem;
+  }
+
+  .project-overview-main-row .project-image-column {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .project-overview-main-row .project-cover-large {
+    height: 200px;
+    max-height: 42vh;
+    min-height: 160px;
+  }
+
+  .project-info-section-redesigned:not(.project-overview-card) {
     grid-template-columns: 1fr;
   }
 
-  .project-image-column .project-cover-large {
+  .project-info-section-redesigned:not(.project-overview-card) .project-image-column .project-cover-large {
     min-height: 300px;
   }
 
   .project-management-tabs {
     flex-wrap: wrap;
+  }
+
+  .project-management-tabs--primary-nav {
+    flex-wrap: wrap;
+  }
+
+  .project-management-tabs--primary-nav .tab-btn {
+    flex: 1 1 50%;
+    white-space: normal;
+    min-width: 120px;
   }
 
   .tab-btn {

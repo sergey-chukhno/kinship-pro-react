@@ -5629,8 +5629,77 @@ const ProjectManagement: React.FC = () => {
 
       {/* Project Info Section */}
       <div className="project-management-body">
-        <div className="project-info-section-redesigned">
-          {/* Left Column: Project Image Gallery */}
+        {/* Onglets en premier : accessibles sans défiler après le bandeau « Gestion du projet » */}
+        {shouldShowTabs() && (
+          <div className="project-primary-tabnav-sticky" role="navigation" aria-label="Sections du projet">
+          <div className="project-management-tabs project-management-tabs--primary-nav">
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              Vue d'ensemble
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('requests')}
+            >
+              Demandes
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
+              onClick={() => setActiveTab('participants')}
+            >
+              Participants
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
+              onClick={() => setActiveTab('equipes')}
+            >
+              Équipes
+            </button>
+            {false && (
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
+                onClick={() => setActiveTab('kanban')}
+              >
+                Kanban
+              </button>
+            )}
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
+              onClick={() => setActiveTab('badges')}
+            >
+              Badges
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${activeTab === 'documents' ? 'active' : ''}`}
+              onClick={() => setActiveTab('documents')}
+            >
+              Documents
+            </button>
+            {isMLDSProject && (
+              <button
+                type="button"
+                className={`tab-btn ${activeTab === 'mlds-info' ? 'active' : ''}`}
+                onClick={() => setActiveTab('mlds-info')}
+              >
+                Informations supplémentaires
+              </button>
+            )}
+          </div>
+          </div>
+        )}
+
+        <div className="project-info-section-redesigned project-overview-card">
+          <div className="project-overview-main-row">
+          {/* Visuel + titre / description / métadonnées — hauteur maîtrisée */}
           <div className="project-image-column">
             <div className="project-cover-large">
               {allPhotos.length > 0 ? (
@@ -5784,7 +5853,7 @@ const ProjectManagement: React.FC = () => {
 
             {/* Project Description */}
             <div className="project-description-section">
-              <div className={`project-description-content ${!isDescriptionExpanded ? 'expanded' : 'collapsed'}`}>
+              <div className={`project-description-content ${isDescriptionExpanded ? 'expanded' : 'collapsed'}`}>
                 <p>{project.description}</p>
               </div>
               {project.description.length > 150 && (
@@ -5873,9 +5942,21 @@ const ProjectManagement: React.FC = () => {
                 })()}
               </div>
             </div>
+          </div>
 
-            {/* Bottom Part: Project Management Team */}
-            <div className="project-details-bottom">
+          <details className="project-team-details">
+            <summary className="project-team-details__summary">
+              <span className="project-team-details__label">
+                <i className="fas fa-users project-team-details__icon" aria-hidden />
+                Équipe &amp; partenaires
+              </span>
+              <span className="project-team-details__meta">
+                <span className="project-team-details__hint project-team-details__hint--closed">Afficher</span>
+                <span className="project-team-details__hint project-team-details__hint--open">Masquer</span>
+                <i className="fas fa-chevron-down project-team-details__chevron" aria-hidden />
+              </span>
+            </summary>
+            <div className="project-details-bottom project-details-bottom--collapsible">
               {/* Responsable du projet */}
               <div className="project-manager-section">
                 <div className="project-manager-header">
@@ -6013,6 +6094,7 @@ const ProjectManagement: React.FC = () => {
                 </div>
               )}
             </div>
+          </details>
           </div>
         </div>
 
@@ -6349,72 +6431,6 @@ const ProjectManagement: React.FC = () => {
               </div>
             )}
             {badgeHolderSubView === 'participants' && renderParticipantsSection(false, false)}
-          </div>
-        )}
-
-        {/* Project Management Tabs */}
-        {shouldShowTabs() && (
-          <div className="project-management-tabs">
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              Vue d'ensemble
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
-              onClick={() => setActiveTab('requests')}
-            >
-              Demandes
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
-              onClick={() => setActiveTab('participants')}
-            >
-              Participants
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'equipes' ? 'active' : ''}`}
-              onClick={() => setActiveTab('equipes')}
-            >
-              Équipes
-            </button>
-            {false && (
-              <button
-                type="button"
-                className={`tab-btn ${activeTab === 'kanban' ? 'active' : ''}`}
-                onClick={() => setActiveTab('kanban')}
-              >
-                Kanban
-              </button>
-            )}
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
-              onClick={() => setActiveTab('badges')}
-            >
-              Badges
-            </button>
-            <button
-              type="button"
-              className={`tab-btn ${activeTab === 'documents' ? 'active' : ''}`}
-              onClick={() => setActiveTab('documents')}
-            >
-              Documents
-            </button>
-            {isMLDSProject && (
-              <button
-                type="button"
-                className={`tab-btn ${activeTab === 'mlds-info' ? 'active' : ''}`}
-                onClick={() => setActiveTab('mlds-info')}
-              >
-                Informations supplémentaires
-              </button>
-            )}
           </div>
         )}
 
