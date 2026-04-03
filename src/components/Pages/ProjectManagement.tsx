@@ -5944,7 +5944,7 @@ const ProjectManagement: React.FC = () => {
             </div>
           </div>
 
-          <details className="project-team-details">
+          <details className="project-team-details" open>
             <summary className="project-team-details__summary">
               <span className="project-team-details__label">
                 <i className="fas fa-users project-team-details__icon" aria-hidden />
