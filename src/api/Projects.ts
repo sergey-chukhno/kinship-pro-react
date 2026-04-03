@@ -1,4 +1,7 @@
 import apiClient from './config';
+import type { MemberContextPayload } from '../utils/memberContextPayload';
+
+export type { MemberContextPayload } from '../utils/memberContextPayload';
 
 // Types for API requests and responses
 export interface Tag {
@@ -76,12 +79,52 @@ export interface FinancialHvLine {
     hour: string;
 }
 
-/** Prestataire : montant, heures d’intervention, devis optionnel (fichier via FormData `quote`) */
+/** Prestataire : montant, heures d’intervention, devis optionnel (fichier via FormData `quote`) — lecture API héritée */
 export interface FinancialServiceLine {
     service_name: string;
     price: string;
     hours?: string;
     quote_url?: string | null;
+}
+
+/** Nested attributes Rails — table `mlds_financial_service_lines` ; devis : `quote` en multipart */
+export interface MldsFinancialServiceLineAttribute {
+    id?: number;
+    _destroy?: string | boolean;
+    /** Requis pour création / mise à jour ; omis si uniquement `_destroy` (suppression Rails) */
+    position?: number;
+    service_name?: string;
+    price?: string;
+    hours?: string | null;
+    comment?: string | null;
+}
+
+/** Ligne prestataire renvoyée par l’API (association ou ancien JSON inline). */
+export type MldsServiceLineRead = {
+    id?: number;
+    position?: number;
+    service_name?: string;
+    price?: string | number;
+    hours?: string | number;
+    comment?: string | null;
+    quote_url?: string | null;
+};
+
+export function getMldsServiceLinesFromMldsInfo(mlds: unknown): MldsServiceLineRead[] {
+    const m = mlds as Record<string, unknown> | null | undefined;
+    if (!m) return [];
+    const fromTable = m.mlds_financial_service_lines;
+    if (Array.isArray(fromTable) && fromTable.length > 0) {
+        return fromTable as MldsServiceLineRead[];
+    }
+    const legacy = m.financial_service;
+    if (Array.isArray(legacy) && legacy.length > 0) {
+        return legacy as MldsServiceLineRead[];
+    }
+    if (legacy != null && typeof legacy !== 'object') {
+        return [{ price: String(legacy) }];
+    }
+    return [];
 }
 
 export interface MLDSInformationAttributes {
@@ -109,6 +152,9 @@ export interface MLDSInformationAttributes {
     financial_operating?: Array<{ operating_name: string; price: string }> | null;
     /** Autres financements — hors total Crédits ; s’ajoutent au total général */
     financial_autres_financements?: Array<{ autres_name: string; price: string }> | null;
+    /** Prestataires — nested `mlds_financial_service_lines` ; fichiers `quote` via FormData */
+    mlds_financial_service_lines_attributes?: MldsFinancialServiceLineAttribute[] | null;
+    /** Ancien format JSON inline — encore possible en lecture API ; préférer `mlds_financial_service_lines` */
     financial_service?: FinancialServiceLine[] | null;
     objectives?: string | null;
     organization_names?: string[];
@@ -159,7 +205,9 @@ export interface CreateProjectPayload {
         project_members_attributes?: ProjectMemberAttribute[];
         links_attributes?: LinkAttribute[];
         co_responsible_ids?: number[];
+        co_responsible_contexts?: MemberContextPayload[];
         participant_ids?: number[];
+        participant_contexts?: MemberContextPayload[];
         mlds_information_attributes?: MLDSInformationAttributes;
     };
 }
@@ -931,16 +979,41 @@ export const appendMldsInformationToFormData = (
         });
     }
 
-    if (mlds.financial_service !== undefined && mlds.financial_service !== null && Array.isArray(mlds.financial_service)) {
-        mlds.financial_service.forEach((line: FinancialServiceLine, index: number) => {
-            formData.append(`${P}[financial_service][${index}][service_name]`, line.service_name);
-            formData.append(`${P}[financial_service][${index}][price]`, line.price);
-            if (line.hours !== undefined && line.hours !== null && line.hours !== '') {
-                formData.append(`${P}[financial_service][${index}][hours]`, String(line.hours));
+    if (
+        mlds.mlds_financial_service_lines_attributes !== undefined &&
+        mlds.mlds_financial_service_lines_attributes !== null &&
+        Array.isArray(mlds.mlds_financial_service_lines_attributes)
+    ) {
+        const L = `${P}[mlds_financial_service_lines_attributes]`;
+        let activeQuoteIndex = 0;
+        mlds.mlds_financial_service_lines_attributes.forEach((line: MldsFinancialServiceLineAttribute, index: number) => {
+            const isDestroy =
+                line._destroy != null && line._destroy !== false && line._destroy !== '';
+            if (isDestroy) {
+                if (line.id != null) {
+                    formData.append(`${L}[${index}][id]`, String(line.id));
+                }
+                formData.append(`${L}[${index}][_destroy]`, '1');
+                return;
             }
-            const qf = options?.serviceQuoteFiles?.[index];
+            if (line.id != null) {
+                formData.append(`${L}[${index}][id]`, String(line.id));
+            }
+            if (line.position !== undefined) {
+                formData.append(`${L}[${index}][position]`, String(line.position));
+            }
+            formData.append(`${L}[${index}][service_name]`, line.service_name ?? '');
+            formData.append(`${L}[${index}][price]`, line.price ?? '');
+            if (line.hours !== undefined && line.hours !== null && String(line.hours).trim() !== '') {
+                formData.append(`${L}[${index}][hours]`, String(line.hours));
+            }
+            if (line.comment !== undefined && line.comment !== null) {
+                formData.append(`${L}[${index}][comment]`, line.comment);
+            }
+            const qf = options?.serviceQuoteFiles?.[activeQuoteIndex];
+            activeQuoteIndex += 1;
             if (qf) {
-                formData.append(`${P}[financial_service][${index}][quote]`, qf);
+                formData.append(`${L}[${index}][quote]`, qf);
             }
         });
     }
@@ -951,6 +1024,20 @@ export const appendMldsInformationToFormData = (
     if (mlds.network_issue_addressed !== undefined && mlds.network_issue_addressed !== null) {
         formData.append(`${P}[network_issue_addressed]`, mlds.network_issue_addressed);
     }
+};
+
+/** Nested member contexts for multipart (Rails) */
+const appendMemberContextsToFormData = (
+    formData: FormData,
+    baseKey: 'project[co_responsible_contexts]' | 'project[participant_contexts]',
+    contexts: MemberContextPayload[] | undefined
+): void => {
+    if (!contexts || contexts.length === 0) return;
+    contexts.forEach((ctx, index) => {
+        formData.append(`${baseKey}[${index}][user_id]`, String(ctx.user_id));
+        formData.append(`${baseKey}[${index}][member_context_type]`, ctx.member_context_type);
+        formData.append(`${baseKey}[${index}][member_context_id]`, String(ctx.member_context_id));
+    });
 };
 
 export interface CreateProjectMultipartOptions {
@@ -1073,6 +1160,9 @@ export const createProject = async (
         });
     }
 
+    appendMemberContextsToFormData(formData, 'project[co_responsible_contexts]', project.co_responsible_contexts);
+    appendMemberContextsToFormData(formData, 'project[participant_contexts]', project.participant_contexts);
+
     // Add MLDS information attributes (Rails nested attributes format)
     if (project.mlds_information_attributes) {
         appendMldsInformationToFormData(formData, project.mlds_information_attributes, {
@@ -1161,7 +1251,9 @@ export interface UpdateProjectPayload {
         keyword_ids?: string[];
         links_attributes?: LinkAttribute[];
         co_responsible_ids?: number[];
+        co_responsible_contexts?: MemberContextPayload[];
         participant_ids?: number[];
+        participant_contexts?: MemberContextPayload[];
         partnership_ids?: number[];
         mlds_information_attributes?: MLDSInformationAttributes;
     };
@@ -1240,6 +1332,9 @@ const appendUpdateProjectFieldsToFormData = (
             formData.append('project[participant_ids][]', id.toString());
         });
     }
+
+    appendMemberContextsToFormData(formData, 'project[co_responsible_contexts]', project.co_responsible_contexts);
+    appendMemberContextsToFormData(formData, 'project[participant_contexts]', project.participant_contexts);
 
     if (project.links_attributes && project.links_attributes.length > 0) {
         project.links_attributes.forEach((link, index) => {

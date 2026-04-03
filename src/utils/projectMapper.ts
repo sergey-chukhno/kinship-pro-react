@@ -470,21 +470,49 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         is_deleted: owner.is_deleted || false // Preserve deleted status
     } : null;
     
-    // Map co-owners: use partner_organization.name when organization_source === 'partner'
-    const coResponsibles = (apiProject.co_owners || []).map((coOwner: any) => ({
-        id: coOwner.id != null ? coOwner.id.toString() : '',
+    // Map co-responsables:
+    // - Standard projects: apiProject.co_owners
+    // - MLDS projects: the API can expose co-responsables in apiProject.co_responsibles
+    const rawCoResponsibles = (() => {
+        if (apiProject?.mlds_information != null && Array.isArray(apiProject.co_responsibles)) return apiProject.co_responsibles;
+        if (Array.isArray(apiProject.co_owners)) return apiProject.co_owners;
+        return [];
+    })();
+
+    const mapAddedFromOrg = (raw: any) => {
+        if (!raw || typeof raw !== 'object') return undefined;
+        return {
+            organizationType: raw.organization_type ?? '',
+            organizationId: raw.organization_id != null ? Number(raw.organization_id) : 0,
+            name: raw.name,
+            city: raw.city,
+            roleInProject: raw.role_in_project
+        };
+    };
+
+    // Use added_from_organization (API) or partner_organization when organization_source === 'partner'
+    const coResponsibles = rawCoResponsibles.map((coOwner: any) => {
+        const coId = coOwner?.id ?? coOwner?.user?.id;
+        const added = coOwner.added_from_organization;
+        const orgLabel =
+            added?.name
+            ?? (coOwner.organization_source === 'partner' && coOwner.partner_organization?.name
+                ? coOwner.partner_organization.name
+                : ownerOrganizationName);
+        return ({
+        id: coId != null ? coId.toString() : '',
         name: coOwner.full_name || `${coOwner.first_name} ${coOwner.last_name}`,
         avatar: coOwner.avatar_url || '/default-avatar.png',
         profession: coOwner.job || 'Membre', // Profession réelle
-        organization: coOwner.organization_source === 'partner' && coOwner.partner_organization?.name
-            ? coOwner.partner_organization.name
-            : ownerOrganizationName,
+        organization: orgLabel,
         email: coOwner.email || '',
         role: coOwner.organization_role || undefined, // Role in organization
         role_in_system: coOwner.role_in_system || undefined, // System role (directeur_ecole, principal, etc.)
         city: coOwner.city || undefined, // City of organization
-        is_deleted: coOwner.is_deleted || false // Preserve deleted status
-    }));
+        is_deleted: coOwner.is_deleted || false, // Preserve deleted status
+        addedFromOrganization: mapAddedFromOrg(added)
+        });
+    });
     
     const pathwaysFromApi = getPathwaysFromTags(apiProject.tags || []);
 
@@ -574,7 +602,17 @@ export const getUserProjectRole = (
             return 'co-owner';
         }
     }
-    
+
+    // MLDS: co-responsables peuvent être listés dans co_responsibles (en plus ou à la place de co_owners)
+    if (apiProject.mlds_information != null && apiProject.co_responsibles && Array.isArray(apiProject.co_responsibles)) {
+        const isCoResponsible = apiProject.co_responsibles.some((co: any) =>
+            co.id?.toString() === userIdStr || co.user?.id?.toString() === userIdStr
+        );
+        if (isCoResponsible) {
+            return 'co-owner';
+        }
+    }
+
     // Check in project_members
     if (apiProject.project_members && Array.isArray(apiProject.project_members)) {
         const member = apiProject.project_members.find((m: any) => 
