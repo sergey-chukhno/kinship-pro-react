@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
-import { getPartnerships, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, createProject } from '../../api/Projects';
+import {
+  getPartnerships,
+  getOrganizationMembers,
+  getTeacherMembers,
+  getTeacherSchoolMembers,
+  createProject,
+  getMldsServiceLinesFromMldsInfo
+} from '../../api/Projects';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import {
   getOrganizationId,
@@ -9,12 +16,19 @@ import {
   base64ToFile,
   validateImages
 } from '../../utils/projectMapper';
+import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '../../utils/memberContextPayload';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { useToast } from '../../hooks/useToast';
+import {
+  countServiceQuoteFiles,
+  MAX_SERVICE_QUOTE_FILES,
+  validateServiceQuoteSelection
+} from '../../utils/mldsServiceQuotes';
+import { hvLineHours } from '../../utils/mldsHvLines';
 
-/** Taux HV par défaut (€/heure) — utilisé pour HSE × HV */
+/** Taux HV par défaut (€/heure) — lignes crédits HV */
 const HV_DEFAULT_RATE = 50.73;
 
 // Rôles système considérés comme "élèves" (tous contextes)
@@ -27,13 +41,26 @@ const STUDENT_SYSTEM_ROLES = [
   'eleve'
 ];
 
+/** Contact partenaire dont le rôle org est référent — exclu de la modale co-responsables partenaire. */
+function isPartnerContactOrgReferent(contact: { role?: string; role_in_organization?: string }): boolean {
+  const raw = (contact.role_in_organization ?? contact.role ?? '').toString();
+  const n = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return n.includes('referent');
+}
+
 interface MLDSProjectModalProps {
   onClose: () => void;
   onSave: (projectData: Omit<Project, 'id'>) => void;
   initialDataFromProject?: Project | null;
+  variant?: 'perseverance' | 'remediation';
 }
 
-const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, initialDataFromProject }) => {
+const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
+  onClose,
+  onSave,
+  initialDataFromProject,
+  variant = 'perseverance',
+}) => {
   const { state } = useAppContext();
   const { showError } = useToast();
 
@@ -67,14 +94,19 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     mldsObjectives: '',
     mldsCompetencies: [] as string[],
     // Financial means
-    mldsFinancialHSE: '', // HSE (nombre d'heures)
-    // Taux horaire (€/h) - stocké dans mldsFinancialRate, mldsFinancialHV conservé pour compat éventuelle
-    mldsFinancialHV: '', // (déprécié)
-    mldsFinancialRate: '50.73', // RATE (taux €/heure, modifiable)
+    mldsFinancialHSE: '', // HSE (nombre d'heures) — déclaratif, hors totaux
+    mldsFinancialRate: '50.73', // Taux €/heure (HV, lignes crédits)
     mldsFinancialTransport: [] as Array<{ transport_name: string; price: string }>, // Frais de transport
     mldsFinancialOperating: [] as Array<{ operating_name: string; price: string }>, // Frais de fonctionnement
-    mldsFinancialService: [] as Array<{ service_name: string; price: string }>, // Prestataires de service
+    /** Crédits HV par enseignant (heures × taux) — champ `hour` côté API */
+    mldsFinancialHvLines: [] as Array<{ teacher_name: string; hour: string }>,
+    mldsFinancialService: [] as Array<{ service_name: string; hours: string; price: string; comment: string }>, // Prestataires
+    /** Hors total Crédits ; inclus dans le total général avec les crédits */
+    mldsFinancialAutres: [] as Array<{ autres_name: string; price: string }>,
   });
+
+  /** Devis par ligne prestataire (max 5 fichiers au total, 1 Mo chacun) — index aligné sur mldsFinancialService */
+  const [mldsServiceQuoteFiles, setMldsServiceQuoteFiles] = useState<(File | null)[]>([]);
 
   const [imagePreview, setImagePreview] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -89,6 +121,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
   const [members, setMembers] = useState<any[]>([]);
   const [availablePartnerships, setAvailablePartnerships] = useState<any[]>([]);
   const [partnershipContactMembers, setPartnershipContactMembers] = useState<any[]>([]);
+  const [partnershipCoResponsiblesPopup, setPartnershipCoResponsiblesPopup] = useState<{
+    partnershipId: string;
+    partnershipName: string;
+    contactUsers: any[];
+  } | null>(null);
+  const [partnershipCoResponsibles, setPartnershipCoResponsibles] = useState<Record<string, string[]>>({});
+  const [partnershipCoResponsiblesSearchTerm, setPartnershipCoResponsiblesSearchTerm] = useState<string>('');
   const [availableClasses, setAvailableClasses] = useState<any[]>([]);
   const [departments, setDepartments] = useState<Array<{ code: string; nom: string }>>([]);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
@@ -163,19 +202,54 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
       mldsObjectives: mldsInfo?.objectives || '',
       mldsCompetencies: [],
       mldsFinancialHSE: mldsInfo?.financial_hse != null ? String(mldsInfo.financial_hse) : '',
-      // Taux horaire : lire d'abord financial_rate, puis tomber sur financial_hv pour compatibilité
-      mldsFinancialHV: mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : prev.mldsFinancialHV,
       mldsFinancialRate:
         mldsInfo?.financial_rate != null
           ? String(mldsInfo.financial_rate)
           : (mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : prev.mldsFinancialRate),
       mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport : [],
       mldsFinancialOperating: Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating : [],
-      mldsFinancialService: Array.isArray(mldsInfo?.financial_service) ? mldsInfo.financial_service : [],
+      mldsFinancialAutres: Array.isArray(mldsInfo?.financial_autres_financements)
+        ? mldsInfo.financial_autres_financements.map((l: { autres_name?: string; price?: string }) => ({
+            autres_name: String(l.autres_name ?? ''),
+            price: l.price != null ? String(l.price) : ''
+          }))
+        : [],
+      mldsFinancialHvLines: (() => {
+        if (Array.isArray(mldsInfo?.financial_hv_lines) && mldsInfo.financial_hv_lines.length > 0) {
+          return mldsInfo.financial_hv_lines.map(
+            (l: { teacher_name?: string; hour?: string; price?: string }) => ({
+              teacher_name: String(l.teacher_name ?? ''),
+              hour:
+                l.hour != null && l.hour !== ''
+                  ? String(l.hour)
+                  : l.price != null
+                    ? String(l.price)
+                    : ''
+            })
+          );
+        }
+        const hv = mldsInfo?.financial_hv;
+        if (hv != null && Number(hv) > 0) {
+          return [{ teacher_name: '', hour: String(hv) }];
+        }
+        return [];
+      })(),
+      mldsFinancialService: (() => {
+        const rows = getMldsServiceLinesFromMldsInfo(mldsInfo);
+        if (rows.length === 0) return [];
+        return rows.map(l => ({
+          service_name: String(l.service_name ?? ''),
+          hours: l.hours != null && l.hours !== '' ? String(l.hours) : '',
+          price: l.price != null ? String(l.price) : '',
+          comment: l.comment != null ? String(l.comment) : ''
+        }));
+      })(),
     }));
     if (defaultSchoolId) {
       setSelectedSchoolId(defaultSchoolId);
     }
+    const svcLen = getMldsServiceLinesFromMldsInfo(mldsInfo).length;
+    setMldsServiceQuoteFiles(Array.from({ length: svcLen }, () => null));
     setImagePreview('');
   }, [initialDataFromProject, state.user]);
 
@@ -210,6 +284,11 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     { value: 'school_teams', label: 'Équipes des établissements' }
   ];
 
+  const remediationTargetAudienceOptions = [
+    { value: 'mlds_assigned', label: 'Élèves affectés à la MLDS' },
+    { value: 'pafi_tdo', label: 'Élèves en PAFI TDO' },
+  ];
+
   const mldsActionObjectivesOptions = [
     {
       value: 'path_security',
@@ -238,6 +317,45 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     {
       value: 'professional_development',
       label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)'
+    },
+    {
+      value: 'other',
+      label: 'Autre'
+    }
+  ];
+
+  const remediationActionObjectivesOptions = [
+    {
+      value: 'professional_discovery',
+      label: 'La découverte des filières professionnelles'
+    },
+    {
+      value: 'aec_development',
+      label: 'Parcours d\'éducation artistique et culturelle'
+    },
+    {
+      value: 'future_path_development',
+      label: 'Parcours d\'avenir'
+    },
+    {
+      value: 'citizen_path_development',
+      label: 'Parcours citoyen'
+    },
+    {
+      value: 'pe_development',
+      label: 'Apprendre par l\'éducation physique et sportive'
+    },
+    {
+      value: 'disciplinary_courses',
+      label: 'Cours disciplinaires'
+    },
+    {
+      value: 'job_discovery',
+      label: 'Découverte des métiers'
+    },
+    {
+      value: 'training_discovery',
+      label: 'Découverte des formations'
     },
     {
       value: 'other',
@@ -371,6 +489,32 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     fetchClasses();
   }, [state.showingPageType, state.user, selectedSchoolId]);
 
+  // Co-responsables : enseignants des organisations porteuses + contacts partenaires choisis dans la popup
+  useEffect(() => {
+    const fromClasses: string[] = [];
+    formData.mldsOrganizations.forEach(orgId => {
+      const selectedClass = availableClasses.find((c: any) => c.id?.toString() === orgId);
+      const teacherIds =
+        selectedClass?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
+      teacherIds.forEach((id: string) => {
+        if (!fromClasses.includes(id)) fromClasses.push(id);
+      });
+    });
+    const fromPartnerships: string[] = [];
+    formData.partners.forEach(partnershipId => {
+      (partnershipCoResponsibles[String(partnershipId)] || []).forEach(id => {
+        if (!fromPartnerships.includes(id)) fromPartnerships.push(id);
+      });
+    });
+    const allSelectedIds = new Set([...fromClasses, ...fromPartnerships]);
+    setFormData(prev => {
+      const nonManaged = prev.coResponsibles.filter(id => !allSelectedIds.has(id));
+      const allCoResponsibles = Array.from(new Set([...nonManaged, ...fromClasses, ...fromPartnerships]));
+      return { ...prev, coResponsibles: allCoResponsibles };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partnershipCoResponsibles, formData.partners, formData.mldsOrganizations, availableClasses]);
+
   // Fetch departments from API
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -402,11 +546,18 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name === 'isPartnership') {
+      const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({
         ...prev,
-        isPartnership: (e.target as HTMLInputElement).checked,
-        partners: (e.target as HTMLInputElement).checked ? prev.partners : []
+        isPartnership: checked,
+        partners: checked ? prev.partners : []
       }));
+      if (!checked) {
+        setPartnershipCoResponsibles({});
+        setPartnershipCoResponsiblesPopup(null);
+        setPartnershipCoResponsiblesSearchTerm('');
+        setPartnershipContactMembers([]);
+      }
     } else if (name === 'mldsRequestedBy') {
       // Reset department when changing "Demande faite par"
       setFormData(prev => ({
@@ -432,7 +583,23 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
 
     setFormData(prev => ({
       ...prev,
-      organization: selectedSchool?.name || ''
+      organization: selectedSchool?.name || '',
+      // Reset selections tied to the current school context
+      coResponsibles: [],
+      participants: [],
+      mldsOrganizations: []
+    }));
+
+    setPartnershipCoResponsibles({});
+    setPartnershipCoResponsiblesPopup(null);
+    setPartnershipCoResponsiblesSearchTerm('');
+    setPartnershipContactMembers([]);
+
+    // Clear search inputs (avoid confusing stale selections)
+    setSearchTerms(prev => ({
+      ...prev,
+      coResponsibles: '',
+      participants: ''
     }));
   };
 
@@ -446,26 +613,45 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
   };
 
   // Helper functions for managing financial lines
-  const addFinancialLine = (fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService') => {
+  const addFinancialLine = (
+    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService' | 'mldsFinancialHvLines' | 'mldsFinancialAutres'
+  ) => {
+    if (fieldName === 'mldsFinancialService') {
+      setMldsServiceQuoteFiles(q => [...q, null]);
+    }
     setFormData(prev => {
       if (fieldName === 'mldsFinancialTransport') {
         return { ...prev, [fieldName]: [...prev[fieldName], { transport_name: '', price: '' }] };
-      } else if (fieldName === 'mldsFinancialOperating') {
-        return { ...prev, [fieldName]: [...prev[fieldName], { operating_name: '', price: '' }] };
-      } else {
-        return { ...prev, [fieldName]: [...prev[fieldName], { service_name: '', price: '' }] };
       }
+      if (fieldName === 'mldsFinancialOperating') {
+        return { ...prev, [fieldName]: [...prev[fieldName], { operating_name: '', price: '' }] };
+      }
+      if (fieldName === 'mldsFinancialHvLines') {
+        return { ...prev, [fieldName]: [...prev[fieldName], { teacher_name: '', hour: '' }] };
+      }
+      if (fieldName === 'mldsFinancialAutres') {
+        return { ...prev, [fieldName]: [...prev[fieldName], { autres_name: '', price: '' }] };
+      }
+      return { ...prev, [fieldName]: [...prev[fieldName], { service_name: '', hours: '', price: '', comment: '' }] };
     });
   };
 
-  const removeFinancialLine = (fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService', index: number) => {
+  const removeFinancialLine = (
+    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService' | 'mldsFinancialHvLines' | 'mldsFinancialAutres',
+    index: number
+  ) => {
+    if (fieldName === 'mldsFinancialService') {
+      setMldsServiceQuoteFiles(q => q.filter((_, i) => i !== index));
+    }
     setFormData(prev => {
       const arr = prev[fieldName] as Array<unknown>;
       const filtered = arr.filter((_: unknown, i: number) => i !== index);
       type FinancialLinesType =
         | Array<{ transport_name: string; price: string }>
         | Array<{ operating_name: string; price: string }>
-        | Array<{ service_name: string; price: string }>;
+        | Array<{ service_name: string; hours: string; price: string; comment: string }>
+        | Array<{ teacher_name: string; hour: string }>
+        | Array<{ autres_name: string; price: string }>;
       return {
         ...prev,
         [fieldName]: filtered as FinancialLinesType
@@ -474,22 +660,57 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
   };
 
   const updateFinancialLine = (
-    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService',
+    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService' | 'mldsFinancialHvLines' | 'mldsFinancialAutres',
     index: number,
-    field: 'name' | 'price',
+    field: 'name' | 'price' | 'hours' | 'hour' | 'comment',
     value: string
   ) => {
     setFormData(prev => {
-      const newArray = [...prev[fieldName]];
+      const newArray = [...prev[fieldName]] as any[];
       if (fieldName === 'mldsFinancialTransport') {
-        newArray[index] = { ...newArray[index], transport_name: field === 'name' ? value : (newArray[index] as any).transport_name, price: field === 'price' ? value : (newArray[index] as any).price };
+        newArray[index] = {
+          ...newArray[index],
+          transport_name: field === 'name' ? value : newArray[index].transport_name,
+          price: field === 'price' ? value : newArray[index].price
+        };
       } else if (fieldName === 'mldsFinancialOperating') {
-        newArray[index] = { ...newArray[index], operating_name: field === 'name' ? value : (newArray[index] as any).operating_name, price: field === 'price' ? value : (newArray[index] as any).price };
+        newArray[index] = {
+          ...newArray[index],
+          operating_name: field === 'name' ? value : newArray[index].operating_name,
+          price: field === 'price' ? value : newArray[index].price
+        };
+      } else if (fieldName === 'mldsFinancialHvLines') {
+        newArray[index] = {
+          ...newArray[index],
+          teacher_name: field === 'name' ? value : newArray[index].teacher_name,
+          hour: field === 'hour' ? value : newArray[index].hour
+        };
+      } else if (fieldName === 'mldsFinancialAutres') {
+        newArray[index] = {
+          ...newArray[index],
+          autres_name: field === 'name' ? value : newArray[index].autres_name,
+          price: field === 'price' ? value : newArray[index].price
+        };
       } else {
-        newArray[index] = { ...newArray[index], service_name: field === 'name' ? value : (newArray[index] as any).service_name, price: field === 'price' ? value : (newArray[index] as any).price };
+        newArray[index] = {
+          ...newArray[index],
+          service_name: field === 'name' ? value : newArray[index].service_name,
+          hours: field === 'hours' ? value : newArray[index].hours,
+          price: field === 'price' ? value : newArray[index].price,
+          comment: field === 'comment' ? value : newArray[index].comment
+        };
       }
       return { ...prev, [fieldName]: newArray };
     });
+  };
+
+  /** Taux horaire affiché pour un prestataire : montant / heures */
+  const computedServiceHourlyRate = (line: { hours: string; price: string }): string => {
+    const h = Number.parseFloat(line.hours);
+    const p = Number.parseFloat(line.price);
+    if (!line.hours?.trim() || h <= 0 || Number.isNaN(h)) return '—';
+    if (Number.isNaN(p)) return '—';
+    return `${(p / h).toFixed(2)} €/h`;
   };
 
   // Calculate total from financial lines array
@@ -500,6 +721,19 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
       const price = Number.parseFloat(line.price) || 0;
       return sum + price;
     }, 0);
+  };
+
+  /** Somme des crédits HV : pour chaque ligne, heures × taux horaire MLDS */
+  const calculateHvLinesTotal = (
+    lines: Array<{ teacher_name: string; hour: string }>,
+    financialRate: number
+  ): number => {
+    const rate = Number.isFinite(financialRate) && financialRate > 0 ? financialRate : HV_DEFAULT_RATE;
+    return lines.reduce((sum, line) => sum + hvLineHours(line) * rate, 0);
+  };
+
+  const calculateAutresFinancementTotal = (lines: Array<{ autres_name: string; price: string }>): number => {
+    return lines.reduce((sum, line) => sum + (Number.parseFloat(line.price) || 0), 0);
   };
 
   const handleActionObjectiveToggle = (objective: string) => {
@@ -520,27 +754,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
         ? prev.mldsOrganizations.filter(o => o !== orgId)
         : [...prev.mldsOrganizations, orgId];
 
-      // When selecting (not unselecting), pré‑sélectionner les enseignants responsables
-      if (!isAlreadySelected) {
-        const selectedClass = availableClasses.find(
-          (classItem: any) => classItem.id?.toString() === orgId
-        );
-
-        const teacherIds =
-          selectedClass?.teachers?.map((t: any) => t.id?.toString()).filter(Boolean) || [];
-
-        if (teacherIds.length > 0) {
-          const coResponsiblesSet = new Set(prev.coResponsibles);
-          teacherIds.forEach((id: string) => coResponsiblesSet.add(id));
-
-          return {
-            ...prev,
-            mldsOrganizations: updatedOrganizations,
-            coResponsibles: Array.from(coResponsiblesSet)
-          };
-        }
-      }
-
+      // Co-responsables enseignants : synchronisés via useEffect (mldsOrganizations + partenariats)
       return {
         ...prev,
         mldsOrganizations: updatedOrganizations
@@ -606,6 +820,27 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
         if (selectedIds.includes(id)) return false;
         return true;
       });
+      const byId = new Map<string, any>();
+      list.forEach((m: any) => {
+        if (m?.id != null) byId.set(String(m.id), m);
+      });
+      (partnershipContactMembers || []).forEach((m: any) => {
+        if (m?.id == null || isPartnerContactOrgReferent(m)) return;
+        const idStr = String(m.id);
+        if (!byId.has(idStr)) {
+          byId.set(idStr, {
+            ...m,
+            avatar_url: m.avatar_url,
+            role: m.role ?? m.role_in_organization ?? ''
+          });
+        }
+      });
+      list = Array.from(byId.values()).filter((m: any) => {
+        const id = m?.id?.toString();
+        if (currentUserId && id === currentUserId) return false;
+        if (selectedIds.includes(id)) return false;
+        return true;
+      });
       if (searchTerm.trim()) {
         const lower = searchTerm.toLowerCase();
         list = list.filter((m: any) =>
@@ -617,13 +852,34 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
       return list;
     }
     const baseList = getFilteredMembers(searchTerm);
-    // Dans tous les contextes, on exclut les rôles "élèves" et ceux déjà co‑responsables
-    return baseList.filter((m: any) => {
+    let filtered = baseList.filter((m: any) => {
       const role = (m.role_in_system || m.role || '').toString().toLowerCase();
       const id = m?.id?.toString();
       const alreadyCoResponsible = formData.coResponsibles.includes(id || '');
       return !STUDENT_SYSTEM_ROLES.includes(role) && !alreadyCoResponsible;
     });
+    const byId = new Map<string, any>();
+    filtered.forEach((m: any) => {
+      if (m?.id != null) byId.set(String(m.id), m);
+    });
+    (partnershipContactMembers || []).forEach((m: any) => {
+      if (m?.id == null || isPartnerContactOrgReferent(m)) return;
+      const idStr = String(m.id);
+      if (!byId.has(idStr)) {
+        byId.set(idStr, {
+          ...m,
+          avatar_url: m.avatar_url,
+          role: m.role ?? m.role_in_organization ?? ''
+        });
+      }
+    });
+    filtered = Array.from(byId.values()).filter((m: any) => {
+      const role = (m.role_in_system || m.role || '').toString().toLowerCase();
+      const id = m?.id?.toString();
+      const alreadyCoResponsible = formData.coResponsibles.includes(id || '');
+      return !STUDENT_SYSTEM_ROLES.includes(role) && !alreadyCoResponsible;
+    });
+    return filtered;
   };
 
   // Participants : même pool que co-responsables (adultes), sélection indépendante
@@ -725,41 +981,91 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     }
   };
 
+  const formatPartnershipDisplayName = (name: string | undefined): string => {
+    if (!name) return '';
+    return name.replace(/\bPartnership\b/gi, 'Partenariat');
+  };
+
   const handlePartnerSelect = (partnerId: string) => {
-    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === partnerId || p.id === Number(partnerId));
-    const contactUsers = partnership
-      ? (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
-        id: c.id,
-        full_name: c.full_name || '',
-        email: c.email || '',
-        role: c.role || '',
-        role_in_organization: c.role_in_organization || '',
-        organization: p.name || ''
-      })))
-      : [];
+    const idStr = partnerId?.toString();
+    const partnership = availablePartnerships.find((p: any) => p.id?.toString() === idStr || p.id === Number(partnerId));
+
+    if (!partnership) return;
+
+    const ownerId = state.user?.id != null ? state.user.id.toString() : null;
+    const contactUsersRaw = (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
+      id: c.id,
+      full_name: c.full_name || '',
+      email: c.email || '',
+      role: c.role_in_organization || c.role || '',
+      role_in_organization: c.role_in_organization || '',
+      organization: p.name || ''
+    })));
+    const withoutReferents = contactUsersRaw.filter((c: any) => !isPartnerContactOrgReferent(c));
+    const contactUsers = ownerId
+      ? withoutReferents.filter((c: any) => c.id?.toString() !== ownerId)
+      : withoutReferents;
+
     const contactIds = contactUsers.map((c: any) => c.id.toString());
+    const isAlreadySelected = formData.partners.some(p => String(p) === String(partnerId));
 
-    setFormData(prev => {
-      const isAdding = !prev.partners.includes(partnerId);
-      const newPartners = isAdding
-        ? [...prev.partners, partnerId]
-        : prev.partners.filter(id => id !== partnerId);
-      let newCoResponsibles = prev.coResponsibles;
-      if (isAdding) {
-        newCoResponsibles = Array.from(new Set([...prev.coResponsibles, ...contactIds]));
-      } else {
-        newCoResponsibles = prev.coResponsibles.filter(id => !contactIds.includes(id.toString()));
-      }
-      return { ...prev, partners: newPartners, coResponsibles: newCoResponsibles };
+    if (isAlreadySelected) {
+      setFormData(prev => ({
+        ...prev,
+        partners: prev.partners.filter(id => String(id) !== String(partnerId)),
+        coResponsibles: prev.coResponsibles.filter(id => !contactIds.includes(id.toString()))
+      }));
+      setPartnershipContactMembers(prev => {
+        const toRemoveIds = new Set(contactIds);
+        return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
+      });
+      setPartnershipCoResponsibles(prev => {
+        const next = { ...prev };
+        delete next[String(partnerId)];
+        return next;
+      });
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        partners: [...prev.partners, String(partnerId)]
+      }));
+
+      const partnerOrgs = partnership.partners || [];
+      const partnershipName = partnerOrgs.map((p: any) => p.name).join(', ') || formatPartnershipDisplayName(partnership.name);
+
+      setPartnershipCoResponsiblesPopup({
+        partnershipId: String(partnerId),
+        partnershipName,
+        contactUsers
+      });
+      setPartnershipCoResponsiblesSearchTerm('');
+      setPartnershipContactMembers(prev => [...prev, ...contactUsers]);
+    }
+  };
+
+  const togglePartnershipCoResponsible = (partnershipId: string, memberId: string) => {
+    const idStr = memberId.toString();
+    const key = String(partnershipId);
+    setPartnershipCoResponsibles(prev => {
+      const current = prev[key] || [];
+      const newList = current.includes(idStr)
+        ? current.filter(id => id !== idStr)
+        : [...current, idStr];
+      return { ...prev, [key]: newList };
     });
+  };
 
-    setPartnershipContactMembers(prev => {
-      const isAdding = !formData.partners.includes(partnerId);
-      if (isAdding) {
-        return [...prev, ...contactUsers];
-      }
-      const toRemoveIds = new Set(contactIds);
-      return prev.filter((m: any) => !toRemoveIds.has(m.id?.toString()));
+  /** Filtrer les contact users du partenariat pour la popup de co-responsables */
+  const getFilteredPartnershipCoResponsibles = (contactUsers: any[], searchTerm: string) => {
+    const withoutReferents = (contactUsers || []).filter((u: any) => !isPartnerContactOrgReferent(u));
+    if (!searchTerm.trim()) return withoutReferents;
+    const term = searchTerm.toLowerCase();
+    return withoutReferents.filter((user: any) => {
+      const name = (user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim()).toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      const role = (user.role_in_organization || user.role || '').toLowerCase();
+      const org = (user.organization || '').toLowerCase();
+      return name.includes(term) || email.includes(term) || role.includes(term) || org.includes(term);
     });
   };
 
@@ -771,6 +1077,22 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
 
   const getSelectedPartner = (partnerId: string) => {
     return availablePartnerships.find((p: any) => p.id === partnerId || p.id === Number.parseInt(partnerId));
+  };
+
+  /** Libellés des partenariats pour lesquels ce user a été désigné co-responsable (popup contacts partenaire). */
+  const getPartnershipContextLabelsForCoResponsible = (memberId: string): string[] => {
+    const idStr = memberId.toString();
+    const labels: string[] = [];
+    (formData.partners || []).forEach((partnershipId: string) => {
+      const key = String(partnershipId);
+      const ids = partnershipCoResponsibles[key] || [];
+      if (!ids.includes(idStr)) return;
+      const p = availablePartnerships.find((x: any) => String(x.id) === key || x.id === Number.parseInt(key, 10));
+      const partnerNames = (p?.partners || []).map((org: any) => org.name).filter(Boolean).join(', ');
+      const label = partnerNames || formatPartnershipDisplayName(p?.name) || `Partenariat #${partnershipId}`;
+      if (label && !labels.includes(label)) labels.push(label);
+    });
+    return labels;
   };
 
   const submitProject = async (desiredStatus?: 'draft' | 'to_process' | 'pending_validation' | 'coming' | 'in_progress' | 'ended' | 'archived') => {
@@ -837,10 +1159,46 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
       else if (organizationType === 'school') context = 'school';
       else if (organizationType === 'teacher') context = 'teacher';
 
+      const serviceEntries = formData.mldsFinancialService
+        .map((line, idx) => ({ line, idx }))
+        .filter(({ line }) => line.service_name.trim() || line.price.trim() || line.hours.trim());
+      const serviceQuoteFilesPayload = serviceEntries.map(({ idx }) => mldsServiceQuoteFiles[idx] ?? null);
+      const quoteFilesList = serviceQuoteFilesPayload.filter((f): f is File => f != null);
+      if (quoteFilesList.length > MAX_SERVICE_QUOTE_FILES) {
+        setSubmitError(`Vous pouvez joindre au maximum ${MAX_SERVICE_QUOTE_FILES} devis (prestataires)`);
+        setIsSubmitting(false);
+        return;
+      }
+      if (quoteFilesList.some(f => f.size > 1024 * 1024)) {
+        setSubmitError('Chaque devis doit faire moins de 1 Mo');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const organizationIdForPayload = selectedSchoolId
+        ? Number.parseInt(selectedSchoolId, 10)
+        : formData.organization
+          ? Number.parseInt(formData.organization, 10)
+          : organizationId;
+
+      const coResponsibleIds = formData.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+      const participantIds = formData.participants.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
+
+      const coResponsibleContexts = buildMldsCoResponsibleContexts({
+        coResponsibleIds,
+        partnershipCoResponsibles,
+        formPartners: formData.partners,
+        availablePartnerships,
+        mldsOrgLevelIds: formData.mldsOrganizations,
+        availableLevels: availableClasses,
+        schoolContextId: organizationIdForPayload ?? null
+      });
+      const participantContexts = buildSchoolParticipantContexts(participantIds, organizationIdForPayload ?? null);
+
       // Prepare MLDS-specific payload
       const mldsPayload = {
         context,
-        organization_id: organizationId,
+        organization_id: organizationIdForPayload,
         project: {
           title: formData.title,
           description: formData.description,
@@ -848,16 +1206,25 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
           end_date: formData.endDate,
           status: effectiveStatus,
           private: formData.visibility === 'private',
+          participants_number: formData.mldsExpectedParticipants
+            ? Number.parseInt(formData.mldsExpectedParticipants, 10)
+            : undefined,
           school_level_ids: schoolLevelIds,
+          skill_ids: [],
+          tag_ids: [],
+          company_ids: [],
           // Add co-responsibles, partner, and participants if needed
-          co_responsible_ids: formData.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id)),
-          participant_ids: formData.participants.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id)),
+          co_responsible_ids: coResponsibleIds,
+          ...(coResponsibleContexts.length > 0 ? { co_responsible_contexts: coResponsibleContexts } : {}),
+          participant_ids: participantIds,
+          ...(participantContexts.length > 0 ? { participant_contexts: participantContexts } : {}),
           partnership_ids: formData.partners.length > 0
             ? formData.partners.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
             : undefined,
           mlds_information_attributes: {
             requested_by: formData.mldsRequestedBy,
             department_number: formData.mldsRequestedBy === 'departement' && formData.mldsDepartment ? formData.mldsDepartment : null,
+            type_mlds: isRemediation ? 'remediation' : 'perseverance',
             school_level_ids: schoolLevelIds,
             target_audience: formData.mldsTargetAudience,
             action_objectives: formData.mldsActionObjectives,
@@ -865,11 +1232,28 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
             competencies_developed: formData.mldsCompetenciesDeveloped || null,
             expected_participants: formData.mldsExpectedParticipants ? Number.parseInt(formData.mldsExpectedParticipants, 10) : null,
             financial_hse: formData.mldsFinancialHSE ? Number.parseFloat(formData.mldsFinancialHSE) : null,
-            financial_hv: formData.mldsFinancialHV ? Number.parseFloat(formData.mldsFinancialHV) : null,
+            financial_hv: null,
             financial_rate: formData.mldsFinancialRate ? Number.parseFloat(formData.mldsFinancialRate) : null,
+            financial_hv_lines:
+              formData.mldsFinancialHvLines.length > 0
+                ? formData.mldsFinancialHvLines.filter(line => line.teacher_name.trim() || line.hour.trim())
+                : null,
             financial_transport: formData.mldsFinancialTransport.length > 0 ? formData.mldsFinancialTransport.filter(line => line.transport_name.trim() || line.price.trim()) : null,
             financial_operating: formData.mldsFinancialOperating.length > 0 ? formData.mldsFinancialOperating.filter(line => line.operating_name.trim() || line.price.trim()) : null,
-            financial_service: formData.mldsFinancialService.length > 0 ? formData.mldsFinancialService.filter(line => line.service_name.trim() || line.price.trim()) : null,
+            financial_autres_financements:
+              formData.mldsFinancialAutres.length > 0
+                ? formData.mldsFinancialAutres.filter(line => line.autres_name.trim() || line.price.trim())
+                : null,
+            mlds_financial_service_lines_attributes:
+              serviceEntries.length > 0
+                ? serviceEntries.map(({ line }, pos) => ({
+                    position: pos,
+                    service_name: line.service_name,
+                    price: line.price,
+                    ...(line.hours.trim() ? { hours: line.hours } : {}),
+                    comment: line.comment.trim() ? line.comment.trim() : null
+                  }))
+                : null,
             objectives: formData.mldsObjectives || null,
             network_issue_addressed: formData.networkIssueAddressed || null
           }
@@ -890,8 +1274,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
         return;
       }
 
-      // Create project via API (pass image as separate parameter)
-      const response = await createProject(mldsPayload, mainImageFile, [], []);
+      // Create project via API (pass image as separate parameter ; devis prestataires via multipart)
+      const response = await createProject(mldsPayload, mainImageFile, [], [], {
+        serviceQuoteFiles: serviceQuoteFilesPayload
+      });
 
       if (response) {
         // Get the actual title from API response or use the form title
@@ -1000,6 +1386,26 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
     await submitProject('draft');
   };
 
+  const isRemediation = variant === 'remediation';
+  const successMessage = isRemediation
+    ? 'Votre projet MLDS Volet Remédiation a été créé et est maintenant visible.'
+    : 'Votre projet MLDS Volet Persévérance Scolaire a été créé et est maintenant visible.';
+  const headerTitle = isRemediation
+    ? 'Créer un projet MLDS Volet Remédiation'
+    : 'Créer un projet MLDS Volet Persévérance Scolaire';
+  const headerSubtitle = isRemediation
+    ? 'Mission de Lutte contre le Décrochage Scolaire - Volet Remédiation'
+    : 'Mission de Lutte contre le Décrochage Scolaire - Volet Persévérance Scolaire';
+  const sectionTitle = isRemediation ? 'Volet Remédiation' : 'Volet Persévérance Scolaire';
+
+  const remediationNetworkIssueOptions = [
+    { value: 'sas_rentree', label: 'SAS de rentrée' },
+    { value: 'sas_positionnement', label: 'SAS de positionnement' },
+    { value: 'actions_remobilisation', label: 'Actions de remobilisation' },
+    { value: 'actions_remise_niveau', label: 'Actions de remise à niveau (disciplinaire, réalisé par des enseignants)' },
+    // { value: 'securisation_parcours', label: 'Sécurisation des parcours' },
+  ];
+
   if (showSuccess && successData) {
     return (
       <div className="modal-overlay" onClick={onClose} role="presentation">
@@ -1016,9 +1422,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
             </div>
           )}
           <p className="success-project-title">{successData.title}</p>
-          <p className="success-message">
-            Votre projet MLDS Volet Persévérance Scolaire a été créé et est maintenant visible.
-          </p>
+          <p className="success-message">{successMessage}</p>
         </div>
       </div>
     );
@@ -1034,10 +1438,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
         <div className="flex flex-col gap-2 modal-header">
           <h2>
             <i className="fas fa-graduation-cap" style={{ marginRight: '12px' }}></i>
-            Créer un projet MLDS Volet Persévérance Scolaire
+            {headerTitle}
           </h2>
           <p className="modal-subtitle">
-            Mission de Lutte contre le Décrochage Scolaire - Volet Persévérance Scolaire
+            {headerSubtitle}
           </p>
         </div>
 
@@ -1185,18 +1589,63 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({ onClose, onSave, in
               />
             </div>
             <div className="form-group">
-              <label htmlFor="networkIssueAddressed"> Problématique du réseau à laquelle l&apos;action répond <span style={{ color: 'red' }}>*</span></label>
-              <textarea
-                id="networkIssueAddressed"
-                name="networkIssueAddressed"
-                className="form-input"
-                value={formData.networkIssueAddressed}
-                required={formData.status === 'to_process' || formData.status === 'in_progress' || formData.status === 'coming'}
-                onChange={handleInputChange}
-                placeholder="S&#39;appuyer sur des données quantitatives et
+              <div className="form-label">
+                {isRemediation ? 'Actions concernées' : "Problématique du réseau à laquelle l'action répond"}{' '}
+                <span style={{ color: 'red' }}>*</span>
+              </div>
+              {isRemediation ? (
+                <div className="multi-select-container">
+                  {remediationNetworkIssueOptions.map((opt) => {
+                    const selectedValues = formData.networkIssueAddressed
+                      ? formData.networkIssueAddressed.split(' | ')
+                      : [];
+                    const checked = selectedValues.includes(opt.label);
+                    return (
+                      <label
+                        key={opt.value}
+                        className={`multi-select-item !flex items-center gap-2 ${checked ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const current = formData.networkIssueAddressed
+                              ? formData.networkIssueAddressed.split(' | ')
+                              : [];
+                            const next = checked
+                              ? current.filter((v) => v !== opt.label)
+                              : [...current, opt.label];
+                            setFormData((prev) => ({
+                              ...prev,
+                              networkIssueAddressed: next.join(' | '),
+                            }));
+                          }}
+                        />
+                        <div className="multi-select-checkmark">
+                          <i className="fas fa-check"></i>
+                        </div>
+                        <span className="multi-select-label">{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <textarea
+                  id="networkIssueAddressed"
+                  name="networkIssueAddressed"
+                  className="form-input"
+                  value={formData.networkIssueAddressed}
+                  required={
+                    formData.status === 'to_process' ||
+                    formData.status === 'in_progress' ||
+                    formData.status === 'coming'
+                  }
+                  onChange={handleInputChange}
+                  placeholder="S&#39;appuyer sur des données quantitatives et
 qualitatives (indicateurs, besoins identifiés, freins…)"
-                rows={4}
-              />
+                  rows={4}
+                />
+              )}
             </div>
 
             <div className="form-group">
@@ -1207,8 +1656,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                 className="form-textarea"
                 value={formData.description}
                 onChange={handleInputChange}
-                placeholder="Description de l'action
-persévérance et de ses objectifs"
+                placeholder="Description de l'action MLDS et de ses objectifs"
                 rows={4}
               />
             </div>
@@ -1298,9 +1746,9 @@ persévérance et de ses objectifs"
                   value={formData.mldsTargetAudience}
                   onChange={handleInputChange}
                 >
-                  {mldsTargetAudienceOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
+                {(isRemediation ? remediationTargetAudienceOptions : mldsTargetAudienceOptions).map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
                 </select>
               </div>
             </div>
@@ -1469,12 +1917,18 @@ persévérance et de ses objectifs"
                         {formData.coResponsibles.map((memberId) => {
                           const member = getSelectedMember(memberId);
                           const memberOrg = typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '');
+                          const partnershipContexts = getPartnershipContextLabelsForCoResponsible(memberId);
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
                                 <div className="selected-role">{translateRole(member.role_in_system ?? member.role ?? '')}</div>
+                                {partnershipContexts.length > 0 && (
+                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.2rem', fontWeight: 600 }}>
+                                    Co-responsable via le partenariat : {partnershipContexts.join(' · ')}
+                                  </div>
+                                )}
                                 {memberOrg && (
                                   <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
                                 )}
@@ -1607,7 +2061,7 @@ persévérance et de ses objectifs"
 
           {/* MLDS Specific Section */}
           <div className="form-section">
-            <h3 className="form-section-title">Volet Persévérance Scolaire</h3>
+            <h3 className="form-section-title">{sectionTitle}</h3>
 
             {/* <div className="form-group">
               <label htmlFor="mldsObjectives">Objectifs pédagogiques</label>
@@ -1626,7 +2080,7 @@ persévérance et de ses objectifs"
             <div className="form-group">
               <div className="form-label">Objectifs de l'action</div>
               <div className="multi-select-container">
-                {mldsActionObjectivesOptions.map(objective => (
+                {(isRemediation ? remediationActionObjectivesOptions : mldsActionObjectivesOptions).map(objective => (
                   <label
                     key={objective.value}
                     className={`multi-select-item  !flex items-center gap-2 ${formData.mldsActionObjectives.includes(objective.value) ? 'selected' : ''}`}
@@ -1714,26 +2168,13 @@ développées par les participants"
                   />
                 </div>
                 <div className="form-group" style={{ marginBottom: '0' }}>
-                  <label htmlFor="mldsFinancialHV">HV</label>
-                  <input
-                    type="number"
-                    id="mldsFinancialHV"
-                    name="mldsFinancialHV"
-                    className="form-input"
-                    value={formData.mldsFinancialHV}
-                    onChange={handleInputChange}
-                    placeholder="Nombre d'heures HV"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: '0' }}>
                   <label htmlFor="mldsFinancialRate">Taux (€/h)</label>
                   <input
                     type="number"
                     id="mldsFinancialRate"
                     name="mldsFinancialRate"
-                    className="form-input"
+                    className="form-input !cursor-not-allowed !opacity-50"
+                    disabled={true}
                     value={formData.mldsFinancialRate}
                     onChange={handleInputChange}
                     placeholder="Taux en €/heure"
@@ -1764,6 +2205,58 @@ développées par les participants"
                   gridTemplateColumns: '1fr',
                   gap: '1rem'
                 }}>
+                  {/* Crédits HV (par enseignant) */}
+                  <div className="form-group" style={{ marginBottom: '0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label htmlFor="mldsFinancialHvLines">HV (crédits)</label>
+                      <button
+                        type="button"
+                        onClick={() => addFinancialLine('mldsFinancialHvLines')}
+                        className="btn btn-outline btn-sm"
+                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      >
+                        <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                        Ajouter une ligne
+                      </button>
+                    </div>
+                    {formData.mldsFinancialHvLines.length === 0 ? (
+                      <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+                        Aucune ligne. Cliquez sur « Ajouter une ligne » pour saisir les heures HV par enseignant (crédits = heures × taux horaire).
+                      </div>
+                    ) : (
+                      formData.mldsFinancialHvLines.map((line, index) => (
+                        <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={line.teacher_name}
+                            onChange={(e) => updateFinancialLine('mldsFinancialHvLines', index, 'name', e.target.value)}
+                            placeholder="Nom de l'enseignant"
+                            style={{ flex: 2 }}
+                          />
+                          <input
+                            type="number"
+                            className="form-input"
+                            value={line.hour}
+                            onChange={(e) => updateFinancialLine('mldsFinancialHvLines', index, 'hour', e.target.value)}
+                            placeholder="Heures HV"
+                            min="0"
+                            step="0.01"
+                            style={{ flex: 1 }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeFinancialLine('mldsFinancialHvLines', index)}
+                            className="btn btn-outline btn-sm"
+                            style={{ padding: '8px 12px', color: '#dc2626' }}
+                          >
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
                   {/* Frais de transport */}
                   <div className="form-group" style={{ marginBottom: '0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -1882,39 +2375,145 @@ développées par les participants"
                         Ajouter une ligne
                       </button>
                     </div>
+                    <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 4px 0' }}>
+                      Joindre un devis par prestataire : au plus {MAX_SERVICE_QUOTE_FILES} fichiers au total, 1 Mo chacun (PDF, Word, image…).
+                    </p>
+                    <p style={{ fontSize: '0.8rem', color: '#0369a1', margin: '0 0 8px 0', fontWeight: 600 }}>
+                      Devis joints : {countServiceQuoteFiles(mldsServiceQuoteFiles)} / {MAX_SERVICE_QUOTE_FILES}
+                    </p>
                     {formData.mldsFinancialService.length === 0 ? (
                       <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
-                        Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.
+                        Aucune ligne. Cliquez sur &quot;Ajouter une ligne&quot; pour commencer.
                       </div>
                     ) : (
                       formData.mldsFinancialService.map((line, index) => (
-                        <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                        <div
+                          key={index}
+                          style={{
+                            marginBottom: '10px',
+                            padding: '10px',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            background: '#fff'
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              className="form-input"
+                              value={line.service_name}
+                              onChange={(e) => updateFinancialLine('mldsFinancialService', index, 'name', e.target.value)}
+                              placeholder="Nom du prestataire / service"
+                              style={{ minWidth: '160px', flex: '2 1 160px' }}
+                            />
+                            <input
+                              type="number"
+                              className="form-input"
+                              value={line.hours}
+                              onChange={(e) => updateFinancialLine('mldsFinancialService', index, 'hours', e.target.value)}
+                              placeholder="Heures (h)"
+                              min="0"
+                              step="0.01"
+                              style={{ width: '110px' }}
+                            />
+                            <input
+                              type="number"
+                              className="form-input"
+                              value={line.price}
+                              onChange={(e) => updateFinancialLine('mldsFinancialService', index, 'price', e.target.value)}
+                              placeholder="Montant (€)"
+                              min="0"
+                              step="0.01"
+                              style={{ width: '120px' }}
+                            />
+                            <span
+                              style={{
+                                fontSize: '0.8125rem',
+                                color: '#374151',
+                                fontWeight: 600,
+                                minWidth: '88px'
+                              }}
+                              title="Taux horaire = montant ÷ heures"
+                            >
+                              {computedServiceHourlyRate(line)}
+                            </span>
+                            {(() => {
+                              const qCount = countServiceQuoteFiles(mldsServiceQuoteFiles);
+                              const hasThis = mldsServiceQuoteFiles[index] != null;
+                              const canPickMore = qCount < MAX_SERVICE_QUOTE_FILES || hasThis;
+                              return canPickMore ? (
+                            <label
+                              className="btn btn-outline btn-sm"
+                              style={{ cursor: 'pointer', marginBottom: 0 }}
+                            >
+                              <i className="fas fa-paperclip" style={{ marginRight: '6px' }} aria-hidden />
+                              Joindre un devis
+                              <input
+                                type="file"
+                                style={{ display: 'none' }}
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (!f) return;
+                                  const check = validateServiceQuoteSelection(f, mldsServiceQuoteFiles, index);
+                                  if (!check.ok) {
+                                    showError(check.message);
+                                    e.target.value = '';
+                                    return;
+                                  }
+                                  setMldsServiceQuoteFiles(prev => {
+                                    const next = [...prev];
+                                    while (next.length <= index) next.push(null);
+                                    next[index] = f;
+                                    return next;
+                                  });
+                                  e.target.value = '';
+                                }}
+                              />
+                            </label>
+                              ) : (
+                                <span style={{ fontSize: '0.75rem', color: '#9ca3af' }} title={`Maximum ${MAX_SERVICE_QUOTE_FILES} devis`}>
+                                  Quota atteint ({MAX_SERVICE_QUOTE_FILES}/{MAX_SERVICE_QUOTE_FILES})
+                                </span>
+                              );
+                            })()}
+                            {mldsServiceQuoteFiles[index] && (
+                              <span style={{ fontSize: '0.75rem', color: '#059669', maxWidth: '160px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} className="truncate">
+                                <span className="truncate" title={mldsServiceQuoteFiles[index]!.name}>{mldsServiceQuoteFiles[index]!.name}</span>
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  style={{ padding: '2px 6px', fontSize: '0.7rem', flexShrink: 0 }}
+                                  onClick={() => {
+                                    setMldsServiceQuoteFiles(prev => {
+                                      const next = [...prev];
+                                      while (next.length <= index) next.push(null);
+                                      next[index] = null;
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  Retirer
+                                </button>
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeFinancialLine('mldsFinancialService', index)}
+                              className="btn btn-outline btn-sm"
+                              style={{ padding: '8px 12px', color: '#dc2626', marginLeft: 'auto' }}
+                            >
+                              <i className="fas fa-trash"></i>
+                            </button>
+                          </div>
                           <input
                             type="text"
                             className="form-input"
-                            value={line.service_name}
-                            onChange={(e) => updateFinancialLine('mldsFinancialService', index, 'name', e.target.value)}
-                            placeholder="Nom du service"
-                            style={{ flex: 2 }}
+                            value={line.comment}
+                            onChange={(e) => updateFinancialLine('mldsFinancialService', index, 'comment', e.target.value)}
+                            placeholder="Commentaire (optionnel)"
+                            style={{ width: '100%', marginTop: '8px' }}
                           />
-                          <input
-                            type="number"
-                            className="form-input"
-                            value={line.price}
-                            onChange={(e) => updateFinancialLine('mldsFinancialService', index, 'price', e.target.value)}
-                            placeholder="Prix en €"
-                            min="0"
-                            step="0.01"
-                            style={{ flex: 1 }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeFinancialLine('mldsFinancialService', index)}
-                            className="btn btn-outline btn-sm"
-                            style={{ padding: '8px 12px', color: '#dc2626' }}
-                          >
-                            <i className="fas fa-trash"></i>
-                          </button>
                         </div>
                       ))
                     )}
@@ -1932,10 +2531,98 @@ développées par les participants"
                   <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits :</span>
                   <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
                     {(
+                      calculateHvLinesTotal(
+                        formData.mldsFinancialHvLines,
+                        Number.parseFloat(formData.mldsFinancialRate) || HV_DEFAULT_RATE
+                      ) +
                       calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
                       calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
                       calculateFinancialLinesTotal(formData.mldsFinancialService)
                     ).toFixed(2)} €
+                  </span>
+                </div>
+              </div>
+
+              <div style={{
+                marginTop: '12px',
+                padding: '16px',
+                background: '#f9fafb',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <h4 style={{
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  color: '#374151',
+                  marginBottom: '8px',
+                  marginTop: '0'
+                }}>
+                  Autres financements
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 12px 0' }}>
+                  Non inclus dans le total Crédits (HV, transport, frais de fonctionnement, prestataires). Ils s&apos;ajoutent au total général.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>Lignes</span>
+                  <button
+                    type="button"
+                    onClick={() => addFinancialLine('mldsFinancialAutres')}
+                    className="btn btn-outline btn-sm"
+                    style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                  >
+                    <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                    Ajouter une ligne
+                  </button>
+                </div>
+                {formData.mldsFinancialAutres.length === 0 ? (
+                  <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#fff', borderRadius: '6px', border: '1px dashed #d1d5db' }}>
+                    Aucune ligne. Utilisez « Ajouter une ligne » pour d&apos;autres sources de financement.
+                  </div>
+                ) : (
+                  formData.mldsFinancialAutres.map((line, index) => (
+                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={line.autres_name}
+                        onChange={(e) => updateFinancialLine('mldsFinancialAutres', index, 'name', e.target.value)}
+                        placeholder="Libellé"
+                        style={{ flex: 2 }}
+                      />
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={line.price}
+                        onChange={(e) => updateFinancialLine('mldsFinancialAutres', index, 'price', e.target.value)}
+                        placeholder="Montant (€)"
+                        min="0"
+                        step="0.01"
+                        style={{ flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeFinancialLine('mldsFinancialAutres', index)}
+                        className="btn btn-outline btn-sm"
+                        style={{ padding: '8px 12px', color: '#dc2626' }}
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  ))
+                )}
+                <div style={{
+                  marginTop: '12px',
+                  padding: '10px',
+                  background: '#fef3c7',
+                  borderRadius: '6px',
+                  border: '1px solid #fcd34d',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ fontWeight: 600, color: '#92400e' }}>Total autres financements :</span>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#92400e' }}>
+                    {calculateAutresFinancementTotal(formData.mldsFinancialAutres).toFixed(2)} €
                   </span>
                 </div>
               </div>
@@ -1954,18 +2641,152 @@ développées par les participants"
                   Total général :
                 </span>
                 <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
-                  {(
-                    calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
-                    calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
-                    calculateFinancialLinesTotal(formData.mldsFinancialService) +
-                    (Number.parseFloat(formData.mldsFinancialHV) || 0) *
-                      (Number.parseFloat(formData.mldsFinancialRate) || HV_DEFAULT_RATE)
-                  ).toFixed(2)} €
+                  {(() => {
+                    const totalCredits =
+                      calculateHvLinesTotal(
+                        formData.mldsFinancialHvLines,
+                        Number.parseFloat(formData.mldsFinancialRate) || HV_DEFAULT_RATE
+                      ) +
+                      calculateFinancialLinesTotal(formData.mldsFinancialTransport) +
+                      calculateFinancialLinesTotal(formData.mldsFinancialOperating) +
+                      calculateFinancialLinesTotal(formData.mldsFinancialService);
+                    const totalAutres = calculateAutresFinancementTotal(formData.mldsFinancialAutres);
+                    return (totalCredits + totalAutres).toFixed(2);
+                  })()} €
                 </span>
               </div>
             </div>
 
           </div>
+
+          {/* Popup sélection co-responsables de partenariat */}
+          {partnershipCoResponsiblesPopup && (
+            <div
+              className="modal-overlay"
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.5)',
+                zIndex: 10000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onClick={() => setPartnershipCoResponsiblesPopup(null)}
+              role="presentation"
+            >
+              <div
+                className="modal-content"
+                style={{
+                  background: 'white',
+                  borderRadius: '8px',
+                  maxWidth: '500px',
+                  width: '90%',
+                  maxHeight: '80vh',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', marginBottom: '4px' }}>Sélectionner les co-responsables</h3>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>{partnershipCoResponsiblesPopup.partnershipName}</p>
+                  </div>
+                  <button type="button" className="p-1 !px-2.5 rounded-full border border-gray-100" onClick={() => setPartnershipCoResponsiblesPopup(null)}>
+                    <i className="fas fa-times" />
+                  </button>
+                </div>
+                <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+                  <div className="search-input-container" style={{ marginBottom: '16px' }}>
+                    <i className="fas fa-search search-icon"></i>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Rechercher un co-responsable..."
+                      value={partnershipCoResponsiblesSearchTerm}
+                      onChange={(e) => setPartnershipCoResponsiblesSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  {(() => {
+                    const contactUsers = getFilteredPartnershipCoResponsibles(
+                      partnershipCoResponsiblesPopup.contactUsers,
+                      partnershipCoResponsiblesSearchTerm
+                    );
+                    const selectedIds = partnershipCoResponsibles[partnershipCoResponsiblesPopup.partnershipId] || [];
+
+                    if (contactUsers.length === 0) {
+                      return (
+                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                          <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                          <p>{partnershipCoResponsiblesSearchTerm ? 'Aucun contact trouvé' : 'Aucun contact disponible pour ce partenariat'}</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="selection-list">
+                        {contactUsers.map((user: any) => {
+                          const userId = user.id?.toString();
+                          const isSelected = selectedIds.includes(userId);
+                          const name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                          return (
+                            <div
+                              key={user.id}
+                              className="selection-item"
+                              onClick={() => togglePartnershipCoResponsible(partnershipCoResponsiblesPopup.partnershipId, userId)}
+                              style={{
+                                cursor: 'pointer',
+                                ...(isSelected
+                                  ? {
+                                      backgroundColor: 'rgba(85, 112, 241, 0.1)',
+                                      border: '1px solid #5570F1',
+                                      borderRadius: '8px',
+                                      boxShadow: '0 0 0 2px rgba(85, 112, 241, 0.15)'
+                                    }
+                                  : {})
+                              }}
+                            >
+                              <AvatarImage
+                                src={user.avatar_url || '/default-avatar.png'}
+                                alt={name}
+                                className="item-avatar"
+                              />
+                              <div className="item-info">
+                                <div className="item-name">{name}</div>
+                                <div className="item-role">{user.role_in_organization || user.role || ''}</div>
+                                {user.email && (
+                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>{user.email}</div>
+                                )}
+                                {user.organization && (
+                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {user.organization}</div>
+                                )}
+                              </div>
+                              {isSelected && (
+                                <div style={{ flexShrink: 0, color: '#5570F1' }} title="Sélectionné">
+                                  <i className="fas fa-check-circle" style={{ fontSize: '1.25rem' }} />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => setPartnershipCoResponsiblesPopup(null)}
+                  >
+                    Terminer
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Form Actions */}
           <div className="flex !flex-wrap gap-2 modal-actions">
