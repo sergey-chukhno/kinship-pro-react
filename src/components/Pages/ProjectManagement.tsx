@@ -238,10 +238,11 @@ const ProjectManagement: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(true);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const overviewDescriptionSectionRef = useRef<HTMLDivElement>(null);
   const cardDescriptionFullBlockRef = useRef<HTMLDivElement>(null);
   const pendingScrollToOverviewDescriptionRef = useRef(false);
+  const pendingScrollToMldsInfoDescriptionRef = useRef(false);
   const [coverImageLoaded, setCoverImageLoaded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -1169,9 +1170,13 @@ const ProjectManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!pendingScrollToOverviewDescriptionRef.current) return;
-    if (activeTab !== 'overview') return;
+    const shouldScrollOverview = pendingScrollToOverviewDescriptionRef.current && activeTab === 'overview';
+    const shouldScrollMldsInfo = pendingScrollToMldsInfoDescriptionRef.current && activeTab === 'mlds-info';
+    if (!shouldScrollOverview && !shouldScrollMldsInfo) return;
+
     pendingScrollToOverviewDescriptionRef.current = false;
+    pendingScrollToMldsInfoDescriptionRef.current = false;
+
     const t = setTimeout(() => {
       overviewDescriptionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 120);
@@ -5625,7 +5630,8 @@ const ProjectManagement: React.FC = () => {
   const handleDescriptionVoirPlus = () => {
     if (!project?.description || project.description.length <= 150) return;
     if (shouldShowTabs()) {
-      if (activeTab === 'overview') {
+      const descriptionTab = isMLDSProject ? 'mlds-info' : 'overview';
+      if (activeTab === descriptionTab) {
         requestAnimationFrame(() => {
           setTimeout(() => {
             overviewDescriptionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -5633,8 +5639,12 @@ const ProjectManagement: React.FC = () => {
         });
         return;
       }
-      pendingScrollToOverviewDescriptionRef.current = true;
-      setActiveTab('overview');
+      if (descriptionTab === 'overview') {
+        pendingScrollToOverviewDescriptionRef.current = true;
+      } else {
+        pendingScrollToMldsInfoDescriptionRef.current = true;
+      }
+      setActiveTab(descriptionTab);
     } else {
       setIsDescriptionExpanded(true);
       requestAnimationFrame(() => {

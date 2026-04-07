@@ -85,7 +85,7 @@
 
 /* Page Gestion du projet : image limitée + hauteur couverture + dépliant équipe */
 .project-info-section-redesigned--pm {
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 0.5fr 1fr;
 }
 
 .project-info-section-redesigned--pm .project-image-column {
