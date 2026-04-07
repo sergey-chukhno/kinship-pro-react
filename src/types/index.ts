@@ -171,6 +171,14 @@ export interface Project {
     role_in_system?: string; // System role (directeur_ecole, principal, benevole, etc.)
     city?: string; // City of the organization
     is_deleted?: boolean; // Indicates if user is soft-deleted
+    /** Contexte d’ajout renvoyé par l’API (GET projet) — ex. partenaire / organisation d’origine */
+    addedFromOrganization?: {
+      organizationType: string;
+      organizationId: number;
+      name?: string;
+      city?: string;
+      roleInProject?: string;
+    };
   }[];
   partner?: {
     id: string;

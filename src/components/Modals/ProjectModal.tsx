@@ -20,6 +20,13 @@ import AvatarImage from '../UI/AvatarImage';
 
 const STUDENT_SYSTEM_ROLES = ['eleve_primaire', 'collegien', 'lyceen', 'etudiant'];
 
+/** Contact partenaire dont le rôle org est référent — exclu de la modale co-responsables partenaire. */
+function isPartnerContactOrgReferent(contact: { role?: string; role_in_organization?: string }): boolean {
+  const raw = (contact.role_in_organization ?? contact.role ?? '').toString();
+  const n = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return n.includes('referent');
+}
+
 interface ProjectModalProps {
   project?: Project | null;
   duplicateFromProject?: Project | null;
@@ -1412,14 +1419,15 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
       id: c.id,
       full_name: c.full_name || '',
       email: c.email || '',
-      role: c.role || '',
+      role: c.role_in_organization || c.role || '',
       role_in_organization: c.role_in_organization || '',
       organization: p.name || ''
     })));
+    const withoutReferents = contactUsersRaw.filter((c: any) => !isPartnerContactOrgReferent(c));
     // Exclude current user (project creator) so they are not proposed as co-owner (creator can be staff in partner orgs)
     const contactUsers = ownerId
-      ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
-      : contactUsersRaw;
+      ? withoutReferents.filter((c: any) => c.id?.toString() !== ownerId)
+      : withoutReferents;
     
     const isAlreadySelected = formData.partners.some((id) => id?.toString() === idStr);
     
@@ -1506,9 +1514,10 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
 
   /** Filtrer les contact users du partenariat pour la popup de co-responsables */
   const getFilteredPartnershipCoResponsibles = (contactUsers: any[], searchTerm: string) => {
-    if (!searchTerm.trim()) return contactUsers;
+    const withoutReferents = (contactUsers || []).filter((u: any) => !isPartnerContactOrgReferent(u));
+    if (!searchTerm.trim()) return withoutReferents;
     const term = searchTerm.toLowerCase();
-    return contactUsers.filter((user: any) => {
+    return withoutReferents.filter((user: any) => {
       const name = (user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim()).toLowerCase();
       const email = (user.email || '').toLowerCase();
       const role = (user.role_in_organization || user.role || '').toLowerCase();
@@ -1565,6 +1574,22 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
   const formatPartnershipDisplayName = (name: string | undefined): string => {
     if (!name) return '';
     return name.replace(/\bPartnership\b/gi, 'Partenariat');
+  };
+
+  /** Libellés des partenariats pour lesquels ce user a été désigné co-responsable (popup contacts partenaire). */
+  const getPartnershipContextLabelsForCoResponsible = (memberId: string): string[] => {
+    const idStr = memberId.toString();
+    const labels: string[] = [];
+    (formData.partners || []).forEach((partnershipId: string) => {
+      const key = String(partnershipId);
+      const ids = partnershipCoResponsibles[key] || [];
+      if (!ids.includes(idStr)) return;
+      const p = availablePartnerships.find((x: any) => String(x.id) === key || x.id === parseInt(key, 10));
+      const partnerNames = (p?.partners || []).map((org: any) => org.name).filter(Boolean).join(', ');
+      const label = partnerNames || formatPartnershipDisplayName(p?.name) || `Partenariat #${partnershipId}`;
+      if (label && !labels.includes(label)) labels.push(label);
+    });
+    return labels;
   };
 
   // Helper to determine if organization should be read-only
@@ -2604,13 +2629,18 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                         {formData.coResponsibles.map((memberId) => {
                           const member = getSelectedMember(memberId);
                           const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '') || (member.classes?.[0]?.school?.name ?? '')) : '';
+                          const partnershipContexts = getPartnershipContextLabelsForCoResponsible(memberId);
                           return member ? (
                             <div key={memberId} className="selected-member">
                               <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()} className="selected-avatar" />
                               <div className="selected-info">
                                 <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
                                 <div className="selected-role">{translateRole(member.role_in_system ?? member.role ?? '')}</div>
-                                
+                                {partnershipContexts.length > 0 && (
+                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.2rem', fontWeight: 600 }}>
+                                    Co-responsable via le partenariat : {partnershipContexts.join(' · ')}
+                                  </div>
+                                )}
                                 {memberOrg && (
                                   <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
                                 )}

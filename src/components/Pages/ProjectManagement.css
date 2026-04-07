@@ -12,7 +12,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .header-left {
@@ -68,17 +68,117 @@
   padding: 0;
 }
 
+/* Grille 2 colonnes — aussi utilisée par SharedProjectInfo, PublicProjectInfo, modales */
 .project-info-section-redesigned {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  align-items: start;
   gap: 2rem;
   margin-bottom: 2rem;
   padding: 0;
-  background: white;
+  background: var(--card-bg, #ffffff);
   border-radius: 16px;
   border: 1px solid var(--border, #e5e7eb);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+}
+
+/* Page Gestion du projet : image limitée + hauteur couverture + dépliant équipe */
+.project-info-section-redesigned--pm {
+  grid-template-columns: 0.5fr 1fr;
+}
+
+.project-info-section-redesigned--pm .project-image-column {
+  width: min(100%, 380px);
+  max-width: 380px;
+  align-self: start;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.project-info-section-redesigned--pm .project-team-details {
+  border-top: 1px solid var(--border, #e5e7eb);
+  background: var(--card-bg, #ffffff);
+  margin-top: 0.25rem;
+}
+
+.project-team-details__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary, #1f2937);
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.project-team-details__summary::-webkit-details-marker {
+  display: none;
+}
+
+.project-team-details__summary:hover {
+  background: rgba(85, 112, 241, 0.04);
+}
+
+.project-team-details__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.project-team-details__icon {
+  color: var(--primary, #5570f1);
+  font-size: 1rem;
+}
+
+.project-team-details__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+}
+
+.project-team-details__hint--open {
+  display: none;
+}
+
+.project-team-details[open] .project-team-details__hint--closed {
+  display: none;
+}
+
+.project-team-details[open] .project-team-details__hint--open {
+  display: inline;
+}
+
+.project-team-details__chevron {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+.project-team-details[open] .project-team-details__chevron {
+  transform: rotate(180deg);
+}
+
+.project-details-bottom--collapsible {
+  border-top: none;
+  padding: 0 1.25rem 1.25rem;
+  margin: 0;
+}
+
+.project-info-section-redesigned--pm .project-details-bottom--collapsible {
+  padding: 0 0 0.5rem 0;
 }
 
 .project-image-column {
@@ -99,11 +199,32 @@
   border-radius: 12px;
 }
 
+.project-info-section-redesigned--pm .project-cover-large {
+  height: 220px;
+  max-height: min(36vh, 280px);
+  flex-shrink: 0;
+}
+
 .project-cover-large img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: opacity 0.3s ease;
+}
+
+/* Cover Image Skeleton */
+.cover-image-skeleton {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 12px;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* Photo Navigation */
@@ -323,7 +444,7 @@
   left: 0;
   right: 0;
   height: 1.5rem;
-  background: linear-gradient(transparent, white);
+  background: linear-gradient(transparent, var(--card-bg, #ffffff));
   pointer-events: none;
 }
 
@@ -421,6 +542,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.project-info-section-redesigned--pm .project-meta-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
 }
 
 .meta-item {
@@ -675,11 +803,16 @@
 /* Tab Content */
 .tab-content {
   background: white;
-  border-radius: 0 0 12px 12px;
+  border-radius: 12px;
   border: 1px solid var(--border, #e5e7eb);
-  border-top: none;
   padding: 2rem;
   min-height: 400px;
+}
+
+/* Onglets juste au-dessus du panneau (ex. participant avec droit de badges) */
+.project-management-tabs + .tab-content {
+  border-radius: 0 0 12px 12px;
+  border-top: none;
 }
 
 .tab-content.active {
@@ -698,6 +831,30 @@
 .tab-content.overview-tab-content {
   min-height: auto;
   padding-bottom: 1rem;
+}
+
+/* Overview Description Section (full description in overview tab) */
+.overview-description-section {
+  margin-top: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+}
+
+.overview-description-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin: 0 0 0.75rem 0;
+}
+
+.overview-description-text {
+  margin: 0;
+  line-height: 1.7;
+  color: var(--text-secondary, #6b7280);
+  font-size: 0.9rem;
+  white-space: pre-line;
 }
 
 /* Use Dashboard stat-card styling */
@@ -1357,7 +1514,18 @@
     grid-template-columns: 1fr;
   }
 
-  .project-image-column .project-cover-large {
+  .project-info-section-redesigned--pm .project-image-column {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .project-info-section-redesigned--pm .project-cover-large {
+    height: 200px;
+    max-height: 42vh;
+    min-height: 160px;
+  }
+
+  .project-info-section-redesigned:not(.project-info-section-redesigned--pm) .project-image-column .project-cover-large {
     min-height: 300px;
   }
 

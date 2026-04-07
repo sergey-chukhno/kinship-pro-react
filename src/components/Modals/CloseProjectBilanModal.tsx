@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './Modal.css';
-import type { MLDSInformationAttributes, MldsBilanPayload } from '../../api/Projects';
+import { getMldsServiceLinesFromMldsInfo, type MLDSInformationAttributes, type MldsBilanPayload } from '../../api/Projects';
 import { hvLineHours } from '../../utils/mldsHvLines';
 
 export interface BilanData {
@@ -109,13 +109,14 @@ function bilanDataFromMlds(mlds: CloseProjectBilanModalProps['mldsInfo']): Bilan
         }))
       : [lineOperating()];
 
+  const serviceRows = getMldsServiceLinesFromMldsInfo(mlds);
   const service =
-    Array.isArray(mlds.financial_service) && mlds.financial_service.length > 0
-      ? mlds.financial_service.map(l => ({
+    serviceRows.length > 0
+      ? serviceRows.map(l => ({
           service_name: String(l.service_name ?? ''),
           price: l.price != null ? String(l.price) : '',
           hours: l.hours != null && l.hours !== '' ? String(l.hours) : '',
-          comment: readLineComment((l as { comment?: unknown }).comment)
+          comment: readLineComment(l.comment)
         }))
       : [lineService()];
 
@@ -243,12 +244,16 @@ export function buildMldsBilanPayload(bilanData: BilanData, baseMlds?: MldsBilan
       comment: payloadLineComment(r.comment) as string | null
     }));
 
+  const baseServiceLines = baseMlds ? getMldsServiceLinesFromMldsInfo(baseMlds) : [];
+
   const service = bilanData.financial_service
     .map((r, i) => {
-      const b = baseMlds?.financial_service?.[i];
+      const b = baseServiceLines[i];
       const service_name = r.service_name.trim() || (b?.service_name != null ? String(b.service_name) : '');
       const price = r.price.trim() || (b?.price != null ? String(b.price) : '');
-      const hours = r.hours.trim() || (b?.hours != null && String(b.hours) !== '' ? String(b.hours) : '');
+      const hours =
+        r.hours.trim() ||
+        (b?.hours != null && String(b.hours) !== '' ? String(b.hours) : '');
       return { service_name, price, hours, comment: r.comment };
     })
     .filter(r => r.service_name !== '' || r.price !== '' || r.hours !== '' || r.comment.trim() !== '')
@@ -365,8 +370,10 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
   const previousValues = useMemo(() => {
     const m = mldsInfo;
     const formatNum = (v: number) => (Number.isNaN(v) ? '—' : v.toFixed(2));
-    const sumPrices = (lines: Array<{ price?: string }> | null | undefined) =>
+    const sumPrices = (lines: Array<{ price?: string | number }> | null | undefined) =>
       Array.isArray(lines) ? lines.reduce((acc, l) => acc + (Number.parseFloat(String(l.price || '0')) || 0), 0) : 0;
+
+    const serviceLinesForSum = getMldsServiceLinesFromMldsInfo(m);
 
     const hse = m?.financial_hse != null ? Number(m.financial_hse) : null;
     const hvScalar = m?.financial_hv != null ? Number(m.financial_hv) : null;
@@ -390,7 +397,7 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
       expected_participants: exp,
       transport: sumPrices(m?.financial_transport ?? null) > 0 ? `${formatNum(sumPrices(m?.financial_transport ?? null))} €` : '—',
       operating: sumPrices(m?.financial_operating ?? null) > 0 ? `${formatNum(sumPrices(m?.financial_operating ?? null))} €` : '—',
-      service: sumPrices(m?.financial_service ?? null) > 0 ? `${formatNum(sumPrices(m?.financial_service ?? null))} €` : '—',
+      service: sumPrices(serviceLinesForSum) > 0 ? `${formatNum(sumPrices(serviceLinesForSum))} €` : '—',
       autres:
         sumPrices((m as { financial_autres_financements?: Array<{ price?: string }> })?.financial_autres_financements ?? null) > 0
           ? `${formatNum(sumPrices((m as { financial_autres_financements?: Array<{ price?: string }> })?.financial_autres_financements ?? null))} €`
@@ -450,9 +457,11 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
                     <input
                       type="text"
                       value={form.financial_rate}
+                      disabled={true}
+                      className="!cursor-not-allowed !opacity-50"
                       onChange={e => setForm(f => ({ ...f, financial_rate: e.target.value }))}
                       style={inputStyle}
-                      disabled={isSubmitting}
+                      // disabled={isSubmitting}
                       placeholder="ex. 50.75"
                     />
                   </label>
@@ -468,7 +477,7 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
                     rows={2}
                   />
                 </label>
-                <label style={{ display: 'block', marginTop: '0.5rem' }}>
+                {/* <label style={{ display: 'block', marginTop: '0.5rem' }}>
                   <span style={labelStyle}>Commentaire sur le taux</span>
                   <textarea
                     value={form.financial_rate_comment}
@@ -478,7 +487,7 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
                     placeholder="Commentaire sur le taux"
                     rows={2}
                   />
-                </label>
+                </label> */}
               </section>
 
               <section style={sectionStyle}>
