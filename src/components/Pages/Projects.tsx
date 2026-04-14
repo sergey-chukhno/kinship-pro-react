@@ -91,10 +91,22 @@ const Projects: React.FC = () => {
   const [visibilityFilter, setVisibilityFilter] = useState('all');
   
   // MLDS-specific filter states
-  const [mldsRequestedByFilter, setMldsRequestedByFilter] = useState('all');
-  const [mldsTargetAudienceFilter, setMldsTargetAudienceFilter] = useState('all');
-  const [mldsActionObjectivesFilter, setMldsActionObjectivesFilter] = useState('all');
-  const [mldsOrganizationFilter, setMldsOrganizationFilter] = useState('all');
+  // Keep filters independent between Persévérance vs Remédiation tabs
+  const [mldsPerseveranceRequestedByFilter, setMldsPerseveranceRequestedByFilter] = useState('all');
+  const [mldsPerseveranceTargetAudienceFilter, setMldsPerseveranceTargetAudienceFilter] = useState('all');
+  const [mldsPerseveranceActionObjectivesFilter, setMldsPerseveranceActionObjectivesFilter] = useState('all');
+  const [mldsPerseveranceOrganizationFilter, setMldsPerseveranceOrganizationFilter] = useState('all');
+  const [mldsPerseveranceStatusFilter, setMldsPerseveranceStatusFilter] = useState('all');
+  const [mldsPerseveranceStartDate, setMldsPerseveranceStartDate] = useState('');
+  const [mldsPerseveranceEndDate, setMldsPerseveranceEndDate] = useState('');
+
+  const [mldsRemediationRequestedByFilter, setMldsRemediationRequestedByFilter] = useState('all');
+  const [mldsRemediationTargetAudienceFilter, setMldsRemediationTargetAudienceFilter] = useState('all');
+  const [mldsRemediationActionObjectivesFilter, setMldsRemediationActionObjectivesFilter] = useState('all');
+  const [mldsRemediationOrganizationFilter, setMldsRemediationOrganizationFilter] = useState('all');
+  const [mldsRemediationStatusFilter, setMldsRemediationStatusFilter] = useState('all');
+  const [mldsRemediationStartDate, setMldsRemediationStartDate] = useState('');
+  const [mldsRemediationEndDate, setMldsRemediationEndDate] = useState('');
   const [archivedTypeFilter, setArchivedTypeFilter] = useState<'all' | 'classic' | 'mlds'>('all');
 
   // Loading states
@@ -959,10 +971,22 @@ const Projects: React.FC = () => {
   useEffect(() => {
     // Reset MLDS filters when leaving MLDS tab
     if (activeTab !== 'mlds-projects' && activeTab !== 'mlds-remediation-projects') {
-      setMldsRequestedByFilter('all');
-      setMldsTargetAudienceFilter('all');
-      setMldsActionObjectivesFilter('all');
-      setMldsOrganizationFilter('all');
+      setMldsPerseveranceRequestedByFilter('all');
+      setMldsPerseveranceTargetAudienceFilter('all');
+      setMldsPerseveranceActionObjectivesFilter('all');
+      setMldsPerseveranceOrganizationFilter('all');
+      setMldsPerseveranceStatusFilter('all');
+      setMldsPerseveranceStartDate('');
+      setMldsPerseveranceEndDate('');
+
+      setMldsRemediationRequestedByFilter('all');
+      setMldsRemediationTargetAudienceFilter('all');
+      setMldsRemediationActionObjectivesFilter('all');
+      setMldsRemediationOrganizationFilter('all');
+      setMldsRemediationStatusFilter('all');
+      setMldsRemediationStartDate('');
+      setMldsRemediationEndDate('');
+
       // Also reset general filters to avoid "empty list" surprises after MLDS filtering
       setPathwayFilter('all');
       setVisibilityFilter('all');
@@ -1050,7 +1074,35 @@ const Projects: React.FC = () => {
       fetchMLDSProjects(1, 'remediation');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organizationFilter, statusFilter, pathwayFilter, searchTerm, startDate, endDate, visibilityFilter, mldsRequestedByFilter, mldsTargetAudienceFilter, mldsActionObjectivesFilter, mldsOrganizationFilter, isPersonalUser, isTeacher, activeTab]);
+  }, [
+    organizationFilter,
+    statusFilter,
+    pathwayFilter,
+    searchTerm,
+    startDate,
+    endDate,
+    visibilityFilter,
+
+    mldsPerseveranceRequestedByFilter,
+    mldsPerseveranceTargetAudienceFilter,
+    mldsPerseveranceActionObjectivesFilter,
+    mldsPerseveranceOrganizationFilter,
+    mldsPerseveranceStatusFilter,
+    mldsPerseveranceStartDate,
+    mldsPerseveranceEndDate,
+
+    mldsRemediationRequestedByFilter,
+    mldsRemediationTargetAudienceFilter,
+    mldsRemediationActionObjectivesFilter,
+    mldsRemediationOrganizationFilter,
+    mldsRemediationStatusFilter,
+    mldsRemediationStartDate,
+    mldsRemediationEndDate,
+
+    isPersonalUser,
+    isTeacher,
+    activeTab
+  ]);
 
 
   const handleCreateProject = () => {
@@ -1360,6 +1412,26 @@ const Projects: React.FC = () => {
   // For brouillons tab, only show draft projects
   // For Projets tab (nouveautes) and mes-projets, exclude draft projects (they have their own tab)
   // For archives tab, only show archived projects
+  const isMldsPerseveranceTab = activeTab === 'mlds-projects';
+  const isMldsRemediationTab = activeTab === 'mlds-remediation-projects';
+  const isMldsTab = isMldsPerseveranceTab || isMldsRemediationTab;
+
+  const mldsRequestedByFilter = isMldsRemediationTab ? mldsRemediationRequestedByFilter : mldsPerseveranceRequestedByFilter;
+  const setMldsRequestedByFilter = isMldsRemediationTab ? setMldsRemediationRequestedByFilter : setMldsPerseveranceRequestedByFilter;
+  const mldsTargetAudienceFilter = isMldsRemediationTab ? mldsRemediationTargetAudienceFilter : mldsPerseveranceTargetAudienceFilter;
+  const setMldsTargetAudienceFilter = isMldsRemediationTab ? setMldsRemediationTargetAudienceFilter : setMldsPerseveranceTargetAudienceFilter;
+  const mldsActionObjectivesFilter = isMldsRemediationTab ? mldsRemediationActionObjectivesFilter : mldsPerseveranceActionObjectivesFilter;
+  const setMldsActionObjectivesFilter = isMldsRemediationTab ? setMldsRemediationActionObjectivesFilter : setMldsPerseveranceActionObjectivesFilter;
+  const mldsOrganizationFilter = isMldsRemediationTab ? mldsRemediationOrganizationFilter : mldsPerseveranceOrganizationFilter;
+  const setMldsOrganizationFilter = isMldsRemediationTab ? setMldsRemediationOrganizationFilter : setMldsPerseveranceOrganizationFilter;
+
+  const mldsStatusFilter = isMldsRemediationTab ? mldsRemediationStatusFilter : mldsPerseveranceStatusFilter;
+  const setMldsStatusFilter = isMldsRemediationTab ? setMldsRemediationStatusFilter : setMldsPerseveranceStatusFilter;
+  const mldsStartDate = isMldsRemediationTab ? mldsRemediationStartDate : mldsPerseveranceStartDate;
+  const setMldsStartDate = isMldsRemediationTab ? setMldsRemediationStartDate : setMldsPerseveranceStartDate;
+  const mldsEndDate = isMldsRemediationTab ? mldsRemediationEndDate : mldsPerseveranceEndDate;
+  const setMldsEndDate = isMldsRemediationTab ? setMldsRemediationEndDate : setMldsPerseveranceEndDate;
+
   const filteredProjects = projectsToDisplay.filter(project => {
     // Archives tab: only archived, with type filter
     if (activeTab === 'archives') {
@@ -1388,22 +1460,23 @@ const Projects: React.FC = () => {
       project.status.toLowerCase().includes(searchTerm.toLowerCase());
 
     // Pathway filter (skip for MLDS projects and brouillons)
-    const matchesPathway = activeTab === 'mlds-projects' || activeTab === 'brouillons' || pathwayFilter === 'all' || project.pathway === pathwayFilter;
+    const matchesPathway = isMldsTab || activeTab === 'brouillons' || pathwayFilter === 'all' || project.pathway === pathwayFilter;
 
     // Status filter (skip for brouillons tab - all shown are drafts)
-    const matchesStatus = activeTab === 'brouillons' || statusFilter === 'all' ||
-      project.status === statusFilter ||
-      (statusFilter === 'draft' && project.status === 'draft') ||
-      (statusFilter === 'À venir' && project.status === 'coming') ||
-      (statusFilter === 'En cours' && project.status === 'in_progress') ||
-      (statusFilter === 'Terminée' && project.status === 'ended') ||
-      (statusFilter === 'À valider' && (project.status === 'pending_validation'));
+    const effectiveStatusFilter = isMldsTab ? mldsStatusFilter : statusFilter;
+    const matchesStatus = activeTab === 'brouillons' || effectiveStatusFilter === 'all' ||
+      project.status === effectiveStatusFilter ||
+      (effectiveStatusFilter === 'draft' && project.status === 'draft') ||
+      (effectiveStatusFilter === 'À venir' && project.status === 'coming') ||
+      (effectiveStatusFilter === 'En cours' && project.status === 'in_progress') ||
+      (effectiveStatusFilter === 'Terminée' && project.status === 'ended') ||
+      (effectiveStatusFilter === 'À valider' && (project.status === 'pending_validation'));
 
     // Organization filter is now handled by API, no client-side filtering needed
     const matchesOrganization = true;
 
     // Visibility filter (skip for MLDS projects and brouillons)
-    const matchesVisibility = activeTab === 'mlds-projects' || activeTab === 'brouillons' || visibilityFilter === 'all' ||
+    const matchesVisibility = isMldsTab || activeTab === 'brouillons' || visibilityFilter === 'all' ||
       (visibilityFilter === 'public' && (!project.visibility || project.visibility === 'public')) ||
       (visibilityFilter === 'private' && project.visibility === 'private');
 
@@ -1411,12 +1484,15 @@ const Projects: React.FC = () => {
     let matchesStartDate = true;
     let matchesEndDate = true;
     
-    if (startDate && project.startDate) {
-      matchesStartDate = new Date(project.startDate) >= new Date(startDate);
+    const effectiveStartDate = isMldsTab ? mldsStartDate : startDate;
+    const effectiveEndDate = isMldsTab ? mldsEndDate : endDate;
+
+    if (effectiveStartDate && project.startDate) {
+      matchesStartDate = new Date(project.startDate) >= new Date(effectiveStartDate);
     }
     
-    if (endDate && project.endDate) {
-      matchesEndDate = new Date(project.endDate) <= new Date(endDate);
+    if (effectiveEndDate && project.endDate) {
+      matchesEndDate = new Date(project.endDate) <= new Date(effectiveEndDate);
     }
 
     // MLDS-specific filters (only apply if MLDS tab is active)
@@ -1425,7 +1501,7 @@ const Projects: React.FC = () => {
     let matchesMldsActionObjectives = true;
     let matchesMldsOrganization = true;
     
-    if (activeTab === 'mlds-projects' && project.mlds_information) {
+    if (isMldsTab && project.mlds_information) {
       // Filter by requested_by
       if (mldsRequestedByFilter !== 'all') {
         matchesMldsRequestedBy = project.mlds_information.requested_by === mldsRequestedByFilter;
@@ -1860,8 +1936,8 @@ const Projects: React.FC = () => {
                   <select
                     id="status-filter"
                     className="filter-select"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    value={mldsStatusFilter}
+                    onChange={(e) => setMldsStatusFilter(e.target.value)}
                   >
                     <option value="all">Tous les statuts</option>
                     <option value="draft">Brouillon</option>
@@ -1878,8 +1954,8 @@ const Projects: React.FC = () => {
                     id="start-date-filter"
                     type="date"
                     className="filter-select"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    value={mldsStartDate}
+                    onChange={(e) => setMldsStartDate(e.target.value)}
                   />
                 </div>
                 <div className="filter-group">
@@ -1888,8 +1964,8 @@ const Projects: React.FC = () => {
                     id="end-date-filter"
                     type="date"
                     className="filter-select"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    value={mldsEndDate}
+                    onChange={(e) => setMldsEndDate(e.target.value)}
                   />
                 </div>
               </>
