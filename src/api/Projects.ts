@@ -1455,6 +1455,14 @@ export const postMldsBilan = async (projectId: number, payload: MldsBilanPayload
 };
 
 /**
+ * Explicit manual project closure (POST /api/v1/projects/:id/close)
+ */
+export const closeProject = async (projectId: number): Promise<any> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/close`);
+    return response.data;
+};
+
+/**
  * Join a project (request to join)
  */
 export const joinProject = async (projectId: number): Promise<{

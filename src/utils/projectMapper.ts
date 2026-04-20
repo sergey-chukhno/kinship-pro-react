@@ -572,7 +572,8 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
             });
         })(),
         mlds_information: apiProject.mlds_information || undefined, // Map MLDS information
-        rs: apiProject.rs || undefined // Map RS field
+        rs: apiProject.rs || undefined, // Map RS field
+        showEndDateWarning: Boolean(apiProject.show_end_date_warning)
     };
 };
 
