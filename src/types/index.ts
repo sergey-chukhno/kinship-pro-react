@@ -200,6 +200,7 @@ export interface Project {
     level?: string;
   }>;
   rs?: string; // RS field for MLDS projects
+  showEndDateWarning?: boolean;
 }
 
 export interface EventParticipant {
