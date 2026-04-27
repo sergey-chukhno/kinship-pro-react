@@ -1132,6 +1132,7 @@ const ProjectManagement: React.FC = () => {
   const canEditProject =
     userProjectRole === 'owner' ||
     (isMLDSProject && userProjectRole === 'co-owner');
+  const canEditProjectVisibility = userProjectRole === 'owner';
 
   /**
    * Determine if tabs should be shown based on user type and role
@@ -8651,10 +8652,14 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                     value={editForm.visibility}
                     onChange={(e) => setEditForm(prev => ({ ...prev, visibility: e.target.value as 'public' | 'private' }))}
                     className="form-input"
+                    disabled={!canEditProjectVisibility}
                   >
                     <option value="public">Projet public</option>
                     <option value="private">Projet privé</option>
                   </select>
+                  {!canEditProjectVisibility && (
+                    <small className="text-muted">Seul le responsable du projet peut modifier la visibilite.</small>
+                  )}
                 </div>
               )}
 
