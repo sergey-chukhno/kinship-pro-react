@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags, getOrCreateProjectShareLink, getMldsServiceLinesFromMldsInfo } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags, getOrCreateProjectShareLink, getMldsServiceLinesFromMldsInfo } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -17,6 +17,7 @@ import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/
 import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
 import CloseProjectBilanModal, { BilanData, buildMldsBilanPayload } from '../Modals/CloseProjectBilanModal';
+import ConfirmModal from '../Modals/ConfirmModal';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
@@ -29,6 +30,12 @@ import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
 import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import { translateRole } from '../../utils/roleTranslations';
+import {
+  buildCloseProjectConfirmationMessage,
+  canOwnerCloseProject,
+  isProjectReadOnly,
+  shouldShowEndDateWarningBanner
+} from '../../utils/projectStateGuards';
 import {
   countServiceQuoteFiles,
   MAX_SERVICE_QUOTE_FILES,
@@ -433,7 +440,7 @@ const ProjectManagement: React.FC = () => {
   const isMLDSProject = apiProjectData?.mlds_information != null;
 
   // Check if project is ended - disable all actions if true
-  const isProjectEnded = project?.status === 'ended' || project?.status === 'archived';
+  const isProjectEnded = isProjectReadOnly(project?.status);
 
   // State for project statistics
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
@@ -443,6 +450,7 @@ const ProjectManagement: React.FC = () => {
   const [userProjectRole, setUserProjectRole] = useState<string | null>(null);
   const [isJoiningProject, setIsJoiningProject] = useState(false);
   const [isClosingProject, setIsClosingProject] = useState(false);
+  const [isCloseProjectConfirmOpen, setIsCloseProjectConfirmOpen] = useState(false);
   const [isCloseProjectModalOpen, setIsCloseProjectModalOpen] = useState(false);
 
   // State for badge assignment permissions
@@ -869,15 +877,22 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
+  const closeProjectConfirmationMessage = buildCloseProjectConfirmationMessage(project?.title || '');
+
   /**
-   * Open the close-project flow: for MLDS projects, open the bilan modal; for others, close directly (status → ended).
+   * Open close-project confirmation flow.
    */
   const openCloseProjectModal = () => {
-    if (!project?.id || (project.status !== 'in_progress' && project.status !== 'coming')) return;
+    if (!project?.id || project.status !== 'in_progress') return;
     if (userProjectRole !== 'owner') {
       showError('Seul le responsable du projet peut le clôturer.');
       return;
     }
+    setIsCloseProjectConfirmOpen(true);
+  };
+
+  const handleConfirmCloseIntent = () => {
+    setIsCloseProjectConfirmOpen(false);
     if (isMLDSProject) {
       setIsCloseProjectModalOpen(true);
     } else {
@@ -886,7 +901,8 @@ const ProjectManagement: React.FC = () => {
   };
 
   /**
-   * Close the project: set status to "ended" (called after user confirms in modal).
+   * Close project explicitly via dedicated backend action.
+   * For MLDS, send bilan first (which closes project server-side).
    */
   const confirmCloseProject = async (bilanData?: BilanData) => {
     if (!project?.id) return;
@@ -899,19 +915,14 @@ const ProjectManagement: React.FC = () => {
         return;
       }
 
-      // Envoyer le bilan MLDS si fourni (POST /api/v1/projects/:id/mlds_bilan)
+      // MLDS closure path: POST /mlds_bilan performs closure server-side.
       if (bilanData) {
         const mldsPayload = buildMldsBilanPayload(bilanData, apiProjectData?.mlds_information ?? null);
         await postMldsBilan(projectId, mldsPayload);
+      } else {
+        // Standard closure path: explicit close endpoint.
+        await closeProject(projectId);
       }
-
-      const payload = {
-        project: {
-          status: 'ended' as const
-        }
-      };
-
-      await updateProject(projectId, payload as any, null, []);
 
       const response = await getProjectById(projectId);
       const apiProject = response.data;
@@ -925,6 +936,9 @@ const ProjectManagement: React.FC = () => {
       console.error('Error closing project:', error);
       if (error?.response?.status === 403) {
         showError('Vous n’êtes pas autorisé à clôturer ce projet.');
+      } else if (error?.response?.status === 422) {
+        const details = error?.response?.data?.details;
+        showError(Array.isArray(details) ? details.join(', ') : (error?.response?.data?.message || 'Clôture impossible.'));
       } else {
         showError('Une erreur est survenue lors de la clôture du projet.');
       }
@@ -1029,6 +1043,10 @@ const ProjectManagement: React.FC = () => {
   // Handler for joining a project
   const handleJoinProject = async () => {
     if (!project?.id) return;
+    if (isProjectEnded) {
+      showError('Impossible de rejoindre un projet terminé ou archivé.');
+      return;
+    }
 
     setIsJoiningProject(true);
     try {
@@ -1048,7 +1066,10 @@ const ProjectManagement: React.FC = () => {
       setApiProjectData(apiProject);
     } catch (error: any) {
       console.error('Error joining project:', error);
-      const errorMessage = error.response?.data?.message || 'Erreur lors de la demande de rejoindre le projet';
+      const errorMessage =
+        error.response?.data?.details?.join(', ') ||
+        error.response?.data?.message ||
+        'Erreur lors de la demande de rejoindre le projet';
       showError(errorMessage);
     } finally {
       setIsJoiningProject(false);
@@ -5681,7 +5702,7 @@ const ProjectManagement: React.FC = () => {
         </div>
         <div className="header-right">
           {/* Close project button: only for owner, when project is in progress */}
-          {!isProjectEnded && (project.status === 'in_progress' || project.status === 'coming') && userProjectRole === 'owner' && !isReadOnlyMode && (
+          {canOwnerCloseProject(project.status, userProjectRole, isReadOnlyMode) && (
             <button
               type="button"
               className="btn btn-secondary"
@@ -5717,6 +5738,25 @@ const ProjectManagement: React.FC = () => {
           )}
         </div>
       </div>
+
+      {shouldShowEndDateWarningBanner(project.status, project?.showEndDateWarning) && (
+        <div
+          style={{
+            margin: '0 0 0.75rem 0',
+            padding: '0.75rem 1rem',
+            borderRadius: '8px',
+            border: '1px solid #f59e0b',
+            background: '#fffbeb',
+            color: '#92400e',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem'
+          }}
+        >
+          <i className="fas fa-triangle-exclamation" />
+          <span>Vous avez un projet dont la date de fin est dépassée. Souhaitez-vous le clôturer ?</span>
+        </div>
+      )}
 
       {/* Project Info Section */}
       <div className="project-management-body">
@@ -8415,6 +8455,17 @@ const ProjectManagement: React.FC = () => {
         )}
 
       </div>
+
+      <ConfirmModal
+        isOpen={isCloseProjectConfirmOpen}
+        title="Clôture définitive du projet"
+        message={closeProjectConfirmationMessage}
+        confirmText="Confirmer la clôture définitive"
+        cancelText="Annuler"
+        onConfirm={handleConfirmCloseIntent}
+        onCancel={() => setIsCloseProjectConfirmOpen(false)}
+        variant="warning"
+      />
 
       {/* Modal bilan à la clôture du projet (MLDS uniquement) */}
       {isCloseProjectModalOpen && isMLDSProject && (

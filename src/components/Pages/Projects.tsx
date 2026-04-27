@@ -7,18 +7,20 @@ import MLDSProjectModal from '../Modals/MLDSProjectModal';
 import SubscriptionRequiredModal from '../Modals/SubscriptionRequiredModal';
 import ProjectCard from '../Projects/ProjectCard';
 import CloseProjectBilanModal, { BilanData, buildMldsBilanPayload } from '../Modals/CloseProjectBilanModal';
+import ConfirmModal from '../Modals/ConfirmModal';
 import './Projects.css';
 
 // Imports API (Ajustez les chemins si nécessaire, basés sur la structure de Members.tsx)
 import { getCurrentUser } from '../../api/Authentication';
 import { deleteProject, getAllProjects, getAllUserProjects, getUserOrganizationProjects } from '../../api/Project';
 import { getSchoolProjects, getCompanyProjects } from '../../api/Dashboard';
-import { getTeacherProjects, updateProject as updateProjectAPI, postMldsBilan } from '../../api/Projects';
+import { closeProject, getTeacherProjects, postMldsBilan } from '../../api/Projects';
 import { mapApiProjectToFrontendProject, getOrganizationId } from '../../utils/projectMapper';
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
 import { useToast } from '../../hooks/useToast';
 import { isUnder15 } from '../../utils/ageUtils';
+import { buildCloseProjectConfirmationMessage } from '../../utils/projectStateGuards';
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
@@ -32,6 +34,7 @@ const Projects: React.FC = () => {
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isCloseProjectConfirmOpen, setIsCloseProjectConfirmOpen] = useState(false);
   const [isCloseProjectModalOpen, setIsCloseProjectModalOpen] = useState(false);
   const [projectToClose, setProjectToClose] = useState<Project | null>(null);
   const [isClosingProject, setIsClosingProject] = useState(false);
@@ -1228,16 +1231,24 @@ const Projects: React.FC = () => {
   };
 
   const handleCloseProject = (project: Project) => {
-    const isMlds = project?.mlds_information != null;
+    setProjectToClose(project);
+    setIsCloseProjectConfirmOpen(true);
+  };
+
+  const confirmCloseProjectIntent = () => {
+    if (!projectToClose) return;
+    setIsCloseProjectConfirmOpen(false);
+
+    const isMlds = projectToClose?.mlds_information != null;
     if (isMlds) {
-      setProjectToClose(project);
       setIsCloseProjectModalOpen(true);
     } else {
-      confirmCloseProject(undefined, project);
+      confirmCloseProject(undefined, projectToClose);
     }
   };
 
   const cancelCloseProject = () => {
+    setIsCloseProjectConfirmOpen(false);
     setIsCloseProjectModalOpen(false);
     setProjectToClose(null);
   };
@@ -1256,18 +1267,14 @@ const Projects: React.FC = () => {
         return;
       }
 
-      // Envoyer le bilan MLDS si fourni (POST /api/v1/projects/:id/mlds_bilan)
+      // MLDS closure path: POST /mlds_bilan performs closure server-side.
       if (bilanData) {
         const payload = buildMldsBilanPayload(bilanData, proj.mlds_information ?? null);
         await postMldsBilan(projectId, payload);
+      } else {
+        // Standard closure path: explicit close endpoint.
+        await closeProject(projectId);
       }
-
-      // Update project status to 'ended'
-      await updateProjectAPI(projectId, {
-        project: {
-          status: 'ended'
-        }
-      });
 
       // Update local state
       setProjects(prev => prev.map(p => p.id === proj.id ? { ...p, status: 'ended' } : p));
@@ -1276,9 +1283,16 @@ const Projects: React.FC = () => {
 
       setIsCloseProjectModalOpen(false);
       setProjectToClose(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error closing project:', error);
-      showError('Erreur lors de la clôture du projet.');
+      if (error?.response?.status === 403) {
+        showError('Vous n’êtes pas autorisé à clôturer ce projet.');
+      } else if (error?.response?.status === 422) {
+        const details = error?.response?.data?.details;
+        showError(Array.isArray(details) ? details.join(', ') : (error?.response?.data?.message || 'Clôture impossible.'));
+      } else {
+        showError('Erreur lors de la clôture du projet.');
+      }
     } finally {
       setIsClosingProject(false);
     }
@@ -1329,6 +1343,8 @@ const Projects: React.FC = () => {
       setProjectToDelete(null);
     }
   };
+
+  const closeProjectConfirmationMessage = buildCloseProjectConfirmationMessage(projectToClose?.title || '');
 
   const cancelDeleteProject = () => {
     setIsDeleteModalOpen(false);
@@ -2368,6 +2384,17 @@ const Projects: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={isCloseProjectConfirmOpen && !!projectToClose}
+        title="Clôture définitive du projet"
+        message={closeProjectConfirmationMessage}
+        confirmText="Confirmer la clôture définitive"
+        cancelText="Annuler"
+        onConfirm={confirmCloseProjectIntent}
+        onCancel={cancelCloseProject}
+        variant="warning"
+      />
 
       {/* Modal bilan à la clôture du projet (projets MLDS uniquement) */}
       {isCloseProjectModalOpen && projectToClose && projectToClose.mlds_information != null && (
