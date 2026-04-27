@@ -138,16 +138,15 @@ const Projects: React.FC = () => {
       
       // Pour les utilisateurs personnels, toujours récupérer tous les projets publics
       // (le filtre d'organisation n'est pas applicable)
-      const apiParams: { organization_type?: string; page?: number; per_page?: number } = {
+      const apiParams: { page?: number; per_page?: number; public_only?: boolean } = {
         page: page,
-        per_page: 12
+        per_page: 12,
+        public_only: true
       };
-      
+
       const response = await getAllProjects(apiParams);
       const rawProjects = response.data?.data || response.data || [];
-      // Filtrer uniquement les projets publics et exclure les projets MLDS
-      const publicProjects = rawProjects.filter((p: any) => !p.private && p.mlds_information == null);
-      const formattedProjects: Project[] = publicProjects.map((p: any) => {
+      const formattedProjects: Project[] = rawProjects.map((p: any) => {
         return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
       });
       // Badge counts are now included in API response via badge_count
@@ -569,10 +568,10 @@ const Projects: React.FC = () => {
           // Exclure les projets MLDS
           rawProjects = rawProjects.filter((p: any) => p.mlds_information == null);
         } else if (organizationFilter === 'all-public') {
-          // Tous les projets: utiliser getAllProjects sans filtre, puis filtrer côté client pour les projets publics
-          response = await getAllProjects({ page: page, per_page: 12 });
+          // Tous les projets (publics uniquement, hors MLDS) — filtre serveur + pagination cohérente
+          response = await getAllProjects({ page: page, per_page: 12, public_only: true });
           rawProjects = response.data?.data || response.data || [];
-          needsClientSideFiltering = true;
+          needsClientSideFiltering = false;
         } else if (organizationFilter === 'school') {
           // Établissement: utiliser getAllProjects avec organization_type: 'établissement' (Pro only)
           if (state.showingPageType !== 'pro') {
@@ -634,15 +633,11 @@ const Projects: React.FC = () => {
           return;
         }
 
-        // Client-side filtering for 'all-public', 'other-orgs', 'other-schools', and 'companies'
+        // Client-side filtering for 'other-orgs', 'other-schools', and 'companies' ('all-public' uses public_only on API)
         if (needsClientSideFiltering) {
           let filteredProjects: any[] = [];
-          
-          if (organizationFilter === 'all-public') {
-            // Filter to only public projects and exclude MLDS projects
-            filteredProjects = rawProjects.filter((p: any) => !p.private && p.mlds_information == null);
-            rawProjects = filteredProjects; // Use filtered results directly
-          } else if (organizationFilter === 'other-orgs') {
+
+          if (organizationFilter === 'other-orgs') {
             // Pro: Company projects excluding user's own
             filteredProjects = rawProjects.filter((p: any) => {
               if (p.private) return false;
@@ -772,13 +767,7 @@ const Projects: React.FC = () => {
           
           // For client-side filtering, handle pagination differently based on filter type
           if (needsClientSideFiltering) {
-            if (organizationFilter === 'all-public') {
-              // For 'all-public': Keep API pagination metadata
-              // The API returns public + private projects, but pagination is still valid
-              // Some pages might have fewer visible projects after filtering, but pagination works
-              // We keep the API's metadata so users can navigate through all pages
-              // (totalCount and totalPages remain from API)
-            } else if (organizationFilter === 'other-orgs' || organizationFilter === 'other-schools' || organizationFilter === 'companies') {
+            if (organizationFilter === 'other-orgs' || organizationFilter === 'other-schools' || organizationFilter === 'companies') {
               // For 'other-orgs', 'other-schools', and 'companies': Use client-side pagination
               // We've already filtered all projects and stored them in allFilteredProjects
               const filteredCount = allFilteredProjects.length;
