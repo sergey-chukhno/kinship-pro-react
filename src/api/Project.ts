@@ -1,6 +1,12 @@
 import axiosClient, { axiosClientWithoutToken } from "./config";
 
-export function getAllProjects(params?: { organization_type?: string; page?: number; per_page?: number }) {
+export function getAllProjects(params?: {
+    organization_type?: string;
+    page?: number;
+    per_page?: number;
+    /** When true, API returns only public (non-private) projects without MLDS info, with pagination applied to that set. */
+    public_only?: boolean;
+}) {
     return axiosClient.get('/api/v1/projects', { params });
 }
 
