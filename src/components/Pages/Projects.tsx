@@ -1411,6 +1411,22 @@ const Projects: React.FC = () => {
   // Calculate archived projects count from dedicated archived list
   const archivedProjectsCount = archivedProjects.length;
 
+  const overdueOwnedProjectsCount = React.useMemo(() => {
+    const currentUserId = state.user?.id?.toString();
+    if (!currentUserId) return 0;
+
+    const allKnownProjects = [...projects, ...myProjects, ...mldsProjects, ...mldsRemediationProjects];
+    const uniqueById = new Map<string, Project>();
+    allKnownProjects.forEach((project) => {
+      if (project.id) uniqueById.set(project.id, project);
+    });
+
+    return Array.from(uniqueById.values()).filter((project) => {
+      const isOwner = project.responsible?.id?.toString() === currentUserId;
+      return isOwner && project.status === 'in_progress' && Boolean(project.showEndDateWarning);
+    }).length;
+  }, [state.user?.id, projects, myProjects, mldsProjects, mldsRemediationProjects]);
+
 
   // Filter projects based on search and filter criteria
   // Note: On filtre maintenant sur 'projectsToDisplay' (local state) et non 'state.projects'
@@ -1654,6 +1670,27 @@ const Projects: React.FC = () => {
           )}
         </div>
       </div>
+
+      {overdueOwnedProjectsCount > 0 && (
+        <div
+          style={{
+            margin: '0 0 0.75rem 0',
+            padding: '0.75rem 1rem',
+            borderRadius: '8px',
+            border: '1px solid #f59e0b',
+            background: '#fffbeb',
+            color: '#92400e',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem'
+          }}
+        >
+          <i className="fas fa-triangle-exclamation" />
+          <span>
+            Vous avez {overdueOwnedProjectsCount} projet{overdueOwnedProjectsCount > 1 ? 's' : ''} dont la date de fin est dépassée. Souhaitez-vous les clôturer ?
+          </span>
+        </div>
+      )}
 
       {/* Tabs for all users */}
         <div className="filter-tabs" style={{ marginBottom: '24px' }}>
