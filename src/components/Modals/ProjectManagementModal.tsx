@@ -173,13 +173,6 @@ const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
             </button>
             <button 
               type="button" 
-              className={`tab-btn ${activeTab === 'participants' ? 'active' : ''}`}
-              onClick={() => setActiveTab('participants')}
-            >
-              Participants
-            </button>
-            <button 
-              type="button" 
               className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
               onClick={() => setActiveTab('requests')}
             >
@@ -238,43 +231,6 @@ const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
                       ))}
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'participants' && (
-            <div className="tab-content">
-              <div className="members-section">
-                <div className="members-table">
-                  {project.members?.map((member, index) => (
-                    <div key={index} className="member-row">
-                      <div className="member-avatar">
-                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt={member} />
-                      </div>
-                      <div className="member-info">
-                        <div className="member-name">{member}</div>
-                        <div className="member-role">Participant</div>
-                      </div>
-                      <div className="member-badge badge-admin">Membre</div>
-                      <div className="member-skills">
-                        <span className="tag skill"><i className="fas fa-code"></i> Informatique</span>
-                        <span className="tag skill"><i className="fas fa-lightbulb"></i> Créativité</span>
-                      </div>
-                      <div className="member-availability">
-                        <span className="tag availability">Lundi</span>
-                        <span className="tag availability">Mercredi</span>
-                      </div>
-                      <div className="member-actions">
-                        <button type="button" className="btn-icon badge-btn" title="Attribuer un badge">
-                          <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
-                        </button>
-                        <button type="button" className="btn-icon" title="Supprimer">
-                          <img src="/icons_logo/Icon=trash.svg" alt="Delete" className="action-icon" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
