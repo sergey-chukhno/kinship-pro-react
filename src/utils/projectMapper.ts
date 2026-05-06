@@ -616,14 +616,24 @@ export const getUserProjectRole = (
 
     // Check in project_members
     if (apiProject.project_members && Array.isArray(apiProject.project_members)) {
-        const member = apiProject.project_members.find((m: any) => 
-            m.user?.id?.toString() === userIdStr && m.status === 'confirmed'
+        const member = apiProject.project_members.find((m: any) =>
+            m.user?.id?.toString() === userIdStr
         );
-        
+
         if (member) {
+            // Co-owner / admin should keep access even if status is pending (common on drafts)
+            if (member.role === 'co_owner') {
+                return 'co-owner';
+            }
             if (member.role === 'admin') {
                 return 'admin';
             }
+
+            // For regular participants, require confirmed membership
+            if (member.status !== 'confirmed') {
+                return null;
+            }
+
             if (member.can_assign_badges_in_project) {
                 return 'participant avec droit de badges';
             }
