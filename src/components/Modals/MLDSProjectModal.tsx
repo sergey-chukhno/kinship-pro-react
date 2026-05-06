@@ -429,19 +429,18 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
       setIsLoadingPartnerships(true);
       try {
         const organizationType = getOrganizationType(state.showingPageType);
-        const organizationId = getOrganizationId(state.user, state.showingPageType);
+        const organizationId =
+          state.showingPageType === 'teacher' && selectedSchoolId
+            ? Number.parseInt(selectedSchoolId, 10)
+            : getOrganizationId(state.user, state.showingPageType);
 
         if (organizationType && organizationId) {
           const response = await getPartnerships(organizationId, organizationType);
           const allPartnerships = response.data || [];
-          const schoolOnlyPartnerships = allPartnerships.filter((partnership: any) => {
-            const partners = partnership.partners || [];
-            if (!Array.isArray(partners) || partners.length === 0) return false;
-            const hasSchool = partners.some((p: any) => p?.type?.toLowerCase() === 'school');
-            const hasCompany = partners.some((p: any) => p?.type?.toLowerCase() === 'company');
-            return hasSchool && !hasCompany;
-          });
-          setAvailablePartnerships(schoolOnlyPartnerships);
+          // Keep all confirmed partnerships; filtering out "company" partnerships hides legitimate partners.
+          setAvailablePartnerships(allPartnerships);
+        } else {
+          setAvailablePartnerships([]);
         }
       } catch (err) {
         console.error('Error fetching partnerships:', err);
@@ -453,7 +452,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
 
     fetchPartnerships();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, state.user, formData.isPartnership]);
+  }, [state.showingPageType, state.user, formData.isPartnership, selectedSchoolId]);
 
   // Fetch classes (levels) from selected school (or current context school by default)
   useEffect(() => {
