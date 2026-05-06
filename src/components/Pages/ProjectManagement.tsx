@@ -1128,10 +1128,14 @@ const ProjectManagement: React.FC = () => {
    */
   const isReadOnlyMode = isSuperadminViewingReadOnly || isAdminViewingReadOnly;
 
-  /** Projet MLDS : le responsable et les co-responsables peuvent ouvrir l’édition du projet. */
+  /**
+   * Édition du projet : responsable / co-responsables (co-owner) / admin.
+   * Requis notamment pour les projets MLDS en brouillon où les co-responsables doivent pouvoir éditer.
+   */
   const canEditProject =
     userProjectRole === 'owner' ||
-    (isMLDSProject && userProjectRole === 'co-owner');
+    userProjectRole === 'co-owner' ||
+    userProjectRole === 'admin';
   const canEditProjectVisibility = userProjectRole === 'owner';
 
   /**

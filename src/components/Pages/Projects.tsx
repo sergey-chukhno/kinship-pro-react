@@ -312,6 +312,14 @@ const Projects: React.FC = () => {
         // Pour les enseignants : utiliser getTeacherProjects
         response = await getTeacherProjects(params);
         rawProjects = response.data || [];
+        // Inclure aussi les brouillons (où l'enseignant peut être co-responsable)
+        try {
+          const draftResp = await getTeacherProjects({ ...params, status: 'draft' } as any);
+          const drafts = draftResp?.data || [];
+          rawProjects = [...rawProjects, ...drafts];
+        } catch {
+          // Best-effort: si l'endpoint n'accepte pas status, on ignore
+        }
       } else if (state.showingPageType === 'user') {
         // Pour les utilisateurs : utiliser getAllUserProjects
         response = await getAllUserProjects(params);
@@ -334,7 +342,25 @@ const Projects: React.FC = () => {
           response = await getCompanyProjects(contextId, true, 200, 1);
         }
         rawProjects = response.data?.data || response.data || [];
+
+        // Important: inclure aussi les projets "mes projets" (co-responsable/co-owner),
+        // notamment les brouillons MLDS qui peuvent ne pas remonter dans la liste contexte.
+        try {
+          const myResp = await getAllUserProjects({ page: 1, per_page: 200 } as any);
+          const myRaw = myResp?.data?.data || myResp?.data || [];
+          rawProjects = [...rawProjects, ...(Array.isArray(myRaw) ? myRaw : [])];
+        } catch {
+          // Best-effort: si l'appel échoue on garde uniquement la liste contexte
+        }
       }
+
+      // Dédupliquer (merge context + "mes projets")
+      const byId = new Map<string, any>();
+      (rawProjects || []).forEach((p: any) => {
+        if (!p?.id) return;
+        byId.set(String(p.id), p);
+      });
+      rawProjects = Array.from(byId.values());
       
       // Filtrer les projets MLDS (avec mlds_information) en excluant les projets archivés
       const mldsProjectsDataAll = rawProjects.filter(
