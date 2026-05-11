@@ -16,7 +16,7 @@ import {
   base64ToFile,
   validateImages
 } from '../../utils/projectMapper';
-import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '../../utils/memberContextPayload';
+import { buildMldsCoResponsibleContexts } from '../../utils/memberContextPayload';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
@@ -69,7 +69,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
     pathway: 'mlds', // Set to MLDS by default
     tags: '',
     links: '',
-    participants: [] as string[],
     image: '',
     coResponsibles: [] as string[],
     isPartnership: false,
@@ -126,7 +125,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
   const [searchTerms, setSearchTerms] = useState({
     coResponsibles: '',
-    participants: '',
     partner: ''
   });
 
@@ -178,7 +176,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
       pathway: 'mlds',
       tags: (source.tags || []).join(', '),
       links: source.links || '',
-      participants: [],
       image: '',
       coResponsibles: [],
       isPartnership: false,
@@ -425,19 +422,18 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
       setIsLoadingPartnerships(true);
       try {
         const organizationType = getOrganizationType(state.showingPageType);
-        const organizationId = getOrganizationId(state.user, state.showingPageType);
+        const organizationId =
+          state.showingPageType === 'teacher' && selectedSchoolId
+            ? Number.parseInt(selectedSchoolId, 10)
+            : getOrganizationId(state.user, state.showingPageType);
 
         if (organizationType && organizationId) {
           const response = await getPartnerships(organizationId, organizationType);
           const allPartnerships = response.data || [];
-          const schoolOnlyPartnerships = allPartnerships.filter((partnership: any) => {
-            const partners = partnership.partners || [];
-            if (!Array.isArray(partners) || partners.length === 0) return false;
-            const hasSchool = partners.some((p: any) => p?.type?.toLowerCase() === 'school');
-            const hasCompany = partners.some((p: any) => p?.type?.toLowerCase() === 'company');
-            return hasSchool && !hasCompany;
-          });
-          setAvailablePartnerships(schoolOnlyPartnerships);
+          // Keep all confirmed partnerships; filtering out "company" partnerships hides legitimate partners.
+          setAvailablePartnerships(allPartnerships);
+        } else {
+          setAvailablePartnerships([]);
         }
       } catch (err) {
         console.error('Error fetching partnerships:', err);
@@ -449,7 +445,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
 
     fetchPartnerships();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, state.user, formData.isPartnership]);
+  }, [state.showingPageType, state.user, formData.isPartnership, selectedSchoolId]);
 
   // Fetch classes (levels) from selected school (or current context school by default)
   useEffect(() => {
@@ -579,7 +575,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
       organization: selectedSchool?.name || '',
       // Reset selections tied to the current school context
       coResponsibles: [],
-      participants: [],
       mldsOrganizations: []
     }));
 
@@ -591,8 +586,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
     // Clear search inputs (avoid confusing stale selections)
     setSearchTerms(prev => ({
       ...prev,
-      coResponsibles: '',
-      participants: ''
+      coResponsibles: ''
     }));
   };
 
@@ -875,50 +869,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
     return filtered;
   };
 
-  // Participants : même pool que co-responsables (adultes), sélection indépendante
-  const getFilteredParticipants = (searchTerm: string) => {
-    // Cas particulier teacher : on se base sur les mêmes données que les co-responsables (personnels de l'établissement)
-    if (state.showingPageType === 'teacher' && selectedSchoolId) {
-      const selectedParticipantIds = formData.participants.map(id => id.toString());
-      const currentUserId = state.user?.id?.toString();
-
-      let list = (coResponsibleOptions || []).filter((m: any) => {
-        const id = m?.id?.toString();
-        if (!id) return false;
-        if (currentUserId && id === currentUserId) return false;
-        if (selectedParticipantIds.includes(id)) return false;
-        return true;
-      });
-
-      // Adultes uniquement
-      list = list.filter((m: any) => {
-        const role = (m.role_in_system || m.role || '').toString().toLowerCase();
-        return !STUDENT_SYSTEM_ROLES.includes(role);
-      });
-
-      // Recherche
-      if (searchTerm.trim()) {
-        const lower = searchTerm.toLowerCase();
-        list = list.filter((m: any) =>
-          (m.full_name || `${m.first_name || ''} ${m.last_name || ''}`).toLowerCase().includes(lower) ||
-          (m.email || '').toLowerCase().includes(lower) ||
-          (m.role || '').toLowerCase().includes(lower)
-        );
-      }
-
-      return list;
-    }
-
-    // Autres contextes : même logique que co-responsables, mais filtrée sur les participants sélectionnés
-    const baseList = getFilteredMembers(searchTerm);
-    return baseList.filter((m: any) => {
-      const role = (m.role_in_system || m.role || '').toString().toLowerCase();
-      const id = m?.id?.toString();
-      const alreadyParticipant = formData.participants.includes(id || '');
-      return !STUDENT_SYSTEM_ROLES.includes(role) && !alreadyParticipant;
-    });
-  };
-
   const getFilteredPartners = (searchTerm: string) => {
     if (!availablePartnerships || !Array.isArray(availablePartnerships)) return [];
 
@@ -966,11 +916,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
         ? formData.coResponsibles.filter(id => id !== memberId)
         : [...formData.coResponsibles, memberId];
       setFormData(prev => ({ ...prev, coResponsibles: newCoResponsibles }));
-    } else if (field === 'participants') {
-      const newParticipants = formData.participants.includes(memberId)
-        ? formData.participants.filter(id => id !== memberId)
-        : [...formData.participants, memberId];
-      setFormData(prev => ({ ...prev, participants: newParticipants }));
     }
   };
 
@@ -1174,7 +1119,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
           : organizationId;
 
       const coResponsibleIds = formData.coResponsibles.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
-      const participantIds = formData.participants.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id));
 
       const coResponsibleContexts = buildMldsCoResponsibleContexts({
         coResponsibleIds,
@@ -1185,7 +1129,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
         availableLevels: availableClasses,
         schoolContextId: organizationIdForPayload ?? null
       });
-      const participantContexts = buildSchoolParticipantContexts(participantIds, organizationIdForPayload ?? null);
 
       // Prepare MLDS-specific payload
       const mldsPayload = {
@@ -1205,11 +1148,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
           skill_ids: [],
           tag_ids: [],
           company_ids: [],
-          // Add co-responsibles, partner, and participants if needed
+          // Add co-responsibles and partners if needed
           co_responsible_ids: coResponsibleIds,
           ...(coResponsibleContexts.length > 0 ? { co_responsible_contexts: coResponsibleContexts } : {}),
-          participant_ids: participantIds,
-          ...(participantContexts.length > 0 ? { participant_contexts: participantContexts } : {}),
           partnership_ids: formData.partners.length > 0
             ? formData.partners.map(id => Number.parseInt(id, 10)).filter(id => !Number.isNaN(id))
             : undefined,
@@ -1294,13 +1235,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
           pathway: formData.pathway,
           tags: formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
           links: formData.links,
-          participants: formData.participants.length,
+          participants: 0,
           badges: 0,
           image: formData.image,
           additionalPhotos: formData.additionalImages,
           owner: state.user?.name || '',
           progress: 0,
-          members: formData.participants,
+          members: [],
           events: [],
           badges_list: [],
           coResponsibles: formData.coResponsibles.map(id => {
@@ -1967,88 +1908,6 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
               </div>
             </div>
 
-            {/* Participants */}
-            <div className="form-group">
-              <label htmlFor="projectParticipants">Participants</label>
-              <div className="compact-selection">
-                <div className="search-input-container">
-                  <i className="fas fa-search search-icon"></i>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Rechercher des participants..."
-                    value={searchTerms.participants}
-                    onChange={(e) => handleSearchChange('participants', e.target.value)}
-                    disabled={isLoadingMembers}
-                  />
-                </div>
-
-                {isLoadingMembers ? (
-                  <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
-                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
-                    <span>Chargement des membres...</span>
-                  </div>
-                ) : (
-                  <>
-                    {formData.participants.length > 0 && (
-                      <div className="selected-items">
-                        {formData.participants.map((memberId) => {
-                          const member = getSelectedMember(memberId);
-                          const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '')) : '';
-                          return member ? (
-                            <div key={memberId} className="selected-member">
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
-                              <div className="selected-info">
-                                <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="selected-role">Rôle : {translateRole(member.role ?? member.role_in_system ?? '')}</div>
-                                {memberOrg && (
-                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                className="remove-selection"
-                                onClick={() => handleMemberSelect('participants', memberId)}
-                              >
-                                <i className="fas fa-times"></i>
-                              </button>
-                            </div>
-                          ) : null;
-                        })}
-                      </div>
-                    )}
-                    <div className="selection-list">
-                      {getFilteredParticipants(searchTerms.participants).length === 0 ? (
-                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                          <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
-                          <p>Aucun membre disponible</p>
-                        </div>
-                      ) : (
-                        getFilteredParticipants(searchTerms.participants).map((member: any) => {
-                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
-                          return (
-                            <div
-                              key={member.id}
-                              className="selection-item"
-                              onClick={() => handleMemberSelect('participants', member.id)}
-                            >
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
-                              <div className="item-info">
-                                <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="item-role">Rôle : {translateRole(member.role ?? member.role_in_system ?? '')}</div>
-                                {memberOrg && (
-                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {memberOrg}</div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* MLDS Specific Section */}
