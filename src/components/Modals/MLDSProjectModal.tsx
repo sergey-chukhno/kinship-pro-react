@@ -41,13 +41,6 @@ const STUDENT_SYSTEM_ROLES = [
   'eleve'
 ];
 
-/** Contact partenaire dont le rôle org est référent — exclu de la modale co-responsables partenaire. */
-function isPartnerContactOrgReferent(contact: { role?: string; role_in_organization?: string }): boolean {
-  const raw = (contact.role_in_organization ?? contact.role ?? '').toString();
-  const n = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return n.includes('referent');
-}
-
 interface MLDSProjectModalProps {
   onClose: () => void;
   onSave: (projectData: Omit<Project, 'id'>) => void;
@@ -819,7 +812,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
         if (m?.id != null) byId.set(String(m.id), m);
       });
       (partnershipContactMembers || []).forEach((m: any) => {
-        if (m?.id == null || isPartnerContactOrgReferent(m)) return;
+        if (m?.id == null) return;
         const idStr = String(m.id);
         if (!byId.has(idStr)) {
           byId.set(idStr, {
@@ -857,7 +850,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
       if (m?.id != null) byId.set(String(m.id), m);
     });
     (partnershipContactMembers || []).forEach((m: any) => {
-      if (m?.id == null || isPartnerContactOrgReferent(m)) return;
+      if (m?.id == null) return;
       const idStr = String(m.id);
       if (!byId.has(idStr)) {
         byId.set(idStr, {
@@ -946,10 +939,9 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
       role_in_organization: c.role_in_organization || '',
       organization: p.name || ''
     })));
-    const withoutReferents = contactUsersRaw.filter((c: any) => !isPartnerContactOrgReferent(c));
     const contactUsers = ownerId
-      ? withoutReferents.filter((c: any) => c.id?.toString() !== ownerId)
-      : withoutReferents;
+      ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
+      : contactUsersRaw;
 
     const contactIds = contactUsers.map((c: any) => c.id.toString());
     const isAlreadySelected = formData.partners.some(p => String(p) === String(partnerId));
@@ -1002,10 +994,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
 
   /** Filtrer les contact users du partenariat pour la popup de co-responsables */
   const getFilteredPartnershipCoResponsibles = (contactUsers: any[], searchTerm: string) => {
-    const withoutReferents = (contactUsers || []).filter((u: any) => !isPartnerContactOrgReferent(u));
-    if (!searchTerm.trim()) return withoutReferents;
+    const list = contactUsers || [];
+    if (!searchTerm.trim()) return list;
     const term = searchTerm.toLowerCase();
-    return withoutReferents.filter((user: any) => {
+    return list.filter((user: any) => {
       const name = (user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim()).toLowerCase();
       const email = (user.email || '').toLowerCase();
       const role = (user.role_in_organization || user.role || '').toLowerCase();

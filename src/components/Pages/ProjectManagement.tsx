@@ -93,13 +93,6 @@ function normalizeAvailabilityToLabels(availability: any): string[] {
 /** Taux HV par défaut (€/heure) — lignes crédits HV */
 const HV_DEFAULT_RATE = 50.73;
 
-/** Contact partenaire dont le rôle org est référent — à ne pas proposer comme co-responsable dans la modale partenaire. */
-function isPartnerContactOrgReferent(contact: { role?: string; role_in_organization?: string }): boolean {
-  const raw = (contact.role_in_organization ?? contact.role ?? '').toString();
-  const n = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return n.includes('referent');
-}
-
 // Component for displaying skills with "Voir plus"/"Voir moins" functionality
 const ParticipantSkillsList: React.FC<{ skills: string[] }> = ({ skills }) => {
   const [showAll, setShowAll] = React.useState(false);
@@ -1628,7 +1621,6 @@ const ProjectManagement: React.FC = () => {
     });
     (editPartnershipContactMembers || []).forEach((m: any) => {
       if (m?.id == null) return;
-      if (isPartnerContactOrgReferent(m)) return;
       const idStr = String(m.id);
       if (!byId.has(idStr)) {
         byId.set(idStr, {
@@ -1750,10 +1742,10 @@ const ProjectManagement: React.FC = () => {
 
   /** Filtrer les contact users du partenariat pour la popup de co-responsables */
   const getFilteredEditPartnershipCoResponsibles = (contactUsers: any[], searchTerm: string) => {
-    const withoutReferents = (contactUsers || []).filter((u: any) => !isPartnerContactOrgReferent(u));
-    if (!searchTerm.trim()) return withoutReferents;
+    const list = contactUsers || [];
+    if (!searchTerm.trim()) return list;
     const term = searchTerm.toLowerCase();
-    return withoutReferents.filter((user: any) => {
+    return list.filter((user: any) => {
       const name = (user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim()).toLowerCase();
       const email = (user.email || '').toLowerCase();
       const role = (user.role_in_organization || user.role || '').toLowerCase();
@@ -1982,12 +1974,10 @@ const ProjectManagement: React.FC = () => {
       role_in_organization: c.role_in_organization || '',
       organization: p.name || ''
     })));
-    // Pas de référents org dans la sélection co-responsables partenaire
-    const withoutReferents = contactUsersRaw.filter((c: any) => !isPartnerContactOrgReferent(c));
     // Exclude project owner so they are not proposed as co-owner (owner can be staff in partner orgs)
     const contactUsers = ownerId
-      ? withoutReferents.filter((c: any) => c.id?.toString() !== ownerId)
-      : withoutReferents;
+      ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerId)
+      : contactUsersRaw;
 
     const isAlreadySelected = editForm.partners.includes(partnerId);
 
@@ -2321,10 +2311,9 @@ const ProjectManagement: React.FC = () => {
               organization: p.name || ''
             }))
           );
-          const withoutReferents = contactUsersRaw.filter((c: any) => !isPartnerContactOrgReferent(c));
           const filtered = ownerIdStr
-            ? withoutReferents.filter((c: any) => c.id?.toString() !== ownerIdStr)
-            : withoutReferents;
+            ? contactUsersRaw.filter((c: any) => c.id?.toString() !== ownerIdStr)
+            : contactUsersRaw;
           for (const c of filtered) {
             const idStr = c.id?.toString();
             if (!idStr || seenContactIds.has(idStr)) continue;
