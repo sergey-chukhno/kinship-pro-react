@@ -7789,7 +7789,7 @@ const ProjectManagement: React.FC = () => {
                                     Moyens financiers demandés
                                   </div>
                                   <p style={{ margin: '0.35rem 0 0', fontSize: '0.8125rem', color: '#64748b', lineHeight: 1.45 }}>
-                                    Lignes HSE (heures), taux horaire MLDS, puis détail des crédits (HV par enseignant, transport, fonctionnement, prestataires).
+                                    Heures HSE (déclaratif, hors crédits), taux horaire MLDS, puis détail des crédits (HV, transport, fonctionnement, prestataires).
                                   </p>
                                 </div>
                               </div>
@@ -7864,26 +7864,6 @@ const ProjectManagement: React.FC = () => {
                                       </div>
                                     </div>
                                   )}
-                                  {Array.isArray(apiProjectData.mlds_information.financial_hv_lines) &&
-                                    apiProjectData.mlds_information.financial_hv_lines.length > 0 &&
-                                    apiProjectData.mlds_information.financial_rate != null && (
-                                    <div
-                                      style={{
-                                        padding: '0.85rem 1rem',
-                                        background: '#eff6ff',
-                                        borderRadius: '8px',
-                                        border: '1px solid #bfdbfe',
-                                        gridColumn: '1 / -1'
-                                      }}
-                                    >
-                                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1d4ed8', marginBottom: '0.25rem' }}>
-                                        HV détaillé par enseignant
-                                      </div>
-                                      <div style={{ fontSize: '0.8125rem', color: '#1e40af', lineHeight: 1.4 }}>
-                                        Les heures sont indiquées ligne par ligne ci-dessous ; le montant en euros tient compte du taux {Number.parseFloat(String(apiProjectData.mlds_information.financial_rate)).toFixed(2)} €/h.
-                                      </div>
-                                    </div>
-                                  )}
                                 </div>
 
                                 {mldsBilan && (() => {
@@ -7926,32 +7906,6 @@ const ProjectManagement: React.FC = () => {
                                     <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
                                       <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
-                                        {(() => {
-                                          const bilanHseLines = Array.isArray(b.financial_hse_lines)
-                                            ? (b.financial_hse_lines as Array<{ hse_name?: string; hour?: string; price?: string; comment?: string | null }>)
-                                            : b.hse != null
-                                              ? [{ hse_name: 'HSE', hour: String(b.hse), comment: (b as { hse_comment?: string }).hse_comment }]
-                                              : [];
-                                          if (bilanHseLines.length === 0) return null;
-                                          return (
-                                            <div>
-                                              <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>HSE</div>
-                                              {bilanHseLines.map((line, idx) => (
-                                                <div key={idx} style={{ marginBottom: '0.35rem', paddingLeft: '0.5rem' }}>
-                                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                                                    <span>{line.hse_name?.trim() || 'HSE'}</span>
-                                                    <span>{formatBilanVal(hseLineHours(line))} h</span>
-                                                  </div>
-                                                  {line.comment != null && String(line.comment).trim() !== '' && (
-                                                    <div style={{ fontSize: '0.8125rem', color: '#4b5563', marginTop: '0.2rem', fontStyle: 'italic', lineHeight: 1.35 }}>
-                                                      {String(line.comment)}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          );
-                                        })()}
                                         {bilanHvLines.length > 0 ? (
                                           <div>
                                             <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>HV par enseignant</div>
@@ -7995,6 +7949,131 @@ const ProjectManagement: React.FC = () => {
                                   );
                                 })()}
 
+                              {(() => {
+                                const hseLinesInfo = getMldsHseLinesFromMldsInfo(apiProjectData.mlds_information);
+                                if (hseLinesInfo.length === 0) return null;
+                                const hseTotalHours = hseLinesInfo.reduce((s, l) => s + hseLineHours(l), 0);
+                                return (
+                                  <div
+                                    style={{
+                                      marginTop: '1.25rem',
+                                      paddingTop: '1.25rem',
+                                      borderTop: '1px solid #e2e8f0'
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        padding: '1rem',
+                                        backgroundColor: '#f5f3ff',
+                                        borderRadius: '10px',
+                                        border: '1px solid #ddd6fe'
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                                        <i className="fas fa-clock" style={{ color: '#6d28d9', fontSize: '0.95rem' }} aria-hidden />
+                                        <span style={{ fontSize: '1rem', fontWeight: 600, color: '#334155' }}>HSE</span>
+                                        <span style={{ fontSize: '0.8125rem', color: '#6b7280', marginLeft: 'auto' }}>
+                                          Hors total des crédits
+                                        </span>
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                        {hseLinesInfo.map((line, idx) => (
+                                          <div
+                                            key={idx}
+                                            style={{
+                                              display: 'flex',
+                                              justifyContent: 'space-between',
+                                              alignItems: 'center',
+                                              marginBottom: '0.25rem',
+                                              paddingLeft: '0.25rem'
+                                            }}
+                                          >
+                                            <span style={{ fontSize: '0.875rem', color: '#374151' }}>
+                                              {line.hse_name?.trim() || 'HSE'}
+                                            </span>
+                                            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
+                                              {hseLineHours(line).toFixed(2)} h
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div
+                                        style={{
+                                          marginTop: '0.65rem',
+                                          padding: '0.5rem 0.75rem',
+                                          backgroundColor: '#ede9fe',
+                                          borderRadius: '0.375rem',
+                                          display: 'flex',
+                                          justifyContent: 'space-between',
+                                          alignItems: 'center'
+                                        }}
+                                      >
+                                        <span style={{ fontWeight: 600, color: '#5b21b6', fontSize: '0.875rem' }}>Total HSE</span>
+                                        <span style={{ fontWeight: 700, color: '#5b21b6' }}>{hseTotalHours.toFixed(2)} h</span>
+                                      </div>
+                                      {mldsBilan && (() => {
+                                        const bb = mldsBilan as Record<string, unknown>;
+                                        const arr = bb.financial_hse_lines;
+                                        const legacyHse =
+                                          bb.hse != null
+                                            ? [{ hse_name: 'HSE', hour: String(bb.hse), comment: (bb as { hse_comment?: string }).hse_comment }]
+                                            : [];
+                                        const bilanHseUi =
+                                          Array.isArray(arr) && (arr as unknown[]).length > 0
+                                            ? (arr as Array<{ hse_name?: string; hour?: string; price?: string; comment?: string | null }>)
+                                            : legacyHse;
+                                        if (bilanHseUi.length === 0) return null;
+                                        return (
+                                          <div
+                                            style={{
+                                              marginTop: '0.65rem',
+                                              padding: '0.5rem 0.75rem',
+                                              backgroundColor: '#f0fdf4',
+                                              borderRadius: '0.375rem',
+                                              borderLeft: '3px solid #16a34a'
+                                            }}
+                                          >
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>
+                                              Bilan à la clôture — HSE
+                                            </div>
+                                            {bilanHseUi.map((line, idx) => (
+                                              <div key={idx} style={{ marginBottom: '0.35rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+                                                  <span>{line.hse_name || '—'}</span>
+                                                  <span style={{ fontWeight: 600 }}>{hseLineHours(line).toFixed(2)} h</span>
+                                                </div>
+                                                {line.comment != null && String(line.comment).trim() !== '' && (
+                                                  <div
+                                                    style={{
+                                                      fontSize: '0.8125rem',
+                                                      color: '#6b7280',
+                                                      marginTop: '0.15rem',
+                                                      fontStyle: 'italic'
+                                                    }}
+                                                  >
+                                                    {String(line.comment)}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {(() => {
+                                const mldsInfoFin = apiProjectData.mlds_information;
+                                const hasCreditsDetail =
+                                  (Array.isArray(mldsInfoFin.financial_hv_lines) && mldsInfoFin.financial_hv_lines.length > 0) ||
+                                  mldsInfoFin.financial_hv != null ||
+                                  mldsInfoFin.financial_transport != null ||
+                                  mldsInfoFin.financial_operating != null ||
+                                  getMldsServiceLinesFromMldsInfo(mldsInfoFin).length > 0;
+                                if (!hasCreditsDetail) return null;
+                                return (
                               <div
                                 style={{
                                   marginTop: '1.25rem',
@@ -8023,50 +8102,29 @@ const ProjectManagement: React.FC = () => {
                                       : [];
                                     const serviceLines = getMldsServiceLinesFromMldsInfo(apiProjectData.mlds_information);
 
-                                    const hseLines = getMldsHseLinesFromMldsInfo(apiProjectData.mlds_information);
-
                                     return (
                                       <>
-                                        {hseLines.length > 0 && (
-                                          <div>
-                                            <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>HSE</div>
-                                            {hseLines.map((line, idx) => (
-                                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', paddingLeft: '1rem' }}>
-                                                <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.hse_name?.trim() || 'HSE'}</span>
-                                                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
-                                                  {hseLineHours(line).toFixed(2)} h
-                                                </span>
-                                              </div>
-                                            ))}
-                                            {mldsBilan && (() => {
-                                              const bb = mldsBilan as Record<string, unknown>;
-                                              const arr = bb.financial_hse_lines;
-                                              const legacyHse = bb.hse != null ? [{ hse_name: 'HSE', hour: String(bb.hse), comment: (bb as { hse_comment?: string }).hse_comment }] : [];
-                                              const bilanHseUi = Array.isArray(arr) && (arr as unknown[]).length > 0
-                                                ? (arr as Array<{ hse_name?: string; hour?: string; price?: string; comment?: string | null }>)
-                                                : legacyHse;
-                                              if (bilanHseUi.length === 0) return null;
-                                              return (
-                                                <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
-                                                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture — HSE</div>
-                                                  {bilanHseUi.map((line, idx) => (
-                                                    <div key={idx} style={{ marginBottom: '0.35rem' }}>
-                                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                                                        <span>{line.hse_name || '—'}</span>
-                                                        <span style={{ fontWeight: 600 }}>{hseLineHours(line).toFixed(2)} h</span>
-                                                      </div>
-                                                      {line.comment != null && String(line.comment).trim() !== '' && (
-                                                        <div style={{ fontSize: '0.8125rem', color: '#6b7280', marginTop: '0.15rem', fontStyle: 'italic' }}>{String(line.comment)}</div>
-                                                      )}
-                                                    </div>
-                                                  ))}
-                                                </div>
-                                              );
-                                            })()}
-                                          </div>
-                                        )}
                                         {hvCreditLines.length > 0 && (
                                           <div>
+                                            {apiProjectData.mlds_information.financial_rate != null && (
+                                              <div
+                                                style={{
+                                                  padding: '0.85rem 1rem',
+                                                  background: '#eff6ff',
+                                                  borderRadius: '8px',
+                                                  border: '1px solid #bfdbfe',
+                                                  marginBottom: '0.65rem'
+                                                }}
+                                              >
+                                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1d4ed8', marginBottom: '0.25rem' }}>
+                                                  HV détaillé par enseignant
+                                                </div>
+                                                <div style={{ fontSize: '0.8125rem', color: '#1e40af', lineHeight: 1.4 }}>
+                                                  Les heures sont indiquées ligne par ligne ci-dessous ; le montant en euros tient compte du taux{' '}
+                                                  {Number.parseFloat(String(apiProjectData.mlds_information.financial_rate)).toFixed(2)} €/h.
+                                                </div>
+                                              </div>
+                                            )}
                                             <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>HV (crédits)</div>
                                             {hvCreditLines.map((line: { teacher_name?: string; hour?: string; price?: string }, idx: number) => {
                                               const h = hvLineHours(line);
@@ -8339,6 +8397,8 @@ const ProjectManagement: React.FC = () => {
                                 </div>
                               </div>
                               </div>
+                                );
+                              })()}
 
                               {Array.isArray(apiProjectData.mlds_information.financial_autres_financements) && apiProjectData.mlds_information.financial_autres_financements.length > 0 && (
                                 <div style={{
