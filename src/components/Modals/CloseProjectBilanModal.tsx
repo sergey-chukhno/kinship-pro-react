@@ -1,11 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './Modal.css';
-import { getMldsServiceLinesFromMldsInfo, type MLDSInformationAttributes, type MldsBilanPayload } from '../../api/Projects';
-import { hvLineHours } from '../../utils/mldsHvLines';
+import {
+  getMldsHseLinesFromMldsInfo,
+  getMldsServiceLinesFromMldsInfo,
+  type MLDSInformationAttributes,
+  type MldsBilanPayload
+} from '../../api/Projects';
+import { hseLineHours, hvLineHours } from '../../utils/mldsHvLines';
 
 export interface BilanData {
-  hse: string;
-  hse_comment: string;
+  financial_hse_lines: Array<{ hse_name: string; hour: string; comment: string }>;
   financial_rate: string;
   financial_rate_comment: string;
   expected_participants: string;
@@ -26,6 +30,7 @@ interface CloseProjectBilanModalProps {
   projectTitle: string;
   mldsInfo?: Pick<
     MLDSInformationAttributes,
+    | 'financial_hse_lines'
     | 'financial_hse'
     | 'financial_rate'
     | 'financial_hv'
@@ -39,6 +44,11 @@ interface CloseProjectBilanModalProps {
   isSubmitting?: boolean;
 }
 
+const lineHse = (): BilanData['financial_hse_lines'][number] => ({
+  hse_name: '',
+  hour: '',
+  comment: ''
+});
 const lineTransport = (): BilanData['financial_transport'][number] => ({
   transport_name: '',
   price: '',
@@ -73,8 +83,7 @@ function readLineComment(raw: unknown): string {
 
 function bilanDataFromMlds(mlds: CloseProjectBilanModalProps['mldsInfo']): BilanData {
   const empty: BilanData = {
-    hse: '',
-    hse_comment: '',
+    financial_hse_lines: [lineHse()],
     financial_rate: '',
     financial_rate_comment: '',
     expected_participants: '',
@@ -147,9 +156,18 @@ function bilanDataFromMlds(mlds: CloseProjectBilanModalProps['mldsInfo']): Bilan
     hvLines = [lineHv()];
   }
 
+  const hseFromApi = getMldsHseLinesFromMldsInfo(mlds);
+  const hseLines =
+    hseFromApi.length > 0
+      ? hseFromApi.map(l => ({
+          hse_name: String(l.hse_name ?? ''),
+          hour: l.hour != null ? String(l.hour) : '',
+          comment: readLineComment(l.comment)
+        }))
+      : [lineHse()];
+
   return {
-    hse: mlds.financial_hse != null ? String(mlds.financial_hse) : '',
-    hse_comment: '',
+    financial_hse_lines: hseLines,
     financial_rate: mlds.financial_rate != null ? String(mlds.financial_rate) : '',
     financial_rate_comment: '',
     expected_participants:
@@ -177,6 +195,7 @@ function payloadLineComment(s: string): string | null {
 /** Données demande initiale : utilisées si le formulaire est vide ou ligne « commentaire seul ». */
 export type MldsBilanBaseInfo = Pick<
   MLDSInformationAttributes,
+  | 'financial_hse_lines'
   | 'financial_hse'
   | 'financial_rate'
   | 'financial_hv'
@@ -305,14 +324,25 @@ export function buildMldsBilanPayload(bilanData: BilanData, baseMlds?: MldsBilan
       comment: payloadLineComment(r.comment) as string | null
     }));
 
+  const hseLines = bilanData.financial_hse_lines
+    .map((r, i) => {
+      const b = getMldsHseLinesFromMldsInfo(baseMlds ?? undefined)[i];
+      const hse_name = r.hse_name.trim() || (b?.hse_name != null ? String(b.hse_name) : '');
+      const hour = r.hour.trim() || (b?.hour != null ? String(b.hour) : '');
+      return { hse_name, hour, comment: r.comment };
+    })
+    .filter(r => r.hse_name !== '' || r.hour !== '' || r.comment.trim() !== '')
+    .map(r => ({
+      hse_name: r.hse_name.trim(),
+      hour: r.hour.trim() || '0',
+      comment: payloadLineComment(r.comment) as string | null
+    }));
+
   const payload: MldsBilanPayload = {};
-  const hse = num(bilanData.hse) ?? numFromBase(baseMlds?.financial_hse);
   const rate = num(bilanData.financial_rate) ?? numFromBase(baseMlds?.financial_rate);
   const exp = int(bilanData.expected_participants) ?? intFromBase(baseMlds?.expected_participants);
 
-  if (hse != null) payload.hse = hse;
-  const hc = globalComment(bilanData.hse_comment);
-  if (hc !== undefined) payload.hse_comment = hc;
+  if (hseLines.length > 0) payload.financial_hse_lines = hseLines;
 
   if (rate != null) payload.financial_rate = rate;
   const frc = globalComment(bilanData.financial_rate_comment);
@@ -375,7 +405,7 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
 
     const serviceLinesForSum = getMldsServiceLinesFromMldsInfo(m);
 
-    const hse = m?.financial_hse != null ? Number(m.financial_hse) : null;
+    const hseSum = getMldsHseLinesFromMldsInfo(m ?? undefined).reduce((acc, l) => acc + hseLineHours(l), 0);
     const hvScalar = m?.financial_hv != null ? Number(m.financial_hv) : null;
     const rate = m?.financial_rate != null ? Number(m.financial_rate) : null;
     const hvLines = Array.isArray(m?.financial_hv_lines) ? m!.financial_hv_lines! : [];
@@ -386,7 +416,7 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
         : '—';
 
     return {
-      hse: hse != null ? `${formatNum(hse)} h` : '—',
+      hse: hseSum > 0 ? `${formatNum(hseSum)} h` : '—',
       hv:
         hvHoursFromLines != null && hvHoursFromLines > 0
           ? `${formatNum(hvHoursFromLines)} h (détail)`
@@ -435,59 +465,107 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <section style={sectionStyle}>
-                <h4 style={h4Style}>HSE et taux</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ ...h4Style, margin: 0 }}>HSE</h4>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setRow('financial_hse_lines', [...form.financial_hse_lines, lineHse()])}
+                    disabled={isSubmitting}
+                  >
+                    + Ligne
+                  </button>
+                </div>
                 <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.5rem' }}>
-                  Demande initiale — HSE : <strong>{previousValues.hse}</strong> · HV : <strong>{previousValues.hv}</strong> · Taux :{' '}
+                  Demande initiale (total heures HSE) : <strong>{previousValues.hse}</strong>
+                </div>
+                {form.financial_hse_lines.map((row, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      marginBottom: '0.75rem',
+                      padding: '0.65rem',
+                      background: '#fff',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border, #e2e8f0)'
+                    }}
+                  >
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 88px 36px', gap: '0.5rem', marginBottom: '0.45rem' }}>
+                      <input
+                        placeholder="Intitulé (ex. Formation)"
+                        value={row.hse_name}
+                        onChange={e => {
+                          const next = [...form.financial_hse_lines];
+                          next[idx] = { ...row, hse_name: e.target.value };
+                          setRow('financial_hse_lines', next);
+                        }}
+                        style={inputStyle}
+                        disabled={isSubmitting}
+                      />
+                      <input
+                        placeholder="h"
+                        value={row.hour}
+                        onChange={e => {
+                          const next = [...form.financial_hse_lines];
+                          next[idx] = { ...row, hour: e.target.value };
+                          setRow('financial_hse_lines', next);
+                        }}
+                        style={inputStyle}
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        className="hover:bg-red-400 hover:text-white"
+                        style={{ padding: 0, borderRadius: 10, border: '1px solid red' }}
+                        onClick={() =>
+                          setRow(
+                            'financial_hse_lines',
+                            form.financial_hse_lines.length > 1 ? form.financial_hse_lines.filter((_, i) => i !== idx) : [lineHse()]
+                          )
+                        }
+                        disabled={isSubmitting}
+                        aria-label="Supprimer la ligne"
+                      >
+                        <i className="fas fa-trash" style={{ fontSize: '0.75rem' }} />
+                      </button>
+                    </div>
+                    <label style={{ display: 'block' }}>
+                      <span style={{ ...labelStyle, fontSize: '0.7rem' }}>Commentaire ligne</span>
+                      <textarea
+                        value={row.comment}
+                        onChange={e => {
+                          const next = [...form.financial_hse_lines];
+                          next[idx] = { ...row, comment: e.target.value };
+                          setRow('financial_hse_lines', next);
+                        }}
+                        style={{ ...commentInputStyle, minHeight: '2rem' }}
+                        disabled={isSubmitting}
+                        placeholder="ex. Réalisé"
+                        rows={2}
+                      />
+                    </label>
+                  </div>
+                ))}
+              </section>
+
+              <section style={sectionStyle}>
+                <h4 style={h4Style}>Taux horaire</h4>
+                <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                  Demande initiale — HV : <strong>{previousValues.hv}</strong> · Taux :{' '}
                   <strong>{previousValues.financial_rate}</strong>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <label>
-                    <span style={labelStyle}>HSE (h)</span>
-                    <input
-                      type="text"
-                      value={form.hse}
-                      onChange={e => setForm(f => ({ ...f, hse: e.target.value }))}
-                      style={inputStyle}
-                      disabled={isSubmitting}
-                      placeholder="ex. 1500.5"
-                    />
-                  </label>
-                  <label>
-                    <span style={labelStyle}>Taux horaire (€/h)</span>
-                    <input
-                      type="text"
-                      value={form.financial_rate}
-                      disabled={true}
-                      className="!cursor-not-allowed !opacity-50"
-                      onChange={e => setForm(f => ({ ...f, financial_rate: e.target.value }))}
-                      style={inputStyle}
-                      // disabled={isSubmitting}
-                      placeholder="ex. 50.75"
-                    />
-                  </label>
-                </div>
-                <label style={{ display: 'block', marginTop: '0.65rem' }}>
-                  <span style={labelStyle}>Commentaire global HSE</span>
-                  <textarea
-                    value={form.hse_comment}
-                    onChange={e => setForm(f => ({ ...f, hse_comment: e.target.value }))}
-                    style={commentInputStyle}
-                    disabled={isSubmitting}
-                    placeholder="Commentaire global HSE"
-                    rows={2}
+                <label>
+                  <span style={labelStyle}>Taux horaire (€/h)</span>
+                  <input
+                    type="text"
+                    value={form.financial_rate}
+                    disabled={true}
+                    className="!cursor-not-allowed !opacity-50"
+                    onChange={e => setForm(f => ({ ...f, financial_rate: e.target.value }))}
+                    style={inputStyle}
+                    placeholder="ex. 50.75"
                   />
                 </label>
-                {/* <label style={{ display: 'block', marginTop: '0.5rem' }}>
-                  <span style={labelStyle}>Commentaire sur le taux</span>
-                  <textarea
-                    value={form.financial_rate_comment}
-                    onChange={e => setForm(f => ({ ...f, financial_rate_comment: e.target.value }))}
-                    style={commentInputStyle}
-                    disabled={isSubmitting}
-                    placeholder="Commentaire sur le taux"
-                    rows={2}
-                  />
-                </label> */}
               </section>
 
               <section style={sectionStyle}>
