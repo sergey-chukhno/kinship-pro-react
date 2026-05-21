@@ -79,6 +79,36 @@ export interface FinancialHvLine {
     hour: string;
 }
 
+/** Ligne HSE — intitulé + heures (`hour`) + commentaire optionnel. */
+export interface FinancialHseLine {
+    hse_name: string;
+    hour: string;
+    comment?: string | null;
+}
+
+/** Lignes HSE depuis l’API (nouveau format) ou ancien champ scalaire `financial_hse`. */
+export function getMldsHseLinesFromMldsInfo(
+    mlds: { financial_hse_lines?: FinancialHseLine[] | null; financial_hse?: number | null } | null | undefined
+): FinancialHseLine[] {
+    if (!mlds) return [];
+    if (Array.isArray(mlds.financial_hse_lines) && mlds.financial_hse_lines.length > 0) {
+        return mlds.financial_hse_lines.map(l => ({
+            hse_name: String(l.hse_name ?? ''),
+            hour:
+                l.hour != null && String(l.hour) !== ''
+                    ? String(l.hour)
+                    : (l as { price?: string }).price != null
+                      ? String((l as { price?: string }).price)
+                      : '',
+            comment: l.comment ?? undefined
+        }));
+    }
+    if (mlds.financial_hse != null) {
+        return [{ hse_name: 'HSE', hour: String(mlds.financial_hse), comment: '' }];
+    }
+    return [];
+}
+
 /** Prestataire : montant, heures d’intervention, devis optionnel (fichier via FormData `quote`) — lecture API héritée */
 export interface FinancialServiceLine {
     service_name: string;
@@ -140,7 +170,9 @@ export interface MLDSInformationAttributes {
     action_objectives_other?: string | null;
     competencies_developed?: string | null;
     expected_participants?: number | null;
+    /** Ancien champ (montant HSE global) — préférer `financial_hse_lines` */
     financial_hse?: number | null;
+    financial_hse_lines?: FinancialHseLine[] | null;
     /** Taux horaire (€/h) principal pour MLDS */
     financial_rate?: number | null;
     /** Ancien champ (heures HV globales) — préférer financial_hv_lines pour le détail par enseignant */
@@ -163,8 +195,7 @@ export interface MLDSInformationAttributes {
 
 /** Payload pour POST /api/v1/projects/:id/mlds_bilan (clôture MLDS). */
 export interface MldsBilanPayload {
-    hse?: number | null;
-    hse_comment?: string | null;
+    financial_hse_lines?: Array<{ hse_name: string; hour: string; comment?: string | null }> | null;
     financial_rate?: number | null;
     financial_rate_comment?: string | null;
     financial_transport_comment?: string | null;
@@ -939,8 +970,11 @@ export const appendMldsInformationToFormData = (
         formData.append(`${P}[expected_participants]`, mlds.expected_participants.toString());
     }
 
-    if (mlds.financial_hse !== undefined && mlds.financial_hse !== null) {
-        formData.append(`${P}[financial_hse]`, mlds.financial_hse.toString());
+    if (mlds.financial_hse_lines !== undefined && mlds.financial_hse_lines !== null && Array.isArray(mlds.financial_hse_lines)) {
+        mlds.financial_hse_lines.forEach((line: FinancialHseLine, index: number) => {
+            formData.append(`${P}[financial_hse_lines][${index}][hse_name]`, line.hse_name);
+            formData.append(`${P}[financial_hse_lines][${index}][hour]`, line.hour);
+        });
     }
 
     if (mlds.financial_rate !== undefined && mlds.financial_rate !== null) {

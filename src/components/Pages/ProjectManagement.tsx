@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags, getOrCreateProjectShareLink, getMldsServiceLinesFromMldsInfo } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags, getOrCreateProjectShareLink, getMldsHseLinesFromMldsInfo, getMldsServiceLinesFromMldsInfo } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -41,7 +41,7 @@ import {
   MAX_SERVICE_QUOTE_FILES,
   validateServiceQuoteSelection
 } from '../../utils/mldsServiceQuotes';
-import { hvLineHours } from '../../utils/mldsHvLines';
+import { hseLineHours, hvLineHours } from '../../utils/mldsHvLines';
 import { useSearchParams } from 'react-router-dom';
 
 /** Safely render a value that may be a string or an object with id/name/type/city (e.g. organization from API). */
@@ -269,7 +269,7 @@ const ProjectManagement: React.FC = () => {
     mldsObjectives: '',
     mldsCompetenciesDeveloped: '',
     mldsExpectedParticipants: '',
-    mldsFinancialHSE: '',
+    mldsFinancialHseLines: [] as Array<{ hse_name: string; hour: string }>,
     mldsFinancialRate: '50.73',
     mldsFinancialTransport: [] as Array<{ transport_name: string; price: string }>,
     mldsFinancialOperating: [] as Array<{ operating_name: string; price: string }>,
@@ -2076,7 +2076,10 @@ const ProjectManagement: React.FC = () => {
       mldsObjectives: mldsInfo?.objectives || '',
       mldsCompetenciesDeveloped: mldsInfo?.competencies_developed || '',
       mldsExpectedParticipants: mldsInfo?.expected_participants?.toString() || '',
-      mldsFinancialHSE: mldsInfo?.financial_hse != null ? String(mldsInfo.financial_hse) : '',
+      mldsFinancialHseLines: getMldsHseLinesFromMldsInfo(mldsInfo).map(l => ({
+        hse_name: String(l.hse_name ?? ''),
+        hour: l.hour != null ? String(l.hour) : ''
+      })),
       mldsFinancialRate:
         mldsInfo?.financial_rate != null
           ? String(mldsInfo.financial_rate)
@@ -2528,7 +2531,10 @@ const ProjectManagement: React.FC = () => {
           objectives: editForm.mldsObjectives || null,
           competencies_developed: editForm.mldsCompetenciesDeveloped || null,
           expected_participants: editForm.mldsExpectedParticipants ? parseInt(editForm.mldsExpectedParticipants) : null,
-          financial_hse: editForm.mldsFinancialHSE ? Number.parseFloat(editForm.mldsFinancialHSE) : null,
+          financial_hse_lines:
+            editForm.mldsFinancialHseLines.length > 0
+              ? editForm.mldsFinancialHseLines.filter(line => line.hse_name.trim() || line.hour.trim())
+              : null,
           financial_hv: null,
           financial_rate: editForm.mldsFinancialRate ? Number.parseFloat(editForm.mldsFinancialRate) : null,
           financial_hv_lines: hvLinesPayload,
@@ -2776,12 +2782,21 @@ const ProjectManagement: React.FC = () => {
 
   // Helper functions for managing financial lines in edit form
   const addEditFinancialLine = (
-    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService' | 'mldsFinancialHvLines' | 'mldsFinancialAutres'
+    fieldName:
+      | 'mldsFinancialHseLines'
+      | 'mldsFinancialTransport'
+      | 'mldsFinancialOperating'
+      | 'mldsFinancialService'
+      | 'mldsFinancialHvLines'
+      | 'mldsFinancialAutres'
   ) => {
     if (fieldName === 'mldsFinancialService') {
       setEditServiceQuoteFiles(q => [...q, null]);
     }
     setEditForm(prev => {
+      if (fieldName === 'mldsFinancialHseLines') {
+        return { ...prev, [fieldName]: [...prev[fieldName], { hse_name: '', hour: '' }] };
+      }
       if (fieldName === 'mldsFinancialTransport') {
         return { ...prev, [fieldName]: [...prev[fieldName], { transport_name: '', price: '' }] };
       }
@@ -2802,7 +2817,13 @@ const ProjectManagement: React.FC = () => {
   };
 
   const removeEditFinancialLine = (
-    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService' | 'mldsFinancialHvLines' | 'mldsFinancialAutres',
+    fieldName:
+      | 'mldsFinancialHseLines'
+      | 'mldsFinancialTransport'
+      | 'mldsFinancialOperating'
+      | 'mldsFinancialService'
+      | 'mldsFinancialHvLines'
+      | 'mldsFinancialAutres',
     index: number
   ) => {
     if (fieldName === 'mldsFinancialService') {
@@ -2824,6 +2845,7 @@ const ProjectManagement: React.FC = () => {
       const arr = prev[fieldName] as Array<unknown>;
       const filtered = arr.filter((_: unknown, i: number) => i !== index);
       type FinancialLinesType =
+        | Array<{ hse_name: string; hour: string }>
         | Array<{ transport_name: string; price: string }>
         | Array<{ operating_name: string; price: string }>
         | Array<{ id?: number; service_name: string; hours: string; price: string; comment: string; quote_url?: string | null }>
@@ -2837,14 +2859,26 @@ const ProjectManagement: React.FC = () => {
   };
 
   const updateEditFinancialLine = (
-    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService' | 'mldsFinancialHvLines' | 'mldsFinancialAutres',
+    fieldName:
+      | 'mldsFinancialHseLines'
+      | 'mldsFinancialTransport'
+      | 'mldsFinancialOperating'
+      | 'mldsFinancialService'
+      | 'mldsFinancialHvLines'
+      | 'mldsFinancialAutres',
     index: number,
     field: 'name' | 'price' | 'hours' | 'hour' | 'comment',
     value: string
   ) => {
     setEditForm(prev => {
       const newArray = [...prev[fieldName]] as any[];
-      if (fieldName === 'mldsFinancialTransport') {
+      if (fieldName === 'mldsFinancialHseLines') {
+        newArray[index] = {
+          ...newArray[index],
+          hse_name: field === 'name' ? value : newArray[index].hse_name,
+          hour: field === 'hour' ? value : newArray[index].hour
+        };
+      } else if (fieldName === 'mldsFinancialTransport') {
         newArray[index] = {
           ...newArray[index],
           transport_name: field === 'name' ? value : newArray[index].transport_name,
@@ -4533,7 +4567,7 @@ const ProjectManagement: React.FC = () => {
     }
 
     // ========== MOYENS FINANCIERS (+ BILAN en colonnes si présent) ==========
-  const hasFinancials = mldsInfo.financial_hse != null ||
+  const hasFinancials = getMldsHseLinesFromMldsInfo(mldsInfo).length > 0 ||
       mldsInfo.financial_rate != null ||
       mldsInfo.financial_hv != null ||
       mldsInfo.financial_transport != null ||
@@ -4547,7 +4581,7 @@ const ProjectManagement: React.FC = () => {
       !!bilanPdf &&
       (typeof bilanPdf.financial_transport === 'number' ||
         bilanPdf.expected_participants != null ||
-        bilanPdf.hse_comment ||
+        (Array.isArray(bilanPdf.financial_hse_lines) && bilanPdf.financial_hse_lines.length > 0) ||
         bilanPdf.hv_comment ||
         (bilanPdf as { financial_rate_comment?: string }).financial_rate_comment ||
         bilanPdf.financial_transport_comment ||
@@ -4557,6 +4591,7 @@ const ProjectManagement: React.FC = () => {
     const hasBilan =
       !!bilanPdf &&
       (bilanPdf.hse != null ||
+        (Array.isArray(bilanPdf.financial_hse_lines) && bilanPdf.financial_hse_lines.length > 0) ||
         bilanPdf.hv != null ||
         bilanPdf.financial_rate != null ||
         (Array.isArray(bilanPdf.financial_transport) && bilanPdf.financial_transport.length > 0) ||
@@ -4673,6 +4708,14 @@ const ProjectManagement: React.FC = () => {
         bilanPdfRow && Array.isArray((bilanPdfRow as { financial_autres_financements?: unknown[] }).financial_autres_financements)
           ? (bilanPdfRow as { financial_autres_financements: unknown[] }).financial_autres_financements
           : [];
+      const bilanHseArr = (): unknown[] => {
+        if (!bilanPdfRow) return [];
+        if (Array.isArray(bilanPdfRow.financial_hse_lines)) return bilanPdfRow.financial_hse_lines;
+        if (bilanPdfRow.hse != null) {
+          return [{ hse_name: 'HSE', hour: String(bilanPdfRow.hse) }];
+        }
+        return [];
+      };
 
       const bilanHvEuroComputed =
         bilanHvLinesPdf.length > 0
@@ -4690,13 +4733,103 @@ const ProjectManagement: React.FC = () => {
           : 0;
       const totalBilan = hasBilan && bilanPdfRow ? totalCreditsBilan + bilanAutresSumPdf : 0;
 
-      // HSE
-      if (mldsInfo.financial_hse != null) {
-        const h = Number.parseFloat(String(mldsInfo.financial_hse));
-        const bVal = hasBilan && bilanPdfRow && bilanPdfRow.hse != null ? `${Number(bilanPdfRow.hse).toFixed(2)} h` : '';
-        const bCom = hasBilan && bilanPdfRow?.hse_comment ? String(bilanPdfRow.hse_comment) : '';
-        unifiedRows.push({ poste: 'HSE', montant: `${h.toFixed(2)} h`, bilanVal: bVal, bilanComment: bCom });
+      const bilanLineCommentPdf = (b: { comment?: unknown } | null | undefined): string => {
+        if (!b || b.comment == null) return '';
+        const s = String(b.comment).trim();
+        return s;
+      };
+
+      /** Aligné sur l’onglet Informations supplémentaires : montant + heures + taux €/h (texte monobloc si pas de triple PDF) */
+      const formatPdfPrestataireLine = (line: { price?: string; hours?: string } | null | undefined, amount: number): string => {
+        const priceStr = `${amount.toFixed(2)} €`;
+        if (!line) return priceStr;
+        const h = Number.parseFloat(String(line.hours ?? ''));
+        if (line.hours != null && String(line.hours).trim() !== '' && h > 0 && !Number.isNaN(h) && !Number.isNaN(amount) && amount > 0) {
+          const rateLbl = (amount / h).toFixed(2);
+          return `${priceStr}\n${String(line.hours).trim()} h d'intervention — taux : ${rateLbl} €/h`;
+        }
+        return priceStr;
+      };
+
+      const prestataireTriplePdf = (
+        line: { price?: string; hours?: string } | null | undefined,
+        amount: number
+      ): { h: string; rate: string; euro: string } | null => {
+        const euro = `${amount.toFixed(2)} €`;
+        if (!line) return null;
+        const hNum = Number.parseFloat(String(line.hours ?? ''));
+        if (line.hours != null && String(line.hours).trim() !== '' && hNum > 0 && !Number.isNaN(hNum) && amount > 0) {
+          return { h: `${String(line.hours).trim()} h`, rate: (amount / hNum).toFixed(2), euro };
+        }
+        return null;
+      };
+
+      const zipMoneyRows = (
+        demandeLines: Array<{ price?: string; transport_name?: string; operating_name?: string; service_name?: string; autres_name?: string }>,
+        bilanLines: unknown[],
+        formatPoste: (d: any, b: any, i: number) => string,
+        formatBilan: (b: any) => string,
+        formatBilanComment: (b: any) => string,
+        countInCredits: boolean,
+        formatMontantDemande?: (d: any, amountD: number) => string,
+        formatDemandeTriple?: (d: any, amountD: number) => { h: string; rate: string; euro: string } | null,
+        formatBilanTriple?: (b: any) => { h: string; rate: string; euro: string } | null
+      ) => {
+        const bt = Array.isArray(bilanLines) ? bilanLines : [];
+        const n = Math.max(demandeLines.length, bt.length);
+        for (let i = 0; i < n; i++) {
+          const d = demandeLines[i];
+          const b = bt[i] as { price?: string; comment?: unknown } | undefined;
+          const amountD = d ? Number.parseFloat(String(d.price || '0')) || 0 : 0;
+          if (d && countInCredits) totalCredits += amountD;
+          const tripleD = hasBilan && formatDemandeTriple && d ? formatDemandeTriple(d, amountD) : null;
+          const tripleB = hasBilan && formatBilanTriple && b ? formatBilanTriple(b) : null;
+          const montantStr = d
+            ? formatMontantDemande
+              ? formatMontantDemande(d, amountD)
+              : `${amountD.toFixed(2)} €`
+            : '—';
+          const bilanStr = hasBilan && b ? formatBilan(b) : '';
+          unifiedRows.push({
+            poste: formatPoste(d, b, i),
+            montant: montantStr,
+            bilanVal: bilanStr,
+            bilanComment: hasBilan && b ? formatBilanComment(b) : '',
+            splitDemande: Boolean(tripleD),
+            splitBilan: Boolean(tripleB),
+            demH: tripleD?.h ?? '',
+            demRate: tripleD?.rate ?? '',
+            demEuro: tripleD?.euro ?? '',
+            bilH: tripleB?.h ?? '',
+            bilRate: tripleB?.rate ?? '',
+            bilEuro: tripleB?.euro ?? ''
+          });
+        }
+      };
+
+      const hseDemande = getMldsHseLinesFromMldsInfo(mldsInfo);
+
+      if (hseDemande.length > 0 || bilanHseArr().length > 0) {
+        const bilanHsePdf = bilanHseArr();
+        const maxHse = Math.max(hseDemande.length, bilanHsePdf.length);
+        for (let i = 0; i < maxHse; i++) {
+          const d = hseDemande[i];
+          const b = bilanHsePdf[i] as { hse_name?: string; hour?: string; price?: string; comment?: unknown } | undefined;
+          const name = (d?.hse_name || b?.hse_name || 'HSE').trim();
+          const short = name.length > 35 ? `${name.substring(0, 32)}...` : name;
+          const demH = d ? hseLineHours(d) : 0;
+          const bilH = hasBilan && b ? hseLineHours(b) : 0;
+          const bilanComment =
+            hasBilan && b ? bilanLineCommentPdf(b as { comment?: unknown }) : '';
+          unifiedRows.push({
+            poste: `HSE — ${short}`,
+            montant: d ? `${demH.toFixed(2)} h` : '—',
+            bilanVal: hasBilan && b ? `${bilH.toFixed(2)} h` : '',
+            bilanComment
+          });
+        }
       }
+
 
       // Heures HV (demande vs bilan)
       if (hvLinesPdf.length > 0 || bilanHvLinesPdf.length > 0 || mldsInfo.financial_hv != null || mldsInfo.financial_rate != null) {
@@ -4784,80 +4917,6 @@ const ProjectManagement: React.FC = () => {
         });
       }
 
-      const bilanLineCommentPdf = (b: { comment?: unknown } | null | undefined): string => {
-        if (!b || b.comment == null) return '';
-        const s = String(b.comment).trim();
-        return s;
-      };
-
-      /** Aligné sur l’onglet Informations supplémentaires : montant + heures + taux €/h (texte monobloc si pas de triple PDF) */
-      const formatPdfPrestataireLine = (line: { price?: string; hours?: string } | null | undefined, amount: number): string => {
-        const priceStr = `${amount.toFixed(2)} €`;
-        if (!line) return priceStr;
-        const h = Number.parseFloat(String(line.hours ?? ''));
-        if (line.hours != null && String(line.hours).trim() !== '' && h > 0 && !Number.isNaN(h) && !Number.isNaN(amount) && amount > 0) {
-          const rateLbl = (amount / h).toFixed(2);
-          return `${priceStr}\n${String(line.hours).trim()} h d'intervention — taux : ${rateLbl} €/h`;
-        }
-        return priceStr;
-      };
-
-      const prestataireTriplePdf = (
-        line: { price?: string; hours?: string } | null | undefined,
-        amount: number
-      ): { h: string; rate: string; euro: string } | null => {
-        const euro = `${amount.toFixed(2)} €`;
-        if (!line) return null;
-        const hNum = Number.parseFloat(String(line.hours ?? ''));
-        if (line.hours != null && String(line.hours).trim() !== '' && hNum > 0 && !Number.isNaN(hNum) && amount > 0) {
-          return { h: `${String(line.hours).trim()} h`, rate: (amount / hNum).toFixed(2), euro };
-        }
-        return null;
-      };
-
-      const zipMoneyRows = (
-        demandeLines: Array<{ price?: string; transport_name?: string; operating_name?: string; service_name?: string; autres_name?: string }>,
-        bilanLines: unknown[],
-        formatPoste: (d: any, b: any, i: number) => string,
-        formatBilan: (b: any) => string,
-        formatBilanComment: (b: any) => string,
-        countInCredits: boolean,
-        formatMontantDemande?: (d: any, amountD: number) => string,
-        formatDemandeTriple?: (d: any, amountD: number) => { h: string; rate: string; euro: string } | null,
-        formatBilanTriple?: (b: any) => { h: string; rate: string; euro: string } | null
-      ) => {
-        const bt = Array.isArray(bilanLines) ? bilanLines : [];
-        const n = Math.max(demandeLines.length, bt.length);
-        for (let i = 0; i < n; i++) {
-          const d = demandeLines[i];
-          const b = bt[i] as { price?: string; comment?: unknown } | undefined;
-          const amountD = d ? Number.parseFloat(String(d.price || '0')) || 0 : 0;
-          if (d && countInCredits) totalCredits += amountD;
-          const tripleD = hasBilan && formatDemandeTriple && d ? formatDemandeTriple(d, amountD) : null;
-          const tripleB = hasBilan && formatBilanTriple && b ? formatBilanTriple(b) : null;
-          const montantStr = d
-            ? formatMontantDemande
-              ? formatMontantDemande(d, amountD)
-              : `${amountD.toFixed(2)} €`
-            : '—';
-          const bilanStr = hasBilan && b ? formatBilan(b) : '';
-          unifiedRows.push({
-            poste: formatPoste(d, b, i),
-            montant: montantStr,
-            bilanVal: bilanStr,
-            bilanComment: hasBilan && b ? formatBilanComment(b) : '',
-            splitDemande: Boolean(tripleD),
-            splitBilan: Boolean(tripleB),
-            demH: tripleD?.h ?? '',
-            demRate: tripleD?.rate ?? '',
-            demEuro: tripleD?.euro ?? '',
-            bilH: tripleB?.h ?? '',
-            bilRate: tripleB?.rate ?? '',
-            bilEuro: tripleB?.euro ?? ''
-          });
-        }
-      };
-
       const transportDemande = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport : [];
       const operatingDemande = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating : [];
       const serviceDemande = getMldsServiceLinesFromMldsInfo(mldsInfo).map(l => ({
@@ -4868,7 +4927,6 @@ const ProjectManagement: React.FC = () => {
       const autreDemande = Array.isArray((mldsInfo as { financial_autres_financements?: unknown[] }).financial_autres_financements)
         ? ((mldsInfo as { financial_autres_financements: unknown[] }).financial_autres_financements as Array<{ autres_name?: string; price?: string }>)
         : [];
-
       if (hasBilan) {
         const bpGlob = bilanPdfRow as Record<string, unknown> | null;
         const pushBilanGlobalRow = (poste: string, text: unknown) => {
@@ -7684,7 +7742,7 @@ const ProjectManagement: React.FC = () => {
                       )}
 
                       {/* Moyens financiers */}
-                      {(apiProjectData.mlds_information.financial_hse != null ||
+                      {(getMldsHseLinesFromMldsInfo(apiProjectData.mlds_information).length > 0 ||
                         apiProjectData.mlds_information.financial_rate != null ||
                         apiProjectData.mlds_information.financial_hv != null ||
                         (Array.isArray(apiProjectData.mlds_information.financial_hv_lines) && apiProjectData.mlds_information.financial_hv_lines.length > 0) ||
@@ -7731,7 +7789,7 @@ const ProjectManagement: React.FC = () => {
                                     Moyens financiers demandés
                                   </div>
                                   <p style={{ margin: '0.35rem 0 0', fontSize: '0.8125rem', color: '#64748b', lineHeight: 1.45 }}>
-                                    Heures HSE, taux horaire MLDS, puis détail des crédits (HV par enseignant, transport, fonctionnement, prestataires).
+                                    Heures HSE (déclaratif, hors crédits), taux horaire MLDS, puis détail des crédits (HV, transport, fonctionnement, prestataires).
                                   </p>
                                 </div>
                               </div>
@@ -7745,24 +7803,6 @@ const ProjectManagement: React.FC = () => {
                                     marginBottom: '1rem'
                                   }}
                                 >
-                                  {apiProjectData.mlds_information.financial_hse != null && (
-                                    <div
-                                      style={{
-                                        padding: '0.85rem 1rem',
-                                        background: '#f8fafc',
-                                        borderRadius: '8px',
-                                        border: '1px solid #e2e8f0'
-                                      }}
-                                    >
-                                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>
-                                        HSE
-                                      </div>
-                                      <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>
-                                        {Number.parseFloat(String(apiProjectData.mlds_information.financial_hse)).toFixed(2)}{' '}
-                                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569' }}>h</span>
-                                      </div>
-                                    </div>
-                                  )}
                                   {apiProjectData.mlds_information.financial_hv != null &&
                                     !(Array.isArray(apiProjectData.mlds_information.financial_hv_lines) && apiProjectData.mlds_information.financial_hv_lines.length > 0) && (
                                     <div
@@ -7824,32 +7864,13 @@ const ProjectManagement: React.FC = () => {
                                       </div>
                                     </div>
                                   )}
-                                  {Array.isArray(apiProjectData.mlds_information.financial_hv_lines) &&
-                                    apiProjectData.mlds_information.financial_hv_lines.length > 0 &&
-                                    apiProjectData.mlds_information.financial_rate != null && (
-                                    <div
-                                      style={{
-                                        padding: '0.85rem 1rem',
-                                        background: '#eff6ff',
-                                        borderRadius: '8px',
-                                        border: '1px solid #bfdbfe',
-                                        gridColumn: '1 / -1'
-                                      }}
-                                    >
-                                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1d4ed8', marginBottom: '0.25rem' }}>
-                                        HV détaillé par enseignant
-                                      </div>
-                                      <div style={{ fontSize: '0.8125rem', color: '#1e40af', lineHeight: 1.4 }}>
-                                        Les heures sont indiquées ligne par ligne ci-dessous ; le montant en euros tient compte du taux {Number.parseFloat(String(apiProjectData.mlds_information.financial_rate)).toFixed(2)} €/h.
-                                      </div>
-                                    </div>
-                                  )}
                                 </div>
 
                                 {mldsBilan && (() => {
                                   const b = mldsBilan as Record<string, unknown>;
                                   const hasNewBilan =
                                     b.hse != null ||
+                                    (Array.isArray(b.financial_hse_lines) && (b.financial_hse_lines as unknown[]).length > 0) ||
                                     b.hv != null ||
                                     b.financial_rate != null ||
                                     (Array.isArray(b.financial_hv_lines) && (b.financial_hv_lines as unknown[]).length > 0) ||
@@ -7885,14 +7906,6 @@ const ProjectManagement: React.FC = () => {
                                     <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
                                       <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
-                                        {b.hse != null && (
-                                          <span>
-                                            <strong>HSE :</strong> {formatBilanVal(Number(b.hse))} h
-                                            {(b as { hse_comment?: string }).hse_comment && (
-                                              <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic', marginLeft: '0.5rem' }}>{(b as { hse_comment?: string }).hse_comment}</span>
-                                            )}
-                                          </span>
-                                        )}
                                         {bilanHvLines.length > 0 ? (
                                           <div>
                                             <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>HV par enseignant</div>
@@ -7936,6 +7949,131 @@ const ProjectManagement: React.FC = () => {
                                   );
                                 })()}
 
+                              {(() => {
+                                const hseLinesInfo = getMldsHseLinesFromMldsInfo(apiProjectData.mlds_information);
+                                if (hseLinesInfo.length === 0) return null;
+                                const hseTotalHours = hseLinesInfo.reduce((s, l) => s + hseLineHours(l), 0);
+                                return (
+                                  <div
+                                    style={{
+                                      marginTop: '1.25rem',
+                                      paddingTop: '1.25rem',
+                                      borderTop: '1px solid #e2e8f0'
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        padding: '1rem',
+                                        backgroundColor: '#f5f3ff',
+                                        borderRadius: '10px',
+                                        border: '1px solid #ddd6fe'
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                                        <i className="fas fa-clock" style={{ color: '#6d28d9', fontSize: '0.95rem' }} aria-hidden />
+                                        <span style={{ fontSize: '1rem', fontWeight: 600, color: '#334155' }}>HSE</span>
+                                        <span style={{ fontSize: '0.8125rem', color: '#6b7280', marginLeft: 'auto' }}>
+                                          Hors total des crédits
+                                        </span>
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                        {hseLinesInfo.map((line, idx) => (
+                                          <div
+                                            key={idx}
+                                            style={{
+                                              display: 'flex',
+                                              justifyContent: 'space-between',
+                                              alignItems: 'center',
+                                              marginBottom: '0.25rem',
+                                              paddingLeft: '0.25rem'
+                                            }}
+                                          >
+                                            <span style={{ fontSize: '0.875rem', color: '#374151' }}>
+                                              {line.hse_name?.trim() || 'HSE'}
+                                            </span>
+                                            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
+                                              {hseLineHours(line).toFixed(2)} h
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div
+                                        style={{
+                                          marginTop: '0.65rem',
+                                          padding: '0.5rem 0.75rem',
+                                          backgroundColor: '#ede9fe',
+                                          borderRadius: '0.375rem',
+                                          display: 'flex',
+                                          justifyContent: 'space-between',
+                                          alignItems: 'center'
+                                        }}
+                                      >
+                                        <span style={{ fontWeight: 600, color: '#5b21b6', fontSize: '0.875rem' }}>Total HSE</span>
+                                        <span style={{ fontWeight: 700, color: '#5b21b6' }}>{hseTotalHours.toFixed(2)} h</span>
+                                      </div>
+                                      {mldsBilan && (() => {
+                                        const bb = mldsBilan as Record<string, unknown>;
+                                        const arr = bb.financial_hse_lines;
+                                        const legacyHse =
+                                          bb.hse != null
+                                            ? [{ hse_name: 'HSE', hour: String(bb.hse), comment: (bb as { hse_comment?: string }).hse_comment }]
+                                            : [];
+                                        const bilanHseUi =
+                                          Array.isArray(arr) && (arr as unknown[]).length > 0
+                                            ? (arr as Array<{ hse_name?: string; hour?: string; price?: string; comment?: string | null }>)
+                                            : legacyHse;
+                                        if (bilanHseUi.length === 0) return null;
+                                        return (
+                                          <div
+                                            style={{
+                                              marginTop: '0.65rem',
+                                              padding: '0.5rem 0.75rem',
+                                              backgroundColor: '#f0fdf4',
+                                              borderRadius: '0.375rem',
+                                              borderLeft: '3px solid #16a34a'
+                                            }}
+                                          >
+                                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>
+                                              Bilan à la clôture — HSE
+                                            </div>
+                                            {bilanHseUi.map((line, idx) => (
+                                              <div key={idx} style={{ marginBottom: '0.35rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+                                                  <span>{line.hse_name || '—'}</span>
+                                                  <span style={{ fontWeight: 600 }}>{hseLineHours(line).toFixed(2)} h</span>
+                                                </div>
+                                                {line.comment != null && String(line.comment).trim() !== '' && (
+                                                  <div
+                                                    style={{
+                                                      fontSize: '0.8125rem',
+                                                      color: '#6b7280',
+                                                      marginTop: '0.15rem',
+                                                      fontStyle: 'italic'
+                                                    }}
+                                                  >
+                                                    {String(line.comment)}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {(() => {
+                                const mldsInfoFin = apiProjectData.mlds_information;
+                                const hasCreditsDetail =
+                                  (Array.isArray(mldsInfoFin.financial_hv_lines) && mldsInfoFin.financial_hv_lines.length > 0) ||
+                                  mldsInfoFin.financial_hv != null ||
+                                  mldsInfoFin.financial_transport != null ||
+                                  mldsInfoFin.financial_operating != null ||
+                                  getMldsServiceLinesFromMldsInfo(mldsInfoFin).length > 0;
+                                if (!hasCreditsDetail) return null;
+                                return (
                               <div
                                 style={{
                                   marginTop: '1.25rem',
@@ -7968,6 +8106,25 @@ const ProjectManagement: React.FC = () => {
                                       <>
                                         {hvCreditLines.length > 0 && (
                                           <div>
+                                            {apiProjectData.mlds_information.financial_rate != null && (
+                                              <div
+                                                style={{
+                                                  padding: '0.85rem 1rem',
+                                                  background: '#eff6ff',
+                                                  borderRadius: '8px',
+                                                  border: '1px solid #bfdbfe',
+                                                  marginBottom: '0.65rem'
+                                                }}
+                                              >
+                                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1d4ed8', marginBottom: '0.25rem' }}>
+                                                  HV détaillé par enseignant
+                                                </div>
+                                                <div style={{ fontSize: '0.8125rem', color: '#1e40af', lineHeight: 1.4 }}>
+                                                  Les heures sont indiquées ligne par ligne ci-dessous ; le montant en euros tient compte du taux{' '}
+                                                  {Number.parseFloat(String(apiProjectData.mlds_information.financial_rate)).toFixed(2)} €/h.
+                                                </div>
+                                              </div>
+                                            )}
                                             <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem', fontWeight: 600 }}>HV (crédits)</div>
                                             {hvCreditLines.map((line: { teacher_name?: string; hour?: string; price?: string }, idx: number) => {
                                               const h = hvLineHours(line);
@@ -7979,26 +8136,25 @@ const ProjectManagement: React.FC = () => {
                                                   display: 'flex',
                                                   justifyContent: 'space-between',
                                                   alignItems: 'center',
-                                                  flexWrap: 'wrap',
-                                                  gap: '0.35rem 0.75rem',
-                                                  marginBottom: '0.35rem',
-                                                  paddingLeft: '1rem',
-                                                  paddingBottom: '0.35rem',
-                                                  borderBottom: '1px solid #f1f5f9'
+                                                  gap: '0.75rem',
+                                                  marginBottom: '0.25rem',
+                                                  paddingLeft: '1rem'
                                                 }}
                                               >
-                                                <span style={{ fontSize: '0.875rem', color: '#374151', flex: '1 1 120px' }}>
+                                                <span style={{ fontSize: '0.875rem', color: '#374151', textAlign: 'left', minWidth: 0 }}>
                                                   {line.teacher_name?.trim() || 'Enseignant'}
                                                 </span>
-                                                <span style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: 600 }}>
-                                                  {h.toFixed(2)} h
-                                                </span>
-                                                <span
-                                                  style={{ fontSize: '0.875rem', fontWeight: 700, color: '#111827', marginLeft: 'auto' }}
-                                                  title={`${h.toFixed(2)} h × ${hvDisplayRate.toFixed(2)} €/h`}
-                                                >
-                                                  {lineEuro.toFixed(2)} €
-                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                                                  <span style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: 600 }}>
+                                                    {h.toFixed(2)} h
+                                                  </span>
+                                                  <span
+                                                    style={{ fontSize: '0.875rem', fontWeight: 700, color: '#111827', minWidth: '4.75rem', textAlign: 'right' }}
+                                                    title={`${h.toFixed(2)} h × ${hvDisplayRate.toFixed(2)} €/h`}
+                                                  >
+                                                    {lineEuro.toFixed(2)} €
+                                                  </span>
+                                                </div>
                                               </div>
                                               );
                                             })}
@@ -8241,6 +8397,8 @@ const ProjectManagement: React.FC = () => {
                                 </div>
                               </div>
                               </div>
+                                );
+                              })()}
 
                               {Array.isArray(apiProjectData.mlds_information.financial_autres_financements) && apiProjectData.mlds_information.financial_autres_financements.length > 0 && (
                                 <div style={{
@@ -9912,19 +10070,55 @@ développées par les participants"
                       border: '1px solid #e5e7eb',
                       
                     }}>
-                      <div className="form-group" style={{ marginBottom: '0' }}>
-                        <label htmlFor="mlds-financial-hse">HSE</label>
-                        <input
-                          type="number"
-                          id="mlds-financial-hse"
-                          name="mldsFinancialHSE"
-                          className="form-input"
-                          value={editForm.mldsFinancialHSE}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, mldsFinancialHSE: e.target.value }))}
-                          placeholder="Nombre d'heures HSE"
-                          min="0"
-                          step="0.01"
-                        />
+                      <div className="form-group" style={{ marginBottom: '0', gridColumn: '1 / -1' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <label htmlFor="mlds-financial-hse-lines">Lignes HSE (heures)</label>
+                          <button
+                            type="button"
+                            onClick={() => addEditFinancialLine('mldsFinancialHseLines')}
+                            className="btn btn-outline btn-sm"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                          >
+                            <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                            Ajouter une ligne
+                          </button>
+                        </div>
+                        {editForm.mldsFinancialHseLines.length === 0 ? (
+                          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+                            Aucune ligne. Cliquez sur « Ajouter une ligne » pour saisir les heures HSE par enseignant.
+                          </div>
+                        ) : (
+                          editForm.mldsFinancialHseLines.map((line, index) => (
+                            <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                className="form-input"
+                                value={line.hse_name}
+                                onChange={(e) => updateEditFinancialLine('mldsFinancialHseLines', index, 'name', e.target.value)}
+                                placeholder="Nom enseignant"
+                                style={{ flex: 2 }}
+                              />
+                              <input
+                                type="number"
+                                className="form-input"
+                                value={line.hour}
+                                onChange={(e) => updateEditFinancialLine('mldsFinancialHseLines', index, 'hour', e.target.value)}
+                                placeholder="Heures HSE"
+                                min="0"
+                                step="0.01"
+                                style={{ flex: 1 }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeEditFinancialLine('mldsFinancialHseLines', index)}
+                                className="btn btn-outline btn-sm"
+                                style={{ padding: '8px 12px', color: '#dc2626' }}
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            </div>
+                          ))
+                        )}
                       </div>
                       <div className="form-group" style={{ marginBottom: '0' }}>
                         <label htmlFor="mlds-financial-rate">Taux €/h</label>

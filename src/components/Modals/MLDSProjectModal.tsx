@@ -7,6 +7,7 @@ import {
   getTeacherMembers,
   getTeacherSchoolMembers,
   createProject,
+  getMldsHseLinesFromMldsInfo,
   getMldsServiceLinesFromMldsInfo
 } from '../../api/Projects';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
@@ -86,7 +87,8 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
     mldsObjectives: '',
     mldsCompetencies: [] as string[],
     // Financial means
-    mldsFinancialHSE: '', // HSE (nombre d'heures) — déclaratif, hors totaux
+    /** HSE — lignes intitulé + heures, déclaratif hors totaux */
+    mldsFinancialHseLines: [] as Array<{ hse_name: string; hour: string }>,
     mldsFinancialRate: '50.73', // Taux €/heure (HV, lignes crédits)
     mldsFinancialTransport: [] as Array<{ transport_name: string; price: string }>, // Frais de transport
     mldsFinancialOperating: [] as Array<{ operating_name: string; price: string }>, // Frais de fonctionnement
@@ -191,7 +193,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
       mldsExpectedParticipants: mldsInfo?.expected_participants != null ? String(mldsInfo.expected_participants) : '',
       mldsObjectives: mldsInfo?.objectives || '',
       mldsCompetencies: [],
-      mldsFinancialHSE: mldsInfo?.financial_hse != null ? String(mldsInfo.financial_hse) : '',
+      mldsFinancialHseLines: getMldsHseLinesFromMldsInfo(mldsInfo).map(l => ({
+        hse_name: String(l.hse_name ?? ''),
+        hour: l.hour != null ? String(l.hour) : ''
+      })),
       mldsFinancialRate:
         mldsInfo?.financial_rate != null
           ? String(mldsInfo.financial_rate)
@@ -601,12 +606,21 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
 
   // Helper functions for managing financial lines
   const addFinancialLine = (
-    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService' | 'mldsFinancialHvLines' | 'mldsFinancialAutres'
+    fieldName:
+      | 'mldsFinancialHseLines'
+      | 'mldsFinancialTransport'
+      | 'mldsFinancialOperating'
+      | 'mldsFinancialService'
+      | 'mldsFinancialHvLines'
+      | 'mldsFinancialAutres'
   ) => {
     if (fieldName === 'mldsFinancialService') {
       setMldsServiceQuoteFiles(q => [...q, null]);
     }
     setFormData(prev => {
+      if (fieldName === 'mldsFinancialHseLines') {
+        return { ...prev, [fieldName]: [...prev[fieldName], { hse_name: '', hour: '' }] };
+      }
       if (fieldName === 'mldsFinancialTransport') {
         return { ...prev, [fieldName]: [...prev[fieldName], { transport_name: '', price: '' }] };
       }
@@ -624,7 +638,13 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
   };
 
   const removeFinancialLine = (
-    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService' | 'mldsFinancialHvLines' | 'mldsFinancialAutres',
+    fieldName:
+      | 'mldsFinancialHseLines'
+      | 'mldsFinancialTransport'
+      | 'mldsFinancialOperating'
+      | 'mldsFinancialService'
+      | 'mldsFinancialHvLines'
+      | 'mldsFinancialAutres',
     index: number
   ) => {
     if (fieldName === 'mldsFinancialService') {
@@ -634,6 +654,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
       const arr = prev[fieldName] as Array<unknown>;
       const filtered = arr.filter((_: unknown, i: number) => i !== index);
       type FinancialLinesType =
+        | Array<{ hse_name: string; hour: string }>
         | Array<{ transport_name: string; price: string }>
         | Array<{ operating_name: string; price: string }>
         | Array<{ service_name: string; hours: string; price: string; comment: string }>
@@ -647,14 +668,26 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
   };
 
   const updateFinancialLine = (
-    fieldName: 'mldsFinancialTransport' | 'mldsFinancialOperating' | 'mldsFinancialService' | 'mldsFinancialHvLines' | 'mldsFinancialAutres',
+    fieldName:
+      | 'mldsFinancialHseLines'
+      | 'mldsFinancialTransport'
+      | 'mldsFinancialOperating'
+      | 'mldsFinancialService'
+      | 'mldsFinancialHvLines'
+      | 'mldsFinancialAutres',
     index: number,
     field: 'name' | 'price' | 'hours' | 'hour' | 'comment',
     value: string
   ) => {
     setFormData(prev => {
       const newArray = [...prev[fieldName]] as any[];
-      if (fieldName === 'mldsFinancialTransport') {
+      if (fieldName === 'mldsFinancialHseLines') {
+        newArray[index] = {
+          ...newArray[index],
+          hse_name: field === 'name' ? value : newArray[index].hse_name,
+          hour: field === 'hour' ? value : newArray[index].hour
+        };
+      } else if (fieldName === 'mldsFinancialTransport') {
         newArray[index] = {
           ...newArray[index],
           transport_name: field === 'name' ? value : newArray[index].transport_name,
@@ -1164,7 +1197,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
             action_objectives_other: formData.mldsActionObjectivesOther || null,
             competencies_developed: formData.mldsCompetenciesDeveloped || null,
             expected_participants: formData.mldsExpectedParticipants ? Number.parseInt(formData.mldsExpectedParticipants, 10) : null,
-            financial_hse: formData.mldsFinancialHSE ? Number.parseFloat(formData.mldsFinancialHSE) : null,
+            financial_hse_lines:
+              formData.mldsFinancialHseLines.length > 0
+                ? formData.mldsFinancialHseLines.filter(line => line.hse_name.trim() || line.hour.trim())
+                : null,
             financial_hv: null,
             financial_rate: formData.mldsFinancialRate ? Number.parseFloat(formData.mldsFinancialRate) : null,
             financial_hv_lines:
@@ -2004,19 +2040,55 @@ développées par les participants"
                 borderRadius: '8px',
                 border: '1px solid #e5e7eb'
               }}>
-                <div className="form-group" style={{ marginBottom: '0' }}>
-                  <label htmlFor="mldsFinancialHSE">HSE</label>
-                  <input
-                    type="number"
-                    id="mldsFinancialHSE"
-                    name="mldsFinancialHSE"
-                    className="form-input"
-                    value={formData.mldsFinancialHSE}
-                    onChange={handleInputChange}
-                    placeholder="Nombre d'heures HSE"
-                    min="0"
-                    step="0.01"
-                  />
+                <div className="form-group" style={{ marginBottom: '0', gridColumn: '1 / -1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label htmlFor="mldsFinancialHseLines">HSE</label>
+                    <button
+                      type="button"
+                      onClick={() => addFinancialLine('mldsFinancialHseLines')}
+                      className="btn btn-outline btn-sm"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                    >
+                      <i className="fas fa-plus" style={{ marginRight: '4px' }}></i>
+                      Ajouter une ligne
+                    </button>
+                  </div>
+                  {formData.mldsFinancialHseLines.length === 0 ? (
+                    <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+                      Aucune ligne. Cliquez sur « Ajouter une ligne » pour saisir les heures HSE par enseignant.
+                    </div>
+                  ) : (
+                    formData.mldsFinancialHseLines.map((line, index) => (
+                      <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={line.hse_name}
+                          onChange={(e) => updateFinancialLine('mldsFinancialHseLines', index, 'name', e.target.value)}
+                          placeholder="Intitulé (ex. Formation)"
+                          style={{ flex: 2 }}
+                        />
+                        <input
+                          type="number"
+                          className="form-input"
+                          value={line.hour}
+                          onChange={(e) => updateFinancialLine('mldsFinancialHseLines', index, 'hour', e.target.value)}
+                          placeholder="Heures HSE"
+                          min="0"
+                          step="0.01"
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeFinancialLine('mldsFinancialHseLines', index)}
+                          className="btn btn-outline btn-sm"
+                          style={{ padding: '8px 12px', color: '#dc2626' }}
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <div className="form-group" style={{ marginBottom: '0' }}>
                   <label htmlFor="mldsFinancialRate">Taux (€/h)</label>
