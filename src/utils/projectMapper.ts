@@ -422,6 +422,47 @@ const mapKeywordsToTags = (keywords: any[]): string[] => {
     }).filter((tag: string) => tag.length > 0); // Remove empty tags
 };
 
+export type OrganizationContextType = 'school' | 'company';
+
+/**
+ * Whether a project belongs to the currently selected school/company dashboard context.
+ * Used when merging "mes projets" into org-scoped lists so cross-school co-owner projects
+ * (e.g. primary org Nice while viewing Bretagne) are not shown unless linked to that context.
+ */
+export const projectBelongsToOrganizationContext = (
+    project: any,
+    contextId: number | string,
+    contextType: OrganizationContextType
+): boolean => {
+    const ctxId = Number(contextId);
+    if (!ctxId || Number.isNaN(ctxId)) return false;
+
+    const primaryType = project?.primary_organization_type;
+    const primaryId =
+        project?.primary_organization_id != null
+            ? Number(project.primary_organization_id)
+            : null;
+
+    if (contextType === 'school') {
+        if (primaryType === 'School' && primaryId === ctxId) return true;
+
+        const schoolIds = (project?.school_ids || []).map((id: unknown) => Number(id));
+        if (schoolIds.includes(ctxId)) return true;
+
+        const levels = project?.school_levels || [];
+        if (levels.some((sl: { school_id?: number }) => Number(sl.school_id) === ctxId)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    if (primaryType === 'Company' && primaryId === ctxId) return true;
+
+    const companyIds = (project?.company_ids || []).map((id: unknown) => Number(id));
+    return companyIds.includes(ctxId);
+};
+
 /**
  * Map API project data to frontend Project format
  * Transforms backend API response to frontend Project interface
