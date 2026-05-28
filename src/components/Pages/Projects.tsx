@@ -89,6 +89,15 @@ const Projects: React.FC = () => {
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
+
   const [pathwayFilter, setPathwayFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
@@ -144,11 +153,12 @@ const Projects: React.FC = () => {
       
       // Pour les utilisateurs personnels, toujours récupérer tous les projets publics
       // (le filtre d'organisation n'est pas applicable)
-      const apiParams: { page?: number; per_page?: number; public_only?: boolean } = {
+      const apiParams: { page?: number; per_page?: number; public_only?: boolean; search?: string } = {
         page: page,
         per_page: 12,
         public_only: true
       };
+      if (debouncedSearchTerm) apiParams.search = debouncedSearchTerm;
 
       const response = await getAllProjects(apiParams);
       const rawProjects = response.data?.data || response.data || [];
@@ -175,14 +185,16 @@ const Projects: React.FC = () => {
       setIsLoadingProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, organizationFilter]);
+  }, [state.showingPageType, organizationFilter, debouncedSearchTerm]);
 
   // Projets des établissements/organisations dont l'utilisateur est membre confirmé (pour mineurs < 15)
   const fetchOrganizationProjects = React.useCallback(async (page: number = 1) => {
     setIsLoadingProjects(true);
     try {
       const currentUser = await getCurrentUser();
-      const response = await getUserOrganizationProjects({ page, per_page: 12 });
+      const params: { page?: number; per_page?: number; search?: string } = { page, per_page: 12 };
+      if (debouncedSearchTerm) params.search = debouncedSearchTerm;
+      const response = await getUserOrganizationProjects(params);
       const rawProjects = response.data?.data || response.data || [];
       const formattedProjects: Project[] = rawProjects.map((p: any) => {
         return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
@@ -212,7 +224,7 @@ const Projects: React.FC = () => {
       setIsLoadingProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType]);
+  }, [state.showingPageType, debouncedSearchTerm]);
 
   // Fonction pour récupérer les projets de l'utilisateur (Mes projets)
   const fetchMyProjects = React.useCallback(async (page: number = 1) => {
@@ -254,7 +266,8 @@ const Projects: React.FC = () => {
         }
       } else if (state.showingPageType === 'user') {
         // Pour les utilisateurs : utiliser getAllUserProjects
-        const params: { page?: number; per_page?: number } = { page: page, per_page: 12 };
+        const params: { page?: number; per_page?: number; search?: string } = { page: page, per_page: 12 };
+        if (debouncedSearchTerm) params.search = debouncedSearchTerm;
         const response = await getAllUserProjects(params);
         const rawProjects = response.data?.data || response.data || [];
         
@@ -298,7 +311,7 @@ const Projects: React.FC = () => {
       setIsLoadingProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType]);
+  }, [state.showingPageType, debouncedSearchTerm]);
 
   // Fonction pour récupérer les projets MLDS (avec mlds_information !== null), séparés par type_mlds/type
   const fetchMLDSProjects = React.useCallback(async (
@@ -593,7 +606,7 @@ const Projects: React.FC = () => {
           // coming / in_progress / ended. To keep pagination consistent with the counter,
           // we fetch a large batch once and paginate client-side (cached).
           const statusAllowed = new Set(['coming', 'in_progress', 'ended']);
-          const cacheKey = `${state.showingPageType}:${contextId}`;
+          const cacheKey = `${state.showingPageType}:${contextId}:${debouncedSearchTerm || ''}`;
 
           const cached = myOrgProjectsCacheRef.current;
           if (cached?.key === cacheKey && Array.isArray(cached.rawAll)) {
@@ -618,6 +631,24 @@ const Projects: React.FC = () => {
             rawProjects = rawProjects.filter((p: any) => p.mlds_information == null);
             // Keep only projects: coming / in_progress / ended
             rawProjects = rawProjects.filter((p: any) => statusAllowed.has(String(p.status)));
+            // Apply search on full dataset before client-side pagination (pro/edu my-org flow)
+            if (debouncedSearchTerm) {
+              const query = debouncedSearchTerm.toLowerCase();
+              rawProjects = rawProjects.filter((p: any) => {
+                const title = String(p.title || '').toLowerCase();
+                const description = String(p.description || '').toLowerCase();
+                const ownerFirstName = String(p.owner?.first_name || '').toLowerCase();
+                const ownerLastName = String(p.owner?.last_name || '').toLowerCase();
+                const ownerFullName = `${ownerFirstName} ${ownerLastName}`.trim();
+                return (
+                  title.includes(query) ||
+                  description.includes(query) ||
+                  ownerFirstName.includes(query) ||
+                  ownerLastName.includes(query) ||
+                  ownerFullName.includes(query)
+                );
+              });
+            }
 
             // Store filtered full list in cache
             myOrgProjectsCacheRef.current = { key: cacheKey, rawAll: rawProjects };
@@ -639,7 +670,7 @@ const Projects: React.FC = () => {
           }
         } else if (organizationFilter === 'all-public') {
           // Tous les projets (publics uniquement, hors MLDS) — filtre serveur + pagination cohérente
-          response = await getAllProjects({ page: page, per_page: 12, public_only: true });
+          response = await getAllProjects({ page: page, per_page: 12, public_only: true, search: debouncedSearchTerm || undefined });
           rawProjects = response.data?.data || response.data || [];
           needsClientSideFiltering = false;
         } else if (organizationFilter === 'school') {
@@ -651,7 +682,7 @@ const Projects: React.FC = () => {
             setProjectTotalCount(0);
             return;
           }
-          response = await getAllProjects({ organization_type: 'établissement', page: page, per_page: 12 });
+          response = await getAllProjects({ organization_type: 'établissement', page: page, per_page: 12, search: debouncedSearchTerm || undefined });
           rawProjects = response.data?.data || response.data || [];
           // Exclure les projets MLDS
           rawProjects = rawProjects.filter((p: any) => p.mlds_information == null);
@@ -665,7 +696,7 @@ const Projects: React.FC = () => {
             return;
           }
           // For client-side filtering, fetch a large batch to get all projects, then filter and paginate client-side
-          response = await getAllProjects({ page: 1, per_page: 200 });
+          response = await getAllProjects({ page: 1, per_page: 200, search: debouncedSearchTerm || undefined });
           rawProjects = response.data?.data || response.data || [];
           needsClientSideFiltering = true;
         } else if (organizationFilter === 'other-schools') {
@@ -678,7 +709,7 @@ const Projects: React.FC = () => {
             return;
           }
           // For client-side filtering, fetch a large batch to get all projects, then filter and paginate client-side
-          response = await getAllProjects({ organization_type: 'établissement', page: 1, per_page: 200 });
+          response = await getAllProjects({ organization_type: 'établissement', page: 1, per_page: 200, search: debouncedSearchTerm || undefined });
           rawProjects = response.data?.data || response.data || [];
           needsClientSideFiltering = true;
         } else if (organizationFilter === 'companies') {
@@ -691,7 +722,7 @@ const Projects: React.FC = () => {
             return;
           }
           // For client-side filtering, fetch a large batch to get all projects, then filter and paginate client-side
-          response = await getAllProjects({ page: 1, per_page: 200 });
+          response = await getAllProjects({ page: 1, per_page: 200, search: debouncedSearchTerm || undefined });
           rawProjects = response.data?.data || response.data || [];
           needsClientSideFiltering = true;
         } else {
@@ -862,7 +893,7 @@ const Projects: React.FC = () => {
       setIsLoadingProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, fetchOrganizationProjects, isMinorPersonalUser, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
+  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, fetchOrganizationProjects, isMinorPersonalUser, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage, debouncedSearchTerm]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -1004,6 +1035,31 @@ const Projects: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectPage, organizationFilter, allFilteredProjects, isMinorPersonalUser]);
+
+  useEffect(() => {
+    if (state.showingPageType !== 'user') return;
+    if (activeTab === 'nouveautes') {
+      setProjectPage(1);
+      if (isMinorPersonalUser) {
+        fetchOrganizationProjects(1);
+      } else {
+        fetchPublicProjects(1);
+      }
+      return;
+    }
+    if (activeTab === 'mes-projets') {
+      setMyProjectsPage(1);
+      fetchMyProjects(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm]);
+
+  useEffect(() => {
+    if (isPersonalUser) return;
+    setProjectPage(1);
+    fetchProjects(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm, organizationFilter, state.showingPageType]);
 
   // Fetch my projects when myProjectsPage changes (for user/teacher "Mes projets" tab)
   useEffect(() => {
@@ -1557,6 +1613,9 @@ const Projects: React.FC = () => {
   const mldsEndDate = isMldsRemediationTab ? mldsRemediationEndDate : mldsPerseveranceEndDate;
   const setMldsEndDate = isMldsRemediationTab ? setMldsRemediationEndDate : setMldsPerseveranceEndDate;
 
+  const disableLocalSearchForUserDashboard =
+    state.showingPageType === 'user' && (activeTab === 'nouveautes' || activeTab === 'mes-projets');
+  const normalizedSearch = searchTerm.toLowerCase();
   const filteredProjects = projectsToDisplay.filter(project => {
     // Archives tab: only archived, with type filter
     if (activeTab === 'archives') {
@@ -1577,12 +1636,12 @@ const Projects: React.FC = () => {
       return false;
     }
     // Search filter
-    const matchesSearch = searchTerm === '' ||
-      project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (project.pathway && project.pathway.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      project.status.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = disableLocalSearchForUserDashboard || searchTerm === '' ||
+      project.title.toLowerCase().includes(normalizedSearch) ||
+      project.description.toLowerCase().includes(normalizedSearch) ||
+      project.owner.toLowerCase().includes(normalizedSearch) ||
+      (project.pathway && project.pathway.toLowerCase().includes(normalizedSearch)) ||
+      project.status.toLowerCase().includes(normalizedSearch);
 
     // Pathway filter (skip for MLDS projects and brouillons)
     const matchesPathway = isMldsTab || activeTab === 'brouillons' || pathwayFilter === 'all' || project.pathway === pathwayFilter;
