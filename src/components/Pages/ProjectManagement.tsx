@@ -1059,6 +1059,14 @@ const ProjectManagement: React.FC = () => {
       setApiProjectData(apiProject);
     } catch (error: any) {
       console.error('Error joining project:', error);
+      const apiError = error?.response?.data;
+      if (
+        apiError?.error === 'Organization membership required' ||
+        apiError?.next_step === 'Please join an organization first'
+      ) {
+        showError("Vous devez d'abord rejoindre l'organisation avant de rejoindre le projet.");
+        return;
+      }
       const errorMessage =
         error.response?.data?.details?.join(', ') ||
         error.response?.data?.message ||
