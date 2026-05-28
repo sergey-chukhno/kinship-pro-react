@@ -6,3 +6,9 @@ export function hvLineHours(line: { hour?: string; price?: string } | null | und
     const raw = line?.hour != null && line.hour !== '' ? line.hour : line?.price;
     return Number.parseFloat(String(raw ?? '0')) || 0;
 }
+
+/** Heures HSE sur une ligne `financial_hse_lines` (`hour` ; `price` en lecture héritée). */
+export function hseLineHours(line: { hour?: string; price?: string } | null | undefined): number {
+    const raw = line?.hour != null && line.hour !== '' ? line.hour : line?.price;
+    return Number.parseFloat(String(raw ?? '0')) || 0;
+}
