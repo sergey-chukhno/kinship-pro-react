@@ -15,7 +15,11 @@ import { getCurrentUser } from '../../api/Authentication';
 import { deleteProject, getAllProjects, getAllUserProjects, getUserOrganizationProjects } from '../../api/Project';
 import { getCompanyProjects, getSchoolProjects, getTeacherClasses } from '../../api/Dashboard';
 import { closeProject, getTeacherProjects, postMldsBilan } from '../../api/Projects';
-import { getOrganizationType, mapApiProjectToFrontendProject } from '../../utils/projectMapper';
+import {
+  getOrganizationType,
+  mapApiProjectToFrontendProject,
+  projectBelongsToOrganizationContext,
+} from '../../utils/projectMapper';
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
 import { useToast } from '../../hooks/useToast';
@@ -362,12 +366,16 @@ const Projects: React.FC = () => {
         }
         rawProjects = response.data?.data || response.data || [];
 
-        // Important: inclure aussi les projets "mes projets" (co-responsable/co-owner),
-        // notamment les brouillons MLDS qui peuvent ne pas remonter dans la liste contexte.
+        // Inclure les projets "mes projets" (co-responsable) uniquement s'ils appartiennent au contexte
+        // (primary org, school_ids ou classe liée) — évite les fuites cross-établissement.
+        const contextType = isEdu ? 'school' : 'company';
         try {
           const myResp = await getAllUserProjects({ page: 1, per_page: 200 } as any);
           const myRaw = myResp?.data?.data || myResp?.data || [];
-          rawProjects = [...rawProjects, ...(Array.isArray(myRaw) ? myRaw : [])];
+          const scopedMyProjects = (Array.isArray(myRaw) ? myRaw : []).filter((p: any) =>
+            projectBelongsToOrganizationContext(p, contextId, contextType)
+          );
+          rawProjects = [...rawProjects, ...scopedMyProjects];
         } catch {
           // Best-effort: si l'appel échoue on garde uniquement la liste contexte
         }
