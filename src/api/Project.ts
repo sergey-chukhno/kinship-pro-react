@@ -4,6 +4,7 @@ export function getAllProjects(params?: {
     organization_type?: string;
     page?: number;
     per_page?: number;
+    search?: string;
     /** When true, API returns only public (non-private) projects without MLDS info, with pagination applied to that set. */
     public_only?: boolean;
 }) {
@@ -31,12 +32,12 @@ export function deleteProject(projectId: number) {
     return axiosClient.delete(`/api/v1/projects/${projectId}`);
 }
 
-export function getAllUserProjects(params?: { page?: number; per_page?: number }) {
+export function getAllUserProjects(params?: { page?: number; per_page?: number; search?: string }) {
     return axiosClient.get(`/api/v1/users/me/projects`, { params });
 }
 
 /** Projects from schools/companies the user is a confirmed member of (for minors < 15). Server-side pagination. */
-export function getUserOrganizationProjects(params: { page?: number; per_page?: number }) {
+export function getUserOrganizationProjects(params: { page?: number; per_page?: number; search?: string }) {
     return axiosClient.get(`/api/v1/users/me/projects`, {
         params: { ...params, organization_projects_only: true },
     });

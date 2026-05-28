@@ -99,6 +99,13 @@ const SharedProjectInfo: React.FC = () => {
         redirectToLoginForJoin();
         return;
       }
+      if (
+        err?.response?.data?.error === 'Organization membership required' ||
+        err?.response?.data?.next_step === 'Please join an organization first'
+      ) {
+        showError("Vous devez d'abord rejoindre l'organisation avant de rejoindre le projet.");
+        return;
+      }
       const message =
         err?.response?.data?.message ||
         err?.response?.data?.detail ||
