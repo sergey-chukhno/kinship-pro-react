@@ -68,8 +68,11 @@ export function updateSchoolLevel(schoolId: number, levelId: number, levelData: 
     return axiosClient.patch(`/api/v1/schools/${schoolId}/levels/${levelId}`, levelData);
 }
 
-export function getLevelMLDSProjects(levelId: number) {
+export function getLevelMLDSProjects(
+    levelId: number,
+    params?: { page?: number; per_page?: number; status?: string }
+) {
     return axiosClient.get(`/api/v1/mlds/projects`, {
-        params: { school_level_id: levelId }
+        params: { school_level_id: levelId, ...params },
     });
 }
