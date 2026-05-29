@@ -21,6 +21,23 @@ export function isRawMldsProject(p: { mlds_information?: unknown; status?: strin
   return p.mlds_information != null && p.status !== 'archived';
 }
 
+export function isClassicClassProject(p: { mlds_information?: unknown; status?: string }): boolean {
+  return p.mlds_information == null && p.status !== 'archived';
+}
+
+export function splitClassLevelProjects(all: any[]): { classic: any[]; mlds: any[] } {
+  const classic: any[] = [];
+  const mlds: any[] = [];
+  (all || []).forEach((p) => {
+    if (isRawMldsProject(p)) {
+      mlds.push(p);
+    } else if (isClassicClassProject(p)) {
+      classic.push(p);
+    }
+  });
+  return { classic, mlds };
+}
+
 function normalizeSearch(value: string): string {
   return value.trim().toLowerCase();
 }
