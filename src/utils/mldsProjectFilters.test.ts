@@ -2,6 +2,7 @@ import {
   countMldsByType,
   filterRawMldsProjects,
   getMldsTypeFromProject,
+  splitClassLevelProjects,
   type MldsFilterParams,
 } from './mldsProjectFilters';
 
@@ -66,6 +67,18 @@ describe('mldsProjectFilters', () => {
 
     expect(filterRawMldsProjects(raw, baseParams({ typeFilter: 'perseverance' }))).toHaveLength(1);
     expect(filterRawMldsProjects(raw, baseParams({ typeFilter: 'remediation' }))).toHaveLength(1);
+  });
+
+  it('splitClassLevelProjects separates classic and MLDS, excludes archived', () => {
+    const raw = [
+      makeMldsProject(1),
+      { id: 2, status: 'in_progress', mlds_information: null, title: 'Classic' },
+      { id: 3, status: 'archived', mlds_information: { type_mlds: 'perseverance' } },
+      { id: 4, status: 'ended', mlds_information: null, title: 'Classic 2' },
+    ];
+    const { classic, mlds } = splitClassLevelProjects(raw);
+    expect(classic.map((p) => p.id)).toEqual([2, 4]);
+    expect(mlds.map((p) => p.id)).toEqual([1]);
   });
 
   it('countMldsByType counts only non-archived MLDS projects', () => {

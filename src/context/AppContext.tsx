@@ -1,6 +1,17 @@
 import React, { createContext, ReactNode, useContext, useReducer } from 'react';
 import { mockBadges, mockMembershipRequests, mockNotifications, mockProjects } from '../data/mockData';
-import { AppState, Badge, BadgeAttribution, Event, FilterOptions, Member, PageType, Project, ShowingPageType } from '../types';
+import {
+  AppState,
+  Badge,
+  BadgeAttribution,
+  ClassModalReturn,
+  Event,
+  FilterOptions,
+  Member,
+  PageType,
+  Project,
+  ShowingPageType,
+} from '../types';
 
 interface AppContextType {
   state: AppState;
@@ -10,6 +21,8 @@ interface AppContextType {
   setTheme: (theme: 'light' | 'dark') => void;
   setFilters: (filters: FilterOptions) => void;
   setSelectedProject: (project: Project | null) => void;
+  setClassModalReturn: (payload: ClassModalReturn | null) => void;
+  clearClassModalReturn: () => void;
   addMember: (member: Member) => void;
   updateMember: (id: string, updates: Partial<Member>) => void;
   deleteMember: (id: string) => void;
@@ -39,6 +52,7 @@ type AppAction =
   | { type: 'SET_THEME'; payload: 'light' | 'dark' }
   | { type: 'SET_FILTERS'; payload: FilterOptions }
   | { type: 'SET_SELECTED_PROJECT'; payload: Project | null }
+  | { type: 'SET_CLASS_MODAL_RETURN'; payload: ClassModalReturn | null }
   | { type: 'ADD_MEMBER'; payload: Member }
   | { type: 'UPDATE_MEMBER'; payload: { id: string; updates: Partial<Member> } }
   | { type: 'DELETE_MEMBER'; payload: string }
@@ -82,6 +96,7 @@ const initialState: AppState = {
   filters: {},
   theme: 'light',
   selectedProject: null,
+  classModalReturn: null,
   tags: [],
   partnerships: []
 };
@@ -108,6 +123,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_SELECTED_PROJECT':
       return { ...state, selectedProject: action.payload };
+
+    case 'SET_CLASS_MODAL_RETURN':
+      return { ...state, classModalReturn: action.payload };
 
     case 'ADD_MEMBER':
       return { ...state, members: [...state.members, action.payload] };
@@ -300,6 +318,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: 'SET_SELECTED_PROJECT', payload: project });
   };
 
+  const setClassModalReturn = (payload: ClassModalReturn | null) => {
+    dispatch({ type: 'SET_CLASS_MODAL_RETURN', payload });
+  };
+
+  const clearClassModalReturn = () => {
+    dispatch({ type: 'SET_CLASS_MODAL_RETURN', payload: null });
+  };
+
   const addMember = (member: Member) => {
     dispatch({ type: 'ADD_MEMBER', payload: member });
   };
@@ -388,6 +414,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setTheme,
     setFilters,
     setSelectedProject,
+    setClassModalReturn,
+    clearClassModalReturn,
     addMember,
     updateMember,
     deleteMember,

@@ -390,6 +390,14 @@ export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';
 
+export type ClassModalProjectsTab = 'classic-projects' | 'mlds-projects';
+
+export interface ClassModalReturn {
+  levelId: number;
+  levelName: string;
+  activeTab: ClassModalProjectsTab;
+}
+
 export interface AppState {
   showingPageType: ShowingPageType;
   currentPage: PageType;
@@ -404,6 +412,7 @@ export interface AppState {
   filters: FilterOptions;
   theme: 'light' | 'dark';
   selectedProject: Project | null;
+  classModalReturn: ClassModalReturn | null;
   tags: Tag[];
   partnerships: Partnership[];
 }

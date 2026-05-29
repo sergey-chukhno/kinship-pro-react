@@ -4103,6 +4103,10 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleReturnToProjects = () => {
+    if (state.classModalReturn) {
+      setCurrentPage('members');
+      return;
+    }
     setCurrentPage('projects');
   };
 
