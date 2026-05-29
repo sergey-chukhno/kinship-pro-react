@@ -10,21 +10,35 @@ type PaginatedResponse = {
   meta?: { total_pages?: number; total_count?: number };
 };
 
-function extractBatch(response: { data?: PaginatedResponse | any[] }): any[] {
+type PageFetchResult = {
+  data?: PaginatedResponse | any[];
+};
+
+function isPaginatedResponse(payload: PaginatedResponse | any[]): payload is PaginatedResponse {
+  return !Array.isArray(payload);
+}
+
+function extractBatch(response: PageFetchResult): any[] {
   const payload = response.data;
+  if (payload == null) return [];
   if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
+  if (isPaginatedResponse(payload) && Array.isArray(payload.data)) {
+    return payload.data;
+  }
   return [];
 }
 
-function extractMeta(response: { data?: PaginatedResponse }): { total_pages: number } {
+function extractMeta(response: PageFetchResult): { total_pages: number } {
   const payload = response.data;
-  if (!payload || Array.isArray(payload)) return { total_pages: 1 };
-  return { total_pages: payload.meta?.total_pages ?? 1 };
+  if (payload == null || Array.isArray(payload)) return { total_pages: 1 };
+  if (isPaginatedResponse(payload)) {
+    return { total_pages: payload.meta?.total_pages ?? 1 };
+  }
+  return { total_pages: 1 };
 }
 
 async function fetchAllPages(
-  fetchPage: (page: number, perPage: number) => Promise<{ data?: PaginatedResponse | any[] }>
+  fetchPage: (page: number, perPage: number) => Promise<PageFetchResult>
 ): Promise<any[]> {
   const perPage = MLDS_FETCH_PER_PAGE;
   let page = 1;
@@ -42,21 +56,23 @@ async function fetchAllPages(
 }
 
 export async function fetchAllSchoolProjects(schoolId: number, includeBranches: boolean): Promise<any[]> {
-  return fetchAllPages((page, perPage) =>
-    getSchoolProjects(schoolId, includeBranches, perPage, page)
-  );
+  return fetchAllPages(async (page, perPage) => {
+    const response = await getSchoolProjects(schoolId, includeBranches, perPage, page);
+    return { data: response.data as PaginatedResponse | any[] };
+  });
 }
 
 export async function fetchAllCompanyProjects(companyId: number, includeBranches: boolean): Promise<any[]> {
-  return fetchAllPages((page, perPage) =>
-    getCompanyProjects(companyId, includeBranches, perPage, page)
-  );
+  return fetchAllPages(async (page, perPage) => {
+    const response = await getCompanyProjects(companyId, includeBranches, perPage, page);
+    return { data: response.data as PaginatedResponse | any[] };
+  });
 }
 
 export async function fetchAllUserProjectsPages(): Promise<any[]> {
   return fetchAllPages(async (page, perPage) => {
     const response = await getAllUserProjects({ page, per_page: perPage });
-    return { data: response.data };
+    return { data: response.data as PaginatedResponse | any[] };
   });
 }
 
@@ -84,10 +100,11 @@ export async function fetchAllLevelMldsProjects(levelId: number): Promise<any[]>
     if (Array.isArray(payload)) {
       return { data: payload };
     }
+    const paginated = payload as PaginatedResponse | undefined;
     return {
       data: {
-        data: payload?.data ?? [],
-        meta: payload?.meta ?? { total_pages: 1 },
+        data: paginated?.data ?? [],
+        meta: paginated?.meta ?? { total_pages: 1 },
       },
     };
   });
