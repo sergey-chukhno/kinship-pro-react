@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getLevelStudents, getSchoolLevel, getLevelMLDSProjects } from '../../api/SchoolDashboard/Levels';
+import { getLevelStudents, getSchoolLevel } from '../../api/SchoolDashboard/Levels';
+import { fetchAllLevelMldsProjects } from '../../utils/mldsProjectFetch';
 import { getCurrentUser } from '../../api/Authentication';
 import { getTeacherClassStudents, getTeacherClass } from '../../api/Dashboard';
 import { useToast } from '../../hooks/useToast';
@@ -86,9 +87,8 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
     
     setLoadingProjects(true);
     try {
-      const response = await getLevelMLDSProjects(levelId);
-      const projectsData = response.data?.data || response.data || [];
-      setMldsProjects(Array.isArray(projectsData) ? projectsData : []);
+      const projects = await fetchAllLevelMldsProjects(levelId);
+      setMldsProjects(projects);
     } catch (error) {
       console.error('Erreur lors de la récupération des projets MLDS:', error);
       // Don't show error toast, just log it
