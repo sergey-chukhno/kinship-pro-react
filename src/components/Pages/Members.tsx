@@ -66,7 +66,7 @@ const availabilityToLabels = (availability: any = {}) => {
 };
 
 const Members: React.FC = () => {
-  const { state, addMember, updateMember, deleteMember, setCurrentPage } = useAppContext();
+  const { state, addMember, updateMember, deleteMember, setCurrentPage, clearClassModalReturn } = useAppContext();
   const [searchParams] = useSearchParams();
   const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
   const isTeacherContext = state.showingPageType === 'teacher';
@@ -108,6 +108,16 @@ const Members: React.FC = () => {
       setActiveTab(tabParam as any);
     }
   }, [searchParams]);
+
+  // Restore class modal after returning from project management
+  useEffect(() => {
+    const ret = state.classModalReturn;
+    if (!ret) return;
+
+    setActiveTab('class');
+    setSelectedClass({ id: ret.levelId, name: ret.levelName });
+    setIsClassStudentsModalOpen(true);
+  }, [state.classModalReturn]);
 
   const [isAddClassModalOpen, setIsAddClassModalOpen] = useState(false);
   const [isClassStudentsModalOpen, setIsClassStudentsModalOpen] = useState(false);
@@ -2567,11 +2577,17 @@ const Members: React.FC = () => {
       {isClassStudentsModalOpen && selectedClass && (
         <ClassStudentsModal
           onClose={() => {
+            clearClassModalReturn();
             setIsClassStudentsModalOpen(false);
             setSelectedClass(null);
           }}
           levelId={selectedClass.id}
           levelName={selectedClass.name}
+          initialTab={
+            state.classModalReturn?.levelId === selectedClass.id
+              ? state.classModalReturn.activeTab
+              : undefined
+          }
           onStudentDetails={handleStudentDetails}
         />
       )}
