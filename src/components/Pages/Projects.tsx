@@ -26,6 +26,22 @@ import { useToast } from '../../hooks/useToast';
 import { isUnder15 } from '../../utils/ageUtils';
 import { buildCloseProjectConfirmationMessage } from '../../utils/projectStateGuards';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
+import {
+  countMldsByType,
+  filterRawMldsProjects,
+  isRawMldsProject,
+  parseMldsClassLevelId,
+  type MldsFilterParams,
+  type MldsTypeFilter,
+} from '../../utils/mldsProjectFilters';
+import {
+  dedupeProjectsById,
+  fetchAllCompanyProjects,
+  fetchAllLevelMldsProjects,
+  fetchAllSchoolProjects,
+  fetchAllTeacherProjectsPages,
+  fetchAllUserProjectsPages,
+} from '../../utils/mldsProjectFetch';
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
@@ -60,6 +76,9 @@ const Projects: React.FC = () => {
   const initialProjectsFetched = React.useRef(false);
   // Cache for pro/edu "my-org" projects to avoid refetch on pagination
   const myOrgProjectsCacheRef = React.useRef<{ key: string; rawAll: any[] } | null>(null);
+  // Cache for MLDS tabs: full dataset per org context (filter + paginate client-side)
+  const mldsProjectsCacheRef = React.useRef<{ key: string; rawAll: any[] } | null>(null);
+  const [mldsCatalogCounts, setMldsCatalogCounts] = useState({ perseverance: 0, remediation: 0 });
 
   // Pagination state for "Nouveautés" tab (public projects for user dashboard, org projects for pro/edu)
   const [projectPage, setProjectPage] = useState(1);
@@ -317,149 +336,197 @@ const Projects: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, debouncedSearchTerm]);
 
-  // Fonction pour récupérer les projets MLDS (avec mlds_information !== null), séparés par type_mlds/type
-  const fetchMLDSProjects = React.useCallback(async (
-    page: number = 1,
-    typeFilter: 'perseverance' | 'remediation' = 'perseverance'
-  ) => {
-    setIsLoadingProjects(true);
-    try {
-      const currentUser = await getCurrentUser();
-      
-      // Pour les projets MLDS, on récupère tous les projets et on filtre ceux avec mlds_information
-      const params: { page?: number; per_page?: number } = { page: 1, per_page: 200 }; // Récupérer un grand nombre pour filtrer côté client
-      let response: any;
-      let rawProjects: any[] = [];
-      
-      if (state.showingPageType === 'teacher') {
-        // Pour les enseignants : utiliser getTeacherProjects
-        response = await getTeacherProjects(params);
-        rawProjects = response.data || [];
-        // Inclure aussi les brouillons (où l'enseignant peut être co-responsable)
-        try {
-          const draftResp = await getTeacherProjects({ ...params, status: 'draft' } as any);
-          const drafts = draftResp?.data || [];
-          rawProjects = [...rawProjects, ...drafts];
-        } catch {
-          // Best-effort: si l'endpoint n'accepte pas status, on ignore
-        }
-      } else if (state.showingPageType === 'user') {
-        // Pour les utilisateurs : utiliser getAllUserProjects
-        response = await getAllUserProjects(params);
-        rawProjects = response.data?.data || response.data || [];
-      } else {
-        // Pour les rôles pro et edu
-        const contextId = getSelectedOrganizationId();
-        if (!contextId) {
-          console.warn('⚠️ [Projects MLDS] Aucun contextId trouvé pour le type:', state.showingPageType);
-          setMldsProjects([]);
-          setMldsProjectsTotalPages(1);
-          setMldsProjectsTotalCount(0);
-          return;
-        }
-        
-        const isEdu = state.showingPageType === 'edu';
-        if (isEdu) {
-          response = await getSchoolProjects(contextId, true, 200, 1);
-        } else {
-          response = await getCompanyProjects(contextId, true, 200, 1);
-        }
-        rawProjects = response.data?.data || response.data || [];
+  const buildMldsCacheKey = React.useCallback(() => {
+    const contextId = getSelectedOrganizationId() ?? '';
+    return `${state.showingPageType}:${contextId}`;
+  }, [state.showingPageType, state.user]);
 
-        // Inclure les projets "mes projets" (co-responsable) uniquement s'ils appartiennent au contexte
-        // (primary org, school_ids ou classe liée) — évite les fuites cross-établissement.
-        const contextType = isEdu ? 'school' : 'company';
-        try {
-          const myResp = await getAllUserProjects({ page: 1, per_page: 200 } as any);
-          const myRaw = myResp?.data?.data || myResp?.data || [];
-          const scopedMyProjects = (Array.isArray(myRaw) ? myRaw : []).filter((p: any) =>
-            projectBelongsToOrganizationContext(p, contextId, contextType)
-          );
-          rawProjects = [...rawProjects, ...scopedMyProjects];
-        } catch {
-          // Best-effort: si l'appel échoue on garde uniquement la liste contexte
-        }
+  const buildMldsFilterParams = React.useCallback(
+    (typeFilter: MldsTypeFilter): MldsFilterParams => ({
+      typeFilter,
+      searchTerm: debouncedSearchTerm,
+      requestedBy:
+        typeFilter === 'remediation'
+          ? mldsRemediationRequestedByFilter
+          : mldsPerseveranceRequestedByFilter,
+      targetAudience:
+        typeFilter === 'remediation'
+          ? mldsRemediationTargetAudienceFilter
+          : mldsPerseveranceTargetAudienceFilter,
+      actionObjectives:
+        typeFilter === 'remediation'
+          ? mldsRemediationActionObjectivesFilter
+          : mldsPerseveranceActionObjectivesFilter,
+      organizationFilter:
+        typeFilter === 'remediation'
+          ? mldsRemediationOrganizationFilter
+          : mldsPerseveranceOrganizationFilter,
+      statusFilter:
+        typeFilter === 'remediation' ? mldsRemediationStatusFilter : mldsPerseveranceStatusFilter,
+      startDate: typeFilter === 'remediation' ? mldsRemediationStartDate : mldsPerseveranceStartDate,
+      endDate: typeFilter === 'remediation' ? mldsRemediationEndDate : mldsPerseveranceEndDate,
+    }),
+    [
+      debouncedSearchTerm,
+      mldsPerseveranceRequestedByFilter,
+      mldsPerseveranceTargetAudienceFilter,
+      mldsPerseveranceActionObjectivesFilter,
+      mldsPerseveranceOrganizationFilter,
+      mldsPerseveranceStatusFilter,
+      mldsPerseveranceStartDate,
+      mldsPerseveranceEndDate,
+      mldsRemediationRequestedByFilter,
+      mldsRemediationTargetAudienceFilter,
+      mldsRemediationActionObjectivesFilter,
+      mldsRemediationOrganizationFilter,
+      mldsRemediationStatusFilter,
+      mldsRemediationStartDate,
+      mldsRemediationEndDate,
+    ]
+  );
+
+  const invalidateMldsCache = React.useCallback(() => {
+    mldsProjectsCacheRef.current = null;
+  }, []);
+
+  const loadMldsProjectsRawAll = React.useCallback(
+    async (force = false) => {
+      const cacheKey = buildMldsCacheKey();
+      if (!force && mldsProjectsCacheRef.current?.key === cacheKey) {
+        return;
       }
 
-      // Dédupliquer (merge context + "mes projets")
-      const byId = new Map<string, any>();
-      (rawProjects || []).forEach((p: any) => {
-        if (!p?.id) return;
-        byId.set(String(p.id), p);
-      });
-      rawProjects = Array.from(byId.values());
-      
-      // Filtrer les projets MLDS (avec mlds_information) en excluant les projets archivés
-      const mldsProjectsDataAll = rawProjects.filter(
-        (p: any) => p.mlds_information != null && p.status !== 'archived'
-      );
+      setIsLoadingProjects(true);
+      try {
+        let rawProjects: any[] = [];
 
-      const getMldsType = (p: any): 'perseverance' | 'remediation' => {
-        const t = p?.mlds_information?.type_mlds ?? p?.mlds_information?.type;
-        return t === 'remediation' ? 'remediation' : 'perseverance';
-      };
+        if (state.showingPageType === 'teacher') {
+          rawProjects = await fetchAllTeacherProjectsPages();
+        } else if (state.showingPageType === 'user') {
+          rawProjects = await fetchAllUserProjectsPages();
+        } else {
+          const contextId = getSelectedOrganizationId();
+          if (!contextId) {
+            console.warn('⚠️ [Projects MLDS] Aucun contextId trouvé pour le type:', state.showingPageType);
+            mldsProjectsCacheRef.current = { key: cacheKey, rawAll: [] };
+            setMldsCatalogCounts({ perseverance: 0, remediation: 0 });
+            return;
+          }
 
-      const mldsProjectsData = mldsProjectsDataAll.filter((p: any) => getMldsType(p) === typeFilter);
-      
-      // Store raw API projects for permission checks
-      const newRawProjectsMap = new Map<string, any>();
-      mldsProjectsDataAll.forEach((p: any) => {
-        if (p.id) {
-          newRawProjectsMap.set(p.id.toString(), p);
+          const isEdu = state.showingPageType === 'edu';
+          rawProjects = isEdu
+            ? await fetchAllSchoolProjects(contextId, true)
+            : await fetchAllCompanyProjects(contextId, true);
+
+          const contextType = isEdu ? 'school' : 'company';
+          try {
+            const myRaw = await fetchAllUserProjectsPages();
+            const scopedMyProjects = myRaw.filter((p: any) =>
+              projectBelongsToOrganizationContext(p, contextId, contextType)
+            );
+            rawProjects = [...rawProjects, ...scopedMyProjects];
+          } catch {
+            // Best-effort
+          }
         }
+
+        rawProjects = dedupeProjectsById(rawProjects);
+
+        // Phase 2: merge class-scoped MLDS projects when a class filter is selected
+        const classLevelIds = new Set<number>();
+        const pClass = parseMldsClassLevelId(mldsPerseveranceOrganizationFilter);
+        const rClass = parseMldsClassLevelId(mldsRemediationOrganizationFilter);
+        if (pClass != null) classLevelIds.add(pClass);
+        if (rClass != null) classLevelIds.add(rClass);
+
+        for (const levelId of Array.from(classLevelIds)) {
+          try {
+            const classProjects = await fetchAllLevelMldsProjects(levelId);
+            rawProjects = dedupeProjectsById([...rawProjects, ...classProjects]);
+          } catch (e) {
+            console.error(`Error fetching MLDS projects for class ${levelId}:`, e);
+          }
+        }
+
+        mldsProjectsCacheRef.current = { key: cacheKey, rawAll: rawProjects };
+        setMldsCatalogCounts(countMldsByType(rawProjects.filter(isRawMldsProject)));
+        setInitialLoad(false);
+      } catch (err) {
+        console.error('Erreur lors de la récupération des projets MLDS:', err);
+        showError('Erreur lors de la récupération des projets MLDS.');
+        mldsProjectsCacheRef.current = { key: cacheKey, rawAll: [] };
+        setMldsCatalogCounts({ perseverance: 0, remediation: 0 });
+        setInitialLoad(false);
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    },
+    [
+      buildMldsCacheKey,
+      state.showingPageType,
+      state.user,
+      mldsPerseveranceOrganizationFilter,
+      mldsRemediationOrganizationFilter,
+    ]
+  );
+
+  const applyMldsDisplay = React.useCallback(
+    (page: number, typeFilter: MldsTypeFilter) => {
+      const rawAll = mldsProjectsCacheRef.current?.rawAll ?? [];
+      const filterParams = buildMldsFilterParams(typeFilter);
+      const filtered = filterRawMldsProjects(rawAll, filterParams);
+
+      const newRawProjectsMap = new Map<string, any>();
+      filtered.forEach((p: any) => {
+        if (p.id) newRawProjectsMap.set(p.id.toString(), p);
       });
-      setRawProjectsMap(prev => {
+      setRawProjectsMap((prev) => {
         const merged = new Map(prev);
         newRawProjectsMap.forEach((value, key) => merged.set(key, value));
         return merged;
       });
-      
-      // Pagination côté client
+
       const perPage = 12;
+      const totalCount = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
       const startIndex = (page - 1) * perPage;
-      const endIndex = startIndex + perPage;
-      const paginatedProjects = mldsProjectsData.slice(startIndex, endIndex);
-      
-      const formattedProjects: Project[] = paginatedProjects.map((p: any) => {
-        return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
-      });
-      
+      const pageSlice = filtered.slice(startIndex, startIndex + perPage);
+
+      const formattedProjects: Project[] = pageSlice.map((p: any) =>
+        mapApiProjectToFrontendProject(p, state.showingPageType, state.user)
+      );
+
       if (typeFilter === 'remediation') {
         setMldsRemediationProjects(formattedProjects);
-      } else {
-        setMldsProjects(formattedProjects);
-      }
-      
-      // Update pagination metadata
-      const totalCount = mldsProjectsData.length;
-      const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
-      if (typeFilter === 'remediation') {
         setMldsRemediationProjectsTotalPages(totalPages);
         setMldsRemediationProjectsTotalCount(totalCount);
       } else {
+        setMldsProjects(formattedProjects);
         setMldsProjectsTotalPages(totalPages);
         setMldsProjectsTotalCount(totalCount);
       }
-      
-      setInitialLoad(false);
-    } catch (err) {
-      console.error('Erreur lors de la récupération des projets MLDS:', err);
-      showError('Erreur lors de la récupération des projets MLDS.');
-      if (typeFilter === 'remediation') {
-        setMldsRemediationProjects([]);
-        setMldsRemediationProjectsTotalPages(1);
-        setMldsRemediationProjectsTotalCount(0);
-      } else {
-        setMldsProjects([]);
-        setMldsProjectsTotalPages(1);
-        setMldsProjectsTotalCount(0);
+    },
+    [buildMldsFilterParams, state.showingPageType, state.user]
+  );
+
+  const refreshMldsProjects = React.useCallback(
+    async (force = false) => {
+      await loadMldsProjectsRawAll(force);
+      applyMldsDisplay(mldsProjectsPage, 'perseverance');
+      applyMldsDisplay(mldsRemediationProjectsPage, 'remediation');
+    },
+    [loadMldsProjectsRawAll, applyMldsDisplay, mldsProjectsPage, mldsRemediationProjectsPage]
+  );
+
+  const fetchMLDSProjects = React.useCallback(
+    async (page: number = 1, typeFilter: MldsTypeFilter = 'perseverance') => {
+      if (!mldsProjectsCacheRef.current) {
+        await loadMldsProjectsRawAll(false);
       }
-      setInitialLoad(false);
-    } finally {
-      setIsLoadingProjects(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType]);
+      applyMldsDisplay(page, typeFilter);
+    },
+    [loadMldsProjectsRawAll, applyMldsDisplay]
+  );
 
   // Fetch draft projects for "Brouillons" tab (teacher and pro/edu)
   const fetchDraftProjects = React.useCallback(async () => {
@@ -955,10 +1022,10 @@ const Projects: React.FC = () => {
     setDraftProjects([]);
     filtersEffectInitialMount.current = true;
     initialProjectsFetched.current = false;
+    invalidateMldsCache();
     if (isTeacher) {
       fetchMyProjects(1);
-      fetchMLDSProjects(1, 'perseverance');
-      fetchMLDSProjects(1, 'remediation');
+      refreshMldsProjects(true);
       fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
       fetchArchivedProjects();
     } else if (state.showingPageType === 'user') {
@@ -968,15 +1035,13 @@ const Projects: React.FC = () => {
         fetchPublicProjects(1);
       }
       fetchMyProjects(1);
-      fetchMLDSProjects(1, 'perseverance');
-      fetchMLDSProjects(1, 'remediation');
+      refreshMldsProjects(true);
       fetchArchivedProjects();
     } else {
       // Pro / Edu: charger les projets au chargement initial
       fetchProjects(1);
       initialProjectsFetched.current = true;
-      fetchMLDSProjects(1, 'perseverance');
-      fetchMLDSProjects(1, 'remediation');
+      refreshMldsProjects(true);
       fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
       fetchArchivedProjects();
     }
@@ -1077,21 +1142,70 @@ const Projects: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myProjectsPage]);
 
-  // Fetch MLDS projects when mldsProjectsPage changes
+  // MLDS pagination: slice from cached filtered dataset (no API refetch)
   useEffect(() => {
-    if (activeTab === 'mlds-projects') {
-      fetchMLDSProjects(mldsProjectsPage, 'perseverance');
+    if (activeTab === 'mlds-projects' && mldsProjectsCacheRef.current) {
+      applyMldsDisplay(mldsProjectsPage, 'perseverance');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mldsProjectsPage]);
+  }, [mldsProjectsPage, activeTab, applyMldsDisplay]);
 
-  // Fetch MLDS remediation projects when page changes
   useEffect(() => {
-    if (activeTab === 'mlds-remediation-projects') {
-      fetchMLDSProjects(mldsRemediationProjectsPage, 'remediation');
+    if (activeTab === 'mlds-remediation-projects' && mldsProjectsCacheRef.current) {
+      applyMldsDisplay(mldsRemediationProjectsPage, 'remediation');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mldsRemediationProjectsPage]);
+  }, [mldsRemediationProjectsPage, activeTab, applyMldsDisplay]);
+
+  // MLDS search and filters (except organisation porteuse): re-apply on full cache
+  useEffect(() => {
+    if (activeTab !== 'mlds-projects' && activeTab !== 'mlds-remediation-projects') return;
+    if (!mldsProjectsCacheRef.current) return;
+
+    setMldsProjectsPage(1);
+    setMldsRemediationProjectsPage(1);
+    applyMldsDisplay(1, 'perseverance');
+    applyMldsDisplay(1, 'remediation');
+  }, [
+    activeTab,
+    debouncedSearchTerm,
+    applyMldsDisplay,
+    mldsPerseveranceRequestedByFilter,
+    mldsPerseveranceTargetAudienceFilter,
+    mldsPerseveranceActionObjectivesFilter,
+    mldsPerseveranceStatusFilter,
+    mldsPerseveranceStartDate,
+    mldsPerseveranceEndDate,
+    mldsRemediationRequestedByFilter,
+    mldsRemediationTargetAudienceFilter,
+    mldsRemediationActionObjectivesFilter,
+    mldsRemediationStatusFilter,
+    mldsRemediationStartDate,
+    mldsRemediationEndDate,
+  ]);
+
+  // Organisation porteuse (class): refetch to merge class-level MLDS API results
+  useEffect(() => {
+    if (activeTab !== 'mlds-projects' && activeTab !== 'mlds-remediation-projects') return;
+
+    let cancelled = false;
+    const run = async () => {
+      setMldsProjectsPage(1);
+      setMldsRemediationProjectsPage(1);
+      await loadMldsProjectsRawAll(true);
+      if (cancelled) return;
+      applyMldsDisplay(1, 'perseverance');
+      applyMldsDisplay(1, 'remediation');
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    mldsPerseveranceOrganizationFilter,
+    mldsRemediationOrganizationFilter,
+    loadMldsProjectsRawAll,
+    applyMldsDisplay,
+  ]);
 
   // Reset filters when switching tabs
   useEffect(() => {
@@ -1124,18 +1238,18 @@ const Projects: React.FC = () => {
     }
   }, [activeTab]);
 
-  // Switch away from MLDS tab when there are no MLDS projects (tab is hidden)
+  // Switch away from MLDS tab when there are no MLDS projects at all (tab is hidden)
   useEffect(() => {
-    if (mldsProjects.length === 0 && activeTab === 'mlds-projects') {
+    if (mldsCatalogCounts.perseverance === 0 && activeTab === 'mlds-projects') {
       setActiveTab(isTeacher ? 'mes-projets' : 'nouveautes');
     }
-  }, [mldsProjects.length, activeTab, isTeacher]);
+  }, [mldsCatalogCounts.perseverance, activeTab, isTeacher]);
 
   useEffect(() => {
-    if (mldsRemediationProjects.length === 0 && activeTab === 'mlds-remediation-projects') {
+    if (mldsCatalogCounts.remediation === 0 && activeTab === 'mlds-remediation-projects') {
       setActiveTab(isTeacher ? 'mes-projets' : 'nouveautes');
     }
-  }, [mldsRemediationProjects.length, activeTab, isTeacher]);
+  }, [mldsCatalogCounts.remediation, activeTab, isTeacher]);
 
   // Charger les brouillons quand state.user est dispo pour pro/edu (contextId peut être résolu)
   // Corrige le cas où l'effet initial a tourné avant que user soit chargé → compteur à 0
@@ -1177,11 +1291,6 @@ const Projects: React.FC = () => {
 
     if (isTeacher) {
       fetchMyProjects(1);
-      if (activeTab === 'mlds-remediation-projects') {
-        fetchMLDSProjects(1, 'remediation');
-      } else {
-        fetchMLDSProjects(1, 'perseverance');
-      }
     } else if (state.showingPageType === 'user') {
       if (activeTab === 'nouveautes') {
         if (isMinorPersonalUser) {
@@ -1189,15 +1298,9 @@ const Projects: React.FC = () => {
         } else {
           fetchPublicProjects(1);
         }
-      } else if (activeTab === 'mlds-projects') {
-        fetchMLDSProjects(1, 'perseverance');
-      } else if (activeTab === 'mlds-remediation-projects') {
-        fetchMLDSProjects(1, 'remediation');
       }
     } else if (!isPersonalUser) {
       fetchProjects(1);
-      fetchMLDSProjects(1, 'perseverance');
-      fetchMLDSProjects(1, 'remediation');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1208,22 +1311,6 @@ const Projects: React.FC = () => {
     startDate,
     endDate,
     visibilityFilter,
-
-    mldsPerseveranceRequestedByFilter,
-    mldsPerseveranceTargetAudienceFilter,
-    mldsPerseveranceActionObjectivesFilter,
-    mldsPerseveranceOrganizationFilter,
-    mldsPerseveranceStatusFilter,
-    mldsPerseveranceStartDate,
-    mldsPerseveranceEndDate,
-
-    mldsRemediationRequestedByFilter,
-    mldsRemediationTargetAudienceFilter,
-    mldsRemediationActionObjectivesFilter,
-    mldsRemediationOrganizationFilter,
-    mldsRemediationStatusFilter,
-    mldsRemediationStartDate,
-    mldsRemediationEndDate,
 
     isPersonalUser,
     isTeacher,
@@ -1327,7 +1414,8 @@ const Projects: React.FC = () => {
     // Rafraîchir la liste des projets après création/modification
     if (isTeacher) {
       await fetchMyProjects();
-      await fetchMLDSProjects();
+      invalidateMldsCache();
+      await refreshMldsProjects(true);
       await fetchDraftProjects();
       await fetchArchivedProjects();
     } else if (isPersonalUser) {
@@ -1335,13 +1423,15 @@ const Projects: React.FC = () => {
         await fetchPublicProjects();
       } else if (activeTab === 'mes-projets') {
         await fetchMyProjects();
-      } else if (activeTab === 'mlds-projects') {
-        await fetchMLDSProjects();
+      } else if (activeTab === 'mlds-projects' || activeTab === 'mlds-remediation-projects') {
+        invalidateMldsCache();
+        await refreshMldsProjects(true);
       }
       await fetchArchivedProjects();
     } else {
       await fetchProjects();
-      await fetchMLDSProjects();
+      invalidateMldsCache();
+      await refreshMldsProjects(true);
       await fetchDraftProjects();
       await fetchArchivedProjects();
     }
@@ -1450,8 +1540,9 @@ const Projects: React.FC = () => {
       // Rafraîchir en fonction de l'onglet actif
       if (activeTab === 'archives') {
         await fetchArchivedProjects();
-      } else if (activeTab === 'mlds-projects') {
-        await fetchMLDSProjects();
+      } else if (activeTab === 'mlds-projects' || activeTab === 'mlds-remediation-projects') {
+        invalidateMldsCache();
+        await refreshMldsProjects(true);
       } else if (isPersonalUser && activeTab === 'mes-projets') {
         await fetchMyProjects();
       }
@@ -1625,6 +1716,9 @@ const Projects: React.FC = () => {
     state.showingPageType === 'user' && (activeTab === 'nouveautes' || activeTab === 'mes-projets');
   const normalizedSearch = searchTerm.toLowerCase();
   const filteredProjects = projectsToDisplay.filter(project => {
+    // MLDS tabs: filtering and pagination are handled in applyMldsDisplay
+    if (isMldsTab) return true;
+
     // Archives tab: only archived, with type filter
     if (activeTab === 'archives') {
       if (project.status !== 'archived') return false;
@@ -1906,7 +2000,7 @@ const Projects: React.FC = () => {
             >
               Brouillons ({draftProjectsCount})
             </button>
-            {mldsProjectsTotalCount > 0 && (
+            {mldsCatalogCounts.perseverance > 0 && (
               <button 
                 className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
                 onClick={() => {
@@ -1914,10 +2008,10 @@ const Projects: React.FC = () => {
                   setMldsProjectsPage(1); // Reset pagination when switching tabs
                 }}
               >
-                Projets MLDS Volet Persévérance ({mldsProjectsTotalCount})
+                Projets MLDS Volet Persévérance ({mldsCatalogCounts.perseverance})
               </button>
             )}
-            {mldsRemediationProjectsTotalCount > 0 && (
+            {mldsCatalogCounts.remediation > 0 && (
               <button
                 className={`filter-tab ${activeTab === 'mlds-remediation-projects' ? 'active' : ''}`}
                 onClick={() => {
@@ -1925,7 +2019,7 @@ const Projects: React.FC = () => {
                   setMldsRemediationProjectsPage(1);
                 }}
               >
-                Projets MLDS Volet Remédiation ({mldsRemediationProjectsTotalCount})
+                Projets MLDS Volet Remédiation ({mldsCatalogCounts.remediation})
               </button>
             )}
             <button
@@ -1959,7 +2053,7 @@ const Projects: React.FC = () => {
             >
               Brouillons ({draftProjectsCount})
             </button>
-            {mldsProjectsTotalCount > 0 && (
+            {mldsCatalogCounts.perseverance > 0 && (
               <button 
                 className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
                 onClick={() => {
@@ -1967,10 +2061,10 @@ const Projects: React.FC = () => {
                   setMldsProjectsPage(1); // Reset pagination when switching tabs
                 }}
               >
-                Projets MLDS Volet Persévérance ({mldsProjectsTotalCount})
+                Projets MLDS Volet Persévérance ({mldsCatalogCounts.perseverance})
               </button>
             )}
-            {mldsRemediationProjectsTotalCount > 0 && (
+            {mldsCatalogCounts.remediation > 0 && (
               <button
                 className={`filter-tab ${activeTab === 'mlds-remediation-projects' ? 'active' : ''}`}
                 onClick={() => {
@@ -1978,7 +2072,7 @@ const Projects: React.FC = () => {
                   setMldsRemediationProjectsPage(1);
                 }}
               >
-                Projets MLDS Volet Remédiation ({mldsRemediationProjectsTotalCount})
+                Projets MLDS Volet Remédiation ({mldsCatalogCounts.remediation})
               </button>
             )}
             <button
@@ -2012,7 +2106,7 @@ const Projects: React.FC = () => {
             >
               Brouillons ({draftProjectsCount})
             </button>
-            {mldsProjectsTotalCount > 0 && (
+            {mldsCatalogCounts.perseverance > 0 && (
               <button 
                 className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
                 onClick={() => {
@@ -2020,10 +2114,10 @@ const Projects: React.FC = () => {
                   setMldsProjectsPage(1); // Reset pagination when switching tabs
                 }}
               >
-                Projets MLDS Volet Persévérance ({mldsProjectsTotalCount})
+                Projets MLDS Volet Persévérance ({mldsCatalogCounts.perseverance})
               </button>
             )}
-            {mldsRemediationProjectsTotalCount > 0 && (
+            {mldsCatalogCounts.remediation > 0 && (
               <button
                 className={`filter-tab ${activeTab === 'mlds-remediation-projects' ? 'active' : ''}`}
                 onClick={() => {
@@ -2031,7 +2125,7 @@ const Projects: React.FC = () => {
                   setMldsRemediationProjectsPage(1);
                 }}
               >
-                Projets MLDS Volet Remédiation ({mldsRemediationProjectsTotalCount})
+                Projets MLDS Volet Remédiation ({mldsCatalogCounts.remediation})
               </button>
             )}
             <button
