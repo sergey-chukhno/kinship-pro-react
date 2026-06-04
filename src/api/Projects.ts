@@ -377,6 +377,57 @@ export const getPartnerships = async (
     };
 };
 
+const PARTNERSHIPS_PAGE_SIZE = 100;
+
+/**
+ * Load all confirmed partnerships (paginated API) for project modals / pickers.
+ */
+export const fetchAllConfirmedPartnerships = async (
+    organizationId: number,
+    organizationType: 'school' | 'company'
+): Promise<{ data: Partnership[]; meta?: { total_count: number } }> => {
+    const all: Partnership[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+        const { data, meta } = await getPartnerships(organizationId, organizationType, {
+            status: 'confirmed',
+            page,
+            per_page: PARTNERSHIPS_PAGE_SIZE
+        });
+        all.push(...(data || []));
+        totalPages = meta?.total_pages ?? 1;
+        page += 1;
+    } while (page <= totalPages);
+
+    return { data: all, meta: { total_count: all.length } };
+};
+
+/**
+ * Load all confirmed school partnerships for teacher project context.
+ */
+export const fetchAllTeacherSchoolPartnerships = async (
+    schoolId: number
+): Promise<{ data: Partnership[]; meta?: { total_count: number } }> => {
+    const all: Partnership[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+        const { data, meta } = await getTeacherSchoolPartnerships(schoolId, {
+            status: 'confirmed',
+            page,
+            per_page: PARTNERSHIPS_PAGE_SIZE
+        });
+        all.push(...(data || []));
+        totalPages = meta?.total_pages ?? 1;
+        page += 1;
+    } while (page <= totalPages);
+
+    return { data: all, meta: { total_count: all.length } };
+};
+
 /**
  * Fetch personal user network (for teacher/user roles)
  */
