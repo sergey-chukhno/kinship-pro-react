@@ -103,7 +103,8 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
                   disabled={isUploading}
                 />
                 <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                  Format attendu: Prénom (requis), Nom (requis), Date de naissance (requis), Adresse e-mail (optionnel)
+                  Format attendu: Prénom (requis), Nom (requis), Date de naissance (requis), Adresse e-mail (optionnel),
+                  Email représentant légal (obligatoire pour les mineurs de moins de 15 ans)
                   {isSchool && ', Classe (optionnel)'}
                 </p>
               </div>

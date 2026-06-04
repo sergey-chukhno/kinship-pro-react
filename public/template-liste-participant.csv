@@ -1,5 +1,5 @@
 Kinship;;;
 ;;;
 Liste des participants;;;
-Prénom;Nom;Adresse e-mail;Date de naissance
-Exemple;Exemple;exemple@Exemple.fr;01/01/2000
+Prénom;Nom;Adresse e-mail;Date de naissance;Email représentant légal
+Exemple;Exemple;exemple@exemple.fr;01/01/2010;parent@exemple.fr

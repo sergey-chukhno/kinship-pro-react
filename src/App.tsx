@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import ForgotPassword from './components/Pages/ForgotPassword';
 import ResetPassword from './components/Pages/ResetPassword';
 import CheckinStudent from './components/Pages/CheckinStudent';
+import ParentalClaim from './components/Pages/ParentalClaim';
 import PublicBadgeCartography from './components/Pages/PublicBadgeCartography';
 import NotFoundPage from './components/Pages/NotFoundPage';
 import SharedProjectInfo from './components/Pages/SharedProjectInfo';
@@ -23,6 +24,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/checkin-student" element={<CheckinStudent />} />
+            <Route path="/parental-claim" element={<ParentalClaim />} />
             <Route path="/badge-cartography/:token" element={<PublicBadgeCartography />} />
             <Route path="/badge-cartography-selected/:token" element={<SelectedStudentsBadgeCartography />} />
             <Route path="/p/:id" element={<NotFoundPage />} />
