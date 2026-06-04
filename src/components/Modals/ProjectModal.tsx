@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
-import { getTags, getPartnerships, getTeacherSchoolPartnerships, getTeacherSchoolMembers, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
+import { getTags, fetchAllConfirmedPartnerships, fetchAllTeacherSchoolPartnerships, getTeacherSchoolMembers, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
 import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
@@ -636,7 +636,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
         if (formData.isPartnership && teacherProjectContext === 'school' && selectedSchoolId) {
           setIsLoadingPartnerships(true);
           try {
-            const partnershipsResponse = await getTeacherSchoolPartnerships(selectedSchoolId, { status: 'confirmed' });
+            const partnershipsResponse = await fetchAllTeacherSchoolPartnerships(selectedSchoolId);
             setAvailablePartnerships(partnershipsResponse.data || []);
           } catch (error) {
             console.error('Error fetching teacher school partnerships:', error);
@@ -688,7 +688,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
         if (formData.isPartnership) {
           setIsLoadingPartnerships(true);
           try {
-            const partnershipsResponse = await getPartnerships(organizationId, organizationType);
+            const partnershipsResponse = await fetchAllConfirmedPartnerships(organizationId, organizationType);
             setAvailablePartnerships(partnershipsResponse.data || []);
           } catch (error) {
             console.error('Error fetching partnerships:', error);

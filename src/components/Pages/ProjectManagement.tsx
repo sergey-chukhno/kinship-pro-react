@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, getPartnerships, getTags, getOrCreateProjectShareLink, getMldsHseLinesFromMldsInfo, getMldsServiceLinesFromMldsInfo } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, fetchAllConfirmedPartnerships, getTags, getOrCreateProjectShareLink, getMldsHseLinesFromMldsInfo, getMldsServiceLinesFromMldsInfo } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -2280,7 +2280,7 @@ const ProjectManagement: React.FC = () => {
       const organizationId = getOrganizationId(state.user, state.showingPageType);
 
       if (organizationType && organizationId && (organizationType === 'school' || organizationType === 'company')) {
-        const partnershipsResponse = await getPartnerships(organizationId, organizationType);
+        const partnershipsResponse = await fetchAllConfirmedPartnerships(organizationId, organizationType);
         let partnerships = partnershipsResponse.data || [];
 
         // Pour les projets MLDS, ne garder que les partenariats dont les organisations

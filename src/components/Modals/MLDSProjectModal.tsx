@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import {
-  getPartnerships,
+  fetchAllConfirmedPartnerships,
   getOrganizationMembers,
   getTeacherMembers,
   getTeacherSchoolMembers,
@@ -433,7 +433,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
             : getOrganizationId(state.user, state.showingPageType);
 
         if (organizationType && organizationId) {
-          const response = await getPartnerships(organizationId, organizationType);
+          const response = await fetchAllConfirmedPartnerships(organizationId, organizationType);
           const allPartnerships = response.data || [];
           // Keep all confirmed partnerships; filtering out "company" partnerships hides legitimate partners.
           setAvailablePartnerships(allPartnerships);
