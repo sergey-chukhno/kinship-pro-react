@@ -25,6 +25,7 @@ export function addCompanyMember(
     user_role?: string; // System role (voluntary, employee, etc.)
     create_minor?: boolean;  // BLEU Premium: allow member under 15
     legal_representative_consent?: boolean; // Required when create_minor is true
+    guardian_email?: string; // Required for minors (<15) — legal representative contact
   }
 ) {
     return axiosClient.post(`/api/v1/companies/${companyId}/members`, memberData);
