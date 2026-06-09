@@ -5,6 +5,12 @@ import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { isSeriesWithAxes, getAxesForSeries, getBadgeNamesForAxe } from '../../constants/badgeAxes';
+import {
+  isMetiersDeLaMerSeries,
+  isSeriesWithAxesCompetenceSelection,
+  isSingleSelectCompetenceSeries,
+} from '../../utils/badgeAssignmentCompetenceSelection';
+import { validateAxesSeriesCompetencies } from '../../utils/badgeAssignmentValidation';
 import AvatarImage from '../UI/AvatarImage';
 import './Modal.css';
 import './BadgeAssignmentModal.css';
@@ -541,7 +547,6 @@ export const getBadgeCompetencies = (badge: BadgeAPI | null): Array<{ id: number
   return [];
 };
 
-// Validation function
 const validateCompetencies = (
   selectedExpertiseIds: number[],
   badge: BadgeAPI | null,
@@ -552,18 +557,10 @@ const validateCompetencies = (
   if (!badge) {
     return { isValid: true, errorMessage: null };
   }
-  
-  // Série Métiers de la mer and Série Compétences à s'orienter - Collège: exactly one competence required (single-select)
-  const isSeriesWithAxesRequiringOneCompetence =
-    badge.series === "Série Métiers de la mer" || badge.series === "Série Compétences à s'orienter - Collège";
-  if (isSeriesWithAxesRequiringOneCompetence) {
-    if (selectedExpertiseIds.length !== 1) {
-      return {
-        isValid: false,
-        errorMessage: 'Veuillez sélectionner une compétence.'
-      };
-    }
-    return { isValid: true, errorMessage: null };
+
+  const axesValidation = validateAxesSeriesCompetencies(selectedExpertiseIds, badge);
+  if (axesValidation !== null) {
+    return axesValidation;
   }
 
   const isParcoursProfessionnel = badge.series === 'Série Parcours professionnel';
@@ -910,12 +907,11 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
       return;
     }
 
-    // Validate competencies: for Métiers de la mer and Compétences à s'orienter exactly one required; for others use mandatory/minRequired rules
+    // Validate competencies: axes series + level rules for other séries
     const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
     const isTouKouLeurLevel2 = selectedBadge.series === 'Série TouKouLeur' && selectedBadge.level === 'level_2';
-    const isSeriesWithAxesCompetence = selectedBadge.series === "Série Métiers de la mer" || selectedBadge.series === "Série Compétences à s'orienter - Collège";
     const shouldValidateCompetencies =
-      isSeriesWithAxesCompetence ||
+      isSeriesWithAxesCompetenceSelection(selectedBadge.series) ||
       selectedBadge.level === 'level_1' ||
       (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
       isParcoursProfessionnel;
@@ -1426,22 +1422,28 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
               </select>
             </div>
 
-            {/* Compétences - multiple select for most series; single-select for Métiers de la mer and Compétences à s'orienter */}
+            {/* Compétences - multiple select for most series; single-select for Compétences à s'orienter only */}
             {selectedBadge && (selectedBadge.level === 'level_1' || 
               (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
               selectedBadge.series === 'Série Parcours professionnel' ||
-              selectedBadge.series === "Série Métiers de la mer" ||
-              selectedBadge.series === "Série Compétences à s'orienter - Collège") && (
+              isSeriesWithAxesCompetenceSelection(selectedBadge.series)) && (
               <div className="form-group">
                 <div className="competencies-label-container">
                   <label htmlFor="expertises">
-                    {selectedBadge.series === "Série Métiers de la mer" || selectedBadge.series === "Série Compétences à s'orienter - Collège"
+                    {isSingleSelectCompetenceSeries(selectedBadge.series)
                       ? 'Compétences (sélection unique)'
                       : 'Compétences (sélection multiple)'}
                   </label>
                   {(() => {
                     const rules = getBadgeValidationRules(selectedBadge.name, selectedBadge.level);
-                    const isSingleSelect = selectedBadge.series === "Série Métiers de la mer" || selectedBadge.series === "Série Compétences à s'orienter - Collège";
+                    const isSingleSelect = isSingleSelectCompetenceSeries(selectedBadge.series);
+                    if (isMetiersDeLaMerSeries(selectedBadge.series)) {
+                      return (
+                        <span className="competencies-hint-text">
+                          Sélectionnez une ou plusieurs compétences.
+                        </span>
+                      );
+                    }
                     if (isSingleSelect) {
                       return <span className="competencies-hint-text">Sélectionnez une compétence.</span>;
                     }
@@ -1527,7 +1529,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                               isParcoursProfessionnel) 
                               ? getBadgeValidationRules(selectedBadge.name, selectedBadge.level) : null;
                           
-                          const isSingleSelect = selectedBadge.series === "Série Métiers de la mer" || selectedBadge.series === "Série Compétences à s'orienter - Collège";
+                          const isSingleSelect = isSingleSelectCompetenceSeries(selectedBadge.series);
                           return availableExpertises.map((expertise: any) => {
                             // Use normalized comparison to check if competency is mandatory
                             const normalizedExpertiseName = normalizeCompetencyName(expertise.name);
