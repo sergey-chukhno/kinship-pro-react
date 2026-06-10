@@ -13,6 +13,7 @@ import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '../../utils/memberContextPayload';
+import { getMldsActionObjectiveLabel, getMldsActionObjectivesOptions } from '../../utils/mldsActionObjectives';
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
@@ -2422,6 +2423,11 @@ const ProjectManagement: React.FC = () => {
       const payload = mapEditFormToBackend(editPayloadForm, state.tags || [], project);
       payload.project.status = effectiveStatus;
 
+      // MLDS : pas de parcours/tag_ids (aligné sur MLDSProjectModal — tag_ids: [] à la création)
+      if (isMLDSProject) {
+        delete payload.project.tag_ids;
+      }
+
       // Add co-responsibles, partnership and participants
       let coResponsibleIds = editForm.co_owners
         .map(id => Number.parseInt(id, 10))
@@ -3009,6 +3015,361 @@ const ProjectManagement: React.FC = () => {
     setEditPathwaySearchTerm('');
     setEditPathwayDropdownOpen(false);
   };
+
+  const editMldsIsRemediation =
+    (apiProjectData?.mlds_information as { type?: string; type_mlds?: string } | undefined)?.type === 'remediation' ||
+    (apiProjectData?.mlds_information as { type?: string; type_mlds?: string } | undefined)?.type_mlds === 'remediation';
+
+  const editMldsCarrierSchoolName =
+    apiProjectData?.primary_organization_name ||
+    apiProjectData?.school_levels?.[0]?.school?.name ||
+    project?.organization ||
+    '—';
+
+  const showEditSchoolLevelsBlock =
+    getOrganizationType(state.showingPageType) === 'school' || state.showingPageType === 'teacher';
+
+  const renderEditOrganisationPorteuseBlock = (sectionLabel: string) => (
+    <div className="form-group">
+      <div className="form-label">{sectionLabel}</div>
+      {availableSchoolLevels.length > 0 ? (
+        <>
+          <div className="multi-select-container">
+            {availableSchoolLevels.map(classItem => (
+              <label
+                key={classItem.id}
+                className={`multi-select-item !flex items-center gap-2 ${editForm.mldsSchoolLevelIds.includes(classItem.id.toString()) ? 'selected' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={editForm.mldsSchoolLevelIds.includes(classItem.id.toString())}
+                  onChange={() => handleEditSchoolLevelToggle(classItem.id.toString())}
+                />
+                <div className="multi-select-checkmark">
+                  <i className="fas fa-check"></i>
+                </div>
+                <span className="multi-select-label">
+                  {classItem.name} {classItem.level ? `- ${classItem.level}` : ''}{' '}
+                  {classItem.students_count != null
+                    ? `(${classItem.students_count} élève${classItem.students_count > 1 ? 's' : ''})`
+                    : ''}
+                </span>
+              </label>
+            ))}
+          </div>
+          {editForm.mldsSchoolLevelIds.map(classId => {
+            const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === classId);
+            const className = classItem ? `${classItem.name}${classItem.level ? ` - ${classItem.level}` : ''}` : classId;
+            const mode = editClassSelectionMode[classId];
+            const students = getEditStudentsInClass(classId);
+            return (
+              <div key={classId} className="form-group" style={{ marginTop: '12px', paddingLeft: '8px', borderLeft: '3px solid #e5e7eb' }}>
+                <div className="form-label" style={{ fontSize: '0.9rem', marginBottom: '8px' }}>{className}</div>
+                <div className="flex flex-wrap gap-2" style={{ marginBottom: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    onClick={() => {
+                      if (mode !== 'manual') setEditClassMode(classId, 'manual');
+                      setEditClassDetailPopup({ classId, className, mode: mode === 'all' ? 'view' : 'manual' });
+                    }}
+                  >
+                    <i className="fas fa-user-check" />
+                    <span>
+                      {mode === 'manual'
+                        ? 'Modifier la sélection'
+                        : mode === 'all'
+                          ? `Voir les élèves (${students.length})`
+                          : 'Sélectionner manuellement'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    onClick={() => setEditClassMode(classId, 'all')}
+                  >
+                    <i className="fas fa-users" />
+                    <span>Tout sélectionner</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      ) : (
+        <div className={isLoadingSchoolLevels ? 'loading-message' : 'no-items-message'}>
+          {isLoadingSchoolLevels ? (
+            <>
+              <i className="fas fa-spinner fa-spin"></i>
+              <span>Chargement des classes...</span>
+            </>
+          ) : (
+            'Aucune classe disponible'
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderEditPartnershipFields = () => (
+    <>
+      <div className="form-group">
+        <label className={`multi-select-item !flex items-center gap-2 ${editForm.isPartnership ? 'selected' : ''}`} style={{ cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            id="isPartnership"
+            name="isPartnership"
+            checked={editForm.isPartnership}
+            onChange={(e) => setEditForm(prev => ({
+              ...prev,
+              isPartnership: e.target.checked,
+              partners: e.target.checked ? prev.partners : []
+            }))}
+          />
+          <div className="multi-select-checkmark">
+            <i className="fas fa-check"></i>
+          </div>
+          <div>
+            <span className="multi-select-label">Ajouter un partenaire {isMLDSProject ? 'du réseau FOQUALE présent sur Kinship  ' : '  '}</span>
+            <span className="info-tooltip-wrapper">
+              <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+              <div className="info-tooltip">
+                <div style={{ fontWeight: '600', marginBottom: '8px' }}>En ajoutant un partenaire présent sur Kinship :</div>
+                <ul>
+                  <li>Son Admin ou Superadmin pourra être désigné co-responsable du projet. </li>
+                  <li>Il pourra co-rédiger, co-gérer et suivre le projet MLDS avec vous.</li>
+                </ul>
+              </div>
+            </span>
+          </div>
+        </label>
+      </div>
+
+      {editForm.isPartnership && (
+        <div className="form-group">
+          <label htmlFor="projectPartners">Ajouter un partenaire</label>
+          <div className="compact-selection">
+            <div className="search-input-container">
+              <i className="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                className="form-input placeholder:text-sm"
+                placeholder="ex : établissements du réseau FOQUALE, DCIO, Pôle Persévérance Scolaire — Académie de Nice, autres réseaux FOQUALE (pour les projets inter-réseaux)"
+                value={editSearchTerms.partner}
+                onChange={(e) => handleEditSearchChange('partner', e.target.value)}
+              />
+            </div>
+
+            {editForm.partners.length > 0 && (
+              <div className="selected-items">
+                {editForm.partners.map((partnerId) => {
+                  const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId);
+                  if (!partnership) return null;
+                  const partnerOrgs = partnership.partners || [];
+                  const firstPartner = partnerOrgs[0];
+                  const roleInPartnership = firstPartner?.role_in_partnership;
+                  return (
+                    <div key={partnerId} className="selected-member">
+                      <AvatarImage
+                        src={firstPartner?.logo_url || '/default-avatar.png'}
+                        alt={partnerOrgs.map((p: any) => p.name).join(', ') || 'Partnership'}
+                        className="selected-avatar"
+                      />
+                      <div className="selected-info">
+                        <div className="selected-name">
+                          {partnerOrgs.map((p: any) => p.name).join(', ')}
+                        </div>
+                        <div className="selected-role">{partnership.name || ''}</div>
+                        {roleInPartnership && (
+                          <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+                            Rôle dans le partenariat : {roleInPartnership}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="remove-selection"
+                        onClick={() => handleEditPartnerSelect(partnerId)}
+                      >
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="selection-list">
+              {getEditFilteredPartnerships(editSearchTerms.partner).length === 0 ? (
+                <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                  <i className="fas fa-handshake" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                  <p>Aucun partenariat disponible</p>
+                </div>
+              ) : (
+                getEditFilteredPartnerships(editSearchTerms.partner).map((partnership: any) => {
+                  const partnerOrgs = partnership.partners || [];
+                  const firstPartner = partnerOrgs[0];
+                  const roleInPartnership = firstPartner?.role_in_partnership;
+
+                  return (
+                    <div
+                      key={partnership.id}
+                      className="selection-item"
+                      onClick={() => handleEditPartnerSelect(partnership.id.toString())}
+                    >
+                      <AvatarImage
+                        src={firstPartner?.logo_url || '/default-avatar.png'}
+                        alt={firstPartner?.name || 'Partnership'}
+                        className="item-avatar"
+                      />
+                      <div className="item-info">
+                        <div className="item-name">
+                          {partnerOrgs.map((p: any) => p.name).join(', ')}
+                        </div>
+                        <div className="item-role">{partnership.name || ''}</div>
+                        {roleInPartnership && (
+                          <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Rôle dans le partenariat : {roleInPartnership}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  const renderEditCoResponsiblesFields = () => (
+    <div className="form-group">
+      <label htmlFor="projectCoResponsibles" style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+        Co-responsable(s)
+        <span className="info-tooltip-wrapper">
+          <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
+          <div className="info-tooltip">
+            <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
+            <ul>
+              <li>voir le projet dans leur profil</li>
+              <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
+              <li>attribuer des badges</li>
+              <li>faire des équipes et donner des rôles dans équipe</li>
+              <li>plus tard attribuer des tâches (Kanban)</li>
+            </ul>
+          </div>
+        </span>
+      </label>
+      <div className="compact-selection">
+        <div className="search-input-container">
+          <i className="fas fa-search search-icon"></i>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Rechercher des co-responsables..."
+            value={editSearchTerms.co_owners}
+            onChange={(e) => handleEditSearchChange('co_owners', e.target.value)}
+            disabled={isLoadingEditMembers || isLoadingEditCoResponsibles}
+          />
+        </div>
+
+        {editForm.co_owners.length > 0 && (
+          <div className="selected-items">
+            {editForm.co_owners.map((memberId) => {
+              const linkedPartnership = isCoResponsibleLinkedViaSelectedPartnership(memberId);
+              const member =
+                editCoResponsibleOptions.find((m: any) => m.id.toString() === memberId) ??
+                editAvailableMembers.find((m: any) => m.id.toString() === memberId) ??
+                (linkedPartnership
+                  ? editPartnershipContactMembers.find((m: any) => m.id?.toString() === memberId)
+                  : undefined) ??
+                getEditCoResponsibleMemberFallbackFromApi(memberId);
+              const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '')) : '';
+              const partnershipContexts = getEditPartnershipContextLabelsForCoResponsible(memberId);
+              const addedFromApiLine = getEditCoResponsibleAddedFromApiLine(memberId);
+              return member ? (
+                <div key={memberId} className="selected-member">
+                  <AvatarImage
+                    src={member.avatar_url || '/default-avatar.png'}
+                    alt={member.full_name || `${member.first_name} ${member.last_name}`}
+                    className="selected-avatar"
+                  />
+                  <div className="selected-info">
+                    <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
+                    <div className="selected-role">Rôle : {translateRole(member.role ?? member.role_in_organization ?? '')}</div>
+                    {partnershipContexts.length > 0 && (
+                      <div className="selected-org" style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.2rem', fontWeight: 600 }}>
+                        Co-responsable via le partenariat : {partnershipContexts.join(' · ')}
+                      </div>
+                    )}
+                    {partnershipContexts.length === 0 && addedFromApiLine && (
+                      <div className="selected-org" style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.2rem', fontWeight: 600 }}>
+                        Co-responsable désigné depuis : {addedFromApiLine}
+                      </div>
+                    )}
+                    {memberOrg && (
+                      <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {toDisplayString(member.organization)}</div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="remove-selection"
+                    onClick={() => handleEditMemberSelect('co_owners', memberId)}
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+              ) : null;
+            })}
+          </div>
+        )}
+
+        {(isLoadingEditMembers || isLoadingEditCoResponsibles) ? (
+          <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
+            <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
+            <span>Chargement des membres...</span>
+          </div>
+        ) : (
+          <div className="selection-list">
+            {getEditFilteredCoResponsibles(editSearchTerms.co_owners).length === 0 ? (
+              <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
+                <p>Aucun membre disponible</p>
+              </div>
+            ) : (
+              getEditFilteredCoResponsibles(editSearchTerms.co_owners).map((member: any) => {
+                const isSelected = editForm.co_owners.includes(member.id.toString());
+                const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
+                return (
+                  <div
+                    key={member.id}
+                    className={`selection-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => handleEditMemberSelect('co_owners', member.id.toString())}
+                  >
+                    <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                    <div className="item-info">
+                      <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                      <div className="item-role">Rôle : {translateRole(member.role ?? '')}</div>
+                      {memberOrg && (
+                        <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {toDisplayString(member.organization)}</div>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <div style={{ marginLeft: 'auto', color: '#10b981', fontSize: '1.2rem' }}>
+                        <i className="fas fa-check-circle"></i>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   // Sync editForm.participants from class selection (school context) — like ProjectModal. Only overwrite when at least one class has a mode set.
   const editUseClassBasedParticipants = getOrganizationType(state.showingPageType) === 'school' && editForm.mldsSchoolLevelIds.length > 0;
@@ -4527,30 +4888,12 @@ const ProjectManagement: React.FC = () => {
       doc.text('OBJECTIFS DE L\'ACTION', ml, y);
       y += 5;
 
-      const objectiveLabels: { [key: string]: string } = {
-        'path_security': 'Sécurisation des parcours (liaison inter-cycles)',
-        'professional_discovery': 'Découverte des filières professionnelles',
-        'student_mobility': 'Développement de la mobilité des élèves',
-        'cps_development': 'Développement des CPS',
-        'territory_partnership': 'Rapprochement avec les partenaires du territoire',
-        'family_links': 'Renforcement des liens familles-élèves',
-        'professional_development': 'Co-développement professionnel',
-        'art_culture_path': 'Parcours d\'éducation artistique et culturel',
-        'future_path_development': 'Parcours avenir',
-        'citizen_path_development': 'Parcours citoyen',
-        'physical_education': 'Apprendre par l\'éducation physique et sportive',
-        'disciplinary_course': 'Cours disciplinaire',
-        'job_discovery': 'Découverte des métiers',
-        'training_discovery': 'Découverte des formations',
-        'other': 'Autre'
-      };
-
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(gris[0], gris[1], gris[2]);
       mldsInfo.action_objectives.forEach((obj: string) => {
         checkPage(6);
-        doc.text(`• ${objectiveLabels[obj] || obj}`, ml + 2, y);
+        doc.text(`• ${getMldsActionObjectiveLabel(obj)}`, ml + 2, y);
         y += lh;
       });
 
@@ -7711,23 +8054,7 @@ const ProjectManagement: React.FC = () => {
                               {apiProjectData.mlds_information.action_objectives.map((obj: string, index: number) => (
                                 <div key={index} style={{ fontSize: '0.9rem', color: '#374151', display: 'flex', alignItems: 'start', gap: '0.5rem' }}>
                                   <i className="fas fa-check-circle" style={{ color: '#10b981', marginTop: '0.25rem' }}></i>
-                                  <span className='text-left'>
-                                    {obj === 'path_security' && 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles'}
-                                    {obj === 'professional_discovery' && 'La découverte des filières professionnelles'}
-                                    {obj === 'student_mobility' && 'Le développement de la mobilité des élèves'}
-                                    {obj === 'cps_development' && 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré'}
-                                    {obj === 'territory_partnership' && 'Le rapprochement des établissements avec les partenaires du territoire'}
-                                    {obj === 'family_links' && 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire'}
-                                    {obj === 'professional_development' && 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes'}
-                                    {obj === 'aec_development' && "Parcours d'éducation artistique et culturelle"}
-                                    {obj === 'future_path_development' && 'Parcours d\'avenir'}
-                                    {obj === 'citizen_path_development' && 'Parcours citoyen'}
-                                    {obj === 'pe_development' && "Apprendre par l'éducation physique et sportive"}
-                                    {obj === 'disciplinary_courses' && 'Cours disciplinaires'}
-                                    {obj === 'job_discovery' && 'Découverte des métiers'}
-                                    {obj === 'training_discovery' && 'Découverte des formations'}
-                                    {obj === 'other' && 'Autre'}
-                                  </span>
+                                  <span className='text-left'>{getMldsActionObjectiveLabel(obj)}</span>
                                 </div>
                               ))}
                             </div>
@@ -8656,6 +8983,74 @@ const ProjectManagement: React.FC = () => {
             </div>
 
             <div className="modal-body">
+              {/* MLDS : ordre aligné sur MLDSProjectModal (Informations générales en tête) */}
+              {isMLDSProject && (
+                <div className="form-section">
+                  <h3 className="form-section-title">Informations générales</h3>
+
+                  <div className="form-group">
+                    <label htmlFor="mlds-requested-by-top">Demande faite par <span style={{ color: 'red' }}>*</span></label>
+                    <select
+                      id="mlds-requested-by-top"
+                      name="mldsRequestedBy"
+                      className="form-select"
+                      value={editForm.mldsRequestedBy}
+                      onChange={(e) => setEditForm({
+                        ...editForm,
+                        mldsRequestedBy: e.target.value,
+                        mldsDepartment: e.target.value === 'departement' ? editForm.mldsDepartment : ''
+                      })}
+                      required
+                    >
+                      <option value="departement">Département</option>
+                      <option value="reseau_foquale">Réseau foquale</option>
+                    </select>
+                  </div>
+
+                  {editForm.mldsRequestedBy === 'departement' && (
+                    <div className="form-group">
+                      <label htmlFor="mldsDepartment-top">Département <span style={{ color: 'red' }}>*</span></label>
+                      {isLoadingDepartments ? (
+                        <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                          <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                          Chargement des départements...
+                        </div>
+                      ) : (
+                        <select
+                          id="mldsDepartment-top"
+                          name="mldsDepartment"
+                          className="form-select"
+                          value={editForm.mldsDepartment}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, mldsDepartment: e.target.value }))}
+                          required={editForm.mldsRequestedBy === 'departement'}
+                        >
+                          <option value="">Sélectionnez un département</option>
+                          {departments.map(dept => (
+                            <option key={dept.code} value={dept.code}>
+                              {dept.nom} ({dept.code})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label htmlFor="mlds-carrier-school">Établissement porteur <span style={{ color: 'red' }}>*</span></label>
+                    <input
+                      type="text"
+                      id="mlds-carrier-school"
+                      className="form-input"
+                      value={editMldsCarrierSchoolName}
+                      readOnly
+                      aria-readonly="true"
+                    />
+                  </div>
+
+                  {showEditSchoolLevelsBlock && renderEditOrganisationPorteuseBlock('Organisation porteuse')}
+                </div>
+              )}
+
               <div className="form-group">
                 <label htmlFor="project-title">Titre du projet</label>
 
@@ -8672,14 +9067,12 @@ const ProjectManagement: React.FC = () => {
               {isMLDSProject && (
                 <div className="form-group">
                   <div className="form-label">
-                    {((apiProjectData.mlds_information as any)?.type === 'remediation' ||
-                      (apiProjectData.mlds_information as any)?.type_mlds === 'remediation')
+                    {editMldsIsRemediation
                       ? 'Actions concernées'
                       : "Problématique du réseau à laquelle l'action répond"}{' '}
                     <span style={{ color: 'red' }}>*</span>
                   </div>
-                  {((apiProjectData.mlds_information as any)?.type === 'remediation' ||
-                    (apiProjectData.mlds_information as any)?.type_mlds === 'remediation') ? (
+                  {editMldsIsRemediation ? (
                     <div className="multi-select-container">
                       {[
                         { value: 'sas_rentree', label: 'SAS de rentrée' },
@@ -8737,7 +9130,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
               )}
 
               <div className="form-group">
-                <label htmlFor="project-description">Description du projet</label>
+                <label htmlFor="project-description">{isMLDSProject ? 'Description' : 'Description du projet'}</label>
                 <textarea
                   id="project-description"
                   value={editForm.description}
@@ -8786,7 +9179,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="project-start-date">Date de début estimée</label>
+                  <label htmlFor="project-start-date">{isMLDSProject ? 'Date de début' : 'Date de début estimée'}</label>
                   <input
                     type="date"
                     id="project-start-date"
@@ -8796,7 +9189,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="project-end-date">Date de fin estimée</label>
+                  <label htmlFor="project-end-date">{isMLDSProject ? 'Date de fin' : 'Date de fin estimée'}</label>
                   <input
                     type="date"
                     id="project-end-date"
@@ -8806,6 +9199,55 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                   />
                 </div>
               </div>
+
+              {isMLDSProject && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="mlds-expected-participants-top">Effectifs prévisionnel</label>
+                    <input
+                      type="number"
+                      id="mlds-expected-participants-top"
+                      name="mldsExpectedParticipants"
+                      className="form-input"
+                      value={editForm.mldsExpectedParticipants}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsExpectedParticipants: e.target.value }))}
+                      placeholder="Nbr participants"
+                      min="0"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="mlds-target-audience-top">Public ciblé <span style={{ color: 'red' }}>*</span></label>
+                    <select
+                      id="mlds-target-audience-top"
+                      name="mldsTargetAudience"
+                      className="form-select"
+                      value={editForm.mldsTargetAudience}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsTargetAudience: e.target.value }))}
+                      required
+                    >
+                      {editMldsIsRemediation ? (
+                        <>
+                          <option value="mlds_assigned">Élèves affectés à la MLDS</option>
+                          <option value="pafi_tdo">Élèves en PAFI TDO</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="students_without_solution">Élèves sans solution à la rentrée</option>
+                          <option value="students_at_risk">Élèves en situation de décrochage repérés par le GPDS</option>
+                          <option value="school_teams">Équipes des établissements</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {isMLDSProject && (
+                <>
+                  {renderEditPartnershipFields()}
+                  {renderEditCoResponsiblesFields()}
+                </>
+              )}
 
               {/* Visibilité masquée pour les projets MLDS - toujours privé. Pas de champ Statut visible (comme ProjectModal) : brouillon via le bouton dédié. */}
               {!isMLDSProject && (
@@ -8827,7 +9269,8 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                 </div>
               )}
 
-              {/* Parcours - même input que ProjectModal : pills + recherche + dropdown (max. 2) */}
+              {/* Parcours — masqué pour MLDS (comme MLDSProjectModal : pathway fixé à "mlds", pas de sélection) */}
+              {!isMLDSProject && (
               <div className="form-group pathway-search-form" ref={editPathwayDropdownRef}>
                 <label className="form-label">Parcours * <span className="text-muted">(max. 2)</span></label>
                 {isLoadingEditPathways ? (
@@ -8911,6 +9354,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                   </>
                 )}
               </div>
+              )}
 
               {/* Tags - Masqué pour les projets MLDS */}
               {!isMLDSProject && (
@@ -8948,81 +9392,9 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                 </div>
               )}
 
-              {/* Organisation porteuse - sous Parcours/Tags (projets école) + popup sélection participants par classe */}
-              {getOrganizationType(state.showingPageType) === 'school' && (
-                <div className="form-group">
-                  <div className="form-label">Ajouter une/des classe(s) au projet</div>
-                  {availableSchoolLevels.length > 0 ? (
-                    <>
-                      <div className="multi-select-container" style={{}}>
-                        {availableSchoolLevels.map(classItem => (
-                          <label
-                            key={classItem.id}
-                            className={`multi-select-item !flex items-center gap-2 ${editForm.mldsSchoolLevelIds.includes(classItem.id.toString()) ? 'selected' : ''}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={editForm.mldsSchoolLevelIds.includes(classItem.id.toString())}
-                              onChange={() => handleEditSchoolLevelToggle(classItem.id.toString())}
-                            />
-                            <div className="multi-select-checkmark">
-                              <i className="fas fa-check"></i>
-                            </div>
-                            <span className="multi-select-label">
-                              {classItem.name} {classItem.level ? `- ${classItem.level}` : ''} {classItem.students_count != null ? `(${classItem.students_count} élève${classItem.students_count > 1 ? 's' : ''})` : ''}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                      {/* Pour chaque classe cochée : choix manuel / tout, puis liste ou label */}
-                      {editForm.mldsSchoolLevelIds.map(classId => {
-                        const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === classId);
-                        const className = classItem ? `${classItem.name}${classItem.level ? ` - ${classItem.level}` : ''}` : classId;
-                        const mode = editClassSelectionMode[classId];
-                        const students = getEditStudentsInClass(classId);
-                        return (
-                          <div key={classId} className="form-group" style={{ marginTop: '12px', paddingLeft: '8px', borderLeft: '3px solid #e5e7eb' }}>
-                            <div className="form-label" style={{ fontSize: '0.9rem', marginBottom: '8px' }}>{className}</div>
-                            <div className="flex flex-wrap gap-2" style={{ marginBottom: '8px' }}>
-                              <button
-                                type="button"
-                                className="btn btn-outline"
-                                style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => {
-                                  if (mode !== 'manual') setEditClassMode(classId, 'manual');
-                                  setEditClassDetailPopup({ classId, className, mode: mode === 'all' ? 'view' : 'manual' });
-                                }}
-                              >
-                                <i className="fas fa-user-check" />
-                                <span>{mode === 'manual' ? 'Modifier la sélection' : mode === 'all' ? `Voir les élèves (${students.length})` : 'Sélectionner manuellement'}</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline"
-                                style={{ fontSize: '0.85rem', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                onClick={() => setEditClassMode(classId, 'all')}
-                              >
-                                <i className="fas fa-users" />
-                                <span>Tout sélectionner</span>
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </>
-                  ) : (
-                    <div className={isLoadingSchoolLevels ? 'loading-message' : 'no-items-message'}>
-                      {isLoadingSchoolLevels ? (
-                        <>
-                          <i className="fas fa-spinner fa-spin"></i>
-                          <span>Chargement des classes...</span>
-                        </>
-                      ) : (
-                        'Aucune classe disponible'
-                      )}
-                    </div>
-                  )}
-                </div>
+              {/* Classes — projets non-MLDS (MLDS : bloc « Organisation porteuse » en tête du formulaire) */}
+              {!isMLDSProject && getOrganizationType(state.showingPageType) === 'school' && (
+                renderEditOrganisationPorteuseBlock('Ajouter une/des classe(s) au projet')
               )}
 
               {/* Pro: Groups (edit modal) */}
@@ -9498,8 +9870,8 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                 </div>
               )}
 
-              {/* Participants sélectionnés (membres des classes) — envoyés en participant_ids à la sauvegarde. Si toute la classe : afficher le nom de la classe (comme ProjectModal). */}
-              {getOrganizationType(state.showingPageType) === 'school' && (
+              {/* Participants sélectionnés — MLDS : après partenariat/co-responsables dans le flux création ; conservé ici pour l’édition */}
+              {showEditSchoolLevelsBlock && (
                 <div className="form-group">
                   <label className="form-label">Participants sélectionnés ({editForm.participants.length})</label>
                   {editForm.participants.length === 0 ? (
@@ -9619,403 +9991,22 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                 </div>
               )}
 
-              {/* Partnership Section */}
-              <div className="form-group">
-                <label className={`multi-select-item !flex items-center gap-2 ${editForm.isPartnership ? 'selected' : ''}`} style={{ cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    id="isPartnership"
-                    name="isPartnership"
-                    checked={editForm.isPartnership}
-                    onChange={(e) => setEditForm(prev => ({
-                      ...prev,
-                      isPartnership: e.target.checked,
-                      partners: e.target.checked ? prev.partners : []
-                    }))}
-                  />
-                  <div className="multi-select-checkmark">
-                    <i className="fas fa-check"></i>
-                  </div>
-                  <div>
-                    <span className="multi-select-label">Ajouter un partenaire {isMLDSProject ? 'du réseau FOQUALE présent sur Kinship  ' : '  '}</span>
-                    <span className="info-tooltip-wrapper">
-                      <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
-                      <div className="info-tooltip">
-                        <div style={{ fontWeight: '600', marginBottom: '8px' }}>En ajoutant un partenaire présent sur Kinship :</div>
-                        <ul>
-                          <li>Son Admin ou Superadmin pourra être désigné co-responsable du projet. </li>
-                          <li>Il pourra co-rédiger, co-gérer et suivre le projet MLDS avec vous.</li>
-                        </ul>
-                      </div>
-                    </span>
-                  </div>
-                </label>
-              </div>
-
-              {/* Partenaires - Only visible if En partenariat is checked */}
-              {editForm.isPartnership && (
-                <div className="form-group">
-                  <label htmlFor="projectPartners">Ajouter un partenaire</label>
-                  <div className="compact-selection">
-                    <div className="search-input-container">
-                      <i className="fas fa-search search-icon"></i>
-                      <input
-                        type="text"
-                        className="form-input placeholder:text-sm"
-                        placeholder="ex : établissements du réseau FOQUALE, DCIO, Pôle Persévérance Scolaire — Académie de Nice, autres réseaux FOQUALE (pour les projets inter-réseaux)"
-                        value={editSearchTerms.partner}
-                        onChange={(e) => handleEditSearchChange('partner', e.target.value)}
-                      />
-                    </div>
-
-                    {/* Display selected partnerships above the search input */}
-                    {editForm.partners.length > 0 && (
-                      <div className="selected-items">
-                        {editForm.partners.map((partnerId) => {
-                          const partnership = editAvailablePartnerships.find((p: any) => p.id?.toString() === partnerId);
-                          if (!partnership) return null;
-                          const partnerOrgs = partnership.partners || [];
-                          const firstPartner = partnerOrgs[0];
-                          const roleInPartnership = firstPartner?.role_in_partnership;
-                          return (
-                            <div key={partnerId} className="selected-member">
-                              <AvatarImage
-                                src={firstPartner?.logo_url || '/default-avatar.png'}
-                                alt={partnerOrgs.map((p: any) => p.name).join(', ') || 'Partnership'}
-                                className="selected-avatar"
-                              />
-                              <div className="selected-info">
-                                <div className="selected-name">
-                                  {partnerOrgs.map((p: any) => p.name).join(', ')}
-                                </div>
-                                <div className="selected-role">{partnership.name || ''}</div>
-                                {roleInPartnership && (
-                                  <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
-                                    Rôle dans le partenariat : {roleInPartnership}
-                                  </div>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                className="remove-selection"
-                                onClick={() => handleEditPartnerSelect(partnerId)}
-                              >
-                                <i className="fas fa-times"></i>
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <div className="selection-list">
-                      {getEditFilteredPartnerships(editSearchTerms.partner).length === 0 ? (
-                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                          <i className="fas fa-handshake" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
-                          <p>Aucun partenariat disponible</p>
-                        </div>
-                      ) : (
-                        getEditFilteredPartnerships(editSearchTerms.partner).map((partnership: any) => {
-                          const partnerOrgs = partnership.partners || [];
-                          const firstPartner = partnerOrgs[0];
-                          const roleInPartnership = firstPartner?.role_in_partnership;
-
-                          return (
-                            <div
-                              key={partnership.id}
-                              className="selection-item"
-                              onClick={() => handleEditPartnerSelect(partnership.id.toString())}
-                            >
-                              <AvatarImage
-                                src={firstPartner?.logo_url || '/default-avatar.png'}
-                                alt={firstPartner?.name || 'Partnership'}
-                                className="item-avatar"
-                              />
-                              <div className="item-info">
-                                <div className="item-name">
-                                  {partnerOrgs.map((p: any) => p.name).join(', ')}
-                                </div>
-                                <div className="item-role">{partnership.name || ''}</div>
-                                {roleInPartnership && (
-                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Rôle dans le partenariat : {roleInPartnership}</div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                </div>
+              {!isMLDSProject && (
+                <>
+                  {renderEditPartnershipFields()}
+                  {renderEditCoResponsiblesFields()}
+                </>
               )}
 
-              {/* Co-responsables */}
-              <div className="form-group">
-                <label htmlFor="projectCoResponsibles" style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                  Co-responsable(s)
-                  <span className="info-tooltip-wrapper">
-                    <i className="fas fa-info-circle" style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'help' }}></i>
-                    <div className="info-tooltip">
-                      <div style={{ fontWeight: '600', marginBottom: '8px' }}>Les co-responsables peuvent :</div>
-                      <ul>
-                        <li>voir le projet dans leur profil</li>
-                        <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
-                        <li>attribuer des badges</li>
-                        <li>faire des équipes et donner des rôles dans équipe</li>
-                        <li>plus tard attribuer des tâches (Kanban)</li>
-                      </ul>
-                    </div>
-                  </span>
-                </label>
-                <div className="compact-selection">
-                  <div className="search-input-container">
-                    <i className="fas fa-search search-icon"></i>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Rechercher des co-responsables..."
-                      value={editSearchTerms.co_owners}
-                      onChange={(e) => handleEditSearchChange('co_owners', e.target.value)}
-                      disabled={isLoadingEditMembers || isLoadingEditCoResponsibles}
-                    />
-                  </div>
-
-                  {/* Display selected co-responsables above the search input */}
-                  {editForm.co_owners.length > 0 && (
-                    <div className="selected-items">
-                      {editForm.co_owners.map((memberId) => {
-                        const linkedPartnership = isCoResponsibleLinkedViaSelectedPartnership(memberId);
-                        const member =
-                          editCoResponsibleOptions.find((m: any) => m.id.toString() === memberId) ??
-                          editAvailableMembers.find((m: any) => m.id.toString() === memberId) ??
-                          (linkedPartnership
-                            ? editPartnershipContactMembers.find((m: any) => m.id?.toString() === memberId)
-                            : undefined) ??
-                          getEditCoResponsibleMemberFallbackFromApi(memberId);
-                        const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '')) : '';
-                        const partnershipContexts = getEditPartnershipContextLabelsForCoResponsible(memberId);
-                        const addedFromApiLine = getEditCoResponsibleAddedFromApiLine(memberId);
-                        return member ? (
-                          <div key={memberId} className="selected-member">
-                            <AvatarImage
-                              src={member.avatar_url || '/default-avatar.png'}
-                              alt={member.full_name || `${member.first_name} ${member.last_name}`}
-                              className="selected-avatar"
-                            />
-                            <div className="selected-info">
-                              <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
-                              <div className="selected-role">Rôle : {translateRole(member.role ?? member.role_in_organization ?? '')}</div>
-                              {partnershipContexts.length > 0 && (
-                                <div className="selected-org" style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.2rem', fontWeight: 600 }}>
-                                  Co-responsable via le partenariat : {partnershipContexts.join(' · ')}
-                                </div>
-                              )}
-                              {partnershipContexts.length === 0 && addedFromApiLine && (
-                                <div className="selected-org" style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.2rem', fontWeight: 600 }}>
-                                  Co-responsable désigné depuis : {addedFromApiLine}
-                                </div>
-                              )}
-                              {memberOrg && (
-                                <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {toDisplayString(member.organization)}</div>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              className="remove-selection"
-                              onClick={() => handleEditMemberSelect('co_owners', memberId)}
-                            >
-                              <i className="fas fa-times"></i>
-                            </button>
-                          </div>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-
-                  {(isLoadingEditMembers || isLoadingEditCoResponsibles) ? (
-                    <div className="loading-members" style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>
-                      <i className="fas fa-spinner fa-spin" style={{ marginRight: '0.5rem' }}></i>
-                      <span>Chargement des membres...</span>
-                    </div>
-                  ) : (
-                    <div className="selection-list">
-                      {getEditFilteredCoResponsibles(editSearchTerms.co_owners).length === 0 ? (
-                        <div className="no-members-message" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                          <i className="fas fa-users" style={{ fontSize: '2rem', marginBottom: '0.5rem', display: 'block' }}></i>
-                          <p>Aucun membre disponible</p>
-                        </div>
-                      ) : (
-                        getEditFilteredCoResponsibles(editSearchTerms.co_owners).map((member: any) => {
-                          const isSelected = editForm.co_owners.includes(member.id.toString());
-                          const memberOrg = typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? '');
-                          return (
-                            <div
-                              key={member.id}
-                              className={`selection-item ${isSelected ? 'selected' : ''}`}
-                              onClick={() => handleEditMemberSelect('co_owners', member.id.toString())}
-                            >
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
-                              <div className="item-info">
-                                <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
-                                <div className="item-role">Rôle : {translateRole(member.role ?? '')}</div>
-                                {memberOrg && (
-                                  <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {toDisplayString(member.organization)}</div>
-                                )}
-                              </div>
-                              {isSelected && (
-                                <div style={{ marginLeft: 'auto', color: '#10b981', fontSize: '1.2rem' }}>
-                                  <i className="fas fa-check-circle"></i>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* MLDS-specific fields */}
+              {/* MLDS : volet Persévérance / Remédiation (objectifs, compétences, financement) */}
               {isMLDSProject && (
                 <div className="form-section">
-                  <h3 className="form-section-title">Volet {apiProjectData.mlds_information.type_mlds === 'remediation' ? 'Remédiation' : 'Persévérance Scolaire'}</h3>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="mlds-requested-by">Demande faite par <span style={{ color: 'red' }}>*</span></label>
-                      <select
-                        id="mlds-requested-by"
-                        name="mldsRequestedBy"
-                        className="form-select"
-                        value={editForm.mldsRequestedBy}
-                        onChange={(e) => setEditForm({
-                          ...editForm,
-                          mldsRequestedBy: e.target.value,
-                          mldsDepartment: e.target.value === 'departement' ? editForm.mldsDepartment : ''
-                        })}
-                        required
-                      >
-                        <option value="departement">Département</option>
-                        <option value="reseau_foquale">Réseau foquale</option>
-                      </select>
-                    </div>
-
-                    {/* Département select - Only visible when "Demande faite par" is "Département" */}
-                    {editForm.mldsRequestedBy === 'departement' && (
-                      <div className="form-group">
-                        <label htmlFor="mldsDepartment">Département <span style={{ color: 'red' }}>*</span></label>
-                        {isLoadingDepartments ? (
-                          <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
-                            <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
-                            Chargement des départements...
-                          </div>
-                        ) : (
-                          <select
-                            id="mldsDepartment"
-                            name="mldsDepartment"
-                            className="form-select"
-                            value={editForm.mldsDepartment}
-                            onChange={(e) => setEditForm(prev => ({ ...prev, mldsDepartment: e.target.value }))}
-                            required={editForm.mldsRequestedBy === 'departement'}
-                          >
-                            <option value="">Sélectionnez un département</option>
-                            {departments.map(dept => (
-                              <option key={dept.code} value={dept.code}>
-                                {dept.nom} ({dept.code})
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="form-group">
-                      <label htmlFor="mlds-target-audience">Public ciblé <span style={{ color: 'red' }}>*</span></label>
-                      <select
-                        id="mlds-target-audience"
-                        name="mldsTargetAudience"
-                        className="form-select"
-                        value={editForm.mldsTargetAudience}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, mldsTargetAudience: e.target.value }))}
-                        required
-                      >
-                        {apiProjectData.mlds_information.type_mlds === 'remediation' ? (
-                          <>
-                        <option value="mlds_assigned">Élèves affectés à la MLDS</option>
-                        <option value="pafi_tdo">Élèves en PAFI TDO</option>
-                        </>
-                        ) : (
-                          <>
-                        <option value="students_without_solution">Élèves sans solution à la rentrée</option>
-                        <option value="students_at_risk">Élèves en situation de décrochage repérés par le GPDS</option>
-                        <option value="school_teams">Équipes des établissements</option>
-                        </>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="mlds-expected-participants">Effectifs prévisionnel</label>
-                    <input
-                      type="number"
-                      id="mlds-expected-participants"
-                      name="mldsExpectedParticipants"
-                      className="form-input"
-                      value={editForm.mldsExpectedParticipants}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsExpectedParticipants: e.target.value }))}
-                      placeholder="Nombre de participants attendus"
-                      min="0"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="mlds-objectives">Objectifs pédagogiques</label>
-                    <textarea
-                      id="mlds-objectives"
-                      name="mldsObjectives"
-                      className="form-textarea"
-                      value={editForm.mldsObjectives}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, mldsObjectives: e.target.value }))}
-                      rows={3}
-                      placeholder="Décrire les objectifs de remobilisation et de persévérance scolaire..."
-                    />
-                  </div>
+                  <h3 className="form-section-title">Volet {editMldsIsRemediation ? 'Remédiation' : 'Persévérance Scolaire'}</h3>
 
                   <div className="form-group">
                     <div className="form-label">Objectifs de l'action</div>
                     <div className="multi-select-container">
-                      {(
-                        ((apiProjectData.mlds_information as any)?.type === 'remediation' ||
-                          (apiProjectData.mlds_information as any)?.type_mlds === 'remediation')
-                          ? [
-                              { value: 'professional_discovery', label: 'La découverte des filières professionnelles' },
-                              { value: 'student_mobility', label: 'Le développement de la mobilité des élèves' },
-                              { value: 'cps_development', label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré' },
-                              { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, Avenir Pro Plus, autres)' },
-                              { value: 'family_links', label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire' },
-                              { value: 'professional_development', label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)' },
-                              { value: 'art_culture_path', label: "Parcours d'éducation artistique et culturel" },
-                              { value: 'avenir_path', label: 'Parcours avenir' },
-                              { value: 'citizen_path', label: 'Parcours citoyen' },
-                              { value: 'physical_education', label: "Apprendre par l'éducation physique et sportive" },
-                              { value: 'disciplinary_course', label: 'Cours disciplinaire' },
-                              { value: 'job_discovery', label: 'Découverte des métiers' },
-                              { value: 'training_discovery', label: 'Découverte des formations' },
-                              { value: 'other', label: 'Autre' },
-                            ]
-                          : [
-                              { value: 'path_security', label: 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles' },
-                              { value: 'professional_discovery', label: 'La découverte des filières professionnelles' },
-                              { value: 'student_mobility', label: 'Le développement de la mobilité des élèves' },
-                              { value: 'cps_development', label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré' },
-                              { value: 'territory_partnership', label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, Avenir Pro Plus, autres)' },
-                              { value: 'family_links', label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire' },
-                              { value: 'professional_development', label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)' },
-                              { value: 'other', label: 'Autre' },
-                            ]
-                      ).map((objective) => (
+                      {getMldsActionObjectivesOptions(editMldsIsRemediation).map((objective) => (
                         <label
                           key={objective.value}
                           className={`multi-select-item !flex items-center gap-2 ${editForm.mldsActionObjectives.includes(objective.value) ? 'selected' : ''}`}

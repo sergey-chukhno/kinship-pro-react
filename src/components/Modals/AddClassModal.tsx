@@ -149,7 +149,6 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
       setName(initialData.name || '');
       setLevel(initialData.level || 'petite_section');
       setSelectedStaffIds(initialData.teacher_ids || []);
-      // TODO: Load pedagogical_team_member_ids from initialData when available
       setSelectedPedagogicalTeamIds(initialData.pedagogical_team_member_ids || []);
     } else {
       // Réinitialiser si on passe en mode création
@@ -248,10 +247,9 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
       return [];
     }
     
-    // Filter out already selected responsables and pedagogical team members
     const available = availableStaff.filter((staff) => {
       const staffId = Number(staff.id);
-      return !selectedStaffIds.includes(staffId) && !selectedPedagogicalTeamIds.includes(staffId);
+      return !selectedPedagogicalTeamIds.includes(staffId);
     });
     
     // Apply search filter if search term provided
@@ -311,7 +309,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           name: name.trim(),
           level: level.trim(),
           ...(selectedStaffIds.length > 0 && { teacher_ids: selectedStaffIds }),
-          ...(selectedPedagogicalTeamIds.length > 0 && { pedagogical_team_member_ids: selectedPedagogicalTeamIds }),
+          ...(isEduContext && { pedagogical_team_member_ids: selectedPedagogicalTeamIds }),
           ...(isTeacherContext && availableSchools.length > 0 && selectedSchoolId !== null && {
             school_id: selectedSchoolId
           })
