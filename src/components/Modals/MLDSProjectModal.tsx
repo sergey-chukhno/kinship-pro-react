@@ -28,6 +28,7 @@ import {
   validateServiceQuoteSelection
 } from '../../utils/mldsServiceQuotes';
 import { hvLineHours } from '../../utils/mldsHvLines';
+import { getMldsActionObjectivesOptions } from '../../utils/mldsActionObjectives';
 
 /** Taux HV par défaut (€/heure) — lignes crédits HV */
 const HV_DEFAULT_RATE = 50.73;
@@ -282,80 +283,6 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
   const remediationTargetAudienceOptions = [
     { value: 'mlds_assigned', label: 'Élèves affectés à la MLDS' },
     { value: 'pafi_tdo', label: 'Élèves en PAFI TDO' },
-  ];
-
-  const mldsActionObjectivesOptions = [
-    {
-      value: 'path_security',
-      label: 'La sécurisation des parcours : liaison inter-cycles pour les élèves les plus fragiles'
-    },
-    {
-      value: 'professional_discovery',
-      label: 'La découverte des filières professionnelles'
-    },
-    {
-      value: 'student_mobility',
-      label: 'Le développement de la mobilité des élèves'
-    },
-    {
-      value: 'cps_development',
-      label: 'Le développement des CPS pour les élèves en situation ou en risque de décrochage scolaire avéré'
-    },
-    {
-      value: 'territory_partnership',
-      label: 'Le rapprochement des établissements avec les partenaires du territoire (missions locales, associations, entreprises, etc.) afin de mettre en place des parcours personnalisés (PAFI, TDO, Avenir Pro Plus, autres)'
-    },
-    {
-      value: 'family_links',
-      label: 'Le renforcement des liens entre les familles et les élèves en risque ou en situation de décrochage scolaire'
-    },
-    {
-      value: 'professional_development',
-      label: 'Des actions de co-développement professionnel ou d\'accompagnement d\'équipes (tutorat, intervention de chercheurs, etc.)'
-    },
-    {
-      value: 'other',
-      label: 'Autre'
-    }
-  ];
-
-  const remediationActionObjectivesOptions = [
-    {
-      value: 'professional_discovery',
-      label: 'La découverte des filières professionnelles'
-    },
-    {
-      value: 'aec_development',
-      label: 'Parcours d\'éducation artistique et culturelle'
-    },
-    {
-      value: 'future_path_development',
-      label: 'Parcours d\'avenir'
-    },
-    {
-      value: 'citizen_path_development',
-      label: 'Parcours citoyen'
-    },
-    {
-      value: 'pe_development',
-      label: 'Apprendre par l\'éducation physique et sportive'
-    },
-    {
-      value: 'disciplinary_courses',
-      label: 'Cours disciplinaires'
-    },
-    {
-      value: 'job_discovery',
-      label: 'Découverte des métiers'
-    },
-    {
-      value: 'training_discovery',
-      label: 'Découverte des formations'
-    },
-    {
-      value: 'other',
-      label: 'Autre'
-    }
   ];
 
   const mldsCompetenciesOptions = [
@@ -1967,7 +1894,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
             <div className="form-group">
               <div className="form-label">Objectifs de l'action</div>
               <div className="multi-select-container">
-                {(isRemediation ? remediationActionObjectivesOptions : mldsActionObjectivesOptions).map(objective => (
+                {getMldsActionObjectivesOptions(isRemediation).map(objective => (
                   <label
                     key={objective.value}
                     className={`multi-select-item  !flex items-center gap-2 ${formData.mldsActionObjectives.includes(objective.value) ? 'selected' : ''}`}

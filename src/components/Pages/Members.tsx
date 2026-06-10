@@ -1483,7 +1483,7 @@ const Members: React.FC = () => {
     }
   };
 
-  const handleAddClassList = async (levelData: { level: { name: string; level: string; teacher_ids?: number[]; school_id?: number | null } }) => {
+  const handleAddClassList = async (levelData: { level: { name: string; level: string; teacher_ids?: number[]; pedagogical_team_member_ids?: number[]; school_id?: number | null } }) => {
     // Si on est en mode édition, utiliser handleUpdateClass qui fait un PATCH
     if (editingClass) {
       await handleUpdateClass(levelData);
@@ -1600,7 +1600,7 @@ const Members: React.FC = () => {
     setIsAddClassModalOpen(true);
   };
 
-  const handleUpdateClass = async (levelData: { level: { name: string; level: string; teacher_ids?: number[]; school_id?: number | null } }) => {
+  const handleUpdateClass = async (levelData: { level: { name: string; level: string; teacher_ids?: number[]; pedagogical_team_member_ids?: number[]; school_id?: number | null } }) => {
     if (!editingClass) return;
 
     try {
@@ -2173,7 +2173,8 @@ const Members: React.FC = () => {
                     name: editingClass.name,
                     level: editingClass.level || '',
                     id: Number(editingClass.id),
-                    teacher_ids: editingClass.teacher_ids || []
+                    teacher_ids: editingClass.teacher_ids || [],
+                    pedagogical_team_member_ids: editingClass.pedagogical_team_members?.map((m) => m.id) || []
                   } : undefined}
                   isEdit={!!editingClass}
                 />
