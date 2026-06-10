@@ -1,0 +1,314 @@
+/* Aligné sur les pages publiques Kinship (CheckinStudent, cartographie) */
+.badge-proof-verify-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 32px 16px;
+  background: linear-gradient(135deg, #eef2ff 0%, #f5f5fb 100%);
+  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  color: var(--text-primary, #1f2937);
+}
+
+.badge-proof-verify-wrap {
+  width: 100%;
+  max-width: 640px;
+}
+
+.badge-proof-verify-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--primary, #5570f1);
+  text-decoration: none;
+}
+
+.badge-proof-verify-back:hover {
+  text-decoration: underline;
+  color: var(--primary-dark, #4c63d2);
+}
+
+.badge-proof-verify-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
+  padding: 28px 24px 32px;
+}
+
+.badge-proof-verify-header {
+  text-align: center;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.badge-proof-verify-logo-img {
+  display: block;
+  width: 160px;
+  height: auto;
+  margin: 0 auto 16px;
+  object-fit: contain;
+}
+
+.badge-proof-verify-eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #11b981;
+  letter-spacing: 0.08em;
+}
+
+.badge-proof-verify-title {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.badge-proof-verify-subtitle {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.badge-proof-verify-url {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.badge-proof-verify-body {
+  padding: 0;
+}
+
+.badge-proof-verify-input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.badge-proof-verify-input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  color: #0f172a;
+  background: #f8fafc;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.badge-proof-verify-input::placeholder {
+  color: #94a3b8;
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 0.8125rem;
+}
+
+.badge-proof-verify-input:focus {
+  outline: none;
+  border-color: var(--primary, #5570f1);
+  box-shadow: 0 0 0 3px rgba(85, 112, 241, 0.15);
+  background: #fff;
+}
+
+.badge-proof-verify-submit {
+  padding: 12px 22px;
+  border-radius: 10px;
+  border: none;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--primary, #5570f1);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+}
+
+.badge-proof-verify-submit:not(:disabled):hover {
+  background: var(--primary-dark, #4c63d2);
+  transform: translateY(-1px);
+}
+
+.badge-proof-verify-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.badge-proof-verify-result {
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.badge-proof-verify-result--success {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-proof-verify-result--fail {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.badge-proof-verify-result-icon {
+  font-size: 1.75rem;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+
+.badge-proof-verify-result-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 6px;
+  font-family: inherit;
+}
+
+.badge-proof-verify-result-title--success {
+  color: #047857;
+}
+
+.badge-proof-verify-result-title--fail {
+  color: #b91c1c;
+}
+
+.badge-proof-verify-result-sub {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.badge-proof-verify-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.badge-proof-verify-field {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.badge-proof-verify-field-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.badge-proof-verify-field-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.badge-proof-verify-field-value--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+
+.badge-proof-verify-steps-title {
+  width: 100%;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary, #5570f1);
+  margin-bottom: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  padding: 8px 0;
+  font-family: inherit;
+  text-align: left;
+}
+
+.badge-proof-verify-steps-title:hover {
+  color: var(--primary-dark, #4c63d2);
+}
+
+.badge-proof-verify-step {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.badge-proof-verify-step:last-child {
+  border-bottom: none;
+}
+
+.badge-proof-verify-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(85, 112, 241, 0.12);
+  color: var(--primary, #5570f1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.badge-proof-verify-step-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.badge-proof-verify-step-desc {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+.badge-proof-verify-error {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 600px) {
+  .badge-proof-verify-card {
+    padding: 20px 16px 24px;
+  }
+
+  .badge-proof-verify-title {
+    font-size: 1.25rem;
+  }
+
+  .badge-proof-verify-input-row {
+    flex-direction: column;
+  }
+
+  .badge-proof-verify-submit {
+    width: 100%;
+  }
+
+  .badge-proof-verify-summary {
+    grid-template-columns: 1fr;
+  }
+}

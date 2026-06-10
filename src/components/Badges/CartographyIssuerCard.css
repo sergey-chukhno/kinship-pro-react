@@ -1,0 +1,110 @@
+.cartography-issuer-card {
+  --issuer-color: #1b3a6b;
+  position: relative;
+  display: flex;
+  border: none;
+  font: inherit;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 0 1.25rem 1.5rem;
+  box-shadow: 0 2px 12px rgba(24, 21, 40, 0.08);
+  overflow: hidden;
+  min-height: 220px;
+}
+
+.cartography-issuer-card--interactive {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cartography-issuer-card--interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(24, 21, 40, 0.12);
+}
+
+.cartography-issuer-card__accent {
+  width: 100%;
+  height: 8px;
+  background: var(--issuer-color);
+  margin-bottom: 1.25rem;
+  border-radius: 16px 16px 0 0;
+  align-self: stretch;
+}
+
+.cartography-issuer-card__circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--issuer-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  padding: 0.35rem;
+}
+
+.cartography-issuer-card__circle--light .cartography-issuer-card__acronym {
+  color: #1b3a6b;
+}
+
+.cartography-issuer-card__acronym {
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  word-break: break-word;
+  white-space: pre-line;
+  max-width: 100%;
+}
+
+.cartography-issuer-card__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #181528;
+  line-height: 1.3;
+}
+
+.cartography-issuer-card__subtitle {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+.cartography-issuer-card__status {
+  margin-top: auto;
+  display: inline-block;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: var(--issuer-color);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.cartography-issuer-card__circle--light + .cartography-issuer-card__title ~ .cartography-issuer-card__status,
+.cartography-issuer-card:has(.cartography-issuer-card__circle--light) .cartography-issuer-card__status {
+  color: #ffffff;
+}
+
+.cartography-issuer-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+  .cartography-issuer-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}

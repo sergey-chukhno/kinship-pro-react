@@ -5,7 +5,13 @@ import { Badge } from '../../types';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import { translateRole } from '../../utils/roleTranslations';
 import BadgeCard from '../Badges/BadgeCard';
+import CartographyIssuerCard from '../Badges/CartographyIssuerCard';
 import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
+import { buildCartographyIssuerCardsFromRaw, CartographyIssuerCardData } from '../../utils/cartographyIssuerCards';
+import { resolveBadgeProofFromIssuerCard } from '../../utils/badgeProofMapper';
+import BadgeProofModal from '../Modals/BadgeProofModal';
+import CartographyVerifyLink from '../Badges/CartographyVerifyLink';
+import { BadgeProofViewData } from '../../types/badgeProof';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
@@ -27,6 +33,8 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   const [rawAttributions, setRawAttributions] = useState<any[]>([]); // Store raw attribution data
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   const [isAttributionsModalOpen, setIsAttributionsModalOpen] = useState(false);
+  const [badgeProofData, setBadgeProofData] = useState<BadgeProofViewData | null>(null);
+  const [isBadgeProofOpen, setIsBadgeProofOpen] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -157,6 +165,22 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
     return result;
   }, [badgesByLevel, progressItemsByLevel]);
 
+  const cartographyIssuerCards = React.useMemo(
+    () =>
+      buildCartographyIssuerCardsFromRaw(rawAttributions, {
+        includeExamplesWhenEmpty: rawAttributions.length === 0,
+      }),
+    [rawAttributions]
+  );
+
+  const handleIssuerCardClick = (card: CartographyIssuerCardData) => {
+    const proof = resolveBadgeProofFromIssuerCard(card, rawAttributions);
+    if (proof) {
+      setBadgeProofData(proof);
+      setIsBadgeProofOpen(true);
+    }
+  };
+
   const sections = [
     { key: 'Niveau 1', label: 'Niveau 1 - Découverte', color: '#10b981', icon: null },
     { key: 'Niveau 2', label: 'Niveau 2 - Application', color: '#3b82f6', icon: null },
@@ -214,6 +238,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
     <div className="public-cartography-container">
       <div className="public-cartography-header">
         <h1>Cartographie des badges - <span className="capitalize">{shareInfo?.context?.student?.full_name}</span></h1>
+        <CartographyVerifyLink />
       </div>
 
       <div className="public-cartography-content">
@@ -224,7 +249,24 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
             <p>Cette cartographie ne contient aucun badge.</p>
           </div>
         ) : (
-          sections.map((section) => {
+          <>
+          {cartographyIssuerCards.length > 0 && (
+            <div className="cartography-issuer-cards-grid" role="list">
+              {cartographyIssuerCards.map((card) => (
+                <CartographyIssuerCard
+                  key={card.id}
+                  acronym={card.acronym}
+                  title={card.title}
+                  subtitle={card.subtitle}
+                  statusLabel={card.statusLabel}
+                  color={card.color}
+                  lightAcronymText={card.lightAcronymText}
+                  onClick={() => handleIssuerCardClick(card)}
+                />
+              ))}
+            </div>
+          )}
+          {sections.map((section) => {
             const progressItems = progressItemsByLevel[section.key] || [];
             const normalBadges = normalBadgesByLevel[section.key] || [];
             if (progressItems.length === 0 && normalBadges.length === 0) return null;
@@ -281,7 +323,8 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
                 </div>
               </div>
             );
-          })
+          })}
+          </>
         )}
       </div>
 
@@ -353,6 +396,15 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
           />
         );
       })()}
+
+      <BadgeProofModal
+        isOpen={isBadgeProofOpen}
+        onClose={() => {
+          setIsBadgeProofOpen(false);
+          setBadgeProofData(null);
+        }}
+        data={badgeProofData}
+      />
     </div>
   );
 };

@@ -4,7 +4,18 @@ import { useAppContext } from '../../context/AppContext';
 import { mockMembers } from '../../data/mockData';
 import { Badge } from '../../types';
 import BadgeCard from '../Badges/BadgeCard';
+import CartographyIssuerCard from '../Badges/CartographyIssuerCard';
 import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
+import { buildCartographyIssuerCardsFromRaw, CartographyIssuerCardData } from '../../utils/cartographyIssuerCards';
+import {
+  applyShowOwnerNameToView,
+  resolveBadgeProofFromIssuerCard,
+  type BadgeProofMapOptions,
+} from '../../utils/badgeProofMapper';
+import { updateUserBadgeOwnerVisibility } from '../../api/Badges';
+import BadgeProofModal from '../Modals/BadgeProofModal';
+import CartographyVerifyLink from '../Badges/CartographyVerifyLink';
+import { BadgeProofViewData } from '../../types/badgeProof';
 import BadgeModal from '../Modals/BadgeModal';
 import BadgeAnalyticsModal from '../Modals/BadgeAnalyticsModal';
 import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
@@ -19,6 +30,7 @@ import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
+import { isUnder15 } from '../../utils/ageUtils';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 import './Analytics.css';
 import './Badges.css';
@@ -34,6 +46,8 @@ const Badges: React.FC = () => {
   const [isAttributionsModalOpen, setIsAttributionsModalOpen] = useState(false);
   const [selectedBadgeForAttributions, setSelectedBadgeForAttributions] = useState<{ name: string; level: string; badgeId?: string } | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [badgeProofData, setBadgeProofData] = useState<BadgeProofViewData | null>(null);
+  const [isBadgeProofOpen, setIsBadgeProofOpen] = useState(false);
   
   // Store raw badge data to access badge IDs
   const [rawBadgeData, setRawBadgeData] = useState<any[]>([]);
@@ -282,6 +296,40 @@ const Badges: React.FC = () => {
     return matchesSearch && matchesSeries && matchesLevel;
   });
 
+  const badgeProofMapOptions = useMemo((): BadgeProofMapOptions => ({
+    currentUserId: state.user?.id,
+    isPersonalCartography: state.showingPageType === 'user',
+    isViewerMinor: state.showingPageType === 'user' && isUnder15(state.user?.birthday),
+  }), [state.user?.id, state.user?.birthday, state.showingPageType]);
+
+  const handleIssuerCardClick = (card: CartographyIssuerCardData) => {
+    const proof = resolveBadgeProofFromIssuerCard(card, rawBadgeData, badgeProofMapOptions);
+    if (proof) {
+      setBadgeProofData(proof);
+      setIsBadgeProofOpen(true);
+    }
+  };
+
+  const handleShowOwnerNameChange = useCallback(
+    async (userBadgeId: string | number, showOwnerName: boolean) => {
+      setRawBadgeData((prev) =>
+        prev.map((r: any) =>
+          String(r.id) === String(userBadgeId) ? { ...r, show_owner_name: showOwnerName } : r
+        )
+      );
+      setBadgeProofData((prev) => (prev ? applyShowOwnerNameToView(prev, showOwnerName) : null));
+
+      if (String(userBadgeId).startsWith('example-')) return;
+
+      try {
+        await updateUserBadgeOwnerVisibility(userBadgeId, showOwnerName);
+      } catch (err) {
+        console.warn('show_owner_name non persisté côté API', err);
+      }
+    },
+    []
+  );
+
   const handleBadgeClick = (badge: Badge) => {
     // Find the badge ID from raw data
     const rawBadge = rawBadgeData.find((item: any) => {
@@ -415,6 +463,28 @@ const Badges: React.FC = () => {
     return byLevel;
   }, [state.showingPageType, selectedSeries, rawBadgeData]);
 
+  const cartographyIssuerCards = useMemo(() => {
+    let filteredRaw = rawBadgeData;
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      filteredRaw = filteredRaw.filter((item: any) => {
+        const name = (item?.badge?.name || '').toLowerCase();
+        const desc = (item?.badge?.description || '').toLowerCase();
+        const org = (item?.organization?.name || item?.sender?.organization_name || '').toLowerCase();
+        return name.includes(q) || desc.includes(q) || org.includes(q);
+      });
+    }
+    if (selectedLevel) {
+      filteredRaw = filteredRaw.filter((item: any) => {
+        const levelNum = (item?.badge?.level || '').replace('level_', '');
+        return item?.badge?.level === selectedLevel || `Niveau ${levelNum}` === selectedLevel;
+      });
+    }
+    return buildCartographyIssuerCardsFromRaw(filteredRaw, {
+      includeExamplesWhenEmpty: filteredRaw.length === 0 && rawBadgeData.length === 0,
+    });
+  }, [rawBadgeData, searchTerm, selectedLevel]);
+
   // Mes statistiques: Compétences par niveau (same logic as Analytics)
   const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
   const LEVEL_LABELS_STATS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
@@ -465,6 +535,7 @@ const Badges: React.FC = () => {
               </div>
               {userMainTab === 'cartography' && (
                 <div className="badges-actions">
+                  <CartographyVerifyLink />
                   <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
                     <i className="fas fa-search"></i> Explorer les badges
                   </button>
@@ -540,6 +611,7 @@ const Badges: React.FC = () => {
               <h2>Cartographie des badges attribués</h2>
             </div>
             <div className="badges-actions">
+              <CartographyVerifyLink />
               <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
                 <i className="fas fa-search"></i> Explorer les badges
               </button>
@@ -624,19 +696,30 @@ const Badges: React.FC = () => {
                   </div>
                 </div>
 
-        {/* Badge Cartography Header */}
-         {/*<div className="cartography-header">
-          <h2>
-            {selectedSeries === 'CPS' 
-              ? 'Cartographie des badges par domaine par série CPS'
-              : 'Cartographie des badges par niveaux par série TouKouLeur'
-            }
-          </h2>
-        </div> */}
+                {cartographyIssuerCards.length > 0 && (
+                  <div className="cartography-issuer-cards-grid">
+                    {cartographyIssuerCards.map((card) => (
+                      <CartographyIssuerCard
+                        key={card.id}
+                        acronym={card.acronym}
+                        title={card.title}
+                        subtitle={card.subtitle}
+                        statusLabel={card.statusLabel}
+                        color={card.color}
+                        lightAcronymText={card.lightAcronymText}
+                        onClick={() => handleIssuerCardClick(card)}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {/* Badges Content - Organized by Levels/Domains */}
                 <div className="badges-content">
-                  {badges.length === 0 ? (
+                  {badges.length === 0 &&
+                  !(
+                    cartographyIssuerCards.length > 0 &&
+                    cartographyIssuerCards.every((c) => c.id.startsWith('example-'))
+                  ) ? (
                     <div className="badges-empty">
                       <i className="fas fa-award"></i>
                       <h4>Aucun badge trouvé</h4>
@@ -832,6 +915,18 @@ const Badges: React.FC = () => {
           }))}
         />
       )}
+
+      <BadgeProofModal
+        isOpen={isBadgeProofOpen}
+        onClose={() => {
+          setIsBadgeProofOpen(false);
+          setBadgeProofData(null);
+        }}
+        data={badgeProofData}
+        onShowOwnerNameChange={
+          state.showingPageType === 'user' ? handleShowOwnerNameChange : undefined
+        }
+      />
     </section>
   );
 };

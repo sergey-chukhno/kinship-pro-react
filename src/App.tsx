@@ -12,6 +12,7 @@ import NotFoundPage from './components/Pages/NotFoundPage';
 import SharedProjectInfo from './components/Pages/SharedProjectInfo';
 import SharedEventInfo from './components/Pages/SharedEventInfo';
 import SelectedStudentsBadgeCartography from './components/Pages/SelectedStudentsBadgeCartography';
+import BadgeProofVerify from './components/Pages/BadgeProofVerify';
 import './App.css';
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
             <Route path="/checkin-student" element={<CheckinStudent />} />
             <Route path="/badge-cartography/:token" element={<PublicBadgeCartography />} />
             <Route path="/badge-cartography-selected/:token" element={<SelectedStudentsBadgeCartography />} />
+            <Route path="/verify" element={<BadgeProofVerify />} />
             <Route path="/p/:id" element={<NotFoundPage />} />
             <Route path="/shared-project/:token" element={<SharedProjectInfo />} />
             <Route path="/shared/:token" element={<SharedProjectInfo />} />

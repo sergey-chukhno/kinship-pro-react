@@ -134,6 +134,18 @@ export const getUserBadges = async (
 };
 
 /**
+ * Porteur : masquer ou afficher son identité sur la preuve partagée (show_owner_name).
+ */
+export const updateUserBadgeOwnerVisibility = async (
+  userBadgeId: number | string,
+  showOwnerName: boolean
+): Promise<void> => {
+  await apiClient.patch(`/api/v1/users/me/badges/${userBadgeId}`, {
+    show_owner_name: showOwnerName,
+  });
+};
+
+/**
  * Attribue un badge à un ou plusieurs membres du projet
  * @param projectId - ID du projet
  * @param badgeData - Données d'attribution
