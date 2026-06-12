@@ -8195,88 +8195,68 @@ const ProjectManagement: React.FC = () => {
                                   )}
                                 </div>
 
-                                {mldsBilan && (() => {
-                                  const b = mldsBilan as Record<string, unknown>;
-                                  const hasNewBilan =
-                                    b.hse != null ||
-                                    (Array.isArray(b.financial_hse_lines) && (b.financial_hse_lines as unknown[]).length > 0) ||
-                                    b.hv != null ||
-                                    b.financial_rate != null ||
-                                    (Array.isArray(b.financial_hv_lines) && (b.financial_hv_lines as unknown[]).length > 0) ||
-                                    (Array.isArray(b.financial_transport) && (b.financial_transport as unknown[]).length > 0) ||
-                                    (Array.isArray(b.financial_operating) && (b.financial_operating as unknown[]).length > 0) ||
-                                    (Array.isArray(b.financial_service) && (b.financial_service as unknown[]).length > 0) ||
-                                    (Array.isArray(b.financial_autres_financements) && (b.financial_autres_financements as unknown[]).length > 0);
-                                  const hasLegacyBilan =
-                                    (b as { hse_comment?: string }).hse_comment ||
-                                    (b as { hv_comment?: string }).hv_comment ||
-                                    (b as { financial_rate_comment?: string }).financial_rate_comment ||
-                                    (b as { financial_transport_comment?: string }).financial_transport_comment ||
-                                    (b as { financial_operating_comment?: string }).financial_operating_comment ||
-                                    (b as { financial_service_comment?: string }).financial_service_comment;
-                                  if (!hasNewBilan && !hasLegacyBilan && b.hv == null && b.financial_rate == null) return null;
-
-                                  const initRate = apiProjectData.mlds_information.financial_rate != null
-                                    ? Number(apiProjectData.mlds_information.financial_rate)
-                                    : HV_DEFAULT_RATE;
-                                  const bilanRate = b.financial_rate != null ? Number(b.financial_rate) : null;
+                                {mldsBilan && hvCreditLinesDisplay.length === 0 && (() => {
+                                  const bb = mldsBilan as Record<string, unknown>;
                                   const bilanHvLines = normalizeMldsLineCollection<{
                                     teacher_name?: string;
                                     hour?: string;
                                     price?: string;
                                     comment?: string | null;
-                                  }>(b.financial_hv_lines);
+                                  }>(bb.financial_hv_lines);
+                                  const hasHvBilan =
+                                    bilanHvLines.length > 0 ||
+                                    bb.hv != null ||
+                                    bb.financial_rate != null ||
+                                    (bb as { hv_comment?: string }).hv_comment;
+                                  if (!hasHvBilan) return null;
+
+                                  const bilanRate =
+                                    bb.financial_rate != null
+                                      ? Number(bb.financial_rate)
+                                      : mldsFinRate;
                                   const hvHoursBilan =
                                     bilanHvLines.length > 0
                                       ? bilanHvLines.reduce((s, l) => s + hvLineHours(l), 0)
-                                      : b.hv != null
-                                        ? Number(b.hv)
+                                      : bb.hv != null
+                                        ? Number(bb.hv)
                                         : 0;
-                                  const euroHvBilan = hvHoursBilan * (bilanRate ?? initRate);
 
                                   return (
-                                    <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
-                                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
-                                        {bilanHvLines.length > 0 ? (
-                                          <div>
-                                            <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>HV par enseignant</div>
-                                            {bilanHvLines.map((line, idx) => (
-                                              <div key={idx} style={{ marginBottom: '0.35rem', paddingLeft: '0.5rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                                                  <span>{line.teacher_name?.trim() || 'Enseignant'}</span>
-                                                  <span>{hvLineHours(line).toFixed(2)} h × {formatBilanVal(bilanRate ?? initRate)} €/h = {formatBilanVal(hvLineHours(line) * (bilanRate ?? initRate))} €</span>
-                                                </div>
-                                                {line.comment != null && String(line.comment).trim() !== '' && (
-                                                  <div style={{ fontSize: '0.8125rem', color: '#4b5563', marginTop: '0.2rem', fontStyle: 'italic', lineHeight: 1.35 }}>
-                                                    {String(line.comment)}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          b.hv != null && (
-                                            <span>
-                                              <strong>HV :</strong> {formatBilanVal(Number(b.hv))} h
-                                              {(b as { hv_comment?: string }).hv_comment && (
-                                                <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic', marginLeft: '0.5rem' }}>{(b as { hv_comment?: string }).hv_comment}</span>
-                                              )}
-                                            </span>
-                                          )
-                                        )}
-                                        {b.financial_rate != null && (
-                                          <span>
-                                            <strong>Taux horaire :</strong> {formatBilanVal(Number(b.financial_rate))} €/h
-                                            {(b as { financial_rate_comment?: string }).financial_rate_comment && (
-                                              <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic', marginLeft: '0.5rem' }}>{(b as { financial_rate_comment?: string }).financial_rate_comment}</span>
-                                            )}
-                                          </span>
-                                        )}
-                                        {(bilanHvLines.length > 0 || b.hv != null) && (
-                                          <span><strong>Sous-total HV × taux (bilan) :</strong> {formatBilanVal(euroHvBilan)} €</span>
-                                        )}
+                                    <div
+                                      style={{
+                                        marginBottom: '1rem',
+                                        padding: '0.5rem 0.75rem',
+                                        backgroundColor: '#f0fdf4',
+                                        borderRadius: '0.375rem',
+                                        borderLeft: '3px solid #16a34a'
+                                      }}
+                                    >
+                                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>
+                                        Bilan à la clôture — HV
                                       </div>
+                                      {bilanHvLines.length > 0 ? (
+                                        bilanHvLines.map((line, idx) => (
+                                          <div key={idx} style={{ marginBottom: '0.35rem', fontSize: '0.875rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                              <span>{line.teacher_name?.trim() || 'Enseignant'}</span>
+                                              <span style={{ fontWeight: 600 }}>
+                                                {hvLineHours(line).toFixed(2)} h × {formatBilanVal(bilanRate)} €/h = {formatBilanVal(hvLineHours(line) * bilanRate)} €
+                                              </span>
+                                            </div>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        bb.hv != null && (
+                                          <div style={{ fontSize: '0.875rem' }}>
+                                            <strong>HV :</strong> {formatBilanVal(Number(bb.hv))} h
+                                          </div>
+                                        )
+                                      )}
+                                      {(bilanHvLines.length > 0 || bb.hv != null) && (
+                                        <div style={{ marginTop: '0.35rem', fontWeight: 600, fontSize: '0.875rem' }}>
+                                          Sous-total HV × taux (bilan) : {formatBilanVal(hvHoursBilan * bilanRate)} €
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })()}
@@ -8481,6 +8461,107 @@ const ProjectManagement: React.FC = () => {
                                               </div>
                                               );
                                             })}
+                                            {mldsBilan && (() => {
+                                              const bb = mldsBilan as Record<string, unknown>;
+                                              const initRate =
+                                                mldsFin.financial_rate != null
+                                                  ? Number(mldsFin.financial_rate)
+                                                  : HV_DEFAULT_RATE;
+                                              const bilanRate =
+                                                bb.financial_rate != null ? Number(bb.financial_rate) : initRate;
+                                              const bilanHvLines = normalizeMldsLineCollection<{
+                                                teacher_name?: string;
+                                                hour?: string;
+                                                price?: string;
+                                                comment?: string | null;
+                                              }>(bb.financial_hv_lines);
+                                              const hasHvBilan =
+                                                bilanHvLines.length > 0 ||
+                                                bb.hv != null ||
+                                                bb.financial_rate != null ||
+                                                (bb as { hv_comment?: string }).hv_comment ||
+                                                (bb as { financial_rate_comment?: string }).financial_rate_comment;
+                                              if (!hasHvBilan) return null;
+
+                                              const hvHoursBilan =
+                                                bilanHvLines.length > 0
+                                                  ? bilanHvLines.reduce((s, l) => s + hvLineHours(l), 0)
+                                                  : bb.hv != null
+                                                    ? Number(bb.hv)
+                                                    : 0;
+                                              const euroHvBilan = hvHoursBilan * bilanRate;
+
+                                              return (
+                                                <div
+                                                  style={{
+                                                    marginTop: '0.5rem',
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: '#f0fdf4',
+                                                    borderRadius: '0.375rem',
+                                                    borderLeft: '3px solid #16a34a'
+                                                  }}
+                                                >
+                                                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>
+                                                    Bilan à la clôture — HV (crédits)
+                                                  </div>
+                                                  {(bb as { financial_rate_comment?: string }).financial_rate_comment != null &&
+                                                    String((bb as { financial_rate_comment?: string }).financial_rate_comment).trim() !== '' && (
+                                                    <div style={{ fontSize: '0.8125rem', color: '#374151', marginBottom: '0.45rem', fontStyle: 'italic' }}>
+                                                      {String((bb as { financial_rate_comment?: string }).financial_rate_comment)}
+                                                    </div>
+                                                  )}
+                                                  {bilanHvLines.length > 0 ? (
+                                                    bilanHvLines.map((line, idx) => (
+                                                      <div key={idx} style={{ marginBottom: '0.35rem' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', gap: '0.75rem' }}>
+                                                          <span>{line.teacher_name?.trim() || 'Enseignant'}</span>
+                                                          <span style={{ fontWeight: 600, textAlign: 'right' }}>
+                                                            {hvLineHours(line).toFixed(2)} h × {formatBilanVal(bilanRate)} €/h = {formatBilanVal(hvLineHours(line) * bilanRate)} €
+                                                          </span>
+                                                        </div>
+                                                        {line.comment != null && String(line.comment).trim() !== '' && (
+                                                          <div style={{ fontSize: '0.8125rem', color: '#6b7280', marginTop: '0.15rem', fontStyle: 'italic' }}>
+                                                            {String(line.comment)}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    ))
+                                                  ) : (
+                                                    bb.hv != null && (
+                                                      <div style={{ fontSize: '0.875rem', marginBottom: '0.35rem' }}>
+                                                        <strong>HV :</strong> {formatBilanVal(Number(bb.hv))} h
+                                                        {(bb as { hv_comment?: string }).hv_comment && (
+                                                          <span style={{ fontSize: '0.8125rem', color: '#6b7280', fontStyle: 'italic', marginLeft: '0.5rem' }}>
+                                                            {String((bb as { hv_comment?: string }).hv_comment)}
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    )
+                                                  )}
+                                                  {bb.financial_rate != null && (
+                                                    <div style={{ fontSize: '0.875rem', marginBottom: '0.35rem' }}>
+                                                      <strong>Taux horaire (bilan) :</strong> {formatBilanVal(Number(bb.financial_rate))} €/h
+                                                    </div>
+                                                  )}
+                                                  {(bilanHvLines.length > 0 || bb.hv != null) && (
+                                                    <div
+                                                      style={{
+                                                        marginTop: '0.35rem',
+                                                        paddingTop: '0.35rem',
+                                                        borderTop: '1px solid #bbf7d0',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        fontSize: '0.875rem',
+                                                        fontWeight: 600
+                                                      }}
+                                                    >
+                                                      <span>Sous-total HV × taux (bilan)</span>
+                                                      <span>{formatBilanVal(euroHvBilan)} €</span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })()}
                                           </div>
                                         )}
                                         {transportLines.length > 0 && (
