@@ -7,8 +7,12 @@ import {
   getTeacherMembers,
   getTeacherSchoolMembers,
   createProject,
+  getMldsAutresFinancementsFromMldsInfo,
   getMldsHseLinesFromMldsInfo,
-  getMldsServiceLinesFromMldsInfo
+  getMldsHvLinesFromMldsInfo,
+  getMldsOperatingLinesFromMldsInfo,
+  getMldsServiceLinesFromMldsInfo,
+  getMldsTransportLinesFromMldsInfo
 } from '../../api/Projects';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import {
@@ -202,34 +206,10 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
         mldsInfo?.financial_rate != null
           ? String(mldsInfo.financial_rate)
           : (mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : prev.mldsFinancialRate),
-      mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport) ? mldsInfo.financial_transport : [],
-      mldsFinancialOperating: Array.isArray(mldsInfo?.financial_operating) ? mldsInfo.financial_operating : [],
-      mldsFinancialAutres: Array.isArray(mldsInfo?.financial_autres_financements)
-        ? mldsInfo.financial_autres_financements.map((l: { autres_name?: string; price?: string }) => ({
-            autres_name: String(l.autres_name ?? ''),
-            price: l.price != null ? String(l.price) : ''
-          }))
-        : [],
-      mldsFinancialHvLines: (() => {
-        if (Array.isArray(mldsInfo?.financial_hv_lines) && mldsInfo.financial_hv_lines.length > 0) {
-          return mldsInfo.financial_hv_lines.map(
-            (l: { teacher_name?: string; hour?: string; price?: string }) => ({
-              teacher_name: String(l.teacher_name ?? ''),
-              hour:
-                l.hour != null && l.hour !== ''
-                  ? String(l.hour)
-                  : l.price != null
-                    ? String(l.price)
-                    : ''
-            })
-          );
-        }
-        const hv = mldsInfo?.financial_hv;
-        if (hv != null && Number(hv) > 0) {
-          return [{ teacher_name: '', hour: String(hv) }];
-        }
-        return [];
-      })(),
+      mldsFinancialTransport: getMldsTransportLinesFromMldsInfo(mldsInfo),
+      mldsFinancialOperating: getMldsOperatingLinesFromMldsInfo(mldsInfo),
+      mldsFinancialAutres: getMldsAutresFinancementsFromMldsInfo(mldsInfo),
+      mldsFinancialHvLines: getMldsHvLinesFromMldsInfo(mldsInfo),
       mldsFinancialService: (() => {
         const rows = getMldsServiceLinesFromMldsInfo(mldsInfo);
         if (rows.length === 0) return [];
