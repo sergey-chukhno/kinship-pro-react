@@ -1,6 +1,7 @@
 import { CreateProjectPayload, ProjectMemberAttribute, LinkAttribute, Tag, UpdateProjectPayload } from '../api/Projects';
 import { ShowingPageType, User, Project } from '../types';
 import { getSelectedOrganizationId } from './contextUtils';
+import { isUserListedAsCoResponsible, resolveProjectMemberUserId } from './projectPermissions';
 
 /**
  * Convert Base64 string to File object
@@ -533,7 +534,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
 
     // Use added_from_organization (API) or partner_organization when organization_source === 'partner'
     const coResponsibles = rawCoResponsibles.map((coOwner: any) => {
-        const coId = coOwner?.id ?? coOwner?.user?.id;
+        const coId = coOwner?.user_id ?? coOwner?.user?.id ?? coOwner?.id;
         const added = coOwner.added_from_organization;
         const orgLabel =
             added?.name
@@ -630,35 +631,18 @@ export const getUserProjectRole = (
     
     const userIdStr = currentUserId.toString();
     
-    // Check if owner
-    if (apiProject.owner?.id?.toString() === userIdStr) {
+    if (resolveProjectMemberUserId(apiProject.owner) === userIdStr) {
         return 'owner';
     }
-    
-    // Check if co-owner (support both co.id and co.user?.id for API structure)
-    if (apiProject.co_owners && Array.isArray(apiProject.co_owners)) {
-        const isCoOwner = apiProject.co_owners.some((co: any) =>
-            co.id?.toString() === userIdStr || co.user?.id?.toString() === userIdStr
-        );
-        if (isCoOwner) {
-            return 'co-owner';
-        }
-    }
 
-    // MLDS: co-responsables peuvent être listés dans co_responsibles (en plus ou à la place de co_owners)
-    if (apiProject.mlds_information != null && apiProject.co_responsibles && Array.isArray(apiProject.co_responsibles)) {
-        const isCoResponsible = apiProject.co_responsibles.some((co: any) =>
-            co.id?.toString() === userIdStr || co.user?.id?.toString() === userIdStr
-        );
-        if (isCoResponsible) {
-            return 'co-owner';
-        }
+    if (isUserListedAsCoResponsible(apiProject, userIdStr)) {
+        return 'co-owner';
     }
 
     // Check in project_members
     if (apiProject.project_members && Array.isArray(apiProject.project_members)) {
         const member = apiProject.project_members.find((m: any) =>
-            m.user?.id?.toString() === userIdStr
+            resolveProjectMemberUserId(m) === userIdStr
         );
 
         if (member) {

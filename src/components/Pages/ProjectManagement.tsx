@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, fetchAllConfirmedPartnerships, getTags, getOrCreateProjectShareLink, getMldsHseLinesFromMldsInfo, getMldsServiceLinesFromMldsInfo } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, fetchAllConfirmedPartnerships, getTags, getOrCreateProjectShareLink, getMldsAutresFinancementsFromMldsInfo, getMldsBilanHseLines, getMldsBilanHvLines, getMldsBilanRecord, getMldsHseLinesFromMldsInfo, getMldsHvLinesFromMldsInfo, getMldsOperatingLinesFromMldsInfo, getMldsServiceLinesFromMldsInfo, getMldsTransportLinesFromMldsInfo, hasMldsBilanData, mergeMldsLineLabel, normalizeMldsLineCollection, sumMldsFinancialCreditsEuro, sumMldsHvCreditsEuro } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -24,7 +24,7 @@ import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
 import './ProjectManagement.css';
 import '../Modals/Modal.css';
-import { isUserAdminOfProjectOrg, isUserAdminOrReferentOfProjectOrg, isUserProjectParticipant, isUserSuperadmin, isUserSuperadminOfProjectOrg } from '../../utils/projectPermissions';
+import { isUserAdminOfProjectOrg, isUserAdminOrReferentOfProjectOrg, isUserProjectParticipant, isUserSuperadmin, isUserSuperadminOfProjectOrg, resolveProjectMemberUserId } from '../../utils/projectPermissions';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
@@ -1126,9 +1126,13 @@ const ProjectManagement: React.FC = () => {
     !isUserProjectParticipant(apiProjectData, state.user.id.toString());
 
   /**
-   * Mode lecture seule : superadmin ou admin/referent de l'organisation du projet qui n'est pas dans le projet
+   * Mode lecture seule : superadmin ou admin/referent de l'organisation du projet qui n'est pas dans le projet.
+   * Les responsables / co-responsables / admins du projet ne doivent jamais être en lecture seule.
    */
-  const isReadOnlyMode = isSuperadminViewingReadOnly || isAdminViewingReadOnly;
+  const isProjectManagerRole =
+    userProjectRole === 'owner' || userProjectRole === 'co-owner' || userProjectRole === 'admin';
+  const isReadOnlyMode =
+    !isProjectManagerRole && (isSuperadminViewingReadOnly || isAdminViewingReadOnly);
 
   /**
    * Édition du projet :
@@ -1298,18 +1302,26 @@ const ProjectManagement: React.FC = () => {
       });
     }
 
-    // Add co-owners (skip if soft-deleted - they shouldn't appear in badge assignment list)
-    if (projectData.co_owners && Array.isArray(projectData.co_owners)) {
-      projectData.co_owners.forEach((coOwner: any) => {
+    // Add co-owners / MLDS co-responsibles (skip if soft-deleted)
+    let rawCoResponsiblesList: any[] = [];
+    if (projectData?.mlds_information != null && Array.isArray(projectData.co_responsibles)) {
+      rawCoResponsiblesList = projectData.co_responsibles;
+    } else if (Array.isArray(projectData.co_owners)) {
+      rawCoResponsiblesList = projectData.co_owners;
+    }
+
+    rawCoResponsiblesList.forEach((coOwner: any) => {
         // Skip soft-deleted co-owners
         if (coOwner.is_deleted) return;
+        const coOwnerId = resolveProjectMemberUserId(coOwner);
+        if (!coOwnerId) return;
         // Skip owner (they are already added from projectData.owner; owner can appear in co_owners for some projects)
-        if (projectData.owner && coOwner.id === projectData.owner.id) return;
-        const coOwnerId = coOwner.id.toString();
+        if (projectData.owner && resolveProjectMemberUserId(projectData.owner) === coOwnerId) return;
+        if (addedUserIds.has(coOwnerId)) return;
         addedUserIds.add(coOwnerId);
 
         const coOwnerParticipant = {
-          id: `co-owner-${coOwner.id}`,
+          id: `co-owner-${coOwnerId}`,
           memberId: coOwnerId,
           name: coOwner.full_name || `${coOwner.first_name || ''} ${coOwner.last_name || ''}`.trim() || 'Inconnu',
           profession: coOwner.job || 'Co-propriétaire',
@@ -1330,8 +1342,7 @@ const ProjectManagement: React.FC = () => {
           ...coOwnerParticipant,
           canRemove: canUserRemoveParticipant(coOwnerParticipant, userProjectRole)
         });
-      });
-    }
+    });
 
     // Add project members (confirmed only)
     // Exclude co-owners and owner to avoid duplicates
@@ -2093,42 +2104,10 @@ const ProjectManagement: React.FC = () => {
         mldsInfo?.financial_rate != null
           ? String(mldsInfo.financial_rate)
           : (mldsInfo?.financial_hv != null ? String(mldsInfo.financial_hv) : '50.73'),
-      mldsFinancialTransport: Array.isArray(mldsInfo?.financial_transport)
-        ? mldsInfo.financial_transport
-        : (mldsInfo?.financial_transport != null
-          ? [{ transport_name: '', price: String(mldsInfo.financial_transport) }]
-          : []),
-      mldsFinancialOperating: Array.isArray(mldsInfo?.financial_operating)
-        ? mldsInfo.financial_operating
-        : (mldsInfo?.financial_operating != null
-          ? [{ operating_name: '', price: String(mldsInfo.financial_operating) }]
-          : []),
-      mldsFinancialAutres: Array.isArray(mldsInfo?.financial_autres_financements)
-        ? mldsInfo.financial_autres_financements.map((l: { autres_name?: string; price?: string }) => ({
-            autres_name: String(l.autres_name ?? ''),
-            price: l.price != null ? String(l.price) : ''
-          }))
-        : [],
-      mldsFinancialHvLines: (() => {
-        if (Array.isArray(mldsInfo?.financial_hv_lines) && mldsInfo.financial_hv_lines.length > 0) {
-          return mldsInfo.financial_hv_lines.map(
-            (l: { teacher_name?: string; hour?: string; price?: string }) => ({
-              teacher_name: String(l.teacher_name ?? ''),
-              hour:
-                l.hour != null && l.hour !== ''
-                  ? String(l.hour)
-                  : l.price != null
-                    ? String(l.price)
-                    : ''
-            })
-          );
-        }
-        const hv = mldsInfo?.financial_hv;
-        if (hv != null && Number(hv) > 0) {
-          return [{ teacher_name: '', hour: String(hv) }];
-        }
-        return [];
-      })(),
+      mldsFinancialTransport: getMldsTransportLinesFromMldsInfo(mldsInfo),
+      mldsFinancialOperating: getMldsOperatingLinesFromMldsInfo(mldsInfo),
+      mldsFinancialAutres: getMldsAutresFinancementsFromMldsInfo(mldsInfo),
+      mldsFinancialHvLines: getMldsHvLinesFromMldsInfo(mldsInfo),
       mldsFinancialService: (() => {
         const rows = getMldsServiceLinesFromMldsInfo(mldsInfo);
         if (rows.length === 0) return [];
@@ -4550,7 +4529,7 @@ const ProjectManagement: React.FC = () => {
 
     const doc = new jsPDF();
     const mldsInfo = apiProjectData.mlds_information;
-    const pdfBilan = mldsInfo.mlds_bilan ?? mldsInfo.mnt;
+    const pdfBilan = getMldsBilanRecord(mldsInfo);
     const fmt = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? v.toFixed(2) : String(v)) : '—');
     let y = 0;
     const lh = 5.5;
@@ -4925,36 +4904,14 @@ const ProjectManagement: React.FC = () => {
   const hasFinancials = getMldsHseLinesFromMldsInfo(mldsInfo).length > 0 ||
       mldsInfo.financial_rate != null ||
       mldsInfo.financial_hv != null ||
-      mldsInfo.financial_transport != null ||
-      mldsInfo.financial_operating != null ||
+      getMldsHvLinesFromMldsInfo(mldsInfo).length > 0 ||
+      getMldsTransportLinesFromMldsInfo(mldsInfo).length > 0 ||
+      getMldsOperatingLinesFromMldsInfo(mldsInfo).length > 0 ||
       getMldsServiceLinesFromMldsInfo(mldsInfo).length > 0 ||
-      (Array.isArray((mldsInfo as any).financial_autres_financements) && (mldsInfo as any).financial_autres_financements.length > 0);
+      getMldsAutresFinancementsFromMldsInfo(mldsInfo).length > 0;
 
-    const bilanPdf =
-      pdfBilan && typeof pdfBilan === 'object' ? (pdfBilan as Record<string, unknown>) : null;
-    const legacyBilanShape =
-      !!bilanPdf &&
-      (typeof bilanPdf.financial_transport === 'number' ||
-        bilanPdf.expected_participants != null ||
-        (Array.isArray(bilanPdf.financial_hse_lines) && bilanPdf.financial_hse_lines.length > 0) ||
-        bilanPdf.hv_comment ||
-        (bilanPdf as { financial_rate_comment?: string }).financial_rate_comment ||
-        bilanPdf.financial_transport_comment ||
-        bilanPdf.financial_service_comment ||
-        bilanPdf.financial_operating_comment ||
-        bilanPdf.expected_participants_comment);
-    const hasBilan =
-      !!bilanPdf &&
-      (bilanPdf.hse != null ||
-        (Array.isArray(bilanPdf.financial_hse_lines) && bilanPdf.financial_hse_lines.length > 0) ||
-        bilanPdf.hv != null ||
-        bilanPdf.financial_rate != null ||
-        (Array.isArray(bilanPdf.financial_transport) && bilanPdf.financial_transport.length > 0) ||
-        (Array.isArray(bilanPdf.financial_operating) && bilanPdf.financial_operating.length > 0) ||
-        (Array.isArray(bilanPdf.financial_service) && bilanPdf.financial_service.length > 0) ||
-        (Array.isArray(bilanPdf.financial_hv_lines) && bilanPdf.financial_hv_lines.length > 0) ||
-        (Array.isArray(bilanPdf.financial_autres_financements) && bilanPdf.financial_autres_financements.length > 0) ||
-        legacyBilanShape);
+    const bilanPdf = pdfBilan;
+    const hasBilan = hasMldsBilanData(bilanPdf);
 
     if (hasFinancials) {
       checkPage(hasBilan ? 35 : 25);
@@ -4978,22 +4935,26 @@ const ProjectManagement: React.FC = () => {
       const colBilanComment = hasBilan ? contentW * 0.26 : 0;
 
       let totalCredits = 0;
-      const mldsTransportSum = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
+      const mldsTransportSum = getMldsTransportLinesFromMldsInfo(mldsInfo).reduce(
+        (s, l) => s + (Number.parseFloat(l.price || '0') || 0),
+        0
+      );
       const mldsServiceSum = getMldsServiceLinesFromMldsInfo(mldsInfo).reduce(
         (s: number, l: { price?: string | number }) => s + (Number.parseFloat(String(l.price || '0')) || 0),
         0
       );
-      const mldsOperatingSum = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0) : 0;
-      const mldsAutresSum = Array.isArray((mldsInfo as any).financial_autres_financements)
-        ? (mldsInfo as any).financial_autres_financements.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0)
-        : 0;
+      const mldsOperatingSum = getMldsOperatingLinesFromMldsInfo(mldsInfo).reduce(
+        (s, l) => s + (Number.parseFloat(l.price || '0') || 0),
+        0
+      );
+      const mldsAutresSum = getMldsAutresFinancementsFromMldsInfo(mldsInfo).reduce(
+        (s, l) => s + (Number.parseFloat(l.price || '0') || 0),
+        0
+      );
       const mldsRate = Number.parseFloat(String(mldsInfo.financial_rate ?? HV_DEFAULT_RATE)) || HV_DEFAULT_RATE;
-      const hvLinesPdf = Array.isArray((mldsInfo as any).financial_hv_lines) ? (mldsInfo as any).financial_hv_lines : [];
+      const hvLinesPdf = getMldsHvLinesFromMldsInfo(mldsInfo);
       const mldsHvHours = Number.parseFloat(String(mldsInfo.financial_hv ?? 0));
-      const sousTotalHv =
-        hvLinesPdf.length > 0
-          ? hvLinesPdf.reduce((s: number, l: any) => s + hvLineHours(l) * mldsRate, 0)
-          : mldsHvHours * mldsRate;
+      const sousTotalHv = sumMldsHvCreditsEuro(mldsInfo, mldsRate);
       totalCredits += sousTotalHv;
 
       type UnifiedRow = {
@@ -5023,13 +4984,17 @@ const ProjectManagement: React.FC = () => {
         isSectionHeader: true
       });
 
-      const sumPriceArr = (arr: unknown): number =>
-        Array.isArray(arr)
-          ? arr.reduce((s: number, l: { price?: string }) => s + (Number.parseFloat(String(l?.price ?? '0')) || 0), 0)
-          : 0;
+      const shortenPdfLabel = (name: string, maxLen: number) =>
+        name.length > maxLen ? `${name.substring(0, maxLen - 3)}...` : name;
 
-      const bilanPdfRow = hasBilan && pdfBilan && typeof pdfBilan === 'object' ? pdfBilan : null;
-      const bilanHvLinesPdf = bilanPdfRow && Array.isArray(bilanPdfRow.financial_hv_lines) ? bilanPdfRow.financial_hv_lines : [];
+      const sumPriceArr = (arr: unknown): number =>
+        normalizeMldsLineCollection<{ price?: string }>(arr).reduce(
+          (s, l) => s + (Number.parseFloat(String(l?.price ?? '0')) || 0),
+          0
+        );
+
+      const bilanPdfRow = hasBilan ? bilanPdf : null;
+      const bilanHvLinesPdf = bilanPdfRow ? getMldsBilanHvLines(bilanPdfRow) : [];
       const bilanRateNumPdf =
         bilanPdfRow && bilanPdfRow.financial_rate != null
           ? Number.parseFloat(String(bilanPdfRow.financial_rate))
@@ -5037,7 +5002,8 @@ const ProjectManagement: React.FC = () => {
 
       const bilanTransportArr = (): unknown[] => {
         if (!bilanPdfRow) return [];
-        if (Array.isArray(bilanPdfRow.financial_transport)) return bilanPdfRow.financial_transport;
+        const lines = normalizeMldsLineCollection(bilanPdfRow.financial_transport);
+        if (lines.length > 0) return lines;
         if (typeof bilanPdfRow.financial_transport === 'number') {
           return [{ transport_name: 'Total bilan', price: String(bilanPdfRow.financial_transport) }];
         }
@@ -5045,7 +5011,8 @@ const ProjectManagement: React.FC = () => {
       };
       const bilanOperatingArr = (): unknown[] => {
         if (!bilanPdfRow) return [];
-        if (Array.isArray(bilanPdfRow.financial_operating)) return bilanPdfRow.financial_operating;
+        const lines = normalizeMldsLineCollection(bilanPdfRow.financial_operating);
+        if (lines.length > 0) return lines;
         if (typeof bilanPdfRow.financial_operating === 'number') {
           return [{ operating_name: 'Total bilan', price: String(bilanPdfRow.financial_operating) }];
         }
@@ -5053,23 +5020,19 @@ const ProjectManagement: React.FC = () => {
       };
       const bilanServiceArr = (): unknown[] => {
         if (!bilanPdfRow) return [];
-        if (Array.isArray(bilanPdfRow.financial_service)) return bilanPdfRow.financial_service;
+        const lines = normalizeMldsLineCollection(bilanPdfRow.financial_service);
+        if (lines.length > 0) return lines;
         if (typeof bilanPdfRow.financial_service === 'number') {
           return [{ service_name: 'Total bilan', price: String(bilanPdfRow.financial_service) }];
         }
         return [];
       };
-      const bilanAutresArr =
-        bilanPdfRow && Array.isArray((bilanPdfRow as { financial_autres_financements?: unknown[] }).financial_autres_financements)
-          ? (bilanPdfRow as { financial_autres_financements: unknown[] }).financial_autres_financements
-          : [];
+      const bilanAutresArr = bilanPdfRow
+        ? normalizeMldsLineCollection((bilanPdfRow as { financial_autres_financements?: unknown }).financial_autres_financements)
+        : [];
       const bilanHseArr = (): unknown[] => {
         if (!bilanPdfRow) return [];
-        if (Array.isArray(bilanPdfRow.financial_hse_lines)) return bilanPdfRow.financial_hse_lines;
-        if (bilanPdfRow.hse != null) {
-          return [{ hse_name: 'HSE', hour: String(bilanPdfRow.hse) }];
-        }
-        return [];
+        return getMldsBilanHseLines(bilanPdfRow);
       };
 
       const bilanHvEuroComputed =
@@ -5130,7 +5093,7 @@ const ProjectManagement: React.FC = () => {
         formatDemandeTriple?: (d: any, amountD: number) => { h: string; rate: string; euro: string } | null,
         formatBilanTriple?: (b: any) => { h: string; rate: string; euro: string } | null
       ) => {
-        const bt = Array.isArray(bilanLines) ? bilanLines : [];
+        const bt = normalizeMldsLineCollection(bilanLines);
         const n = Math.max(demandeLines.length, bt.length);
         for (let i = 0; i < n; i++) {
           const d = demandeLines[i];
@@ -5170,8 +5133,8 @@ const ProjectManagement: React.FC = () => {
         for (let i = 0; i < maxHse; i++) {
           const d = hseDemande[i];
           const b = bilanHsePdf[i] as { hse_name?: string; hour?: string; price?: string; comment?: unknown } | undefined;
-          const name = (d?.hse_name || b?.hse_name || 'HSE').trim();
-          const short = name.length > 35 ? `${name.substring(0, 32)}...` : name;
+          const name = mergeMldsLineLabel(d?.hse_name, hasBilan && b ? b.hse_name : undefined, 'HSE');
+          const short = shortenPdfLabel(name, 35);
           const demH = d ? hseLineHours(d) : 0;
           const bilH = hasBilan && b ? hseLineHours(b) : 0;
           const bilanComment =
@@ -5194,8 +5157,12 @@ const ProjectManagement: React.FC = () => {
             const d = hvLinesPdf[i] as { teacher_name?: string; hour?: string; price?: string } | undefined;
             const b = bilanHvLinesPdf[i] as { teacher_name?: string; hour?: string; price?: string } | undefined;
             const h = d ? hvLineHours(d) : 0;
-            const name = (d?.teacher_name || b?.teacher_name || 'Enseignant').trim();
-            const shortName = name.length > 35 ? `${name.substring(0, 32)}...` : name;
+            const name = mergeMldsLineLabel(
+              d?.teacher_name,
+              hasBilan && b ? b.teacher_name : undefined,
+              'Enseignant'
+            );
+            const shortName = shortenPdfLabel(name, 35);
             const lineEuro = d ? h * mldsRate : 0;
             const bh = b ? hvLineHours(b) : 0;
             const bilanEuroLine = hasBilan && b ? bh * bilanRateNumPdf : 0;
@@ -5229,7 +5196,7 @@ const ProjectManagement: React.FC = () => {
             bilanVal: hvBilanVal,
             bilanComment: hvBilanComment,
             splitDemande: true,
-            splitBilan: hasBilan && bilanPdfRow && bilanPdfRow.hv != null,
+            splitBilan: Boolean(hasBilan && bilanPdfRow && bilanPdfRow.hv != null),
             demH: `${mldsHvHours.toFixed(2)} h`,
             demRate: '',
             demEuro: '',
@@ -5249,7 +5216,7 @@ const ProjectManagement: React.FC = () => {
           bilanVal: tauxBilanVal,
           bilanComment: tauxBilanComment,
           splitDemande: true,
-          splitBilan: hasBilan && bilanPdfRow && bilanPdfRow.financial_rate != null,
+          splitBilan: Boolean(hasBilan && bilanPdfRow && bilanPdfRow.financial_rate != null),
           demH: '',
           demRate: mldsRate.toFixed(2),
           demEuro: '',
@@ -5272,16 +5239,14 @@ const ProjectManagement: React.FC = () => {
         });
       }
 
-      const transportDemande = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport : [];
-      const operatingDemande = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating : [];
+      const transportDemande = getMldsTransportLinesFromMldsInfo(mldsInfo);
+      const operatingDemande = getMldsOperatingLinesFromMldsInfo(mldsInfo);
       const serviceDemande = getMldsServiceLinesFromMldsInfo(mldsInfo).map(l => ({
         service_name: l.service_name != null ? String(l.service_name) : undefined,
         price: l.price != null ? String(l.price) : undefined,
         hours: l.hours != null && l.hours !== '' ? String(l.hours) : undefined
       }));
-      const autreDemande = Array.isArray((mldsInfo as { financial_autres_financements?: unknown[] }).financial_autres_financements)
-        ? ((mldsInfo as { financial_autres_financements: unknown[] }).financial_autres_financements as Array<{ autres_name?: string; price?: string }>)
-        : [];
+      const autreDemande = getMldsAutresFinancementsFromMldsInfo(mldsInfo);
       if (hasBilan) {
         const bpGlob = bilanPdfRow as Record<string, unknown> | null;
         const pushBilanGlobalRow = (poste: string, text: unknown) => {
@@ -5298,10 +5263,13 @@ const ProjectManagement: React.FC = () => {
         zipMoneyRows(
           transportDemande,
           bilanTransportArr(),
-          (d, b, i) => {
-            const name = d?.transport_name || (b as { transport_name?: string })?.transport_name || 'Transport';
-            const short = String(name).length > 35 ? `${String(name).substring(0, 32)}...` : String(name);
-            return `Transport — ${short}`;
+          (d, b) => {
+            const name = mergeMldsLineLabel(
+              d?.transport_name,
+              (b as { transport_name?: string })?.transport_name,
+              'Transport'
+            );
+            return `Transport — ${shortenPdfLabel(name, 35)}`;
           },
           b => `${(Number.parseFloat(String((b as { price?: string }).price || '0')) || 0).toFixed(2)} €`,
           b => bilanLineCommentPdf(b as { comment?: unknown }),
@@ -5311,9 +5279,12 @@ const ProjectManagement: React.FC = () => {
           operatingDemande,
           bilanOperatingArr(),
           (d, b) => {
-            const name = d?.operating_name || (b as { operating_name?: string })?.operating_name || 'Fonctionnement';
-            const short = String(name).length > 30 ? `${String(name).substring(0, 27)}...` : String(name);
-            return `Fonctionnement — ${short}`;
+            const name = mergeMldsLineLabel(
+              d?.operating_name,
+              (b as { operating_name?: string })?.operating_name,
+              'Fonctionnement'
+            );
+            return `Fonctionnement — ${shortenPdfLabel(name, 30)}`;
           },
           b => `${(Number.parseFloat(String((b as { price?: string }).price || '0')) || 0).toFixed(2)} €`,
           b => bilanLineCommentPdf(b as { comment?: unknown }),
@@ -5323,9 +5294,12 @@ const ProjectManagement: React.FC = () => {
           serviceDemande,
           bilanServiceArr(),
           (d, b) => {
-            const name = d?.service_name || (b as { service_name?: string })?.service_name || 'Prestataire';
-            const short = String(name).length > 30 ? `${String(name).substring(0, 27)}...` : String(name);
-            return `Prestataire — ${short}`;
+            const name = mergeMldsLineLabel(
+              d?.service_name,
+              (b as { service_name?: string })?.service_name,
+              'Prestataire'
+            );
+            return `Prestataire — ${shortenPdfLabel(name, 30)}`;
           },
           b => {
             const bb = b as { price?: string; hours?: string };
@@ -5355,9 +5329,12 @@ const ProjectManagement: React.FC = () => {
           autreDemande as Array<{ price?: string; autres_name?: string }>,
           bilanAutresArr,
           (d, b) => {
-            const name = d?.autres_name || (b as { autres_name?: string })?.autres_name || 'Autre financement';
-            const short = String(name).length > 30 ? `${String(name).substring(0, 27)}...` : String(name);
-            return `Autre financement — ${short}`;
+            const name = mergeMldsLineLabel(
+              d?.autres_name,
+              (b as { autres_name?: string })?.autres_name,
+              'Autre financement'
+            );
+            return `Autre financement — ${shortenPdfLabel(name, 30)}`;
           },
           b => `${(Number.parseFloat(String((b as { price?: string }).price || '0')) || 0).toFixed(2)} €`,
           b => bilanLineCommentPdf(b as { comment?: unknown }),
@@ -5372,15 +5349,13 @@ const ProjectManagement: React.FC = () => {
           });
         }
       } else {
-        const transportLines = Array.isArray(mldsInfo.financial_transport) ? mldsInfo.financial_transport : [];
-        transportLines.forEach((line: any) => {
+        getMldsTransportLinesFromMldsInfo(mldsInfo).forEach((line) => {
           const amount = Number.parseFloat(line.price || '0') || 0;
           totalCredits += amount;
           const name = line.transport_name || 'Transport';
           unifiedRows.push({ poste: `Transport — ${name.length > 35 ? name.substring(0, 32) + '...' : name}`, montant: `${amount.toFixed(2)} €`, bilanVal: '', bilanComment: '' });
         });
-        const operatingLines = Array.isArray(mldsInfo.financial_operating) ? mldsInfo.financial_operating : [];
-        operatingLines.forEach((line: any) => {
+        getMldsOperatingLinesFromMldsInfo(mldsInfo).forEach((line) => {
           const amount = Number.parseFloat(line.price || '0') || 0;
           totalCredits += amount;
           const name = line.operating_name || 'Fonctionnement';
@@ -5398,7 +5373,7 @@ const ProjectManagement: React.FC = () => {
             bilanComment: ''
           });
         });
-        const autreLinesPdf = Array.isArray((mldsInfo as any).financial_autres_financements) ? (mldsInfo as any).financial_autres_financements : [];
+        const autreLinesPdf = getMldsAutresFinancementsFromMldsInfo(mldsInfo);
         if (autreLinesPdf.length > 0) {
           unifiedRows.push({
             poste: 'Autres financements',
@@ -7903,7 +7878,16 @@ const ProjectManagement: React.FC = () => {
             )}
 
             {showMldsSupplementaryTabContent && (() => {
-              const mldsBilan = apiProjectData.mlds_information?.mlds_bilan ?? apiProjectData.mlds_information?.mnt;
+              const mldsFin = apiProjectData.mlds_information;
+              const mldsBilan = getMldsBilanRecord(mldsFin);
+              const hseLinesDisplay = getMldsHseLinesFromMldsInfo(mldsFin);
+              const hvCreditLinesDisplay = getMldsHvLinesFromMldsInfo(mldsFin);
+              const transportLinesDisplay = getMldsTransportLinesFromMldsInfo(mldsFin);
+              const operatingLinesDisplay = getMldsOperatingLinesFromMldsInfo(mldsFin);
+              const serviceLinesDisplay = getMldsServiceLinesFromMldsInfo(mldsFin);
+              const autreLinesDisplay = getMldsAutresFinancementsFromMldsInfo(mldsFin);
+              const mldsFinRate =
+                Number.parseFloat(String(mldsFin.financial_rate ?? HV_DEFAULT_RATE)) || HV_DEFAULT_RATE;
               const formatBilanVal = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? Number(v).toFixed(2) : String(v)) : '—');
               return (
                 <div className="tab-content active">
@@ -8022,11 +8006,19 @@ const ProjectManagement: React.FC = () => {
                           <div className="stat-content">
                             <div className="stat-value">{apiProjectData.mlds_information.expected_participants}</div>
                             <div className="stat-label">Effectifs prévisionnel</div>
-                            {mldsBilan && (mldsBilan.expected_participants != null || mldsBilan.expected_participants_comment) && (
+                            {mldsBilan &&
+                              (mldsBilan.expected_participants != null ||
+                                String(mldsBilan.expected_participants_comment ?? '').trim() !== '') && (
                               <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
                                 <div style={{ fontSize: '0.80rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
-                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>{mldsBilan.expected_participants ?? '0'}</div>
-                                {mldsBilan.expected_participants_comment && <div style={{ marginTop: '0.35rem', fontSize: '0.8125rem', color: '#4b5563', lineHeight: 1.4 }}>{mldsBilan.expected_participants_comment}</div>}
+                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
+                                  {String(mldsBilan.expected_participants ?? '0')}
+                                </div>
+                                {String(mldsBilan.expected_participants_comment ?? '').trim() !== '' && (
+                                  <div style={{ marginTop: '0.35rem', fontSize: '0.8125rem', color: '#4b5563', lineHeight: 1.4 }}>
+                                    {String(mldsBilan.expected_participants_comment)}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -8081,14 +8073,14 @@ const ProjectManagement: React.FC = () => {
                       )}
 
                       {/* Moyens financiers */}
-                      {(getMldsHseLinesFromMldsInfo(apiProjectData.mlds_information).length > 0 ||
-                        apiProjectData.mlds_information.financial_rate != null ||
-                        apiProjectData.mlds_information.financial_hv != null ||
-                        (Array.isArray(apiProjectData.mlds_information.financial_hv_lines) && apiProjectData.mlds_information.financial_hv_lines.length > 0) ||
-                        apiProjectData.mlds_information.financial_transport != null ||
-                        apiProjectData.mlds_information.financial_operating != null ||
-                        getMldsServiceLinesFromMldsInfo(apiProjectData.mlds_information).length > 0 ||
-                        (Array.isArray(apiProjectData.mlds_information.financial_autres_financements) && apiProjectData.mlds_information.financial_autres_financements.length > 0)) && (
+                      {(hseLinesDisplay.length > 0 ||
+                        mldsFin.financial_rate != null ||
+                        mldsFin.financial_hv != null ||
+                        hvCreditLinesDisplay.length > 0 ||
+                        transportLinesDisplay.length > 0 ||
+                        operatingLinesDisplay.length > 0 ||
+                        serviceLinesDisplay.length > 0 ||
+                        autreLinesDisplay.length > 0) && (
                           <div style={{ gridColumn: 'span 2' }}>
                             <div
                               style={{
@@ -8142,8 +8134,8 @@ const ProjectManagement: React.FC = () => {
                                     marginBottom: '1rem'
                                   }}
                                 >
-                                  {apiProjectData.mlds_information.financial_hv != null &&
-                                    !(Array.isArray(apiProjectData.mlds_information.financial_hv_lines) && apiProjectData.mlds_information.financial_hv_lines.length > 0) && (
+                                  {mldsFin.financial_hv != null &&
+                                    hvCreditLinesDisplay.length === 0 && (
                                     <div
                                       style={{
                                         padding: '0.85rem 1rem',
@@ -8180,9 +8172,8 @@ const ProjectManagement: React.FC = () => {
                                       </div>
                                     </div>
                                   )}
-                                  {(apiProjectData.mlds_information.financial_hv != null ||
-                                    apiProjectData.mlds_information.financial_rate != null) &&
-                                    !(Array.isArray(apiProjectData.mlds_information.financial_hv_lines) && apiProjectData.mlds_information.financial_hv_lines.length > 0) && (
+                                  {(hvCreditLinesDisplay.length > 0 || mldsFin.financial_hv != null) &&
+                                    mldsFin.financial_rate != null && (
                                     <div
                                       style={{
                                         padding: '0.85rem 1rem',
@@ -8195,103 +8186,81 @@ const ProjectManagement: React.FC = () => {
                                         Sous-total HV × taux
                                       </div>
                                       <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#14532d' }}>
-                                        {(() => {
-                                          const hvHours = Number.parseFloat(String(apiProjectData.mlds_information.financial_hv ?? 0)) || 0;
-                                          const rate = Number.parseFloat(String(apiProjectData.mlds_information.financial_rate ?? HV_DEFAULT_RATE)) || HV_DEFAULT_RATE;
-                                          return `${(hvHours * rate).toFixed(2)} €`;
-                                        })()}
+                                        {sumMldsHvCreditsEuro(mldsFin, mldsFinRate).toFixed(2)} €
                                       </div>
                                     </div>
                                   )}
                                 </div>
 
-                                {mldsBilan && (() => {
-                                  const b = mldsBilan as Record<string, unknown>;
-                                  const hasNewBilan =
-                                    b.hse != null ||
-                                    (Array.isArray(b.financial_hse_lines) && (b.financial_hse_lines as unknown[]).length > 0) ||
-                                    b.hv != null ||
-                                    b.financial_rate != null ||
-                                    (Array.isArray(b.financial_hv_lines) && (b.financial_hv_lines as unknown[]).length > 0) ||
-                                    (Array.isArray(b.financial_transport) && (b.financial_transport as unknown[]).length > 0) ||
-                                    (Array.isArray(b.financial_operating) && (b.financial_operating as unknown[]).length > 0) ||
-                                    (Array.isArray(b.financial_service) && (b.financial_service as unknown[]).length > 0) ||
-                                    (Array.isArray(b.financial_autres_financements) && (b.financial_autres_financements as unknown[]).length > 0);
-                                  const hasLegacyBilan =
-                                    (b as { hse_comment?: string }).hse_comment ||
-                                    (b as { hv_comment?: string }).hv_comment ||
-                                    (b as { financial_rate_comment?: string }).financial_rate_comment ||
-                                    (b as { financial_transport_comment?: string }).financial_transport_comment ||
-                                    (b as { financial_operating_comment?: string }).financial_operating_comment ||
-                                    (b as { financial_service_comment?: string }).financial_service_comment;
-                                  if (!hasNewBilan && !hasLegacyBilan && b.hv == null && b.financial_rate == null) return null;
+                                {mldsBilan && hvCreditLinesDisplay.length === 0 && (() => {
+                                  const bb = mldsBilan as Record<string, unknown>;
+                                  const bilanHvLines = normalizeMldsLineCollection<{
+                                    teacher_name?: string;
+                                    hour?: string;
+                                    price?: string;
+                                    comment?: string | null;
+                                  }>(bb.financial_hv_lines);
+                                  const hasHvBilan =
+                                    bilanHvLines.length > 0 ||
+                                    bb.hv != null ||
+                                    bb.financial_rate != null ||
+                                    (bb as { hv_comment?: string }).hv_comment;
+                                  if (!hasHvBilan) return null;
 
-                                  const initRate = apiProjectData.mlds_information.financial_rate != null
-                                    ? Number(apiProjectData.mlds_information.financial_rate)
-                                    : HV_DEFAULT_RATE;
-                                  const bilanRate = b.financial_rate != null ? Number(b.financial_rate) : null;
-                                  const bilanHvLines = Array.isArray(b.financial_hv_lines)
-                                    ? (b.financial_hv_lines as Array<{ teacher_name?: string; hour?: string; price?: string; comment?: string | null }>)
-                                    : [];
+                                  const bilanRate =
+                                    bb.financial_rate != null
+                                      ? Number(bb.financial_rate)
+                                      : mldsFinRate;
                                   const hvHoursBilan =
                                     bilanHvLines.length > 0
                                       ? bilanHvLines.reduce((s, l) => s + hvLineHours(l), 0)
-                                      : b.hv != null
-                                        ? Number(b.hv)
+                                      : bb.hv != null
+                                        ? Number(bb.hv)
                                         : 0;
-                                  const euroHvBilan = hvHoursBilan * (bilanRate ?? initRate);
 
                                   return (
-                                    <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', borderLeft: '3px solid #16a34a' }}>
-                                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
-                                        {bilanHvLines.length > 0 ? (
-                                          <div>
-                                            <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>HV par enseignant</div>
-                                            {bilanHvLines.map((line, idx) => (
-                                              <div key={idx} style={{ marginBottom: '0.35rem', paddingLeft: '0.5rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                                                  <span>{line.teacher_name?.trim() || 'Enseignant'}</span>
-                                                  <span>{hvLineHours(line).toFixed(2)} h × {formatBilanVal(bilanRate ?? initRate)} €/h = {formatBilanVal(hvLineHours(line) * (bilanRate ?? initRate))} €</span>
-                                                </div>
-                                                {line.comment != null && String(line.comment).trim() !== '' && (
-                                                  <div style={{ fontSize: '0.8125rem', color: '#4b5563', marginTop: '0.2rem', fontStyle: 'italic', lineHeight: 1.35 }}>
-                                                    {String(line.comment)}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          b.hv != null && (
-                                            <span>
-                                              <strong>HV :</strong> {formatBilanVal(Number(b.hv))} h
-                                              {(b as { hv_comment?: string }).hv_comment && (
-                                                <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic', marginLeft: '0.5rem' }}>{(b as { hv_comment?: string }).hv_comment}</span>
-                                              )}
-                                            </span>
-                                          )
-                                        )}
-                                        {b.financial_rate != null && (
-                                          <span>
-                                            <strong>Taux horaire :</strong> {formatBilanVal(Number(b.financial_rate))} €/h
-                                            {(b as { financial_rate_comment?: string }).financial_rate_comment && (
-                                              <span style={{ fontSize: '0.8125rem', color: '#4b5563', fontStyle: 'italic', marginLeft: '0.5rem' }}>{(b as { financial_rate_comment?: string }).financial_rate_comment}</span>
-                                            )}
-                                          </span>
-                                        )}
-                                        {(bilanHvLines.length > 0 || b.hv != null) && (
-                                          <span><strong>Sous-total HV × taux (bilan) :</strong> {formatBilanVal(euroHvBilan)} €</span>
-                                        )}
+                                    <div
+                                      style={{
+                                        marginBottom: '1rem',
+                                        padding: '0.5rem 0.75rem',
+                                        backgroundColor: '#f0fdf4',
+                                        borderRadius: '0.375rem',
+                                        borderLeft: '3px solid #16a34a'
+                                      }}
+                                    >
+                                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>
+                                        Bilan à la clôture — HV
                                       </div>
+                                      {bilanHvLines.length > 0 ? (
+                                        bilanHvLines.map((line, idx) => (
+                                          <div key={idx} style={{ marginBottom: '0.35rem', fontSize: '0.875rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
+                                              <span>{line.teacher_name?.trim() || 'Enseignant'}</span>
+                                              <span style={{ fontWeight: 600 }}>
+                                                {hvLineHours(line).toFixed(2)} h × {formatBilanVal(bilanRate)} €/h = {formatBilanVal(hvLineHours(line) * bilanRate)} €
+                                              </span>
+                                            </div>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        bb.hv != null && (
+                                          <div style={{ fontSize: '0.875rem' }}>
+                                            <strong>HV :</strong> {formatBilanVal(Number(bb.hv))} h
+                                          </div>
+                                        )
+                                      )}
+                                      {(bilanHvLines.length > 0 || bb.hv != null) && (
+                                        <div style={{ marginTop: '0.35rem', fontWeight: 600, fontSize: '0.875rem' }}>
+                                          Sous-total HV × taux (bilan) : {formatBilanVal(hvHoursBilan * bilanRate)} €
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })()}
 
                               {(() => {
-                                const hseLinesInfo = getMldsHseLinesFromMldsInfo(apiProjectData.mlds_information);
-                                if (hseLinesInfo.length === 0) return null;
-                                const hseTotalHours = hseLinesInfo.reduce((s, l) => s + hseLineHours(l), 0);
+                                if (hseLinesDisplay.length === 0) return null;
+                                const hseTotalHours = hseLinesDisplay.reduce((s, l) => s + hseLineHours(l), 0);
                                 return (
                                   <div
                                     style={{
@@ -8316,7 +8285,7 @@ const ProjectManagement: React.FC = () => {
                                         </span>
                                       </div>
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                                        {hseLinesInfo.map((line, idx) => (
+                                        {hseLinesDisplay.map((line, idx) => (
                                           <div
                                             key={idx}
                                             style={{
@@ -8352,15 +8321,16 @@ const ProjectManagement: React.FC = () => {
                                       </div>
                                       {mldsBilan && (() => {
                                         const bb = mldsBilan as Record<string, unknown>;
-                                        const arr = bb.financial_hse_lines;
-                                        const legacyHse =
-                                          bb.hse != null
-                                            ? [{ hse_name: 'HSE', hour: String(bb.hse), comment: (bb as { hse_comment?: string }).hse_comment }]
-                                            : [];
                                         const bilanHseUi =
-                                          Array.isArray(arr) && (arr as unknown[]).length > 0
-                                            ? (arr as Array<{ hse_name?: string; hour?: string; price?: string; comment?: string | null }>)
-                                            : legacyHse;
+                                          normalizeMldsLineCollection<{ hse_name?: string; hour?: string; price?: string; comment?: string | null }>(
+                                            bb.financial_hse_lines
+                                          ).length > 0
+                                            ? normalizeMldsLineCollection<{ hse_name?: string; hour?: string; price?: string; comment?: string | null }>(
+                                                bb.financial_hse_lines
+                                              )
+                                            : bb.hse != null
+                                              ? [{ hse_name: 'HSE', hour: String(bb.hse), comment: (bb as { hse_comment?: string }).hse_comment }]
+                                              : [];
                                         if (bilanHseUi.length === 0) return null;
                                         return (
                                           <div
@@ -8404,13 +8374,12 @@ const ProjectManagement: React.FC = () => {
                               })()}
 
                               {(() => {
-                                const mldsInfoFin = apiProjectData.mlds_information;
                                 const hasCreditsDetail =
-                                  (Array.isArray(mldsInfoFin.financial_hv_lines) && mldsInfoFin.financial_hv_lines.length > 0) ||
-                                  mldsInfoFin.financial_hv != null ||
-                                  mldsInfoFin.financial_transport != null ||
-                                  mldsInfoFin.financial_operating != null ||
-                                  getMldsServiceLinesFromMldsInfo(mldsInfoFin).length > 0;
+                                  hvCreditLinesDisplay.length > 0 ||
+                                  mldsFin.financial_hv != null ||
+                                  transportLinesDisplay.length > 0 ||
+                                  operatingLinesDisplay.length > 0 ||
+                                  serviceLinesDisplay.length > 0;
                                 if (!hasCreditsDetail) return null;
                                 return (
                               <div
@@ -8427,19 +8396,11 @@ const ProjectManagement: React.FC = () => {
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                   {(() => {
-                                    const hvCreditLines = Array.isArray(apiProjectData.mlds_information.financial_hv_lines)
-                                      ? apiProjectData.mlds_information.financial_hv_lines
-                                      : [];
-                                    const hvDisplayRate =
-                                      Number.parseFloat(String(apiProjectData.mlds_information.financial_rate ?? HV_DEFAULT_RATE)) ||
-                                      HV_DEFAULT_RATE;
-                                    const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport)
-                                      ? apiProjectData.mlds_information.financial_transport
-                                      : [];
-                                    const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating)
-                                      ? apiProjectData.mlds_information.financial_operating
-                                      : [];
-                                    const serviceLines = getMldsServiceLinesFromMldsInfo(apiProjectData.mlds_information);
+                                    const hvCreditLines = hvCreditLinesDisplay;
+                                    const hvDisplayRate = mldsFinRate;
+                                    const transportLines = transportLinesDisplay;
+                                    const operatingLines = operatingLinesDisplay;
+                                    const serviceLines = serviceLinesDisplay;
 
                                     return (
                                       <>
@@ -8497,6 +8458,107 @@ const ProjectManagement: React.FC = () => {
                                               </div>
                                               );
                                             })}
+                                            {mldsBilan && (() => {
+                                              const bb = mldsBilan as Record<string, unknown>;
+                                              const initRate =
+                                                mldsFin.financial_rate != null
+                                                  ? Number(mldsFin.financial_rate)
+                                                  : HV_DEFAULT_RATE;
+                                              const bilanRate =
+                                                bb.financial_rate != null ? Number(bb.financial_rate) : initRate;
+                                              const bilanHvLines = normalizeMldsLineCollection<{
+                                                teacher_name?: string;
+                                                hour?: string;
+                                                price?: string;
+                                                comment?: string | null;
+                                              }>(bb.financial_hv_lines);
+                                              const hasHvBilan =
+                                                bilanHvLines.length > 0 ||
+                                                bb.hv != null ||
+                                                bb.financial_rate != null ||
+                                                (bb as { hv_comment?: string }).hv_comment ||
+                                                (bb as { financial_rate_comment?: string }).financial_rate_comment;
+                                              if (!hasHvBilan) return null;
+
+                                              const hvHoursBilan =
+                                                bilanHvLines.length > 0
+                                                  ? bilanHvLines.reduce((s, l) => s + hvLineHours(l), 0)
+                                                  : bb.hv != null
+                                                    ? Number(bb.hv)
+                                                    : 0;
+                                              const euroHvBilan = hvHoursBilan * bilanRate;
+
+                                              return (
+                                                <div
+                                                  style={{
+                                                    marginTop: '0.5rem',
+                                                    padding: '0.5rem 0.75rem',
+                                                    backgroundColor: '#f0fdf4',
+                                                    borderRadius: '0.375rem',
+                                                    borderLeft: '3px solid #16a34a'
+                                                  }}
+                                                >
+                                                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>
+                                                    Bilan à la clôture — HV (crédits)
+                                                  </div>
+                                                  {(bb as { financial_rate_comment?: string }).financial_rate_comment != null &&
+                                                    String((bb as { financial_rate_comment?: string }).financial_rate_comment).trim() !== '' && (
+                                                    <div style={{ fontSize: '0.8125rem', color: '#374151', marginBottom: '0.45rem', fontStyle: 'italic' }}>
+                                                      {String((bb as { financial_rate_comment?: string }).financial_rate_comment)}
+                                                    </div>
+                                                  )}
+                                                  {bilanHvLines.length > 0 ? (
+                                                    bilanHvLines.map((line, idx) => (
+                                                      <div key={idx} style={{ marginBottom: '0.35rem' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', gap: '0.75rem' }}>
+                                                          <span>{line.teacher_name?.trim() || 'Enseignant'}</span>
+                                                          <span style={{ fontWeight: 600, textAlign: 'right' }}>
+                                                            {hvLineHours(line).toFixed(2)} h × {formatBilanVal(bilanRate)} €/h = {formatBilanVal(hvLineHours(line) * bilanRate)} €
+                                                          </span>
+                                                        </div>
+                                                        {line.comment != null && String(line.comment).trim() !== '' && (
+                                                          <div style={{ fontSize: '0.8125rem', color: '#6b7280', marginTop: '0.15rem', fontStyle: 'italic' }}>
+                                                            {String(line.comment)}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    ))
+                                                  ) : (
+                                                    bb.hv != null && (
+                                                      <div style={{ fontSize: '0.875rem', marginBottom: '0.35rem' }}>
+                                                        <strong>HV :</strong> {formatBilanVal(Number(bb.hv))} h
+                                                        {(bb as { hv_comment?: string }).hv_comment && (
+                                                          <span style={{ fontSize: '0.8125rem', color: '#6b7280', fontStyle: 'italic', marginLeft: '0.5rem' }}>
+                                                            {String((bb as { hv_comment?: string }).hv_comment)}
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    )
+                                                  )}
+                                                  {bb.financial_rate != null && (
+                                                    <div style={{ fontSize: '0.875rem', marginBottom: '0.35rem' }}>
+                                                      <strong>Taux horaire (bilan) :</strong> {formatBilanVal(Number(bb.financial_rate))} €/h
+                                                    </div>
+                                                  )}
+                                                  {(bilanHvLines.length > 0 || bb.hv != null) && (
+                                                    <div
+                                                      style={{
+                                                        marginTop: '0.35rem',
+                                                        paddingTop: '0.35rem',
+                                                        borderTop: '1px solid #bbf7d0',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        fontSize: '0.875rem',
+                                                        fontWeight: 600
+                                                      }}
+                                                    >
+                                                      <span>Sous-total HV × taux (bilan)</span>
+                                                      <span>{formatBilanVal(euroHvBilan)} €</span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })()}
                                           </div>
                                         )}
                                         {transportLines.length > 0 && (
@@ -8512,8 +8574,12 @@ const ProjectManagement: React.FC = () => {
                                             ))}
                                             {mldsBilan && (() => {
                                               const bb = mldsBilan as Record<string, unknown>;
-                                              const arr = bb.financial_transport;
-                                              if (Array.isArray(arr) && arr.length > 0) {
+                                              const arr = normalizeMldsLineCollection<{
+                                                transport_name?: string;
+                                                price?: string;
+                                                comment?: string | null;
+                                              }>(bb.financial_transport);
+                                              if (arr.length > 0) {
                                                 return (
                                                   <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
                                                     <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture — transport</div>
@@ -8522,7 +8588,7 @@ const ProjectManagement: React.FC = () => {
                                                         {String(bb.financial_transport_comment)}
                                                       </div>
                                                     )}
-                                                    {(arr as Array<{ transport_name?: string; price?: string; comment?: string | null }>).map((line, idx) => (
+                                                    {arr.map((line, idx) => (
                                                       <div key={idx} style={{ marginBottom: '0.35rem' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
                                                           <span>{line.transport_name || '—'}</span>
@@ -8536,11 +8602,11 @@ const ProjectManagement: React.FC = () => {
                                                   </div>
                                                 );
                                               }
-                                              if (typeof arr === 'number' || bb.financial_transport_comment) {
+                                              if (typeof bb.financial_transport === 'number' || bb.financial_transport_comment) {
                                                 return (
                                                   <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
                                                     <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
-                                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{`${formatBilanVal(arr as number)} €`}</div>
+                                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{`${formatBilanVal(bb.financial_transport as number)} €`}</div>
                                                     {bb.financial_transport_comment ? <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{String(bb.financial_transport_comment)}</div> : null}
                                                   </div>
                                                 );
@@ -8562,8 +8628,12 @@ const ProjectManagement: React.FC = () => {
                                             ))}
                                             {mldsBilan && (() => {
                                               const bb = mldsBilan as Record<string, unknown>;
-                                              const arr = bb.financial_operating;
-                                              if (Array.isArray(arr) && arr.length > 0) {
+                                              const arr = normalizeMldsLineCollection<{
+                                                operating_name?: string;
+                                                price?: string;
+                                                comment?: string | null;
+                                              }>(bb.financial_operating);
+                                              if (arr.length > 0) {
                                                 return (
                                                   <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
                                                     <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture — fonctionnement</div>
@@ -8572,7 +8642,7 @@ const ProjectManagement: React.FC = () => {
                                                         {String(bb.financial_operating_comment)}
                                                       </div>
                                                     )}
-                                                    {(arr as Array<{ operating_name?: string; price?: string; comment?: string | null }>).map((line, idx) => (
+                                                    {arr.map((line, idx) => (
                                                       <div key={idx} style={{ marginBottom: '0.35rem' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
                                                           <span>{line.operating_name || '—'}</span>
@@ -8586,11 +8656,11 @@ const ProjectManagement: React.FC = () => {
                                                   </div>
                                                 );
                                               }
-                                              if (typeof arr === 'number' || bb.financial_operating_comment) {
+                                              if (typeof bb.financial_operating === 'number' || bb.financial_operating_comment) {
                                                 return (
                                                   <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
                                                     <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
-                                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{`${formatBilanVal(arr as number)} €`}</div>
+                                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{`${formatBilanVal(bb.financial_operating as number)} €`}</div>
                                                     {bb.financial_operating_comment ? <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{String(bb.financial_operating_comment)}</div> : null}
                                                   </div>
                                                 );
@@ -8664,11 +8734,11 @@ const ProjectManagement: React.FC = () => {
                                                   </div>
                                                 );
                                               }
-                                              if (typeof arr === 'number' || bb.financial_service_comment) {
+                                              if (typeof bb.financial_service === 'number' || bb.financial_service_comment) {
                                                 return (
                                                   <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f0fdf4', borderRadius: '0.375rem', borderLeft: '3px solid #16a34a' }}>
                                                     <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#15803d', marginBottom: '0.25rem' }}>Bilan à la clôture</div>
-                                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{`${formatBilanVal(arr as number)} €`}</div>
+                                                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>{`${formatBilanVal(bb.financial_service as number)} €`}</div>
                                                     {bb.financial_service_comment ? <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: '#4b5563' }}>{String(bb.financial_service_comment)}</div> : null}
                                                   </div>
                                                 );
@@ -8692,41 +8762,20 @@ const ProjectManagement: React.FC = () => {
                                     <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits</span>
                                     <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
                                       {(() => {
-                                        const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport)
-                                          ? apiProjectData.mlds_information.financial_transport
-                                          : [];
-                                        const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating)
-                                          ? apiProjectData.mlds_information.financial_operating
-                                          : [];
-                                        const serviceLines = getMldsServiceLinesFromMldsInfo(apiProjectData.mlds_information);
-                                        const hvLines = Array.isArray(apiProjectData.mlds_information.financial_hv_lines)
-                                          ? apiProjectData.mlds_information.financial_hv_lines
-                                          : [];
-                                        const crRate =
-                                          Number.parseFloat(String(apiProjectData.mlds_information.financial_rate ?? HV_DEFAULT_RATE)) ||
-                                          HV_DEFAULT_RATE;
-
-                                        const transportTotal = transportLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                        const operatingTotal = operatingLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                        const serviceTotal = serviceLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                        const hvLinesTotal = hvLines.reduce(
-                                          (sum: number, line: any) => sum + hvLineHours(line) * crRate,
-                                          0
+                                        const fallbackCredits = sumMldsFinancialCreditsEuro(
+                                          mldsFin,
+                                          serviceLinesDisplay,
+                                          mldsFinRate
                                         );
-                                        const hvHoursLegacy =
-                                          Number.parseFloat(String(apiProjectData.mlds_information.financial_hv ?? 0)) || 0;
-                                        const hvLegacyCredits = hvLines.length > 0 ? 0 : hvHoursLegacy * crRate;
-
-                                        const fallbackCredits =
-                                          transportTotal + operatingTotal + serviceTotal + hvLinesTotal + hvLegacyCredits;
-                                        const creditsFromApiRaw = apiProjectData.mlds_information.total_financial_credits;
+                                        const creditsFromApiRaw = mldsFin.total_financial_credits;
                                         const creditsFromApi =
                                           creditsFromApiRaw != null && creditsFromApiRaw !== ''
                                             ? Number.parseFloat(String(creditsFromApiRaw))
                                             : null;
-                                        // L’agrégat API exclut souvent les lignes HV : dès qu’il y en a, on affiche le total calculé.
                                         const totalCredits =
-                                          hvLines.length > 0 || creditsFromApi == null || Number.isNaN(creditsFromApi)
+                                          hvCreditLinesDisplay.length > 0 ||
+                                          creditsFromApi == null ||
+                                          Number.isNaN(creditsFromApi)
                                             ? fallbackCredits
                                             : creditsFromApi;
                                         return totalCredits.toFixed(2);
@@ -8739,7 +8788,7 @@ const ProjectManagement: React.FC = () => {
                                 );
                               })()}
 
-                              {Array.isArray(apiProjectData.mlds_information.financial_autres_financements) && apiProjectData.mlds_information.financial_autres_financements.length > 0 && (
+                              {autreLinesDisplay.length > 0 && (
                                 <div style={{
                                   marginTop: '1rem',
                                   padding: '1rem',
@@ -8749,7 +8798,7 @@ const ProjectManagement: React.FC = () => {
                                 }}>
                                   <div style={{ fontSize: '1rem', fontWeight: 600, color: '#92400e', marginBottom: '0.5rem' }}>Autres financements</div>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                                    {apiProjectData.mlds_information.financial_autres_financements.map((line: { autres_name?: string; price?: string }, idx: number) => (
+                                    {autreLinesDisplay.map((line, idx: number) => (
                                       <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '0.5rem' }}>
                                         <span style={{ fontSize: '0.875rem', color: '#374151' }}>{line.autres_name?.trim() || '—'}</span>
                                         <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827' }}>
@@ -8790,8 +8839,8 @@ const ProjectManagement: React.FC = () => {
                                   }}>
                                     <span style={{ fontWeight: 600, color: '#92400e' }}>Total autres financements</span>
                                     <span style={{ fontWeight: 700, color: '#92400e' }}>
-                                      {apiProjectData.mlds_information.financial_autres_financements.reduce(
-                                        (s: number, l: { price?: string }) => s + (Number.parseFloat(String(l.price || '0')) || 0),
+                                      {autreLinesDisplay.reduce(
+                                        (s: number, l) => s + (Number.parseFloat(String(l.price || '0')) || 0),
                                         0
                                       ).toFixed(2)} €
                                     </span>
@@ -8812,61 +8861,40 @@ const ProjectManagement: React.FC = () => {
                                 <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0c4a6e' }}>Total général</span>
                                 <span style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0c4a6e' }}>
                                   {(() => {
-                                    const transportLines = Array.isArray(apiProjectData.mlds_information.financial_transport)
-                                      ? apiProjectData.mlds_information.financial_transport
-                                      : [];
-                                    const operatingLines = Array.isArray(apiProjectData.mlds_information.financial_operating)
-                                      ? apiProjectData.mlds_information.financial_operating
-                                      : [];
-                                    const serviceLines = getMldsServiceLinesFromMldsInfo(apiProjectData.mlds_information);
-                                    const hvLinesTot = Array.isArray(apiProjectData.mlds_information.financial_hv_lines)
-                                      ? apiProjectData.mlds_information.financial_hv_lines
-                                      : [];
-                                    const autreLines = Array.isArray(apiProjectData.mlds_information.financial_autres_financements)
-                                      ? apiProjectData.mlds_information.financial_autres_financements
-                                      : [];
-
-                                    const transportTotal = transportLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                    const operatingTotal = operatingLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                    const serviceTotal = serviceLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-                                    const rate = Number.parseFloat(String(apiProjectData.mlds_information.financial_rate ?? HV_DEFAULT_RATE)) || HV_DEFAULT_RATE;
-                                    const hvLinesSum = hvLinesTot.reduce(
-                                      (sum: number, line: any) => sum + hvLineHours(line) * rate,
+                                    const autreSum = autreLinesDisplay.reduce(
+                                      (sum, line) => sum + (Number.parseFloat(line.price || '0') || 0),
                                       0
                                     );
-                                    const autreSum = autreLines.reduce((sum: number, line: any) => sum + (Number.parseFloat(line.price || '0') || 0), 0);
-
-                                    const hvHours = Number.parseFloat(String(apiProjectData.mlds_information.financial_hv ?? 0)) || 0;
-
-                                    const creditsBlock = transportTotal + operatingTotal + serviceTotal + hvLinesSum;
-                                    const hvLegacyPart = hvLinesTot.length > 0 ? 0 : hvHours * rate;
-                                    // HSE déclaratif — hors total général
-                                    return (creditsBlock + autreSum + hvLegacyPart).toFixed(2);
+                                    return (
+                                      sumMldsFinancialCreditsEuro(mldsFin, serviceLinesDisplay, mldsFinRate) + autreSum
+                                    ).toFixed(2);
                                   })()} €
                                 </span>
                               </div>
                               {mldsBilan && (() => {
                                 const mldsInfo = apiProjectData?.mlds_information;
-                                const mldsTransportFallback = Array.isArray(mldsInfo?.financial_transport)
-                                  ? mldsInfo.financial_transport.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0)
-                                  : 0;
+                                const mldsTransportFallback = getMldsTransportLinesFromMldsInfo(mldsInfo).reduce(
+                                  (s: number, l) => s + (Number.parseFloat(l.price || '0') || 0),
+                                  0
+                                );
                                 const mldsServiceFallback = getMldsServiceLinesFromMldsInfo(mldsInfo).reduce(
                                   (s: number, l: { price?: string | number }) => s + (Number.parseFloat(String(l.price || '0')) || 0),
                                   0
                                 );
-                                const mldsOperatingFallback = Array.isArray(mldsInfo?.financial_operating)
-                                  ? mldsInfo.financial_operating.reduce((s: number, l: any) => s + (Number.parseFloat(l.price || '0') || 0), 0)
-                                  : 0;
+                                const mldsOperatingFallback = getMldsOperatingLinesFromMldsInfo(mldsInfo).reduce(
+                                  (s: number, l) => s + (Number.parseFloat(l.price || '0') || 0),
+                                  0
+                                );
                                 const mldsRateFallback =
                                   mldsInfo?.financial_rate != null ? Number(mldsInfo.financial_rate) : HV_DEFAULT_RATE;
 
                                 const sumBilanMoney = (val: unknown, fallback: number): number => {
                                   if (val == null) return fallback;
                                   if (typeof val === 'number' && Number.isFinite(val)) return val;
-                                  if (Array.isArray(val)) {
-                                    return val.reduce(
-                                      (s: number, l: { price?: unknown }) =>
-                                        s + (Number.parseFloat(String((l as { price?: unknown }).price ?? '0')) || 0),
+                                  const lines = normalizeMldsLineCollection<{ price?: unknown }>(val);
+                                  if (lines.length > 0) {
+                                    return lines.reduce(
+                                      (s, l) => s + (Number.parseFloat(String(l.price ?? '0')) || 0),
                                       0
                                     );
                                   }
@@ -8878,9 +8906,9 @@ const ProjectManagement: React.FC = () => {
                                   mldsBilan.financial_rate != null ? Number(mldsBilan.financial_rate) : mldsRateFallback;
                                 const rateOk = Number.isFinite(bilanRateNum) && bilanRateNum > 0 ? bilanRateNum : mldsRateFallback;
 
-                                const bilanHvLinesUi = Array.isArray(mldsBilan.financial_hv_lines)
-                                  ? (mldsBilan.financial_hv_lines as Array<{ hour?: string; price?: string }>)
-                                  : [];
+                                const bilanHvLinesUi = normalizeMldsLineCollection<{ hour?: string; price?: string }>(
+                                  mldsBilan.financial_hv_lines
+                                );
                                 const euroHvBilan =
                                   bilanHvLinesUi.length > 0
                                     ? bilanHvLinesUi.reduce((s, l) => s + hvLineHours(l) * rateOk, 0)

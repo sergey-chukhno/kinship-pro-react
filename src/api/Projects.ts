@@ -86,28 +86,21 @@ export interface FinancialHseLine {
     comment?: string | null;
 }
 
-/** Lignes HSE depuis l’API (nouveau format) ou ancien champ scalaire `financial_hse`. */
-export function getMldsHseLinesFromMldsInfo(
-    mlds: { financial_hse_lines?: FinancialHseLine[] | null; financial_hse?: number | null } | null | undefined
-): FinancialHseLine[] {
-    if (!mlds) return [];
-    if (Array.isArray(mlds.financial_hse_lines) && mlds.financial_hse_lines.length > 0) {
-        return mlds.financial_hse_lines.map(l => ({
-            hse_name: String(l.hse_name ?? ''),
-            hour:
-                l.hour != null && String(l.hour) !== ''
-                    ? String(l.hour)
-                    : (l as { price?: string }).price != null
-                      ? String((l as { price?: string }).price)
-                      : '',
-            comment: l.comment ?? undefined
-        }));
-    }
-    if (mlds.financial_hse != null) {
-        return [{ hse_name: 'HSE', hour: String(mlds.financial_hse), comment: '' }];
-    }
-    return [];
-}
+export {
+    getMldsAutresFinancementsFromMldsInfo,
+    getMldsBilanHseLines,
+    getMldsBilanHvLines,
+    getMldsBilanRecord,
+    getMldsHseLinesFromMldsInfo,
+    getMldsHvLinesFromMldsInfo,
+    getMldsOperatingLinesFromMldsInfo,
+    getMldsTransportLinesFromMldsInfo,
+    hasMldsBilanData,
+    mergeMldsLineLabel,
+    normalizeMldsLineCollection,
+    sumMldsFinancialCreditsEuro,
+    sumMldsHvCreditsEuro,
+} from '../utils/mldsFinancialLines';
 
 /** Prestataire : montant, heures d’intervention, devis optionnel (fichier via FormData `quote`) — lecture API héritée */
 export interface FinancialServiceLine {
