@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './Modal.css';
 import {
+  getMldsAutresFinancementsFromMldsInfo,
   getMldsHseLinesFromMldsInfo,
+  getMldsHvLinesFromMldsInfo,
+  getMldsOperatingLinesFromMldsInfo,
   getMldsServiceLinesFromMldsInfo,
+  getMldsTransportLinesFromMldsInfo,
   type MLDSInformationAttributes,
   type MldsBilanPayload
 } from '../../api/Projects';
@@ -100,18 +104,20 @@ function bilanDataFromMlds(mlds: CloseProjectBilanModalProps['mldsInfo']): Bilan
 
   if (!mlds) return empty;
 
+  const transportFromApi = getMldsTransportLinesFromMldsInfo(mlds);
   const transport =
-    Array.isArray(mlds.financial_transport) && mlds.financial_transport.length > 0
-      ? mlds.financial_transport.map(l => ({
+    transportFromApi.length > 0
+      ? transportFromApi.map(l => ({
           transport_name: String(l.transport_name ?? ''),
           price: l.price != null ? String(l.price) : '',
           comment: readLineComment((l as { comment?: unknown }).comment)
         }))
       : [lineTransport()];
 
+  const operatingFromApi = getMldsOperatingLinesFromMldsInfo(mlds);
   const operating =
-    Array.isArray(mlds.financial_operating) && mlds.financial_operating.length > 0
-      ? mlds.financial_operating.map(l => ({
+    operatingFromApi.length > 0
+      ? operatingFromApi.map(l => ({
           operating_name: String(l.operating_name ?? ''),
           price: l.price != null ? String(l.price) : '',
           comment: readLineComment((l as { comment?: unknown }).comment)
@@ -129,29 +135,24 @@ function bilanDataFromMlds(mlds: CloseProjectBilanModalProps['mldsInfo']): Bilan
         }))
       : [lineService()];
 
+  const autresFromApi = getMldsAutresFinancementsFromMldsInfo(mlds);
   const autres =
-    Array.isArray(mlds.financial_autres_financements) && mlds.financial_autres_financements.length > 0
-      ? mlds.financial_autres_financements.map(l => ({
+    autresFromApi.length > 0
+      ? autresFromApi.map(l => ({
           autres_name: String(l.autres_name ?? ''),
           price: l.price != null ? String(l.price) : '',
           comment: readLineComment((l as { comment?: unknown }).comment)
         }))
       : [lineAutres()];
 
+  const hvFromApi = getMldsHvLinesFromMldsInfo(mlds);
   let hvLines: BilanData['financial_hv_lines'];
-  if (Array.isArray(mlds.financial_hv_lines) && mlds.financial_hv_lines.length > 0) {
-    hvLines = mlds.financial_hv_lines.map(l => ({
+  if (hvFromApi.length > 0) {
+    hvLines = hvFromApi.map(l => ({
       teacher_name: String(l.teacher_name ?? ''),
-      hour:
-        l.hour != null && String(l.hour) !== ''
-          ? String(l.hour)
-          : (l as { price?: string }).price != null
-            ? String((l as { price?: string }).price)
-            : '',
+      hour: l.hour != null && String(l.hour) !== '' ? String(l.hour) : '',
       comment: readLineComment((l as { comment?: unknown }).comment)
     }));
-  } else if (mlds.financial_hv != null && Number(mlds.financial_hv) > 0) {
-    hvLines = [{ teacher_name: '', hour: String(mlds.financial_hv), comment: '' }];
   } else {
     hvLines = [lineHv()];
   }
@@ -400,15 +401,18 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
   const previousValues = useMemo(() => {
     const m = mldsInfo;
     const formatNum = (v: number) => (Number.isNaN(v) ? '—' : v.toFixed(2));
-    const sumPrices = (lines: Array<{ price?: string | number }> | null | undefined) =>
-      Array.isArray(lines) ? lines.reduce((acc, l) => acc + (Number.parseFloat(String(l.price || '0')) || 0), 0) : 0;
+    const sumPrices = (lines: Array<{ price?: string | number }>) =>
+      lines.reduce((acc, l) => acc + (Number.parseFloat(String(l.price || '0')) || 0), 0);
 
     const serviceLinesForSum = getMldsServiceLinesFromMldsInfo(m);
+    const transportLinesForSum = getMldsTransportLinesFromMldsInfo(m);
+    const operatingLinesForSum = getMldsOperatingLinesFromMldsInfo(m);
+    const autresLinesForSum = getMldsAutresFinancementsFromMldsInfo(m);
 
     const hseSum = getMldsHseLinesFromMldsInfo(m ?? undefined).reduce((acc, l) => acc + hseLineHours(l), 0);
     const hvScalar = m?.financial_hv != null ? Number(m.financial_hv) : null;
     const rate = m?.financial_rate != null ? Number(m.financial_rate) : null;
-    const hvLines = Array.isArray(m?.financial_hv_lines) ? m!.financial_hv_lines! : [];
+    const hvLines = getMldsHvLinesFromMldsInfo(m);
     const hvHoursFromLines = hvLines.length > 0 ? hvLines.reduce((s, l) => s + hvLineHours(l), 0) : null;
     const exp =
       m?.expected_participants != null && m.expected_participants !== undefined
@@ -425,13 +429,10 @@ const CloseProjectBilanModal: React.FC<CloseProjectBilanModalProps> = ({
             : '—',
       financial_rate: rate != null ? `${formatNum(rate)} €/h` : '—',
       expected_participants: exp,
-      transport: sumPrices(m?.financial_transport ?? null) > 0 ? `${formatNum(sumPrices(m?.financial_transport ?? null))} €` : '—',
-      operating: sumPrices(m?.financial_operating ?? null) > 0 ? `${formatNum(sumPrices(m?.financial_operating ?? null))} €` : '—',
+      transport: sumPrices(transportLinesForSum) > 0 ? `${formatNum(sumPrices(transportLinesForSum))} €` : '—',
+      operating: sumPrices(operatingLinesForSum) > 0 ? `${formatNum(sumPrices(operatingLinesForSum))} €` : '—',
       service: sumPrices(serviceLinesForSum) > 0 ? `${formatNum(sumPrices(serviceLinesForSum))} €` : '—',
-      autres:
-        sumPrices((m as { financial_autres_financements?: Array<{ price?: string }> })?.financial_autres_financements ?? null) > 0
-          ? `${formatNum(sumPrices((m as { financial_autres_financements?: Array<{ price?: string }> })?.financial_autres_financements ?? null))} €`
-          : '—'
+      autres: sumPrices(autresLinesForSum) > 0 ? `${formatNum(sumPrices(autresLinesForSum))} €` : '—'
     };
   }, [mldsInfo]);
 
