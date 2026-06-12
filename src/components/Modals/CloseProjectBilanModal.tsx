@@ -236,9 +236,14 @@ export function buildMldsBilanPayload(bilanData: BilanData, baseMlds?: MldsBilan
     return t;
   };
 
+  const baseTransportLines = getMldsTransportLinesFromMldsInfo(baseMlds);
+  const baseOperatingLines = getMldsOperatingLinesFromMldsInfo(baseMlds);
+  const baseHvLines = getMldsHvLinesFromMldsInfo(baseMlds);
+  const baseAutresLines = getMldsAutresFinancementsFromMldsInfo(baseMlds);
+
   const transport = bilanData.financial_transport
     .map((r, i) => {
-      const b = baseMlds?.financial_transport?.[i];
+      const b = baseTransportLines[i];
       const transport_name = r.transport_name.trim() || (b?.transport_name != null ? String(b.transport_name) : '');
       const price = r.price.trim() || (b?.price != null ? String(b.price) : '');
       return { transport_name, price, comment: r.comment };
@@ -252,7 +257,7 @@ export function buildMldsBilanPayload(bilanData: BilanData, baseMlds?: MldsBilan
 
   const operating = bilanData.financial_operating
     .map((r, i) => {
-      const b = baseMlds?.financial_operating?.[i];
+      const b = baseOperatingLines[i];
       const operating_name = r.operating_name.trim() || (b?.operating_name != null ? String(b.operating_name) : '');
       const price = r.price.trim() || (b?.price != null ? String(b.price) : '');
       return { operating_name, price, comment: r.comment };
@@ -286,7 +291,7 @@ export function buildMldsBilanPayload(bilanData: BilanData, baseMlds?: MldsBilan
 
   const hvLines = bilanData.financial_hv_lines
     .map((r, i) => {
-      const b = baseMlds?.financial_hv_lines?.[i];
+      const b = baseHvLines[i];
       let teacher_name = r.teacher_name.trim();
       if (!teacher_name && b?.teacher_name != null) teacher_name = String(b.teacher_name);
       let hour = r.hour.trim();
@@ -313,7 +318,7 @@ export function buildMldsBilanPayload(bilanData: BilanData, baseMlds?: MldsBilan
 
   const autres = bilanData.financial_autres_financements
     .map((r, i) => {
-      const b = baseMlds?.financial_autres_financements?.[i];
+      const b = baseAutresLines[i];
       const autres_name = r.autres_name.trim() || (b?.autres_name != null ? String(b.autres_name) : '');
       const price = r.price.trim() || (b?.price != null ? String(b.price) : '');
       return { autres_name, price, comment: r.comment };

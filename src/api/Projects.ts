@@ -88,10 +88,15 @@ export interface FinancialHseLine {
 
 export {
     getMldsAutresFinancementsFromMldsInfo,
+    getMldsBilanHseLines,
+    getMldsBilanHvLines,
+    getMldsBilanRecord,
     getMldsHseLinesFromMldsInfo,
     getMldsHvLinesFromMldsInfo,
     getMldsOperatingLinesFromMldsInfo,
     getMldsTransportLinesFromMldsInfo,
+    hasMldsBilanData,
+    mergeMldsLineLabel,
     normalizeMldsLineCollection,
     sumMldsFinancialCreditsEuro,
     sumMldsHvCreditsEuro,

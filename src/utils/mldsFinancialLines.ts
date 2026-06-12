@@ -149,3 +149,96 @@ export function sumMldsFinancialCreditsEuro(
   );
   return transportTotal + operatingTotal + serviceTotal + sumMldsHvCreditsEuro(mlds as any, rate);
 }
+
+/** Bilan à la clôture (`mlds_bilan` ou legacy `mnt`) depuis `mlds_information`. */
+export function getMldsBilanRecord(mldsInfo: unknown): Record<string, unknown> | null {
+  const m = mldsInfo as Record<string, unknown> | null | undefined;
+  if (!m) return null;
+  const raw = m.mlds_bilan ?? m.mnt;
+  return raw != null && typeof raw === 'object' ? (raw as Record<string, unknown>) : null;
+}
+
+export function getMldsBilanHvLines(bilan: unknown): MldsHvLine[] {
+  const b = bilan as Record<string, unknown> | null | undefined;
+  if (!b) return [];
+  return normalizeMldsLineCollection<{ teacher_name?: string; hour?: string; price?: string }>(
+    b.financial_hv_lines
+  ).map((l) => ({
+    teacher_name: String(l.teacher_name ?? ''),
+    hour:
+      l.hour != null && String(l.hour) !== ''
+        ? String(l.hour)
+        : l.price != null
+          ? String(l.price)
+          : '',
+    price: l.price != null ? String(l.price) : undefined,
+  }));
+}
+
+export function getMldsBilanHseLines(bilan: unknown): MldsHseLine[] {
+  const b = bilan as Record<string, unknown> | null | undefined;
+  if (!b) return [];
+  const lines = normalizeMldsLineCollection<{ hse_name?: string; hour?: string; price?: string; comment?: string | null }>(
+    b.financial_hse_lines
+  );
+  if (lines.length > 0) {
+    return lines.map((l) => ({
+      hse_name: String(l.hse_name ?? ''),
+      hour:
+        l.hour != null && String(l.hour) !== ''
+          ? String(l.hour)
+          : l.price != null
+            ? String(l.price)
+            : '',
+      comment: l.comment ?? undefined,
+    }));
+  }
+  if (b.hse != null) {
+    return [{ hse_name: 'HSE', hour: String(b.hse), comment: '' }];
+  }
+  return [];
+}
+
+const BILAN_LINE_FIELDS = [
+  'financial_hse_lines',
+  'financial_hv_lines',
+  'financial_transport',
+  'financial_operating',
+  'financial_service',
+  'financial_autres_financements',
+] as const;
+
+/** True when a bilan object contains closure data (arrays or Rails hash-indexed lines). */
+export function hasMldsBilanData(bilan: unknown): boolean {
+  const b = bilan as Record<string, unknown> | null | undefined;
+  if (!b) return false;
+  if (b.hse != null || b.hv != null || b.financial_rate != null) return true;
+  if (b.expected_participants != null) return true;
+  if (BILAN_LINE_FIELDS.some((key) => normalizeMldsLineCollection(b[key]).length > 0)) {
+    return true;
+  }
+  const commentKeys = [
+    'hse_comment',
+    'hv_comment',
+    'financial_rate_comment',
+    'financial_transport_comment',
+    'financial_operating_comment',
+    'financial_service_comment',
+    'expected_participants_comment',
+  ] as const;
+  return commentKeys.some((key) => {
+    const v = b[key];
+    return v != null && String(v).trim() !== '';
+  });
+}
+
+/**
+ * Libellé affiché (PDF / export) : le bilan à la clôture prime sur la demande initiale
+ * lorsqu’un nom a été corrigé (ex. teacher_name).
+ */
+export function mergeMldsLineLabel(demande: unknown, bilan: unknown, fallback: string): string {
+  const d = demande != null ? String(demande).trim() : '';
+  const b = bilan != null ? String(bilan).trim() : '';
+  if (b) return b;
+  return d || fallback;
+}

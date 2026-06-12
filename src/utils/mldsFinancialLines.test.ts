@@ -1,8 +1,11 @@
 import {
+  getMldsBilanHvLines,
   getMldsHseLinesFromMldsInfo,
   getMldsHvLinesFromMldsInfo,
   getMldsOperatingLinesFromMldsInfo,
   getMldsTransportLinesFromMldsInfo,
+  hasMldsBilanData,
+  mergeMldsLineLabel,
   normalizeMldsLineCollection,
   sumMldsFinancialCreditsEuro,
 } from './mldsFinancialLines';
@@ -32,6 +35,19 @@ describe('mldsFinancialLines', () => {
     expect(getMldsHseLinesFromMldsInfo(hashStyleMlds)).toHaveLength(2);
     expect(getMldsTransportLinesFromMldsInfo(hashStyleMlds)[0].transport_name).toBe('Bus');
     expect(getMldsOperatingLinesFromMldsInfo(hashStyleMlds)[0].operating_name).toBe('Manuel');
+  });
+
+  it('reads bilan HV lines from hash format and prefers bilan label in PDF merge', () => {
+    const bilan = {
+      financial_hv_lines: {
+        '0': { teacher_name: 'Nom corrigé', hour: '24' },
+      },
+    };
+    expect(hasMldsBilanData(bilan)).toBe(true);
+    expect(getMldsBilanHvLines(bilan)[0].teacher_name).toBe('Nom corrigé');
+    expect(mergeMldsLineLabel('Mme.Valende', 'Nom corrigé', 'Enseignant')).toBe('Nom corrigé');
+    expect(mergeMldsLineLabel('Mme.Valende', 'Mme.Valende', 'Enseignant')).toBe('Mme.Valende');
+    expect(mergeMldsLineLabel('Mme.Valende', '', 'Enseignant')).toBe('Mme.Valende');
   });
 
   it('sums credits including HV lines from hash format', () => {

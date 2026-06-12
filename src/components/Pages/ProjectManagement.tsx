@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, fetchAllConfirmedPartnerships, getTags, getOrCreateProjectShareLink, getMldsAutresFinancementsFromMldsInfo, getMldsHseLinesFromMldsInfo, getMldsHvLinesFromMldsInfo, getMldsOperatingLinesFromMldsInfo, getMldsServiceLinesFromMldsInfo, getMldsTransportLinesFromMldsInfo, normalizeMldsLineCollection, sumMldsFinancialCreditsEuro, sumMldsHvCreditsEuro } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, fetchAllConfirmedPartnerships, getTags, getOrCreateProjectShareLink, getMldsAutresFinancementsFromMldsInfo, getMldsBilanHseLines, getMldsBilanHvLines, getMldsBilanRecord, getMldsHseLinesFromMldsInfo, getMldsHvLinesFromMldsInfo, getMldsOperatingLinesFromMldsInfo, getMldsServiceLinesFromMldsInfo, getMldsTransportLinesFromMldsInfo, hasMldsBilanData, mergeMldsLineLabel, normalizeMldsLineCollection, sumMldsFinancialCreditsEuro, sumMldsHvCreditsEuro } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -4529,7 +4529,7 @@ const ProjectManagement: React.FC = () => {
 
     const doc = new jsPDF();
     const mldsInfo = apiProjectData.mlds_information;
-    const pdfBilan = mldsInfo.mlds_bilan ?? mldsInfo.mnt;
+    const pdfBilan = getMldsBilanRecord(mldsInfo);
     const fmt = (v: unknown) => (v != null && v !== '' ? (typeof v === 'number' ? v.toFixed(2) : String(v)) : '—');
     let y = 0;
     const lh = 5.5;
@@ -4910,31 +4910,8 @@ const ProjectManagement: React.FC = () => {
       getMldsServiceLinesFromMldsInfo(mldsInfo).length > 0 ||
       getMldsAutresFinancementsFromMldsInfo(mldsInfo).length > 0;
 
-    const bilanPdf =
-      pdfBilan && typeof pdfBilan === 'object' ? (pdfBilan as Record<string, unknown>) : null;
-    const legacyBilanShape =
-      !!bilanPdf &&
-      (typeof bilanPdf.financial_transport === 'number' ||
-        bilanPdf.expected_participants != null ||
-        (Array.isArray(bilanPdf.financial_hse_lines) && bilanPdf.financial_hse_lines.length > 0) ||
-        bilanPdf.hv_comment ||
-        (bilanPdf as { financial_rate_comment?: string }).financial_rate_comment ||
-        bilanPdf.financial_transport_comment ||
-        bilanPdf.financial_service_comment ||
-        bilanPdf.financial_operating_comment ||
-        bilanPdf.expected_participants_comment);
-    const hasBilan =
-      !!bilanPdf &&
-      (bilanPdf.hse != null ||
-        (Array.isArray(bilanPdf.financial_hse_lines) && bilanPdf.financial_hse_lines.length > 0) ||
-        bilanPdf.hv != null ||
-        bilanPdf.financial_rate != null ||
-        (Array.isArray(bilanPdf.financial_transport) && bilanPdf.financial_transport.length > 0) ||
-        (Array.isArray(bilanPdf.financial_operating) && bilanPdf.financial_operating.length > 0) ||
-        (Array.isArray(bilanPdf.financial_service) && bilanPdf.financial_service.length > 0) ||
-        (Array.isArray(bilanPdf.financial_hv_lines) && bilanPdf.financial_hv_lines.length > 0) ||
-        (Array.isArray(bilanPdf.financial_autres_financements) && bilanPdf.financial_autres_financements.length > 0) ||
-        legacyBilanShape);
+    const bilanPdf = pdfBilan;
+    const hasBilan = hasMldsBilanData(bilanPdf);
 
     if (hasFinancials) {
       checkPage(hasBilan ? 35 : 25);
@@ -5007,16 +4984,17 @@ const ProjectManagement: React.FC = () => {
         isSectionHeader: true
       });
 
+      const shortenPdfLabel = (name: string, maxLen: number) =>
+        name.length > maxLen ? `${name.substring(0, maxLen - 3)}...` : name;
+
       const sumPriceArr = (arr: unknown): number =>
         normalizeMldsLineCollection<{ price?: string }>(arr).reduce(
           (s, l) => s + (Number.parseFloat(String(l?.price ?? '0')) || 0),
           0
         );
 
-      const bilanPdfRow = hasBilan && pdfBilan && typeof pdfBilan === 'object' ? pdfBilan : null;
-      const bilanHvLinesPdf = bilanPdfRow
-        ? normalizeMldsLineCollection<{ hour?: string; price?: string }>(bilanPdfRow.financial_hv_lines)
-        : [];
+      const bilanPdfRow = hasBilan ? bilanPdf : null;
+      const bilanHvLinesPdf = bilanPdfRow ? getMldsBilanHvLines(bilanPdfRow) : [];
       const bilanRateNumPdf =
         bilanPdfRow && bilanPdfRow.financial_rate != null
           ? Number.parseFloat(String(bilanPdfRow.financial_rate))
@@ -5054,12 +5032,7 @@ const ProjectManagement: React.FC = () => {
         : [];
       const bilanHseArr = (): unknown[] => {
         if (!bilanPdfRow) return [];
-        const lines = normalizeMldsLineCollection(bilanPdfRow.financial_hse_lines);
-        if (lines.length > 0) return lines;
-        if (bilanPdfRow.hse != null) {
-          return [{ hse_name: 'HSE', hour: String(bilanPdfRow.hse) }];
-        }
-        return [];
+        return getMldsBilanHseLines(bilanPdfRow);
       };
 
       const bilanHvEuroComputed =
@@ -5120,7 +5093,7 @@ const ProjectManagement: React.FC = () => {
         formatDemandeTriple?: (d: any, amountD: number) => { h: string; rate: string; euro: string } | null,
         formatBilanTriple?: (b: any) => { h: string; rate: string; euro: string } | null
       ) => {
-        const bt = Array.isArray(bilanLines) ? bilanLines : [];
+        const bt = normalizeMldsLineCollection(bilanLines);
         const n = Math.max(demandeLines.length, bt.length);
         for (let i = 0; i < n; i++) {
           const d = demandeLines[i];
@@ -5160,8 +5133,8 @@ const ProjectManagement: React.FC = () => {
         for (let i = 0; i < maxHse; i++) {
           const d = hseDemande[i];
           const b = bilanHsePdf[i] as { hse_name?: string; hour?: string; price?: string; comment?: unknown } | undefined;
-          const name = (d?.hse_name || b?.hse_name || 'HSE').trim();
-          const short = name.length > 35 ? `${name.substring(0, 32)}...` : name;
+          const name = mergeMldsLineLabel(d?.hse_name, hasBilan && b ? b.hse_name : undefined, 'HSE');
+          const short = shortenPdfLabel(name, 35);
           const demH = d ? hseLineHours(d) : 0;
           const bilH = hasBilan && b ? hseLineHours(b) : 0;
           const bilanComment =
@@ -5184,8 +5157,12 @@ const ProjectManagement: React.FC = () => {
             const d = hvLinesPdf[i] as { teacher_name?: string; hour?: string; price?: string } | undefined;
             const b = bilanHvLinesPdf[i] as { teacher_name?: string; hour?: string; price?: string } | undefined;
             const h = d ? hvLineHours(d) : 0;
-            const name = (d?.teacher_name || b?.teacher_name || 'Enseignant').trim();
-            const shortName = name.length > 35 ? `${name.substring(0, 32)}...` : name;
+            const name = mergeMldsLineLabel(
+              d?.teacher_name,
+              hasBilan && b ? b.teacher_name : undefined,
+              'Enseignant'
+            );
+            const shortName = shortenPdfLabel(name, 35);
             const lineEuro = d ? h * mldsRate : 0;
             const bh = b ? hvLineHours(b) : 0;
             const bilanEuroLine = hasBilan && b ? bh * bilanRateNumPdf : 0;
@@ -5219,7 +5196,7 @@ const ProjectManagement: React.FC = () => {
             bilanVal: hvBilanVal,
             bilanComment: hvBilanComment,
             splitDemande: true,
-            splitBilan: hasBilan && bilanPdfRow && bilanPdfRow.hv != null,
+            splitBilan: Boolean(hasBilan && bilanPdfRow && bilanPdfRow.hv != null),
             demH: `${mldsHvHours.toFixed(2)} h`,
             demRate: '',
             demEuro: '',
@@ -5239,7 +5216,7 @@ const ProjectManagement: React.FC = () => {
           bilanVal: tauxBilanVal,
           bilanComment: tauxBilanComment,
           splitDemande: true,
-          splitBilan: hasBilan && bilanPdfRow && bilanPdfRow.financial_rate != null,
+          splitBilan: Boolean(hasBilan && bilanPdfRow && bilanPdfRow.financial_rate != null),
           demH: '',
           demRate: mldsRate.toFixed(2),
           demEuro: '',
@@ -5286,10 +5263,13 @@ const ProjectManagement: React.FC = () => {
         zipMoneyRows(
           transportDemande,
           bilanTransportArr(),
-          (d, b, i) => {
-            const name = d?.transport_name || (b as { transport_name?: string })?.transport_name || 'Transport';
-            const short = String(name).length > 35 ? `${String(name).substring(0, 32)}...` : String(name);
-            return `Transport — ${short}`;
+          (d, b) => {
+            const name = mergeMldsLineLabel(
+              d?.transport_name,
+              (b as { transport_name?: string })?.transport_name,
+              'Transport'
+            );
+            return `Transport — ${shortenPdfLabel(name, 35)}`;
           },
           b => `${(Number.parseFloat(String((b as { price?: string }).price || '0')) || 0).toFixed(2)} €`,
           b => bilanLineCommentPdf(b as { comment?: unknown }),
@@ -5299,9 +5279,12 @@ const ProjectManagement: React.FC = () => {
           operatingDemande,
           bilanOperatingArr(),
           (d, b) => {
-            const name = d?.operating_name || (b as { operating_name?: string })?.operating_name || 'Fonctionnement';
-            const short = String(name).length > 30 ? `${String(name).substring(0, 27)}...` : String(name);
-            return `Fonctionnement — ${short}`;
+            const name = mergeMldsLineLabel(
+              d?.operating_name,
+              (b as { operating_name?: string })?.operating_name,
+              'Fonctionnement'
+            );
+            return `Fonctionnement — ${shortenPdfLabel(name, 30)}`;
           },
           b => `${(Number.parseFloat(String((b as { price?: string }).price || '0')) || 0).toFixed(2)} €`,
           b => bilanLineCommentPdf(b as { comment?: unknown }),
@@ -5311,9 +5294,12 @@ const ProjectManagement: React.FC = () => {
           serviceDemande,
           bilanServiceArr(),
           (d, b) => {
-            const name = d?.service_name || (b as { service_name?: string })?.service_name || 'Prestataire';
-            const short = String(name).length > 30 ? `${String(name).substring(0, 27)}...` : String(name);
-            return `Prestataire — ${short}`;
+            const name = mergeMldsLineLabel(
+              d?.service_name,
+              (b as { service_name?: string })?.service_name,
+              'Prestataire'
+            );
+            return `Prestataire — ${shortenPdfLabel(name, 30)}`;
           },
           b => {
             const bb = b as { price?: string; hours?: string };
@@ -5343,9 +5329,12 @@ const ProjectManagement: React.FC = () => {
           autreDemande as Array<{ price?: string; autres_name?: string }>,
           bilanAutresArr,
           (d, b) => {
-            const name = d?.autres_name || (b as { autres_name?: string })?.autres_name || 'Autre financement';
-            const short = String(name).length > 30 ? `${String(name).substring(0, 27)}...` : String(name);
-            return `Autre financement — ${short}`;
+            const name = mergeMldsLineLabel(
+              d?.autres_name,
+              (b as { autres_name?: string })?.autres_name,
+              'Autre financement'
+            );
+            return `Autre financement — ${shortenPdfLabel(name, 30)}`;
           },
           b => `${(Number.parseFloat(String((b as { price?: string }).price || '0')) || 0).toFixed(2)} €`,
           b => bilanLineCommentPdf(b as { comment?: unknown }),
@@ -7890,7 +7879,7 @@ const ProjectManagement: React.FC = () => {
 
             {showMldsSupplementaryTabContent && (() => {
               const mldsFin = apiProjectData.mlds_information;
-              const mldsBilan = mldsFin?.mlds_bilan ?? mldsFin?.mnt;
+              const mldsBilan = getMldsBilanRecord(mldsFin);
               const hseLinesDisplay = getMldsHseLinesFromMldsInfo(mldsFin);
               const hvCreditLinesDisplay = getMldsHvLinesFromMldsInfo(mldsFin);
               const transportLinesDisplay = getMldsTransportLinesFromMldsInfo(mldsFin);
@@ -8017,11 +8006,19 @@ const ProjectManagement: React.FC = () => {
                           <div className="stat-content">
                             <div className="stat-value">{apiProjectData.mlds_information.expected_participants}</div>
                             <div className="stat-label">Effectifs prévisionnel</div>
-                            {mldsBilan && (mldsBilan.expected_participants != null || mldsBilan.expected_participants_comment) && (
+                            {mldsBilan &&
+                              (mldsBilan.expected_participants != null ||
+                                String(mldsBilan.expected_participants_comment ?? '').trim() !== '') && (
                               <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
                                 <div style={{ fontSize: '0.80rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.35rem' }}>Bilan à la clôture</div>
-                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>{mldsBilan.expected_participants ?? '0'}</div>
-                                {mldsBilan.expected_participants_comment && <div style={{ marginTop: '0.35rem', fontSize: '0.8125rem', color: '#4b5563', lineHeight: 1.4 }}>{mldsBilan.expected_participants_comment}</div>}
+                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
+                                  {String(mldsBilan.expected_participants ?? '0')}
+                                </div>
+                                {String(mldsBilan.expected_participants_comment ?? '').trim() !== '' && (
+                                  <div style={{ marginTop: '0.35rem', fontSize: '0.8125rem', color: '#4b5563', lineHeight: 1.4 }}>
+                                    {String(mldsBilan.expected_participants_comment)}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
