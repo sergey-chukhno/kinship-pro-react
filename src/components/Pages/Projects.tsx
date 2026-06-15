@@ -1513,8 +1513,10 @@ const Projects: React.FC = () => {
 
   const handleDeleteProject = (projectId: string) => {
     // Find the project title for the confirmation modal
-    // Search in all project lists
-    const project = [...projects, ...myProjects, ...mldsProjects, ...archivedProjects].find(p => p.id === projectId);
+    // Search in all project lists (including drafts on the "Brouillons" tab)
+    const project = [...projects, ...myProjects, ...mldsProjects, ...archivedProjects, ...draftProjects].find(
+      p => p.id === projectId
+    );
     if (project) {
       // Prevent deleting if project is ended
       if (project.status === 'ended') {
@@ -1535,6 +1537,7 @@ const Projects: React.FC = () => {
       setMyProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setMldsProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setArchivedProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+      setDraftProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
       setSelectedProject(null);
 
       // Rafraîchir en fonction de l'onglet actif
@@ -1550,9 +1553,13 @@ const Projects: React.FC = () => {
       // Close modal and reset state
       setIsDeleteModalOpen(false);
       setProjectToDelete(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erreur lors de la suppression du projet:', err);
-      showError('Erreur lors de la suppression du projet.');
+      if (err?.response?.status === 403) {
+        showError('Vous n’êtes pas autorisé à supprimer ce projet.');
+      } else {
+        showError('Erreur lors de la suppression du projet.');
+      }
       setIsDeleteModalOpen(false);
       setProjectToDelete(null);
     }
@@ -2444,12 +2451,16 @@ const Projects: React.FC = () => {
               const rawApiProject = rawProjectsMap.get(project.id);
               
               // Calculate permissions
-              const canManage = rawApiProject ? canUserManageProject(rawApiProject, state.user) : false;
-              const canDelete = rawApiProject ? canUserDeleteProject(rawApiProject, state.user?.id?.toString()) : false;
-              const isOwner = rawApiProject ? isUserProjectOwner(rawApiProject, state.user?.id?.toString()) : false;
+              const userIdStr = state.user?.id?.toString();
+              const canManage = rawApiProject
+                ? canUserManageProject(rawApiProject, state.user)
+                : Boolean(userIdStr && project.responsible?.id?.toString() === userIdStr);
+              const isOwner = rawApiProject
+                ? isUserProjectOwner(rawApiProject, userIdStr)
+                : Boolean(userIdStr && project.responsible?.id?.toString() === userIdStr);
+              const canDelete = rawApiProject ? canUserDeleteProject(rawApiProject, userIdStr) : isOwner;
               // Check co-owner status: first try rawApiProject, then fallback to project.coResponsibles
               let isCoOwner = false;
-              const userIdStr = state.user?.id?.toString();
               
               if (rawApiProject && userIdStr) {
                 isCoOwner = isUserProjectCoOwner(rawApiProject, userIdStr);

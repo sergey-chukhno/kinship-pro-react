@@ -195,7 +195,11 @@ export const isUserProjectOwner = (
 ): boolean => {
   if (!apiProject || !userId) return false;
   const userIdStr = userId.toString();
-  return apiProject.owner?.id?.toString() === userIdStr;
+  if (resolveProjectMemberUserId(apiProject.owner) === userIdStr) return true;
+  if (apiProject.owner_id != null && apiProject.owner_id.toString() === userIdStr) {
+    return true;
+  }
+  return false;
 };
 
 /**
