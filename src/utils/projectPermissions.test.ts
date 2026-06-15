@@ -4,6 +4,7 @@ import {
 import {
   isUserListedAsCoResponsible,
   isUserProjectCoOwner,
+  isUserProjectOwner,
   isUserProjectParticipant,
   resolveProjectMemberUserId,
 } from './projectPermissions';
@@ -43,5 +44,16 @@ describe('project co-responsible permissions (MLDS)', () => {
     };
     expect(getUserProjectRole(project, 55)).toBe('co-owner');
     expect(isUserProjectParticipant(project, '55')).toBe(true);
+  });
+
+  it('detects project owner via owner_id when owner object is absent', () => {
+    const project = { id: 3, owner_id: 99 };
+    expect(isUserProjectOwner(project, '99')).toBe(true);
+    expect(isUserProjectOwner(project, '10')).toBe(false);
+  });
+
+  it('detects project owner via owner.user_id', () => {
+    const project = { id: 4, owner: { user_id: 77 } };
+    expect(isUserProjectOwner(project, '77')).toBe(true);
   });
 });

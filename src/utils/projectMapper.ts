@@ -499,18 +499,25 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
     
     // Map owner to responsible
     const owner = apiProject.owner;
-    const responsible = owner ? {
-        id: owner.id != null ? owner.id.toString() : '',
-        name: owner.full_name || `${owner.first_name} ${owner.last_name}`,
-        avatar: owner.avatar_url || '/default-avatar.png',
-        profession: owner.job || owner.role || 'Membre',
-        organization: ownerOrganizationName, // Use owner's org, not project org or viewer's org
-        email: owner.email || '',
-        role: apiProject.owner_organization_role || undefined, // Role in organization
-        role_in_system: owner.role || undefined, // System role (directeur_ecole, principal, etc.)
-        city: apiProject.owner_city || undefined, // City of organization
-        is_deleted: owner.is_deleted || false // Preserve deleted status
-    } : null;
+    const ownerUserId =
+      resolveProjectMemberUserId(owner) ??
+      (apiProject.owner_id != null ? apiProject.owner_id.toString() : undefined);
+    const responsible = ownerUserId
+      ? {
+        id: ownerUserId,
+        name: owner
+          ? owner.full_name || `${owner.first_name || ''} ${owner.last_name || ''}`.trim() || owner.email || 'Responsable'
+          : 'Responsable',
+        avatar: owner?.avatar_url || '/default-avatar.png',
+        profession: owner?.job || owner?.role || 'Membre',
+        organization: ownerOrganizationName,
+        email: owner?.email || '',
+        role: apiProject.owner_organization_role || undefined,
+        role_in_system: owner?.role || undefined,
+        city: apiProject.owner_city || undefined,
+        is_deleted: owner?.is_deleted || false
+      }
+      : null;
     
     // Map co-responsables:
     // - Standard projects: apiProject.co_owners
