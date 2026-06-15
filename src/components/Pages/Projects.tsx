@@ -54,7 +54,7 @@ const Projects: React.FC = () => {
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [projectToDelete, setProjectToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isCloseProjectConfirmOpen, setIsCloseProjectConfirmOpen] = useState(false);
   const [isCloseProjectModalOpen, setIsCloseProjectModalOpen] = useState(false);
   const [projectToClose, setProjectToClose] = useState<Project | null>(null);
@@ -1511,20 +1511,29 @@ const Projects: React.FC = () => {
     }
   };
 
-  const handleDeleteProject = (projectId: string) => {
-    // Find the project title for the confirmation modal
-    // Search in all project lists (including drafts on the "Brouillons" tab)
-    const project = [...projects, ...myProjects, ...mldsProjects, ...archivedProjects, ...draftProjects].find(
-      p => p.id === projectId
-    );
-    if (project) {
-      // Prevent deleting if project is ended
-      if (project.status === 'ended') {
-        return;
-      }
-      setProjectToDelete({ id: projectId, title: project.title });
-      setIsDeleteModalOpen(true);
+  const handleDeleteProject = (project: Project) => {
+    const rawApiProject = rawProjectsMap.get(project.id);
+    console.log('[Projects] Supprimer — projet cliqué', {
+      project,
+      activeTab,
+      rawApiProject,
+      canDeleteOwner: rawApiProject
+        ? canUserDeleteProject(rawApiProject, state.user?.id?.toString())
+        : project.responsible?.id?.toString() === state.user?.id?.toString(),
+    });
+
+    if (project.status === 'ended') {
+      console.warn('[Projects] Supprimer — bloqué (projet terminé)', project.id);
+      return;
     }
+    if (project.status !== 'draft' && project.status !== 'archived') {
+      console.warn('[Projects] Supprimer — bloqué (statut non supprimable)', project.status);
+      return;
+    }
+
+    setProjectToDelete(project);
+    setIsDeleteModalOpen(true);
+    console.log('[Projects] Supprimer — modale ouverte', { id: project.id, title: project.title });
   };
 
   const confirmDeleteProject = async () => {
@@ -1546,6 +1555,8 @@ const Projects: React.FC = () => {
       } else if (activeTab === 'mlds-projects' || activeTab === 'mlds-remediation-projects') {
         invalidateMldsCache();
         await refreshMldsProjects(true);
+      } else if (activeTab === 'brouillons') {
+        await fetchDraftProjects();
       } else if (isPersonalUser && activeTab === 'mes-projets') {
         await fetchMyProjects();
       }
@@ -2505,7 +2516,7 @@ const Projects: React.FC = () => {
                   project={project}
                   onEdit={!isProjectEnded ? () => handleEditProject(project) : undefined}
                   onManage={() => handleManageProject(project)} // Always allow viewing/managing
-                  onDelete={canDeleteProject ? () => handleDeleteProject(project.id) : undefined}
+                  onDelete={canDeleteProject ? handleDeleteProject : undefined}
                   onClose={canClose ? () => handleCloseProject(project) : undefined}
                   isPersonalUser={isPersonalUser}
                   canManage={canManage && !isProjectEnded} // Can't manage if ended, but can view
@@ -2662,71 +2673,16 @@ const Projects: React.FC = () => {
       )}
 
       {isDeleteModalOpen && projectToDelete && (
-        <div className="modal-overlay" onClick={cancelDeleteProject}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-            <div className="modal-header">
-              <h3>Confirmer la suppression</h3>
-              <button className="modal-close" onClick={cancelDeleteProject}>
-                <i className="fas fa-times"></i>
-              </button>
-            </div>
-            
-            <div className="modal-body">
-              <div style={{ 
-                padding: '1.5rem', 
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1rem'
-              }}>
-                <div style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '50%',
-                  backgroundColor: '#fee2e2',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '0.5rem'
-                }}>
-                  <i className="fas fa-exclamation-triangle" style={{ fontSize: '2rem', color: '#dc2626' }}></i>
-                </div>
-                
-                <div>
-                  <h4 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>
-                    Êtes-vous sûr de vouloir supprimer ce projet ?
-                  </h4>
-                  <p style={{ fontSize: '0.95rem', color: '#6b7280', marginBottom: '1rem' }}>
-                    Cette action est irréversible. Le projet <strong>"{projectToDelete.title}"</strong> sera définitivement supprimé.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button 
-                className="btn btn-outline" 
-                onClick={cancelDeleteProject}
-                style={{ minWidth: '100px' }}
-              >
-                Annuler
-              </button>
-              <button 
-                className="btn btn-primary" 
-                onClick={confirmDeleteProject}
-                style={{ 
-                  minWidth: '100px',
-                  backgroundColor: '#dc2626',
-                  borderColor: '#dc2626'
-                }}
-              >
-                <i className="fas fa-trash" style={{ marginRight: '0.5rem' }}></i>
-                Supprimer
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          isOpen={isDeleteModalOpen}
+          title="Confirmer la suppression"
+          message={`Êtes-vous sûr de vouloir supprimer ce projet ?\n\nCette action est irréversible. Le projet « ${projectToDelete.title} » sera définitivement supprimé.`}
+          confirmText="Supprimer"
+          cancelText="Annuler"
+          variant="danger"
+          onConfirm={confirmDeleteProject}
+          onCancel={cancelDeleteProject}
+        />
       )}
 
       <ConfirmModal
