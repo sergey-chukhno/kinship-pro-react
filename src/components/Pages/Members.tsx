@@ -1400,7 +1400,10 @@ const Members: React.FC = () => {
     setIsImportExportOpen(false);
   };
 
-  const handleCsvImport = async (file: File) => {
+  const handleCsvImport = async (
+    file: File,
+    options?: { legalRepresentativeConsent?: boolean }
+  ) => {
     try {
       const currentUser = await getCurrentUser();
       let response;
@@ -1416,12 +1419,18 @@ const Members: React.FC = () => {
         if (!companyId) {
           throw new Error('Company ID not found');
         }
-        response = await importCompanyMembersCsv(companyId, file);
+        response = await importCompanyMembersCsv(companyId, file, {
+          legalRepresentativeConsent: options?.legalRepresentativeConsent,
+        });
       }
       
       // Refresh members list
       await fetchMembers();
-      if (isSchoolContext) await fetchSchoolStaff();
+      if (isSchoolContext) {
+        await fetchSchoolStaff();
+      } else {
+        await fetchPendingRequestsCount();
+      }
       
       return response.data;
     } catch (error: any) {
@@ -2572,6 +2581,7 @@ const Members: React.FC = () => {
         onClose={() => setIsCsvImportModalOpen(false)}
         onImport={handleCsvImport}
         isSchool={isSchoolContext}
+        allowsMinorMembers={companyAllowsMinorMembers}
       />
 
       {isClassStudentsModalOpen && selectedClass && (
