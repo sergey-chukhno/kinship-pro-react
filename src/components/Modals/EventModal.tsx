@@ -52,6 +52,7 @@ interface CsvRow {
 const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, onSave, forceCreate }) => {
   const { state } = useAppContext();
   const { showError } = useToast();
+  const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -1428,7 +1429,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                 </button>
                 <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.5rem 0 0' }}>
                   Format attendu : Prénom (requis), Nom (requis), Date de naissance (requis), Adresse e-mail (optionnel),
-                  Email représentant légal (obligatoire pour les mineurs de moins de 15 ans)
+                  Email représentant légal ({isSchoolContext ? 'optionnel' : 'obligatoire pour les mineurs de moins de 15 ans'})
                 </p>
               </div>
               {csvUploadSuccess && (

@@ -690,19 +690,18 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
               formData.birthday &&
               isMinorByBirthday(formData.birthday) && (
               <div className="form-group">
-                <label htmlFor="guardianEmail">Email représentant légal *</label>
+                <label htmlFor="guardianEmail">Email représentant légal (optionnel)</label>
                 <input
                   type="email"
                   id="guardianEmail"
                   name="guardianEmail"
                   value={formData.guardianEmail}
                   onChange={handleInputChange}
-                  required
                   className="form-input"
                   placeholder="parent@example.com"
                 />
                 <p className="form-hint">
-                  Obligatoire pour les élèves de moins de 15 ans (autorisation parentale).
+                  Facultatif pour les élèves de moins de 15 ans. Si renseigné, le représentant légal recevra les notifications.
                 </p>
               </div>
             )}
