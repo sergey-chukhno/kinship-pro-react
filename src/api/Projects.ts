@@ -1313,6 +1313,7 @@ export const deleteProjectDocument = async (
 };
 
 export interface UpdateProjectPayload {
+    organization_id?: number;
     project: {
         title?: string;
         description?: string;
@@ -1460,6 +1461,9 @@ export const updateProject = async (
     }
 
     const formData = new FormData();
+    if (payload.organization_id != null) {
+        formData.append('organization_id', payload.organization_id.toString());
+    }
     appendUpdateProjectFieldsToFormData(formData, payload.project);
     if (payload.project.mlds_information_attributes) {
         appendMldsInformationToFormData(formData, payload.project.mlds_information_attributes, {

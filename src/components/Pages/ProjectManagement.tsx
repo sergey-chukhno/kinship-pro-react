@@ -295,6 +295,10 @@ const ProjectManagement: React.FC = () => {
   const [editImagePreview, setEditImagePreview] = useState<string>('');
   const [availableSchoolLevels, setAvailableSchoolLevels] = useState<any[]>([]);
   const [isLoadingSchoolLevels, setIsLoadingSchoolLevels] = useState(false);
+  /** École porteuse sélectionnée dans le formulaire d'édition (teacher multi-établissements) */
+  const [editSelectedSchoolId, setEditSelectedSchoolId] = useState<string | null>(null);
+  /** Cache de toutes les classes de l'enseignant pour filtrer par établissement */
+  const [editTeacherClassesAll, setEditTeacherClassesAll] = useState<any[]>([]);
   const [editAvailableMembers, setEditAvailableMembers] = useState<any[]>([]);
   const [editCoResponsibleOptions, setEditCoResponsibleOptions] = useState<any[]>([]);
   const [isLoadingEditCoResponsibles, setIsLoadingEditCoResponsibles] = useState(false);
@@ -2133,6 +2137,132 @@ const ProjectManagement: React.FC = () => {
     editFormInitializedRef.current = true;
   }, [project, apiProjectData, isMLDSProject]);
 
+  const resolveProjectSchoolIdFromApi = (): number | null => {
+    if (apiProjectData?.school_id) {
+      return Number(apiProjectData.school_id);
+    }
+    if (apiProjectData?.school_levels && apiProjectData.school_levels.length > 0) {
+      const firstLevel = apiProjectData.school_levels[0];
+      const fromFirst = firstLevel?.school?.id || firstLevel?.school_id;
+      if (fromFirst != null) return Number(fromFirst);
+      for (const level of apiProjectData.school_levels) {
+        const schoolId = level?.school?.id || level?.school_id;
+        if (schoolId != null) return Number(schoolId);
+      }
+    }
+    const selectedOrgId = getSelectedOrganizationId(state.user, state.showingPageType);
+    return selectedOrgId != null ? Number(selectedOrgId) : null;
+  };
+
+  const filterTeacherClassesForSchool = (allClasses: any[], schoolId: number | null): any[] => {
+    if (schoolId == null) return [];
+    const schoolIdStr = String(schoolId);
+    const filtered = allClasses.filter(
+      (c: any) => String(c.school_id ?? c.school?.id) === schoolIdStr
+    );
+    return [...filtered].sort((a: any, b: any) => {
+      const byName = (a.name || '').localeCompare(b.name || '');
+      return byName !== 0 ? byName : (a.level || '').localeCompare(b.level || '');
+    });
+  };
+
+  const loadEditCoResponsiblesForSchool = async (schoolId: number) => {
+    setIsLoadingEditCoResponsibles(true);
+    try {
+      const membersResponse = await getTeacherSchoolMembers(schoolId, { per_page: 500, exclude_me: true });
+      setEditCoResponsibleOptions(membersResponse.data || []);
+    } catch (error) {
+      console.error('Error fetching teacher school members for co-responsibles:', error);
+      setEditCoResponsibleOptions([]);
+    } finally {
+      setIsLoadingEditCoResponsibles(false);
+    }
+  };
+
+  const loadEditPartnershipsForSchool = async (schoolId: number) => {
+    try {
+      const partnershipsResponse = await fetchAllConfirmedPartnerships(schoolId, 'school');
+      let partnerships = partnershipsResponse.data || [];
+      if (isMLDSProject) {
+        partnerships = partnerships.filter((partnership: any) => {
+          const partners = partnership.partners || [];
+          if (!Array.isArray(partners) || partners.length === 0) return false;
+          const hasSchool = partners.some((p: any) => p?.type?.toLowerCase() === 'school');
+          const hasCompany = partners.some((p: any) => p?.type?.toLowerCase() === 'company');
+          return hasSchool && !hasCompany;
+        });
+      }
+      setEditAvailablePartnerships(partnerships);
+      return partnerships;
+    } catch (err) {
+      console.error('Error fetching partnerships:', err);
+      setEditAvailablePartnerships([]);
+      return [];
+    }
+  };
+
+  const applyEditSchoolLevelsForTeacher = (schoolId: number | null, allClasses: any[]) => {
+    setAvailableSchoolLevels(filterTeacherClassesForSchool(allClasses, schoolId));
+  };
+
+  const handleEditSchoolChange = async (schoolId: string) => {
+    setEditSelectedSchoolId(schoolId || null);
+    const numericSchoolId = schoolId ? Number.parseInt(schoolId, 10) : null;
+
+    applyEditSchoolLevelsForTeacher(numericSchoolId, editTeacherClassesAll);
+
+    const validLevelIds = new Set(
+      filterTeacherClassesForSchool(editTeacherClassesAll, numericSchoolId).map((c: any) => c.id?.toString())
+    );
+    const removedClassIds = editForm.mldsSchoolLevelIds.filter(id => !validLevelIds.has(id));
+
+    setEditForm(prev => ({
+      ...prev,
+      mldsSchoolLevelIds: prev.mldsSchoolLevelIds.filter(id => validLevelIds.has(id)),
+      co_owners: []
+    }));
+
+    if (removedClassIds.length > 0) {
+      setEditClassSelectionMode(prev => {
+        const next = { ...prev };
+        removedClassIds.forEach(id => delete next[id]);
+        return next;
+      });
+      setEditClassManualParticipantIds(prev => {
+        const next = { ...prev };
+        removedClassIds.forEach(id => delete next[id]);
+        return next;
+      });
+      setEditClassCoResponsibles(prev => {
+        const next = { ...prev };
+        removedClassIds.forEach(id => delete next[id]);
+        return next;
+      });
+    }
+
+    setEditPartnershipCoResponsibles({});
+    setEditPartnershipCoResponsiblesPopup(null);
+    setEditPartnershipCoResponsiblesSearchTerm('');
+    setEditClassDetailPopup(null);
+    setEditClassCoResponsiblesPopup(null);
+
+    if (numericSchoolId != null && !Number.isNaN(numericSchoolId)) {
+      const [, partnerships] = await Promise.all([
+        loadEditCoResponsiblesForSchool(numericSchoolId),
+        loadEditPartnershipsForSchool(numericSchoolId)
+      ]);
+      const validPartnershipIds = new Set(partnerships.map((p: any) => String(p.id)));
+      setEditForm(prev => ({
+        ...prev,
+        partners: prev.partners.filter(id => validPartnershipIds.has(id))
+      }));
+      setEditPartnershipContactMembers([]);
+    } else {
+      setEditCoResponsibleOptions([]);
+      setEditAvailablePartnerships([]);
+    }
+  };
+
   const handleEdit = async () => {
     // Prevent editing if project is ended
     if (isProjectEnded) {
@@ -2205,51 +2335,11 @@ const ProjectManagement: React.FC = () => {
     }
 
     // Load co-responsibles options (school staff + community) when teacher and project has a school
-    // Get school ID from project's school_levels or user context
-    let projectSchoolId: number | null = null;
-    if (state.showingPageType === 'teacher') {
-      // Priorité 1: school_id direct dans apiProjectData
-      if (apiProjectData?.school_id) {
-        projectSchoolId = apiProjectData.school_id;
-      }
-      // Priorité 2: depuis school_levels
-      else if (apiProjectData?.school_levels && apiProjectData.school_levels.length > 0) {
-        // Essayer d'abord school.id, puis school_id dans le level
-        const firstLevel = apiProjectData.school_levels[0];
-        projectSchoolId = firstLevel?.school?.id || firstLevel?.school_id || null;
-
-        // Si toujours null, chercher dans tous les levels
-        if (!projectSchoolId) {
-          for (const level of apiProjectData.school_levels) {
-            const schoolId = level?.school?.id || level?.school_id;
-            if (schoolId) {
-              projectSchoolId = schoolId;
-              break;
-            }
-          }
-        }
-      }
-      // Priorité 3: fallback à l'école sélectionnée par l'utilisateur
-      else {
-        const selectedOrgId = getSelectedOrganizationId(state.user, state.showingPageType);
-        const selectedSchool = state.user?.available_contexts?.schools?.find((s: any) => s.id === selectedOrgId);
-        projectSchoolId = selectedSchool?.id || null;
-      }
-    }
+    const projectSchoolId = state.showingPageType === 'teacher' ? resolveProjectSchoolIdFromApi() : null;
+    setEditSelectedSchoolId(projectSchoolId != null ? String(projectSchoolId) : null);
 
     if (state.showingPageType === 'teacher' && projectSchoolId) {
-      setIsLoadingEditCoResponsibles(true);
-      try {
-        console.log('🔍 [handleEdit] Fetching co-responsables for school:', projectSchoolId);
-        const membersResponse = await getTeacherSchoolMembers(projectSchoolId, { per_page: 500, exclude_me: true });
-        console.log('🔍 [handleEdit] Co-responsables fetched:', membersResponse.data?.length || 0);
-        setEditCoResponsibleOptions(membersResponse.data || []);
-      } catch (error) {
-        console.error('Error fetching teacher school members for co-responsibles:', error);
-        setEditCoResponsibleOptions([]);
-      } finally {
-        setIsLoadingEditCoResponsibles(false);
-      }
+      await loadEditCoResponsiblesForSchool(projectSchoolId);
     } else {
       setEditCoResponsibleOptions([]);
     }
@@ -2257,7 +2347,10 @@ const ProjectManagement: React.FC = () => {
     // Load partnerships
     try {
       const organizationType = getOrganizationType(state.showingPageType);
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const organizationId =
+        state.showingPageType === 'teacher' && projectSchoolId
+          ? projectSchoolId
+          : getOrganizationId(state.user, state.showingPageType);
 
       if (organizationType && organizationId && (organizationType === 'school' || organizationType === 'company')) {
         const partnershipsResponse = await fetchAllConfirmedPartnerships(organizationId, organizationType);
@@ -2324,34 +2417,29 @@ const ProjectManagement: React.FC = () => {
     setIsLoadingSchoolLevels(true);
     try {
       const organizationType = getOrganizationType(state.showingPageType);
-      const organizationId = getOrganizationId(state.user, state.showingPageType);
+      const organizationId =
+        state.showingPageType === 'teacher' && projectSchoolId
+          ? projectSchoolId
+          : getOrganizationId(state.user, state.showingPageType);
 
       if (state.showingPageType === 'teacher') {
         const response = await getTeacherClasses(1, 1000);
         const data = response.data?.data ?? response.data;
         const allClasses = Array.isArray(data) ? data : [];
-        if (organizationId != null) {
-          const schoolIdStr = String(organizationId);
-          const filtered = allClasses.filter(
-            (c: any) => String(c.school_id ?? c.school?.id) === schoolIdStr
-          );
-          const sorted = [...filtered].sort((a: any, b: any) => {
-            const byName = (a.name || '').localeCompare(b.name || '');
-            return byName !== 0 ? byName : (a.level || '').localeCompare(b.level || '');
-          });
-          setAvailableSchoolLevels(sorted);
-        } else {
-          setAvailableSchoolLevels([]);
-        }
+        setEditTeacherClassesAll(allClasses);
+        applyEditSchoolLevelsForTeacher(projectSchoolId, allClasses);
       } else if (organizationType === 'school' && organizationId) {
         const response = await getSchoolLevels(organizationId, 1, 100);
         setAvailableSchoolLevels(response.data?.data || []);
+        setEditTeacherClassesAll([]);
       } else {
         setAvailableSchoolLevels([]);
+        setEditTeacherClassesAll([]);
       }
     } catch (err) {
       console.error('Error fetching school levels:', err);
       setAvailableSchoolLevels([]);
+      setEditTeacherClassesAll([]);
     } finally {
       setIsLoadingSchoolLevels(false);
     }
@@ -2383,8 +2471,22 @@ const ProjectManagement: React.FC = () => {
 
       // Validate network issue addressed for MLDS projects when status is to_process, in_progress, coming, or pending_validation
       if (isMLDSProject && (effectiveStatus === 'to_process' || effectiveStatus === 'in_progress' || effectiveStatus === 'coming' || effectiveStatus === 'pending_validation')) {
+        const teacherSchools = state.user?.available_contexts?.schools || [];
+        if (
+          (state.showingPageType === 'teacher' || state.user?.role === 'teacher') &&
+          teacherSchools.length > 1 &&
+          !editSelectedSchoolId
+        ) {
+          showError('Veuillez sélectionner un établissement porteur');
+          return;
+        }
         if (!editForm.mldsNetworkIssueAddressed || editForm.mldsNetworkIssueAddressed.trim() === '') {
           showError('Veuillez remplir la problématique du réseau à laquelle l\'action répond');
+          return;
+        }
+        // Au moins un objectif de l'action doit être coché (pas tous) pour pouvoir soumettre
+        if (!editForm.mldsActionObjectives || editForm.mldsActionObjectives.length === 0) {
+          showError('Veuillez cocher au moins un objectif de l\'action');
           return;
         }
       }
@@ -2401,6 +2503,17 @@ const ProjectManagement: React.FC = () => {
       };
       const payload = mapEditFormToBackend(editPayloadForm, state.tags || [], project);
       payload.project.status = effectiveStatus;
+
+      if (
+        isMLDSProject &&
+        (state.showingPageType === 'teacher' || state.user?.role === 'teacher') &&
+        editSelectedSchoolId
+      ) {
+        const schoolIdNum = Number.parseInt(editSelectedSchoolId, 10);
+        if (!Number.isNaN(schoolIdNum)) {
+          payload.organization_id = schoolIdNum;
+        }
+      }
 
       // MLDS : pas de parcours/tag_ids (aligné sur MLDSProjectModal — tag_ids: [] à la création)
       if (isMLDSProject) {
@@ -2433,6 +2546,11 @@ const ProjectManagement: React.FC = () => {
 
       if (isMLDSProject) {
         const schoolCtx = (() => {
+          if (state.showingPageType === 'teacher' && editSelectedSchoolId) {
+            const fromEdit = Number.parseInt(editSelectedSchoolId, 10);
+            if (!Number.isNaN(fromEdit)) return fromEdit;
+          }
+          if (apiProjectData?.school_id != null) return Number(apiProjectData.school_id);
           const fromApi = apiProjectData?.school_levels?.[0]?.school?.id;
           if (fromApi != null) return Number(fromApi);
           const oid = getOrganizationId(state.user, state.showingPageType);
@@ -2993,17 +3111,32 @@ const ProjectManagement: React.FC = () => {
     setEditMldsServiceLineDestroyedIds([]);
     setEditPathwaySearchTerm('');
     setEditPathwayDropdownOpen(false);
+    setEditSelectedSchoolId(null);
+    setEditTeacherClassesAll([]);
   };
 
   const editMldsIsRemediation =
     (apiProjectData?.mlds_information as { type?: string; type_mlds?: string } | undefined)?.type === 'remediation' ||
     (apiProjectData?.mlds_information as { type?: string; type_mlds?: string } | undefined)?.type_mlds === 'remediation';
 
-  const editMldsCarrierSchoolName =
-    apiProjectData?.primary_organization_name ||
-    apiProjectData?.school_levels?.[0]?.school?.name ||
-    project?.organization ||
-    '—';
+  const editMldsCarrierSchoolName = (() => {
+    if (editSelectedSchoolId) {
+      const selectedSchool = state.user?.available_contexts?.schools?.find(
+        (s: any) => s.id?.toString() === editSelectedSchoolId
+      );
+      if (selectedSchool?.name) return selectedSchool.name;
+    }
+    return (
+      apiProjectData?.primary_organization_name ||
+      apiProjectData?.school_levels?.[0]?.school?.name ||
+      project?.organization ||
+      '—'
+    );
+  })();
+
+  const editTeacherAvailableSchools = state.user?.available_contexts?.schools || [];
+  const canEditTeacherSelectSchool =
+    state.showingPageType === 'teacher' && editTeacherAvailableSchools.length > 1;
 
   const showEditSchoolLevelsBlock =
     getOrganizationType(state.showingPageType) === 'school' || state.showingPageType === 'teacher';
@@ -3011,7 +3144,12 @@ const ProjectManagement: React.FC = () => {
   const renderEditOrganisationPorteuseBlock = (sectionLabel: string) => (
     <div className="form-group">
       <div className="form-label">{sectionLabel}</div>
-      {availableSchoolLevels.length > 0 ? (
+      {isLoadingSchoolLevels ? (
+        <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
+          <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }} aria-hidden />
+          Chargement des organisations porteuses...
+        </div>
+      ) : availableSchoolLevels.length > 0 ? (
         <>
           <div className="multi-select-container">
             {availableSchoolLevels.map(classItem => (
@@ -6276,8 +6414,10 @@ const ProjectManagement: React.FC = () => {
                     {getRoleDisplayText(userProjectRole)}
                   </span>
                 ) : null}
-                {/* Edit button: owner (all projects) or co-responsable (MLDS), hidden for superadmin in read-only view */}
-                {apiProjectData && canEditProject && !isProjectEnded && !isReadOnlyMode && (
+                {/* Edit button: owner (all projects) or co-responsable (MLDS), hidden for superadmin in read-only view.
+                    Côté teacher, un projet "À traiter" (to_process) n'est pas éditable. */}
+                {apiProjectData && canEditProject && !isProjectEnded && !isReadOnlyMode &&
+                  !((state.showingPageType === 'teacher' || state.user?.role === 'teacher') && project.status === 'to_process') && (
                   <button
                     type="button"
                     className="btn-icon edit-btn"
@@ -8697,11 +8837,46 @@ const ProjectManagement: React.FC = () => {
                                                     {String(line.comment)}
                                                   </div>
                                                 )}
-                                                {line.quote_url && (
-                                                  <a href={line.quote_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8125rem', display: 'inline-block', marginTop: '0.25rem' }}>
-                                                    Voir le devis
-                                                  </a>
-                                                )}
+                                                <div style={{ marginTop: '0.35rem' }}>
+                                                  {line.quote_url ? (
+                                                    <a
+                                                      href={line.quote_url}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        padding: '3px 10px',
+                                                        borderRadius: '999px',
+                                                        background: '#eff6ff',
+                                                        border: '1px solid #bfdbfe',
+                                                        color: '#1d4ed8',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 600,
+                                                        textDecoration: 'none'
+                                                      }}
+                                                    >
+                                                      <i className="fas fa-file-invoice" aria-hidden />
+                                                      Voir le devis
+                                                      <i className="fas fa-external-link-alt" aria-hidden style={{ fontSize: '0.65rem' }} />
+                                                    </a>
+                                                  ) : (
+                                                    <span
+                                                      style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        fontSize: '0.75rem',
+                                                        color: '#94a3b8',
+                                                        fontStyle: 'italic'
+                                                      }}
+                                                    >
+                                                      <i className="fas fa-file-invoice" aria-hidden />
+                                                      Aucun devis joint
+                                                    </span>
+                                                  )}
+                                                </div>
                                               </div>
                                             );
                                             })}
@@ -9065,14 +9240,32 @@ const ProjectManagement: React.FC = () => {
 
                   <div className="form-group">
                     <label htmlFor="mlds-carrier-school">Établissement porteur <span style={{ color: 'red' }}>*</span></label>
-                    <input
-                      type="text"
-                      id="mlds-carrier-school"
-                      className="form-input"
-                      value={editMldsCarrierSchoolName}
-                      readOnly
-                      aria-readonly="true"
-                    />
+                    {canEditTeacherSelectSchool ? (
+                      <select
+                        id="mlds-carrier-school"
+                        className="form-select"
+                        value={editSelectedSchoolId ?? ''}
+                        onChange={(e) => { void handleEditSchoolChange(e.target.value); }}
+                      >
+                        <option value="">Sélectionnez un établissement</option>
+                        {[...editTeacherAvailableSchools]
+                          .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''))
+                          .map((school: any) => (
+                            <option key={school.id} value={school.id}>
+                              {school.name}
+                            </option>
+                          ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        id="mlds-carrier-school"
+                        className="form-input"
+                        value={editMldsCarrierSchoolName}
+                        readOnly
+                        aria-readonly="true"
+                      />
+                    )}
                   </div>
 
                   {showEditSchoolLevelsBlock && renderEditOrganisationPorteuseBlock('Organisation porteuse')}
@@ -10412,68 +10605,6 @@ développées par les participants"
                                   <span style={{ fontSize: '0.8125rem', color: '#374151', fontWeight: 600, minWidth: '88px' }} title="Taux horaire = montant ÷ heures">
                                     {computedEditServiceHourlyRate(line)}
                                   </span>
-                                  {(() => {
-                                    const qCount = countServiceQuoteFiles(editServiceQuoteFiles);
-                                    const hasThis = editServiceQuoteFiles[index] != null;
-                                    const canPickMore = qCount < MAX_SERVICE_QUOTE_FILES || hasThis;
-                                    return canPickMore ? (
-                                  <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', marginBottom: 0 }}>
-                                    <i className="fas fa-paperclip" style={{ marginRight: '6px' }} aria-hidden />
-                                    Joindre un devis
-                                    <input
-                                      type="file"
-                                      style={{ display: 'none' }}
-                                      accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
-                                      onChange={(e) => {
-                                        const f = e.target.files?.[0];
-                                        if (!f) return;
-                                        const check = validateServiceQuoteSelection(f, editServiceQuoteFiles, index);
-                                        if (!check.ok) {
-                                          showError(check.message);
-                                          e.target.value = '';
-                                          return;
-                                        }
-                                        setEditServiceQuoteFiles(prev => {
-                                          const next = [...prev];
-                                          while (next.length <= index) next.push(null);
-                                          next[index] = f;
-                                          return next;
-                                        });
-                                        e.target.value = '';
-                                      }}
-                                    />
-                                  </label>
-                                    ) : (
-                                      <span style={{ fontSize: '0.75rem', color: '#9ca3af' }} title={`Maximum ${MAX_SERVICE_QUOTE_FILES} devis`}>
-                                        Quota atteint ({MAX_SERVICE_QUOTE_FILES}/{MAX_SERVICE_QUOTE_FILES})
-                                      </span>
-                                    );
-                                  })()}
-                                  {editServiceQuoteFiles[index] && (
-                                    <span style={{ fontSize: '0.75rem', color: '#059669', maxWidth: '160px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} className="truncate">
-                                      <span className="truncate" title={editServiceQuoteFiles[index]!.name}>{editServiceQuoteFiles[index]!.name}</span>
-                                      <button
-                                        type="button"
-                                        className="btn btn-outline btn-sm"
-                                        style={{ padding: '2px 6px', fontSize: '0.7rem', flexShrink: 0 }}
-                                        onClick={() => {
-                                          setEditServiceQuoteFiles(prev => {
-                                            const next = [...prev];
-                                            while (next.length <= index) next.push(null);
-                                            next[index] = null;
-                                            return next;
-                                          });
-                                        }}
-                                      >
-                                        Retirer
-                                      </button>
-                                    </span>
-                                  )}
-                                  {!editServiceQuoteFiles[index] && line.quote_url && (
-                                    <a href={line.quote_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem' }}>
-                                      Devis enregistré
-                                    </a>
-                                  )}
                                   <button
                                     type="button"
                                     onClick={() => removeEditFinancialLine('mldsFinancialService', index)}
@@ -10491,6 +10622,134 @@ développées par les participants"
                                   placeholder="Commentaire (optionnel)"
                                   style={{ width: '100%', marginTop: '8px' }}
                                 />
+                                {/* Zone devis : clairement séparée pour identifier le document joint */}
+                                <div
+                                  style={{
+                                    marginTop: '8px',
+                                    padding: '8px 10px',
+                                    borderRadius: '6px',
+                                    border: '1px dashed #cbd5e1',
+                                    background: '#f8fafc',
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                  }}
+                                >
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>
+                                    <i className="fas fa-file-invoice" aria-hidden />
+                                    Devis
+                                  </span>
+
+                                  {/* Fichier en cours d'envoi (sélectionné, pas encore enregistré) */}
+                                  {editServiceQuoteFiles[index] && (
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '3px 8px',
+                                        borderRadius: '999px',
+                                        background: '#ecfdf5',
+                                        border: '1px solid #a7f3d0',
+                                        color: '#059669',
+                                        fontSize: '0.75rem',
+                                        maxWidth: '220px'
+                                      }}
+                                    >
+                                      <i className="fas fa-paperclip" aria-hidden />
+                                      <span className="truncate" title={editServiceQuoteFiles[index]!.name} style={{ maxWidth: '140px' }}>
+                                        {editServiceQuoteFiles[index]!.name}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        title="Retirer le devis"
+                                        style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', padding: 0, lineHeight: 1, flexShrink: 0 }}
+                                        onClick={() => {
+                                          setEditServiceQuoteFiles(prev => {
+                                            const next = [...prev];
+                                            while (next.length <= index) next.push(null);
+                                            next[index] = null;
+                                            return next;
+                                          });
+                                        }}
+                                      >
+                                        <i className="fas fa-times-circle" aria-hidden />
+                                      </button>
+                                    </span>
+                                  )}
+
+                                  {/* Devis déjà enregistré (lien vers le document uploadé) */}
+                                  {!editServiceQuoteFiles[index] && line.quote_url && (
+                                    <a
+                                      href={line.quote_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '3px 8px',
+                                        borderRadius: '999px',
+                                        background: '#eff6ff',
+                                        border: '1px solid #bfdbfe',
+                                        color: '#1d4ed8',
+                                        fontSize: '0.75rem',
+                                        textDecoration: 'none'
+                                      }}
+                                    >
+                                      <i className="fas fa-external-link-alt" aria-hidden />
+                                      Voir le devis enregistré
+                                    </a>
+                                  )}
+
+                                  {/* Aucun devis joint */}
+                                  {!editServiceQuoteFiles[index] && !line.quote_url && (
+                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                                      Aucun document joint
+                                    </span>
+                                  )}
+
+                                  {/* Bouton joindre / remplacer */}
+                                  {(() => {
+                                    const qCount = countServiceQuoteFiles(editServiceQuoteFiles);
+                                    const hasThis = editServiceQuoteFiles[index] != null;
+                                    const canPickMore = qCount < MAX_SERVICE_QUOTE_FILES || hasThis;
+                                    const hasExisting = !!editServiceQuoteFiles[index] || !!line.quote_url;
+                                    return canPickMore ? (
+                                      <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', marginBottom: 0, marginLeft: 'auto' }}>
+                                        <i className="fas fa-paperclip" style={{ marginRight: '6px' }} aria-hidden />
+                                        {hasExisting ? 'Remplacer le devis' : 'Joindre un devis'}
+                                        <input
+                                          type="file"
+                                          style={{ display: 'none' }}
+                                          accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                                          onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            if (!f) return;
+                                            const check = validateServiceQuoteSelection(f, editServiceQuoteFiles, index);
+                                            if (!check.ok) {
+                                              showError(check.message);
+                                              e.target.value = '';
+                                              return;
+                                            }
+                                            setEditServiceQuoteFiles(prev => {
+                                              const next = [...prev];
+                                              while (next.length <= index) next.push(null);
+                                              next[index] = f;
+                                              return next;
+                                            });
+                                            e.target.value = '';
+                                          }}
+                                        />
+                                      </label>
+                                    ) : (
+                                      <span style={{ fontSize: '0.75rem', color: '#9ca3af', marginLeft: 'auto' }} title={`Maximum ${MAX_SERVICE_QUOTE_FILES} devis`}>
+                                        Quota atteint ({MAX_SERVICE_QUOTE_FILES}/{MAX_SERVICE_QUOTE_FILES})
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                             ))
                           )}
