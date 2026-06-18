@@ -22,6 +22,11 @@ export const canUserAssignBadges = (
     };
   }
 ): boolean => {
+  // Badge assignment is disabled for MLDS projects
+  if (project?.mlds_information != null) {
+    return false;
+  }
+
   // Must be a confirmed project participant
   if (!userProjectRole || userProjectRole === 'none') {
     return false;

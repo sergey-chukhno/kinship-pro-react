@@ -435,7 +435,7 @@ const ProjectManagement: React.FC = () => {
   const [apiProjectData, setApiProjectData] = useState<any>(null);
 
   // Check if project has MLDS information
-  const isMLDSProject = apiProjectData?.mlds_information != null;
+  const isMLDSProject = (apiProjectData?.mlds_information ?? project?.mlds_information) != null;
 
   // Check if project is ended - disable all actions if true
   const isProjectEnded = isProjectReadOnly(project?.status);
@@ -562,7 +562,7 @@ const ProjectManagement: React.FC = () => {
   // Open assign-badge modal from URL (e.g. from Sidebar "Actions rapides" -> Attribuer un badge, after selecting project)
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
-    if (!project?.id || searchParams.get('open') !== 'assign-badge') return;
+    if (!project?.id || searchParams.get('open') !== 'assign-badge' || isMLDSProject) return;
     setSelectedParticipantForBadge(null);
     setIsBadgeModalOpen(true);
     setSearchParams((prev) => {
@@ -570,7 +570,7 @@ const ProjectManagement: React.FC = () => {
       next.delete('open');
       return next;
     }, { replace: true });
-  }, [project?.id, searchParams, setSearchParams]);
+  }, [project?.id, searchParams, setSearchParams, isMLDSProject]);
 
   // Fetch pending requests when project ID changes or requests tab is active
   useEffect(() => {
@@ -3737,11 +3737,14 @@ const ProjectManagement: React.FC = () => {
   };
 
   const handleAwardBadge = (participantId: string) => {
+    if (isMLDSProject) return;
     setSelectedParticipantForBadge(participantId);
     setIsBadgeModalOpen(true);
   };
 
   const handleAssignBadge = () => {
+    if (isMLDSProject) return;
+
     // Prevent assigning badges if project is ended
     if (isProjectEnded) {
       showError('Impossible d\'attribuer des badges à un projet terminé');
@@ -4306,6 +4309,8 @@ const ProjectManagement: React.FC = () => {
   // };
 
   const handleAddParticipant = async () => {
+    if (isMLDSProject) return;
+
     // Prevent adding participants if project is ended
     if (isProjectEnded) {
       showError('Impossible d\'ajouter des participants à un projet terminé');
@@ -4510,6 +4515,10 @@ const ProjectManagement: React.FC = () => {
       role = 'admin';
       canAssignBadges = false;
     } else if (newRoleValue === 'member-with-badges') {
+      if (isMLDSProject) {
+        showError('Les projets MLDS ne permettent pas l\'attribution de badges');
+        return;
+      }
       // Check if current user can grant badge permissions
       if (!canCreateAdmins()) {
         showError('Seul le responsable du projet ou un co-responsable peut accorder les permissions de badges');
@@ -6022,7 +6031,9 @@ const ProjectManagement: React.FC = () => {
                   {participant.role !== 'owner' && participant.role !== 'co-owner' && (
                     <>
                       <option value="member">Participant</option>
-                      <option value="member-with-badges">Participant avec droit de badges</option>
+                      {!isMLDSProject && (
+                        <option value="member-with-badges">Participant avec droit de badges</option>
+                      )}
                       <option value="admin">Admin</option>
                     </>
                   )}
@@ -6041,7 +6052,7 @@ const ProjectManagement: React.FC = () => {
                         Retirer
                       </button>
                     )}
-                    {canAssignBadges && !isProjectEnded && project.status !== 'draft' && (
+                    {canAssignBadges && !isMLDSProject && !isProjectEnded && project.status !== 'draft' && (
                       <button
                         className="btn-accept"
                         onClick={() => handleAwardBadge(participant.memberId)}
@@ -6116,7 +6127,9 @@ const ProjectManagement: React.FC = () => {
                           {participant.role !== 'owner' && participant.role !== 'co-owner' && (
                             <>
                               <option value="member">Participant</option>
-                              <option value="member-with-badges">Participant avec droit de badges</option>
+                              {!isMLDSProject && (
+                                <option value="member-with-badges">Participant avec droit de badges</option>
+                              )}
                               <option value="admin">Admin</option>
                             </>
                           )}
@@ -6135,7 +6148,7 @@ const ProjectManagement: React.FC = () => {
                                 <i className="fas fa-user-minus"></i> Retirer
                               </button>
                             )}
-                            {canAssignBadges && project.status !== 'draft' && (
+                            {canAssignBadges && !isMLDSProject && project.status !== 'draft' && (
                               <button
                                 type="button"
                                 className="btn-accept btn-sm"
@@ -6252,7 +6265,7 @@ const ProjectManagement: React.FC = () => {
               <i className="fas fa-file-pdf"></i> Exporter en PDF
             </button>
           )}
-          {canAssignBadges && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
+          {canAssignBadges && !isMLDSProject && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
             <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
               <i className="fas fa-award"></i> Attribuer un badge
             </button>
@@ -7286,7 +7299,7 @@ const ProjectManagement: React.FC = () => {
                           ))}
                         </div>
                         <div className="member-actions">
-                          {canAssignBadges && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
+                          {canAssignBadges && !isMLDSProject && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
                             <button
                               type="button"
                               className="btn-icon badge-btn"
@@ -7399,7 +7412,7 @@ const ProjectManagement: React.FC = () => {
               </div>
             )}
 
-            {activeTab === 'participants' && renderParticipantsSection(!isProjectEnded && !isReadOnlyMode, true)}
+            {activeTab === 'participants' && renderParticipantsSection(!isMLDSProject && !isProjectEnded && !isReadOnlyMode, true)}
 
             {activeTab === 'equipes' && (
               <div className="tab-content active">
