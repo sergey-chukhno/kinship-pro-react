@@ -42,6 +42,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     firstName: '',
     lastName: '',
     email: '',
+    guardianEmail: '',
     birthday: '',
     role: 'voluntary',
     avatar: ''
@@ -206,7 +207,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
       return;
     }
 
-    if (isMinorVariant && !formData.email?.trim()) {
+    if (isMinorVariant && !formData.guardianEmail?.trim()) {
       showError("L'email du représentant légal est obligatoire.");
       return;
     }
@@ -235,12 +236,13 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
         user_role: formData.role  // System role
       };
 
-      if (formData.email) {
-        payload.email = formData.email;
+      if (formData.email?.trim()) {
+        payload.email = formData.email.trim();
       }
       if (isMinorVariant) {
         payload.create_minor = true;
         payload.legal_representative_consent = true;
+        payload.guardian_email = formData.guardianEmail.trim();
       }
 
       // Call API
@@ -414,18 +416,39 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             </div>
 
             <div className="form-group">
-              <label htmlFor="email">{isMinorVariant ? 'Email du représentant légal *' : 'Email'}</label>
+              <label htmlFor="email">Email</label>
               <input
                 type="email"
                 id="email"
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                required={isMinorVariant}
                 className="form-input"
-                placeholder={isMinorVariant ? 'ex. representant@exemple.fr' : 'Optionnel - laisser vide pour créer un email temporaire'}
+                placeholder="Optionnel - laisser vide pour créer un email temporaire"
               />
+              {isMinorVariant && (
+                <p className="form-hint">Email personnel du mineur. Laisser vide pour générer un compte avec email temporaire.</p>
+              )}
             </div>
+
+            {isMinorVariant && (
+              <div className="form-group">
+                <label htmlFor="guardianEmail">Email représentant légal *</label>
+                <input
+                  type="email"
+                  id="guardianEmail"
+                  name="guardianEmail"
+                  value={formData.guardianEmail}
+                  onChange={handleInputChange}
+                  required
+                  className="form-input"
+                  placeholder="parent@example.com"
+                />
+                <p className="form-hint">
+                  Obligatoire pour les membres de moins de 15 ans (autorisation parentale et renouvellement annuel).
+                </p>
+              </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="birthday">Date de naissance *</label>

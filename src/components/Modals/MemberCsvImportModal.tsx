@@ -4,23 +4,34 @@ import './Modal.css';
 interface MemberCsvImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (file: File) => Promise<{
+  onImport: (
+    file: File,
+    options?: { legalRepresentativeConsent?: boolean }
+  ) => Promise<{
     created: Array<{ email: string; name: string; temporary_email?: boolean }>;
     existing: Array<{ email: string; name: string }>;
     errors: string[];
     warnings?: string[];
   }>;
   isSchool?: boolean;
+  allowsMinorMembers?: boolean;
 }
+
+const LEGAL_CONSENT_LABEL =
+  "Je déclare avoir informé le représentant légal et avoir obtenu son autorisation préalable pour la création de ce compte.";
+const LEGAL_CONSENT_TRACEABILITY =
+  "Cette déclaration est enregistrée et horodatée à des fins de traçabilité.";
 
 const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
   isOpen,
   onClose,
   onImport,
-  isSchool = false
+  isSchool = false,
+  allowsMinorMembers = false
 }) => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [legalRepresentativeConsent, setLegalRepresentativeConsent] = useState(false);
   const [importResults, setImportResults] = useState<{
     created: Array<{ email: string; name: string; temporary_email?: boolean }>;
     existing: Array<{ email: string; name: string }>;
@@ -48,9 +59,16 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
       return;
     }
 
+    if (!isSchool && allowsMinorMembers && !legalRepresentativeConsent) {
+      alert('Veuillez confirmer l\'autorisation du représentant légal pour importer des mineurs.');
+      return;
+    }
+
     setIsUploading(true);
     try {
-      const results = await onImport(csvFile);
+      const results = await onImport(csvFile, {
+        legalRepresentativeConsent: !isSchool && allowsMinorMembers ? legalRepresentativeConsent : undefined,
+      });
       setImportResults(results);
     } catch (error: any) {
       setImportResults({
@@ -67,6 +85,7 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
   const handleClose = () => {
     setCsvFile(null);
     setImportResults(null);
+    setLegalRepresentativeConsent(false);
     onClose();
   };
 
@@ -103,10 +122,36 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
                   disabled={isUploading}
                 />
                 <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                  Format attendu: Prénom (requis), Nom (requis), Date de naissance (requis), Adresse e-mail (optionnel)
+                  Format attendu: Prénom (requis), Nom (requis), Date de naissance (requis), Adresse e-mail (optionnel),
+                  Email représentant légal ({isSchool ? 'optionnel' : 'obligatoire pour les mineurs de moins de 15 ans'})
                   {isSchool && ', Classe (optionnel)'}
+                  {!isSchool && (
+                    <>
+                      <br />
+                      Les adultes (15 ans et plus) sont importés en tant que volontaires. Les mineurs nécessitent un contrat BLEU Premium.
+                    </>
+                  )}
                 </p>
               </div>
+
+              {!isSchool && allowsMinorMembers && (
+                <div className="form-group" style={{ marginTop: '1rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={legalRepresentativeConsent}
+                      onChange={(e) => setLegalRepresentativeConsent(e.target.checked)}
+                      disabled={isUploading}
+                      style={{ marginTop: '0.25rem' }}
+                    />
+                    <span style={{ fontSize: '0.9rem' }}>
+                      {LEGAL_CONSENT_LABEL}
+                      <br />
+                      <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{LEGAL_CONSENT_TRACEABILITY}</span>
+                    </span>
+                  </label>
+                </div>
+              )}
 
               {csvFile && (
                 <div style={{
@@ -135,7 +180,7 @@ const MemberCsvImportModal: React.FC<MemberCsvImportModalProps> = ({
                   type="button"
                   className="btn btn-primary"
                   onClick={handleImport}
-                  disabled={!csvFile || isUploading}
+                  disabled={!csvFile || isUploading || (!isSchool && allowsMinorMembers && !legalRepresentativeConsent)}
                 >
                   {isUploading ? (
                     <>

@@ -45,12 +45,14 @@ interface CsvRow {
   lastName: string;
   email?: string;
   birthday?: string;
+  guardianEmail?: string;
   fullName: string;
 }
 
 const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, onSave, forceCreate }) => {
   const { state } = useAppContext();
   const { showError } = useToast();
+  const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -449,17 +451,18 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
 
   // Helper function to create CSV file from parsed CSV rows
   const createCsvFileFromParticipants = (
-    participants: Array<{ firstName: string; lastName: string; email?: string; birthday?: string }>
+    participants: Array<{ firstName: string; lastName: string; email?: string; birthday?: string; guardianEmail?: string }>
   ): File | null => {
     if (participants.length === 0) return null;
 
     // Create CSV content
-    const headers = ['Prénom', 'Nom', 'Adresse e-mail', 'Date de naissance'];
+    const headers = ['Prénom', 'Nom', 'Adresse e-mail', 'Date de naissance', 'Email représentant légal'];
     const rows = participants.map(p => [
       p.firstName,
       p.lastName,
       p.email || '',
-      p.birthday || ''
+      p.birthday || '',
+      p.guardianEmail || ''
     ]);
 
     const csvContent = [
@@ -674,6 +677,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         let firstNameIndex = -1;
         let lastNameIndex = -1;
         let birthdayIndex = -1;
+        let guardianEmailIndex = -1;
 
         // Check first few lines for header (Google Forms format sometimes has header at line 3)
         for (let i = 0; i < Math.min(5, lines.length); i++) {
@@ -682,7 +686,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
             ? line.split(',').map((p) => p.trim())
             : line.split(';').map((p) => p.trim());
 
-          const emailIdx = parts.findIndex((p) => p.includes('email') || p.includes('e-mail') || p.includes('adresse e-mail'));
+          const emailIdx = parts.findIndex((p) =>
+            (p.includes('email') || p.includes('e-mail') || p.includes('adresse e-mail')) &&
+            !p.includes('representant') &&
+            !p.includes('représentant')
+          );
           const firstNameIdx = parts.findIndex((p) =>
             p.includes('prénom') || p.includes('prenom') || p.includes('first') || p.includes('firstname')
           );
@@ -693,13 +701,18 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
             (p.includes('name') && !p.includes('first'))
           );
           const birthdayIdx = parts.findIndex((p) => p.includes('naissance') || p.includes('birthday') || p.includes('birth') || p.includes('date'));
+          const guardianEmailIdx = parts.findIndex((p) =>
+            (p.includes('representant') && p.includes('legal')) ||
+            (p.includes('représentant') && p.includes('légal'))
+          );
 
-          if (emailIdx >= 0 || firstNameIdx >= 0 || lastNameIdx >= 0 || birthdayIdx >= 0) {
+          if (emailIdx >= 0 || firstNameIdx >= 0 || lastNameIdx >= 0 || birthdayIdx >= 0 || guardianEmailIdx >= 0) {
             headerRowIndex = i;
             emailIndex = emailIdx;
             firstNameIndex = firstNameIdx;
             lastNameIndex = lastNameIdx;
             birthdayIndex = birthdayIdx;
+            guardianEmailIndex = guardianEmailIdx;
             break;
           }
         }
@@ -744,10 +757,12 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           let lastName = '';
           let birthday = '';
 
+          let guardianEmail = '';
           if (emailIndex >= 0 && emailIndex < parts.length) email = parts[emailIndex];
           if (firstNameIndex >= 0 && firstNameIndex < parts.length) firstName = parts[firstNameIndex];
           if (lastNameIndex >= 0 && lastNameIndex < parts.length) lastName = parts[lastNameIndex];
           if (birthdayIndex >= 0 && birthdayIndex < parts.length) birthday = parts[birthdayIndex];
+          if (guardianEmailIndex >= 0 && guardianEmailIndex < parts.length) guardianEmail = parts[guardianEmailIndex];
 
           if (!firstName && !lastName) continue;
 
@@ -800,6 +815,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
               lastName,
               email: email || undefined,
               birthday: rowBirthday,
+              guardianEmail: guardianEmail.trim() || undefined,
               fullName: `${firstName} ${lastName}`.trim()
             };
             csvRowsToAdd.push(csvRow);
@@ -1411,9 +1427,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                 >
                   <i className="fas fa-upload"></i> Choisir un fichier CSV
                 </button>
-                <span style={{ fontSize: '12px', color: '#666' }}>
-                  Format: email ou nom (une colonne par ligne)
-                </span>
+                <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: '0.5rem 0 0' }}>
+                  Format attendu : Prénom (requis), Nom (requis), Date de naissance (requis), Adresse e-mail (optionnel),
+                  Email représentant légal ({isSchoolContext ? 'optionnel' : 'obligatoire pour les mineurs de moins de 15 ans'})
+                </p>
               </div>
               {csvUploadSuccess && (
                 <div style={{ marginTop: '10px', padding: '8px', backgroundColor: '#d4edda', color: '#155724', borderRadius: '4px', fontSize: '14px' }}>
