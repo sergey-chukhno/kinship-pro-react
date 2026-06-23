@@ -86,28 +86,21 @@ export interface FinancialHseLine {
     comment?: string | null;
 }
 
-/** Lignes HSE depuis l’API (nouveau format) ou ancien champ scalaire `financial_hse`. */
-export function getMldsHseLinesFromMldsInfo(
-    mlds: { financial_hse_lines?: FinancialHseLine[] | null; financial_hse?: number | null } | null | undefined
-): FinancialHseLine[] {
-    if (!mlds) return [];
-    if (Array.isArray(mlds.financial_hse_lines) && mlds.financial_hse_lines.length > 0) {
-        return mlds.financial_hse_lines.map(l => ({
-            hse_name: String(l.hse_name ?? ''),
-            hour:
-                l.hour != null && String(l.hour) !== ''
-                    ? String(l.hour)
-                    : (l as { price?: string }).price != null
-                      ? String((l as { price?: string }).price)
-                      : '',
-            comment: l.comment ?? undefined
-        }));
-    }
-    if (mlds.financial_hse != null) {
-        return [{ hse_name: 'HSE', hour: String(mlds.financial_hse), comment: '' }];
-    }
-    return [];
-}
+export {
+    getMldsAutresFinancementsFromMldsInfo,
+    getMldsBilanHseLines,
+    getMldsBilanHvLines,
+    getMldsBilanRecord,
+    getMldsHseLinesFromMldsInfo,
+    getMldsHvLinesFromMldsInfo,
+    getMldsOperatingLinesFromMldsInfo,
+    getMldsTransportLinesFromMldsInfo,
+    hasMldsBilanData,
+    mergeMldsLineLabel,
+    normalizeMldsLineCollection,
+    sumMldsFinancialCreditsEuro,
+    sumMldsHvCreditsEuro,
+} from '../utils/mldsFinancialLines';
 
 /** Prestataire : montant, heures d’intervention, devis optionnel (fichier via FormData `quote`) — lecture API héritée */
 export interface FinancialServiceLine {
@@ -375,6 +368,57 @@ export const getPartnerships = async (
         data: Array.isArray(response.data) ? response.data : [],
         meta: undefined
     };
+};
+
+const PARTNERSHIPS_PAGE_SIZE = 100;
+
+/**
+ * Load all confirmed partnerships (paginated API) for project modals / pickers.
+ */
+export const fetchAllConfirmedPartnerships = async (
+    organizationId: number,
+    organizationType: 'school' | 'company'
+): Promise<{ data: Partnership[]; meta?: { total_count: number } }> => {
+    const all: Partnership[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+        const { data, meta } = await getPartnerships(organizationId, organizationType, {
+            status: 'confirmed',
+            page,
+            per_page: PARTNERSHIPS_PAGE_SIZE
+        });
+        all.push(...(data || []));
+        totalPages = meta?.total_pages ?? 1;
+        page += 1;
+    } while (page <= totalPages);
+
+    return { data: all, meta: { total_count: all.length } };
+};
+
+/**
+ * Load all confirmed school partnerships for teacher project context.
+ */
+export const fetchAllTeacherSchoolPartnerships = async (
+    schoolId: number
+): Promise<{ data: Partnership[]; meta?: { total_count: number } }> => {
+    const all: Partnership[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+        const { data, meta } = await getTeacherSchoolPartnerships(schoolId, {
+            status: 'confirmed',
+            page,
+            per_page: PARTNERSHIPS_PAGE_SIZE
+        });
+        all.push(...(data || []));
+        totalPages = meta?.total_pages ?? 1;
+        page += 1;
+    } while (page <= totalPages);
+
+    return { data: all, meta: { total_count: all.length } };
 };
 
 /**
@@ -1269,6 +1313,7 @@ export const deleteProjectDocument = async (
 };
 
 export interface UpdateProjectPayload {
+    organization_id?: number;
     project: {
         title?: string;
         description?: string;
@@ -1416,6 +1461,9 @@ export const updateProject = async (
     }
 
     const formData = new FormData();
+    if (payload.organization_id != null) {
+        formData.append('organization_id', payload.organization_id.toString());
+    }
     appendUpdateProjectFieldsToFormData(formData, payload.project);
     if (payload.project.mlds_information_attributes) {
         appendMldsInformationToFormData(formData, payload.project.mlds_information_attributes, {

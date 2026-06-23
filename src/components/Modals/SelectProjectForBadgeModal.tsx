@@ -62,7 +62,9 @@ const SelectProjectForBadgeModal: React.FC<SelectProjectForBadgeModalProps> = ({
           return;
         }
 
-        const filtered = list.filter((p: any) => canAssignBadgesInProject(p, currentUserId));
+        const filtered = list.filter(
+          (p: any) => p.mlds_information == null && canAssignBadgesInProject(p, currentUserId)
+        );
         const mapped = filtered.map((p: any) =>
           mapApiProjectToFrontendProject(p, showingPageType, state.user)
         );
