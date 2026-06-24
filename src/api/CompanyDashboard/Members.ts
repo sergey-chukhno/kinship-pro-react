@@ -25,6 +25,7 @@ export function addCompanyMember(
     user_role?: string; // System role (voluntary, employee, etc.)
     create_minor?: boolean;  // BLEU Premium: allow member under 15
     legal_representative_consent?: boolean; // Required when create_minor is true
+    guardian_email?: string; // Required for minors (<15) — legal representative contact
   }
 ) {
     return axiosClient.post(`/api/v1/companies/${companyId}/members`, memberData);
@@ -46,9 +47,16 @@ export function acceptMember(companyId: number, memberId: number, role?: string)
     return axiosClient.put(`/api/v1/companies/${companyId}/members/${memberId}`, payload);
 }
 
-export function importCompanyMembersCsv(companyId: number, csvFile: File) {
+export function importCompanyMembersCsv(
+  companyId: number,
+  csvFile: File,
+  options?: { legalRepresentativeConsent?: boolean }
+) {
     const formData = new FormData();
     formData.append('csv_file', csvFile);
+    if (options?.legalRepresentativeConsent) {
+        formData.append('legal_representative_consent', 'true');
+    }
     return axiosClient.post(`/api/v1/companies/${companyId}/members/import_csv`, formData, {
         headers: {
             'Content-Type': 'multipart/form-data',

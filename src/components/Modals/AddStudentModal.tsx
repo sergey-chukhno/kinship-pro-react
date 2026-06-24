@@ -35,6 +35,18 @@ const tradFR: Record<string, string> = {
 /** Set to true to show the INE (Identifiant National Élève) field again. */
 const SHOW_INE_FIELD = false;
 
+const isMinorByBirthday = (birthday: string): boolean => {
+  if (!birthday) return false;
+  const bday = new Date(birthday);
+  const today = new Date();
+  let age = today.getFullYear() - bday.getFullYear();
+  const monthDiff = today.getMonth() - bday.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < bday.getDate())) {
+    age -= 1;
+  }
+  return age < 15;
+};
+
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSuccess }) => {
   const { state } = useAppContext();
   const isTeacherContext = state.showingPageType === 'teacher';
@@ -46,6 +58,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
     lastName: '',
     email: '',
     birthday: '',
+    guardianEmail: '',
     ine: '',
     role: 'member',
     roleAdditionalInfo: '',
@@ -421,7 +434,8 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
             birthday: formData.birthday,
             role: formData.role,
             role_additional_information: formData.roleAdditionalInfo || undefined,
-            ine: formData.ine || undefined
+            ine: formData.ine || undefined,
+            guardian_email: formData.guardianEmail.trim() || undefined
           }
         };
 
@@ -671,6 +685,26 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
                 <p className="form-hint">La date de naissance est obligatoire.</p>
               )}
             </div>
+
+            {studentRoles.includes(formData.role) &&
+              formData.birthday &&
+              isMinorByBirthday(formData.birthday) && (
+              <div className="form-group">
+                <label htmlFor="guardianEmail">Email représentant légal (optionnel)</label>
+                <input
+                  type="email"
+                  id="guardianEmail"
+                  name="guardianEmail"
+                  value={formData.guardianEmail}
+                  onChange={handleInputChange}
+                  className="form-input"
+                  placeholder="parent@example.com"
+                />
+                <p className="form-hint">
+                  Facultatif pour les élèves de moins de 15 ans. Si renseigné, le représentant légal recevra les notifications.
+                </p>
+              </div>
+            )}
 
             {SHOW_INE_FIELD && (
               <div className="form-group">
