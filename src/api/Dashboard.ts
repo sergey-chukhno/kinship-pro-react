@@ -79,14 +79,40 @@ export const removeTeacherStudent = (classId: number, studentId: number) => {
   return axiosClient.delete(`/api/v1/teachers/classes/${classId}/students/${studentId}`);
 };
 
+export type OrgProjectsQueryParams = {
+  include_branches?: boolean;
+  per_page?: number;
+  page?: number;
+  search?: string;
+  exclude_mlds?: boolean;
+  statuses?: string[];
+  sort_by?: string;
+  sort_direction?: 'asc' | 'desc';
+};
+
 export const getSchoolProjects = (
   schoolId: number,
-  includeBranches = false,
+  includeBranchesOrOptions: boolean | OrgProjectsQueryParams = false,
   perPage = 3,
   page = 1
 ) => {
+  const params: OrgProjectsQueryParams =
+    typeof includeBranchesOrOptions === 'object'
+      ? includeBranchesOrOptions
+      : {
+          include_branches: includeBranchesOrOptions,
+          per_page: perPage,
+          page,
+          sort_by: 'created_at',
+          sort_direction: 'desc',
+        };
+
   return axiosClient.get(`/api/v1/schools/${schoolId}/projects`, {
-    params: { include_branches: includeBranches, per_page: perPage, page: page, sort_by: 'created_at', sort_direction: 'desc' },
+    params: {
+      sort_by: 'created_at',
+      sort_direction: 'desc',
+      ...params,
+    },
   });
 };
 
@@ -130,12 +156,21 @@ export const getTeacherRecentMembers = (
 
 export const getCompanyProjects = (
   companyId: number,
-  includeBranches = false,
+  includeBranchesOrOptions: boolean | OrgProjectsQueryParams = false,
   perPage = 12,
   page = 1
 ) => {
+  const params: OrgProjectsQueryParams =
+    typeof includeBranchesOrOptions === 'object'
+      ? includeBranchesOrOptions
+      : {
+          include_branches: includeBranchesOrOptions,
+          per_page: perPage,
+          page,
+        };
+
   return axiosClient.get(`/api/v1/companies/${companyId}/projects`, {
-    params: { include_branches: includeBranches, per_page: perPage, page: page },
+    params,
   });
 };
 

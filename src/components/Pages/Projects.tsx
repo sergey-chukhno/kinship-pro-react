@@ -42,6 +42,7 @@ import {
   fetchAllTeacherProjectsPages,
   fetchAllUserProjectsPages,
 } from '../../utils/mldsProjectFetch';
+import { buildMyOrgProjectsParams } from '../../utils/orgProjectsApiParams';
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
@@ -74,8 +75,6 @@ const Projects: React.FC = () => {
   const filtersEffectInitialMount = React.useRef(true);
   // Track if initial fetchProjects has been called to avoid duplicate in projectPage effect
   const initialProjectsFetched = React.useRef(false);
-  // Cache for pro/edu "my-org" projects to avoid refetch on pagination
-  const myOrgProjectsCacheRef = React.useRef<{ key: string; rawAll: any[] } | null>(null);
   // Cache for MLDS tabs: full dataset per org context (filter + paginate client-side)
   const mldsProjectsCacheRef = React.useRef<{ key: string; rawAll: any[] } | null>(null);
   const [mldsCatalogCounts, setMldsCatalogCounts] = useState({ perseverance: 0, remediation: 0 });
@@ -147,9 +146,9 @@ const Projects: React.FC = () => {
   const [mldsRemediationEndDate, setMldsRemediationEndDate] = useState('');
   const [archivedTypeFilter, setArchivedTypeFilter] = useState<'all' | 'classic' | 'mlds'>('all');
 
-  // Loading states
-  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
-  // const [isLoadingBadges, setIsLoadingBadges] = useState(false); // Unused
+  // Loading states (main list vs MLDS are isolated to avoid empty-state flash)
+  const [isLoadingMainProjects, setIsLoadingMainProjects] = useState(true);
+  const [isLoadingMldsProjects, setIsLoadingMldsProjects] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
 
   // Draft projects (teacher / pro / edu): loaded when "Brouillons" tab is active
@@ -170,7 +169,7 @@ const Projects: React.FC = () => {
 
   // Fonction pour récupérer les projets publics (Nouveautés)
   const fetchPublicProjects = React.useCallback(async (page: number = 1) => {
-    setIsLoadingProjects(true);
+    setIsLoadingMainProjects(true);
     try {
       const currentUser = await getCurrentUser();
       
@@ -205,14 +204,14 @@ const Projects: React.FC = () => {
       setProjectTotalCount(0);
       setInitialLoad(false);
     } finally {
-      setIsLoadingProjects(false);
+      setIsLoadingMainProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, organizationFilter, debouncedSearchTerm]);
 
   // Projets des établissements/organisations dont l'utilisateur est membre confirmé (pour mineurs < 15)
   const fetchOrganizationProjects = React.useCallback(async (page: number = 1) => {
-    setIsLoadingProjects(true);
+    setIsLoadingMainProjects(true);
     try {
       const currentUser = await getCurrentUser();
       const params: { page?: number; per_page?: number; search?: string } = { page, per_page: 12 };
@@ -244,14 +243,14 @@ const Projects: React.FC = () => {
       setProjectTotalCount(0);
       setInitialLoad(false);
     } finally {
-      setIsLoadingProjects(false);
+      setIsLoadingMainProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, debouncedSearchTerm]);
 
   // Fonction pour récupérer les projets de l'utilisateur (Mes projets)
   const fetchMyProjects = React.useCallback(async (page: number = 1) => {
-    setIsLoadingProjects(true);
+    setIsLoadingMainProjects(true);
     try {
       const currentUser = await getCurrentUser();
       
@@ -331,7 +330,7 @@ const Projects: React.FC = () => {
       setMyProjectsTotalCount(0);
       setInitialLoad(false);
     } finally {
-      setIsLoadingProjects(false);
+      setIsLoadingMainProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, debouncedSearchTerm]);
@@ -396,7 +395,7 @@ const Projects: React.FC = () => {
         return;
       }
 
-      setIsLoadingProjects(true);
+      setIsLoadingMldsProjects(true);
       try {
         let rawProjects: any[] = [];
 
@@ -450,15 +449,13 @@ const Projects: React.FC = () => {
 
         mldsProjectsCacheRef.current = { key: cacheKey, rawAll: rawProjects };
         setMldsCatalogCounts(countMldsByType(rawProjects.filter(isRawMldsProject)));
-        setInitialLoad(false);
       } catch (err) {
         console.error('Erreur lors de la récupération des projets MLDS:', err);
         showError('Erreur lors de la récupération des projets MLDS.');
         mldsProjectsCacheRef.current = { key: cacheKey, rawAll: [] };
         setMldsCatalogCounts({ perseverance: 0, remediation: 0 });
-        setInitialLoad(false);
       } finally {
-        setIsLoadingProjects(false);
+        setIsLoadingMldsProjects(false);
       }
     },
     [
@@ -641,9 +638,9 @@ const Projects: React.FC = () => {
 
   // Fonction pour récupérer les projets (réutilisable)
   const fetchProjects = React.useCallback(async (page: number = 1) => {
-    setIsLoadingProjects(true);
+    setIsLoadingMainProjects(true);
     try {
-      const currentUser = await getCurrentUser();
+      const currentUser = state.user ?? (await getCurrentUser()).data;
 
       if (isTeacher) {
         // Pour les enseignants : charger uniquement leurs projets (créés + participants)
@@ -668,7 +665,7 @@ const Projects: React.FC = () => {
         const contextId = getSelectedOrganizationId();
 
         if (organizationFilter === 'my-org') {
-          // Mon organisation / Mon établissement: utiliser l'API spécifique à l'organisation
+          // Mon organisation / Mon établissement: server-side filters + pagination
           if (!contextId) {
             console.warn('⚠️ [Projects] Aucun contextId trouvé pour le type:', state.showingPageType);
             setProjects([]);
@@ -677,72 +674,13 @@ const Projects: React.FC = () => {
             return;
           }
 
-          // For the "Projets" tab, we must exclude drafts/archives and keep only:
-          // coming / in_progress / ended. To keep pagination consistent with the counter,
-          // we fetch a large batch once and paginate client-side (cached).
-          const statusAllowed = new Set(['coming', 'in_progress', 'ended']);
-          const cacheKey = `${state.showingPageType}:${contextId}:${debouncedSearchTerm || ''}`;
-
-          const cached = myOrgProjectsCacheRef.current;
-          if (cached?.key === cacheKey && Array.isArray(cached.rawAll)) {
-            // Use cache to avoid refetch on pagination
-            const perPage = 12;
-            const totalCount = cached.rawAll.length;
-            const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
-            const startIndex = (page - 1) * perPage;
-            const endIndex = startIndex + perPage;
-            rawProjects = cached.rawAll.slice(startIndex, endIndex);
-            response = { data: { meta: { total_pages: totalPages, total_count: totalCount } } };
+          const apiParams = buildMyOrgProjectsParams(page, statusFilter, debouncedSearchTerm);
+          if (isEdu) {
+            response = await getSchoolProjects(contextId, apiParams);
           } else {
-            if (isEdu) {
-              // Use getSchoolProjects for schools (returns all school projects + branches + partners)
-              response = await getSchoolProjects(contextId, true, 1000, 1);
-            } else {
-              // Use getCompanyProjects for companies (returns all company projects + branches + partners)
-              response = await getCompanyProjects(contextId, true, 1000, 1);
-            }
-            rawProjects = response.data?.data || response.data || [];
-            // Exclure les projets MLDS
-            rawProjects = rawProjects.filter((p: any) => p.mlds_information == null);
-            // Keep only projects: coming / in_progress / ended
-            rawProjects = rawProjects.filter((p: any) => statusAllowed.has(String(p.status)));
-            // Apply search on full dataset before client-side pagination (pro/edu my-org flow)
-            if (debouncedSearchTerm) {
-              const query = debouncedSearchTerm.toLowerCase();
-              rawProjects = rawProjects.filter((p: any) => {
-                const title = String(p.title || '').toLowerCase();
-                const description = String(p.description || '').toLowerCase();
-                const ownerFirstName = String(p.owner?.first_name || '').toLowerCase();
-                const ownerLastName = String(p.owner?.last_name || '').toLowerCase();
-                const ownerFullName = `${ownerFirstName} ${ownerLastName}`.trim();
-                return (
-                  title.includes(query) ||
-                  description.includes(query) ||
-                  ownerFirstName.includes(query) ||
-                  ownerLastName.includes(query) ||
-                  ownerFullName.includes(query)
-                );
-              });
-            }
-
-            // Store filtered full list in cache
-            myOrgProjectsCacheRef.current = { key: cacheKey, rawAll: rawProjects };
-
-            // Client-side pagination for this tab
-            const perPage = 12;
-            const totalCount = rawProjects.length;
-            const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
-            const startIndex = (page - 1) * perPage;
-            const endIndex = startIndex + perPage;
-            rawProjects = rawProjects.slice(startIndex, endIndex);
-
-            // Force meta to align with client-side pagination
-            if (response?.data) {
-              response.data.meta = { total_pages: totalPages, total_count: totalCount };
-            } else {
-              response = { data: { meta: { total_pages: totalPages, total_count: totalCount } } };
-            }
+            response = await getCompanyProjects(contextId, apiParams);
           }
+          rawProjects = response.data?.data || response.data || [];
         } else if (organizationFilter === 'all-public') {
           // Tous les projets (publics uniquement, hors MLDS) — filtre serveur + pagination cohérente
           response = await getAllProjects({ page: page, per_page: 12, public_only: true, search: debouncedSearchTerm || undefined });
@@ -917,7 +855,7 @@ const Projects: React.FC = () => {
 
         // Mapping des données API vers le type Project (using centralized mapper)
         const formattedProjects: Project[] = rawProjects.map((p: any) => {
-            return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser.data);
+            return mapApiProjectToFrontendProject(p, state.showingPageType, currentUser);
         });
 
         // Store raw API projects for permission checks
@@ -965,10 +903,10 @@ const Projects: React.FC = () => {
       setProjectTotalCount(0);
       setInitialLoad(false);
     } finally {
-      setIsLoadingProjects(false);
+      setIsLoadingMainProjects(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, fetchOrganizationProjects, isMinorPersonalUser, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage, debouncedSearchTerm]); // getSelectedOrganizationId utilise state.user, donc c'est couvert
+  }, [state.showingPageType, state.user, fetchPublicProjects, fetchMyProjects, fetchOrganizationProjects, isMinorPersonalUser, isPersonalUser, isTeacher, organizationFilter, myProjectsPage, projectPage, debouncedSearchTerm, statusFilter]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -1019,31 +957,35 @@ const Projects: React.FC = () => {
     setMldsProjectsPage(1);
     setMldsRemediationProjectsPage(1);
     setInitialLoad(true);
+    setIsLoadingMainProjects(true);
     setDraftProjects([]);
     filtersEffectInitialMount.current = true;
     initialProjectsFetched.current = false;
     invalidateMldsCache();
     if (isTeacher) {
-      fetchMyProjects(1);
-      refreshMldsProjects(true);
-      fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
-      fetchArchivedProjects();
+      void (async () => {
+        await fetchMyProjects(1);
+        void refreshMldsProjects(true);
+      })();
+      fetchDraftProjects();
     } else if (state.showingPageType === 'user') {
-      if (isMinorPersonalUser) {
-        fetchOrganizationProjects(1);
-      } else {
-        fetchPublicProjects(1);
-      }
-      fetchMyProjects(1);
-      refreshMldsProjects(true);
-      fetchArchivedProjects();
+      void (async () => {
+        if (isMinorPersonalUser) {
+          await fetchOrganizationProjects(1);
+        } else {
+          await fetchPublicProjects(1);
+        }
+        await fetchMyProjects(1);
+        void refreshMldsProjects(true);
+      })();
     } else {
-      // Pro / Edu: charger les projets au chargement initial
-      fetchProjects(1);
-      initialProjectsFetched.current = true;
-      refreshMldsProjects(true);
-      fetchDraftProjects(); // Pour afficher le bon compteur "Brouillons (N)" dès le chargement
-      fetchArchivedProjects();
+      // Pro / Edu: main list first, then MLDS prefetch in background
+      void (async () => {
+        await fetchProjects(1);
+        initialProjectsFetched.current = true;
+        void refreshMldsProjects(true);
+      })();
+      fetchDraftProjects();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.showingPageType, isMinorPersonalUser]); // isMinorPersonalUser: under-15 users get org projects on Nouveautés
@@ -1732,6 +1674,8 @@ const Projects: React.FC = () => {
 
   const disableLocalSearchForUserDashboard =
     state.showingPageType === 'user' && (activeTab === 'nouveautes' || activeTab === 'mes-projets');
+  const disableLocalSearchForOrgMyOrg =
+    !isPersonalUser && organizationFilter === 'my-org' && activeTab === 'nouveautes';
   const normalizedSearch = searchTerm.toLowerCase();
   const filteredProjects = projectsToDisplay.filter(project => {
     // MLDS tabs: filtering and pagination are handled in applyMldsDisplay
@@ -1756,7 +1700,7 @@ const Projects: React.FC = () => {
       return false;
     }
     // Search filter
-    const matchesSearch = disableLocalSearchForUserDashboard || searchTerm === '' ||
+    const matchesSearch = disableLocalSearchForUserDashboard || disableLocalSearchForOrgMyOrg || searchTerm === '' ||
       project.title.toLowerCase().includes(normalizedSearch) ||
       project.description.toLowerCase().includes(normalizedSearch) ||
       project.owner.toLowerCase().includes(normalizedSearch) ||
@@ -2426,7 +2370,10 @@ const Projects: React.FC = () => {
         </div>
       </div>
 
-      {(isLoadingProjects && initialLoad) || (activeTab === 'brouillons' && isLoadingDraftProjects && (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu')) || (activeTab === 'archives' && isLoadingArchivedProjects) ? (
+      {(isLoadingMainProjects && !isMldsTab && (initialLoad || activeTab === 'nouveautes' || activeTab === 'mes-projets')) ||
+        (isMldsTab && isLoadingMldsProjects && !mldsProjectsCacheRef.current) ||
+        (activeTab === 'brouillons' && isLoadingDraftProjects && (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu')) ||
+        (activeTab === 'archives' && isLoadingArchivedProjects) ? (
         <div className="loading-container">
           <div className="loading-spinner"></div>
           <p className="loading-text">{activeTab === 'brouillons' ? 'Chargement des brouillons...' : activeTab === 'archives' ? 'Chargement des archives...' : 'Chargement des projets...'}</p>
@@ -2434,7 +2381,7 @@ const Projects: React.FC = () => {
       ) : filteredProjects.length > 0 ? (
         <>
           <div style={{ position: 'relative' }}>
-            {isLoadingProjects && !initialLoad && (
+            {isLoadingMainProjects && !initialLoad && (
               <div
                 style={{
                   position: 'absolute',
@@ -2454,7 +2401,7 @@ const Projects: React.FC = () => {
                 </div>
               </div>
             )}
-            <div className="projects-grid" style={isLoadingProjects && !initialLoad ? { pointerEvents: 'none' } : undefined}>
+            <div className="projects-grid" style={isLoadingMainProjects && !initialLoad ? { pointerEvents: 'none' } : undefined}>
             {filteredProjects.map((project, index) => {
               const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
               
@@ -2580,7 +2527,7 @@ const Projects: React.FC = () => {
                       const newPage = currentPage - 1;
                       setCurrentPage(newPage);
                     }}
-                    disabled={isLoadingProjects || currentPage === 1}
+                    disabled={isLoadingMainProjects || currentPage === 1}
                   >
                     <i className="fas fa-chevron-left"></i> Précédent
                   </button>
@@ -2601,7 +2548,7 @@ const Projects: React.FC = () => {
                           key={pageNum}
                           className={`pagination-page-btn ${currentPage === pageNum ? 'active' : ''}`}
                           onClick={() => setCurrentPage(pageNum)}
-                          disabled={isLoadingProjects}
+                          disabled={isLoadingMainProjects}
                         >
                           {pageNum}
                         </button>
@@ -2614,7 +2561,7 @@ const Projects: React.FC = () => {
                       const newPage = currentPage + 1;
                       setCurrentPage(newPage);
                     }}
-                    disabled={isLoadingProjects || currentPage === totalPages}
+                    disabled={isLoadingMainProjects || currentPage === totalPages}
                   >
                     Suivant <i className="fas fa-chevron-right"></i>
                   </button>
@@ -2623,7 +2570,7 @@ const Projects: React.FC = () => {
             );
           })()}
         </>
-      ) : (
+      ) : !isLoadingMainProjects && (!isMldsTab || !isLoadingMldsProjects) ? (
         <div className="no-projects-message">
           <div className="no-projects-content">
             <i className="fas fa-folder-open" style={{ fontSize: '3rem', color: '#9ca3af', marginBottom: '1rem' }}></i>
@@ -2637,7 +2584,7 @@ const Projects: React.FC = () => {
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       {isProjectModalOpen && (
         <ProjectModal
