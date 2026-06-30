@@ -8949,25 +8949,7 @@ const ProjectManagement: React.FC = () => {
                                   }}>
                                     <span style={{ fontWeight: 600, color: '#0369a1' }}>Total des crédits</span>
                                     <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0369a1' }}>
-                                      {(() => {
-                                        const fallbackCredits = sumMldsFinancialCreditsEuro(
-                                          mldsFin,
-                                          serviceLinesDisplay,
-                                          mldsFinRate
-                                        );
-                                        const creditsFromApiRaw = mldsFin.total_financial_credits;
-                                        const creditsFromApi =
-                                          creditsFromApiRaw != null && creditsFromApiRaw !== ''
-                                            ? Number.parseFloat(String(creditsFromApiRaw))
-                                            : null;
-                                        const totalCredits =
-                                          hvCreditLinesDisplay.length > 0 ||
-                                          creditsFromApi == null ||
-                                          Number.isNaN(creditsFromApi)
-                                            ? fallbackCredits
-                                            : creditsFromApi;
-                                        return totalCredits.toFixed(2);
-                                      })()} €
+                                      {sumMldsFinancialCreditsEuro(mldsFin, serviceLinesDisplay, mldsFinRate).toFixed(2)} €
                                     </span>
                                   </div>
                                 </div>
