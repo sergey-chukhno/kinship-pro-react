@@ -13,6 +13,7 @@ import NotFoundPage from './components/Pages/NotFoundPage';
 import SharedProjectInfo from './components/Pages/SharedProjectInfo';
 import SharedEventInfo from './components/Pages/SharedEventInfo';
 import SelectedStudentsBadgeCartography from './components/Pages/SelectedStudentsBadgeCartography';
+import Verify from './components/Pages/Verify';
 import './App.css';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
             <Route path="/shared-project/:token" element={<SharedProjectInfo />} />
             <Route path="/shared/:token" element={<SharedProjectInfo />} />
             <Route path="/shared-event/:token" element={<SharedEventInfo />} />
+            <Route path="/verify" element={<Verify />} />
             <Route path="/*" element={<MainLayout />} />
           </Routes>
           <ToastContainer
