@@ -24,6 +24,7 @@ export const useAuthInit = () => {
     const validPages: PageType[] = [
       "dashboard", "members", "events", "projects", "badges",
       "analytics", "network", "notifications", "settings",
+      "personal-settings", "pik",
       "membership-requests", "partnership-requests", "project-management"
     ];
 
