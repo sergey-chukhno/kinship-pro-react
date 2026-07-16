@@ -650,6 +650,118 @@
 .constellation svg {
   width: 100%;
   height: 100%;
+  display: block;
+}
+
+.constellation-lines {
+  pointer-events: none;
+}
+
+.constellation-orbits {
+  pointer-events: none;
+}
+
+.constellation-node-circle {
+  cursor: pointer;
+  transition: filter 0.2s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center;
+  transform-box: fill-box;
+  outline: none;
+}
+
+.constellation-node-circle:focus,
+.constellation-node-circle:focus-visible {
+  outline: none;
+}
+
+.constellation-node:hover .constellation-node-circle {
+  filter: brightness(1.06);
+}
+
+.constellation-node-selected .constellation-node-circle {
+  filter: brightness(1.08);
+}
+
+.constellation-selection-ring {
+  fill: none;
+  stroke: #003189;
+  stroke-width: 2.5;
+}
+
+.constellation-selection-pulse {
+  fill: rgba(0, 49, 137, 0.06);
+  stroke: #003189;
+  stroke-width: 1.5;
+  opacity: 0.45;
+  animation: constellation-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes constellation-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.04);
+  }
+}
+
+.constellation-tip {
+  position: absolute;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.constellation-tip-right {
+  transform: translate(0, -50%);
+}
+
+.constellation-tip-left {
+  transform: translate(-100%, -50%);
+}
+
+.constellation-tip-inner {
+  background: #fff;
+  border: 0.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px 18px;
+  min-width: 240px;
+  max-width: 300px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: constellation-tip-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes constellation-tip-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.constellation-tip-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 4px;
+}
+
+.constellation-tip-meta {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.constellation-tip-badges {
+  font-size: 15px;
+  color: #d4960a;
+  font-weight: 600;
 }
 
 .rgpd-note {

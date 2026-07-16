@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ProjectProofData } from '../../types/projectProof';
 import { getProjectProofLevelStyle } from '../../utils/projectProofLevel';
 import ProjectProofHeader from './ProjectProofHeader';
+import ProjectProofConstellation from './ProjectProofConstellation';
 import './ProjectProof.css';
 
 const TABS = ['cadre', 'acteurs', 'etapes', 'badges', 'confiance'] as const;
@@ -31,37 +32,6 @@ const BadgeHex: React.FC<{ color: string }> = ({ color }) => (
       strokeWidth="1"
     />
     <path d="M14 20l4 4 8-8" stroke={color} strokeWidth="1.5" fill="none" />
-  </svg>
-);
-
-const ConstellationSvg: React.FC = () => (
-  <svg viewBox="0 0 600 400" role="img" aria-label="Réseau de co-attestation">
-    <line x1="300" y1="200" x2="130" y2="105" stroke="#003189" strokeWidth="1.5" strokeDasharray="6 4" opacity="0.18" />
-    <line x1="300" y1="200" x2="470" y2="105" stroke="#2A8A9F" strokeWidth="1.5" strokeDasharray="6 4" opacity="0.18" />
-    <line x1="300" y1="200" x2="150" y2="320" stroke="#0891B2" strokeWidth="1.5" strokeDasharray="6 4" opacity="0.18" />
-    <circle cx="130" cy="105" r="62" fill="none" stroke="#003189" strokeWidth="0.5" strokeDasharray="3 4" opacity="0.1" />
-    <circle cx="470" cy="105" r="62" fill="none" stroke="#2A8A9F" strokeWidth="0.5" strokeDasharray="3 4" opacity="0.1" />
-    <circle cx="150" cy="320" r="62" fill="none" stroke="#0891B2" strokeWidth="0.5" strokeDasharray="3 4" opacity="0.1" />
-    <circle cx="300" cy="200" r="60" fill="rgba(0,49,137,.04)" stroke="#003189" strokeWidth="1.5" strokeDasharray="5 4" />
-    <text x="300" y="193" textAnchor="middle" fontSize="15" fontWeight="700" fill="#003189">PROJET</text>
-    <text x="300" y="212" textAnchor="middle" fontSize="13" fill="#9ca3af">24 participants</text>
-    <circle cx="130" cy="105" r="40" fill="#003189" />
-    <text x="130" y="98" textAnchor="middle" fontSize="14" fontWeight="700" fill="#fff">Lycée</text>
-    <text x="130" y="114" textAnchor="middle" fontSize="13" fill="rgba(255,255,255,.7)">Jean Moulin</text>
-    <circle cx="78" cy="58" r="20" fill="#e6eaf2" stroke="#003189" strokeWidth="1.5" />
-    <text x="78" y="62" textAnchor="middle" fontSize="13" fontWeight="700" fill="#003189">PD</text>
-    <circle cx="72" cy="150" r="20" fill="#e6eaf2" stroke="#003189" strokeWidth="1.5" />
-    <text x="72" y="154" textAnchor="middle" fontSize="13" fontWeight="700" fill="#003189">ML</text>
-    <circle cx="470" cy="105" r="40" fill="#2A8A9F" />
-    <text x="470" y="99" textAnchor="middle" fontSize="14" fontWeight="700" fill="#fff">Tou</text>
-    <text x="470" y="115" textAnchor="middle" fontSize="13" fill="rgba(255,255,255,.7)">KouLeur</text>
-    <circle cx="530" cy="62" r="20" fill="#e4f1f4" stroke="#2A8A9F" strokeWidth="1.5" />
-    <text x="530" y="66" textAnchor="middle" fontSize="13" fontWeight="700" fill="#2A8A9F">AL</text>
-    <circle cx="150" cy="320" r="40" fill="#0891B2" />
-    <text x="150" y="314" textAnchor="middle" fontSize="14" fontWeight="700" fill="#fff">Fab</text>
-    <text x="150" y="330" textAnchor="middle" fontSize="13" fill="rgba(255,255,255,.7)">Azur</text>
-    <circle cx="96" cy="370" r="20" fill="#e0f7fa" stroke="#0891B2" strokeWidth="1.5" />
-    <text x="96" y="374" textAnchor="middle" fontSize="13" fontWeight="700" fill="#0891B2">RT</text>
   </svg>
 );
 
@@ -219,9 +189,7 @@ const ProjectProofDetail: React.FC<ProjectProofDetailProps> = ({
           role="tabpanel"
           aria-label="Acteurs"
         >
-          <div className="constellation">
-            <ConstellationSvg />
-          </div>
+          <ProjectProofConstellation proof={proof} />
           <div className="rgpd-note">
             {proof.kpis.participants} participants · non affichés (RGPD) · seuls les émetteurs de
             badges apparaissent
