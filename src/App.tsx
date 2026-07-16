@@ -16,6 +16,7 @@ import SelectedStudentsBadgeCartography from './components/Pages/SelectedStudent
 import Verify from './components/Pages/Verify';
 import PublicProofPage from './components/Pages/PublicProofPage';
 import ProofIndex from './components/Pages/ProofIndex';
+import PikDroits from './components/Pages/PikDroits';
 import './App.css';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
             <Route path="/shared-event/:token" element={<SharedEventInfo />} />
             <Route path="/verify" element={<Verify />} />
             <Route path="/proof" element={<ProofIndex />} />
+            <Route path="/pik/droits" element={<PikDroits />} />
             <Route path="/pb/:token" element={<PublicProofPage proofType="PB" />} />
             <Route path="/pe/:token" element={<PublicProofPage proofType="PE" />} />
             <Route path="/*" element={<MainLayout />} />

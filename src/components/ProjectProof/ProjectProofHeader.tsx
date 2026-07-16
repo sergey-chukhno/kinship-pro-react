@@ -44,7 +44,7 @@ export const ProjectProofHeader: React.FC<ProjectProofHeaderProps> = ({
             <span>Nominatif</span>
           </div>
           {showRightsLink && (
-            <Link to="/droits" className="btn-droits-sm">
+            <Link to="/pik/droits" className="btn-droits-sm">
               Mes droits →
             </Link>
           )}

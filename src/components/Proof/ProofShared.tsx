@@ -171,7 +171,7 @@ export const ProofFooter: React.FC<{ proof: ProofData; showCopyright?: boolean }
       </div>
       <div className="proof-footer-right">
         {proof.showRightsLink && (
-          <Link to="/droits" className="proof-rights-link">
+          <Link to="/pik/droits" className="proof-rights-link">
             Exercer mes droits
           </Link>
         )}

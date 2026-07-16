@@ -302,7 +302,7 @@ const ParcoursProofDetail: React.FC<ParcoursProofDetailProps> = ({
             Conservation à vie · Droit d&apos;accès, rectification et portabilité · Possibilité de
             masquer l&apos;identité dans les vues partagées.
           </div>
-          <Link to="/droits" className="btn-droits" style={{ background: trustColor }}>
+          <Link to="/pik/droits" className="btn-droits" style={{ background: trustColor }}>
             Exercer mes droits →
           </Link>
         </div>
@@ -513,7 +513,7 @@ const ParcoursProofDetail: React.FC<ParcoursProofDetailProps> = ({
           </div>
           {showRightsLink && (
             <Link
-              to="/droits"
+              to="/pik/droits"
               className="btn-droits-sm"
               style={{ borderColor: trustColor, color: trustColor }}
             >

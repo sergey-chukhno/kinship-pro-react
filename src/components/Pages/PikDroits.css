@@ -1,0 +1,470 @@
+.pik-droits-page {
+  padding: 24px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.pik-droits-card {
+  background: #fff;
+  border: 0.5px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.pik-droits-header {
+  background: #30387a;
+  padding: 24px;
+  color: #fff;
+}
+
+.pik-droits-header-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.pik-droits-header-icon {
+  font-size: 24px;
+}
+
+.pik-droits-header h1 {
+  font-weight: 700;
+  font-size: 22px;
+  color: #fff;
+  margin: 0;
+}
+
+.pik-droits-header-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2px;
+}
+
+.pik-droits-header-intro {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.pik-droits-header-intro strong {
+  color: #fff;
+}
+
+.pik-droits-unlocked-banner {
+  padding: 14px 24px;
+  background: #f0fdf4;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+  font-size: 13px;
+  color: #1f6b3a;
+  font-weight: 600;
+}
+
+.pik-droits-pending {
+  margin: 0 24px 4px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #ffb557;
+  background: #fffbeb;
+}
+
+.pik-droits-pending-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9e9d97;
+  margin-bottom: 6px;
+}
+
+.pik-droits-pending-item {
+  font-size: 11.5px;
+  color: #1c1b18;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pik-droits-pending-item + .pik-droits-pending-item {
+  margin-top: 6px;
+}
+
+.pik-droits-cancel-btn {
+  background: none;
+  border: none;
+  color: #185fa5;
+  font-weight: 600;
+  font-size: 11.5px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pik-droits-pik-section {
+  padding: 24px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+}
+
+.pik-droits-pik-section.hidden {
+  display: none;
+}
+
+.pik-droits-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9e9d97;
+  margin-bottom: 8px;
+}
+
+.pik-droits-pik-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pik-droits-pik-input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #003189;
+  background: #f4f3ef;
+  font-family: monospace;
+  font-size: 13px;
+  color: #1c1b18;
+}
+
+.pik-droits-pik-input::placeholder {
+  color: #6b6a64;
+}
+
+.pik-droits-pik-input:disabled {
+  opacity: 0.7;
+}
+
+.pik-droits-access-btn {
+  padding: 12px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #30387a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pik-droits-access-btn:hover {
+  background: #252d63;
+}
+
+.pik-droits-pik-hint {
+  font-size: 11px;
+  color: #9e9d97;
+  margin-top: 6px;
+  line-height: 1.6;
+}
+
+.pik-droits-error {
+  margin-top: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b42318;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pik-droits-rights {
+  padding: 20px 24px;
+}
+
+.pik-droits-rights-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pik-droits-right-card {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f9f8f5;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  width: 100%;
+  cursor: default;
+}
+
+.pik-droits-right-card.clickable {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.pik-droits-right-card.clickable:hover {
+  background: #f0efe8;
+}
+
+.pik-droits-right-card.locked {
+  opacity: 0.45;
+  filter: grayscale(0.5);
+  pointer-events: none;
+}
+
+.pik-droits-right-card.dpo-unlocked {
+  opacity: 1;
+  filter: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.pik-droits-right-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.pik-droits-right-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c1b18;
+  margin-bottom: 2px;
+}
+
+.pik-droits-right-desc {
+  font-size: 11px;
+  color: #6b6a64;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.pik-droits-footer {
+  padding: 14px 24px;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  font-size: 10px;
+  color: #9e9d97;
+  line-height: 1.7;
+}
+
+.pik-droits-link {
+  color: #185fa5;
+  text-decoration: none;
+}
+
+.pik-droits-link:hover {
+  text-decoration: underline;
+}
+
+/* Flow overlay */
+.pik-droits-flow-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.pik-droits-flow {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  margin-top: 40px;
+}
+
+.pik-droits-flow-header {
+  background: #30387a;
+  padding: 10px 14px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pik-droits-flow-back {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pik-droits-flow-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pik-droits-flow-body {
+  padding: 14px;
+}
+
+.pik-droits-flow-question {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1c1b18;
+  margin-bottom: 10px;
+}
+
+.pik-droits-flow-option {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #30387a;
+  background: #f9f8f5;
+  margin-bottom: 8px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.pik-droits-flow-option:hover {
+  background: #eef4ff;
+}
+
+.pik-droits-flow-option-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1c1b18;
+}
+
+.pik-droits-flow-option-sub {
+  font-size: 10.5px;
+  color: #6b6a64;
+  margin-top: 2px;
+}
+
+.pik-droits-flow-input {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 8px;
+  border: 1.5px solid #003189;
+  background: #f4f3ef;
+  font-family: monospace;
+  font-size: 12px;
+  color: #1c1b18;
+}
+
+.pik-droits-flow-hint {
+  font-size: 10px;
+  color: #9e9d97;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.pik-droits-flow-warning {
+  font-size: 11.5px;
+  color: #1c1b18;
+  line-height: 1.65;
+  background: #fffbeb;
+  border: 1px solid #ffb557;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.pik-droits-flow-info {
+  font-size: 11.5px;
+  color: #1c1b18;
+  line-height: 1.65;
+  background: #f9f8f5;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.pik-droits-flow-success {
+  padding: 11px 13px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #1f6b3a;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.pik-droits-flow-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.pik-droits-btn-primary {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #30387a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.pik-droits-btn-primary.danger {
+  background: #b42318;
+}
+
+.pik-droits-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pik-droits-btn-secondary {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #1c1b18;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pik-droits-download-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pik-droits-download-status {
+  font-size: 11.5px;
+  color: #6b6a64;
+  flex: 1;
+}
+
+.pik-droits-back-link-wrap {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 480px) {
+  .pik-droits-pik-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pik-droits-access-btn {
+    width: 100%;
+  }
+}

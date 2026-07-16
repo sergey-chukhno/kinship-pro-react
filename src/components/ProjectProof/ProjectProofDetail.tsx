@@ -342,7 +342,7 @@ const ProjectProofDetail: React.FC<ProjectProofDetailProps> = ({
                 Portabilité, anonymisation, effacement civil — exercer vos droits RGPD.
               </div>
               <div className="droits-note">Disponible uniquement pour le porteur de la preuve.</div>
-              <Link to="/droits" className="btn-droits">
+              <Link to="/pik/droits" className="btn-droits">
                 Mes droits →
               </Link>
             </div>

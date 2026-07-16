@@ -84,7 +84,7 @@ const PikIdentity: React.FC = () => {
                 Elle est votre passe-droits : sur la page « Exercer mes droits », elle vous permet
                 d&apos;obtenir une copie de vos données, de masquer votre nom sur vos preuves, ou
                 d&apos;effacer vos données personnelles — même sans compte.{' '}
-                <Link to="/droits" className="pik-link">Exercer mes droits →</Link>
+                <Link to="/pik/droits" className="pik-link">Exercer mes droits →</Link>
               </p>
             </div>
           </div>
