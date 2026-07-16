@@ -32,6 +32,10 @@ export const useAuthInit = () => {
       return path as PageType;
     }
 
+    if (path.startsWith('pik')) {
+      return 'pik';
+    }
+
     // Par défaut, retourner dashboard
     return "dashboard";
   };

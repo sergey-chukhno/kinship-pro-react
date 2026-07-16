@@ -1,4 +1,4 @@
-import { ProofData, TrustLevelKey } from '../types/proof';
+import { ProofData, ProofDocumentType, TrustLevelKey } from '../types/proof';
 
 export interface TrustLevelStyle {
   headerClass: string;
@@ -52,13 +52,30 @@ export const TRUST_LEVEL_STYLES: Record<TrustLevelKey, TrustLevelStyle> = {
   },
 };
 
-export function getProofSurtitle(proofType: ProofData['proofType']): string {
-  return proofType === 'PE' ? 'Preuve Kinship · Événement' : 'Preuve Kinship · Compétence';
+export function getProofSurtitle(proof: ProofData | ProofDocumentType): string {
+  const documentType = typeof proof === 'string' ? proof : proof.documentType;
+  switch (documentType) {
+    case 'PE':
+      return 'Preuve Kinship · Événement';
+    case 'PP':
+      return 'Preuve Kinship · Projet';
+    case 'PA':
+      return 'Preuve Kinship · Parcours';
+    case 'PD':
+      return 'Preuve Kinship · Diplôme';
+    default:
+      return 'Preuve Kinship · Compétence';
+  }
 }
 
 export function getProofRoute(proof: ProofData): string {
-  const prefix = proof.proofType === 'PE' ? '/pe' : '/pb';
-  return `${prefix}/${proof.shareToken}`;
+  if (proof.documentType === 'PE') return `/pe/${proof.shareToken}`;
+  if (proof.documentType === 'PB') return `/pb/${proof.shareToken}`;
+  return `/pik/preuve/${proof.documentType.toLowerCase()}/${proof.shareToken}`;
+}
+
+export function getPikProofRoute(proof: ProofData): string {
+  return `/pik/preuve/${proof.documentType.toLowerCase()}/${proof.shareToken}`;
 }
 
 export function truncateProofNumber(proofNumber: string, compact = false): string {

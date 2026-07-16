@@ -6,11 +6,16 @@ import './Proof.css';
 
 interface ProofCardIntermediateProps {
   proof: ProofData;
+  linkTarget?: 'public' | 'pik';
 }
 
-export const ProofCardIntermediate: React.FC<ProofCardIntermediateProps> = ({ proof }) => {
+export const ProofCardIntermediate: React.FC<ProofCardIntermediateProps> = ({
+  proof,
+  linkTarget = 'public',
+}) => {
   const style = TRUST_LEVEL_STYLES[proof.trustLevel];
-  const contextLabel = proof.proofType === 'PE' ? 'Événement' : 'Projet';
+  const contextLabel =
+    proof.documentType === 'PE' || proof.eventTitle ? 'Événement' : 'Projet';
   const contextTitle = proof.eventTitle ?? proof.projectTitle ?? '—';
   const holderDisplay = proof.holderMasked
     ? 'Identité masquée'
@@ -23,7 +28,12 @@ export const ProofCardIntermediate: React.FC<ProofCardIntermediateProps> = ({ pr
     : proof.holderRole.split(' ')[0];
 
   return (
-    <ProofCardLink proof={proof} variant="intermediate" className="proof-card-intermediate">
+    <ProofCardLink
+      proof={proof}
+      variant="intermediate"
+      className="proof-card-intermediate"
+      linkTarget={linkTarget}
+    >
       <ProofHeader proof={proof} intermediate />
       <div className="proof-inter-porteur">
         <div className="proof-porteur-row">

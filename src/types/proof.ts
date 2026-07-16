@@ -1,5 +1,9 @@
 export type ProofType = 'PB' | 'PE';
 
+export type ProofDocumentType = 'PP' | 'PB' | 'PE' | 'PA' | 'PD';
+
+export type ProofCategory = 'projet' | 'badge-evenement' | 'parcours' | 'diplome';
+
 export type TrustLevelKey =
   | 'INSTITUTIONAL'
   | 'DIPLOMA_NODE'
@@ -25,6 +29,8 @@ export interface ProofEvidence {
 
 export interface ProofData {
   shareToken: string;
+  documentType: ProofDocumentType;
+  category: ProofCategory;
   proofType: ProofType;
   proofNumber: string;
   trustLevel: TrustLevelKey;

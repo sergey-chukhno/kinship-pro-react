@@ -34,7 +34,7 @@ interface ProofHeaderProps {
 
 export const ProofHeader: React.FC<ProofHeaderProps> = ({ proof, compact, intermediate }) => {
   const style = TRUST_LEVEL_STYLES[proof.trustLevel];
-  const surtitle = getProofSurtitle(proof.proofType);
+  const surtitle = getProofSurtitle(proof);
   const isStrategic = proof.trustLevel === 'STRATEGIC_PARTNER';
 
   if (compact) {
@@ -70,7 +70,7 @@ export const ProofHeader: React.FC<ProofHeaderProps> = ({ proof, compact, interm
 
   return (
     <div
-      className={`proof-z1 ${style.headerClass} ${proof.proofType === 'PE' ? 'proof-z1-pe' : ''}`}
+      className={`proof-z1 ${style.headerClass} ${proof.documentType === 'PE' ? 'proof-z1-pe' : ''}`}
     >
       <div className="proof-z1-top">
         <div className="proof-z1-badge-wrap">
@@ -186,6 +186,7 @@ interface ProofCardLinkProps {
   variant: ProofCardVariant;
   children: React.ReactNode;
   className?: string;
+  linkTarget?: 'public' | 'pik';
 }
 
 export const ProofCardLink: React.FC<ProofCardLinkProps> = ({
@@ -193,14 +194,20 @@ export const ProofCardLink: React.FC<ProofCardLinkProps> = ({
   variant,
   children,
   className = '',
+  linkTarget = 'public',
 }) => {
   if (variant === 'full') {
     return <div className={className}>{children}</div>;
   }
 
+  const to =
+    linkTarget === 'pik'
+      ? `/pik/preuve/${proof.documentType.toLowerCase()}/${proof.shareToken}`
+      : getProofRoute(proof);
+
   return (
     <Link
-      to={getProofRoute(proof)}
+      to={to}
       className={`proof-card-link ${className}`}
       aria-label={`Voir la preuve ${proof.badgeTitle}`}
     >
