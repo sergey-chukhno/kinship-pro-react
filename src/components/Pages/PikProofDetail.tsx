@@ -1,9 +1,12 @@
 import React from 'react';
-import { getMockProofByDocument } from '../../data/mockProofs';
+import { getMockProjectProof } from '../../data/mockProjectProofs';
 import { isProofDocumentType } from '../../data/proofCategories';
 import { ProofDocumentType } from '../../types/proof';
+import { getMockProofByDocument } from '../../data/mockProofs';
+import ProjectProofDetail from '../ProjectProof/ProjectProofDetail';
 import ProofFullView from '../Proof/ProofFullView';
 import '../Proof/Proof.css';
+import '../ProjectProof/ProjectProof.css';
 
 interface PikProofDetailProps {
   documentType: string;
@@ -16,6 +19,16 @@ const PikProofDetail: React.FC<PikProofDetailProps> = ({ documentType, token }) 
   }
 
   const docType = documentType.toUpperCase() as ProofDocumentType;
+
+  if (docType === 'PP') {
+    const projectProof = getMockProjectProof(token);
+    return (
+      <div className="pik-proof-detail">
+        <ProjectProofDetail proof={projectProof} showPorteurBar showRightsLink />
+      </div>
+    );
+  }
+
   const proof = {
     ...getMockProofByDocument(docType, token),
     showRightsLink: true,

@@ -6,8 +6,6 @@ import {
   MOCK_PD_DIPLOME,
   MOCK_PE_EVENT,
   MOCK_PE_PRESENCE,
-  MOCK_PP_GOT_TALENT,
-  MOCK_PP_MLDS,
 } from './mockProofs';
 
 export interface ProofCategoryConfig {
@@ -40,7 +38,7 @@ export const PROOF_CATEGORIES: ProofCategoryConfig[] = [
 ];
 
 export const PROOFS_BY_CATEGORY: Record<ProofCategory, ProofData[]> = {
-  projet: [MOCK_PP_GOT_TALENT, MOCK_PP_MLDS],
+  projet: [],
   'badge-evenement': [MOCK_PB_NOMINAL, MOCK_PB_MASKED, MOCK_PE_EVENT, MOCK_PE_PRESENCE],
   parcours: [MOCK_PA_PARCOURS],
   diplome: [MOCK_PD_DIPLOME],
