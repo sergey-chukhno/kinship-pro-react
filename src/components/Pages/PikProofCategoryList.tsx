@@ -2,9 +2,12 @@ import React from 'react';
 import { ProofCategory } from '../../types/proof';
 import { getCategoryConfig, PROOFS_BY_CATEGORY } from '../../data/proofCategories';
 import { PROJECT_PROOFS } from '../../data/mockProjectProofs';
+import { PARCOURS_PROOFS } from '../../data/mockParcoursProofs';
 import ProofCardIntermediate from '../Proof/ProofCardIntermediate';
 import ProjectProofCardIntermediate from '../ProjectProof/ProjectProofCardIntermediate';
+import ParcoursProofCardIntermediate from '../ParcoursProof/ParcoursProofCardIntermediate';
 import '../ProjectProof/ProjectProof.css';
+import '../ParcoursProof/ParcoursProof.css';
 import './Pik.css';
 
 interface PikProofCategoryListProps {
@@ -32,6 +35,31 @@ const PikProofCategoryList: React.FC<PikProofCategoryListProps> = ({ category })
           <div className="pik-category-cards">
             {PROJECT_PROOFS.map((proof) => (
               <ProjectProofCardIntermediate
+                key={proof.shareToken}
+                proof={proof}
+                linkTarget="pik"
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (category === 'parcours') {
+    return (
+      <div className="pik-category-list">
+        <header className="pik-category-header">
+          <h2>{config.label}</h2>
+          <p>{config.description}</p>
+        </header>
+
+        {PARCOURS_PROOFS.length === 0 ? (
+          <p className="pik-main-empty">Aucune preuve pour le moment.</p>
+        ) : (
+          <div className="pik-category-cards">
+            {PARCOURS_PROOFS.map((proof) => (
+              <ParcoursProofCardIntermediate
                 key={proof.shareToken}
                 proof={proof}
                 linkTarget="pik"

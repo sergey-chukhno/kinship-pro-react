@@ -1,9 +1,7 @@
 import { ProofCategory, ProofData, ProofDocumentType } from '../types/proof';
 import {
-  MOCK_PA_PARCOURS,
   MOCK_PB_MASKED,
   MOCK_PB_NOMINAL,
-  MOCK_PD_DIPLOME,
   MOCK_PE_EVENT,
   MOCK_PE_PRESENCE,
 } from './mockProofs';
@@ -30,18 +28,12 @@ export const PROOF_CATEGORIES: ProofCategoryConfig[] = [
     label: 'Preuves parcours',
     description: 'Preuves agrégées de parcours (PA).',
   },
-  {
-    slug: 'diplome',
-    label: 'Preuves diplômes',
-    description: 'Preuves de diplôme (PD).',
-  },
 ];
 
 export const PROOFS_BY_CATEGORY: Record<ProofCategory, ProofData[]> = {
   projet: [],
   'badge-evenement': [MOCK_PB_NOMINAL, MOCK_PB_MASKED, MOCK_PE_EVENT, MOCK_PE_PRESENCE],
-  parcours: [MOCK_PA_PARCOURS],
-  diplome: [MOCK_PD_DIPLOME],
+  parcours: [],
 };
 
 export function getCategoryConfig(slug: string): ProofCategoryConfig | undefined {

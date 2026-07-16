@@ -192,7 +192,7 @@ export const MOCK_PD_DIPLOME: ProofData = {
   ...MOCK_PE_EVENT,
   shareToken: 'pd-cap-macon',
   documentType: 'PD',
-  category: 'diplome',
+  category: 'parcours',
   proofType: 'PE',
   proofNumber: 'PD·2026·FR·7D4K8M2NXP',
   badgeIcon: 'CM',

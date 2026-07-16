@@ -2,7 +2,7 @@ export type ProofType = 'PB' | 'PE';
 
 export type ProofDocumentType = 'PP' | 'PB' | 'PE' | 'PA' | 'PD';
 
-export type ProofCategory = 'projet' | 'badge-evenement' | 'parcours' | 'diplome';
+export type ProofCategory = 'projet' | 'badge-evenement' | 'parcours';
 
 export type TrustLevelKey =
   | 'INSTITUTIONAL'

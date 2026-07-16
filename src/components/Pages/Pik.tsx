@@ -82,7 +82,6 @@ const Pik: React.FC = () => {
                   {category.slug === 'projet' && '📁'}
                   {category.slug === 'badge-evenement' && '🏅'}
                   {category.slug === 'parcours' && '🛤️'}
-                  {category.slug === 'diplome' && '🎓'}
                 </span>
                 <span>
                   <span className="pik-sidebar-item-label">{category.label}</span>
@@ -90,7 +89,6 @@ const Pik: React.FC = () => {
                     {category.slug === 'projet' && 'Preuves projet (PP)'}
                     {category.slug === 'badge-evenement' && 'Compétence (PB) · Événement (PE)'}
                     {category.slug === 'parcours' && 'Parcours agrégés (PA)'}
-                    {category.slug === 'diplome' && 'Diplômes (PD)'}
                   </span>
                 </span>
               </NavLink>
