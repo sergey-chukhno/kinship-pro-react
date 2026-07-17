@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FinancementType } from '../../data/mockFormations';
+import { FinancementType, FormationStatus } from '../../data/mockFormations';
 import './Modal.css';
 import './FormationModal.css';
 
@@ -17,8 +17,12 @@ export interface FormationFormData {
 interface FormationModalProps {
   onClose: () => void;
   onSave: (data: FormationFormData) => void;
-  /** Prefill for duplication (la 16 : titre / description / type uniquement) */
+  /** Prefill for edit / duplication */
   initialData?: Partial<FormationFormData> | null;
+  /** Mode édition (Brouillons / À venir) */
+  isEdit?: boolean;
+  /** Statut courant — adapte le sous-titre et le CTA */
+  status?: FormationStatus;
 }
 
 const FINANCEMENT_OPTIONS: FinancementType[] = [
@@ -33,6 +37,8 @@ const FormationModal: React.FC<FormationModalProps> = ({
   onClose,
   onSave,
   initialData,
+  isEdit = false,
+  status,
 }) => {
   const [title, setTitle] = useState(initialData?.title ?? '');
   const [description, setDescription] = useState(initialData?.description ?? '');
@@ -73,6 +79,16 @@ const FormationModal: React.FC<FormationModalProps> = ({
     });
   };
 
+  const titleText = isEdit ? 'Modifier la formation' : 'Créer une formation';
+  const subtitle = isEdit
+    ? status === 'coming'
+      ? 'Formation programmée — les modifications sont enregistrées immédiatement.'
+      : 'Brouillon — visible par vous seul jusqu’à activation.'
+    : 'La formation naît en brouillon — visible par vous seul jusqu’à activation.';
+  const submitLabel = isEdit
+    ? 'Enregistrer les modifications'
+    : 'Enregistrer en brouillon';
+
   return (
     <div className="modal-overlay" onClick={onClose} role="presentation">
       <div
@@ -82,33 +98,32 @@ const FormationModal: React.FC<FormationModalProps> = ({
         aria-modal="true"
         aria-labelledby="formation-modal-title"
       >
-        <div className="modal-header formation-modal-header">
+        <div className="modal-header">
           <div>
-            <h2 id="formation-modal-title">Créer une formation</h2>
-            <p className="modal-subtitle">
-              La formation naît en brouillon — visible par vous seul jusqu’à activation.
-            </p>
+            <h2 id="formation-modal-title">{titleText}</h2>
+            <p className="modal-subtitle">{subtitle}</p>
           </div>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Fermer">
             ×
           </button>
         </div>
 
-        <form id="formationCreateForm" onSubmit={handleSubmit}>
+        <form id="formationForm" onSubmit={handleSubmit}>
           <div className="modal-body">
             {error && (
-              <div className="formation-modal-error" role="alert">
+              <p className="form-error" role="alert">
                 {error}
-              </div>
+              </p>
             )}
 
             <div className="form-group">
-              <label htmlFor="formation-title">
-                Titre <span className="required">*</span>
+              <label htmlFor="formation-title" className="required">
+                Titre
               </label>
               <input
                 id="formation-title"
                 type="text"
+                className="form-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex. Titre professionnel ECM — session 3"
@@ -121,6 +136,7 @@ const FormationModal: React.FC<FormationModalProps> = ({
               <label htmlFor="formation-description">Description</label>
               <textarea
                 id="formation-description"
+                className="form-textarea"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Objectifs, public, modalités…"
@@ -130,7 +146,13 @@ const FormationModal: React.FC<FormationModalProps> = ({
 
             <div className="form-group">
               <label htmlFor="formation-kind">Type de projet</label>
-              <select id="formation-kind" value="formation" disabled aria-readonly="true">
+              <select
+                id="formation-kind"
+                className="form-select"
+                value="formation"
+                disabled
+                aria-readonly="true"
+              >
                 <option value="formation">Formation</option>
               </select>
               <p className="form-hint">
@@ -142,6 +164,7 @@ const FormationModal: React.FC<FormationModalProps> = ({
               <label htmlFor="formation-financement">Financement</label>
               <select
                 id="formation-financement"
+                className="form-select"
                 value={financement}
                 onChange={(e) =>
                   setFinancement(e.target.value as FinancementType | '')
@@ -159,21 +182,23 @@ const FormationModal: React.FC<FormationModalProps> = ({
               </p>
             </div>
 
-            <div className="form-group formation-modal-dates">
-              <div>
+            <div className="form-row">
+              <div className="form-group">
                 <label htmlFor="formation-start">Date de début</label>
                 <input
                   id="formation-start"
                   type="date"
+                  className="form-input"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>
-              <div>
+              <div className="form-group">
                 <label htmlFor="formation-end">Date de fin</label>
                 <input
                   id="formation-end"
                   type="date"
+                  className="form-input"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
@@ -217,8 +242,8 @@ const FormationModal: React.FC<FormationModalProps> = ({
             <button type="button" className="btn btn-outline" onClick={onClose}>
               Annuler
             </button>
-            <button type="submit" className="btn btn-primary formation-modal-submit">
-              Enregistrer en brouillon
+            <button type="submit" className="btn btn-primary">
+              {submitLabel}
             </button>
           </div>
         </form>

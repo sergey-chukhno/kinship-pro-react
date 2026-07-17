@@ -24,6 +24,8 @@ import { useAuthInit } from '../../hooks/useAuthInit';
 import { applySpaceTheme } from '../../utils/spaceTheme';
 import PresenceSessionPage from '../Pages/PresenceSessionPage';
 import PresenceBanner from '../Presence/PresenceBanner';
+import FormationDetail from '../Pages/FormationDetail';
+import PreuveFormationPage from '../Pages/PreuveFormationPage';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
@@ -109,6 +111,10 @@ const MainLayout: React.FC = () => {
         return <ProjectManagement />;
       case 'presence-session':
         return <PresenceSessionPage />;
+      case 'formation-detail':
+        return <FormationDetail />;
+      case 'preuve-formation':
+        return <PreuveFormationPage />;
       default:
         return <Dashboard />;
     }

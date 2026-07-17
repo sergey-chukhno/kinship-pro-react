@@ -1,84 +1,201 @@
-.presence-banner {
-  max-width: 720px;
-  margin: 0 auto 16px;
+/* Popup classique — session de présence (espace participant) */
+.presence-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(15, 18, 35, 0.45);
+  box-sizing: border-box;
+}
+
+.presence-popup {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
   background: #fff;
-  border: 1.5px solid var(--couleur-espace, #30387a);
-  border-radius: 12px;
-  padding: 14px 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+  border: 1px solid color-mix(in srgb, var(--couleur-espace, #30387a) 18%, transparent);
+  overflow: hidden;
 }
 
-.presence-banner-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.presence-banner-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1c1b18;
-}
-
-.presence-banner-meta {
-  font-size: 11px;
-  color: #6b6a64;
-  margin-bottom: 10px;
-}
-
-.presence-banner-form {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.presence-banner-input {
-  flex: 1;
-  min-width: 140px;
-  max-width: 170px;
-  padding: 10px 12px;
+.presence-popup-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
   border-radius: 8px;
-  border: 1.5px solid #003189;
-  background: #f4f3ef;
+  background: transparent;
+  color: #6b7280;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.presence-popup-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.presence-popup-body {
+  padding: 28px 24px 22px;
+  text-align: center;
+}
+
+.presence-popup-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: color-mix(in srgb, var(--couleur-espace, #30387a) 12%, #fff);
+}
+
+.presence-popup-icon.ok {
+  background: color-mix(in srgb, #48a78d 18%, #fff);
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.presence-popup-title {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--couleur-espace, #30387a);
+  line-height: 1.3;
+  padding: 0 20px;
+}
+
+.presence-popup-meta {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.presence-popup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.presence-popup-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--couleur-espace, #30387a);
+  background: #f8f9fc;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 18px;
+  font-size: 22px;
   letter-spacing: 0.35em;
   text-align: center;
   color: #1c1b18;
 }
 
-.presence-banner-submit {
-  padding: 10px 18px;
-  border-radius: 8px;
+.presence-popup-input:focus {
+  outline: none;
+  background: #fff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--couleur-espace, #30387a) 22%, transparent);
+}
+
+.presence-popup-submit {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: none;
+  background: var(--couleur-espace, #30387a);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.presence-popup-submit:hover:not(:disabled) {
+  background: var(--couleur-espace-hover, #252d66);
+}
+
+.presence-popup-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.presence-popup-later {
+  margin-top: 12px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.presence-popup-later:hover {
+  color: var(--couleur-espace, #30387a);
+}
+
+.presence-popup.error .presence-popup-input {
+  border-color: #ff616f;
+}
+
+.presence-popup-error {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #b3261e;
+  line-height: 1.4;
+}
+
+.presence-popup.confirmed {
+  border-color: color-mix(in srgb, #48a78d 40%, transparent);
+}
+
+.presence-popup-body.confirmed-body .presence-popup-title {
+  color: #2e7d32;
+}
+
+/* Rappel si la popup est fermée pendant la session */
+.presence-popup-chip {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 999px;
   border: none;
   background: var(--couleur-espace, #30387a);
   color: #fff;
   font-size: 13px;
   font-weight: 600;
+  box-shadow: 0 8px 24px rgba(48, 56, 122, 0.35);
   cursor: pointer;
 }
 
-.presence-banner-submit:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.presence-popup-chip:hover {
+  background: var(--couleur-espace-hover, #252d66);
 }
 
-.presence-banner.confirmed {
-  border-color: #48a78d;
-}
+@media (max-width: 480px) {
+  .presence-popup {
+    max-width: 100%;
+  }
 
-.presence-banner.confirmed .presence-banner-title {
-  color: #2e7d32;
-}
-
-.presence-banner.error {
-  border-color: #ff616f;
-}
-
-.presence-banner-error {
-  font-size: 12px;
-  color: #b3261e;
-  margin-top: 8px;
+  .presence-popup-chip {
+    left: 16px;
+    right: 16px;
+    justify-content: center;
+  }
 }

@@ -387,7 +387,7 @@ export interface OrganizationStatsResponse {
   badges_assigned?: BadgesAssignedStats;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'pik' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'presence-session' | 'Auth';
+export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'pik' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'presence-session' | 'formation-detail' | 'preuve-formation' | 'Auth';
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user' | 'of';
 

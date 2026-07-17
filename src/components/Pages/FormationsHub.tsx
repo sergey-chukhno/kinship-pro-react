@@ -5,10 +5,16 @@ import {
   FormationCard,
   FormationStatus,
   FinancementType,
-  MOCK_FORMATIONS,
   MOCK_OF_ORG,
 } from '../../data/mockFormations';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
+import {
+  getFormations,
+  subscribeFormations,
+  upsertFormation,
+  updateFormation,
+  setSelectedFormationId,
+} from '../../utils/formationStore';
 import FormationModal, { FormationFormData } from '../Modals/FormationModal';
 import { useToast } from '../../hooks/useToast';
 import './FormationsHub.css';
@@ -29,10 +35,76 @@ const FINANCEMENT_CLASS: Record<FinancementType, string> = {
   Autre: 'autre',
 };
 
+const FINANCEMENT_OPTIONS: FinancementType[] = [
+  'CPF',
+  'OPCO',
+  'Entreprise',
+  'Associative',
+  'Autre',
+];
+
+const MONTH_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: 'Janvier' },
+  { value: 2, label: 'Février' },
+  { value: 3, label: 'Mars' },
+  { value: 4, label: 'Avril' },
+  { value: 5, label: 'Mai' },
+  { value: 6, label: 'Juin' },
+  { value: 7, label: 'Juillet' },
+  { value: 8, label: 'Août' },
+  { value: 9, label: 'Septembre' },
+  { value: 10, label: 'Octobre' },
+  { value: 11, label: 'Novembre' },
+  { value: 12, label: 'Décembre' },
+];
+
 function formatFrDate(iso: string): string {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
+}
+
+/** Years & months referenced by a formation (dates + meta FR). */
+function getFormationDateParts(f: FormationCard): { years: number[]; months: number[] } {
+  const years = new Set<number>();
+  const months = new Set<number>();
+
+  const addIso = (iso?: string) => {
+    if (!iso) return;
+    const [y, m] = iso.split('-').map(Number);
+    if (y) years.add(y);
+    if (m) months.add(m);
+  };
+
+  addIso(f.startDate);
+  addIso(f.endDate);
+  if (f.archivedYear) years.add(f.archivedYear);
+
+  const frDateRegex = /(\d{2})\/(\d{2})\/(\d{4})/g;
+  let match: RegExpExecArray | null;
+  while ((match = frDateRegex.exec(f.meta)) !== null) {
+    const month = Number(match[2]);
+    const year = Number(match[3]);
+    if (month) months.add(month);
+    if (year) years.add(year);
+  }
+
+  return { years: Array.from(years), months: Array.from(months) };
+}
+
+function matchesSearch(f: FormationCard, q: string): boolean {
+  if (!q) return true;
+  const haystack = [
+    f.title,
+    f.description,
+    f.meta,
+    f.financement,
+    f.proofNumber,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(q);
 }
 
 const FormationsHub: React.FC = () => {
@@ -42,14 +114,21 @@ const FormationsHub: React.FC = () => {
   const { showSuccess } = useToast();
   const [activeTab, setActiveTab] = useState<FormationStatus>('in_progress');
   const [search, setSearch] = useState('');
-  const [formations, setFormations] = useState<FormationCard[]>(() => [...MOCK_FORMATIONS]);
+  const [filterYear, setFilterYear] = useState<string>('');
+  const [filterMonth, setFilterMonth] = useState<string>('');
+  const [filterFinancement, setFilterFinancement] = useState<string>('');
+  const [formations, setFormationsState] = useState<FormationCard[]>(() => getFormations());
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingFormation, setEditingFormation] = useState<FormationCard | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () => new Set(MOCK_FORMATIONS.filter((f) => f.selected).map((f) => f.id))
+    () => new Set(getFormations().filter((f) => f.selected).map((f) => f.id))
   );
+
+  useEffect(() => subscribeFormations(setFormationsState), []);
 
   useEffect(() => {
     if (searchParams.get('open') === 'create') {
+      setEditingFormation(null);
       setIsCreateModalOpen(true);
       const next = new URLSearchParams(searchParams);
       next.delete('open');
@@ -57,31 +136,97 @@ const FormationsHub: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const openCreateModal = () => setIsCreateModalOpen(true);
+  const openCreateModal = () => {
+    setEditingFormation(null);
+    setIsCreateModalOpen(true);
+  };
 
-  const closeCreateModal = () => setIsCreateModalOpen(false);
+  const openEditModal = (formation: FormationCard) => {
+    setIsCreateModalOpen(false);
+    setEditingFormation(formation);
+  };
+
+  const closeFormationModal = () => {
+    setIsCreateModalOpen(false);
+    setEditingFormation(null);
+  };
+
+  const openDetail = (formation: FormationCard) => {
+    setSelectedFormationId(formation.id);
+    setCurrentPage('formation-detail');
+    navigate('/formation-detail');
+  };
+
+  const openPreuve = (formation: FormationCard) => {
+    setSelectedFormationId(formation.id);
+    setCurrentPage('preuve-formation');
+    navigate('/preuve-formation');
+  };
+
+  const buildDraftMeta = (data: FormationFormData, createdLabel: string) => {
+    if (data.startDate && data.endDate) {
+      return `créée le ${createdLabel} · prévue du ${formatFrDate(data.startDate)} au ${formatFrDate(data.endDate)} · jamais activée · visible par vous seul`;
+    }
+    return `créée le ${createdLabel} · jamais activée · visible par vous seul`;
+  };
+
+  const buildComingMeta = (data: FormationFormData, formation: FormationCard) => {
+    if (data.startDate && data.endDate) {
+      const suffix = formation.identitiesToVerify
+        ? ` · ${formation.identitiesToVerify} inscrits`
+        : '';
+      return `du ${formatFrDate(data.startDate)} au ${formatFrDate(data.endDate)}${suffix} · démarrage automatique le ${formatFrDate(data.startDate)}`;
+    }
+    return formation.meta;
+  };
 
   const handleCreateFormation = (data: FormationFormData) => {
     const today = new Date();
     const createdLabel = today.toLocaleDateString('fr-FR');
-    let meta = `créée le ${createdLabel} · jamais activée · visible par vous seul`;
-    if (data.startDate && data.endDate) {
-      meta = `créée le ${createdLabel} · prévue du ${formatFrDate(data.startDate)} au ${formatFrDate(data.endDate)} · jamais activée · visible par vous seul`;
-    }
 
     const card: FormationCard = {
       id: `f-${Date.now()}`,
       title: data.title,
+      description: data.description || undefined,
       status: 'draft',
       financement: data.financement || undefined,
       isEuMcDeclared: data.isEuMcDeclared || undefined,
-      meta,
+      startDate: data.startDate || undefined,
+      endDate: data.endDate || undefined,
+      attendanceSurveyOptIn: data.attendanceSurveyOptIn || undefined,
+      meta: buildDraftMeta(data, createdLabel),
     };
 
-    setFormations((prev) => [card, ...prev]);
+    upsertFormation(card);
+    setFormationsState(getFormations());
     setActiveTab('draft');
-    setIsCreateModalOpen(false);
+    closeFormationModal();
     showSuccess('Formation enregistrée en brouillon');
+  };
+
+  const handleUpdateFormation = (data: FormationFormData) => {
+    if (!editingFormation) return;
+
+    const meta =
+      editingFormation.status === 'draft'
+        ? buildDraftMeta(data, new Date().toLocaleDateString('fr-FR'))
+        : editingFormation.status === 'coming'
+          ? buildComingMeta(data, editingFormation)
+          : editingFormation.meta;
+
+    updateFormation(editingFormation.id, {
+      title: data.title,
+      description: data.description || undefined,
+      financement: data.financement || undefined,
+      isEuMcDeclared: data.isEuMcDeclared || undefined,
+      startDate: data.startDate || undefined,
+      endDate: data.endDate || undefined,
+      attendanceSurveyOptIn: data.attendanceSurveyOptIn || undefined,
+      meta,
+    });
+    setFormationsState(getFormations());
+    closeFormationModal();
+    showSuccess('Formation mise à jour');
   };
 
   const openSession = (formation: FormationCard) => {
@@ -96,6 +241,35 @@ const FormationsHub: React.FC = () => {
     navigate('/presence-session');
   };
 
+  const yearOptions = useMemo(() => {
+    const years = new Set<number>();
+    formations.forEach((f) => {
+      getFormationDateParts(f).years.forEach((y) => years.add(y));
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [formations]);
+
+  const matchesToolbarFilters = (f: FormationCard) => {
+    const q = search.trim().toLowerCase();
+    if (!matchesSearch(f, q)) return false;
+
+    if (filterFinancement && f.financement !== filterFinancement) return false;
+
+    const { years, months } = getFormationDateParts(f);
+
+    if (filterYear) {
+      const y = Number(filterYear);
+      if (!years.includes(y)) return false;
+    }
+
+    if (filterMonth) {
+      const m = Number(filterMonth);
+      if (!months.includes(m)) return false;
+    }
+
+    return true;
+  };
+
   const counts = useMemo(() => {
     const map: Record<FormationStatus, number> = {
       draft: 0,
@@ -105,22 +279,20 @@ const FormationsHub: React.FC = () => {
       archived: 0,
     };
     formations.forEach((f) => {
-      map[f.status] += 1;
+      if (matchesToolbarFilters(f)) map[f.status] += 1;
     });
     return map;
-  }, [formations]);
+  }, [formations, search, filterYear, filterMonth, filterFinancement]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return formations.filter((f) => {
-      if (f.status !== activeTab) return false;
-      if (!q) return true;
-      return f.title.toLowerCase().includes(q) || f.meta.toLowerCase().includes(q);
-    });
-  }, [activeTab, search, formations]);
+    return formations.filter((f) => f.status === activeTab && matchesToolbarFilters(f));
+  }, [activeTab, formations, search, filterYear, filterMonth, filterFinancement]);
+
+  const hasActiveFilters =
+    Boolean(search.trim()) || Boolean(filterYear) || Boolean(filterMonth) || Boolean(filterFinancement);
 
   const overdueCount = formations.filter(
-    (f) => f.status === 'in_progress' && f.endDateOverdue
+    (f) => f.status === 'in_progress' && f.endDateOverdue && matchesToolbarFilters(f)
   ).length;
 
   const toggleSelect = (id: string) => {
@@ -150,15 +322,33 @@ const FormationsHub: React.FC = () => {
       case 'draft':
         return (
           <>
-            <button type="button" className="formation-btn primary">Modifier</button>
+            <button
+              type="button"
+              className="formation-btn primary"
+              onClick={() => openEditModal(formation)}
+            >
+              Modifier
+            </button>
             <button type="button" className="formation-btn">Supprimer</button>
           </>
         );
       case 'coming':
         return (
           <>
-            <button type="button" className="formation-btn">Voir la formation</button>
-            <button type="button" className="formation-btn">Modifier</button>
+            <button
+              type="button"
+              className="formation-btn"
+              onClick={() => openDetail(formation)}
+            >
+              Voir la formation
+            </button>
+            <button
+              type="button"
+              className="formation-btn"
+              onClick={() => openEditModal(formation)}
+            >
+              Modifier
+            </button>
           </>
         );
       case 'in_progress':
@@ -171,26 +361,58 @@ const FormationsHub: React.FC = () => {
             >
               Ouvrir la session de présence
             </button>
-            <button type="button" className="formation-btn">Voir la formation</button>
+            <button
+              type="button"
+              className="formation-btn"
+              onClick={() => openDetail(formation)}
+            >
+              Voir la formation
+            </button>
           </>
         );
       case 'ended':
         if (formation.hasProof) {
           return (
             <>
-              <button type="button" className="formation-btn primary">Consulter la PF</button>
+              <button
+                type="button"
+                className="formation-btn primary"
+                onClick={() => openPreuve(formation)}
+              >
+                Consulter la PF
+              </button>
               <button type="button" className="formation-btn">Partager la PF</button>
             </>
           );
         }
-        return <button type="button" className="formation-btn">Voir la formation</button>;
+        return (
+          <button
+            type="button"
+            className="formation-btn"
+            onClick={() => openDetail(formation)}
+          >
+            Voir la formation
+          </button>
+        );
       case 'archived':
         return (
           <>
-            <button type="button" className="formation-btn">Voir la formation</button>
+            <button
+              type="button"
+              className="formation-btn"
+              onClick={() => openDetail(formation)}
+            >
+              Voir la formation
+            </button>
             {formation.hasProof && (
               <>
-                <button type="button" className="formation-btn">Consulter la PF</button>
+                <button
+                  type="button"
+                  className="formation-btn"
+                  onClick={() => openPreuve(formation)}
+                >
+                  Consulter la PF
+                </button>
                 <button type="button" className="formation-btn">Partager la PF</button>
               </>
             )}
@@ -208,14 +430,29 @@ const FormationsHub: React.FC = () => {
     const isSelected = selectedIds.has(formation.id);
 
     return (
-      <article key={formation.id} className="formation-card">
+      <article
+        key={formation.id}
+        className="formation-card"
+        onClick={() => openDetail(formation)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openDetail(formation);
+          }
+        }}
+      >
         <div className="formation-card-row">
           <div className="formation-card-title-row">
             {showCheckbox && (
               <button
                 type="button"
                 className={`formation-card-check ${isSelected ? 'checked' : 'unchecked'}`}
-                onClick={() => toggleSelect(formation.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleSelect(formation.id);
+                }}
                 aria-pressed={isSelected}
                 aria-label={isSelected ? 'Désélectionner' : 'Sélectionner'}
               >
@@ -239,7 +476,13 @@ const FormationsHub: React.FC = () => {
               </p>
             </div>
           </div>
-          <div className="formation-card-actions">{renderActions(formation)}</div>
+          <div
+            className="formation-card-actions"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {renderActions(formation)}
+          </div>
         </div>
         {formation.identitiesToVerify != null && formation.identitiesToVerify > 0 && (
           <div className="formation-identity-banner">
@@ -254,7 +497,13 @@ const FormationsHub: React.FC = () => {
 
   const renderList = () => {
     if (filtered.length === 0) {
-      return <p className="formations-hub-empty">Aucune formation dans cet onglet.</p>;
+      return (
+        <p className="formations-hub-empty">
+          {hasActiveFilters
+            ? 'Aucune formation ne correspond à la recherche / aux filtres.'
+            : 'Aucune formation dans cet onglet.'}
+        </p>
+      );
     }
 
     if (activeTab === 'archived') {
@@ -320,9 +569,59 @@ const FormationsHub: React.FC = () => {
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Rechercher une formation"
           />
-          <button type="button" className="formations-hub-filter">Année ▾</button>
-          <button type="button" className="formations-hub-filter">Mois ▾</button>
-          <button type="button" className="formations-hub-filter">Financement ▾</button>
+          <select
+            className={`formations-hub-filter ${filterYear ? 'active' : ''}`}
+            value={filterYear}
+            onChange={(e) => setFilterYear(e.target.value)}
+            aria-label="Filtrer par année"
+          >
+            <option value="">Année</option>
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <select
+            className={`formations-hub-filter ${filterMonth ? 'active' : ''}`}
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+            aria-label="Filtrer par mois"
+          >
+            <option value="">Mois</option>
+            {MONTH_OPTIONS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className={`formations-hub-filter ${filterFinancement ? 'active' : ''}`}
+            value={filterFinancement}
+            onChange={(e) => setFilterFinancement(e.target.value)}
+            aria-label="Filtrer par financement"
+          >
+            <option value="">Financement</option>
+            {FINANCEMENT_OPTIONS.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="formations-hub-filter-clear"
+              onClick={() => {
+                setSearch('');
+                setFilterYear('');
+                setFilterMonth('');
+                setFilterFinancement('');
+              }}
+            >
+              Réinitialiser
+            </button>
+          )}
         </div>
 
         <div className="formations-hub-tabs" role="tablist">
@@ -351,7 +650,26 @@ const FormationsHub: React.FC = () => {
       </div>
 
       {isCreateModalOpen && (
-        <FormationModal onClose={closeCreateModal} onSave={handleCreateFormation} />
+        <FormationModal onClose={closeFormationModal} onSave={handleCreateFormation} />
+      )}
+
+      {editingFormation && (
+        <FormationModal
+          isEdit
+          status={editingFormation.status}
+          onClose={closeFormationModal}
+          onSave={handleUpdateFormation}
+          initialData={{
+            title: editingFormation.title,
+            description: editingFormation.description ?? '',
+            projectKind: 'formation',
+            financement: editingFormation.financement ?? '',
+            isEuMcDeclared: editingFormation.isEuMcDeclared ?? false,
+            startDate: editingFormation.startDate ?? '',
+            endDate: editingFormation.endDate ?? '',
+            attendanceSurveyOptIn: editingFormation.attendanceSurveyOptIn ?? false,
+          }}
+        />
       )}
     </section>
   );
