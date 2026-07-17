@@ -200,6 +200,19 @@
   letter-spacing: 0.06em;
 }
 
+.fd-sessions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.fd-sessions-header h2 {
+  margin: 0;
+}
+
 .fd-info-list {
   display: flex;
   flex-direction: column;

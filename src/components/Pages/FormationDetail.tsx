@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import {
@@ -18,7 +18,13 @@ import {
 } from '../../utils/formationStore';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
 import FormationModal, { FormationFormData } from '../Modals/FormationModal';
+import PresenceSessionModal, {
+  PresenceSessionFormData,
+  formatSessionDateLabel,
+  formatTimeRange,
+} from '../Modals/PresenceSessionModal';
 import { useToast } from '../../hooks/useToast';
+import { FormationSlot } from '../../utils/formationStore';
 import './FormationDetail.css';
 
 const STATUS_LABEL: Record<FormationStatus, string> = {
@@ -57,16 +63,19 @@ const FormationDetail: React.FC = () => {
   );
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [participants, setParticipants] = useState(() =>
     getMockParticipants(formationId)
   );
+  const [slots, setSlots] = useState<FormationSlot[]>(() => getMockSlots(formationId));
 
   useEffect(() => {
     const id = getSelectedFormationId() || '';
     setFormationId(id);
     setFormation(getFormationById(id) ?? null);
     setParticipants(getMockParticipants(id));
+    setSlots(getMockSlots(id));
   }, []);
 
   useEffect(() => {
@@ -76,11 +85,10 @@ const FormationDetail: React.FC = () => {
     });
   }, []);
 
-  const slots = useMemo(() => getMockSlots(formationId), [formationId]);
-
   const unverifiedCount = participants.filter((p) => !p.identityVerified).length;
   const isCpf = formation?.financement === 'CPF';
   const canEdit = formation?.status === 'draft' || formation?.status === 'coming';
+  const canPublish = formation?.status === 'draft';
   const canOpenSession = formation?.status === 'in_progress';
   const canClose = formation?.status === 'in_progress';
   const canSeePf =
@@ -90,6 +98,21 @@ const FormationDetail: React.FC = () => {
   const backToHub = () => {
     setCurrentPage('dashboard');
     navigate('/dashboard');
+  };
+
+  const handlePublish = () => {
+    if (!formation || formation.status !== 'draft') return;
+    if (!formation.startDate || !formation.endDate) {
+      showError('Renseignez les dates de début et de fin avant de publier (Modifier).');
+      return;
+    }
+    const meta = `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · démarrage automatique le ${formatFrDate(formation.startDate)}`;
+    const updated = updateFormation(formation.id, {
+      status: 'coming',
+      meta,
+    });
+    if (updated) setFormation(updated);
+    showSuccess('Formation publiée — elle apparaît dans À venir');
   };
 
   const openSession = (slotLabel = 'Matinée', dateLabel = '15 septembre 2026') => {
@@ -103,6 +126,25 @@ const FormationDetail: React.FC = () => {
     });
     setCurrentPage('presence-session');
     navigate('/presence-session');
+  };
+
+  const handleCreateSession = (data: PresenceSessionFormData) => {
+    if (!formation) return;
+    const dateLabel = formatSessionDateLabel(data.date);
+    const timeRange = formatTimeRange(data.startTime, data.endTime);
+    const slot: FormationSlot = {
+      id: `s-${Date.now()}`,
+      label: data.label,
+      dateLabel,
+      timeRange,
+      participantsCount: participants.length || 0,
+    };
+    setSlots((prev) => [...prev, slot]);
+    setIsSessionModalOpen(false);
+    showSuccess('Session de présence créée');
+    if (data.openNow && formation.status === 'in_progress') {
+      openSession(slot.label, slot.dateLabel);
+    }
   };
 
   const toggleIdentity = (participantId: string) => {
@@ -188,6 +230,11 @@ const FormationDetail: React.FC = () => {
           </button>
         </div>
         <div className="formation-detail-actions">
+          {canPublish && (
+            <button type="button" className="fd-btn primary" onClick={handlePublish}>
+              Publier
+            </button>
+          )}
           {canEdit && (
             <button type="button" className="fd-btn" onClick={() => setIsEditOpen(true)}>
               Modifier
@@ -396,10 +443,21 @@ const FormationDetail: React.FC = () => {
 
       {activeTab === 'sessions' && (
         <div className="formation-detail-card">
-          <h2>Sessions de présence</h2>
+          <div className="fd-sessions-header">
+            <h2>Sessions de présence</h2>
+            {(formation.status === 'in_progress' || formation.status === 'coming') && (
+              <button
+                type="button"
+                className="fd-btn primary"
+                onClick={() => setIsSessionModalOpen(true)}
+              >
+                + Créer une session de présence
+              </button>
+            )}
+          </div>
           {slots.length === 0 ? (
             <p className="formation-detail-empty">
-              Aucun créneau pour l’instant. Les sessions s’ouvrent manuellement depuis un créneau.
+              Aucun créneau pour l’instant. Créez une session pour pouvoir l’ouvrir le jour J.
             </p>
           ) : (
             slots.map((slot) => (
@@ -448,6 +506,14 @@ const FormationDetail: React.FC = () => {
             endDate: formation.endDate ?? '',
             attendanceSurveyOptIn: formation.attendanceSurveyOptIn ?? false,
           }}
+        />
+      )}
+
+      {isSessionModalOpen && (
+        <PresenceSessionModal
+          formationTitle={formation.title}
+          onClose={() => setIsSessionModalOpen(false)}
+          onSave={handleCreateSession}
         />
       )}
     </section>

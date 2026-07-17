@@ -111,7 +111,7 @@ const FormationsHub: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { setCurrentPage } = useAppContext();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState<FormationStatus>('in_progress');
   const [search, setSearch] = useState('');
   const [filterYear, setFilterYear] = useState<string>('');
@@ -178,6 +178,19 @@ const FormationsHub: React.FC = () => {
       return `du ${formatFrDate(data.startDate)} au ${formatFrDate(data.endDate)}${suffix} · démarrage automatique le ${formatFrDate(data.startDate)}`;
     }
     return formation.meta;
+  };
+
+  const publishFormation = (formation: FormationCard) => {
+    if (!formation.startDate || !formation.endDate) {
+      showError('Renseignez les dates de début et de fin avant de publier (Modifier).');
+      openEditModal(formation);
+      return;
+    }
+    const meta = `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · démarrage automatique le ${formatFrDate(formation.startDate)}`;
+    updateFormation(formation.id, { status: 'coming', meta });
+    setFormationsState(getFormations());
+    setActiveTab('coming');
+    showSuccess('Formation publiée — elle apparaît dans À venir');
   };
 
   const handleCreateFormation = (data: FormationFormData) => {
@@ -325,6 +338,13 @@ const FormationsHub: React.FC = () => {
             <button
               type="button"
               className="formation-btn primary"
+              onClick={() => publishFormation(formation)}
+            >
+              Publier
+            </button>
+            <button
+              type="button"
+              className="formation-btn"
               onClick={() => openEditModal(formation)}
             >
               Modifier
