@@ -10,7 +10,7 @@ export const getSelectedOrganizationId = (
   showingPageType: ShowingPageType
 ): number | undefined => {
   const savedContextId = localStorage.getItem('selectedContextId');
-  const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+  const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | 'formation' | null;
   
   // If we have a saved context and it matches the current page type
   if (savedContextId && savedContextType) {
@@ -30,6 +30,11 @@ export const getSelectedOrganizationId = (
           return Number(savedContextId);
         }
       }
+    } else if (savedContextType === 'formation' && showingPageType === 'of') {
+      const ofOrg = user.available_contexts?.formation_organizations?.find(
+        (o: any) => o.id.toString() === savedContextId && (o.role === 'admin' || o.role === 'superadmin')
+      );
+      if (ofOrg) return Number(savedContextId);
     }
   }
   
@@ -41,6 +46,8 @@ export const getSelectedOrganizationId = (
   } else if (showingPageType === 'teacher') {
     // For teachers: return first confirmed school membership (any role)
     return user.available_contexts?.schools?.[0]?.id;
+  } else if (showingPageType === 'of') {
+    return user.available_contexts?.formation_organizations?.[0]?.id;
   }
   
   return undefined;

@@ -21,6 +21,9 @@ import './MainLayout.css';
 import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
 import { useAuthInit } from '../../hooks/useAuthInit';
+import { applySpaceTheme } from '../../utils/spaceTheme';
+import PresenceSessionPage from '../Pages/PresenceSessionPage';
+import PresenceBanner from '../Presence/PresenceBanner';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
@@ -29,37 +32,14 @@ const MainLayout: React.FC = () => {
 
   // Initialiser les couleurs à des valeurs neutres au démarrage
   useEffect(() => {
-    const root = document.documentElement;
-    // Définir des couleurs neutres par défaut pour éviter tout flash
-    root.style.setProperty("--primary", "#6b7280");
-    root.style.setProperty("--hover-primary", "#4b5563");
+    applySpaceTheme(null);
   }, []);
 
-  // Gérer les changements de showingPageType (pour les changements après l'init)
+  // Couleur d'espace : suit l'ESPACE via --couleur-espace (KIN_UX_TOTP V1.1.2)
   useEffect(() => {
-    // Ne pas appliquer pendant le chargement initial (géré par useAuthInit)
     if (isAuthChecking) return;
-
-    const root = document.documentElement;
-
-    if (state.showingPageType === "pro") {
-      root.style.setProperty("--primary", "#5570F1"); // bleu pour pro
-      root.style.setProperty("--hover-primary", "#4c63d2");
-    }
-    else if (state.showingPageType === "edu") {
-      root.style.setProperty("--primary", "#10b981"); // vert pour edu
-      root.style.setProperty("--hover-primary", "#0f9f6d");
-    }
-    else if (state.showingPageType === "teacher") {
-      root.style.setProperty("--primary", "#ffa600ff"); // jaune pour teacher
-      root.style.setProperty("--hover-primary", "#e59400ff");
-    }
-    else if (state.showingPageType === "user") {
-      root.style.setProperty("--primary", "#db087cff"); // rose pour user
-      root.style.setProperty("--hover-primary", "#b20666ff");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, isAuthChecking]); // Réagir aux changements de showingPageType et isAuthChecking
+    applySpaceTheme(state.showingPageType);
+  }, [state.showingPageType, isAuthChecking]);
 
 
   /*
@@ -127,10 +107,17 @@ const MainLayout: React.FC = () => {
         return <PartnershipRequests />;
       case 'project-management':
         return <ProjectManagement />;
+      case 'presence-session':
+        return <PresenceSessionPage />;
       default:
         return <Dashboard />;
     }
   };
+
+  const showPresenceBanner =
+    !isAuthChecking &&
+    state.showingPageType === 'user' &&
+    state.currentPage !== 'Auth';
 
   return (
     <div className="app-container" data-theme={state.theme}>
@@ -164,6 +151,7 @@ const MainLayout: React.FC = () => {
                 )}
 
                 <main className="dashboard app-layout">
+                  {showPresenceBanner && <PresenceBanner />}
                   {renderCurrentPage()}
                 </main>
               </div>

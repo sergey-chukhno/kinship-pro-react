@@ -17,7 +17,7 @@ interface BadgeExportModalProps {
     searchTerm: string;
   };
   context: {
-    showingPageType: 'user' | 'pro' | 'edu' | 'teacher';
+    showingPageType: 'user' | 'pro' | 'edu' | 'teacher' | 'of';
     organizationId?: number;
     organizationName?: string;
   };

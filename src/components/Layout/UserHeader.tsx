@@ -6,6 +6,9 @@ import { PageType } from '../../types';
 import './UserHeader.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
+import { MOCK_OF_ORG } from '../../data/mockFormations';
+
+type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
 interface UserHeaderProps {
   currentPage: PageType;
@@ -20,7 +23,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   // Get currently selected context
   const getCurrentContext = useMemo(() => {
     const savedContextId = localStorage.getItem('selectedContextId');
-    const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+    const savedContextType = localStorage.getItem('selectedContextType') as ContextOrgType | null;
     
     if (savedContextId && savedContextType) {
       return {
@@ -34,6 +37,8 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
       return { id: 'teacher-dashboard', type: 'teacher' as const };
     } else if (state.showingPageType === 'user') {
       return { id: 'user-dashboard', type: 'user' as const };
+    } else if (state.showingPageType === 'of') {
+      return { id: MOCK_OF_ORG.id, type: 'formation' as const };
     }
     
     return null;
@@ -42,63 +47,92 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   // Process organizations from available_contexts
   const organizations = useMemo(() => {
     const contexts = state.user.available_contexts;
-    if (!contexts) return [];
 
     const orgs: Array<{
       id: number | string;
       name: string;
-      type: 'school' | 'company' | 'teacher' | 'user';
+      type: ContextOrgType;
       role?: string;
       isAdmin: boolean;
     }> = [];
 
-    // Add personal dashboard if available (at the top)
-    if (contexts.user_dashboard) {
+    if (contexts) {
+      // Add personal dashboard if available (at the top)
+      if (contexts.user_dashboard) {
+        orgs.push({
+          id: 'user-dashboard',
+          name: 'Tableau de bord personnel',
+          type: 'user',
+          isAdmin: false
+        });
+      }
+
+      // Add schools (only if admin or superadmin)
+      if (contexts.schools) {
+        contexts.schools.forEach(school => {
+          if (school.role === 'superadmin' || school.role === 'admin') {
+            orgs.push({
+              id: school.id,
+              name: school.name,
+              type: 'school',
+              role: school.role,
+              isAdmin: true
+            });
+          }
+        });
+      }
+
+      // Add companies (only if admin or superadmin)
+      if (contexts.companies) {
+        contexts.companies.forEach(company => {
+          if (company.role === 'superadmin' || company.role === 'admin') {
+            orgs.push({
+              id: company.id,
+              name: company.name,
+              type: 'company',
+              role: company.role,
+              isAdmin: true
+            });
+          }
+        });
+      }
+
+      if (contexts.formation_organizations && contexts.formation_organizations.length > 0) {
+        contexts.formation_organizations.forEach(org => {
+          if (org.role === 'superadmin' || org.role === 'admin') {
+            orgs.push({
+              id: org.id,
+              name: org.name,
+              type: 'formation',
+              role: org.role,
+              isAdmin: true
+            });
+          }
+        });
+      } else {
+        orgs.push({
+          id: MOCK_OF_ORG.id,
+          name: 'Organisme de formation',
+          type: 'formation',
+          isAdmin: true
+        });
+      }
+
+      // Add teacher dashboard if available
+      if (contexts.teacher_dashboard) {
+        orgs.push({
+          id: 'teacher-dashboard',
+          name: 'Tableau de bord Enseignant',
+          type: 'teacher',
+          isAdmin: false
+        });
+      }
+    } else {
       orgs.push({
-        id: 'user-dashboard',
-        name: 'Tableau de bord personnel',
-        type: 'user',
-        isAdmin: false
-      });
-    }
-
-    // Add schools (only if admin or superadmin)
-    if (contexts.schools) {
-      contexts.schools.forEach(school => {
-        if (school.role === 'superadmin' || school.role === 'admin') {
-          orgs.push({
-            id: school.id,
-            name: school.name,
-            type: 'school',
-            role: school.role,
-            isAdmin: true
-          });
-        }
-      });
-    }
-
-    // Add companies (only if admin or superadmin)
-    if (contexts.companies) {
-      contexts.companies.forEach(company => {
-        if (company.role === 'superadmin' || company.role === 'admin') {
-          orgs.push({
-            id: company.id,
-            name: company.name,
-            type: 'company',
-            role: company.role,
-            isAdmin: true
-          });
-        }
-      });
-    }
-
-    // Add teacher dashboard if available
-    if (contexts.teacher_dashboard) {
-      orgs.push({
-        id: 'teacher-dashboard',
-        name: 'Tableau de bord Enseignant',
-        type: 'teacher',
-        isAdmin: false
+        id: MOCK_OF_ORG.id,
+        name: 'Organisme de formation',
+        type: 'formation',
+        isAdmin: true
       });
     }
 
@@ -111,8 +145,8 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   };
 
   // Handle organization switching
-  const handleOrganizationSwitch = (orgId: number | string, orgType: 'school' | 'company' | 'teacher' | 'user') => {
-    let newPageType: 'pro' | 'edu' | 'teacher' | 'user';
+  const handleOrganizationSwitch = (orgId: number | string, orgType: ContextOrgType) => {
+    let newPageType: 'pro' | 'edu' | 'teacher' | 'user' | 'of';
 
     switch (orgType) {
       case 'school':
@@ -126,6 +160,9 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         break;
       case 'user':
         newPageType = 'user';
+        break;
+      case 'formation':
+        newPageType = 'of';
         break;
       default:
         newPageType = 'user';

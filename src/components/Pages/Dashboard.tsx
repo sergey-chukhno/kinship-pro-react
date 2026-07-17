@@ -42,15 +42,16 @@ import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { isUnder15 } from '../../utils/ageUtils';
+import FormationsHub from './FormationsHub';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
 /** Returns navigation target for dashboard stat card (pro / edu / teacher). */
 function getStatCardNavigation(
-  showingPageType: 'pro' | 'edu' | 'teacher' | 'user',
+  showingPageType: 'pro' | 'edu' | 'teacher' | 'user' | 'of',
   cardKey: string
 ): { path: string; page: PageType } | null {
-  if (showingPageType === 'user') return null;
+  if (showingPageType === 'user' || showingPageType === 'of') return null;
   const key = cardKey as string;
   if (showingPageType === 'pro') {
     if (key === 'total_members') return { path: '/members', page: 'members' };
@@ -1471,6 +1472,10 @@ const Dashboard: React.FC = () => {
     const years = Math.floor(months / 12);
     return `Il y a ${years} an${years > 1 ? 's' : ''}`;
   };
+
+  if (state.showingPageType === 'of') {
+    return <FormationsHub />;
+  }
 
   if (state.showingPageType === 'user') {
     const s = userDashboardStats;

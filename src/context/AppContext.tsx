@@ -107,7 +107,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, user: action.payload };
 
     case 'SET_SHOWING_PAGE_TYPE':
-      if (['pro', 'edu', 'teacher', 'user'].includes(action.payload)) {
+      if (['pro', 'edu', 'teacher', 'user', 'of'].includes(action.payload)) {
         return { ...state, showingPageType: action.payload };
       }
       return state;

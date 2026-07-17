@@ -9,7 +9,7 @@ interface ExportFilters {
 }
 
 interface ExportContext {
-  showingPageType: 'user' | 'pro' | 'edu' | 'teacher';
+  showingPageType: 'user' | 'pro' | 'edu' | 'teacher' | 'of';
   organizationId?: number;
   organizationName?: string;
 }

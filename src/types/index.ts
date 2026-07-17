@@ -304,6 +304,7 @@ export interface User {
   available_contexts?: {
     companies?: OrganizationContext[];
     schools?: OrganizationContext[];
+    formation_organizations?: OrganizationContext[];
     teacher_dashboard?: boolean;
     user_dashboard?: boolean;
     independent_teacher?: object | null;
@@ -386,9 +387,9 @@ export interface OrganizationStatsResponse {
   badges_assigned?: BadgesAssignedStats;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'pik' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'Auth';
+export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'pik' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'presence-session' | 'Auth';
 
-export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';
+export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user' | 'of';
 
 export type ClassModalProjectsTab = 'classic-projects' | 'mlds-projects';
 

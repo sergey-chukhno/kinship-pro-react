@@ -46,7 +46,8 @@ export const getContextFromPageType = (
         'pro': 'company',
         'edu': 'school',
         'teacher': 'teacher',
-        'user': 'general'
+        'user': 'general',
+        'of': 'company',
     };
 
     return mapping[showingPageType] || 'general';

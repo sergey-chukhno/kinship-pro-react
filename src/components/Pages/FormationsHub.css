@@ -1,0 +1,335 @@
+.formations-hub {
+  --of-primary: var(--couleur-espace, #115e59);
+  --of-accent: #ffb557;
+  --of-bg: #f9f8f5;
+  --of-text: #1c1b18;
+  --of-muted: #6b6a64;
+  --of-faint: #9e9d97;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 0 32px;
+}
+
+.formations-hub-header {
+  background: var(--of-primary);
+  color: #fff;
+  padding: 16px 20px;
+  border-radius: 14px 14px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.formations-hub-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin: 0;
+}
+
+.formations-hub-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 4px 0 0;
+}
+
+.formations-hub-qualiopi {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-top: 6px;
+}
+
+.formations-hub-create {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 13px;
+  border-radius: 8px;
+  background: var(--of-accent);
+  color: #1c1b18;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.formations-hub-create:disabled {
+  background: #e8e7e2;
+  color: #9e9d97;
+  cursor: not-allowed;
+}
+
+.formations-hub-shell {
+  background: #fff;
+  border: 0.5px solid rgba(0, 0, 0, 0.1);
+  border-radius: 0 0 14px 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.formations-hub-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.06);
+  background: #fbfaf8;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.formations-hub-search {
+  flex: 1;
+  min-width: 180px;
+  padding: 7px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  font-size: 11px;
+  color: var(--of-text);
+}
+
+.formations-hub-search::placeholder {
+  color: var(--of-faint);
+}
+
+.formations-hub-filter {
+  padding: 8px 13px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: var(--of-text);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.formations-hub-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 20px 0;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+  flex-wrap: wrap;
+}
+
+.formations-hub-tab {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--of-muted);
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.formations-hub-tab.active {
+  font-weight: 700;
+  color: var(--of-primary);
+  border-bottom-color: var(--of-primary);
+}
+
+.formations-hub-list {
+  padding: 16px 20px;
+  background: var(--of-bg);
+  min-height: 280px;
+}
+
+.formations-hub-banner {
+  margin-bottom: 10px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: #fff4e5;
+  border: 1px solid var(--of-accent);
+  font-size: 10.5px;
+  color: #8a6d00;
+}
+
+.formations-hub-ended-actions {
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.formations-hub-ended-actions span {
+  font-size: 10.5px;
+  color: var(--of-muted);
+}
+
+.formations-hub-year {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--of-muted);
+  margin: 12px 0 6px;
+}
+
+.formation-card {
+  padding: 13px 15px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  background: #fff;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.formation-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.formation-card-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+
+.formation-card-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--couleur-espace, #115e59);
+  border-radius: 3px;
+  margin-right: 9px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: #fff;
+  padding: 0;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.formation-card-check.checked {
+  background: var(--couleur-espace, #115e59);
+}
+
+.formation-card-check.unchecked {
+  border-color: #9e9d97;
+}
+
+.formation-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--of-text);
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.formation-card-meta {
+  font-size: 10.5px;
+  color: var(--of-muted);
+  margin-top: 3px;
+}
+
+.formation-card-meta .overdue {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.formation-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.formation-btn {
+  display: inline-block;
+  padding: 8px 13px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: #fff;
+  color: var(--of-text);
+}
+
+.formation-btn.primary {
+  background: var(--of-primary);
+  color: #fff;
+  border-color: var(--of-primary);
+  font-weight: 600;
+}
+
+.formation-btn.muted {
+  background: #e8e7e2;
+  color: #9e9d97;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.formation-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.formation-badge.cpf {
+  background: #eef4ff;
+  color: #185fa5;
+}
+
+.formation-badge.opco {
+  background: #f0fdf4;
+  color: #1f6b3a;
+}
+
+.formation-badge.entreprise {
+  background: #fdf2f8;
+  color: #9d174d;
+}
+
+.formation-badge.associative {
+  background: #f5f3ff;
+  color: #5b21b6;
+}
+
+.formation-badge.autre {
+  background: #f4f4f5;
+  color: #52525b;
+}
+
+.formation-badge.mc-ue {
+  background: #fff8e1;
+  color: #8a6d00;
+}
+
+.formation-identity-banner {
+  margin-top: 9px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: #fffbeb;
+  border: 1px solid var(--of-accent);
+  font-size: 10.5px;
+  color: #8a6d00;
+}
+
+.formations-hub-footer {
+  padding: 12px 20px;
+  border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+  font-size: 10px;
+  color: var(--of-faint);
+}
+
+.formations-hub-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--of-muted);
+  font-size: 13px;
+}

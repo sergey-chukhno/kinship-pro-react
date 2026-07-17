@@ -8,7 +8,7 @@ export const createBadgeCartographyShare = async (filters: {
   level: string;
   searchTerm: string;
 }, context: {
-  showingPageType: 'user' | 'pro' | 'edu' | 'teacher';
+  showingPageType: 'user' | 'pro' | 'edu' | 'teacher' | 'of';
   organizationId?: number;
   organizationName?: string;
 }): Promise<{ shareable_url: string; token: string; expires_at: string }> => {

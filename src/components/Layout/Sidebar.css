@@ -95,7 +95,7 @@
   z-index: 10;
 }
 
-/* Dashboard row: link (Tableau de bord) + chevron that opens sections dropdown */
+/* Dashboard row: link (Tableau de bord) + chevron — même pastille active que les autres side-links */
 .dashboard-nav-row {
   display: flex;
   align-items: center;
@@ -116,16 +116,49 @@
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  border-radius: 40px;
+  border-radius: 40px 0 0 40px;
   font-weight: 500;
   font-size: 0.9rem;
   text-decoration: none;
   color: var(--text-primary, #374151);
   transition: all 0.2s ease;
+  background: transparent;
 }
 
 .dashboard-nav-row .dashboard-link:hover {
   background: transparent;
+}
+
+/* Ligne active = pastille pleine (lien + chevron), comme .side-link.active */
+.dashboard-nav-row.active {
+  background: var(--primary, #5570F1);
+}
+
+.dashboard-nav-row.active:hover {
+  background: var(--primary, #5570F1);
+}
+
+.dashboard-nav-row.active .dashboard-link,
+.dashboard-nav-row.active .dashboard-link:hover,
+.dashboard-nav-row.active .dashboard-link.active,
+.dashboard-nav-row.active .dashboard-link[aria-current="page"] {
+  background: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+
+.dashboard-nav-row.active .dashboard-link img.side-icon {
+  filter: brightness(0) invert(1);
+  opacity: 1;
+}
+
+.dashboard-nav-row.active .dashboard-chevron-btn .chevron-icon {
+  filter: brightness(0) invert(1);
+  opacity: 1;
+}
+
+.dashboard-nav-row.active .dashboard-chevron-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .dashboard-nav-dropdown {

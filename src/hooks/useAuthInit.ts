@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAppContext } from "../context/AppContext";
 import { getCurrentUser, refreshToken } from "../api/Authentication"; // adapte le chemin selon ton projet
+import { applySpaceTheme } from "../utils/spaceTheme";
 import { PageType } from "../types";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -25,7 +26,8 @@ export const useAuthInit = () => {
       "dashboard", "members", "events", "projects", "badges",
       "analytics", "network", "notifications", "settings",
       "personal-settings", "pik",
-      "membership-requests", "partnership-requests", "project-management"
+      "membership-requests", "partnership-requests", "project-management",
+      "presence-session"
     ];
 
     if (validPages.includes(path as PageType)) {
@@ -80,9 +82,9 @@ export const useAuthInit = () => {
           const isAuthPage = location.pathname === "/register" || location.pathname === "/login" || location.pathname.startsWith("/register/");
 
           // Vérifier s'il y a un contexte sauvegardé et valide
-          const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | null;
+          const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | "of" | null;
           const savedContextId = localStorage.getItem('selectedContextId');
-          const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+          const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | 'formation' | null;
 
           // Fonction pour vérifier si le contexte sauvegardé est toujours valide
           const isSavedContextValid = (): boolean => {
@@ -103,13 +105,21 @@ export const useAuthInit = () => {
                 return user.available_contexts?.companies?.some(
                   (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
                 ) || false;
+              case 'formation':
+                if (user.available_contexts?.formation_organizations?.length) {
+                  return user.available_contexts.formation_organizations.some(
+                    (o: any) => o.id.toString() === savedContextId && (o.role === 'admin' || o.role === 'superadmin')
+                  );
+                }
+                // Demo OF space always available until API provides formation_organizations
+                return savedPageType === 'of';
               default:
                 return false;
             }
           };
 
           // Déterminer le type de page et la page de destination
-          let pageType: "pro" | "edu" | "teacher" | "user" = "pro";
+          let pageType: "pro" | "edu" | "teacher" | "user" | "of" = "pro";
           let defaultPage: PageType = "dashboard";
 
           // Si le contexte sauvegardé est valide, l'utiliser
@@ -174,21 +184,8 @@ export const useAuthInit = () => {
             }
           }
 
-          // Appliquer les couleurs CSS IMMÉDIATEMENT avant de changer l'état
-          const root = document.documentElement;
-          if (pageType === "pro") {
-            root.style.setProperty("--primary", "#5570F1");
-            root.style.setProperty("--hover-primary", "#4c63d2");
-          } else if (pageType === "edu") {
-            root.style.setProperty("--primary", "#10b981");
-            root.style.setProperty("--hover-primary", "#0f9f6d");
-          } else if (pageType === "teacher") {
-            root.style.setProperty("--primary", "#ffa600ff");
-            root.style.setProperty("--hover-primary", "#e59400ff");
-          } else if (pageType === "user") {
-            root.style.setProperty("--primary", "#db087cff");
-            root.style.setProperty("--hover-primary", "#b20666ff");
-          }
+          // Appliquer la couleur d'espace (--couleur-espace) IMMÉDIATEMENT
+          applySpaceTheme(pageType);
 
           setShowingPageType(pageType);
 
