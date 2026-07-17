@@ -2,22 +2,31 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivePresenceSession,
   getPresenceSession,
+  hasConfirmedPresenceSession,
+  markPresenceSessionConfirmed,
   subscribePresenceSession,
 } from '../../utils/presenceSessionStore';
 import './PresenceBanner.css';
 
 type BannerState = 'input' | 'confirmed' | 'error';
 
+function readInitialSession(): ActivePresenceSession {
+  return getPresenceSession();
+}
+
 /**
  * Popup participant — session de présence (KIN_UX_TOTP V1.1.2).
- * Couleur : --couleur-espace espace participant (indigo #30387A).
+ * Une fois le code validé pour une session ouverte, plus de demande (y compris après refresh).
+ * Une nouvelle ouverture de session redemande le code.
  */
 const PresenceBanner: React.FC = () => {
-  const [session, setSession] = useState<ActivePresenceSession>(getPresenceSession);
+  const [session, setSession] = useState<ActivePresenceSession>(readInitialSession);
+  const alreadyConfirmed = hasConfirmedPresenceSession(session);
   const [code, setCode] = useState('');
-  const [state, setState] = useState<BannerState>('input');
-  const [dismissed, setDismissed] = useState(false);
+  const [state, setState] = useState<BannerState>(alreadyConfirmed ? 'confirmed' : 'input');
+  const [dismissed, setDismissed] = useState(alreadyConfirmed);
   const announcedRef = useRef(false);
+  const lastSessionIdRef = useRef<string>(session.sessionId || '');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -26,42 +35,69 @@ const PresenceBanner: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (session.status === 'open' && !announcedRef.current) {
-      announcedRef.current = true;
-      setDismissed(false);
-    }
     if (session.status !== 'open') {
       announcedRef.current = false;
       setState('input');
       setCode('');
       setDismissed(false);
+      lastSessionIdRef.current = '';
+      return;
     }
-  }, [session.status]);
+
+    if (session.participantConfirmed) {
+      setState('confirmed');
+      setDismissed(true);
+      announcedRef.current = true;
+      lastSessionIdRef.current = session.sessionId;
+      return;
+    }
+
+    const isNewSession = session.sessionId !== lastSessionIdRef.current;
+    lastSessionIdRef.current = session.sessionId;
+
+    if (isNewSession) {
+      announcedRef.current = true;
+      setDismissed(false);
+      setState('input');
+      setCode('');
+    }
+  }, [session.status, session.sessionId, session.participantConfirmed]);
 
   useEffect(() => {
-    if (session.status === 'open' && !dismissed && state === 'input') {
+    if (
+      session.status === 'open' &&
+      !session.participantConfirmed &&
+      !dismissed &&
+      state === 'input'
+    ) {
       const t = window.setTimeout(() => inputRef.current?.focus(), 50);
       return () => window.clearTimeout(t);
     }
-  }, [session.status, dismissed, state]);
+  }, [session.status, session.participantConfirmed, dismissed, state]);
 
   if (session.status !== 'open') return null;
+
+  // Déjà confirmé pour cette session → rien à afficher (y compris au 1er rendu après refresh)
+  if (session.participantConfirmed || (state === 'confirmed' && dismissed)) {
+    return null;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleaned = code.replace(/\s/g, '');
-    if (cleaned.length !== 6 || cleaned !== session.code) {
+    const current = getPresenceSession();
+    if (cleaned.length !== 6 || cleaned !== current.code) {
       setState('error');
       return;
     }
+    const next = markPresenceSessionConfirmed();
+    setSession(next);
     setState('confirmed');
   };
 
   const openPopup = () => setDismissed(false);
 
-  // Après confirmation, « Fermer » masque complètement la popup
   if (dismissed) {
-    if (state === 'confirmed') return null;
     return (
       <button
         type="button"

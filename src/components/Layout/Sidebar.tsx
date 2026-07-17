@@ -206,7 +206,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         {state.showingPageType === "pro" && <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo !w-[200px] !h-[60px]" />}
         {state.showingPageType === "edu" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo !w-[200px] !h-[60px]" />}
         {state.showingPageType === "teacher" && <img src="/icons_logo/Property 1=Logo Kinship teacher.svg" alt="Kinship Teacher" className="sidebar-logo !w-[200px] !h-[60px]" />}
-        {state.showingPageType === "of" && <img src="/icons_logo/Property 1=Logo Kinship formation.svg" alt="Kinship Formations" className="sidebar-logo !w-[200px] !h-[60px]" />}
+        {state.showingPageType === "of" && <img src="/icons_logo/Property 1=Logo Kinship Formation1.svg" alt="Kinship Formations" className="sidebar-logo !w-[200px] !h-[60px]" />}
       </div>
 
       <nav className="side-nav">
