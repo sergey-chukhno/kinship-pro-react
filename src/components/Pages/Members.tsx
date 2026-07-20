@@ -67,7 +67,7 @@ const availabilityToLabels = (availability: any = {}) => {
 
 const Members: React.FC = () => {
   const { state, addMember, updateMember, deleteMember, setCurrentPage, clearClassModalReturn } = useAppContext();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isSchoolContext = state.showingPageType === 'edu' || state.showingPageType === 'teacher';
   const isTeacherContext = state.showingPageType === 'teacher';
   const isProContext = state.showingPageType === 'pro';
@@ -108,6 +108,18 @@ const Members: React.FC = () => {
       setActiveTab(tabParam as any);
     }
   }, [searchParams]);
+
+  // Open add member modal from URL (e.g. from Sidebar "Actions rapides" -> Ajouter un membre)
+  useEffect(() => {
+    if (searchParams.get('open') !== 'create') return;
+    setAddMemberModalVariant('major');
+    setIsAddModalOpen(true);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('open');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Restore class modal after returning from project management
   useEffect(() => {
