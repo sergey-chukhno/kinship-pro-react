@@ -343,6 +343,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 <img src="/icons_logo/Icon=Event.svg" alt="" className="side-icon" />
                 Programmer un événement
               </button>
+              {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
+                <button
+                  type="button"
+                  className="side-link quick-action-btn"
+                  onClick={() => {
+                    onPageChange('members');
+                    navigate('/members?open=create');
+                  }}
+                >
+                  <img src="/icons_logo/Icon=Membres.svg" alt="" className="side-icon" />
+                  Ajouter un membre
+                </button>
+              )}
               <button
                 type="button"
                 className="side-link quick-action-btn"
