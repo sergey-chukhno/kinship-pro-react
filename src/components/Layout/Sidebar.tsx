@@ -187,11 +187,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
   };
 
-  // Dropdown under "Tableau de bord": five sections only (no dashboard link inside)
+  // Dropdown under "Tableau de bord": sections (Formations for edu/pro)
   const dashboardDropdownItems: Array<{ id: PageType; label: string; icon: string }> = [
     { id: 'members', label: state.showingPageType === 'teacher' ? 'Classes' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events', label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
     { id: 'projects', label: state.showingPageType === 'of' ? 'Formations' : 'Projets', icon: '/icons_logo/Icon=projet.svg' },
+    ...((state.showingPageType === 'edu' || state.showingPageType === 'pro')
+      ? [{ id: 'formations' as PageType, label: 'Formations', icon: '/icons_logo/Icon=projet.svg' }]
+      : []),
     { id: 'badges', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
     { id: 'network', label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' },
   ];
@@ -395,6 +398,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 <img src="/icons_logo/Icon=Event.svg" alt="" className="side-icon" />
                 Programmer un événement
               </button>
+              {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
+                <button
+                  type="button"
+                  className="side-link quick-action-btn"
+                  onClick={() => {
+                    onPageChange('formations');
+                    navigate('/formations?open=create');
+                  }}
+                >
+                  <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
+                  Créer une formation
+                </button>
+              )}
               {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
                 <button
                   type="button"

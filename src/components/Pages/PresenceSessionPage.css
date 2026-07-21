@@ -4,6 +4,37 @@
   padding: 0 0 40px;
 }
 
+.presence-session-toolbar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.presence-session-page .back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--card-bg, #ffffff);
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.presence-session-page .back-button:hover {
+  background: color-mix(in srgb, var(--couleur-espace, #115e59) 10%, white);
+  color: var(--couleur-espace, #115e59);
+  border-color: var(--couleur-espace, #115e59);
+}
+
+.presence-session-page .back-button i {
+  font-size: 1rem;
+}
+
 .presence-session-card {
   background: #fff;
   border: 0.5px solid rgba(0, 0, 0, 0.1);

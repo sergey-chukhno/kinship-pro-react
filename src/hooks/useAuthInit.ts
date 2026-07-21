@@ -23,7 +23,7 @@ export const useAuthInit = () => {
 
     // Mapper les routes aux pages
     const validPages: PageType[] = [
-      "dashboard", "members", "events", "projects", "badges",
+      "dashboard", "members", "events", "projects", "formations", "badges",
       "analytics", "network", "notifications", "settings",
       "personal-settings", "pik",
       "membership-requests", "partnership-requests", "project-management",

@@ -9,6 +9,10 @@ export interface ActivePresenceSession {
   status: PresenceSessionStatus;
   /** Identifiant unique de l’ouverture de session (nouveau à chaque ouverture) */
   sessionId: string;
+  /** Formation liée */
+  formationId: string;
+  /** Créneau lié dans l’onglet Sessions (pas de nouvelle ligne à la clôture) */
+  slotId: string;
   formationTitle: string;
   slotLabel: string; // ex. « Matinée »
   sessionDateLabel: string; // ex. « 15 septembre 2026 »
@@ -24,6 +28,8 @@ const STORAGE_KEY = 'kinship_presence_session_demo';
 const DEFAULT_SESSION: ActivePresenceSession = {
   status: 'idle',
   sessionId: '',
+  formationId: '',
+  slotId: '',
   formationTitle: 'Titre professionnel ECM',
   slotLabel: 'Matinée',
   sessionDateLabel: '15 septembre 2026',

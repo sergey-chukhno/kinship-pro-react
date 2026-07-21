@@ -14,6 +14,11 @@ import {
   upsertFormation,
   updateFormation,
   setSelectedFormationId,
+  ensureBaseFormationSlot,
+  getOpenableFormationSlot,
+  hasOpenableFormationSlot,
+  updateFormationSlot,
+  formatSlotDateLabel,
 } from '../../utils/formationStore';
 import FormationModal, { FormationFormData } from '../Modals/FormationModal';
 import { useToast } from '../../hooks/useToast';
@@ -62,6 +67,12 @@ function formatFrDate(iso: string): string {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
+}
+
+function isIsoDateToday(iso: string): boolean {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return iso === today;
 }
 
 /** Years & months referenced by a formation (dates + meta FR). */
@@ -182,15 +193,25 @@ const FormationsHub: React.FC = () => {
 
   const publishFormation = (formation: FormationCard) => {
     if (!formation.startDate || !formation.endDate) {
-      showError('Renseignez les dates de début et de fin avant de publier (Modifier).');
+      showError('Renseignez les dates de début et de fin avant de publier (modifier).');
       openEditModal(formation);
       return;
     }
-    const meta = `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · démarrage automatique le ${formatFrDate(formation.startDate)}`;
-    updateFormation(formation.id, { status: 'coming', meta });
+    const startsToday = isIsoDateToday(formation.startDate);
+    const status: FormationStatus = startsToday ? 'in_progress' : 'coming';
+    const meta = startsToday
+      ? `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · en cours`
+      : `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · démarrage automatique le ${formatFrDate(formation.startDate)}`;
+    updateFormation(formation.id, { status, meta });
+    const dateLabel = formatSlotDateLabel(new Date(`${formation.startDate}T12:00:00`));
+    ensureBaseFormationSlot(formation.id, { dateLabel });
     setFormationsState(getFormations());
-    setActiveTab('coming');
-    showSuccess('Formation publiée — elle apparaît dans À venir');
+    setActiveTab(status);
+    showSuccess(
+      startsToday
+        ? 'Formation publiée — elle apparaît dans En cours'
+        : 'Formation publiée — elle apparaît dans À venir'
+    );
   };
 
   const handleCreateFormation = (data: FormationFormData) => {
@@ -243,11 +264,24 @@ const FormationsHub: React.FC = () => {
   };
 
   const openSession = (formation: FormationCard) => {
+    const dateLabel = formation.startDate
+      ? formatSlotDateLabel(new Date(`${formation.startDate}T12:00:00`))
+      : formatSlotDateLabel();
+    ensureBaseFormationSlot(formation.id, { dateLabel });
+    const slot = getOpenableFormationSlot(formation.id);
+    if (!slot || slot.status === 'closed') {
+      showError('Cette session est clôturée et ne peut plus être rouverte.');
+      return;
+    }
+    updateFormationSlot(formation.id, slot.id, { status: 'open' });
+    setSelectedFormationId(formation.id);
     openPresenceSession({
+      formationId: formation.id,
+      slotId: slot.id,
       formationTitle: formation.title.replace(/\s*—.*$/, '').trim() || formation.title,
-      slotLabel: 'Matinée',
-      sessionDateLabel: '15 septembre 2026',
-      confirmed: 12,
+      slotLabel: slot.label,
+      sessionDateLabel: slot.dateLabel,
+      confirmed: 0,
       total: 17,
     });
     setCurrentPage('presence-session');
@@ -374,13 +408,15 @@ const FormationsHub: React.FC = () => {
       case 'in_progress':
         return (
           <>
-            <button
-              type="button"
-              className="formation-btn primary"
-              onClick={() => openSession(formation)}
-            >
-              Ouvrir la session de présence
-            </button>
+            {hasOpenableFormationSlot(formation.id) && (
+              <button
+                type="button"
+                className="formation-btn primary"
+                onClick={() => openSession(formation)}
+              >
+                Ouvrir la session de présence
+              </button>
+            )}
             <button
               type="button"
               className="formation-btn"

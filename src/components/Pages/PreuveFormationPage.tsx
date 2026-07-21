@@ -153,7 +153,7 @@ function pillClass(type: ProofItem['type']): string {
 
 const PreuveFormationPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setCurrentPage } = useAppContext();
+  const { setCurrentPage, state } = useAppContext();
   const formation = getSelectedFormation();
 
   const [activeTab, setActiveTab] = useState<TabId>('participants');
@@ -177,6 +177,11 @@ const PreuveFormationPage: React.FC = () => {
     if (formation) {
       setCurrentPage('formation-detail');
       navigate('/formation-detail');
+      return;
+    }
+    if (state.showingPageType === 'edu' || state.showingPageType === 'pro') {
+      setCurrentPage('formations');
+      navigate('/formations');
       return;
     }
     setCurrentPage('dashboard');

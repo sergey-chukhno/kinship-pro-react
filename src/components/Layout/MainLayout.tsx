@@ -26,6 +26,7 @@ import PresenceSessionPage from '../Pages/PresenceSessionPage';
 import PresenceBanner from '../Presence/PresenceBanner';
 import FormationDetail from '../Pages/FormationDetail';
 import PreuveFormationPage from '../Pages/PreuveFormationPage';
+import FormationsHub from '../Pages/FormationsHub';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
@@ -89,6 +90,8 @@ const MainLayout: React.FC = () => {
         return <Events />;
       case 'projects':
         return <Projects />;
+      case 'formations':
+        return <FormationsHub />;
       case 'badges':
         return <Badges />;
       case 'analytics':

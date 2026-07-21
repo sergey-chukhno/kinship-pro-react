@@ -10,19 +10,21 @@ import {
 import {
   getFormationById,
   getMockParticipants,
-  getMockSlots,
+  getFormationSlots,
+  ensureBaseFormationSlot,
+  getOpenableFormationSlot,
+  hasOpenableFormationSlot,
+  updateFormationSlot,
+  formatSlotDateLabel,
   getSelectedFormationId,
   setSelectedFormationId,
   subscribeFormations,
+  subscribeFormationSlots,
   updateFormation,
+  slotStatusLabel,
 } from '../../utils/formationStore';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
 import FormationModal, { FormationFormData } from '../Modals/FormationModal';
-import PresenceSessionModal, {
-  PresenceSessionFormData,
-  formatSessionDateLabel,
-  formatTimeRange,
-} from '../Modals/PresenceSessionModal';
 import { useToast } from '../../hooks/useToast';
 import { FormationSlot } from '../../utils/formationStore';
 import './FormationDetail.css';
@@ -50,11 +52,17 @@ function formatFrDate(iso?: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function isIsoDateToday(iso: string): boolean {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return iso === today;
+}
+
 type DetailTab = 'overview' | 'participants' | 'sessions';
 
 const FormationDetail: React.FC = () => {
   const navigate = useNavigate();
-  const { setCurrentPage } = useAppContext();
+  const { setCurrentPage, state } = useAppContext();
   const { showSuccess, showError } = useToast();
   const [formationId, setFormationId] = useState(() => getSelectedFormationId() || '');
 
@@ -63,19 +71,28 @@ const FormationDetail: React.FC = () => {
   );
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [participants, setParticipants] = useState(() =>
     getMockParticipants(formationId)
   );
-  const [slots, setSlots] = useState<FormationSlot[]>(() => getMockSlots(formationId));
+  const [slots, setSlots] = useState<FormationSlot[]>(() => getFormationSlots(formationId));
 
   useEffect(() => {
     const id = getSelectedFormationId() || '';
     setFormationId(id);
-    setFormation(getFormationById(id) ?? null);
+    const f = getFormationById(id) ?? null;
+    setFormation(f);
     setParticipants(getMockParticipants(id));
-    setSlots(getMockSlots(id));
+    if (id && f && (f.status === 'in_progress' || f.status === 'coming')) {
+      const dateLabel = f.startDate
+        ? formatSlotDateLabel(new Date(`${f.startDate}T12:00:00`))
+        : formatSlotDateLabel();
+      ensureBaseFormationSlot(id, {
+        dateLabel,
+        participantsCount: getMockParticipants(id).length,
+      });
+    }
+    setSlots(getFormationSlots(id));
   }, []);
 
   useEffect(() => {
@@ -85,17 +102,30 @@ const FormationDetail: React.FC = () => {
     });
   }, []);
 
+  useEffect(() => {
+    return subscribeFormationSlots(() => {
+      const id = getSelectedFormationId() || formationId;
+      if (id) setSlots(getFormationSlots(id));
+    });
+  }, [formationId]);
+
   const unverifiedCount = participants.filter((p) => !p.identityVerified).length;
   const isCpf = formation?.financement === 'CPF';
   const canEdit = formation?.status === 'draft' || formation?.status === 'coming';
   const canPublish = formation?.status === 'draft';
-  const canOpenSession = formation?.status === 'in_progress';
+  const canOpenSession =
+    formation?.status === 'in_progress' && hasOpenableFormationSlot(formation.id);
   const canClose = formation?.status === 'in_progress';
   const canSeePf =
     (formation?.status === 'ended' || formation?.status === 'archived') &&
     formation.hasProof;
 
   const backToHub = () => {
+    if (state.showingPageType === 'edu' || state.showingPageType === 'pro') {
+      setCurrentPage('formations');
+      navigate('/formations');
+      return;
+    }
     setCurrentPage('dashboard');
     navigate('/dashboard');
   };
@@ -103,48 +133,66 @@ const FormationDetail: React.FC = () => {
   const handlePublish = () => {
     if (!formation || formation.status !== 'draft') return;
     if (!formation.startDate || !formation.endDate) {
-      showError('Renseignez les dates de début et de fin avant de publier (Modifier).');
+      showError('Renseignez les dates de début et de fin avant de publier (modifier).');
       return;
     }
-    const meta = `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · démarrage automatique le ${formatFrDate(formation.startDate)}`;
+    const startsToday = isIsoDateToday(formation.startDate);
+    const status: FormationStatus = startsToday ? 'in_progress' : 'coming';
+    const meta = startsToday
+      ? `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · en cours`
+      : `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · démarrage automatique le ${formatFrDate(formation.startDate)}`;
     const updated = updateFormation(formation.id, {
-      status: 'coming',
+      status,
       meta,
     });
     if (updated) setFormation(updated);
-    showSuccess('Formation publiée — elle apparaît dans À venir');
+    const dateLabel = formatSlotDateLabel(new Date(`${formation.startDate}T12:00:00`));
+    ensureBaseFormationSlot(formation.id, {
+      dateLabel,
+      participantsCount: participants.length,
+    });
+    setSlots(getFormationSlots(formation.id));
+    showSuccess(
+      startsToday
+        ? 'Formation publiée — elle apparaît dans En cours'
+        : 'Formation publiée — elle apparaît dans À venir'
+    );
   };
 
-  const openSession = (slotLabel = 'Matinée', dateLabel = '15 septembre 2026') => {
+  const openSession = (opts?: { slot?: FormationSlot }) => {
     if (!formation) return;
+    const participantsCount = participants.length || 0;
+
+    const dateLabel = formation.startDate
+      ? formatSlotDateLabel(new Date(`${formation.startDate}T12:00:00`))
+      : formatSlotDateLabel();
+    ensureBaseFormationSlot(formation.id, {
+      dateLabel,
+      participantsCount,
+    });
+
+    const slot = opts?.slot ?? getOpenableFormationSlot(formation.id);
+    if (!slot || slot.status === 'closed') {
+      showError('Cette session est clôturée et ne peut plus être rouverte.');
+      setSlots(getFormationSlots(formation.id));
+      return;
+    }
+
+    updateFormationSlot(formation.id, slot.id, { status: 'open', participantsCount });
+    setSlots(getFormationSlots(formation.id));
+    setActiveTab('sessions');
+
     openPresenceSession({
+      formationId: formation.id,
+      slotId: slot.id,
       formationTitle: formation.title,
-      slotLabel,
-      sessionDateLabel: dateLabel,
-      confirmed: Math.max(0, participants.length - unverifiedCount),
-      total: participants.length || 17,
+      slotLabel: slot.label,
+      sessionDateLabel: slot.dateLabel,
+      confirmed: 0,
+      total: participantsCount || 17,
     });
     setCurrentPage('presence-session');
     navigate('/presence-session');
-  };
-
-  const handleCreateSession = (data: PresenceSessionFormData) => {
-    if (!formation) return;
-    const dateLabel = formatSessionDateLabel(data.date);
-    const timeRange = formatTimeRange(data.startTime, data.endTime);
-    const slot: FormationSlot = {
-      id: `s-${Date.now()}`,
-      label: data.label,
-      dateLabel,
-      timeRange,
-      participantsCount: participants.length || 0,
-    };
-    setSlots((prev) => [...prev, slot]);
-    setIsSessionModalOpen(false);
-    showSuccess('Session de présence créée');
-    if (data.openNow && formation.status === 'in_progress') {
-      openSession(slot.label, slot.dateLabel);
-    }
   };
 
   const toggleIdentity = (participantId: string) => {
@@ -445,19 +493,10 @@ const FormationDetail: React.FC = () => {
         <div className="formation-detail-card">
           <div className="fd-sessions-header">
             <h2>Sessions de présence</h2>
-            {(formation.status === 'in_progress' || formation.status === 'coming') && (
-              <button
-                type="button"
-                className="fd-btn primary"
-                onClick={() => setIsSessionModalOpen(true)}
-              >
-                + Créer une session de présence
-              </button>
-            )}
           </div>
           {slots.length === 0 ? (
             <p className="formation-detail-empty">
-              Aucun créneau pour l’instant. Créez une session pour pouvoir l’ouvrir le jour J.
+              Aucun créneau pour l’instant.
             </p>
           ) : (
             slots.map((slot) => (
@@ -467,17 +506,23 @@ const FormationDetail: React.FC = () => {
                     {slot.label} · {slot.dateLabel}
                   </div>
                   <div className="fd-slot-meta">
-                    {slot.timeRange} · {slot.participantsCount} participants
+                    {slot.timeRange} · {slot.participantsCount} participants ·{' '}
+                    <span className={`fd-slot-status ${slot.status}`}>
+                      {slotStatusLabel(slot.status)}
+                    </span>
                   </div>
                 </div>
-                {canOpenSession && (
+                {canOpenSession && slot.status !== 'closed' && (
                   <button
                     type="button"
                     className="fd-btn primary"
-                    onClick={() => openSession(slot.label, slot.dateLabel)}
+                    onClick={() => openSession({ slot })}
                   >
-                    Ouvrir la session de présence
+                    {slot.status === 'open' ? 'Reprendre la session' : 'Ouvrir la session de présence'}
                   </button>
+                )}
+                {slot.status === 'closed' && (
+                  <span className="fd-slot-closed-note">Session clôturée — non rouvrable</span>
                 )}
               </div>
             ))
@@ -506,14 +551,6 @@ const FormationDetail: React.FC = () => {
             endDate: formation.endDate ?? '',
             attendanceSurveyOptIn: formation.attendanceSurveyOptIn ?? false,
           }}
-        />
-      )}
-
-      {isSessionModalOpen && (
-        <PresenceSessionModal
-          formationTitle={formation.title}
-          onClose={() => setIsSessionModalOpen(false)}
-          onSave={handleCreateSession}
         />
       )}
     </section>

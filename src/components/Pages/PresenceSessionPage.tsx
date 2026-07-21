@@ -11,6 +11,9 @@ import {
   subscribePresenceSession,
   updatePresenceSession,
 } from '../../utils/presenceSessionStore';
+import {
+  updateFormationSlot,
+} from '../../utils/formationStore';
 import './PresenceSessionPage.css';
 
 type ViewMode = 'live' | 'relaunch' | 'confirm-close' | 'closed';
@@ -19,7 +22,7 @@ const CODE_PERIOD_S = 30;
 
 const PresenceSessionPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setCurrentPage } = useAppContext();
+  const { setCurrentPage, state } = useAppContext();
   const [session, setSession] = useState<ActivePresenceSession>(() => {
     const existing = getPresenceSession();
     if (existing.status === 'open' || existing.status === 'closed') return existing;
@@ -54,20 +57,49 @@ const PresenceSessionPage: React.FC = () => {
   }, [view, session.status, rotateCode]);
 
   const handleRelaunch = () => {
-    // Événement non terminal : compteur repart, présences acquises restent ; motif facultatif
+    const current = getPresenceSession();
+    if (current.status === 'closed') return;
+    // Même session / même ligne : nouveau code uniquement (motif facultatif)
     void relaunchMotif;
-    setSession(updatePresenceSession({ code: generateCode() }));
+    setSession(
+      openPresenceSession({
+        formationId: current.formationId,
+        slotId: current.slotId,
+        formationTitle: current.formationTitle,
+        slotLabel: current.slotLabel,
+        sessionDateLabel: current.sessionDateLabel,
+        confirmed: current.confirmed,
+        total: current.total,
+      })
+    );
+    if (current.formationId && current.slotId) {
+      updateFormationSlot(current.formationId, current.slotId, { status: 'open' });
+    }
     setSecondsLeft(CODE_PERIOD_S);
     setRelaunchMotif('');
     setView('live');
   };
 
   const handleClose = () => {
+    const current = getPresenceSession();
+    if (current.formationId && current.slotId) {
+      updateFormationSlot(current.formationId, current.slotId, { status: 'closed' });
+    }
     setSession(closePresenceSession());
     setView('closed');
   };
 
   const backToHub = () => {
+    if (session.formationId) {
+      setCurrentPage('formation-detail');
+      navigate('/formation-detail');
+      return;
+    }
+    if (state.showingPageType === 'edu' || state.showingPageType === 'pro') {
+      setCurrentPage('formations');
+      navigate('/formations');
+      return;
+    }
     setCurrentPage('dashboard');
     navigate('/dashboard');
   };
@@ -77,6 +109,16 @@ const PresenceSessionPage: React.FC = () => {
 
   return (
     <section className="presence-session-page" aria-label="Session de présence">
+      <div className="presence-session-toolbar">
+        <button
+          type="button"
+          className="back-button"
+          onClick={backToHub}
+          title="Retour"
+        >
+          <i className="fas fa-arrow-left" aria-hidden />
+        </button>
+      </div>
       <div className="presence-session-card">
         <header className="presence-session-header">
           <div>
@@ -169,7 +211,7 @@ const PresenceSessionPage: React.FC = () => {
             </div>
             <div className="presence-panel-actions">
               <button type="button" className="presence-btn ghost" onClick={backToHub}>
-                Retour au tableau de bord
+                Retour à la formation
               </button>
             </div>
           </div>
