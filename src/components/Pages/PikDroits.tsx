@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getIdentity, getPublicDroits } from '../../api/AccountIdentity';
 import {
   DROITS_RIGHTS,
   DELETE_CONFIRM_TEXT,
@@ -8,7 +9,6 @@ import {
   formatExecutionDate,
   isValidPik,
   MASK_CONFIRM_TEXT,
-  MOCK_VALID_PIK,
   PIK_RATE_LIMIT,
   RECTIFY_INSTRUCTIONS,
 } from '../../data/droitsContent';
@@ -34,6 +34,7 @@ const FLOW_TITLES: Record<DroitsRightId, string> = {
 const PikDroits: React.FC = () => {
   const [unlocked, setUnlocked] = useState(false);
   const [pikInput, setPikInput] = useState('');
+  const [knownPik, setKnownPik] = useState<string | null>(null);
   const [pikError, setPikError] = useState<string | null>(null);
   const [rateLimited, setRateLimited] = useState(false);
   const [attempts, setAttempts] = useState(0);
@@ -48,18 +49,46 @@ const PikDroits: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('jwt_token'));
 
   useEffect(() => {
+    let cancelled = false;
+
+    // Page publique /droits (contenu serveur) — l'UI locale garde ses textes
+    void getPublicDroits().catch(() => null);
+
     const token = localStorage.getItem('jwt_token');
-    if (token) {
-      setIsLoggedIn(true);
-      setUnlocked(true);
-      setPikInput(MOCK_VALID_PIK);
-      setPendingRequests([
-        {
-          id: 'demo-mask',
-          label: 'Masquage — Preuve PP-2024-LYC-0042 — exécution dans 72 h',
-        },
-      ]);
+    if (!token) {
+      setIsLoggedIn(false);
+      return;
     }
+
+    setIsLoggedIn(true);
+
+    (async () => {
+      try {
+        const identity = await getIdentity();
+        if (cancelled) return;
+        if (identity.identity_token) {
+          setKnownPik(identity.identity_token);
+          setPikInput(identity.identity_token);
+          setUnlocked(true);
+          setPendingRequests((prev) =>
+            prev.length > 0
+              ? prev
+              : [
+                  {
+                    id: 'demo-mask',
+                    label: 'Masquage — Preuve PP-2024-LYC-0042 — exécution dans 72 h',
+                  },
+                ]
+          );
+        }
+      } catch {
+        // reste sur le flux saisie manuelle
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const closeFlow = useCallback(() => {
@@ -94,7 +123,7 @@ const PikDroits: React.FC = () => {
   const handleAccess = () => {
     if (rateLimited) return;
 
-    if (isValidPik(pikInput)) {
+    if (isValidPik(pikInput, knownPik)) {
       setUnlocked(true);
       setPikError(null);
       setAttempts(0);
@@ -321,7 +350,7 @@ const PikDroits: React.FC = () => {
                 <input
                   type="text"
                   className="pik-droits-flow-input"
-                  placeholder={MOCK_VALID_PIK}
+                  placeholder="XXXX–XXXX–XXXX–XXXX–XXXX–XXXX"
                   value={deleteConfirmPik}
                   onChange={(e) => setDeleteConfirmPik(e.target.value)}
                 />
@@ -329,7 +358,7 @@ const PikDroits: React.FC = () => {
                   <button
                     type="button"
                     className="pik-droits-btn-primary"
-                    disabled={!isValidPik(deleteConfirmPik)}
+                    disabled={!isValidPik(deleteConfirmPik, knownPik)}
                     onClick={() => setFlowStep(1)}
                   >
                     Continuer

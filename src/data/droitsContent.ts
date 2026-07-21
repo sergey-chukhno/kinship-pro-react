@@ -95,10 +95,13 @@ export const DPO_INSTRUCTIONS =
   'Écrivez à dpo@kinshipedu.fr en décrivant votre demande. Selon le cas, un justificatif pourra être demandé (identité, qualité de représentant légal). Réponse sous 1 mois.';
 
 export function normalizePik(value: string): string {
-  return value.replace(/\s/g, '').toUpperCase();
+  return value.replace(/\s/g, '').toUpperCase().replace(/[–—−]/g, '-');
 }
 
-export function isValidPik(value: string): boolean {
+export function isValidPik(value: string, expectedToken?: string | null): boolean {
+  if (expectedToken) {
+    return normalizePik(value) === normalizePik(expectedToken);
+  }
   return normalizePik(value) === normalizePik(MOCK_VALID_PIK);
 }
 

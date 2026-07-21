@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getIdentity, getIdentityEncart } from '../../api/AccountIdentity';
 import { useToast } from '../../hooks/useToast';
 import './Pik.css';
 
@@ -10,6 +11,31 @@ const PikIdentity: React.FC = () => {
   const [pik, setPik] = useState(MOCK_PIK);
   const [showRegenerateModal, setShowRegenerateModal] = useState(false);
   const [regeneratedAt, setRegeneratedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const identity = await getIdentity();
+        // encart dispo pour usage futur / dashboard — sans changer l'UI ici
+        void getIdentityEncart().catch(() => null);
+        if (cancelled) return;
+        if (identity.identity_token) {
+          setPik(identity.identity_token);
+        }
+      } catch {
+        if (!cancelled) {
+          showError('Impossible de charger votre PIK');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; avoid toast ref loop
+  }, []);
 
   const handleCopy = async () => {
     try {
