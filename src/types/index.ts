@@ -456,6 +456,25 @@ export interface BadgeSkillAPI {
   category: 'domain' | 'expertise';
 }
 
+export interface EventCompleteAwardError {
+  participant_id?: number | null;
+  badge_id?: number | null;
+  status: 'failed' | string;
+  code: string;
+  message: string;
+  duplicate_of?: number;
+}
+
+export interface EventCompleteResponse {
+  message: string;
+  assigned_count: number;
+  error_count?: number;
+  total_count?: number;
+  assignments?: Array<Record<string, unknown>>;
+  errors?: EventCompleteAwardError[] | null;
+  event?: unknown;
+}
+
 export interface BadgeAssignmentResponse {
   message: string;
   assigned_count: number;
@@ -476,7 +495,7 @@ export interface BadgeAssignmentResponse {
     status: string;
     user_badge_id: number;
   }>;
-  errors?: string[];
+  errors?: Array<string | EventCompleteAwardError>;
 }
 
 export interface ClassList {
