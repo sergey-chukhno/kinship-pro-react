@@ -469,6 +469,7 @@ export interface EventCompleteResponse {
   message: string;
   assigned_count: number;
   error_count?: number;
+  total_count?: number;
   assignments?: Array<Record<string, unknown>>;
   errors?: EventCompleteAwardError[] | null;
   event?: unknown;

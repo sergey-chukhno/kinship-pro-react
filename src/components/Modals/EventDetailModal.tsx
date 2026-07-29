@@ -113,6 +113,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
       const data = result.data || {};
       const errorCount = Number(data.error_count || (Array.isArray(data.errors) ? data.errors.length : 0));
       const assignedCount = Number(data.assigned_count || 0);
+      const totalCount = Number(data.total_count ?? (assignedCount + errorCount));
 
       if (result.status === 200 && errorCount === 0) {
         showSuccess('Événement clôturé avec succès');
@@ -128,7 +129,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
           : [];
         const summary =
           data.message ||
-          `Clôture terminée : ${assignedCount} attribution(s) réussie(s), ${errorCount} échec(s)`;
+          `Clôture terminée : ${assignedCount}/${totalCount} attribution(s) réussie(s), ${errorCount} échec(s)`;
         showError([summary, ...detailLines].filter(Boolean).join('\n'));
       }
 

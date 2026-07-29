@@ -21,6 +21,7 @@
   "message": "Clôture terminée avec des attributions en échec",
   "assigned_count": 17,
   "error_count": 3,
+  "total_count": 20,
   "assignments": [ /* réussites uniquement */ ],
   "errors": [
     {
@@ -36,6 +37,8 @@
 }
 ```
 
+`total_count` = `assigned_count + error_count` (fourni tel quel, sans addition côté client).
+
 Codes métier fréquents dans `errors[]` :
 - `DUPLICATE_AWARD_TOO_SOON`
 - `DUPLICATE_PAYLOAD_HASH`
@@ -45,7 +48,7 @@ Codes métier fréquents dans `errors[]` :
 
 1. Axios traite 207 comme succès HTTP (2xx) → brancher sur `response.status !== 200`, **pas** seulement le `catch`.
 2. Si `error_count > 0` ou `status === 207` → **ne jamais** afficher « Événement clôturé avec succès » seul.
-3. Afficher `assigned_count` / `error_count` + messages par participant.
+3. Afficher `assigned_count` / `error_count` / `total_count` + messages par participant.
 
 ## Fichiers touchés (ce lot)
 
