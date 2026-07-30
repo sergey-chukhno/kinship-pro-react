@@ -1,7 +1,7 @@
 # Ticket front — Contrat de clôture d'événement (200 / 207)
 
-**Statut :** à caler avec Fatima  
-**Backend :** livré dans le même lot (branch attestation)
+**Statut :** figé avec Fatima (backend + front)  
+**Backend :** garde amont `EVENT_ALREADY_CLOSED` (409) + shape 207 ci-dessous
 
 ## Contrat HTTP
 
@@ -13,6 +13,20 @@
 
 > Le 207 signifie « la clôture a eu lieu, mais des attributions ont échoué ».  
 > Un 409 / 4xx amont signifie « rien n'a commencé ».
+
+### Déjà clos (figé backend)
+
+`POST …/events/:id/complete` sur un event `completed` ou `cancelled` → **409** :
+
+```json
+{
+  "error": "Conflict",
+  "code": "EVENT_ALREADY_CLOSED",
+  "message": "Cet événement est déjà clos. Aucune attribution n'a été effectuée."
+}
+```
+
+Pas d'insertions, pas de `finalize`, jamais 200/`already_assigned` ni 207 sur ce chemin.
 
 ## Shape JSON (207)
 
@@ -49,6 +63,7 @@ Codes métier fréquents dans `errors[]` :
 1. Axios traite 207 comme succès HTTP (2xx) → brancher sur `response.status !== 200`, **pas** seulement le `catch`.
 2. Si `error_count > 0` ou `status === 207` → **ne jamais** afficher « Événement clôturé avec succès » seul.
 3. Afficher `assigned_count` / `error_count` / `total_count` + messages par participant.
+4. Sur **409** `EVENT_ALREADY_CLOSED` → message d'erreur ordinaire (événement déjà clos).
 
 ## Fichiers touchés (ce lot)
 
