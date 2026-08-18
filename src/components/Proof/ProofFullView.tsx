@@ -41,11 +41,7 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
     }
   };
 
-  const holderDisplay = proof.holderMasked
-    ? 'Identité masquée'
-    : proof.senderCivilErased
-      ? 'Données civiles effacées'
-      : proof.holderName;
+  const holderDisplay = proof.holderName;
 
   const senderDisplay = proof.senderCivilErased ? 'Données civiles effacées' : proof.senderName;
 

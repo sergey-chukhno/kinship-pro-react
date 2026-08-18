@@ -172,6 +172,39 @@
   padding: 24px;
 }
 
+.pik-main-loading {
+  color: #6b6a64;
+  font-size: 14px;
+  padding: 24px;
+}
+
+.pik-main-error {
+  margin: 0 24px 24px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.pik-retry-btn {
+  margin-top: 10px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: #30387a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pik-api-sync-hint {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+}
+
 @media (max-width: 768px) {
   .pik-layout-body {
     flex-direction: column;
@@ -340,8 +373,8 @@
   background: #EEF4FF;
 }
 
-.pik-info-icon-refresh {
-  background: #FFFBEB;
+.pik-info-icon-lock {
+  background: #E9F2EC;
 }
 
 .pik-info-title {

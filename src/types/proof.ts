@@ -2,7 +2,7 @@ export type ProofType = 'PB' | 'PE';
 
 export type ProofDocumentType = 'PP' | 'PB' | 'PE' | 'PA' | 'PD';
 
-export type ProofCategory = 'projet' | 'badge-evenement' | 'parcours';
+export type ProofCategory = 'projet' | 'badge' | 'evenement' | 'parcours';
 
 export type TrustLevelKey =
   | 'INSTITUTIONAL'
@@ -39,7 +39,8 @@ export interface ProofData {
   badgeLevel: string;
   eqfPill: string | null;
   seriesPill: string;
-  statusBubble: 'Attestée' | 'Vérifiée';
+  /** Libellé bulle Zone 1 — servi tel quel (ex. « ✓ Attestée », « ✓ Vérifiée ») */
+  statusBubble: string;
   awardedDate: string;
   projectTitle: string | null;
   eventTitle: string | null;

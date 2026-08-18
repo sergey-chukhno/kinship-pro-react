@@ -19,9 +19,14 @@ export const PROOF_CATEGORIES: ProofCategoryConfig[] = [
     description: 'Preuves de projet (PP) rattachées à vos expériences.',
   },
   {
-    slug: 'badge-evenement',
-    label: 'Preuves badge – événement',
-    description: 'Preuves de compétence (PB) et preuves d’événement (PE).',
+    slug: 'badge',
+    label: 'Preuves badge',
+    description: 'Preuves de compétence (PB) attestant vos savoir-faire.',
+  },
+  {
+    slug: 'evenement',
+    label: 'Preuves événement',
+    description: 'Preuves d’événement (PE) liées à votre participation.',
   },
   {
     slug: 'parcours',
@@ -32,7 +37,8 @@ export const PROOF_CATEGORIES: ProofCategoryConfig[] = [
 
 export const PROOFS_BY_CATEGORY: Record<ProofCategory, ProofData[]> = {
   projet: [],
-  'badge-evenement': [MOCK_PB_NOMINAL, MOCK_PB_MASKED, MOCK_PE_EVENT, MOCK_PE_PRESENCE],
+  badge: [MOCK_PB_NOMINAL, MOCK_PB_MASKED],
+  evenement: [MOCK_PE_EVENT, MOCK_PE_PRESENCE],
   parcours: [],
 };
 

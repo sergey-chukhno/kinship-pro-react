@@ -88,7 +88,7 @@ export const ProofHeader: React.FC<ProofHeaderProps> = ({ proof, compact, interm
           </div>
         </div>
         <div className="proof-z1-status">
-          <div className="proof-z1-attested">✓ {proof.statusBubble}</div>
+          <div className="proof-z1-attested">{proof.statusBubble}</div>
           <div className="proof-z1-proof-num">{proof.proofNumber}</div>
         </div>
       </div>

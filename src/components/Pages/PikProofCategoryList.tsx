@@ -6,6 +6,7 @@ import { PARCOURS_PROOFS } from '../../data/mockParcoursProofs';
 import ProofCardIntermediate from '../Proof/ProofCardIntermediate';
 import ProjectProofCardIntermediate from '../ProjectProof/ProjectProofCardIntermediate';
 import ParcoursProofCardIntermediate from '../ParcoursProof/ParcoursProofCardIntermediate';
+import PikBadgeProofList from './PikBadgeProofList';
 import '../ProjectProof/ProjectProof.css';
 import '../ParcoursProof/ParcoursProof.css';
 import './Pik.css';
@@ -68,6 +69,12 @@ const PikProofCategoryList: React.FC<PikProofCategoryListProps> = ({ category })
           </div>
         )}
       </div>
+    );
+  }
+
+  if (category === 'badge') {
+    return (
+      <PikBadgeProofList title={config.label} description={config.description} />
     );
   }
 

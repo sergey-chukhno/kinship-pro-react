@@ -10,6 +10,16 @@ import './Pik.css';
 const CATEGORY_PATH_RE = /^\/pik\/preuves\/([^/]+)$/;
 const DETAIL_PATH_RE = /^\/pik\/preuve\/([^/]+)\/([^/]+)$/;
 
+const CATEGORY_SIDEBAR: Record<
+  string,
+  { icon: string; subtitle: string; iconClass?: string }
+> = {
+  projet: { icon: '📁', subtitle: 'Preuves projet (PP)' },
+  badge: { icon: '🏅', subtitle: 'Compétence (PB)', iconClass: 'pik-sidebar-icon-proof' },
+  evenement: { icon: '📅', subtitle: 'Événement (PE)', iconClass: 'pik-sidebar-icon-proof' },
+  parcours: { icon: '🛤️', subtitle: 'Parcours agrégés (PA)' },
+};
+
 const Pik: React.FC = () => {
   const { setCurrentPage } = useAppContext();
   const navigate = useNavigate();
@@ -70,7 +80,9 @@ const Pik: React.FC = () => {
 
             <div className="pik-sidebar-section">Mes preuves</div>
 
-            {PROOF_CATEGORIES.map((category) => (
+            {PROOF_CATEGORIES.map((category) => {
+              const sidebar = CATEGORY_SIDEBAR[category.slug];
+              return (
               <NavLink
                 key={category.slug}
                 to={`/pik/preuves/${category.slug}`}
@@ -78,21 +90,19 @@ const Pik: React.FC = () => {
                   `pik-sidebar-item ${isActive ? 'pik-sidebar-item-active' : ''}`
                 }
               >
-                <span className="pik-sidebar-icon pik-sidebar-icon-proof" aria-hidden="true">
-                  {category.slug === 'projet' && '📁'}
-                  {category.slug === 'badge-evenement' && '🏅'}
-                  {category.slug === 'parcours' && '🛤️'}
+                <span
+                  className={`pik-sidebar-icon ${sidebar?.iconClass ?? ''}`.trim()}
+                  aria-hidden="true"
+                >
+                  {sidebar?.icon}
                 </span>
                 <span>
                   <span className="pik-sidebar-item-label">{category.label}</span>
-                  <span className="pik-sidebar-item-sub">
-                    {category.slug === 'projet' && 'Preuves projet (PP)'}
-                    {category.slug === 'badge-evenement' && 'Compétence (PB) · Événement (PE)'}
-                    {category.slug === 'parcours' && 'Parcours agrégés (PA)'}
-                  </span>
+                  <span className="pik-sidebar-item-sub">{sidebar?.subtitle}</span>
                 </span>
               </NavLink>
-            ))}
+              );
+            })}
           </nav>
         </aside>
 

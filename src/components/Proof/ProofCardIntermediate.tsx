@@ -17,11 +17,7 @@ export const ProofCardIntermediate: React.FC<ProofCardIntermediateProps> = ({
   const contextLabel =
     proof.documentType === 'PE' || proof.eventTitle ? 'Événement' : 'Projet';
   const contextTitle = proof.eventTitle ?? proof.projectTitle ?? '—';
-  const holderDisplay = proof.holderMasked
-    ? 'Identité masquée'
-    : proof.senderCivilErased
-      ? 'Données civiles effacées'
-      : proof.holderName;
+  const holderDisplay = proof.holderName;
 
   const roleShort = proof.holderRole.includes('Co-responsable')
     ? 'Co-responsable'
