@@ -15,9 +15,9 @@ function readInitialSession(): ActivePresenceSession {
 }
 
 /**
- * Popup participant — session de présence (KIN_UX_TOTP V1.1.2).
+ * Popup participant — session de présence (KIN_UX_TOTP V1.2).
+ * Design et textes du spec, présentés en popup.
  * Une fois le code validé pour une session ouverte, plus de demande (y compris après refresh).
- * Une nouvelle ouverture de session redemande le code.
  */
 const PresenceBanner: React.FC = () => {
   const [session, setSession] = useState<ActivePresenceSession>(readInitialSession);
@@ -46,7 +46,6 @@ const PresenceBanner: React.FC = () => {
 
     if (session.participantConfirmed) {
       setState('confirmed');
-      setDismissed(true);
       announcedRef.current = true;
       lastSessionIdRef.current = session.sessionId;
       return;
@@ -75,11 +74,27 @@ const PresenceBanner: React.FC = () => {
     }
   }, [session.status, session.participantConfirmed, dismissed, state]);
 
+  useEffect(() => {
+    if (state !== 'confirmed' || dismissed) return;
+    const t = window.setTimeout(() => setDismissed(true), 2500);
+    return () => window.clearTimeout(t);
+  }, [state, dismissed]);
+
   if (session.status !== 'open') return null;
 
-  // Déjà confirmé pour cette session → rien à afficher (y compris au 1er rendu après refresh)
-  if (session.participantConfirmed || (state === 'confirmed' && dismissed)) {
-    return null;
+  if (dismissed) {
+    if (session.participantConfirmed || state === 'confirmed') return null;
+    return (
+      <button
+        type="button"
+        className="presence-popup-chip"
+        onClick={() => setDismissed(false)}
+        aria-label="Ouvrir la session de présence"
+      >
+        <span aria-hidden="true">📍</span>
+        Session de présence
+      </button>
+    );
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -95,30 +110,12 @@ const PresenceBanner: React.FC = () => {
     setState('confirmed');
   };
 
-  const openPopup = () => setDismissed(false);
-
-  if (dismissed) {
-    return (
-      <button
-        type="button"
-        className="presence-popup-chip"
-        onClick={openPopup}
-        aria-label="Ouvrir la session de présence"
-      >
-        <span aria-hidden="true">📍</span>
-        Session de présence
-      </button>
-    );
-  }
-
   return (
     <div
       className="presence-popup-overlay"
       role="presentation"
       onClick={(e) => {
-        if (e.target === e.currentTarget && state !== 'confirmed') {
-          setDismissed(true);
-        }
+        if (e.target === e.currentTarget) setDismissed(true);
       }}
     >
       <div
@@ -143,38 +140,38 @@ const PresenceBanner: React.FC = () => {
         )}
 
         {state === 'confirmed' ? (
-          <div className="presence-popup-body confirmed-body">
-            <div className="presence-popup-icon ok" aria-hidden="true">
+          <div className="presence-popup-confirmed">
+            <span className="presence-popup-emoji" aria-hidden="true">
               ✓
+            </span>
+            <div>
+              <h2 id="presence-popup-title" className="presence-popup-title ok">
+                Présence confirmée
+              </h2>
+              <p className="presence-popup-meta">
+                {session.slotLabel} du {session.sessionDateLabel} — bonne session !
+              </p>
             </div>
-            <h2 id="presence-popup-title" className="presence-popup-title">
-              Présence confirmée
-            </h2>
-            <p className="presence-popup-meta">
-              {session.slotLabel} du {session.sessionDateLabel} — bonne session !
-            </p>
-            <button
-              type="button"
-              className="presence-popup-submit"
-              onClick={() => setDismissed(true)}
-            >
-              Fermer
-            </button>
           </div>
         ) : (
-          <div className="presence-popup-body">
-            <div className="presence-popup-icon" aria-hidden="true">
-              📍
+          <>
+            <div className="presence-popup-heading">
+              <span className="presence-popup-emoji" aria-hidden="true">
+                📍
+              </span>
+              <h2 id="presence-popup-title" className="presence-popup-title">
+                Une session de présence est en cours
+              </h2>
             </div>
-            <h2 id="presence-popup-title" className="presence-popup-title">
-              Une session de présence est en cours
-            </h2>
             <p className="presence-popup-meta">
-              {session.formationTitle} — {session.slotLabel}
-              <br />
-              Saisissez le code affiché par votre formateur.
+              {session.formationTitle} — {session.slotLabel} · Saisissez le code affiché par votre
+              formateur.
             </p>
-
+            {state === 'error' && (
+              <p className="presence-popup-error" role="alert">
+                Ce code n&apos;est pas valide. Vérifiez le code actuellement affiché et réessayez.
+              </p>
+            )}
             <form className="presence-popup-form" onSubmit={handleSubmit}>
               <input
                 ref={inputRef}
@@ -199,22 +196,7 @@ const PresenceBanner: React.FC = () => {
                 Confirmer ma présence
               </button>
             </form>
-
-            {state === 'error' && (
-              <p className="presence-popup-error">
-                Ce code n&apos;est pas valide. Vérifiez le code actuellement affiché et
-                réessayez.
-              </p>
-            )}
-
-            <button
-              type="button"
-              className="presence-popup-later"
-              onClick={() => setDismissed(true)}
-            >
-              Plus tard
-            </button>
-          </div>
+          </>
         )}
       </div>
     </div>

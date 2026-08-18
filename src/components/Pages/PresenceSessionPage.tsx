@@ -151,9 +151,15 @@ const PresenceSessionPage: React.FC = () => {
               </div>
             </div>
             <footer className="presence-session-footer">
-              <button type="button" className="presence-btn" onClick={() => setView('relaunch')}>
-                ↻ Relancer la session
-              </button>
+              <div className="presence-session-relaunch">
+                <button type="button" className="presence-btn" onClick={() => setView('relaunch')}>
+                  ↻ Relancer la session
+                </button>
+                <p className="presence-session-relaunch-hint">
+                  Retardataire ou saisie manquée ? Relancez — le code repart, les présences déjà
+                  confirmées restent acquises.
+                </p>
+              </div>
               <button type="button" className="presence-btn primary" onClick={() => setView('confirm-close')}>
                 Clôturer la session
               </button>
@@ -211,7 +217,7 @@ const PresenceSessionPage: React.FC = () => {
             </div>
             <div className="presence-panel-actions">
               <button type="button" className="presence-btn ghost" onClick={backToHub}>
-                Retour à la formation
+                Retour au tableau de bord
               </button>
             </div>
           </div>

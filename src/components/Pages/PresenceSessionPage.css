@@ -151,6 +151,20 @@
   flex-wrap: wrap;
 }
 
+.presence-session-relaunch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.presence-session-relaunch-hint {
+  font-size: 9.5px;
+  color: #9e9d97;
+  margin: 4px 0 0;
+  max-width: 250px;
+  line-height: 1.45;
+}
+
 .presence-btn {
   padding: 8px 14px;
   border-radius: 8px;
