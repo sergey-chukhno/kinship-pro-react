@@ -55,13 +55,24 @@ function mapEvidenceType(contentType?: string | null): ProofData['evidence']['ty
 
 /** Attributions PB : pas d'événement rattaché (PE exclus). */
 export function isPbUserBadge(userBadge: Record<string, unknown>): boolean {
-  if (userBadge.event) return false;
+  if (isPeUserBadge(userBadge)) return false;
 
   const proofType = userBadge.proof_type as string | undefined;
-  if (proofType === 'PE') return false;
   if (proofType === 'PB') return true;
 
   return true;
+}
+
+/** Attributions PE : événement rattaché ou proof_type PE. */
+export function isPeUserBadge(userBadge: Record<string, unknown>): boolean {
+  const proofType = userBadge.proof_type as string | undefined;
+  if (proofType === 'PE') return true;
+  if (proofType === 'PB') return false;
+
+  if (userBadge.event) return true;
+
+  const proofNumber = String(userBadge.proof_number ?? '');
+  return proofNumber.startsWith('PE');
 }
 
 export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): ProofData {
@@ -136,4 +147,31 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
 
 export function mapPbUserBadgesToProofData(userBadges: Record<string, unknown>[]): ProofData[] {
   return userBadges.filter(isPbUserBadge).map(mapUserBadgeToProofData);
+}
+
+export function mapUserBadgeToPeProofData(userBadge: Record<string, unknown>): ProofData {
+  const base = mapUserBadgeToProofData(userBadge);
+  const event = (userBadge.event ?? {}) as Record<string, unknown>;
+  const eventTitle = event.title ? String(event.title) : null;
+  const eventLocation = event.location ? String(event.location) : null;
+  const eventDate = event.date ? formatAwardedDate(String(event.date)) : null;
+  const shareTokenRaw = String(userBadge.share_token ?? '').trim();
+  const shareToken = shareTokenRaw || String(userBadge.id ?? '');
+  const proofNumber = String(userBadge.proof_number ?? `PE·${userBadge.id ?? '—'}`);
+
+  return {
+    ...base,
+    documentType: 'PE',
+    category: 'evenement',
+    proofType: 'PE',
+    proofNumber,
+    eventTitle,
+    presenceDate: eventDate,
+    presenceLocation: eventLocation,
+    shareUrl: shareToken ? `kinshipedu.fr/pe/${shareToken}` : 'kinshipedu.fr/pe',
+  };
+}
+
+export function mapPeUserBadgesToProofData(userBadges: Record<string, unknown>[]): ProofData[] {
+  return userBadges.filter(isPeUserBadge).map(mapUserBadgeToPeProofData);
 }

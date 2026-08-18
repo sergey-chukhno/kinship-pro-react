@@ -17,7 +17,7 @@ const CATEGORY_SIDEBAR: Record<
   projet: { icon: '📁', subtitle: 'Preuves projet (PP)' },
   badge: { icon: '🏅', subtitle: 'Compétence (PB)', iconClass: 'pik-sidebar-icon-proof' },
   evenement: { icon: '📅', subtitle: 'Événement (PE)', iconClass: 'pik-sidebar-icon-proof' },
-  parcours: { icon: '🛤️', subtitle: 'Parcours agrégés (PA)' },
+  parcours: { icon: '🛤️', subtitle: 'Parcours (PA) · Formations (PF)' },
 };
 
 const Pik: React.FC = () => {

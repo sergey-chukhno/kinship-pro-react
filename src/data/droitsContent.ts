@@ -75,7 +75,7 @@ export const DROITS_RIGHTS: DroitsRightCard[] = [
     iconBg: '#EEF4FF',
     title: 'Contacter le délégué à la protection des données',
     descriptionLocked:
-      'Pour toute autre demande : limitation du traitement (Art. 18), droits d\'un mineur dont vous êtes le représentant légal, clé PIK perdue, ou toute question sur vos données. Toujours accessible — sans clé.',
+      'Pour toute autre demande : limitation du traitement (Art. 18), droits d\'un mineur dont vous êtes le représentant légal, clé PIK perdue, ou toute question sur vos données.',
     descriptionUnlocked:
       '→ « Écrivez à dpo@kinshipedu.fr (adresse en texte — jamais de lien cliquable) en décrivant votre demande. Selon le cas, un justificatif pourra être demandé (identité, qualité de représentant légal). Réponse sous 1 mois. » La voie DPO reste TOUJOURS disponible, y compris pour les actions des cartes.',
     alwaysActive: true,
@@ -95,7 +95,7 @@ export const DPO_INSTRUCTIONS =
   'Écrivez à dpo@kinshipedu.fr en décrivant votre demande. Selon le cas, un justificatif pourra être demandé (identité, qualité de représentant légal). Réponse sous 1 mois.';
 
 export function normalizePik(value: string): string {
-  return value.replace(/\s/g, '').toUpperCase().replace(/[–—−]/g, '-');
+  return value.replace(/\s/g, '').replace(/[–—−]/g, '-');
 }
 
 export function isValidPik(value: string, expectedToken?: string | null): boolean {
@@ -105,14 +105,21 @@ export function isValidPik(value: string, expectedToken?: string | null): boolea
   return normalizePik(value) === normalizePik(MOCK_VALID_PIK);
 }
 
+/** Format acté : « 16/07 à 14:32 » */
+export function formatDroitsClock(d: Date = new Date()): string {
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${day}/${month} à ${hours}:${minutes}`;
+}
+
 export function formatExecutionDate(from: Date = new Date()): { registered: string; execution: string } {
   const exec = new Date(from.getTime() + 72 * 60 * 60 * 1000);
-  const fmt = (d: Date) =>
-    d.toLocaleString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  return { registered: fmt(from), execution: fmt(exec) };
+  return { registered: formatDroitsClock(from), execution: formatDroitsClock(exec) };
+}
+
+export function formatReceiptMessage(from: Date = new Date()): string {
+  const { registered, execution } = formatExecutionDate(from);
+  return `✓ Demande enregistrée le ${registered} — exécution le ${execution}. Annulable d'ici là, ici, avec votre clé.`;
 }

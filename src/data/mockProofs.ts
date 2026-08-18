@@ -188,6 +188,36 @@ export const MOCK_PA_PARCOURS: ProofData = {
   ],
 };
 
+export const MOCK_PF_FORMATION: ProofData = {
+  ...MOCK_PB_NOMINAL,
+  shareToken: 'pf-debuter-numerique',
+  documentType: 'PF',
+  category: 'parcours',
+  proofType: 'PB',
+  proofNumber: 'PF·2027·FR·4K8NX2QM',
+  badgeIcon: 'PF',
+  badgeTitle: 'Débuter dans le numérique — bureautique, internet, démarches en ligne',
+  badgeLevel: 'Formation',
+  eqfPill: 'EQF 2',
+  seriesPill: 'Preuve Formation® Kinship',
+  projectTitle: 'Débuter dans le numérique',
+  eventTitle: null,
+  holderName: 'Nadia Belkacem',
+  holderInitials: 'NB',
+  holderRole: 'Apprenante',
+  senderOrg: 'Atelier Numérique Formation',
+  qaLabel: '◆ Reconnu et certifié par Qualiopi',
+  awardedDate: '27 mars 2027',
+  retentionExpiry: '27 mars 2032',
+  shareUrl: 'kinshipedu.fr/pf/pf-debuter-numerique',
+  ppProofNumber: null,
+  skills: [
+    'Utiliser un traitement de texte au quotidien',
+    'Naviguer et rechercher sur internet',
+    'Réaliser ses démarches administratives en ligne',
+  ],
+};
+
 export const MOCK_PD_DIPLOME: ProofData = {
   ...MOCK_PE_EVENT,
   shareToken: 'pd-cap-macon',
@@ -217,6 +247,7 @@ const ALL_MOCKS: ProofData[] = [
   MOCK_PP_GOT_TALENT,
   MOCK_PP_MLDS,
   MOCK_PA_PARCOURS,
+  MOCK_PF_FORMATION,
   MOCK_PD_DIPLOME,
 ];
 
@@ -230,6 +261,7 @@ function buildFallbackProof(documentType: ProofDocumentType, token: string): Pro
     PB: MOCK_PB_NOMINAL,
     PE: MOCK_PE_EVENT,
     PA: MOCK_PA_PARCOURS,
+    PF: MOCK_PF_FORMATION,
     PD: MOCK_PD_DIPLOME,
   };
   const base = bases[documentType];

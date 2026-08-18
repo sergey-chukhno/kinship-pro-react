@@ -1,6 +1,6 @@
 export type ProofType = 'PB' | 'PE';
 
-export type ProofDocumentType = 'PP' | 'PB' | 'PE' | 'PA' | 'PD';
+export type ProofDocumentType = 'PP' | 'PB' | 'PE' | 'PA' | 'PD' | 'PF';
 
 export type ProofCategory = 'projet' | 'badge' | 'evenement' | 'parcours';
 

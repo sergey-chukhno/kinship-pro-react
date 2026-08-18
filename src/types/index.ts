@@ -232,6 +232,7 @@ export interface Event {
   participants: EventParticipant[] | string[]; // Can be array of IDs (string) or full participant objects
   image?: string;
   badges?: string[]; // Array of badge IDs
+  badgeSkills?: Record<string, number[]>; // badgeId -> competence ids
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   projectId: string;
   groupIds?: string[]; // Pro: groups attached to event

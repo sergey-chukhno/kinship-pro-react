@@ -3,7 +3,10 @@ import { BadgeProofApiResponse } from '../types/badgeProofApi';
 import { normalizeBadgeProofResponse, mapPbProofApiToProofData, mapPeProofApiToProofData } from '../utils/pbProofMapper';
 import {
   isPbUserBadge,
+  isPeUserBadge,
   mapPbUserBadgesToProofData,
+  mapPeUserBadgesToProofData,
+  mapUserBadgeToPeProofData,
   mapUserBadgeToProofData,
 } from '../utils/userBadgeProofMapper';
 import { ProofData } from '../types/proof';
@@ -91,6 +94,12 @@ export async function fetchPbProofCardsFromUserBadges(): Promise<ProofData[]> {
   return mapPbUserBadgesToProofData(userBadges);
 }
 
+/** Cartes PE PIK : même source, filtrée sur les attributions événement. */
+export async function fetchPeProofCardsFromUserBadges(): Promise<ProofData[]> {
+  const userBadges = await fetchAllReceivedUserBadges();
+  return mapPeUserBadgesToProofData(userBadges);
+}
+
 /** Route PIK : id numérique user_badge vs share_token public. */
 export function isUserBadgeIdRouteParam(token: string): boolean {
   return /^\d+$/.test(token.trim());
@@ -154,4 +163,51 @@ export function getMockPbProofIfDemo(routeParam: string): ProofData | null {
     return { ...known, showRightsLink: true };
   }
   return null;
+}
+
+export function getMockPeProofIfDemo(routeParam: string): ProofData | null {
+  const known = getMockProofByDocument('PE', routeParam);
+  const demoTokens = ['9A4CM8PZQR', 'presence-demo', 'demo'];
+  if (demoTokens.includes(routeParam) || known.proofNumber.includes(routeParam.toUpperCase())) {
+    return { ...known, showRightsLink: true };
+  }
+  return null;
+}
+
+/**
+ * Détail PE PIK : résout id user_badge → share_token puis GET /api/v1/proofs/pe/:token
+ */
+export async function fetchPeProofDetailForPik(routeParam: string): Promise<ProofData> {
+  const trimmed = routeParam.trim();
+
+  if (isUserBadgeIdRouteParam(trimmed)) {
+    const userBadge = await findReceivedUserBadgeByRouteParam(trimmed);
+    if (!userBadge || !isPeUserBadge(userBadge)) {
+      throw new Error('Attribution événement introuvable');
+    }
+
+    const shareToken = String(userBadge.share_token ?? '').trim();
+    if (shareToken) {
+      const apiProof = await getPublicEventProof(shareToken);
+      return { ...mapPeProofApiToProofData(apiProof), showRightsLink: true };
+    }
+
+    return { ...mapUserBadgeToPeProofData(userBadge), showRightsLink: true };
+  }
+
+  try {
+    const apiProof = await getPublicEventProof(trimmed);
+    return { ...mapPeProofApiToProofData(apiProof), showRightsLink: true };
+  } catch (error) {
+    const userBadge = await findReceivedUserBadgeByRouteParam(trimmed);
+    if (userBadge && isPeUserBadge(userBadge)) {
+      const shareToken = String(userBadge.share_token ?? '').trim();
+      if (shareToken) {
+        const apiProof = await getPublicEventProof(shareToken);
+        return { ...mapPeProofApiToProofData(apiProof), showRightsLink: true };
+      }
+      return { ...mapUserBadgeToPeProofData(userBadge), showRightsLink: true };
+    }
+    throw error;
+  }
 }

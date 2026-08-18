@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { getMockProjectProof } from '../../data/mockProjectProofs';
 import { getMockParcoursProof } from '../../data/mockParcoursProofs';
+import { getMockFormationProof } from '../../data/mockFormationProofs';
 import { isProofDocumentType } from '../../data/proofCategories';
 import { ProofDocumentType, ProofData } from '../../types/proof';
+import { fetchPbProofDetailForPik, fetchPeProofDetailForPik, getMockPbProofIfDemo, getMockPeProofIfDemo } from '../../api/BadgeProofs';
 import { getMockProofByDocument } from '../../data/mockProofs';
-import { fetchPbProofDetailForPik, getMockPbProofIfDemo } from '../../api/BadgeProofs';
 import ProjectProofDetail from '../ProjectProof/ProjectProofDetail';
 import ParcoursProofDetail from '../ParcoursProof/ParcoursProofDetail';
+import FormationProofDetail from '../FormationProof/FormationProofDetail';
 import ProofFullView from '../Proof/ProofFullView';
 import '../Proof/Proof.css';
 import '../ProjectProof/ProjectProof.css';
@@ -27,7 +29,7 @@ const PikProofDetail: React.FC<PikProofDetailProps> = ({ documentType, token }) 
   const docType = isValidType ? (documentType.toUpperCase() as ProofDocumentType) : null;
 
   useEffect(() => {
-    if (docType !== 'PB') {
+    if (docType !== 'PB' && docType !== 'PE') {
       setProof(null);
       setError(null);
       setIsLoading(false);
@@ -41,19 +43,26 @@ const PikProofDetail: React.FC<PikProofDetailProps> = ({ documentType, token }) 
       setError(null);
 
       try {
-        const detail = await fetchPbProofDetailForPik(token);
+        const detail =
+          docType === 'PE'
+            ? await fetchPeProofDetailForPik(token)
+            : await fetchPbProofDetailForPik(token);
         if (cancelled) return;
         setProof(detail);
       } catch (err) {
         if (cancelled) return;
-        console.error('Erreur chargement preuve PB:', err);
-        const demo = getMockPbProofIfDemo(token);
+        console.error(`Erreur chargement preuve ${docType}:`, err);
+        const demo = docType === 'PE' ? getMockPeProofIfDemo(token) : getMockPbProofIfDemo(token);
         if (demo) {
           setProof(demo);
           setError(null);
         } else {
           setProof(null);
-          setError('Impossible de charger cette preuve badge.');
+          setError(
+            docType === 'PE'
+              ? 'Impossible de charger cette preuve événement.'
+              : 'Impossible de charger cette preuve badge.'
+          );
         }
       } finally {
         if (!cancelled) {
@@ -91,7 +100,16 @@ const PikProofDetail: React.FC<PikProofDetailProps> = ({ documentType, token }) 
     );
   }
 
-  if (docType === 'PB') {
+  if (docType === 'PF') {
+    const formationProof = getMockFormationProof(token);
+    return (
+      <div className="pik-proof-detail">
+        <FormationProofDetail proof={formationProof} showPorteurBar showRightsLink />
+      </div>
+    );
+  }
+
+  if (docType === 'PB' || docType === 'PE') {
     if (isLoading) {
       return <p className="pik-main-loading">Chargement de la preuve…</p>;
     }

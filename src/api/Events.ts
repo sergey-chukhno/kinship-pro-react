@@ -11,6 +11,7 @@ export interface EventFormData {
   location?: string;
   status?: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   badges?: string[];
+  badge_skills?: Record<string, number[]>;
   participants?: string[];         // Peut être combiné avec csv_file
   group_ids?: number[];           // Pro: groupes attachés à l'événement
   organization_id?: number;        // Optionnel (notamment pour teacher)
@@ -52,6 +53,7 @@ export interface EventResponse {
   location?: string;
   status: string;
   badges?: number[];
+  badge_skills?: Record<string, number[]>;
   participants?: EventParticipantResponse[];
   group_ids?: number[];
   manual_participant_ids?: string[];
@@ -87,6 +89,21 @@ export interface SharedEventResponse {
   status: string;
   image?: string | null;
   badges?: string[];
+}
+
+function appendBadgeSkillsToJsonEvent(jsonEvent: Record<string, unknown>, event: EventFormData) {
+  if (event.badge_skills && Object.keys(event.badge_skills).length > 0) {
+    jsonEvent.badge_skills = event.badge_skills;
+  }
+}
+
+function appendBadgeSkillsToFormData(formData: FormData, event: EventFormData) {
+  if (!event.badge_skills) return;
+  Object.entries(event.badge_skills).forEach(([badgeId, skillIds]) => {
+    (skillIds || []).forEach((skillId) => {
+      formData.append(`event[badge_skills][${badgeId}][]`, String(skillId));
+    });
+  });
 }
 
 /**
@@ -132,6 +149,7 @@ export const createSchoolEvent = async (
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
+    appendBadgeSkillsToJsonEvent(jsonPayload.event, event);
     if (event.participants && event.participants.length > 0) {
       // Convert participant IDs to strings
       jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
@@ -188,6 +206,7 @@ export const createSchoolEvent = async (
       formData.append('event[badges][]', badgeId);
       formData.append('badges[]', badgeId);
     });
+    appendBadgeSkillsToFormData(formData, event);
   }
 
   // Add participants if provided
@@ -278,6 +297,7 @@ export const createCompanyEvent = async (
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
+    appendBadgeSkillsToJsonEvent(jsonPayload.event, event);
     if (event.participants && event.participants.length > 0) {
       // Convert participant IDs to strings
       jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
@@ -335,6 +355,7 @@ export const createCompanyEvent = async (
       formData.append('event[badges][]', badgeId);
       formData.append('badges[]', badgeId);
     });
+    appendBadgeSkillsToFormData(formData, event);
   }
 
   // Add participants if provided
@@ -425,6 +446,7 @@ export const createTeacherEvent = async (
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
+    appendBadgeSkillsToJsonEvent(jsonPayload.event, event);
     if (event.participants && event.participants.length > 0) {
       // Convert participant IDs to strings
       jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
@@ -470,6 +492,7 @@ export const createTeacherEvent = async (
       formData.append('event[badges][]', badgeId);
       formData.append('badges[]', badgeId);
     });
+    appendBadgeSkillsToFormData(formData, event);
   }
 
   // Add participants if provided
@@ -779,6 +802,7 @@ export const updateSchoolEvent = async (
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
+    appendBadgeSkillsToJsonEvent(jsonPayload.event, event);
     if (event.participants && event.participants.length > 0) {
       // Convert participant IDs to strings
       jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
@@ -824,6 +848,7 @@ export const updateSchoolEvent = async (
       formData.append('event[badges][]', badgeId);
       formData.append('badges[]', badgeId);
     });
+    appendBadgeSkillsToFormData(formData, event);
   }
 
   // Add participants if provided
@@ -907,6 +932,7 @@ export const updateCompanyEvent = async (
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
+    appendBadgeSkillsToJsonEvent(jsonPayload.event, event);
     if (event.participants && event.participants.length > 0) {
       // Convert participant IDs to strings
       jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
@@ -946,6 +972,7 @@ export const updateCompanyEvent = async (
       formData.append('event[badges][]', badgeId);
       formData.append('badges[]', badgeId);
     });
+    appendBadgeSkillsToFormData(formData, event);
   }
 
   // Add participants if provided
@@ -1019,6 +1046,7 @@ export const updateTeacherEvent = async (
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
+    appendBadgeSkillsToJsonEvent(jsonPayload.event, event);
     if (event.participants && event.participants.length > 0) {
       // Convert participant IDs to strings
       jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
@@ -1057,6 +1085,7 @@ export const updateTeacherEvent = async (
     event.badges.forEach((badgeId) => {
       formData.append('event[badges][]', badgeId);
     });
+    appendBadgeSkillsToFormData(formData, event);
   }
 
   // Add participants if provided
@@ -1129,6 +1158,7 @@ export const createUserEvent = async (
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
+    appendBadgeSkillsToJsonEvent(jsonPayload.event, event);
     if (event.participants && event.participants.length > 0) {
       // Convert participant IDs to strings
       jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
@@ -1167,6 +1197,7 @@ export const createUserEvent = async (
     event.badges.forEach((badgeId) => {
       formData.append('event[badges][]', badgeId);
     });
+    appendBadgeSkillsToFormData(formData, event);
   }
 
   // Add participants if provided
@@ -1239,6 +1270,7 @@ export const updateUserEvent = async (
     if (event.badges && event.badges.length > 0) {
       jsonPayload.event.badges = event.badges;
     }
+    appendBadgeSkillsToJsonEvent(jsonPayload.event, event);
     if (event.participants && event.participants.length > 0) {
       // Convert participant IDs to strings
       jsonPayload.event.participants = event.participants.map((participantId: string | number): string => {
@@ -1277,6 +1309,7 @@ export const updateUserEvent = async (
     event.badges.forEach((badgeId) => {
       formData.append('event[badges][]', badgeId);
     });
+    appendBadgeSkillsToFormData(formData, event);
   }
 
   // Add participants if provided

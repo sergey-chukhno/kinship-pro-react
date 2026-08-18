@@ -1,12 +1,14 @@
 import React from 'react';
 import { ProofCategory } from '../../types/proof';
-import { getCategoryConfig, PROOFS_BY_CATEGORY } from '../../data/proofCategories';
+import { getCategoryConfig } from '../../data/proofCategories';
 import { PROJECT_PROOFS } from '../../data/mockProjectProofs';
 import { PARCOURS_PROOFS } from '../../data/mockParcoursProofs';
-import ProofCardIntermediate from '../Proof/ProofCardIntermediate';
+import { FORMATION_PROOFS } from '../../data/mockFormationProofs';
 import ProjectProofCardIntermediate from '../ProjectProof/ProjectProofCardIntermediate';
 import ParcoursProofCardIntermediate from '../ParcoursProof/ParcoursProofCardIntermediate';
+import FormationProofCardIntermediate from '../FormationProof/FormationProofCardIntermediate';
 import PikBadgeProofList from './PikBadgeProofList';
+import PikEventProofList from './PikEventProofList';
 import '../ProjectProof/ProjectProof.css';
 import '../ParcoursProof/ParcoursProof.css';
 import './Pik.css';
@@ -48,6 +50,8 @@ const PikProofCategoryList: React.FC<PikProofCategoryListProps> = ({ category })
   }
 
   if (category === 'parcours') {
+    const hasAny = FORMATION_PROOFS.length > 0 || PARCOURS_PROOFS.length > 0;
+
     return (
       <div className="pik-category-list">
         <header className="pik-category-header">
@@ -55,18 +59,40 @@ const PikProofCategoryList: React.FC<PikProofCategoryListProps> = ({ category })
           <p>{config.description}</p>
         </header>
 
-        {PARCOURS_PROOFS.length === 0 ? (
+        {!hasAny ? (
           <p className="pik-main-empty">Aucune preuve pour le moment.</p>
         ) : (
-          <div className="pik-category-cards">
-            {PARCOURS_PROOFS.map((proof) => (
-              <ParcoursProofCardIntermediate
-                key={proof.shareToken}
-                proof={proof}
-                linkTarget="pik"
-              />
-            ))}
-          </div>
+          <>
+            {FORMATION_PROOFS.length > 0 && (
+              <section className="pik-pp-section">
+                <h3 className="pik-pp-section-title">Preuves formation (PF)</h3>
+                <div className="pik-category-cards">
+                  {FORMATION_PROOFS.map((proof) => (
+                    <FormationProofCardIntermediate
+                      key={proof.shareToken}
+                      proof={proof}
+                      linkTarget="pik"
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {PARCOURS_PROOFS.length > 0 && (
+              <section className="pik-pp-section">
+                <h3 className="pik-pp-section-title">Preuves parcours (PA)</h3>
+                <div className="pik-category-cards">
+                  {PARCOURS_PROOFS.map((proof) => (
+                    <ParcoursProofCardIntermediate
+                      key={proof.shareToken}
+                      proof={proof}
+                      linkTarget="pik"
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
     );
@@ -78,29 +104,8 @@ const PikProofCategoryList: React.FC<PikProofCategoryListProps> = ({ category })
     );
   }
 
-  const proofs = PROOFS_BY_CATEGORY[category];
-
   return (
-    <div className="pik-category-list">
-      <header className="pik-category-header">
-        <h2>{config.label}</h2>
-        <p>{config.description}</p>
-      </header>
-
-      {proofs.length === 0 ? (
-        <p className="pik-main-empty">Aucune preuve pour le moment.</p>
-      ) : (
-        <div className="pik-category-cards">
-          {proofs.map((proof) => (
-            <ProofCardIntermediate
-              key={`${proof.documentType}-${proof.shareToken}`}
-              proof={proof}
-              linkTarget="pik"
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <PikEventProofList title={config.label} description={config.description} />
   );
 };
 

@@ -31,7 +31,7 @@ export const PROOF_CATEGORIES: ProofCategoryConfig[] = [
   {
     slug: 'parcours',
     label: 'Preuves parcours',
-    description: 'Preuves agrégées de parcours (PA).',
+    description: 'Preuves de parcours (PA) et de formation (PF).',
   },
 ];
 
@@ -51,5 +51,5 @@ export function isProofCategory(slug: string): slug is ProofCategory {
 }
 
 export function isProofDocumentType(value: string): value is ProofDocumentType {
-  return ['PP', 'PB', 'PE', 'PA', 'PD'].includes(value.toUpperCase());
+  return ['PP', 'PB', 'PE', 'PA', 'PD', 'PF'].includes(value.toUpperCase());
 }
