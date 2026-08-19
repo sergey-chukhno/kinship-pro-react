@@ -299,7 +299,7 @@
 
 .sidebar-quick-actions-dropdown {
   z-index: 2000;
-  min-width: 260px;
+  min-width: 300px;
   padding: 6px;
   background: #fff;
   border: 1px solid var(--border, #e5e7eb);
@@ -327,6 +327,24 @@
 .sidebar-quick-action-item:hover,
 .sidebar-quick-action-item.active {
   background: rgba(85, 112, 241, 0.08);
+}
+
+.sidebar-quick-action-item.is-disabled,
+.sidebar-quick-action-item.is-disabled:hover,
+.sidebar-quick-action-item.is-disabled.active {
+  color: #9ca3af;
+  background: none;
+  cursor: not-allowed;
+}
+
+.sidebar-quick-action-soon {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #9ca3af;
 }
 
 .notif-badge {

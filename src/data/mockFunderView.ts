@@ -29,6 +29,7 @@ export interface FunderFollowData {
   token: string;
   closed: boolean;
   closedOn?: string;
+  kind?: 'project' | 'formation';
   title: string;
   org: string;
   dateRange: string;

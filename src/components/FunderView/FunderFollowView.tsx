@@ -53,9 +53,11 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({ data, preview }) =>
       <div className={`fv-ended ${preview ? 'preview' : ''}`}>
         <KinshipMark muted />
         <p className="fv-ended-title">
-          Cette formation est clôturée le {data.closedOn ?? '—'}.
+          {data.kind === 'project' ? 'Ce projet est clôturé le' : 'Cette formation est clôturée le'} {data.closedOn ?? '—'}.
         </p>
-        <p className="fv-ended-sub">Le rapport vous a été transmis par email.</p>
+        <p className="fv-ended-sub">
+          Votre lien de suivi a pris fin. Le rapport vous a été transmis par email.
+        </p>
       </div>
     );
   }
@@ -261,7 +263,23 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({ data, preview }) =>
         </div>
       )}
 
-      {!preview && (
+      {!preview && data.kind === 'project' && (
+        <div className="fv-invite">
+          <div className="fv-invite-title">Retrouvez tous vos projets financés au même endroit</div>
+          <p>
+            Si votre organisation a un espace Kinship, les projets que vous financez
+            apparaissent dans Suivi financement.
+          </p>
+          <button
+            type="button"
+            className="fv-cta"
+            onClick={() => navigate(localStorage.getItem('jwt_token') ? '/funded-projects' : '/register')}
+          >
+            {localStorage.getItem('jwt_token') ? 'Voir mes projets financés' : 'Créer l’espace de mon organisation'}
+          </button>
+        </div>
+      )}
+      {!preview && data.kind !== 'project' && (
         <>
           <div className="fv-invite">
             <div className="fv-invite-title">Retrouvez toutes vos formations au même endroit</div>

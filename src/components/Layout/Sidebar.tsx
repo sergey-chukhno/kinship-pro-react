@@ -192,6 +192,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     { id: 'members', label: state.showingPageType === 'teacher' ? 'Classes' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events', label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
     { id: 'projects', label: state.showingPageType === 'of' ? 'Formations' : 'Projets', icon: '/icons_logo/Icon=projet.svg' },
+    ...(state.showingPageType === 'pro'
+      ? [{ id: 'funded-projects' as PageType, label: 'Suivi financement', icon: '/icons_logo/Icon=projet.svg' }]
+      : []),
     ...((state.showingPageType === 'edu' || state.showingPageType === 'pro')
       ? [{ id: 'formations' as PageType, label: 'Formations', icon: '/icons_logo/Icon=projet.svg' }]
       : []),
@@ -312,11 +315,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                   <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
                   Créer une formation
                 </button>
-              ) : (state.showingPageType === 'edu' || state.showingPageType === 'teacher') ? (
+              ) : (
                 <Menu as="div" className="quick-action-menu">
-                  <Menu.Button className="side-link quick-action-btn">
+                  <Menu.Button className={`side-link quick-action-btn ${currentPage === 'create' ? 'active' : ''}`}>
                     <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
-                    Créer un projet
+                    Créer
                   </Menu.Button>
                   <Transition
                     enter="transition ease-out duration-100"
@@ -333,8 +336,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                             type="button"
                             className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
                             onClick={() => {
-                              onPageChange('projects');
-                              navigate('/projects?open=create&variant=classic');
+                              navigate('/create?type=project');
+                              onPageChange('create');
                             }}
                           >
                             Projet classique
@@ -369,21 +372,33 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                           </button>
                         )}
                       </Menu.Item>
+                      <Menu.Item disabled>
+                        {({ active }) => (
+                          <button
+                            type="button"
+                            disabled
+                            className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
+                          >
+                            Formation
+                            <span className="sidebar-quick-action-soon">Bientôt</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                      <Menu.Item disabled>
+                        {({ active }) => (
+                          <button
+                            type="button"
+                            disabled
+                            className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
+                          >
+                            Stage
+                            <span className="sidebar-quick-action-soon">Bientôt</span>
+                          </button>
+                        )}
+                      </Menu.Item>
                     </Menu.Items>
                   </Transition>
                 </Menu>
-              ) : (
-                <button
-                  type="button"
-                  className="side-link quick-action-btn"
-                  onClick={() => {
-                    onPageChange('projects');
-                    navigate('/projects?open=create');
-                  }}
-                >
-                  <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
-                  Créer un projet
-                </button>
               )}
               {state.showingPageType !== 'of' && (
                 <>

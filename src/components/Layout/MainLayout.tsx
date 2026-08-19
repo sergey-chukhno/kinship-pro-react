@@ -28,6 +28,10 @@ import FormationDetail from '../Pages/FormationDetail';
 import FormationAffiche from '../Pages/FormationAffiche';
 import PreuveFormationPage from '../Pages/PreuveFormationPage';
 import FormationsHub from '../Pages/FormationsHub';
+import CreateProjectPage from '../Pages/CreateProjectPage';
+import ProjectSpacePage from '../Pages/ProjectSpacePage';
+import ProjectAffichePage from '../Pages/ProjectAffichePage';
+import FundedProjectsPage from '../Pages/FundedProjectsPage';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
@@ -121,6 +125,14 @@ const MainLayout: React.FC = () => {
         return <FormationAffiche />;
       case 'preuve-formation':
         return <PreuveFormationPage />;
+      case 'create':
+        return <CreateProjectPage />;
+      case 'project-space':
+        return <ProjectSpacePage />;
+      case 'project-affiche':
+        return <ProjectAffichePage />;
+      case 'funded-projects':
+        return <FundedProjectsPage />;
       default:
         return <Dashboard />;
     }

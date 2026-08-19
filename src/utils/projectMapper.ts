@@ -622,6 +622,16 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
             });
         })(),
         mlds_information: apiProject.mlds_information || undefined, // Map MLDS information
+        learningOutcomes: apiProject.learning_outcomes || undefined,
+        participationMode:
+          apiProject.participation_mode === 'online'
+            ? 'distanciel'
+            : apiProject.participation_mode === 'blended'
+              ? 'hybride'
+              : apiProject.participation_mode === 'on_site'
+                ? 'presentiel'
+                : undefined,
+        projectKind: apiProject.project_kind || undefined,
         rs: apiProject.rs || undefined, // Map RS field
         showEndDateWarning: Boolean(apiProject.show_end_date_warning)
     };

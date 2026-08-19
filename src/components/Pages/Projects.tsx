@@ -21,6 +21,7 @@ import {
   projectBelongsToOrganizationContext,
 } from '../../utils/projectMapper';
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
+import { openProjectAffiche, openProjectSpace } from '../../utils/projectSpaceStore';
 import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
 import { useToast } from '../../hooks/useToast';
 import { isUnder15 } from '../../utils/ageUtils';
@@ -938,8 +939,13 @@ const Projects: React.FC = () => {
       } else {
         setIsMLDSProjectModalOpen(true);
       }
-    } else {
-      setIsProjectModalOpen(true);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('open');
+        next.delete('variant');
+        return next;
+      }, { replace: true });
+      return;
     }
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -947,6 +953,8 @@ const Projects: React.FC = () => {
       next.delete('variant');
       return next;
     }, { replace: true });
+    navigate('/create?type=project');
+    setCurrentPage('create');
   }, [searchParams, state.showingPageType, setSearchParams]);
 
   // --- Fetch des projets au chargement ---
@@ -1261,11 +1269,11 @@ const Projects: React.FC = () => {
 
 
   const handleCreateProject = () => {
-    // Pro et user : ouvrir directement ProjectModal (pas de dropdown, pas de MLDS)
     setSelectedProject(null);
     setDuplicateSourceProject(null);
-    setIsProjectModalOpen(true);
     setIsProjectDropdownOpen(false);
+    navigate('/create?type=project');
+    setCurrentPage('create');
   };
 
   const handleCreateMLDSProject = () => {
@@ -1300,13 +1308,20 @@ const Projects: React.FC = () => {
   };
 
   const handleEditProject = (project: Project) => {
-    // Prevent editing if project is ended
     if (project.status === 'ended') {
       return;
     }
+    const isMlds = (project as { mlds_information?: unknown }).mlds_information != null;
+    if (isMlds) {
+      setSelectedProject(project);
+      setDuplicateSourceProject(null);
+      setIsProjectModalOpen(true);
+      return;
+    }
     setSelectedProject(project);
-    setDuplicateSourceProject(null);
-    setIsProjectModalOpen(true);
+    openProjectSpace(project.id, 'informations');
+    setCurrentPage('project-space');
+    navigate('/project-space');
   };
 
   const handleDuplicateProject = (project: Project) => {
@@ -1380,9 +1395,21 @@ const Projects: React.FC = () => {
   };
 
   const handleManageProject = (project: Project) => {
-    // Always allow viewing/managing (even if ended, user can still view)
     setSelectedProject(project);
-    setCurrentPage('project-management');
+    const isMlds = (project as { mlds_information?: unknown }).mlds_information != null;
+    if (isMlds) {
+      setCurrentPage('project-management');
+      return;
+    }
+    if (project.status === 'draft') {
+      openProjectSpace(project.id, 'gestion');
+      setCurrentPage('project-space');
+      navigate('/project-space');
+      return;
+    }
+    openProjectAffiche(project.id);
+    setCurrentPage('project-affiche');
+    navigate('/project-affiche');
   };
 
   const handleCloseProject = (project: Project) => {
@@ -2068,6 +2095,17 @@ const Projects: React.FC = () => {
             >
               Brouillons ({draftProjectsCount})
             </button>
+            {state.showingPageType === 'pro' && (
+              <button
+                className="filter-tab"
+                onClick={() => {
+                  setCurrentPage('funded-projects');
+                  navigate('/funded-projects');
+                }}
+              >
+                Projets financés
+              </button>
+            )}
             {mldsCatalogCounts.perseverance > 0 && (
               <button 
                 className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}

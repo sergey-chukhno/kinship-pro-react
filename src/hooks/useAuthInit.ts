@@ -27,7 +27,8 @@ export const useAuthInit = () => {
       "analytics", "network", "notifications", "settings",
       "personal-settings", "pik",
       "membership-requests", "partnership-requests", "project-management",
-      "presence-session", "formation-detail", "formation-affiche", "preuve-formation"
+      "presence-session", "formation-detail", "formation-affiche", "preuve-formation",
+      "create", "project-space", "project-affiche", "funded-projects"
     ];
 
     if (validPages.includes(path as PageType)) {
@@ -45,6 +46,18 @@ export const useAuthInit = () => {
 
     if (path.startsWith('preuve-formation')) {
       return 'preuve-formation';
+    }
+
+    if (path.startsWith('project-space')) {
+      return 'project-space';
+    }
+
+    if (path.startsWith('project-affiche')) {
+      return 'project-affiche';
+    }
+
+    if (path.startsWith('funded-projects')) {
+      return 'funded-projects';
     }
 
     if (path.startsWith('pik')) {

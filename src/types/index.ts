@@ -194,6 +194,9 @@ export interface Project {
     organization: string;
   }>;
   mlds_information?: any; // MLDS project specific information
+  learningOutcomes?: string;
+  participationMode?: 'presentiel' | 'distanciel' | 'hybride';
+  projectKind?: 'standard' | 'stage' | 'formation';
   school_levels?: Array<{
     id: number;
     name: string;
@@ -388,7 +391,7 @@ export interface OrganizationStatsResponse {
   badges_assigned?: BadgesAssignedStats;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'formations' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'pik' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'presence-session' | 'formation-detail' | 'formation-affiche' | 'preuve-formation' | 'Auth';
+export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'formations' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'pik' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'presence-session' | 'formation-detail' | 'formation-affiche' | 'preuve-formation' | 'create' | 'project-space' | 'project-affiche' | 'funded-projects' | 'Auth';
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user' | 'of';
 

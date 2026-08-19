@@ -1,4 +1,4 @@
-import apiClient from './config';
+import apiClient, { axiosClientWithoutToken } from './config';
 import type { MemberContextPayload } from '../utils/memberContextPayload';
 
 export type { MemberContextPayload } from '../utils/memberContextPayload';
@@ -69,6 +69,7 @@ export interface ProjectMemberAttribute {
 }
 
 export interface LinkAttribute {
+    id?: number;
     name: string;
     url: string;
 }
@@ -233,6 +234,10 @@ export interface CreateProjectPayload {
         participant_ids?: number[];
         participant_contexts?: MemberContextPayload[];
         mlds_information_attributes?: MLDSInformationAttributes;
+        project_kind?: 'standard' | 'stage' | 'formation';
+        is_eu_mc_declared?: boolean;
+        learning_outcomes?: string;
+        participation_mode?: 'on_site' | 'online' | 'blended';
     };
 }
 
@@ -1160,6 +1165,19 @@ export const createProject = async (
     formData.append('project[status]', project.status);
     formData.append('project[private]', project.private.toString());
 
+    if (project.project_kind) {
+        formData.append('project[project_kind]', project.project_kind);
+    }
+    if (project.is_eu_mc_declared !== undefined) {
+        formData.append('project[is_eu_mc_declared]', String(project.is_eu_mc_declared));
+    }
+    if (project.learning_outcomes) {
+        formData.append('project[learning_outcomes]', project.learning_outcomes);
+    }
+    if (project.participation_mode) {
+        formData.append('project[participation_mode]', project.participation_mode);
+    }
+
     // Add optional fields
     if (project.participants_number !== undefined) {
         formData.append('project[participants_number]', project.participants_number.toString());
@@ -1335,6 +1353,8 @@ export interface UpdateProjectPayload {
         participant_contexts?: MemberContextPayload[];
         partnership_ids?: number[];
         mlds_information_attributes?: MLDSInformationAttributes;
+        learning_outcomes?: string;
+        participation_mode?: 'on_site' | 'online' | 'blended';
     };
 }
 
@@ -1542,6 +1562,75 @@ export const postMldsBilan = async (projectId: number, payload: MldsBilanPayload
 export const closeProject = async (projectId: number): Promise<any> => {
     const response = await apiClient.post(`/api/v1/projects/${projectId}/close`);
     return response.data;
+};
+
+export interface ProjectFunder {
+    id: number;
+    name: string;
+    email: string;
+    share_mode: 'nominatif' | 'anonyme';
+    initials: string;
+    has_linked_account: boolean;
+    started_notified_at: string | null;
+    closed_notified_at: string | null;
+}
+
+export const getProjectFunders = async (projectId: number): Promise<ProjectFunder[]> => {
+    const response = await apiClient.get(`/api/v1/projects/${projectId}/funders`);
+    return response.data?.data || [];
+};
+
+export const addProjectFunder = async (
+    projectId: number,
+    payload: { name: string; email: string; share_mode: 'nominatif' | 'anonyme' }
+): Promise<ProjectFunder> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/funders`, { funder: payload });
+    return response.data;
+};
+
+export const removeProjectFunder = async (projectId: number, funderId: number): Promise<void> => {
+    await apiClient.delete(`/api/v1/projects/${projectId}/funders/${funderId}`);
+};
+
+export interface ProjectFunderFollow {
+    token: string;
+    kind: 'project';
+    closed: boolean;
+    closed_on?: string | null;
+    title: string;
+    org?: string | null;
+    date_range: string;
+    status_label: string;
+    description?: string | null;
+    learning_outcomes?: string | null;
+    share_mode: 'nominatif' | 'anonyme';
+    follow_active: boolean;
+}
+
+export const getProjectFunderFollow = async (token: string): Promise<ProjectFunderFollow> => {
+    const response = await axiosClientWithoutToken.get(`/api/v1/projects/funder_follow/${token}`);
+    return response.data;
+};
+
+export interface FundedProjectCard {
+    token: string;
+    title: string;
+    org?: string | null;
+    date_range: string;
+    status: 'coming' | 'in_progress' | 'ended';
+    status_label: string;
+    closed_on?: string | null;
+    report_transmitted: boolean;
+    watch: boolean;
+    watch_label?: string | null;
+    closed_year?: number | null;
+}
+
+export const getFundedProjects = async (organizationId?: number): Promise<FundedProjectCard[]> => {
+    const response = await apiClient.get('/api/v1/funded_projects', {
+        params: organizationId ? { organization_id: organizationId } : undefined,
+    });
+    return response.data?.data || [];
 };
 
 /**
