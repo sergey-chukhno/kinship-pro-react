@@ -1,48 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import {
   FormationCard,
   FormationStatus,
-  FinancementType,
+  FINANCEMENT_LABEL,
   MOCK_OF_ORG,
+  PARTICIPATION_LABEL,
 } from '../../data/mockFormations';
 import {
+  FormationFunder,
+  FormationParticipant,
+  FormationPartner,
+  FormationPersonRole,
   getFormationById,
-  getMockParticipants,
-  getFormationSlots,
-  ensureBaseFormationSlot,
-  getOpenableFormationSlot,
-  hasOpenableFormationSlot,
-  updateFormationSlot,
-  formatSlotDateLabel,
+  getFormationPeople,
   getSelectedFormationId,
+  setFormationPeople,
   setSelectedFormationId,
   subscribeFormations,
-  subscribeFormationSlots,
   updateFormation,
-  slotStatusLabel,
 } from '../../utils/formationStore';
-import { openPresenceSession } from '../../utils/presenceSessionStore';
-import FormationModal, { FormationFormData } from '../Modals/FormationModal';
 import { useToast } from '../../hooks/useToast';
-import { FormationSlot } from '../../utils/formationStore';
+import FunderFollowView from '../FunderView/FunderFollowView';
+import { MOCK_FOLLOW_DEBUTER } from '../../data/mockFunderView';
+import { followViewFromFormation } from '../../utils/funderFollowFromFormation';
 import './FormationDetail.css';
 
-const STATUS_LABEL: Record<FormationStatus, string> = {
+const STATUS_CHIP: Record<FormationStatus, string> = {
   draft: 'Brouillon',
   coming: 'À venir',
   in_progress: 'En cours',
   ended: 'Terminée',
   archived: 'Archivée',
-};
-
-const FINANCEMENT_CLASS: Record<FinancementType, string> = {
-  CPF: 'cpf',
-  OPCO: 'opco',
-  Entreprise: 'entreprise',
-  Associative: 'associative',
-  Autre: 'autre',
 };
 
 function formatFrDate(iso?: string): string {
@@ -52,212 +42,254 @@ function formatFrDate(iso?: string): string {
   return `${d}/${m}/${y}`;
 }
 
-function isIsoDateToday(iso: string): boolean {
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  return iso === today;
+function initialsOf(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('');
 }
 
-type DetailTab = 'overview' | 'participants' | 'sessions';
+function fileSizeLabel(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  return `${Math.ceil(bytes / 1024)} Ko`;
+}
+
+type DetailTab = 'informations' | 'gestion';
+type VisibilityView = 'structure' | 'financeur';
 
 const FormationDetail: React.FC = () => {
   const navigate = useNavigate();
-  const { setCurrentPage, state } = useAppContext();
+  const { setCurrentPage } = useAppContext();
   const { showSuccess, showError } = useToast();
   const [formationId, setFormationId] = useState(() => getSelectedFormationId() || '');
-
   const [formation, setFormation] = useState<FormationCard | null>(
     () => getFormationById(formationId) ?? null
   );
-  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
-  const [participants, setParticipants] = useState(() =>
-    getMockParticipants(formationId)
+  const [activeTab, setActiveTab] = useState<DetailTab>(() =>
+    sessionStorage.getItem('kinship_f2_tab') === 'informations' ? 'informations' : 'gestion'
   );
-  const [slots, setSlots] = useState<FormationSlot[]>(() => getFormationSlots(formationId));
+  const [visibility, setVisibility] = useState<VisibilityView>('structure');
+  const [people, setPeople] = useState(() => getFormationPeople(formationId));
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
+  const [personName, setPersonName] = useState('');
+  const [personRole, setPersonRole] = useState<FormationPersonRole>('Participant');
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const [addFunderOpen, setAddFunderOpen] = useState(false);
+  const [funderQuery, setFunderQuery] = useState('');
+  const [funderEmail, setFunderEmail] = useState('');
+  const [funderShare, setFunderShare] = useState<'nominatif' | 'anonyme'>('nominatif');
+  const [addPartnerOpen, setAddPartnerOpen] = useState(false);
+  const [partnerName, setPartnerName] = useState('');
+  const [documents, setDocuments] = useState<{ id: string; name: string; size: number }[]>([]);
+  const [addDocsOpen, setAddDocsOpen] = useState(true);
+  const [docDragOver, setDocDragOver] = useState(false);
+  const [justAddedDocId, setJustAddedDocId] = useState<string | null>(null);
+  const [datePanelOpen, setDatePanelOpen] = useState(false);
+  const [newStart, setNewStart] = useState('');
+  const [newEnd, setNewEnd] = useState('');
+  const [dateMotif, setDateMotif] = useState('');
+
+  useEffect(() => {
+    sessionStorage.removeItem('kinship_f2_tab');
+  }, []);
 
   useEffect(() => {
     const id = getSelectedFormationId() || '';
     setFormationId(id);
-    const f = getFormationById(id) ?? null;
-    setFormation(f);
-    setParticipants(getMockParticipants(id));
-    if (id && f && (f.status === 'in_progress' || f.status === 'coming')) {
-      const dateLabel = f.startDate
-        ? formatSlotDateLabel(new Date(`${f.startDate}T12:00:00`))
-        : formatSlotDateLabel();
-      ensureBaseFormationSlot(id, {
-        dateLabel,
-        participantsCount: getMockParticipants(id).length,
-      });
-    }
-    setSlots(getFormationSlots(id));
+    setFormation(getFormationById(id) ?? null);
+    setPeople(getFormationPeople(id));
   }, []);
 
   useEffect(() => {
     return subscribeFormations(() => {
-      const id = getSelectedFormationId() || '';
-      setFormation(getFormationById(id) ?? null);
-    });
-  }, []);
-
-  useEffect(() => {
-    return subscribeFormationSlots(() => {
       const id = getSelectedFormationId() || formationId;
-      if (id) setSlots(getFormationSlots(id));
+      setFormation(getFormationById(id) ?? null);
     });
   }, [formationId]);
 
-  const unverifiedCount = participants.filter((p) => !p.identityVerified).length;
-  const isCpf = formation?.financement === 'CPF';
-  const canEdit = formation?.status === 'draft' || formation?.status === 'coming';
-  const canPublish = formation?.status === 'draft';
-  const canOpenSession =
-    formation?.status === 'in_progress' && hasOpenableFormationSlot(formation.id);
-  const canClose = formation?.status === 'in_progress';
-  const canSeePf =
-    (formation?.status === 'ended' || formation?.status === 'archived') &&
-    formation.hasProof;
+  const persistPeople = (next: typeof people) => {
+    setPeople(next);
+    setFormationPeople(formationId, next);
+  };
 
   const backToHub = () => {
-    if (state.showingPageType === 'edu' || state.showingPageType === 'pro') {
-      setCurrentPage('formations');
-      navigate('/formations');
-      return;
-    }
-    setCurrentPage('dashboard');
-    navigate('/dashboard');
+    setCurrentPage('formations');
+    navigate('/formations');
   };
 
-  const handlePublish = () => {
-    if (!formation || formation.status !== 'draft') return;
-    if (!formation.startDate || !formation.endDate) {
-      showError('Renseignez les dates de début et de fin avant de publier (modifier).');
+  const canChangeDates = formation?.status === 'coming';
+  const canRemoveFunder = formation?.status === 'coming';
+
+  const participants = people.participants;
+  const funders = people.funders;
+  const partners = people.partners;
+
+  const freezeTag = (label: string) => <span className="fd-antag">{label}</span>;
+
+  const openAffiche = () => {
+    setCurrentPage('formation-affiche');
+    navigate('/formation-affiche');
+  };
+
+  const addPerson = () => {
+    const name = personName.trim();
+    if (!name) return;
+    const added: FormationParticipant = {
+      id: `p-${Date.now()}`,
+      name,
+      identityVerified: false,
+      role: personRole,
+      preRegistered: true,
+      pendingActivation: true,
+    };
+    persistPeople({ ...people, participants: [added, ...people.participants] });
+    setJustAddedId(added.id);
+    setPersonName('');
+    showSuccess('✓ Enregistré');
+    window.setTimeout(() => setJustAddedId(null), 2200);
+  };
+
+  const addPartner = () => {
+    const name = partnerName.trim();
+    if (!name) return;
+    const added: FormationPartner = { id: `pt-${Date.now()}`, name };
+    persistPeople({ ...people, partners: [added, ...people.partners] });
+    setPartnerName('');
+    showSuccess('✓ Enregistré');
+  };
+
+  const addFunder = () => {
+    const name = funderQuery.trim() || funderEmail.trim();
+    if (!name) return;
+    const added: FormationFunder = {
+      id: `fu-${Date.now()}`,
+      name: funderQuery.trim() || funderEmail.trim(),
+      email: funderEmail.trim() || undefined,
+      shareMode: funderShare,
+      initials: initialsOf(funderQuery.trim() || 'EM'),
+    };
+    persistPeople({ ...people, funders: [added, ...people.funders] });
+    setFunderQuery('');
+    setFunderEmail('');
+    setAddFunderOpen(false);
+    showSuccess('✓ Enregistré');
+  };
+
+  const removeFunder = (id: string) => {
+    persistPeople({ ...people, funders: people.funders.filter((f) => f.id !== id) });
+    showSuccess('✓ Enregistré');
+  };
+
+  const MAX_DOCS = 5;
+  const MAX_DOC_BYTES = 1024 * 1024;
+
+  const addDocuments = (fileList: FileList | File[]) => {
+    const incoming = Array.from(fileList);
+    if (incoming.length === 0) return;
+
+    const remaining = MAX_DOCS - documents.length;
+    if (remaining <= 0) {
+      showError('5 fichiers max.');
       return;
     }
-    const startsToday = isIsoDateToday(formation.startDate);
-    const status: FormationStatus = startsToday ? 'in_progress' : 'coming';
-    const meta = startsToday
-      ? `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · en cours`
-      : `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · démarrage automatique le ${formatFrDate(formation.startDate)}`;
+
+    const accepted: { id: string; name: string; size: number }[] = [];
+    for (const file of incoming.slice(0, remaining)) {
+      if (file.size > MAX_DOC_BYTES) {
+        showError(`${file.name} dépasse 1 Mo.`);
+        continue;
+      }
+      accepted.push({
+        id: `doc-${Date.now()}-${file.name}-${file.size}`,
+        name: file.name,
+        size: file.size,
+      });
+    }
+
+    const last = accepted.at(-1);
+    if (!last) return;
+    setDocuments((prev) => [...prev, ...accepted]);
+    setJustAddedDocId(last.id);
+    showSuccess('✓ Enregistré');
+    window.setTimeout(() => setJustAddedDocId(null), 2200);
+  };
+
+  const removeDocument = (id: string) => {
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
+    showSuccess('✓ Enregistré');
+  };
+
+  const submitDateChange = () => {
+    if (!formation || !newStart || !newEnd || !dateMotif.trim()) return;
+    if (newEnd < newStart) return;
+    const meta = `du ${formatFrDate(newStart)} au ${formatFrDate(newEnd)} · démarrage automatique le ${formatFrDate(newStart)}`;
     const updated = updateFormation(formation.id, {
-      status,
+      startDate: newStart,
+      endDate: newEnd,
       meta,
+      dateChanges: [
+        ...(formation.dateChanges ?? []),
+        {
+          at: new Date().toISOString(),
+          fromStart: formation.startDate ?? '',
+          fromEnd: formation.endDate ?? '',
+          toStart: newStart,
+          toEnd: newEnd,
+          motif: dateMotif.trim(),
+        },
+      ],
     });
     if (updated) setFormation(updated);
-    const dateLabel = formatSlotDateLabel(new Date(`${formation.startDate}T12:00:00`));
-    ensureBaseFormationSlot(formation.id, {
-      dateLabel,
-      participantsCount: participants.length,
-    });
-    setSlots(getFormationSlots(formation.id));
-    showSuccess(
-      startsToday
-        ? 'Formation publiée — elle apparaît dans En cours'
-        : 'Formation publiée — elle apparaît dans À venir'
-    );
+    setDatePanelOpen(false);
+    setDateMotif('');
+    showSuccess('✓ Enregistré — chaque inscrit sera notifié');
   };
 
-  const openSession = (opts?: { slot?: FormationSlot }) => {
-    if (!formation) return;
-    const participantsCount = participants.length || 0;
-
-    const dateLabel = formation.startDate
-      ? formatSlotDateLabel(new Date(`${formation.startDate}T12:00:00`))
-      : formatSlotDateLabel();
-    ensureBaseFormationSlot(formation.id, {
-      dateLabel,
-      participantsCount,
-    });
-
-    const slot = opts?.slot ?? getOpenableFormationSlot(formation.id);
-    if (!slot || slot.status === 'closed') {
-      showError('Cette session est clôturée et ne peut plus être rouverte.');
-      setSlots(getFormationSlots(formation.id));
-      return;
+  const followPreview = useMemo(() => {
+    if (!formation) return null;
+    const isDebuter =
+      formation.id === 'f2' ||
+      formation.id === 'f-debuter' ||
+      formation.title.startsWith('Débuter dans le numérique');
+    if (isDebuter) {
+      if (formation.status === 'ended' || formation.status === 'archived') {
+        return {
+          ...MOCK_FOLLOW_DEBUTER,
+          closed: true,
+          closedOn: '27 mars 2027',
+          token: formation.id,
+        };
+      }
+      return MOCK_FOLLOW_DEBUTER;
     }
-
-    updateFormationSlot(formation.id, slot.id, { status: 'open', participantsCount });
-    setSlots(getFormationSlots(formation.id));
-    setActiveTab('sessions');
-
-    openPresenceSession({
-      formationId: formation.id,
-      slotId: slot.id,
-      formationTitle: formation.title,
-      slotLabel: slot.label,
-      sessionDateLabel: slot.dateLabel,
-      confirmed: 0,
-      total: participantsCount || 17,
+    return followViewFromFormation(formation, {
+      identitiesDone: people.participants.filter((p) => p.identityVerified).length,
+      identitiesTotal: people.participants.length,
     });
-    setCurrentPage('presence-session');
-    navigate('/presence-session');
-  };
+  }, [formation, people.participants]);
 
-  const toggleIdentity = (participantId: string) => {
-    setParticipants((prev) =>
-      prev.map((p) =>
-        p.id === participantId ? { ...p, identityVerified: !p.identityVerified } : p
-      )
-    );
-  };
-
-  const handleUpdate = (data: FormationFormData) => {
-    if (!formation) return;
-    const updated = updateFormation(formation.id, {
-      title: data.title,
-      description: data.description || undefined,
-      financement: data.financement || undefined,
-      isEuMcDeclared: data.isEuMcDeclared || undefined,
-      startDate: data.startDate || undefined,
-      endDate: data.endDate || undefined,
-      attendanceSurveyOptIn: data.attendanceSurveyOptIn || undefined,
-    });
-    if (updated) setFormation(updated);
-    setIsEditOpen(false);
-    showSuccess('Formation mise à jour');
-  };
-
-  const handleCloseFormation = () => {
-    if (!formation) return;
-    if (isCpf && unverifiedCount > 0) {
-      showError(
-        "L'OF ne peut pas clore une formation CPF si des apprenants n'ont pas d'identité vérifiée."
-      );
-      return;
+  const heroChips = useMemo(() => {
+    if (!formation) return [];
+    const chips = [STATUS_CHIP[formation.status]];
+    if (formation.startDate && formation.endDate) {
+      chips.push(`${formatFrDate(formation.startDate)} → ${formatFrDate(formation.endDate)}`);
     }
-    const proofNumber = formation.isEuMcDeclared
-      ? `MC·UE·2026·FR·${Math.random().toString(36).slice(2, 10).toUpperCase()}`
-      : `PF·2026·FR·${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
-
-    const updated = updateFormation(formation.id, {
-      status: 'ended',
-      hasProof: true,
-      proofNumber,
-      meta: `clôturée le ${new Date().toLocaleDateString('fr-FR')} · ${participants.length} participants · ${proofNumber}`,
-      endDateOverdue: false,
-    });
-    if (updated) setFormation(updated);
-    setShowCloseConfirm(false);
-    showSuccess('Formation clôturée — les preuves de présence sont figées');
-  };
+    if (formation.status === 'coming' && formation.startDate) {
+      chips.push(`démarrage automatique le ${formatFrDate(formation.startDate)}`);
+    }
+    return chips;
+  }, [formation]);
 
   if (!formation) {
     return (
       <section className="formation-detail">
         <div className="formation-detail-top">
-          <div className="formation-detail-header-left">
-            <button
-              type="button"
-              className="back-button"
-              onClick={backToHub}
-              title="Retour aux formations"
-            >
-              <i className="fas fa-arrow-left" aria-hidden />
-            </button>
-            <h1>Formation</h1>
-          </div>
+          <button type="button" className="back-button" onClick={backToHub} title="Retour aux formations">
+            <i className="fas fa-arrow-left" aria-hidden />
+          </button>
+          <h1>Formation</h1>
         </div>
         <p className="formation-detail-empty">Formation introuvable.</p>
       </section>
@@ -265,113 +297,51 @@ const FormationDetail: React.FC = () => {
   }
 
   return (
-    <section className="formation-detail" aria-label="Fiche formation">
+    <section className="formation-detail" aria-label="Espace de gestion de la formation">
       <div className="formation-detail-top">
-        <div className="formation-detail-header-left">
+        <button type="button" className="back-button" onClick={backToHub} title="Retour aux formations">
+          <i className="fas fa-arrow-left" aria-hidden />
+        </button>
+        {formation.hasProof && (
           <button
             type="button"
-            className="back-button"
-            onClick={backToHub}
-            title="Retour aux formations"
+            className="fd-btn primary"
+            onClick={() => {
+              setSelectedFormationId(formation.id);
+              setCurrentPage('preuve-formation');
+              navigate('/preuve-formation');
+            }}
           >
-            <i className="fas fa-arrow-left" aria-hidden />
+            Consulter la PF
           </button>
-        </div>
-        <div className="formation-detail-actions">
-          {canPublish && (
-            <button type="button" className="fd-btn primary" onClick={handlePublish}>
-              Publier
-            </button>
-          )}
-          {canEdit && (
-            <button type="button" className="fd-btn" onClick={() => setIsEditOpen(true)}>
-              Modifier
-            </button>
-          )}
-          {canOpenSession && (
-            <button type="button" className="fd-btn primary" onClick={() => openSession()}>
-              Ouvrir la session de présence
-            </button>
-          )}
-          {canClose && (
-            <button
-              type="button"
-              className="fd-btn accent"
-              onClick={() => setShowCloseConfirm(true)}
-            >
-              Clôturer la formation
-            </button>
-          )}
-          {canSeePf && (
-            <>
-              <button
-                type="button"
-                className="fd-btn primary"
-                onClick={() => {
-                  setSelectedFormationId(formation.id);
-                  setCurrentPage('preuve-formation');
-                  navigate('/preuve-formation');
-                }}
-              >
-                Consulter la PF
-              </button>
-              <button type="button" className="fd-btn">
-                Partager la PF
-              </button>
-            </>
-          )}
-        </div>
+        )}
       </div>
 
-      <header className="formation-detail-hero">
-        <div className="formation-detail-hero-row">
-          <div>
-            <h1>{formation.title}</h1>
-            <p className="formation-detail-hero-meta">
-              {MOCK_OF_ORG.name} · {formation.meta}
-            </p>
-          </div>
-          <span className="formation-detail-status">
-            ● {STATUS_LABEL[formation.status].toUpperCase()}
-          </span>
-        </div>
-        <div className="formation-detail-badges">
-          {formation.financement && (
-            <span className={`fd-badge light ${FINANCEMENT_CLASS[formation.financement]}`}>
-              {formation.financement}
+      <header className="fd-hero">
+        <div className="fd-hero-chips">
+          {heroChips.map((chip) => (
+            <span key={chip} className="fd-hchip">
+              {chip}
             </span>
-          )}
-          {formation.isEuMcDeclared && (
-            <span className="fd-badge light">MC UE déclarée</span>
-          )}
-          {formation.proofNumber && (
-            <span className="fd-badge">{formation.proofNumber}</span>
-          )}
+          ))}
+        </div>
+        <h1>{formation.title}</h1>
+        <div className="fd-hero-row">
+          <span>
+            {MOCK_OF_ORG.name} · {MOCK_OF_ORG.kind}
+          </span>
+          <span className="fd-hqualiopi">{MOCK_OF_ORG.qualiopiLabel}</span>
+          <button type="button" className="fd-seeaff" onClick={openAffiche}>
+            Voir l&apos;affiche →
+          </button>
         </div>
       </header>
-
-      {formation.endDateOverdue && formation.status === 'in_progress' && (
-        <div className="formation-detail-banner warn">
-          Date de fin dépassée — clôturez la formation depuis cette fiche (jamais depuis le hub).
-        </div>
-      )}
-
-      {isCpf &&
-        unverifiedCount > 0 &&
-        (formation.status === 'coming' || formation.status === 'in_progress') && (
-          <div className="formation-detail-banner warn">
-            ⚠ Identités à vérifier : {unverifiedCount} participant
-            {unverifiedCount > 1 ? 's' : ''} — formation CPF : « Cette formation CPF ne peut pas
-            démarrer. Veuillez vérifier l&apos;identité de tous vos apprenants. »
-          </div>
-        )}
 
       <div className="formation-detail-tabs" role="tablist">
         {(
           [
-            { id: 'overview', label: 'Vue d’ensemble' },
-            { id: 'participants', label: `Participants (${participants.length})` },
-            { id: 'sessions', label: `Sessions (${slots.length})` },
+            { id: 'informations', label: 'Informations' },
+            { id: 'gestion', label: 'Gestion' },
           ] as const
         ).map((tab) => (
           <button
@@ -387,171 +357,432 @@ const FormationDetail: React.FC = () => {
         ))}
       </div>
 
-      {activeTab === 'overview' && (
-        <div className="formation-detail-grid">
-          <div className="formation-detail-card">
-            <h2>Informations</h2>
-            <dl className="fd-info-list">
-              <div className="fd-info-row">
-                <dt>Type</dt>
-                <dd>Formation</dd>
+      {activeTab === 'informations' && (
+        <div className="fd-info">
+          <label className="fd-field">
+            <span>Titre de la formation</span>
+            <div className="fd-readonly">{formation.title}</div>
+          </label>
+          <label className="fd-field">
+            <span>Description {freezeTag('figée à la création')}</span>
+            <div className="fd-readonly">
+              {formation.description || '—'}
+            </div>
+          </label>
+          <label className="fd-field">
+            <span>Dates {freezeTag('reportables jusqu’au démarrage')}</span>
+            <div className="fd-readonly">
+              {formatFrDate(formation.startDate)} → {formatFrDate(formation.endDate)}
+            </div>
+          </label>
+          {canChangeDates && (
+            <button
+              type="button"
+              className="fd-date-door"
+              onClick={() => {
+                setNewStart(formation.startDate ?? '');
+                setNewEnd(formation.endDate ?? '');
+                setDatePanelOpen((v) => !v);
+              }}
+            >
+              Modifier les dates →
+            </button>
+          )}
+          {datePanelOpen && canChangeDates && (
+            <div className="fd-panel">
+              <h3>Modifier les dates</h3>
+              <p>
+                Dates actuelles : {formatFrDate(formation.startDate)} →{' '}
+                {formatFrDate(formation.endDate)}
+              </p>
+              <div className="fd-two">
+                <input
+                  type="date"
+                  className="fd-in"
+                  value={newStart}
+                  onChange={(e) => setNewStart(e.target.value)}
+                />
+                <input
+                  type="date"
+                  className="fd-in"
+                  value={newEnd}
+                  onChange={(e) => setNewEnd(e.target.value)}
+                />
               </div>
-              <div className="fd-info-row">
-                <dt>Statut</dt>
-                <dd>{STATUS_LABEL[formation.status]}</dd>
+              <label className="fd-field">
+                <span>
+                  Justification <span className="fd-ob">✱</span>
+                </span>
+                <textarea
+                  className="fd-in"
+                  rows={2}
+                  value={dateMotif}
+                  onChange={(e) => setDateMotif(e.target.value)}
+                  placeholder="Le motif du report — il sera journalisé."
+                />
+              </label>
+              <p className="fd-sub">
+                Chaque inscrit sera notifié du report. Cette porte se ferme au démarrage de la
+                formation.
+              </p>
+              <div className="fd-panel-actions">
+                <button type="button" className="fd-btn" onClick={() => setDatePanelOpen(false)}>
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  className="fd-btn primary"
+                  disabled={!newStart || !newEnd || !dateMotif.trim()}
+                  onClick={submitDateChange}
+                >
+                  Modifier les dates
+                </button>
               </div>
-              <div className="fd-info-row">
-                <dt>Début</dt>
-                <dd>{formatFrDate(formation.startDate)}</dd>
-              </div>
-              <div className="fd-info-row">
-                <dt>Fin</dt>
-                <dd>{formatFrDate(formation.endDate)}</dd>
-              </div>
-              <div className="fd-info-row">
-                <dt>Financement</dt>
-                <dd>{formation.financement || 'Non déclaré'}</dd>
-              </div>
-              <div className="fd-info-row">
-                <dt>MC UE</dt>
-                <dd>{formation.isEuMcDeclared ? 'Déclarée' : 'Non'}</dd>
-              </div>
-              {formation.proofNumber && (
-                <div className="fd-info-row">
-                  <dt>Preuve</dt>
-                  <dd className="formation-detail-proof">{formation.proofNumber}</dd>
-                </div>
-              )}
-            </dl>
-          </div>
+            </div>
+          )}
 
-          <div className="formation-detail-card">
-            <h2>Description</h2>
-            <p className="formation-detail-desc">
-              {formation.description ||
-                'Aucune description renseignée pour cette formation.'}
-            </p>
-
-            {showCloseConfirm && canClose && (
-              <div className="fd-close-box">
-                Clôturer la formation ? Les présences confirmées seront figées et les preuves
-                générées. La formation passera en Terminées. Cette action ne pourra pas être
-                annulée.
-                <div className="fd-close-actions">
-                  <button type="button" className="fd-btn primary" onClick={handleCloseFormation}>
-                    Clôturer la formation
-                  </button>
-                  <button
-                    type="button"
-                    className="fd-btn"
-                    onClick={() => setShowCloseConfirm(false)}
-                  >
-                    Retour
-                  </button>
-                </div>
-              </div>
+          <label className="fd-field">
+            <span>Durée en heures {freezeTag('figée à la création')}</span>
+            <div className="fd-readonly">
+              {formation.durationHours ? `${formation.durationHours} heures` : '—'}
+            </div>
+          </label>
+          <label className="fd-field">
+            <span>Financement {freezeTag('figé à la création')}</span>
+            <div className="fd-readonly">
+              {formation.financement ? FINANCEMENT_LABEL[formation.financement] : '—'}
+            </div>
+          </label>
+          <label className="fd-field">
+            <span>Mode de participation</span>
+            <div className="fd-readonly">
+              {formation.participationMode
+                ? PARTICIPATION_LABEL[formation.participationMode]
+                : '—'}
+            </div>
+          </label>
+          <div className="fd-field">
+            <span>Acquis d&apos;apprentissage {freezeTag('figés à la création')}</span>
+            {(formation.learningOutcomes ?? []).length === 0 ? (
+              <div className="fd-readonly">—</div>
+            ) : (
+              <ul className="fd-outcomes">
+                {(formation.learningOutcomes ?? []).map((o) => (
+                  <li key={o.id}>{o.text}</li>
+                ))}
+              </ul>
             )}
           </div>
-        </div>
-      )}
-
-      {activeTab === 'participants' && (
-        <div className="formation-detail-card">
-          <h2>Participants</h2>
-          <p className="formation-detail-desc" style={{ marginBottom: 12 }}>
-            Contrôle d&apos;identité par formation (la 26) : le formateur coche — Kinship ne demande
-            ni ne stocke jamais la pièce. ✓ vert = vérifié · ⚠ orange = à vérifier.
+          <p className="fd-sub">
+            Le formulaire s&apos;affiche tel quel — durée, financement, programme, module : rien ne
+            s&apos;y modifie après la création. La seule porte : les dates.
           </p>
-          {participants.length === 0 ? (
-            <p className="formation-detail-empty">Aucun participant.</p>
-          ) : (
-            participants.map((p) => (
-              <div key={p.id} className="fd-participant">
-                <span className="fd-participant-name">{p.name}</span>
-                <span className={`fd-identity ${p.identityVerified ? 'ok' : 'warn'}`}>
-                  {p.identityVerified ? '✓ Identité vérifiée' : '⚠ À vérifier'}
-                  {(formation.status === 'coming' || formation.status === 'in_progress') && (
-                    <>
-                      {' · '}
-                      <button
-                        type="button"
-                        className="fd-identity-btn"
-                        onClick={() => toggleIdentity(p.id)}
-                      >
-                        {p.identityVerified ? 'Recocher' : 'Marquer vérifié'}
-                      </button>
-                    </>
-                  )}
-                </span>
-              </div>
-            ))
-          )}
         </div>
       )}
 
-      {activeTab === 'sessions' && (
-        <div className="formation-detail-card">
-          <div className="fd-sessions-header">
-            <h2>Sessions de présence</h2>
+      {activeTab === 'gestion' && (
+        <div className="fd-gestion">
+          <div className="fd-cmdrow">
+            <div className="fd-tog">
+              <button
+                type="button"
+                className={visibility === 'structure' ? 'on' : ''}
+                onClick={() => setVisibility('structure')}
+              >
+                Ma structure
+              </button>
+              <button
+                type="button"
+                className={visibility === 'financeur' ? 'on' : ''}
+                onClick={() => setVisibility('financeur')}
+              >
+                Financeur
+              </button>
+            </div>
+            <span className="fd-vis">
+              {visibility === 'structure'
+                ? 'visible par : votre structure'
+                : 'visible par : le financeur (aperçu)'}
+            </span>
           </div>
-          {slots.length === 0 ? (
-            <p className="formation-detail-empty">
-              Aucun créneau pour l’instant.
+
+          {visibility === 'financeur' && followPreview && (
+            <FunderFollowView data={followPreview} preview />
+          )}
+
+          {visibility === 'structure' && (
+            <>
+          <section className="fd-sec">
+            <h2>
+              Participants ({participants.length}){' '}
+              <button type="button" className="fd-add" onClick={() => setAddPersonOpen((v) => !v)}>
+                + Ajouter une personne
+              </button>
+            </h2>
+            <p className="fd-sub">
+              Les inscriptions sont ouvertes — le cadre est complet et figé. L&apos;ajout vit ici et
+              sur l&apos;affiche : la Porte (déjà inscrit ou pré-inscription), l&apos;import CSV, les
+              groupes.
             </p>
-          ) : (
-            slots.map((slot) => (
-              <div key={slot.id} className="fd-slot">
+            {addPersonOpen && (
+              <div className="fd-panel">
+                <input
+                  className="fd-in"
+                  value={personName}
+                  onChange={(e) => setPersonName(e.target.value)}
+                  placeholder="Nom de la personne"
+                />
+                <div className="fd-roles">
+                  {(['Participant', 'Formateur', 'Intervenant'] as FormationPersonRole[]).map(
+                    (role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        className={`fd-ropt ${personRole === role ? 'sel' : ''}`}
+                        onClick={() => setPersonRole(role)}
+                      >
+                        {role}
+                      </button>
+                    )
+                  )}
+                </div>
+                <button type="button" className="fd-btn primary" onClick={addPerson}>
+                  Ajouter
+                </button>
+              </div>
+            )}
+            {participants.map((p) => (
+              <div
+                key={p.id}
+                className={`fd-prow ${justAddedId === p.id ? 'new' : ''}`}
+              >
+                <div className="fd-pdot">{initialsOf(p.name)}</div>
                 <div>
-                  <div className="fd-slot-title">
-                    {slot.label} · {slot.dateLabel}
-                  </div>
-                  <div className="fd-slot-meta">
-                    {slot.timeRange} · {slot.participantsCount} participants ·{' '}
-                    <span className={`fd-slot-status ${slot.status}`}>
-                      {slotStatusLabel(slot.status)}
-                    </span>
+                  <b>{p.name}</b> — inscrite
+                  <div className="fd-sub">
+                    {p.preRegistered ? 'pré-inscrite · ' : ''}
+                    {p.pendingActivation ? "en attente d'activation · " : ''}
+                    {p.role ?? 'Participant'}
                   </div>
                 </div>
-                {canOpenSession && slot.status !== 'closed' && (
+                {justAddedId === p.id && <span className="fd-ok">✓</span>}
+              </div>
+            ))}
+          </section>
+
+          <section className="fd-sec">
+            <h2>
+              Partenaires ({partners.length}){' '}
+              <button type="button" className="fd-add" onClick={() => setAddPartnerOpen((v) => !v)}>
+                + Ajouter un partenaire
+              </button>
+            </h2>
+            <p className="fd-sub">
+              Un financeur n&apos;est pas un partenaire. Le panneau : le type d&apos;abord — le
+              partenariat élargi (bientôt) portera les référents partenaires.
+            </p>
+            <p className="fd-sub">
+              Un formateur est une personne : il s&apos;ajoute dans Participants, jamais en
+              partenaire.
+            </p>
+            {addPartnerOpen && (
+              <div className="fd-panel">
+                <input
+                  className="fd-in"
+                  value={partnerName}
+                  onChange={(e) => setPartnerName(e.target.value)}
+                  placeholder="Nom du partenaire"
+                />
+                <button type="button" className="fd-btn primary" onClick={addPartner}>
+                  Ajouter
+                </button>
+              </div>
+            )}
+            {partners.map((p) => (
+              <div key={p.id} className="fd-prow">
+                <div className="fd-pdot">{initialsOf(p.name)}</div>
+                <div>
+                  <b>{p.name}</b> — partenaire
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <section className="fd-sec">
+            <h2>
+              Financeur ({funders.length}){' '}
+              {formation.financement && (
+                <span className="fd-finchip">{FINANCEMENT_LABEL[formation.financement]}</span>
+              )}{' '}
+              <button type="button" className="fd-add" onClick={() => setAddFunderOpen((v) => !v)}>
+                + Ajouter le financeur
+              </button>
+            </h2>
+            <p className="fd-sub">
+              Financement déclaré au module — figé à la création. L&apos;organisation financeuse
+              s&apos;ajoute ici et sur l&apos;affiche (porteur seul) : elle sera informée du
+              démarrage et recevra son lien de suivi — art. L. 6353-10 C. trav.
+            </p>
+            {addFunderOpen && (
+              <div className="fd-panel">
+                <label className="fd-field">
+                  <span>Rechercher l&apos;organisation sur Kinship</span>
+                  <input
+                    className="fd-in"
+                    value={funderQuery}
+                    onChange={(e) => setFunderQuery(e.target.value)}
+                    placeholder="OPCO, entreprise, collectivité…"
+                  />
+                </label>
+                <p className="fd-or">— ou —</p>
+                <label className="fd-field">
+                  <span>Il n&apos;est pas sur Kinship ? Entrez son email</span>
+                  <input
+                    className="fd-in"
+                    value={funderEmail}
+                    onChange={(e) => setFunderEmail(e.target.value)}
+                    placeholder="contact@opco-atlas.example"
+                  />
+                </label>
+                <div className="fd-roles">
                   <button
                     type="button"
-                    className="fd-btn primary"
-                    onClick={() => openSession({ slot })}
+                    className={`fd-ropt ${funderShare === 'nominatif' ? 'sel' : ''}`}
+                    onClick={() => setFunderShare('nominatif')}
                   >
-                    {slot.status === 'open' ? 'Reprendre la session' : 'Ouvrir la session de présence'}
+                    nominatif
                   </button>
-                )}
-                {slot.status === 'closed' && (
-                  <span className="fd-slot-closed-note">Session clôturée — non rouvrable</span>
-                )}
+                  <button
+                    type="button"
+                    className={`fd-ropt ${funderShare === 'anonyme' ? 'sel' : ''}`}
+                    onClick={() => setFunderShare('anonyme')}
+                  >
+                    anonyme
+                  </button>
+                  <span className="fd-sub">— votre choix, jamais implicite</span>
+                </div>
+                <p className="fd-gris">
+                  Il recevra par email l&apos;information du démarrage — art. L. 6353-10 C. trav. —
+                  avec l&apos;invitation à créer l&apos;espace de son organisation, puis le rapport à
+                  la clôture. Lien révocable, journalisé. <b>Vous êtes responsable de ce partage.</b>
+                </p>
+                <button type="button" className="fd-btn primary" onClick={addFunder}>
+                  Ajouter
+                </button>
               </div>
-            ))
+            )}
+            {funders.map((f) => (
+              <div key={f.id} className="fd-prow">
+                <div className="fd-pdot funder">{f.initials}</div>
+                <div>
+                  <b>{f.name}</b> — financeur
+                  <div className="fd-sub">
+                    sera informé du démarrage · lien de suivi au jour J · rapport à la clôture ·{' '}
+                    {f.shareMode}
+                  </div>
+                </div>
+                {canRemoveFunder ? (
+                  <button type="button" className="fd-add" onClick={() => removeFunder(f.id)}>
+                    Retirer
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </section>
+
+          <section className="fd-sec">
+            <h2>
+              Documents ({documents.length}/5) · Liens (0) · Photos (0/2){' '}
+              <button
+                type="button"
+                className="fd-add"
+                onClick={() => setAddDocsOpen((v) => !v)}
+              >
+                + Ajouter
+              </button>
+            </h2>
+            <p className="fd-sub">
+              1 Mo par fichier · 5 fichiers max (le réel) — votre fichier sera compressé
+              automatiquement.
+            </p>
+            {addDocsOpen && (
+              <div className="fd-panel">
+                <label
+                  className={`fd-dropzone ${docDragOver ? 'over' : ''} ${
+                    documents.length >= MAX_DOCS ? 'full' : ''
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (documents.length < MAX_DOCS) setDocDragOver(true);
+                  }}
+                  onDragLeave={() => setDocDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDocDragOver(false);
+                    addDocuments(e.dataTransfer.files);
+                  }}
+                >
+                  <input
+                    type="file"
+                    multiple
+                    hidden
+                    disabled={documents.length >= MAX_DOCS}
+                    onChange={(e) => {
+                      if (e.target.files) addDocuments(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+                  <span className="fd-dropzone-icon" aria-hidden>
+                    ↑
+                  </span>
+                  <span className="fd-dropzone-title">
+                    {documents.length >= MAX_DOCS
+                      ? '5 fichiers max atteints'
+                      : 'Déposer un document ici, ou cliquer pour parcourir'}
+                  </span>
+                  <span className="fd-dropzone-hint">PDF, Word, image — 1 Mo par fichier</span>
+                </label>
+              </div>
+            )}
+            {documents.map((doc) => (
+              <div
+                key={doc.id}
+                className={`fd-prow ${justAddedDocId === doc.id ? 'new' : ''}`}
+              >
+                <div className="fd-pdot">DOC</div>
+                <div>
+                  <b>{doc.name}</b>
+                  <div className="fd-sub">{fileSizeLabel(doc.size)}</div>
+                </div>
+                <div className="fd-prow-actions">
+                  {justAddedDocId === doc.id && <span className="fd-ok">✓</span>}
+                  <button type="button" className="fd-add" onClick={() => removeDocument(doc.id)}>
+                    Retirer
+                  </button>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <div className="fd-tile">
+            <div className="fd-tile-n">0</div>
+            <div>
+              <div className="fd-tile-t">Preuves de compétences</div>
+              <div className="fd-sub" style={{ margin: 0 }}>
+                attestation directe · récap · vue d&apos;ensemble
+              </div>
+            </div>
+            <span className="fd-go">Gérer →</span>
+          </div>
+
+          <div className="fd-foot">
+            <button type="button" className="fd-btn primary" onClick={openAffiche}>
+              Aller vers l&apos;affiche →
+            </button>
+          </div>
+            </>
           )}
         </div>
-      )}
-
-      <p className="formation-detail-footer-note">
-        Les partages, la clôture et le suivi réglementaire vivent dans la fiche — le hub liste et
-        oriente, il ne duplique rien.
-      </p>
-
-      {isEditOpen && (
-        <FormationModal
-          isEdit
-          status={formation.status}
-          onClose={() => setIsEditOpen(false)}
-          onSave={handleUpdate}
-          initialData={{
-            title: formation.title,
-            description: formation.description ?? '',
-            projectKind: 'formation',
-            financement: formation.financement ?? '',
-            isEuMcDeclared: formation.isEuMcDeclared ?? false,
-            startDate: formation.startDate ?? '',
-            endDate: formation.endDate ?? '',
-            attendanceSurveyOptIn: formation.attendanceSurveyOptIn ?? false,
-          }}
-        />
       )}
     </section>
   );

@@ -25,6 +25,7 @@ import { applySpaceTheme } from '../../utils/spaceTheme';
 import PresenceSessionPage from '../Pages/PresenceSessionPage';
 import PresenceBanner from '../Presence/PresenceBanner';
 import FormationDetail from '../Pages/FormationDetail';
+import FormationAffiche from '../Pages/FormationAffiche';
 import PreuveFormationPage from '../Pages/PreuveFormationPage';
 import FormationsHub from '../Pages/FormationsHub';
 
@@ -116,6 +117,8 @@ const MainLayout: React.FC = () => {
         return <PresenceSessionPage />;
       case 'formation-detail':
         return <FormationDetail />;
+      case 'formation-affiche':
+        return <FormationAffiche />;
       case 'preuve-formation':
         return <PreuveFormationPage />;
       default:

@@ -5,6 +5,7 @@ import {
   FormationCard,
   FormationStatus,
   FinancementType,
+  FINANCEMENT_LABEL,
   MOCK_OF_ORG,
 } from '../../data/mockFormations';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
@@ -168,6 +169,28 @@ const FormationsHub: React.FC = () => {
     navigate('/formation-detail');
   };
 
+  const openCard = (formation: FormationCard) => {
+    if (formation.status === 'draft') {
+      openEditModal(formation);
+      return;
+    }
+    openDetail(formation);
+  };
+
+  const patchFromForm = (data: FormationFormData): Partial<FormationCard> => ({
+    title: data.title,
+    description: data.description || undefined,
+    financement: data.financement || undefined,
+    isEuMcDeclared: data.isEuMcDeclared || undefined,
+    startDate: data.startDate || undefined,
+    endDate: data.endDate || undefined,
+    attendanceSurveyOptIn: data.attendanceSurveyOptIn || undefined,
+    durationHours: data.durationHours ? Number(data.durationHours) : undefined,
+    participationMode: data.participationMode,
+    learningOutcomes: data.learningOutcomes,
+    imageName: data.imageName || undefined,
+  });
+
   const openPreuve = (formation: FormationCard) => {
     setSelectedFormationId(formation.id);
     setCurrentPage('preuve-formation');
@@ -181,86 +204,73 @@ const FormationsHub: React.FC = () => {
     return `créée le ${createdLabel} · jamais activée · visible par vous seul`;
   };
 
-  const buildComingMeta = (data: FormationFormData, formation: FormationCard) => {
-    if (data.startDate && data.endDate) {
-      const suffix = formation.identitiesToVerify
-        ? ` · ${formation.identitiesToVerify} inscrits`
-        : '';
-      return `du ${formatFrDate(data.startDate)} au ${formatFrDate(data.endDate)}${suffix} · démarrage automatique le ${formatFrDate(data.startDate)}`;
-    }
-    return formation.meta;
-  };
-
-  const publishFormation = (formation: FormationCard) => {
-    if (!formation.startDate || !formation.endDate) {
-      showError('Renseignez les dates de début et de fin avant de publier (modifier).');
-      openEditModal(formation);
-      return;
-    }
-    const startsToday = isIsoDateToday(formation.startDate);
+  const activateFormation = (id: string, data: FormationFormData) => {
+    const startsToday = Boolean(data.startDate && isIsoDateToday(data.startDate));
     const status: FormationStatus = startsToday ? 'in_progress' : 'coming';
     const meta = startsToday
-      ? `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · en cours`
-      : `du ${formatFrDate(formation.startDate)} au ${formatFrDate(formation.endDate)} · démarrage automatique le ${formatFrDate(formation.startDate)}`;
-    updateFormation(formation.id, { status, meta });
-    const dateLabel = formatSlotDateLabel(new Date(`${formation.startDate}T12:00:00`));
-    ensureBaseFormationSlot(formation.id, { dateLabel });
+      ? `du ${formatFrDate(data.startDate)} au ${formatFrDate(data.endDate)} · en cours`
+      : `du ${formatFrDate(data.startDate)} au ${formatFrDate(data.endDate)} · démarrage automatique le ${formatFrDate(data.startDate)}`;
+    updateFormation(id, {
+      ...patchFromForm(data),
+      status,
+      meta,
+      frameLocked: true,
+    });
+    if (data.startDate) {
+      ensureBaseFormationSlot(id, {
+        dateLabel: formatSlotDateLabel(new Date(`${data.startDate}T12:00:00`)),
+      });
+    }
     setFormationsState(getFormations());
-    setActiveTab(status);
-    showSuccess(
-      startsToday
-        ? 'Formation publiée — elle apparaît dans En cours'
-        : 'Formation publiée — elle apparaît dans À venir'
-    );
+    closeFormationModal();
+    setSelectedFormationId(id);
+    setCurrentPage('formation-detail');
+    navigate('/formation-detail');
+    showSuccess('Cadre figé — les inscriptions sont ouvertes');
   };
 
   const handleCreateFormation = (data: FormationFormData) => {
     const today = new Date();
     const createdLabel = today.toLocaleDateString('fr-FR');
+    const id = `f-${Date.now()}`;
 
     const card: FormationCard = {
-      id: `f-${Date.now()}`,
-      title: data.title,
-      description: data.description || undefined,
+      id,
       status: 'draft',
-      financement: data.financement || undefined,
-      isEuMcDeclared: data.isEuMcDeclared || undefined,
-      startDate: data.startDate || undefined,
-      endDate: data.endDate || undefined,
-      attendanceSurveyOptIn: data.attendanceSurveyOptIn || undefined,
       meta: buildDraftMeta(data, createdLabel),
+      ...patchFromForm(data),
+      title: data.title,
     };
 
     upsertFormation(card);
     setFormationsState(getFormations());
-    setActiveTab('draft');
+
+    if (data.intent === 'create') {
+      activateFormation(id, data);
+      return;
+    }
+
     closeFormationModal();
+    setActiveTab('draft');
     showSuccess('Formation enregistrée en brouillon');
   };
 
   const handleUpdateFormation = (data: FormationFormData) => {
     if (!editingFormation) return;
 
-    const meta =
-      editingFormation.status === 'draft'
-        ? buildDraftMeta(data, new Date().toLocaleDateString('fr-FR'))
-        : editingFormation.status === 'coming'
-          ? buildComingMeta(data, editingFormation)
-          : editingFormation.meta;
+    if (data.intent === 'create') {
+      activateFormation(editingFormation.id, data);
+      return;
+    }
 
+    const meta = buildDraftMeta(data, new Date().toLocaleDateString('fr-FR'));
     updateFormation(editingFormation.id, {
-      title: data.title,
-      description: data.description || undefined,
-      financement: data.financement || undefined,
-      isEuMcDeclared: data.isEuMcDeclared || undefined,
-      startDate: data.startDate || undefined,
-      endDate: data.endDate || undefined,
-      attendanceSurveyOptIn: data.attendanceSurveyOptIn || undefined,
+      ...patchFromForm(data),
       meta,
     });
     setFormationsState(getFormations());
     closeFormationModal();
-    showSuccess('Formation mise à jour');
+    showSuccess('✓ Enregistré');
   };
 
   const openSession = (formation: FormationCard) => {
@@ -355,7 +365,7 @@ const FormationsHub: React.FC = () => {
     <>
       {formation.financement && (
         <span className={`formation-badge ${FINANCEMENT_CLASS[formation.financement]}`}>
-          {formation.financement}
+          {FINANCEMENT_LABEL[formation.financement]}
         </span>
       )}
       {formation.isEuMcDeclared && (
@@ -372,13 +382,6 @@ const FormationsHub: React.FC = () => {
             <button
               type="button"
               className="formation-btn primary"
-              onClick={() => publishFormation(formation)}
-            >
-              Publier
-            </button>
-            <button
-              type="button"
-              className="formation-btn"
               onClick={() => openEditModal(formation)}
             >
               Modifier
@@ -399,9 +402,12 @@ const FormationsHub: React.FC = () => {
             <button
               type="button"
               className="formation-btn"
-              onClick={() => openEditModal(formation)}
+              onClick={() => {
+                sessionStorage.setItem('kinship_f2_tab', 'informations');
+                openDetail(formation);
+              }}
             >
-              Modifier
+              Modifier les dates
             </button>
           </>
         );
@@ -489,13 +495,13 @@ const FormationsHub: React.FC = () => {
       <article
         key={formation.id}
         className="formation-card"
-        onClick={() => openDetail(formation)}
+        onClick={() => openCard(formation)}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            openDetail(formation);
+            openCard(formation);
           }
         }}
       >
@@ -579,8 +585,7 @@ const FormationsHub: React.FC = () => {
       <>
         {activeTab === 'in_progress' && overdueCount > 0 && (
           <div className="formations-hub-banner">
-            « Vous avez {overdueCount} projet(s) dont la date de fin est dépassée. Souhaitez-vous les
-            clôturer ? »
+            « Vous avez {overdueCount} formation(s) dont la date de fin est dépassée. »
           </div>
         )}
         {activeTab === 'ended' && (
@@ -603,10 +608,10 @@ const FormationsHub: React.FC = () => {
         <div>
           <h1 className="formations-hub-title">Formations</h1>
           <p className="formations-hub-subtitle">
-            {MOCK_OF_ORG.name} · espace organisme de formation
+            {MOCK_OF_ORG.name} · {MOCK_OF_ORG.kind}
           </p>
           <p className="formations-hub-qualiopi">
-            ✓ Qualiopi · valide jusqu’au {MOCK_OF_ORG.qualiopiValidUntil} · vérifié via CARIF-OREF ·
+            {MOCK_OF_ORG.qualiopiLabel} · valide jusqu’au {MOCK_OF_ORG.qualiopiValidUntil} ·
             dernière vérification : {MOCK_OF_ORG.lastVerified}
           </p>
         </div>
@@ -660,7 +665,7 @@ const FormationsHub: React.FC = () => {
             <option value="">Financement</option>
             {FINANCEMENT_OPTIONS.map((f) => (
               <option key={f} value={f}>
-                {f}
+                {FINANCEMENT_LABEL[f]}
               </option>
             ))}
           </select>
@@ -700,8 +705,8 @@ const FormationsHub: React.FC = () => {
         </div>
 
         <div className="formations-hub-footer">
-          Les partages en cours, la clôture et le suivi réglementaire vivent dans la fiche formation —
-          le hub liste et oriente, il ne duplique rien.
+          Les inscriptions, la gestion et le rapport OF vivent dans la fiche — le hub liste et
+          oriente, il ne duplique rien.
         </div>
       </div>
 
@@ -724,6 +729,12 @@ const FormationsHub: React.FC = () => {
             startDate: editingFormation.startDate ?? '',
             endDate: editingFormation.endDate ?? '',
             attendanceSurveyOptIn: editingFormation.attendanceSurveyOptIn ?? false,
+            durationHours: editingFormation.durationHours
+              ? String(editingFormation.durationHours)
+              : '',
+            participationMode: editingFormation.participationMode ?? 'presentiel',
+            learningOutcomes: editingFormation.learningOutcomes ?? [],
+            imageName: editingFormation.imageName ?? '',
           }}
         />
       )}

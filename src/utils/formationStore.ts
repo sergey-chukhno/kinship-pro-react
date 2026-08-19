@@ -3,7 +3,7 @@
  */
 import { FormationCard, MOCK_FORMATIONS } from '../data/mockFormations';
 
-const STORAGE_KEY = 'kinship_formations_demo';
+const STORAGE_KEY = 'kinship_formations_demo_p3';
 const SELECTED_ID_KEY = 'kinship_selected_formation_id';
 
 function read(): FormationCard[] {
@@ -19,8 +19,14 @@ function read(): FormationCard[] {
       const seed = MOCK_FORMATIONS.find((m) => m.id === f.id);
       if (!seed) return f;
       return {
+        ...seed,
         ...f,
         description: f.description ?? seed.description,
+        durationHours: f.durationHours ?? seed.durationHours,
+        participationMode: f.participationMode ?? seed.participationMode,
+        learningOutcomes: f.learningOutcomes ?? seed.learningOutcomes,
+        frameLocked: f.frameLocked ?? seed.frameLocked,
+        pfShareToken: f.pfShareToken ?? seed.pfShareToken,
       };
     });
   } catch {
@@ -99,49 +105,120 @@ export function subscribeFormations(cb: (list: FormationCard[]) => void): () => 
   };
 }
 
+export type FormationPersonRole = 'Participant' | 'Formateur' | 'Intervenant';
+
 export interface FormationParticipant {
   id: string;
   name: string;
   identityVerified: boolean;
+  role?: FormationPersonRole;
+  preRegistered?: boolean;
+  pendingActivation?: boolean;
+}
+
+export interface FormationFunder {
+  id: string;
+  name: string;
+  email?: string;
+  shareMode: 'nominatif' | 'anonyme';
+  initials: string;
+}
+
+export interface FormationPartner {
+  id: string;
+  name: string;
+}
+
+const PEOPLE_KEY = 'kinship_formation_people_demo';
+
+type PeopleState = {
+  participants: FormationParticipant[];
+  funders: FormationFunder[];
+  partners: FormationPartner[];
+};
+
+function defaultPeople(formationId: string): PeopleState {
+  const base: FormationParticipant[] = [
+    { id: 'p1', name: 'Amina Benali', identityVerified: true, role: 'Participant' },
+    { id: 'p2', name: 'Lucas Martin', identityVerified: true, role: 'Participant' },
+    { id: 'p3', name: 'Sofia Rossi', identityVerified: false, role: 'Participant', preRegistered: true, pendingActivation: true },
+    { id: 'p4', name: 'Yanis Dupont', identityVerified: true, role: 'Participant' },
+    { id: 'p5', name: 'Chloé Bernard', identityVerified: false, role: 'Participant', preRegistered: true, pendingActivation: true },
+    { id: 'p6', name: 'Hugo Petit', identityVerified: true, role: 'Participant' },
+    { id: 'p7', name: 'Inès Moreau', identityVerified: false, role: 'Participant' },
+    { id: 'p8', name: 'Noah Garcia', identityVerified: true, role: 'Participant' },
+    { id: 'p9', name: 'Léa Roux', identityVerified: true, role: 'Participant' },
+  ];
+
+  if (formationId === 'f2') {
+    return { participants: [], funders: [], partners: [] };
+  }
+  if (formationId === 'f-debuter') {
+    return {
+      participants: [
+        { id: 'nb', name: 'Nadia Belkacem', identityVerified: true, role: 'Participant' },
+        { id: 'kt', name: 'Karim Tounsi', identityVerified: true, role: 'Participant' },
+        { id: 'md', name: 'Marc Dubois', identityVerified: true, role: 'Participant' },
+        ...base.slice(0, 9),
+      ],
+      funders: [
+        { id: 'oa', name: 'OPCO Atlas', shareMode: 'nominatif', initials: 'OA' },
+      ],
+      partners: [],
+    };
+  }
+  if (formationId === 'f3') {
+    return {
+      participants: [
+        ...base,
+        { id: 'p10', name: 'Adam Lefevre', identityVerified: true, role: 'Participant' },
+        { id: 'p11', name: 'Emma Girard', identityVerified: true, role: 'Participant' },
+        { id: 'p12', name: 'Jules Fontaine', identityVerified: true, role: 'Participant' },
+        { id: 'p13', name: 'Manon Chevalier', identityVerified: true, role: 'Participant' },
+        { id: 'p14', name: 'Tom Renard', identityVerified: true, role: 'Participant' },
+        { id: 'p15', name: 'Léna Blanc', identityVerified: true, role: 'Participant' },
+        { id: 'p16', name: 'Paul Mercier', identityVerified: true, role: 'Participant' },
+        { id: 'p17', name: 'Jade Laurent', identityVerified: true, role: 'Participant' },
+      ],
+      funders: [],
+      partners: [],
+    };
+  }
+  if (formationId === 'f4') {
+    return { participants: base, funders: [], partners: [] };
+  }
+  return { participants: [], funders: [], partners: [] };
+}
+
+function readPeopleMap(): Record<string, PeopleState> {
+  try {
+    const raw = localStorage.getItem(PEOPLE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, PeopleState>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writePeople(formationId: string, state: PeopleState) {
+  const map = readPeopleMap();
+  map[formationId] = state;
+  localStorage.setItem(PEOPLE_KEY, JSON.stringify(map));
+}
+
+export function getFormationPeople(formationId: string): PeopleState {
+  return readPeopleMap()[formationId] ?? defaultPeople(formationId);
+}
+
+export function setFormationPeople(formationId: string, state: PeopleState) {
+  writePeople(formationId, state);
 }
 
 /** Participants démo pour la fiche — la 26 : ✓ vert / ⚠ orange */
 export function getMockParticipants(formationId: string): FormationParticipant[] {
-  const base: FormationParticipant[] = [
-    { id: 'p1', name: 'Amina Benali', identityVerified: true },
-    { id: 'p2', name: 'Lucas Martin', identityVerified: true },
-    { id: 'p3', name: 'Sofia Rossi', identityVerified: false },
-    { id: 'p4', name: 'Yanis Dupont', identityVerified: true },
-    { id: 'p5', name: 'Chloé Bernard', identityVerified: false },
-    { id: 'p6', name: 'Hugo Petit', identityVerified: true },
-    { id: 'p7', name: 'Inès Moreau', identityVerified: false },
-    { id: 'p8', name: 'Noah Garcia', identityVerified: true },
-    { id: 'p9', name: 'Léa Roux', identityVerified: true },
-  ];
-
-  if (formationId === 'f3') {
-    return [
-      ...base,
-      { id: 'p10', name: 'Adam Lefevre', identityVerified: true },
-      { id: 'p11', name: 'Emma Girard', identityVerified: true },
-      { id: 'p12', name: 'Jules Fontaine', identityVerified: true },
-      { id: 'p13', name: 'Manon Chevalier', identityVerified: true },
-      { id: 'p14', name: 'Tom Renard', identityVerified: true },
-      { id: 'p15', name: 'Léna Blanc', identityVerified: true },
-      { id: 'p16', name: 'Paul Mercier', identityVerified: true },
-      { id: 'p17', name: 'Jade Laurent', identityVerified: true },
-    ];
-  }
-  if (formationId === 'f2') {
-    return base.slice(0, 12);
-  }
-  if (formationId === 'f4') {
-    return base;
-  }
-  return base.slice(0, 6);
+  return getFormationPeople(formationId).participants;
 }
 
-export type FormationSlotStatus = 'planned' | 'open' | 'closed';
+export type FormationSlotStatus = 'planned' | 'open' | 'closed' | 'cancelled';
 
 export interface FormationSlot {
   id: string;
@@ -150,9 +227,18 @@ export interface FormationSlot {
   timeRange: string;
   participantsCount: number;
   status: FormationSlotStatus;
+  description?: string;
+  place?: string;
+  participationMode?: 'presentiel' | 'distanciel' | 'hybride';
+  animatedBy?: string;
+  dateIso?: string;
+  day?: string;
+  month?: string;
+  confirmedCount?: number;
+  proofsCount?: number;
 }
 
-const SLOTS_STORAGE_KEY = 'kinship_formation_slots_demo';
+const SLOTS_STORAGE_KEY = 'kinship_formation_slots_p34';
 
 type SlotsByFormation = Record<string, FormationSlot[]>;
 
@@ -175,40 +261,103 @@ function normalizeSlot(slot: Partial<FormationSlot> & Pick<FormationSlot, 'id' |
   return {
     ...slot,
     status: slot.status ?? 'planned',
+    animatedBy: slot.animatedBy ?? 'vous',
   };
 }
 
+function seance(partial: FormationSlot): FormationSlot {
+  return normalizeSlot(partial);
+}
+
 export function getMockSlots(formationId: string): FormationSlot[] {
+  if (formationId === 'f2' || formationId === 'f-debuter') {
+    const closed = formationId === 'f-debuter';
+    return [
+      seance({
+        id: 's1',
+        label: 'Découverte du poste et de la souris',
+        dateLabel: '6 janvier 2027',
+        dateIso: '2027-01-06',
+        day: '06',
+        month: 'jan',
+        timeRange: '9h00 — 12h30',
+        place: 'Salle 2',
+        animatedBy: 'vous',
+        participantsCount: 12,
+        confirmedCount: 11,
+        proofsCount: 11,
+        status: 'closed',
+      }),
+      seance({
+        id: 's2',
+        label: 'Le clavier : écrire son premier texte',
+        dateLabel: '13 janvier 2027',
+        dateIso: '2027-01-13',
+        day: '13',
+        month: 'jan',
+        timeRange: '9h00 — 12h30',
+        place: 'Salle 2',
+        animatedBy: 'vous',
+        participantsCount: 12,
+        status: closed ? 'closed' : 'open',
+        confirmedCount: closed ? 12 : undefined,
+      }),
+      seance({
+        id: 's3',
+        label: 'Traitement de texte au quotidien',
+        dateLabel: '20 janvier 2027',
+        dateIso: '2027-01-20',
+        day: '20',
+        month: 'jan',
+        timeRange: '9h00 — 12h30',
+        place: 'Salle 2',
+        animatedBy: 'Léa F. (Formatrice)',
+        participantsCount: 12,
+        status: closed ? 'closed' : 'planned',
+      }),
+      seance({
+        id: 's4',
+        label: 'Atelier libre',
+        dateLabel: '27 janvier 2027',
+        dateIso: '2027-01-27',
+        day: '27',
+        month: 'jan',
+        timeRange: '9h00 — 12h30',
+        place: 'Salle 2',
+        animatedBy: 'vous',
+        participantsCount: 12,
+        status: 'cancelled',
+      }),
+    ];
+  }
   if (formationId === 'f3' || formationId === 'f4') {
     return [
-      {
+      seance({
         id: 's1',
         label: 'Matinée',
         dateLabel: '15 septembre 2026',
-        timeRange: '9h00 – 12h30',
+        dateIso: '2026-09-15',
+        day: '15',
+        month: 'sep',
+        timeRange: '9h00 — 12h30',
         participantsCount: formationId === 'f3' ? 17 : 9,
         status: 'planned',
-      },
-      {
+        animatedBy: 'vous',
+        place: 'Centre',
+      }),
+      seance({
         id: 's2',
         label: 'Après-midi',
         dateLabel: '15 septembre 2026',
-        timeRange: '14h00 – 17h00',
+        dateIso: '2026-09-15',
+        day: '15',
+        month: 'sep',
+        timeRange: '14h00 — 17h00',
         participantsCount: formationId === 'f3' ? 17 : 9,
         status: 'planned',
-      },
-    ];
-  }
-  if (formationId === 'f2') {
-    return [
-      {
-        id: 's1',
-        label: 'Matinée',
-        dateLabel: '5 janvier 2027',
-        timeRange: '9h00 – 12h30',
-        participantsCount: 12,
-        status: 'planned',
-      },
+        animatedBy: 'vous',
+        place: 'Centre',
+      }),
     ];
   }
   return [];
@@ -283,14 +432,11 @@ export function addFormationSlot(
 ): FormationSlot {
   const map = readSlotsMap();
   const current = (map[formationId] ?? getMockSlots(formationId)).map((s) => normalizeSlot(s));
-  const slot: FormationSlot = {
-    id: partial.id ?? `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    label: partial.label,
-    dateLabel: partial.dateLabel,
-    timeRange: partial.timeRange,
-    participantsCount: partial.participantsCount,
+  const slot = normalizeSlot({
+    ...partial,
+    id: partial.id ?? `s-${Date.now()}`,
     status: partial.status ?? 'planned',
-  };
+  });
   map[formationId] = [...current, slot];
   writeSlotsMap(map);
   return slot;
@@ -331,10 +477,12 @@ export function formatSlotTimeNow(date: Date = new Date()): string {
 export function slotStatusLabel(status: FormationSlotStatus): string {
   switch (status) {
     case 'open':
-      return 'En cours';
+      return "aujourd'hui";
     case 'closed':
-      return 'Clôturée';
+      return 'terminée';
+    case 'cancelled':
+      return 'annulée';
     default:
-      return 'Planifiée';
+      return 'à venir';
   }
 }

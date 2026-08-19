@@ -91,8 +91,8 @@ const PresenceSessionPage: React.FC = () => {
 
   const backToHub = () => {
     if (session.formationId) {
-      setCurrentPage('formation-detail');
-      navigate('/formation-detail');
+      setCurrentPage('formation-affiche');
+      navigate('/formation-affiche');
       return;
     }
     if (state.showingPageType === 'edu' || state.showingPageType === 'pro') {

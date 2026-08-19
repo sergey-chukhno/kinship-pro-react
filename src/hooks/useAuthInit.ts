@@ -27,16 +27,20 @@ export const useAuthInit = () => {
       "analytics", "network", "notifications", "settings",
       "personal-settings", "pik",
       "membership-requests", "partnership-requests", "project-management",
-      "presence-session", "formation-detail", "preuve-formation"
+      "presence-session", "formation-detail", "formation-affiche", "preuve-formation"
     ];
 
     if (validPages.includes(path as PageType)) {
       return path as PageType;
     }
 
-    // formation-detail / preuve-formation (id hors URL)
+    // formation-detail / affiche / preuve-formation (id hors URL)
     if (path.startsWith('formation-detail')) {
       return 'formation-detail';
+    }
+
+    if (path.startsWith('formation-affiche')) {
+      return 'formation-affiche';
     }
 
     if (path.startsWith('preuve-formation')) {

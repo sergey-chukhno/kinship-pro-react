@@ -14,6 +14,8 @@ import SharedProjectInfo from './components/Pages/SharedProjectInfo';
 import SharedEventInfo from './components/Pages/SharedEventInfo';
 import SelectedStudentsBadgeCartography from './components/Pages/SelectedStudentsBadgeCartography';
 import Verify from './components/Pages/Verify';
+import FunderFollowPage from './components/Pages/FunderFollowPage';
+import FunderHubPage from './components/Pages/FunderHubPage';
 import PublicProofPage from './components/Pages/PublicProofPage';
 import ProofIndex from './components/Pages/ProofIndex';
 import PikDroits from './components/Pages/PikDroits';
@@ -36,6 +38,8 @@ function App() {
             <Route path="/shared/:token" element={<SharedProjectInfo />} />
             <Route path="/shared-event/:token" element={<SharedEventInfo />} />
             <Route path="/verify" element={<Verify />} />
+            <Route path="/follow/:token" element={<FunderFollowPage />} />
+            <Route path="/financeur" element={<FunderHubPage />} />
             <Route path="/proof" element={<ProofIndex />} />
             <Route path="/pik/droits" element={<PikDroits />} />
             <Route path="/pb/:token" element={<PublicProofPage proofType="PB" />} />

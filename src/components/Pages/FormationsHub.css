@@ -1,5 +1,5 @@
 .formations-hub {
-  --of-primary: var(--couleur-espace, #115e59);
+  --of-primary: #33518e;
   --of-accent: #ffb557;
   --of-bg: #f9f8f5;
   --of-text: #1c1b18;
@@ -110,16 +110,16 @@
 }
 
 .formations-hub-filter.active {
-  border-color: var(--couleur-espace, #115e59);
-  color: var(--couleur-espace, #115e59);
-  background-color: rgba(17, 94, 89, 0.06);
+  border-color: var(--of-primary);
+  color: var(--of-primary);
+  background-color: rgba(51, 81, 142, 0.06);
 }
 
 .formations-hub-filter-clear {
   padding: 8px 12px;
   border: none;
   background: transparent;
-  color: var(--couleur-espace, #115e59);
+  color: var(--of-primary);
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
@@ -200,7 +200,7 @@
 }
 
 .formation-card:hover {
-  border-color: rgba(17, 94, 89, 0.35);
+  border-color: rgba(51, 81, 142, 0.4);
 }
 
 .formation-card-row {
@@ -223,7 +223,7 @@
   justify-content: center;
   width: 14px;
   height: 14px;
-  border: 1.5px solid var(--couleur-espace, #115e59);
+  border: 1.5px solid var(--of-primary);
   border-radius: 3px;
   margin-right: 9px;
   margin-top: 2px;
@@ -237,7 +237,7 @@
 }
 
 .formation-card-check.checked {
-  background: var(--couleur-espace, #115e59);
+  background: var(--of-primary);
 }
 
 .formation-card-check.unchecked {
