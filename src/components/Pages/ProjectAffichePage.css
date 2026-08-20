@@ -219,6 +219,17 @@
   border: 1px solid #bcd6d3;
 }
 
+.pa-chip.vis.priv {
+  background: #eef5f4;
+  color: var(--pa-space);
+  border: 1px solid #bcd6d3;
+}
+
+.pa-chip.vis.pub {
+  background: var(--pa-space);
+  color: #fff;
+}
+
 .pa-role {
   margin-left: auto;
   font-size: 9px;
@@ -600,6 +611,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.pa-sec .eug {
+  margin-bottom: 0;
 }
 
 .pa-sec h4 .add {

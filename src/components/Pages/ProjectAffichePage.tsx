@@ -45,6 +45,7 @@ import {
 } from '../../utils/projectPermissions';
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
 import { translateRole } from '../../utils/roleTranslations';
+import { parseLearningOutcomes } from '../../data/euMcCatalog';
 import {
   DocVisibility,
   getProjectSpaceExtras,
@@ -53,6 +54,7 @@ import {
   resolveProjectSpaceId,
   setProjectSpaceExtras,
 } from '../../utils/projectSpaceStore';
+import EuMcGoldSummary from './EuMcGoldSummary';
 import './ProjectAffichePage.css';
 
 type AfficheTab = 'overview' | 'requests' | 'participants' | 'teams' | 'proofs' | 'documents';
@@ -283,12 +285,12 @@ const ProjectAffichePage: React.FC = () => {
     if (projectId) setProjectSpaceExtras(projectId, next);
   };
 
-  const loadProject = useCallback(async () => {
+  const loadProject = useCallback(async (opts?: { silent?: boolean }) => {
     if (!projectId) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const response = await getProjectById(Number(projectId));
@@ -529,9 +531,43 @@ const ProjectAffichePage: React.FC = () => {
     try {
       await updateProject(Number(projectId), { project: fields });
       if (success) showSuccess(success);
-      await loadProject();
+      await loadProject({ silent: true });
     } catch (e: any) {
       showError(e?.response?.data?.message || 'Enregistrement impossible.');
+    }
+  };
+
+  const setProjectVisibility = async (makePrivate: boolean) => {
+    if (!projectId || !project || isEnded) return;
+    const alreadyPrivate = project.visibility !== 'public';
+    if (alreadyPrivate === makePrivate) return;
+
+    setProject((current) =>
+      current ? { ...current, visibility: makePrivate ? 'private' : 'public' } : current
+    );
+    setApiProject((current: any) => (current ? { ...current, private: makePrivate } : current));
+    try {
+      const updated = await updateProject(Number(projectId), { project: { private: makePrivate } });
+      const raw = (updated as any)?.data || updated;
+      const persisted = typeof raw?.private === 'boolean' ? raw.private : makePrivate;
+      setApiProject((current: any) => {
+        const base = raw?.id ? raw : current;
+        return base ? { ...base, private: persisted } : base;
+      });
+      setProject((current) =>
+        current ? { ...current, visibility: persisted ? 'private' : 'public' } : current
+      );
+      showSuccess(
+        persisted
+          ? 'Projet privé — visible par votre structure seulement.'
+          : 'Projet public — visible par tout Kinship.'
+      );
+    } catch (e: any) {
+      setProject((current) =>
+        current ? { ...current, visibility: alreadyPrivate ? 'private' : 'public' } : current
+      );
+      setApiProject((current: any) => (current ? { ...current, private: alreadyPrivate } : current));
+      showError(e?.response?.data?.message || 'Impossible de changer la visibilité.');
     }
   };
 
@@ -996,6 +1032,7 @@ const ProjectAffichePage: React.FC = () => {
             <div className="pa-hbody">
               <div className="pa-staterow">
                 <span className={`pa-chip ${status.cls}`}>{status.label}</span>
+                <span className={`pa-chip vis ${isPrivate ? 'priv' : 'pub'}`}>{isPrivate ? 'Privé' : 'Public'}</span>
                 <span className="pa-chip date">{formatFrDate(project.startDate)} → {formatFrDate(project.endDate)}</span>
                 {rolePill && <span className="pa-role">{rolePill}</span>}
                 {canGovern && (
@@ -1030,11 +1067,21 @@ const ProjectAffichePage: React.FC = () => {
               )}
               {canGovern && (
                 <div className="pa-cmdrow">
-                  <div className="pa-tog">
-                    <button type="button" className={isPrivate ? 'on' : ''} onClick={() => void patchProject({ private: true })}>
+                  <div className="pa-tog" aria-label="Visibilité du projet">
+                    <button
+                      type="button"
+                      className={isPrivate ? 'on' : ''}
+                      aria-pressed={isPrivate}
+                      onClick={() => void setProjectVisibility(true)}
+                    >
                       Privé — ma structure
                     </button>
-                    <button type="button" className={!isPrivate ? 'on' : ''} onClick={() => void patchProject({ private: false })}>
+                    <button
+                      type="button"
+                      className={!isPrivate ? 'on' : ''}
+                      aria-pressed={!isPrivate}
+                      onClick={() => void setProjectVisibility(false)}
+                    >
                       Public — tout Kinship
                     </button>
                   </div>
@@ -1255,6 +1302,21 @@ const ProjectAffichePage: React.FC = () => {
                     <h4>Description</h4>
                     <div className="pa-desc">{desc || 'Aucune description.'}</div>
                   </div>
+                  {project?.isEuMcDeclared && (
+                    <div className="pa-sec">
+                      <h4>Cadre européen</h4>
+                      <EuMcGoldSummary
+                        outcomes={parseLearningOutcomes(project.learningOutcomes)}
+                        participationMode={project.participationMode}
+                        workloadHours={project.workloadHours}
+                        workloadEcts={project.workloadEcts}
+                        eqfLevel={project.eqfLevel}
+                        eqfFramework={project.eqfFramework}
+                        assessmentType={project.assessmentType}
+                        teachingLanguages={project.teachingLanguages}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 

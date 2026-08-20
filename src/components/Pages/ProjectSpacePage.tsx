@@ -42,10 +42,26 @@ import {
   setProjectSpaceTab,
 } from '../../utils/projectSpaceStore';
 import { useToast } from '../../hooks/useToast';
+import { LearningOutcome } from '../../data/mockFormations';
+import {
+  newLearningOutcome,
+  parseLearningOutcomes,
+  serializeLearningOutcomes,
+  EU_MC_ASSESSMENT_SUGGESTIONS,
+  EU_MC_LANGUAGES,
+} from '../../data/euMcCatalog';
+import EuMcGoldSummary from './EuMcGoldSummary';
 import './ProjectSpacePage.css';
 
 type AddPanel = 'person' | 'partner' | 'funder' | 'media' | null;
 type ParticipationMode = 'presentiel' | 'distanciel' | 'hybride';
+type EqfFramework = 'EQF' | 'QF_EHEA';
+
+function toInputNum(value: string | number | null | undefined): string {
+  if (value == null || value === '') return '';
+  const n = Number(value);
+  return Number.isNaN(n) ? String(value) : String(n);
+}
 
 const STATUS_CHIP: Record<string, string> = {
   draft: 'Brouillon',
@@ -147,8 +163,15 @@ const ProjectSpacePage: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [pathways, setPathways] = useState<string[]>([]);
-  const [learningOutcomes, setLearningOutcomes] = useState('');
+  const [learningOutcomes, setLearningOutcomes] = useState<LearningOutcome[]>([]);
   const [participationMode, setParticipationMode] = useState<ParticipationMode>('presentiel');
+  const [workloadHours, setWorkloadHours] = useState('');
+  const [workloadEcts, setWorkloadEcts] = useState('');
+  const [eqfLevel, setEqfLevel] = useState<number | ''>('');
+  const [eqfFramework, setEqfFramework] = useState<EqfFramework>('EQF');
+  const [assessmentType, setAssessmentType] = useState('');
+  const [teachingLanguages, setTeachingLanguages] = useState<string[]>(['fr']);
+  const [langPickerOpen, setLangPickerOpen] = useState(false);
   const [availablePathways, setAvailablePathways] = useState<Tag[]>([]);
 
   const [members, setMembers] = useState<any[]>([]);
@@ -175,6 +198,7 @@ const ProjectSpacePage: React.FC = () => {
   const isDraft = project?.status === 'draft';
   const isCreated = Boolean(project && project.status !== 'draft');
   const isEnded = project?.status === 'ended' || project?.status === 'archived';
+  const isEuMc = Boolean(project?.isEuMcDeclared || apiProject?.is_eu_mc_declared);
   const orgType = getOrganizationType(state.showingPageType);
   const orgId = getSelectedOrganizationId(state.user, state.showingPageType);
 
@@ -183,12 +207,12 @@ const ProjectSpacePage: React.FC = () => {
     if (projectId) setProjectSpaceExtras(projectId, next);
   };
 
-  const loadProject = useCallback(async () => {
+  const loadProject = useCallback(async (opts?: { silent?: boolean }) => {
     if (!projectId) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const response = await getProjectById(Number(projectId));
@@ -201,8 +225,18 @@ const ProjectSpacePage: React.FC = () => {
       setStartDate(mapped.startDate || '');
       setEndDate(mapped.endDate || '');
       setPathways(mapped.pathways || []);
-      setLearningOutcomes(mapped.learningOutcomes || '');
+      setLearningOutcomes(parseLearningOutcomes(mapped.learningOutcomes));
       setParticipationMode(mapped.participationMode || 'presentiel');
+      setWorkloadHours(toInputNum(mapped.workloadHours));
+      setWorkloadEcts(toInputNum(mapped.workloadEcts));
+      setEqfLevel(mapped.eqfLevel ?? '');
+      setEqfFramework(mapped.eqfFramework === 'QF_EHEA' ? 'QF_EHEA' : 'EQF');
+      setAssessmentType(mapped.assessmentType || '');
+      setTeachingLanguages(
+        mapped.teachingLanguages && mapped.teachingLanguages.length > 0
+          ? mapped.teachingLanguages
+          : ['fr']
+      );
       setExtras(getProjectSpaceExtras(mapped.id));
       try {
         const [mem, docs, funderList] = await Promise.all([
@@ -306,9 +340,50 @@ const ProjectSpacePage: React.FC = () => {
     try {
       await updateProject(Number(projectId), { project: fields });
       if (success) showSuccess(success);
-      await loadProject();
+      await loadProject({ silent: true });
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.response?.data?.details?.join?.(', ') || 'Enregistrement impossible.';
+      setError(msg);
+      showError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setProjectVisibility = async (makePrivate: boolean) => {
+    if (!projectId || !project || isEnded) return;
+    const alreadyPrivate = project.visibility !== 'public';
+    if (alreadyPrivate === makePrivate) return;
+
+    setProject((current) =>
+      current ? { ...current, visibility: makePrivate ? 'private' : 'public' } : current
+    );
+    setApiProject((current: any) => (current ? { ...current, private: makePrivate } : current));
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await updateProject(Number(projectId), { project: { private: makePrivate } });
+      const raw = (updated as any)?.data || updated;
+      const persisted =
+        typeof raw?.private === 'boolean' ? raw.private : makePrivate;
+      setApiProject((current: any) => {
+        const base = raw?.id ? raw : current;
+        return base ? { ...base, private: persisted } : base;
+      });
+      setProject((current) =>
+        current ? { ...current, visibility: persisted ? 'private' : 'public' } : current
+      );
+      showSuccess(
+        persisted
+          ? 'Projet privé — visible par votre structure seulement.'
+          : 'Projet public — visible par tout Kinship.'
+      );
+    } catch (e: any) {
+      setProject((current) =>
+        current ? { ...current, visibility: alreadyPrivate ? 'private' : 'public' } : current
+      );
+      setApiProject((current: any) => (current ? { ...current, private: alreadyPrivate } : current));
+      const msg = e?.response?.data?.message || 'Impossible de changer la visibilité.';
       setError(msg);
       showError(msg);
     } finally {
@@ -330,9 +405,19 @@ const ProjectSpacePage: React.FC = () => {
         description: description.trim(),
         start_date: startDate,
         end_date: endDate,
-        tag_ids: tagIds,
-        learning_outcomes: learningOutcomes.trim() || undefined,
+        tag_ids: isEuMc ? [] : tagIds,
+        learning_outcomes: serializeLearningOutcomes(learningOutcomes),
         participation_mode: PARTICIPATION_TO_API[participationMode],
+        ...(isEuMc
+          ? {
+              workload_hours: workloadHours.trim() || undefined,
+              workload_ects: workloadEcts.trim() || undefined,
+              project_eqf_level: eqfLevel === '' ? undefined : eqfLevel,
+              project_eqf_framework_type: eqfFramework,
+              assessment_type: assessmentType.trim() || undefined,
+              teaching_languages: teachingLanguages,
+            }
+          : {}),
       },
       'Brouillon enregistré'
     );
@@ -354,8 +439,18 @@ const ProjectSpacePage: React.FC = () => {
         end_date: endDate,
         status: nextStatus,
         private: true,
-        learning_outcomes: learningOutcomes.trim() || undefined,
+        learning_outcomes: serializeLearningOutcomes(learningOutcomes),
         participation_mode: PARTICIPATION_TO_API[participationMode],
+        ...(isEuMc
+          ? {
+              workload_hours: workloadHours.trim() || undefined,
+              workload_ects: workloadEcts.trim() || undefined,
+              project_eqf_level: eqfLevel === '' ? undefined : eqfLevel,
+              project_eqf_framework_type: eqfFramework,
+              assessment_type: assessmentType.trim() || undefined,
+              teaching_languages: teachingLanguages,
+            }
+          : {}),
       },
       'Projet créé — privé par défaut, visible par votre structure seulement.'
     );
@@ -527,6 +622,9 @@ const ProjectSpacePage: React.FC = () => {
         <header className={`ps-hero ${isDraft ? 'is-draft' : ''}`}>
           <div className="ps-chips">
             <span className="ps-chip state">{STATUS_CHIP[project.status] || project.status}</span>
+            {isCreated && (
+              <span className="ps-chip vis">{project.visibility === 'public' ? 'Public' : 'Privé'}</span>
+            )}
             <span className="ps-chip">{formatFrDate(project.startDate)} → {formatFrDate(project.endDate)}</span>
             {(project.pathways || []).slice(0, 2).map((p) => (
               <span key={p} className="ps-chip">{p}</span>
@@ -590,8 +688,11 @@ const ProjectSpacePage: React.FC = () => {
                   <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={isEnded} />
                 </label>
               </div>
-              <p className="ps-sub">Image — optionnelle · Parcours : {(pathways.length ? pathways.join(' · ') : 'aucun')}</p>
-              {isDraft && (
+              <p className="ps-sub">
+                Image — optionnelle
+                {!isEuMc ? ` · Parcours : ${pathways.length ? pathways.join(' · ') : 'aucun'}` : ''}
+              </p>
+              {isDraft && !isEuMc && (
                 <div className="ps-field">
                   <span>Parcours (max 2)</span>
                   <div className="ps-docs" style={{ marginBottom: 8 }}>
@@ -621,12 +722,57 @@ const ProjectSpacePage: React.FC = () => {
               )}
               {isDraft ? (
                 <>
-                  <label className="ps-gold" style={{ display: 'block' }}>
-                    <b>Acquis d’apprentissage</b>
-                    <textarea rows={2} value={learningOutcomes} onChange={(e) => setLearningOutcomes(e.target.value)} style={{ marginTop: 6, marginBottom: 0 }} />
-                  </label>
                   <div className="ps-gold">
-                    <b>Mode de participation</b>
+                    <b>Acquis d’apprentissage</b>
+                    <p className="ps-outcome-hint">Ce que l’apprenant saura faire — une ligne par acquis.</p>
+                    {learningOutcomes.length === 0 ? (
+                      <p className="ps-outcome-empty">Aucun acquis pour l’instant.</p>
+                    ) : (
+                      <div className="ps-outcomes">
+                        {learningOutcomes.map((outcome) => (
+                          <div key={outcome.id} className="ps-outcome">
+                            {outcome.kind === 'series' ? (
+                              <span className="ps-outcome-series">{outcome.text}</span>
+                            ) : (
+                              <input
+                                value={outcome.text}
+                                placeholder="Ligne libre"
+                                onChange={(e) =>
+                                  setLearningOutcomes((prev) =>
+                                    prev.map((o) =>
+                                      o.id === outcome.id ? { ...o, text: e.target.value } : o
+                                    )
+                                  )
+                                }
+                              />
+                            )}
+                            {outcome.kind === 'free' && (
+                              <span className="ps-outcome-kind">(ligne libre)</span>
+                            )}
+                            <button
+                              type="button"
+                              className="ps-outcome-remove"
+                              aria-label="Retirer cet acquis"
+                              onClick={() =>
+                                setLearningOutcomes((prev) => prev.filter((o) => o.id !== outcome.id))
+                              }
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="ps-outcome-add"
+                      onClick={() => setLearningOutcomes((prev) => [...prev, newLearningOutcome('free')])}
+                    >
+                      + Ajouter un acquis
+                    </button>
+                  </div>
+                  <div className="ps-gold">
+                    <b>Mode de participation {isEuMc && <span className="ps-eug-tag">cadre européen</span>}</b>
                     <div className="ps-seg" style={{ margin: '8px 0 0', display: 'inline-flex' }}>
                       {(['presentiel', 'distanciel', 'hybride'] as const).map((id) => (
                         <button key={id} type="button" className={participationMode === id ? 'on' : ''} onClick={() => setParticipationMode(id)}>
@@ -635,11 +781,149 @@ const ProjectSpacePage: React.FC = () => {
                       ))}
                     </div>
                   </div>
+                  {isEuMc && (
+                    <>
+                      <div className="ps-two">
+                        <label className="ps-gold ps-field">
+                          <span>Durée <span className="ps-eug-tag">cadre européen</span></span>
+                          <div className="ps-hours">
+                            <input
+                              type="number"
+                              min={1}
+                              step="0.5"
+                              value={workloadHours}
+                              onChange={(e) => setWorkloadHours(e.target.value)}
+                              placeholder="60"
+                            />
+                            <span>heures</span>
+                          </div>
+                        </label>
+                        <label className="ps-gold ps-field">
+                          <span>Crédits ECTS <em>— si applicable</em></span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.5"
+                            value={workloadEcts}
+                            onChange={(e) => setWorkloadEcts(e.target.value)}
+                            placeholder="2"
+                          />
+                        </label>
+                      </div>
+                      <div className="ps-two">
+                        <label className="ps-gold ps-field">
+                          <span>Niveau EQF <span className="ps-eug-tag">cadre européen</span></span>
+                          <select
+                            value={eqfLevel}
+                            onChange={(e) => setEqfLevel(e.target.value ? Number(e.target.value) : '')}
+                          >
+                            <option value="">Choisir…</option>
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                              <option key={n} value={n}>Niveau {n}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="ps-gold ps-field">
+                          <span>Type de cadre</span>
+                          <select
+                            value={eqfFramework}
+                            onChange={(e) => setEqfFramework(e.target.value as EqfFramework)}
+                          >
+                            <option value="EQF">EQF — cadre européen (CEC)</option>
+                            <option value="QF_EHEA">QF-EHEA — enseignement supérieur (CC-EEES)</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="ps-gold">
+                        <b>Type d’évaluation <span className="ps-eug-tag">cadre européen</span></b>
+                        <input
+                          value={assessmentType}
+                          onChange={(e) => setAssessmentType(e.target.value)}
+                          placeholder="Mise en situation pratique évaluée"
+                        />
+                        <div className="ps-sugs">
+                          {EU_MC_ASSESSMENT_SUGGESTIONS.map((sug) => (
+                            <button key={sug} type="button" className="ps-sug" onClick={() => setAssessmentType(sug)}>
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="ps-gold">
+                        <b>Langue d’enseignement <span className="ps-eug-tag">cadre européen</span></b>
+                        <div className="ps-langs">
+                          {teachingLanguages.map((code) => {
+                            const lang = EU_MC_LANGUAGES.find((l) => l.code === code);
+                            if (!lang) return null;
+                            return (
+                              <button
+                                key={code}
+                                type="button"
+                                className="ps-lang"
+                                onClick={() => setTeachingLanguages((prev) => prev.filter((c) => c !== code))}
+                              >
+                                {lang.flag} {lang.label} ✕
+                              </button>
+                            );
+                          })}
+                          <button type="button" className="ps-outcome-add" onClick={() => setLangPickerOpen((v) => !v)}>
+                            + ajouter une langue…
+                          </button>
+                        </div>
+                        {langPickerOpen && (
+                          <div className="ps-lang-drop">
+                            {EU_MC_LANGUAGES.filter((l) => !teachingLanguages.includes(l.code)).map((lang) => (
+                              <button
+                                key={lang.code}
+                                type="button"
+                                onClick={() => {
+                                  setTeachingLanguages((prev) => [...prev, lang.code]);
+                                  setLangPickerOpen(false);
+                                }}
+                              >
+                                {lang.flag} {lang.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </>
+              ) : isEuMc ? (
+                <EuMcGoldSummary
+                  outcomes={learningOutcomes}
+                  participationMode={participationMode}
+                  workloadHours={workloadHours}
+                  workloadEcts={workloadEcts}
+                  eqfLevel={eqfLevel === '' ? null : eqfLevel}
+                  eqfFramework={eqfFramework}
+                  assessmentType={assessmentType}
+                  teachingLanguages={teachingLanguages}
+                />
               ) : (
                 <>
-                  <div className="ps-gold"><b>Acquis d’apprentissage</b> — {learningOutcomes || '—'}</div>
-                  <div className="ps-gold"><b>Mode de participation</b> — {PARTICIPATION_LABEL[participationMode]}</div>
+                  <div className="ps-gold">
+                    <b>Acquis d’apprentissage</b>
+                    {learningOutcomes.length === 0 ? (
+                      <p className="ps-outcome-empty">—</p>
+                    ) : (
+                      <ul className="ps-outcomes-read">
+                        {learningOutcomes.map((outcome) => (
+                          <li
+                            key={outcome.id}
+                            className={outcome.kind === 'series' ? 'series' : undefined}
+                          >
+                            {outcome.text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="ps-gold">
+                    <b>Mode de participation</b>
+                    {PARTICIPATION_LABEL[participationMode]}
+                  </div>
                 </>
               )}
               {isDraft && (
@@ -660,20 +944,24 @@ const ProjectSpacePage: React.FC = () => {
                 </div>
               )}
 
-              {isCreated && (
+              {isCreated && !isEnded && (
                 <div className="ps-cmdrow">
-                  <div className="ps-tog">
+                  <div className="ps-tog" aria-label="Visibilité du projet">
                     <button
                       type="button"
                       className={project.visibility !== 'public' ? 'on' : ''}
-                      onClick={() => void patchProject({ private: true })}
+                      aria-pressed={project.visibility !== 'public'}
+                      disabled={saving}
+                      onClick={() => void setProjectVisibility(true)}
                     >
                       Privé — ma structure
                     </button>
                     <button
                       type="button"
                       className={project.visibility === 'public' ? 'on' : ''}
-                      onClick={() => void patchProject({ private: false })}
+                      aria-pressed={project.visibility === 'public'}
+                      disabled={saving}
+                      onClick={() => void setProjectVisibility(false)}
                     >
                       Public — tout Kinship
                     </button>

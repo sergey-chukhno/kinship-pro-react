@@ -238,6 +238,14 @@ export interface CreateProjectPayload {
         is_eu_mc_declared?: boolean;
         learning_outcomes?: string;
         participation_mode?: 'on_site' | 'online' | 'blended';
+        workload_hours?: number | string;
+        workload_ects?: number | string;
+        project_eqf_level?: number;
+        project_eqf_framework_type?: 'EQF' | 'QF_EHEA';
+        assessment_type?: string;
+        teaching_languages?: string[];
+        entry_requirements?: string;
+        validity_period_months?: number | null;
     };
 }
 
@@ -943,6 +951,61 @@ export const getTeacherMembers = async (params?: {
     }));
 };
 
+type EuMcProjectFields = {
+    is_eu_mc_declared?: boolean;
+    learning_outcomes?: string;
+    participation_mode?: 'on_site' | 'online' | 'blended';
+    workload_hours?: number | string;
+    workload_ects?: number | string;
+    project_eqf_level?: number;
+    project_eqf_framework_type?: 'EQF' | 'QF_EHEA';
+    assessment_type?: string;
+    teaching_languages?: string[];
+    entry_requirements?: string;
+    validity_period_months?: number | null;
+};
+
+const appendEuMcProjectFieldsToFormData = (formData: FormData, project: EuMcProjectFields): void => {
+    if (project.is_eu_mc_declared !== undefined) {
+        formData.append('project[is_eu_mc_declared]', String(project.is_eu_mc_declared));
+    }
+    if (project.learning_outcomes) {
+        formData.append('project[learning_outcomes]', project.learning_outcomes);
+    }
+    if (project.participation_mode) {
+        formData.append('project[participation_mode]', project.participation_mode);
+    }
+    if (project.workload_hours !== undefined && project.workload_hours !== '') {
+        formData.append('project[workload_hours]', String(project.workload_hours));
+    }
+    if (project.workload_ects !== undefined && project.workload_ects !== '') {
+        formData.append('project[workload_ects]', String(project.workload_ects));
+    }
+    if (project.project_eqf_level != null) {
+        formData.append('project[project_eqf_level]', String(project.project_eqf_level));
+    }
+    if (project.project_eqf_framework_type) {
+        formData.append('project[project_eqf_framework_type]', project.project_eqf_framework_type);
+    }
+    if (project.assessment_type) {
+        formData.append('project[assessment_type]', project.assessment_type);
+    }
+    if (project.entry_requirements) {
+        formData.append('project[entry_requirements]', project.entry_requirements);
+    }
+    if (project.validity_period_months !== undefined) {
+        formData.append(
+            'project[validity_period_months]',
+            project.validity_period_months == null ? '' : String(project.validity_period_months)
+        );
+    }
+    if (project.teaching_languages && project.teaching_languages.length > 0) {
+        project.teaching_languages.forEach((lang) => {
+            formData.append('project[teaching_languages][]', lang);
+        });
+    }
+};
+
 /**
  * Create a new project (JSON format - without images)
  */
@@ -1168,15 +1231,7 @@ export const createProject = async (
     if (project.project_kind) {
         formData.append('project[project_kind]', project.project_kind);
     }
-    if (project.is_eu_mc_declared !== undefined) {
-        formData.append('project[is_eu_mc_declared]', String(project.is_eu_mc_declared));
-    }
-    if (project.learning_outcomes) {
-        formData.append('project[learning_outcomes]', project.learning_outcomes);
-    }
-    if (project.participation_mode) {
-        formData.append('project[participation_mode]', project.participation_mode);
-    }
+    appendEuMcProjectFieldsToFormData(formData, project);
 
     // Add optional fields
     if (project.participants_number !== undefined) {
@@ -1355,6 +1410,15 @@ export interface UpdateProjectPayload {
         mlds_information_attributes?: MLDSInformationAttributes;
         learning_outcomes?: string;
         participation_mode?: 'on_site' | 'online' | 'blended';
+        is_eu_mc_declared?: boolean;
+        workload_hours?: number | string;
+        workload_ects?: number | string;
+        project_eqf_level?: number;
+        project_eqf_framework_type?: 'EQF' | 'QF_EHEA';
+        assessment_type?: string;
+        teaching_languages?: string[];
+        entry_requirements?: string;
+        validity_period_months?: number | null;
     };
 }
 
@@ -1373,6 +1437,8 @@ const appendUpdateProjectFieldsToFormData = (
     if (project.end_date) formData.append('project[end_date]', project.end_date);
     if (project.status) formData.append('project[status]', project.status);
     if (project.private !== undefined) formData.append('project[private]', project.private.toString());
+
+    appendEuMcProjectFieldsToFormData(formData, project);
 
     if (project.participants_number !== undefined) {
         formData.append('project[participants_number]', project.participants_number.toString());

@@ -32,4 +32,14 @@ describe('mapApiProjectToFrontendProject', () => {
 
     expect(mapped.showEndDateWarning).toBe(false);
   });
+
+  it('maps private true to visibility private', () => {
+    const mapped = mapApiProjectToFrontendProject({ ...baseApiProject, private: true }, 'user');
+    expect(mapped.visibility).toBe('private');
+  });
+
+  it('maps private false to visibility public', () => {
+    const mapped = mapApiProjectToFrontendProject({ ...baseApiProject, private: false }, 'user');
+    expect(mapped.visibility).toBe('public');
+  });
 });

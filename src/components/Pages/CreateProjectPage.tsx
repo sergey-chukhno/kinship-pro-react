@@ -1,8 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getBadges } from '../../api/Badges';
 import { createProject, getTags, Tag } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
-import { OrganizationContext } from '../../types';
+import {
+  EU_MC_ASSESSMENT_SUGGESTIONS,
+  EU_MC_LANGUAGES,
+  EU_MC_PREREQ_SUGGESTIONS,
+  newLearningOutcome,
+  serializeLearningOutcomes,
+} from '../../data/euMcCatalog';
+import { LearningOutcome, MOCK_OF_ORG } from '../../data/mockFormations';
+import { BadgeAPI, OrganizationContext } from '../../types';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { openProjectSpace } from '../../utils/projectSpaceStore';
 import {
@@ -11,10 +20,13 @@ import {
   mapApiProjectToFrontendProject,
   validateImages,
 } from '../../utils/projectMapper';
+import EuMcSeriesPicker from './EuMcSeriesPicker';
 import './CreateProjectPage.css';
 
 type CreateKind = 'project' | 'stage' | 'formation';
 type ParticipationMode = 'presentiel' | 'distanciel' | 'hybride';
+type EqfFramework = 'EQF' | 'QF_EHEA';
+type ValidityUnit = 'years' | 'months';
 
 type CarrierOrg = {
   key: string;
@@ -22,6 +34,8 @@ type CarrierOrg = {
   subtitle: string;
   initials: string;
   organizationId?: number;
+  qualiopi?: boolean;
+  trustLevel?: string | null;
 };
 
 const KIND_TO_PROJECT: Record<CreateKind, 'standard' | 'stage' | 'formation'> = {
@@ -54,6 +68,8 @@ function fromOrg(org: OrganizationContext, fallback: string): CarrierOrg {
     subtitle: orgSubtitle(org, fallback),
     initials: orgInitials(org.name),
     organizationId: org.id,
+    qualiopi: Boolean(org.qualiopi),
+    trustLevel: org.trust_level,
   };
 }
 
@@ -85,7 +101,21 @@ const CreateProjectPage: React.FC = () => {
   const [imagePreview, setImagePreview] = useState('');
   const [pathways, setPathways] = useState<string[]>([]);
   const [learningOutcomes, setLearningOutcomes] = useState('');
+  const [euOutcomes, setEuOutcomes] = useState<LearningOutcome[]>([]);
   const [participationMode, setParticipationMode] = useState<ParticipationMode>('presentiel');
+  const [workloadHours, setWorkloadHours] = useState('');
+  const [workloadEcts, setWorkloadEcts] = useState('');
+  const [eqfLevel, setEqfLevel] = useState<number | ''>('');
+  const [eqfFramework, setEqfFramework] = useState<EqfFramework>('EQF');
+  const [assessmentType, setAssessmentType] = useState('');
+  const [teachingLanguages, setTeachingLanguages] = useState<string[]>(['fr']);
+  const [langPickerOpen, setLangPickerOpen] = useState(false);
+  const [entryRequirements, setEntryRequirements] = useState('');
+  const [validityUnlimited, setValidityUnlimited] = useState(true);
+  const [validityAmount, setValidityAmount] = useState('2');
+  const [validityUnit, setValidityUnit] = useState<ValidityUnit>('years');
+  const [seriesPickerOpen, setSeriesPickerOpen] = useState(false);
+  const [seriesBadges, setSeriesBadges] = useState<BadgeAPI[]>([]);
 
   const [availablePathways, setAvailablePathways] = useState<Tag[]>([]);
   const [pathwaySearch, setPathwaySearch] = useState('');
@@ -135,11 +165,31 @@ const CreateProjectPage: React.FC = () => {
       return orgs;
     }
 
+    if (pageType === 'of') {
+      const selectedId = getSelectedOrganizationId(state.user, pageType);
+      const ofOrgs = (contexts as { formation_organizations?: OrganizationContext[] } | undefined)
+        ?.formation_organizations || [];
+      const current = ofOrgs.find((c) => c.id === selectedId) || ofOrgs[0];
+      if (current) return [fromOrg(current, 'Organisme de formation')];
+      return [
+        {
+          key: MOCK_OF_ORG.id,
+          name: MOCK_OF_ORG.name,
+          subtitle: MOCK_OF_ORG.kind,
+          initials: MOCK_OF_ORG.initials,
+          qualiopi: true,
+          trustLevel: 'STRATEGIC_PARTNER',
+        },
+      ];
+    }
+
     return [];
   }, [state.user, state.showingPageType]);
 
   const selectedOrg = carrierOrgs.find((o) => o.key === selectedOrgKey) || carrierOrgs[0];
   const orgLocked = carrierOrgs.length <= 1;
+  const showQualiopi = Boolean(selectedOrg?.qualiopi || selectedOrg?.trustLevel === 'STRATEGIC_PARTNER');
+  const euMcEligible = Boolean(selectedOrg);
 
   useEffect(() => {
     if (!selectedOrgKey && carrierOrgs[0]) {
@@ -173,10 +223,43 @@ const CreateProjectPage: React.FC = () => {
   const canSubmitForm =
     Boolean(title.trim() && description.trim() && startDate && endDate) &&
     !(startDate && endDate && endDate < startDate);
-  const proofEnriched = Boolean(learningOutcomes.trim() && participationMode);
+  const filledEuOutcomes = euOutcomes.filter((o) => o.text.trim());
+  const euGoldStarted =
+    filledEuOutcomes.length > 0 ||
+    (workloadHours.trim() && Number(workloadHours) > 0) ||
+    eqfLevel !== '' ||
+    Boolean(assessmentType.trim());
+  const euGoldCount = euMc
+    ? 3 +
+      (title.trim() ? 1 : 0) +
+      (filledEuOutcomes.length > 0 ? 1 : 0) +
+      (euGoldStarted ? 1 : 0) +
+      (workloadHours.trim() && Number(workloadHours) > 0 ? 1 : 0) +
+      (eqfLevel !== '' ? 1 : 0) +
+      (assessmentType.trim() ? 1 : 0)
+    : 0;
+  const proofEnriched = euMc
+    ? filledEuOutcomes.length > 0
+    : Boolean(learningOutcomes.trim() && participationMode);
 
   const kindLabel =
     kind === 'stage' ? 'Stage' : kind === 'formation' ? 'Formation' : 'Projet';
+
+  const toggleEuMc = (checked: boolean) => {
+    setEuMc(checked);
+    if (!checked) {
+      setEuOutcomes([]);
+      setWorkloadHours('');
+      setWorkloadEcts('');
+      setEqfLevel('');
+      setEqfFramework('EQF');
+      setAssessmentType('');
+      setTeachingLanguages(['fr']);
+      setEntryRequirements('');
+      setValidityUnlimited(true);
+      setSeriesPickerOpen(false);
+    }
+  };
 
   const goBack = () => {
     if (step === 2) {
@@ -231,6 +314,10 @@ const CreateProjectPage: React.FC = () => {
         .map((name) => getTagIdByPathway(name, availablePathways))
         .filter((id): id is number => typeof id === 'number');
 
+      const validityMonths = !euMc || validityUnlimited
+        ? undefined
+        : Number(validityAmount || 0) * (validityUnit === 'years' ? 12 : 1);
+
       const created = await createProject(
         {
           context: getContextFromPageType(state.showingPageType),
@@ -242,11 +329,25 @@ const CreateProjectPage: React.FC = () => {
             end_date: endDate,
             status: 'draft',
             private: true,
-            tag_ids: tagIds,
+            tag_ids: euMc ? [] : tagIds,
             project_kind: KIND_TO_PROJECT[kind],
             is_eu_mc_declared: euMc,
-            learning_outcomes: learningOutcomes.trim() || undefined,
+            learning_outcomes: euMc
+              ? serializeLearningOutcomes(euOutcomes)
+              : learningOutcomes.trim() || undefined,
             participation_mode: PARTICIPATION_TO_API[participationMode],
+            ...(euMc
+              ? {
+                  workload_hours: workloadHours.trim() || undefined,
+                  workload_ects: workloadEcts.trim() || undefined,
+                  project_eqf_level: eqfLevel === '' ? undefined : eqfLevel,
+                  project_eqf_framework_type: eqfFramework,
+                  assessment_type: assessmentType.trim() || undefined,
+                  teaching_languages: teachingLanguages,
+                  entry_requirements: entryRequirements.trim() || undefined,
+                  validity_period_months: validityMonths && validityMonths > 0 ? validityMonths : null,
+                }
+              : {}),
           },
         },
         imageFile
@@ -292,9 +393,11 @@ const CreateProjectPage: React.FC = () => {
     <div className="create-project-page">
       <div className="cp-screen">
         <header className="cp-bar">
-          <span>{step === 1 ? 'Créer' : kindLabel}</span>
+          <span>{step === 1 ? 'Créer' : euMc ? 'Le formulaire MC UE' : kindLabel}</span>
           <span className="cp-bar-meta">
-            {step === 1 ? 'Que voulez-vous créer ?' : selectedOrg?.name}
+            {step === 1
+              ? 'Que voulez-vous créer ?'
+              : `${kindLabel} · ${selectedOrg?.name || ''}`}
           </span>
         </header>
 
@@ -313,11 +416,14 @@ const CreateProjectPage: React.FC = () => {
                 <p className="cp-empty">Aucune organisation porteuse n’est disponible dans cet espace.</p>
               ) : orgLocked && selectedOrg ? (
                 <div className="cp-orgchip">
-                  <div className="cp-dot">{selectedOrg.initials}</div>
+                  <div className={`cp-dot ${showQualiopi ? 'qualiopi' : ''}`}>{selectedOrg.initials}</div>
                   <div>
                     <div className="cp-orgname">{selectedOrg.name}</div>
                     <div className="cp-orgsub">{selectedOrg.subtitle}</div>
                   </div>
+                  {showQualiopi && (
+                    <span className="cp-cart">◆ Reconnu et certifié par Qualiopi</span>
+                  )}
                   <div className="cp-lock">définitive</div>
                 </div>
               ) : (
@@ -376,31 +482,59 @@ const CreateProjectPage: React.FC = () => {
 
             <section className="cp-blk">
               <h2>
-                Le cadre <sup>3</sup>
+                Le cadre <sup>2</sup>
               </h2>
-              <div className="cp-mc">
-                <input type="checkbox" checked={euMc} disabled onChange={() => setEuMc(false)} />
-                <div>
-                  <b>Microcertification européenne</b> — réservée aux organismes vérifiés et agréés
+              {euMcEligible ? (
+                <label className={`cp-mc ${euMc ? 'on' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={euMc}
+                    onChange={(e) => toggleEuMc(e.target.checked)}
+                  />
+                  <div>
+                    <b>Microcertification européenne</b>
+                    {euMc
+                      ? ' — votre organisme y est éligible. Les éléments du cadre européen seront à compléter avant la création.'
+                      : ' — les éléments du cadre européen seront à compléter avant la création.'}
+                  </div>
+                </label>
+              ) : (
+                <div className="cp-mc">
+                  <input type="checkbox" checked={false} disabled />
+                  <div>
+                    <b>Microcertification européenne</b> — réservée aux organismes vérifiés et agréés
+                  </div>
+                  <button
+                    type="button"
+                    className="cp-card-link"
+                    onClick={() => {
+                      setCurrentPage('settings');
+                      navigate('/settings');
+                    }}
+                  >
+                    Vérifier mon organisme →
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="cp-card-link"
-                  onClick={() => {
-                    setCurrentPage('settings');
-                    navigate('/settings');
-                  }}
-                >
-                  Vérifier mon organisme →
-                </button>
-              </div>
+              )}
             </section>
+
+            {euMc && (
+              <div className="cp-orbar">
+                <div className="cp-orcnt">3/11</div>
+                <div className="cp-orlbl">
+                  <b>Le compteur européen s’allume.</b> Pays, organisme et assurance qualité sont déjà
+                  garantis — le formulaire conquiert le reste.
+                </div>
+              </div>
+            )}
 
             <div className="cp-warn">
               ⚠
               <div>
                 <b>Ces trois choix seront définitifs au premier enregistrement</b> — brouillon compris.
-                Avant lui, vous pouvez revenir en arrière librement.
+                {euMc
+                  ? ' Décocher la case avant lui videra le cadre européen saisi.'
+                  : ' Avant lui, vous pouvez revenir en arrière librement.'}
               </div>
             </div>
 
@@ -420,20 +554,49 @@ const CreateProjectPage: React.FC = () => {
           </div>
         ) : (
           <div className="cp-inner">
+            {euMc && (
+              <div className="cp-orbar">
+                <div className="cp-orcnt">{Math.min(euGoldCount, 9)}/11</div>
+                <div className="cp-orlbl">
+                  {euGoldCount >= 9 ? (
+                    <>
+                      <b>Cadre européen complet.</b> Vos participants porteront le compteur à 10 — la
+                      clôture écrira le onzième.
+                    </>
+                  ) : title.trim() ? (
+                    <>
+                      <b>Cadre européen en cours.</b> Le brouillon est possible dès les 4 champs ✱ —
+                      le compteur attendra.
+                    </>
+                  ) : (
+                    <>
+                      <b>Le compteur européen s’allume.</b> Pays, organisme et assurance qualité sont
+                      déjà garantis — le formulaire conquiert le reste.
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             <h1 className="cp-title">Votre projet</h1>
             <p className="cp-sub">
-              Quatre champs suffisent pour exister — le reste enrichit votre preuve.
+              {euMc
+                ? 'Quatre champs suffisent pour un brouillon — le cadre européen pourra avancer ensuite.'
+                : 'Quatre champs suffisent pour exister — le reste enrichit votre preuve.'}
             </p>
 
             <label className="cp-field">
               <span>
                 Titre du projet <span className="ob">✱</span>
+                {euMc && <span className="cp-tag">cadre européen — intitulé exact</span>}
               </span>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ateliers radio — Paroles de quartier"
+                placeholder={
+                  euMc ? 'Initiation à la médiation numérique' : 'Ateliers radio — Paroles de quartier'
+                }
               />
             </label>
 
@@ -445,7 +608,11 @@ const CreateProjectPage: React.FC = () => {
                 rows={4}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ce que le projet raconte, pour qui, et ce qui s’y fait."
+                placeholder={
+                  euMc
+                    ? 'Un cycle d’ateliers pour accompagner les publics éloignés du numérique.'
+                    : 'Ce que le projet raconte, pour qui, et ce qui s’y fait.'
+                }
               />
             </label>
 
@@ -464,13 +631,409 @@ const CreateProjectPage: React.FC = () => {
               </label>
             </div>
 
+            {euMc ? (
+              <>
+                <div className="cp-gold">
+                  <div className="cp-gold-head">
+                    <span>
+                      Acquis d’apprentissage <span className="cp-tag">cadre européen</span>
+                    </span>
+                  </div>
+                  <p className="cp-gold-note" style={{ marginTop: 0 }}>
+                    Ce que l’apprenant saura faire — une ligne par acquis.
+                  </p>
+                  <div className="cp-outcomes">
+                    {euOutcomes.map((outcome) => (
+                      <div key={outcome.id} className="cp-outcome">
+                        <span className="cp-drag" aria-hidden>
+                          ⠿
+                        </span>
+                        {outcome.kind === 'series' ? (
+                          <span className="cp-outcome-series">{outcome.text}</span>
+                        ) : (
+                          <input
+                            value={outcome.text}
+                            placeholder="Ligne libre"
+                            onChange={(e) =>
+                              setEuOutcomes((prev) =>
+                                prev.map((o) =>
+                                  o.id === outcome.id ? { ...o, text: e.target.value } : o
+                                )
+                              )
+                            }
+                          />
+                        )}
+                        {outcome.kind === 'free' && (
+                          <span className="cp-outcome-kind">(ligne libre)</span>
+                        )}
+                        <button
+                          type="button"
+                          className="cp-remove"
+                          aria-label="Retirer"
+                          onClick={() =>
+                            setEuOutcomes((prev) => prev.filter((o) => o.id !== outcome.id))
+                          }
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="cp-outcome-actions">
+                    <button
+                      type="button"
+                      className="cp-linkbtn"
+                      onClick={() => setEuOutcomes((prev) => [...prev, newLearningOutcome('free')])}
+                    >
+                      + Ajouter un acquis
+                    </button>
+                    <button
+                      type="button"
+                      className="cp-linkbtn"
+                      onClick={() => {
+                        setSeriesPickerOpen((open) => !open);
+                        if (!seriesPickerOpen && seriesBadges.length === 0) {
+                          void getBadges().then((list) => setSeriesBadges(Array.isArray(list) ? list : []));
+                        }
+                      }}
+                    >
+                      📚 Ajouter depuis une série ▾
+                    </button>
+                  </div>
+                  {seriesPickerOpen && (
+                    <EuMcSeriesPicker
+                      badges={seriesBadges}
+                      onCancel={() => setSeriesPickerOpen(false)}
+                      onInsert={({ series, referenceLines, skillLines }) => {
+                        setEuOutcomes((prev) => [
+                          ...prev,
+                          ...referenceLines.map((text) => newLearningOutcome('series', text)),
+                          ...skillLines.map((text) => newLearningOutcome('free', text)),
+                        ]);
+                        if (series.eqfLevel && eqfLevel === '') setEqfLevel(series.eqfLevel);
+                        setSeriesPickerOpen(false);
+                      }}
+                    />
+                  )}
+                </div>
+
+                <div className="cp-gold">
+                  <span>
+                    Mode de participation <span className="cp-tag">cadre européen</span>
+                  </span>
+                  <div className="cp-radio">
+                    {([
+                      ['presentiel', 'Présentiel'],
+                      ['distanciel', 'Distanciel'],
+                      ['hybride', 'Hybride'],
+                    ] as const).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`cp-ropt ${participationMode === id ? 'sel' : ''}`}
+                        onClick={() => setParticipationMode(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="cp-two">
+                  <label className="cp-gold cp-field">
+                    <span>
+                      Durée <span className="cp-tag">cadre européen</span>
+                    </span>
+                    <div className="cp-hours">
+                      <input
+                        type="number"
+                        min={1}
+                        step="0.5"
+                        value={workloadHours}
+                        onChange={(e) => setWorkloadHours(e.target.value)}
+                        placeholder="60"
+                      />
+                      <span>heures</span>
+                    </div>
+                  </label>
+                  <label className="cp-gold cp-field">
+                    <span>
+                      Crédits ECTS <em>— si applicable</em>
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.5"
+                      value={workloadEcts}
+                      onChange={(e) => setWorkloadEcts(e.target.value)}
+                      placeholder="2"
+                    />
+                  </label>
+                </div>
+
+                <div className="cp-two">
+                  <label className="cp-gold cp-field">
+                    <span>
+                      Niveau EQF <span className="cp-tag">cadre européen</span>
+                    </span>
+                    <select
+                      value={eqfLevel}
+                      onChange={(e) => setEqfLevel(e.target.value ? Number(e.target.value) : '')}
+                    >
+                      <option value="">Choisir…</option>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                        <option key={n} value={n}>
+                          Niveau {n}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="cp-gold-note">pré-rempli depuis la série choisie — modifiable</p>
+                  </label>
+                  <label className="cp-gold cp-field">
+                    <span>Type de cadre</span>
+                    <select
+                      value={eqfFramework}
+                      onChange={(e) => setEqfFramework(e.target.value as EqfFramework)}
+                    >
+                      <option value="EQF">EQF — cadre européen (CEC)</option>
+                      <option value="QF_EHEA">QF-EHEA — enseignement supérieur (CC-EEES)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="cp-gold">
+                  <label className="cp-field">
+                    <span>
+                      Type d’évaluation <span className="cp-tag">cadre européen</span>
+                    </span>
+                    <input
+                      value={assessmentType}
+                      onChange={(e) => setAssessmentType(e.target.value)}
+                      placeholder="Mise en situation pratique évaluée"
+                    />
+                  </label>
+                  <div className="cp-sugs">
+                    {EU_MC_ASSESSMENT_SUGGESTIONS.map((sug) => (
+                      <button
+                        key={sug}
+                        type="button"
+                        className="cp-sug"
+                        onClick={() => setAssessmentType(sug)}
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="cp-gold">
+                  <span>
+                    Langue d’enseignement <span className="cp-tag">cadre européen</span>{' '}
+                    <em>— hors compteur · plusieurs possibles</em>
+                  </span>
+                  <div className="cp-langs">
+                    {teachingLanguages.map((code) => {
+                      const lang = EU_MC_LANGUAGES.find((l) => l.code === code);
+                      if (!lang) return null;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          className="cp-lang"
+                          onClick={() =>
+                            setTeachingLanguages((prev) => prev.filter((c) => c !== code))
+                          }
+                        >
+                          {lang.flag} {lang.label} ✕
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      className="cp-card-link"
+                      onClick={() => setLangPickerOpen((v) => !v)}
+                    >
+                      + ajouter une langue…
+                    </button>
+                  </div>
+                  {langPickerOpen && (
+                    <div className="cp-lang-drop">
+                      {EU_MC_LANGUAGES.filter((l) => !teachingLanguages.includes(l.code)).map((lang) => (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => {
+                            setTeachingLanguages((prev) => [...prev, lang.code]);
+                            setLangPickerOpen(false);
+                          }}
+                        >
+                          {lang.flag} {lang.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <label className="cp-opt">
+                  <span>
+                    Prérequis <em>— optionnel, champ libre à suggestions</em>
+                  </span>
+                  <input
+                    value={entryRequirements}
+                    onChange={(e) => setEntryRequirements(e.target.value)}
+                    placeholder="Aucun prérequis"
+                  />
+                  <div className="cp-sugs">
+                    {EU_MC_PREREQ_SUGGESTIONS.map((sug) => (
+                      <button
+                        key={sug}
+                        type="button"
+                        className="cp-sug"
+                        onClick={() => setEntryRequirements(sug)}
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                </label>
+
+                <div className="cp-opt">
+                  <span>
+                    Durée de validité de la compétence <em>— optionnelle</em>
+                  </span>
+                  <div className="cp-validity">
+                    <button
+                      type="button"
+                      className={`cp-ropt ${validityUnlimited ? 'sel' : ''}`}
+                      onClick={() => setValidityUnlimited(true)}
+                    >
+                      Sans limite
+                    </button>
+                    <button
+                      type="button"
+                      className={`cp-ropt ${!validityUnlimited ? 'sel' : ''}`}
+                      onClick={() => setValidityUnlimited(false)}
+                    >
+                      Limitée
+                    </button>
+                    {!validityUnlimited && (
+                      <>
+                        <input
+                          type="number"
+                          min={1}
+                          className="cp-validity-n"
+                          value={validityAmount}
+                          onChange={(e) => setValidityAmount(e.target.value)}
+                        />
+                        <select
+                          value={validityUnit}
+                          onChange={(e) => setValidityUnit(e.target.value as ValidityUnit)}
+                        >
+                          <option value="years">ans</option>
+                          <option value="months">mois</option>
+                        </select>
+                      </>
+                    )}
+                  </div>
+                  <p className="cp-gold-note">
+                    telle que fixée par le référentiel officiel de votre certification — jamais de
+                    texte libre
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="cp-field" ref={pathwayRef}>
+                  <span>
+                    Parcours <em>— choisir parmi les parcours proposés (max 2)</em>
+                  </span>
+                  {pathways.length > 0 && (
+                    <div className="cp-chips">
+                      {pathways.map((name) => (
+                        <button key={name} type="button" className="cp-chip" onClick={() => togglePathway(name)}>
+                          {name} ✓
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    type="search"
+                    value={pathwaySearch}
+                    placeholder={pathways.length >= 2 ? 'Maximum 2 parcours sélectionnés' : 'Rechercher…'}
+                    disabled={pathways.length >= 2}
+                    onChange={(e) => setPathwaySearch(e.target.value)}
+                    onFocus={() => pathways.length < 2 && setPathwayOpen(true)}
+                  />
+                  {pathwayOpen && pathways.length < 2 && (
+                    <div className="cp-pathway-drop">
+                      {filteredPathways.map((p) => {
+                        const name = p.name_fr || p.name;
+                        const selected = pathways.includes(name);
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className={selected ? 'sel' : ''}
+                            onClick={() => {
+                              togglePathway(name);
+                              setPathwaySearch('');
+                              if (pathways.length >= 1) setPathwayOpen(false);
+                            }}
+                          >
+                            {name}
+                          </button>
+                        );
+                      })}
+                      {filteredPathways.length === 0 && <p>Aucun parcours trouvé.</p>}
+                    </div>
+                  )}
+                </div>
+
+                <div className="cp-gold">
+                  <label className="cp-field">
+                    <span>Acquis d’apprentissage</span>
+                    <textarea
+                      rows={3}
+                      value={learningOutcomes}
+                      onChange={(e) => setLearningOutcomes(e.target.value)}
+                      placeholder="S’exprimer au micro · préparer et mener une interview · travailler en équipe"
+                    />
+                  </label>
+                  <div className="cp-field">
+                    <span>Mode de participation</span>
+                    <div className="cp-radio">
+                      {([
+                        ['presentiel', 'Présentiel'],
+                        ['distanciel', 'Distanciel'],
+                        ['hybride', 'Hybride'],
+                      ] as const).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          className={`cp-ropt ${participationMode === id ? 'sel' : ''}`}
+                          onClick={() => setParticipationMode(id)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="cp-gold-note">
+                      {proofEnriched
+                        ? <>Acquis + participation remplis → votre preuve passera en <b>Enrichie</b>.</>
+                        : 'Acquis + participation remplis → votre preuve passera en Enrichie.'}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="cp-field">
               <span>
-                Image du projet <em>— optionnelle</em>
+                Image du projet <em>— optionnelle (sans elle : titre sur la couleur de confiance)</em>
               </span>
               <div className="cp-imgzone">
                 <div
-                  className={`cp-imgprev ${imagePreview ? 'has-img' : ''}`}
+                  className={`cp-imgprev ${imagePreview ? 'has-img' : ''} ${showQualiopi ? 'qualiopi' : ''}`}
                   style={imagePreview ? { backgroundImage: `url(${imagePreview})` } : undefined}
                 >
                   {!imagePreview && (title.trim() || 'Titre du projet')}
@@ -491,88 +1054,6 @@ const CreateProjectPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="cp-field" ref={pathwayRef}>
-              <span>
-                Parcours <em>— choisir parmi les parcours proposés (max 2)</em>
-              </span>
-              {pathways.length > 0 && (
-                <div className="cp-chips">
-                  {pathways.map((name) => (
-                    <button key={name} type="button" className="cp-chip" onClick={() => togglePathway(name)}>
-                      {name} ✓
-                    </button>
-                  ))}
-                </div>
-              )}
-              <input
-                type="search"
-                value={pathwaySearch}
-                placeholder={pathways.length >= 2 ? 'Maximum 2 parcours sélectionnés' : 'Rechercher…'}
-                disabled={pathways.length >= 2}
-                onChange={(e) => setPathwaySearch(e.target.value)}
-                onFocus={() => pathways.length < 2 && setPathwayOpen(true)}
-              />
-              {pathwayOpen && pathways.length < 2 && (
-                <div className="cp-pathway-drop">
-                  {filteredPathways.map((p) => {
-                    const name = p.name_fr || p.name;
-                    const selected = pathways.includes(name);
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className={selected ? 'sel' : ''}
-                        onClick={() => {
-                          togglePathway(name);
-                          setPathwaySearch('');
-                          if (pathways.length >= 1) setPathwayOpen(false);
-                        }}
-                      >
-                        {name}
-                      </button>
-                    );
-                  })}
-                  {filteredPathways.length === 0 && <p>Aucun parcours trouvé.</p>}
-                </div>
-              )}
-            </div>
-
-            <div className="cp-gold">
-              <label className="cp-field">
-                <span>Acquis d’apprentissage</span>
-                <textarea
-                  rows={3}
-                  value={learningOutcomes}
-                  onChange={(e) => setLearningOutcomes(e.target.value)}
-                  placeholder="S’exprimer au micro · préparer et mener une interview · travailler en équipe"
-                />
-              </label>
-              <div className="cp-field">
-                <span>Mode de participation</span>
-                <div className="cp-radio">
-                  {([
-                    ['presentiel', 'Présentiel'],
-                    ['distanciel', 'Distanciel'],
-                    ['hybride', 'Hybride'],
-                  ] as const).map(([id, label]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      className={`cp-ropt ${participationMode === id ? 'sel' : ''}`}
-                      onClick={() => setParticipationMode(id)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <p className="cp-gold-note">
-                  {proofEnriched
-                    ? <>Acquis + participation remplis → votre preuve passera en <b>Enrichie</b>.</>
-                    : 'Acquis + participation remplis → votre preuve passera en Enrichie.'}
-                </p>
-              </div>
-            </div>
-
             {submitError && <div className="cp-error">{submitError}</div>}
 
             <div className="cp-foot">
@@ -589,7 +1070,9 @@ const CreateProjectPage: React.FC = () => {
                   {isSubmitting ? 'Enregistrement…' : 'Sauvegarder en brouillon'}
                 </button>
                 <p className="cp-micro">
-                  Les co-responsables et vos partenaires pourront y accéder une fois le projet créé.
+                  {euMc
+                    ? 'Possible dès les 4 champs ✱ — le compteur attendra.'
+                    : 'Les co-responsables et vos partenaires pourront y accéder une fois le projet créé.'}
                 </p>
               </div>
               <div className="cp-fcol">

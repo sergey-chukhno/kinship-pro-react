@@ -222,6 +222,7 @@
   background: #f4f2ec;
   color: #a09d93;
   font-size: 12px;
+  cursor: pointer;
 }
 
 .cp-mc b {
@@ -335,8 +336,101 @@
   color: #c0392b;
 }
 
+.cp-dot.qualiopi {
+  background: #ff616f;
+}
+
+.cp-cart {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 800;
+  background: #ff616f20;
+  color: #ff616f;
+  border: 1px solid #ff616f40;
+  border-radius: 9px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.cp-orgchip:has(.cp-cart) .cp-lock {
+  margin-left: 8px;
+}
+
+.cp-mc.on {
+  border: 2px solid var(--cp-gold);
+  background: var(--cp-gold-bg);
+  color: #4a3200;
+}
+
+.cp-mc.on b {
+  color: #8a6d1a;
+}
+
+.cp-mc.on input {
+  accent-color: #8a6d1a;
+}
+
+.cp-orbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #8a6d1a;
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 13px;
+  margin-bottom: 12px;
+}
+
+.cp-orcnt {
+  font-size: 16px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.cp-orlbl {
+  font-size: 11px;
+  line-height: 1.35;
+  opacity: 0.95;
+}
+
+.cp-tag {
+  font-size: 8px;
+  font-weight: 800;
+  color: #8a6d1a;
+  background: #f6e8bf;
+  border-radius: 7px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+.cp-gold-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a3200;
+  margin-bottom: 6px;
+}
+
+.cp-gold > span {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a3200;
+  margin-bottom: 6px;
+}
+
+.cp-gold .cp-field > span,
+.cp-gold label > span {
+  color: #4a3200;
+}
+
 .cp-field input,
-.cp-field textarea {
+.cp-field textarea,
+.cp-field select {
   width: 100%;
   background: #fff;
   border: 1px solid #d7d4cb;
@@ -345,6 +439,306 @@
   font-size: 13px;
   color: var(--cp-ink);
   font-family: inherit;
+}
+
+.cp-gold input,
+.cp-gold textarea,
+.cp-gold select {
+  border-color: #e0cf9a;
+}
+
+.cp-hours {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cp-hours input {
+  flex: 1;
+  width: auto;
+}
+
+.cp-hours span {
+  font-size: 12px;
+  color: #8a6d1a;
+  font-weight: 700;
+}
+
+.cp-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cp-outcome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e0cf9a;
+  border-radius: 8px;
+  padding: 6px 9px;
+}
+
+.cp-outcome input {
+  flex: 1;
+  width: auto;
+  border: none;
+  padding: 4px 0;
+  font-size: 12.5px;
+}
+
+.cp-drag {
+  color: #c9c4b4;
+  cursor: default;
+}
+
+.cp-outcome-series {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cp-outcome-kind {
+  font-size: 10px;
+  color: #a09d93;
+  white-space: nowrap;
+}
+
+.cp-remove {
+  border: none;
+  background: none;
+  color: #8f8d86;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cp-outcome-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.cp-linkbtn {
+  font-size: 11px;
+  color: var(--couleur-espace, #115e59);
+  font-weight: 800;
+  border: 1px solid #bcd6d3;
+  border-radius: 7px;
+  padding: 4px 10px;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cp-sugs,
+.cp-langs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.cp-sug {
+  font-size: 10px;
+  background: #fff;
+  color: #8a6d1a;
+  border: 1px dashed #d4960a;
+  border-radius: 8px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cp-lang {
+  background: #fff;
+  border: 1px solid #e0cf9a;
+  border-radius: 8px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cp-lang-drop {
+  margin-top: 6px;
+  border: 1px solid var(--cp-line);
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.cp-lang-drop button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cp-lang-drop button:hover {
+  background: #fdf6e3;
+}
+
+.cp-opt {
+  display: block;
+  border: 1px solid var(--cp-line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.cp-opt > span {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.cp-validity {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cp-validity-n {
+  width: 72px;
+  background: #fff;
+  border: 1px solid #d7d4cb;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.cp-in-static {
+  background: #fff;
+  border: 1px solid #d7d4cb;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 12.5px;
+}
+
+.cp-picker {
+  margin-top: 10px;
+  background: #fff;
+  border: 1px solid #e0cf9a;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.cp-picker-search {
+  width: 100%;
+  border: 1px solid #d7d4cb;
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 12.5px;
+  margin-bottom: 10px;
+  font-family: inherit;
+}
+
+.cp-picker-kicker {
+  font-size: 9px;
+  color: var(--cp-faint);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  font-weight: 800;
+  margin: 8px 0 6px;
+}
+
+.cp-pick {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #ddd9cf;
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 11px;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cp-pick small {
+  display: block;
+  color: var(--cp-faint);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.cp-pick-level {
+  border: 1.5px solid #d7d4cb;
+  background: #fff;
+  border-radius: 9px;
+  padding: 8px 11px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.cp-pick-level.sel {
+  border-color: #8a6d1a;
+  background: var(--cp-gold-bg);
+}
+
+.cp-pick-level-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.cp-pick-level-row button {
+  background: none;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+}
+
+.cp-pick-skills {
+  margin-top: 8px;
+  padding-left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.cp-pick-skills label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-weight: 400;
+}
+
+.cp-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cp-picker-empty,
+.cp-picker-note {
+  font-size: 11px;
+  color: var(--cp-faint);
+  margin: 8px 0 0;
+}
+
+.cp-imgprev.qualiopi:not(.has-img) {
+  background: #ff616f;
 }
 
 .cp-field input::placeholder,

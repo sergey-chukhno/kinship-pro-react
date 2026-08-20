@@ -469,6 +469,12 @@ export const projectBelongsToOrganizationContext = (
  * Map API project data to frontend Project format
  * Transforms backend API response to frontend Project interface
  */
+/** API `private` boolean → listing / toggle visibility. */
+export const mapApiVisibility = (value: unknown): 'public' | 'private' => {
+    if (value === true || value === 'true' || value === 1 || value === '1') return 'private';
+    return 'public';
+};
+
 export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType: ShowingPageType, user?: User): Project => {
     // Determine pathway from tags (first tag is the pathway)
     const pathway = getPathwayFromTags(apiProject.tags || []);
@@ -571,7 +577,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         title: apiProject.title,
         description: apiProject.description || '',
         status: apiProject.status,
-        visibility: apiProject.private ? 'private' : 'public',
+        visibility: mapApiVisibility(apiProject.private),
         pathway: pathway,
         pathways: pathwaysFromApi.length > 0 ? pathwaysFromApi : (pathway ? [pathway] : undefined),
         organization: projectOrganizationName, // Project's organization (can fallback to user's org)
@@ -632,6 +638,17 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
                 ? 'presentiel'
                 : undefined,
         projectKind: apiProject.project_kind || undefined,
+        isEuMcDeclared: Boolean(apiProject.is_eu_mc_declared),
+        workloadHours: apiProject.workload_hours ?? null,
+        workloadEcts: apiProject.workload_ects ?? null,
+        eqfLevel: apiProject.project_eqf_level ?? null,
+        eqfFramework: apiProject.project_eqf_framework_type || null,
+        assessmentType: apiProject.assessment_type || null,
+        teachingLanguages: Array.isArray(apiProject.teaching_languages)
+          ? apiProject.teaching_languages
+          : [],
+        entryRequirements: apiProject.entry_requirements || null,
+        validityPeriodMonths: apiProject.validity_period_months ?? null,
         rs: apiProject.rs || undefined, // Map RS field
         showEndDateWarning: Boolean(apiProject.show_end_date_warning)
     };

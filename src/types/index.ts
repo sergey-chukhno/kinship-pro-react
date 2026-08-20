@@ -197,6 +197,15 @@ export interface Project {
   learningOutcomes?: string;
   participationMode?: 'presentiel' | 'distanciel' | 'hybride';
   projectKind?: 'standard' | 'stage' | 'formation';
+  isEuMcDeclared?: boolean;
+  workloadHours?: number | string | null;
+  workloadEcts?: number | string | null;
+  eqfLevel?: number | null;
+  eqfFramework?: 'EQF' | 'QF_EHEA' | null;
+  assessmentType?: string | null;
+  teachingLanguages?: string[];
+  entryRequirements?: string | null;
+  validityPeriodMonths?: number | null;
   school_levels?: Array<{
     id: number;
     name: string;
@@ -278,6 +287,8 @@ export interface OrganizationContext {
   company_type?: string;
   logo_url?: string | null;
   role: 'superadmin' | 'admin' | 'referent' | 'intervenant' | 'member';
+  trust_level?: string | null;
+  qualiopi?: boolean;
   contract_kind?: string | null; // 'vert_actuel' | 'bleu_standard' | 'bleu_premium'
   allows_minor_members?: boolean; // true when contract is BLEU Premium
   permissions: {
