@@ -7,6 +7,7 @@ import {
   addProjectDocuments,
   addProjectFunder,
   addProjectMember,
+  preRegisterProjectParticipant,
   closeProject,
   createProjectTeam,
   deleteProjectDocument,
@@ -29,6 +30,7 @@ import {
   updateProject,
   updateProjectMember,
 } from '../../api/Projects';
+import { getPersonalUserRoles } from '../../api/RegistrationRessource';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import { Project } from '../../types';
@@ -42,6 +44,7 @@ import {
   resolveProjectMemberUserId,
 } from '../../utils/projectPermissions';
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
+import { translateRole } from '../../utils/roleTranslations';
 import {
   DocVisibility,
   getProjectSpaceExtras,
@@ -64,6 +67,17 @@ const STATUS_CHIP: Record<string, { label: string; cls: string }> = {
 };
 
 const SERIES_COLORS = ['#534AB7', '#0891B2', '#115E59', '#D4960A', '#48A78D', '#3b5bb8'];
+const ROLE_ORDER = [
+  'eleve_primaire',
+  'collegien',
+  'lyceen',
+  'etudiant',
+  'parent',
+  'benevole',
+  'charge_de_mission',
+  'employee',
+  'other_personal_user',
+];
 const ROLE_OPTIONS: { value: ProjectPersonRole; hint: string }[] = [
   { value: 'Participant', hint: '' },
   { value: 'Encadrant', hint: 'formateur, intervenant, animateur… — atteste des compétences' },
@@ -179,6 +193,15 @@ function partnershipLabel(p: Partnership, currentOrg?: string): string {
   return p.name || other || p.partners?.[0]?.name || 'Partenaire';
 }
 
+function isUnder15(birthday?: string): boolean {
+  if (!birthday) return false;
+  const birth = new Date(`${birthday}T00:00:00`);
+  if (Number.isNaN(birth.getTime())) return false;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 15);
+  return birth > cutoff;
+}
+
 function nextVisibility(current: DocVisibility): DocVisibility {
   return VIS_CYCLE[(VIS_CYCLE.indexOf(current) + 1) % VIS_CYCLE.length];
 }
@@ -224,6 +247,7 @@ const ProjectAffichePage: React.FC = () => {
   const [prepBirth, setPrepBirth] = useState('');
   const [prepEmail, setPrepEmail] = useState('');
   const [prepSystemRole, setPrepSystemRole] = useState('');
+  const [systemRoles, setSystemRoles] = useState<{ value: string }[]>([]);
   const [showPrepForm, setShowPrepForm] = useState(false);
   const [partnerQuery, setPartnerQuery] = useState('');
   const [funderName, setFunderName] = useState('');
@@ -238,7 +262,6 @@ const ProjectAffichePage: React.FC = () => {
   const [proofView, setProofView] = useState<ViewMode>('cards');
   const [proofSeries, setProofSeries] = useState('');
   const [proofHolder, setProofHolder] = useState('');
-  const [roleMenu, setRoleMenu] = useState<string | null>(null);
   const [teamTitle, setTeamTitle] = useState('');
   const [teamDesc, setTeamDesc] = useState('');
   const [teamLeaderId, setTeamLeaderId] = useState('');
@@ -348,6 +371,26 @@ const ProjectAffichePage: React.FC = () => {
     void loadGroups();
   }, [orgId, orgType]);
 
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const rolesRes = await getPersonalUserRoles();
+        const rolesData = rolesRes?.data?.data ?? rolesRes?.data ?? rolesRes ?? [];
+        if (!Array.isArray(rolesData)) return;
+        const filtered = rolesData.filter((r: { value: string }) => r.value !== 'other');
+        const sorted = filtered.sort((a: { value: string }, b: { value: string }) => {
+          const indexA = ROLE_ORDER.indexOf(a.value);
+          const indexB = ROLE_ORDER.indexOf(b.value);
+          return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+        });
+        setSystemRoles(sorted);
+      } catch {
+        setSystemRoles([]);
+      }
+    };
+    void loadRoles();
+  }, []);
+
   const isOwner = isUserProjectOwner(apiProject, userId);
   const isCoOwner = isUserProjectCoOwner(apiProject, userId);
   const currentMember = members.find((m) => resolveProjectMemberUserId(m) === userId);
@@ -394,6 +437,10 @@ const ProjectAffichePage: React.FC = () => {
   const desc = project?.description || '';
   const descShort = desc.length > 160 && !descOpen ? `${desc.slice(0, 160).trim()}…` : desc;
   const isPrivate = project?.visibility !== 'public';
+  const visibleSystemRoles = useMemo(() => {
+    const allowPrimary = orgType === 'school' || isUnder15(prepBirth);
+    return systemRoles.filter((r) => r.value !== 'eleve_primaire' || allowPrimary);
+  }, [systemRoles, orgType, prepBirth]);
   const ownerId = resolveProjectMemberUserId(apiProject?.owner) || String(apiProject?.owner_id || '');
   const coOwnerIds = new Set(
     [...(apiProject?.co_owners || []), ...(apiProject?.co_responsibles || [])]
@@ -527,36 +574,36 @@ const ProjectAffichePage: React.FC = () => {
     }
   };
 
-  const submitPrepared = () => {
-    if (!prepFirst.trim() || !prepLast.trim() || !prepBirth) {
-      showError('Prénom, nom et date de naissance sont requis.');
+  const submitPrepared = async () => {
+    if (!prepFirst.trim() || !prepLast.trim() || !prepBirth || !prepSystemRole) {
+      showError('Prénom, nom, date de naissance et rôle sont requis.');
       return;
     }
-    const name = `${prepFirst.trim()} ${prepLast.trim()}`;
-    persistExtras({
-      ...extras,
-      preparedPeople: [
-        {
-          id: `prep-${Date.now()}`,
-          firstName: prepFirst.trim(),
-          lastName: prepLast.trim(),
-          birthday: prepBirth,
-          email: prepEmail.trim() || undefined,
-          role: 'Participant',
-          systemRole: prepSystemRole.trim() || undefined,
-          initials: initialsOf(name),
-        },
-        ...preparedPeople,
-      ],
-    });
-    setAddedFlash(`${name} ajouté — Participant, automatiquement.`);
-    setPrepFirst('');
-    setPrepLast('');
-    setPrepBirth('');
-    setPrepEmail('');
-    setPrepSystemRole('');
-    setShowPrepForm(false);
-    showSuccess('Pré-inscrit · en attente d’activation.');
+    if (!projectId) return;
+    try {
+      await preRegisterProjectParticipant(Number(projectId), {
+        first_name: prepFirst.trim(),
+        last_name: prepLast.trim(),
+        birthday: prepBirth,
+        email: prepEmail.trim() || undefined,
+        user_role: prepSystemRole,
+        organization_id: orgId || undefined,
+        organization_type: orgType,
+      });
+      const mem = await getProjectMembers(Number(projectId));
+      setMembers(Array.isArray(mem) ? mem : []);
+      const name = `${prepFirst.trim()} ${prepLast.trim()}`;
+      setAddedFlash(`${name} ajouté — Participant, automatiquement.`);
+      setPrepFirst('');
+      setPrepLast('');
+      setPrepBirth('');
+      setPrepEmail('');
+      setPrepSystemRole('');
+      setShowPrepForm(false);
+      showSuccess('Pré-inscrit · en attente d’activation.');
+    } catch (e: any) {
+      showError(e?.response?.data?.message || e?.response?.data?.details?.[0] || 'Impossible d’enregistrer la pré-inscription.');
+    }
   };
 
   const addPartner = async (partnership: Partnership) => {
@@ -601,7 +648,6 @@ const ProjectAffichePage: React.FC = () => {
       }
       const mem = await getProjectMembers(Number(projectId));
       setMembers(Array.isArray(mem) ? mem : []);
-      setRoleMenu(null);
     } catch (e: any) {
       showError(e?.response?.data?.message || 'Impossible de changer le rôle.');
     }
@@ -874,12 +920,15 @@ const ProjectAffichePage: React.FC = () => {
     const name = memberName(member);
     const role = memberRole(member);
     const skills = memberSkills(member);
+    const pendingActivation = Boolean(member?.user?.has_temporary_email);
     return (
-      <div key={id} className="pa-vcard">
+      <div key={id} className={`pa-vcard ${pendingActivation ? 'is-prep' : ''}`}>
         <div className="avz">{initialsOf(name)}</div>
         <div className="nm">{name}</div>
-        <div className="rs">{memberJob(member)}</div>
-        <div className="org">{memberOrg(member, project.organization)}</div>
+        <div className="rs">{translateRole(member?.user?.role || member?.role) || memberJob(member)}</div>
+        <div className="org">
+          {pendingActivation ? 'pré-inscrit · en attente d’activation' : memberOrg(member, project.organization)}
+        </div>
         {skills.length > 0 && (
           <div className="pa-ckz">
             <span className="pa-ck">{skills[0]}</span>
@@ -888,26 +937,15 @@ const ProjectAffichePage: React.FC = () => {
         )}
         <div className="rlab">Rôle dans le projet</div>
         {canChangeRole(role) ? (
-          <>
-            <button type="button" className="pa-seldd" onClick={() => setRoleMenu(roleMenu === id ? null : id)}>
-              {roleLabel(role)} ▾
-            </button>
-            {roleMenu === id && (
-              <div className="pa-ddopen">
-                {ROLE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={roleLabel(role) === opt.value ? 'sel' : ''}
-                    onClick={() => void changeMemberRole(member, opt.value)}
-                  >
-                    {roleLabel(role) === opt.value ? `✓ ${opt.value}` : opt.value}
-                    {opt.hint ? <small>{opt.hint}</small> : null}
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
+          <select
+            className="pa-seldd"
+            value={role === 'encadrant' ? 'Encadrant' : role === 'admin' ? 'Admin' : 'Participant'}
+            onChange={(e) => void changeMemberRole(member, e.target.value as ProjectPersonRole)}
+          >
+            {ROLE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.value}</option>
+            ))}
+          </select>
         ) : (
           <span className="pa-seldd locked">{roleLabel(role)}</span>
         )}
@@ -1319,8 +1357,25 @@ const ProjectAffichePage: React.FC = () => {
                               <input className="pa-fin" type="date" value={prepBirth} onChange={(e) => setPrepBirth(e.target.value)} />
                             </div>
                             <div className="pa-field">
-                              <label>Rôle <em>✱</em></label>
-                              <input className="pa-fin" value={prepSystemRole} onChange={(e) => setPrepSystemRole(e.target.value)} placeholder="étudiant · collégien · salarié…" />
+                              <label htmlFor="pa-prep-role">Rôle <em>✱</em></label>
+                              <select
+                                id="pa-prep-role"
+                                className="pa-fin"
+                                value={prepSystemRole}
+                                onChange={(e) => setPrepSystemRole(e.target.value)}
+                                required
+                              >
+                                <option value="">Choisir un rôle…</option>
+                                {visibleSystemRoles.length === 0 ? (
+                                  <option value="" disabled>Chargement…</option>
+                                ) : (
+                                  visibleSystemRoles.map((role) => (
+                                    <option key={role.value} value={role.value}>
+                                      {translateRole(role.value)}
+                                    </option>
+                                  ))
+                                )}
+                              </select>
                             </div>
                           </div>
                           <div className="pa-field">
@@ -1330,7 +1385,7 @@ const ProjectAffichePage: React.FC = () => {
                           <div className="pa-hint">Si la personne est déjà sur Kinship, le rapprochement sera automatique. Pour faire co-attester le projet par une personne sans compte : ne la pré-inscrivez pas — cela se fera à la clôture.</div>
                           <div className="pa-actions-end">
                             <button type="button" className="pa-bt-ghost" onClick={() => setShowPrepForm(false)}>Annuler</button>
-                            <button type="button" className="pa-addb" onClick={submitPrepared}>Pré-inscrire</button>
+                            <button type="button" className="pa-addb" onClick={() => void submitPrepared()}>Pré-inscrire</button>
                           </div>
                         </div>
                       )}
@@ -1358,7 +1413,7 @@ const ProjectAffichePage: React.FC = () => {
                         renderParticipantCard(null, {
                           id: p.id,
                           name: `${p.firstName} ${p.lastName}`,
-                          role: p.systemRole || 'pré-inscrit',
+                          role: p.systemRole ? translateRole(p.systemRole) : 'pré-inscrit',
                           org: 'pré-inscrit · en attente d’activation',
                           initials: p.initials,
                         })

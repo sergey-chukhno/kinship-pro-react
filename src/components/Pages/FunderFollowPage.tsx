@@ -89,7 +89,17 @@ const FunderFollowPage: React.FC = () => {
     };
   }, [token]);
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="fv-page">
+        <div className="fv-shell">
+          <div className="fv-follow" style={{ textAlign: 'center', color: '#6d6b64' }}>
+            Chargement du suivi…
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!data) return <NotFoundPage />;
 
   return (

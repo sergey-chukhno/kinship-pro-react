@@ -1704,6 +1704,22 @@ export const addProjectMember = async (
     return response.data;
 };
 
+export const preRegisterProjectParticipant = async (
+    projectId: number,
+    payload: {
+        first_name: string;
+        last_name: string;
+        birthday: string;
+        email?: string;
+        user_role?: string;
+        organization_id?: number;
+        organization_type?: 'school' | 'company';
+    }
+): Promise<{ data: any; matched_existing: boolean; message: string }> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/pre_register`, payload);
+    return response.data;
+};
+
 // Team types and interfaces
 export interface TeamMember {
     id: number;

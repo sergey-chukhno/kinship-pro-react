@@ -685,6 +685,12 @@
   font-family: inherit;
 }
 
+select.pa-fin,
+select.pa-seldd {
+  appearance: auto;
+  cursor: pointer;
+}
+
 .pa-search {
   margin-bottom: 7px;
 }

@@ -5,6 +5,7 @@ import {
   addProjectDocuments,
   addProjectFunder,
   addProjectMember,
+  preRegisterProjectParticipant,
   closeProject,
   fetchAllConfirmedPartnerships,
   getOrganizationMembers,
@@ -380,33 +381,32 @@ const ProjectSpacePage: React.FC = () => {
     }
   };
 
-  const submitPrepared = () => {
+  const submitPrepared = async () => {
     if (!prepFirst.trim() || !prepLast.trim() || !prepBirth) {
       showError('Prénom, nom et date de naissance sont requis.');
       return;
     }
-    const name = `${prepFirst.trim()} ${prepLast.trim()}`;
-    persistExtras({
-      ...extras,
-      preparedPeople: [
-        {
-          id: `prep-${Date.now()}`,
-          firstName: prepFirst.trim(),
-          lastName: prepLast.trim(),
-          birthday: prepBirth,
-          email: prepEmail.trim() || undefined,
-          role: 'Participant',
-          initials: initialsOf(name),
-        },
-        ...extras.preparedPeople,
-      ],
-    });
-    setPrepFirst('');
-    setPrepLast('');
-    setPrepBirth('');
-    setPrepEmail('');
-    setAddPanel(null);
-    showSuccess('Pré-inscription préparée — le rapprochement se fera si la personne est déjà sur Kinship.');
+    if (!projectId) return;
+    try {
+      await preRegisterProjectParticipant(Number(projectId), {
+        first_name: prepFirst.trim(),
+        last_name: prepLast.trim(),
+        birthday: prepBirth,
+        email: prepEmail.trim() || undefined,
+        organization_id: orgId || undefined,
+        organization_type: orgType,
+      });
+      const mem = await getProjectMembers(Number(projectId));
+      setMembers(Array.isArray(mem) ? mem : []);
+      setPrepFirst('');
+      setPrepLast('');
+      setPrepBirth('');
+      setPrepEmail('');
+      setAddPanel(null);
+      showSuccess('Pré-inscription enregistrée — le rapprochement se fait si la personne est déjà sur Kinship.');
+    } catch (e: any) {
+      showError(e?.response?.data?.message || e?.response?.data?.details?.[0] || 'Impossible d’enregistrer la pré-inscription.');
+    }
   };
 
   const addPartner = async () => {
@@ -763,7 +763,7 @@ const ProjectSpacePage: React.FC = () => {
                     </div>
                     <div className="ps-foot" style={{ border: 0, paddingTop: 0 }}>
                       <button type="button" className="ps-btn ghost" onClick={() => setAddPanel(null)}>Annuler</button>
-                      <button type="button" className="ps-btn primary" onClick={submitPrepared}>Pré-inscrire</button>
+                      <button type="button" className="ps-btn primary" onClick={() => void submitPrepared()}>Pré-inscrire</button>
                     </div>
                     <p className="ps-sub">Si la personne est déjà sur Kinship, le rapprochement sera automatique.</p>
                     <p className="ps-sub">Pour faire co-attester le projet par une personne ou un partenaire sans compte : ne la pré-inscrivez pas — cela se fera à la clôture du projet.</p>
