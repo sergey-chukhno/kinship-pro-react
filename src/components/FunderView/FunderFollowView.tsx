@@ -265,17 +265,17 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({ data, preview }) =>
 
       {!preview && data.kind === 'project' && (
         <div className="fv-invite">
-          <div className="fv-invite-title">Retrouvez tous vos projets financés au même endroit</div>
+          <div className="fv-invite-title">Retrouvez tout ce que vous financez au même endroit</div>
           <p>
             Si votre organisation a un espace Kinship, les projets que vous financez
-            apparaissent dans Suivi financement.
+            apparaissent dans Je finance.
           </p>
           <button
             type="button"
             className="fv-cta"
             onClick={() => navigate(localStorage.getItem('jwt_token') ? '/funded-projects' : '/register')}
           >
-            {localStorage.getItem('jwt_token') ? 'Voir mes projets financés' : 'Créer l’espace de mon organisation'}
+            {localStorage.getItem('jwt_token') ? 'Voir Je finance' : 'Créer l’espace de mon organisation'}
           </button>
         </div>
       )}

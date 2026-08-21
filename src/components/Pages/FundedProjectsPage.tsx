@@ -16,9 +16,6 @@ const FundedProjectsPage: React.FC = () => {
   const [openYear, setOpenYear] = useState<number | null>(null);
 
   const companyId = getSelectedOrganizationId(state.user, state.showingPageType);
-  const orgName =
-    state.user.available_contexts?.companies?.find((c: any) => Number(c.id) === companyId)?.name ||
-    '';
 
   useEffect(() => {
     let cancelled = false;
@@ -62,9 +59,9 @@ const FundedProjectsPage: React.FC = () => {
 
   return (
     <div className="fp-page">
-      <h1 className="fp-title">Projets financés</h1>
+      <h1 className="fp-title">{loading ? 'Je finance' : `Je finance (${cards.length})`}</h1>
       <p className="fp-sub">
-        Les projets où les structures rattachées vous ont ajouté comme financeur — vous suivez, sans jamais y agir.
+        Les projets où une structure vous a désigné financeur — vous suivez, sans jamais y agir. Vos propres projets n’apparaissent pas ici.
       </p>
 
       <div className="fp-tiles">
@@ -86,11 +83,9 @@ const FundedProjectsPage: React.FC = () => {
         <p className="fp-empty-sub">Chargement…</p>
       ) : cards.length === 0 ? (
         <div className="fp-empty">
-          <div className="fp-empty-title">Aucun projet financé pour l’instant</div>
+          <div className="fp-empty-title">Aucune désignation pour l’instant</div>
           <p className="fp-empty-sub">
-            {orgName
-              ? `Quand une structure vous ajoutera comme financeur, les projets de ${orgName} apparaîtront ici, avec leur suivi en direct.`
-              : 'Quand une structure vous ajoutera comme financeur, les projets apparaîtront ici, avec leur suivi en direct.'}
+            Dès qu’une structure vous désigne financeur d’un projet, il apparaît ici — rattachement ou pas.
           </p>
         </div>
       ) : (

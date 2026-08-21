@@ -291,6 +291,8 @@ export interface OrganizationContext {
   qualiopi?: boolean;
   contract_kind?: string | null; // 'vert_actuel' | 'bleu_standard' | 'bleu_premium'
   allows_minor_members?: boolean; // true when contract is BLEU Premium
+  /** Count of projects where this org is designated funder — 0 means the Je finance tab does not exist */
+  financed_projects_count?: number;
   permissions: {
     superadmin: boolean;
     admin: boolean;

@@ -6,6 +6,7 @@ import { PageType } from '../../types';
 import './Sidebar.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
+import { getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
 import { MOCK_OF_ORG } from '../../data/mockFormations';
@@ -188,12 +189,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   };
 
   // Dropdown under "Tableau de bord": sections (Formations for edu/pro)
+  const financedCount = getFinancedProjectsCount(state.user, state.showingPageType);
   const dashboardDropdownItems: Array<{ id: PageType; label: string; icon: string }> = [
     { id: 'members', label: state.showingPageType === 'teacher' ? 'Classes' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events', label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
     { id: 'projects', label: state.showingPageType === 'of' ? 'Formations' : 'Projets', icon: '/icons_logo/Icon=projet.svg' },
-    ...(state.showingPageType === 'pro'
-      ? [{ id: 'funded-projects' as PageType, label: 'Suivi financement', icon: '/icons_logo/Icon=projet.svg' }]
+    ...(financedCount > 0
+      ? [{ id: 'funded-projects' as PageType, label: jeFinanceLabel(financedCount), icon: '/icons_logo/Icon=projet.svg' }]
       : []),
     ...((state.showingPageType === 'edu' || state.showingPageType === 'pro')
       ? [{ id: 'formations' as PageType, label: 'Formations', icon: '/icons_logo/Icon=projet.svg' }]

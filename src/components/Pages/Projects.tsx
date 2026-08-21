@@ -20,7 +20,7 @@ import {
   mapApiProjectToFrontendProject,
   projectBelongsToOrganizationContext,
 } from '../../utils/projectMapper';
-import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
+import { getSelectedOrganizationId as getSelectedOrgId, getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
 import { openProjectAffiche, openProjectSpace } from '../../utils/projectSpaceStore';
 import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
 import { useToast } from '../../hooks/useToast';
@@ -50,6 +50,7 @@ const Projects: React.FC = () => {
   const { showError } = useToast();
   const navigate = useNavigate();
   const { selectedProject } = state;
+  const financedCount = getFinancedProjectsCount(state.user, state.showingPageType);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isMLDSProjectModalOpen, setIsMLDSProjectModalOpen] = useState(false);
   const [mldsProjectVariant, setMldsProjectVariant] = useState<'perseverance' | 'remediation'>('perseverance');
@@ -2095,7 +2096,7 @@ const Projects: React.FC = () => {
             >
               Brouillons ({draftProjectsCount})
             </button>
-            {state.showingPageType === 'pro' && (
+            {financedCount > 0 && (
               <button
                 className="filter-tab"
                 onClick={() => {
@@ -2103,7 +2104,7 @@ const Projects: React.FC = () => {
                   navigate('/funded-projects');
                 }}
               >
-                Projets financés
+                {jeFinanceLabel(financedCount)}
               </button>
             )}
             {mldsCatalogCounts.perseverance > 0 && (

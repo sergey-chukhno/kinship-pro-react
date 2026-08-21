@@ -105,3 +105,18 @@ export const getSelectedOrganizationRole = (user: User, showingPageType: Showing
   
   return '';
 };
+
+/** Projects this org finances (designation). 0 = the Je finance tab must not exist. */
+export const getFinancedProjectsCount = (
+  user: User,
+  showingPageType: ShowingPageType
+): number => {
+  if (showingPageType !== 'pro') return 0;
+  const orgId = getSelectedOrganizationId(user, showingPageType);
+  const company = user.available_contexts?.companies?.find(
+    (c) => Number(c.id) === Number(orgId)
+  );
+  return Number(company?.financed_projects_count || 0);
+};
+
+export const jeFinanceLabel = (count: number): string => `Je finance (${count})`;
