@@ -10,6 +10,7 @@ import { getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUti
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
 import { MOCK_OF_ORG } from '../../data/mockFormations';
+import { openProjectAffiche } from '../../utils/projectSpaceStore';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
@@ -503,8 +504,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           onClose={() => setIsSelectProjectForBadgeOpen(false)}
           onSelectProject={(project) => {
             setSelectedProject(project);
-            onPageChange('project-management');
-            navigate('/project-management?open=assign-badge');
+            openProjectAffiche(project.id);
+            onPageChange('project-affiche');
+            navigate('/project-affiche?open=attest');
             setIsSelectProjectForBadgeOpen(false);
           }}
         />

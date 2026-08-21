@@ -7,7 +7,7 @@ import BadgeCard from '../Badges/BadgeCard';
 import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
 import BadgeModal from '../Modals/BadgeModal';
 import BadgeAnalyticsModal from '../Modals/BadgeAnalyticsModal';
-import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
+import BadgeAssignmentModal from '../Modals/AttestCompetenceModal';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import BadgeExportModal from '../Modals/BadgeExportModal';
 import BadgeExplorer from './BadgeExplorer';

@@ -16,7 +16,7 @@ import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '
 import { getMldsActionObjectiveLabel, getMldsActionObjectivesOptions } from '../../utils/mldsActionObjectives';
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import AddParticipantModal from '../Modals/AddParticipantModal';
-import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
+import BadgeAssignmentModal from '../Modals/AttestCompetenceModal';
 import CloseProjectBilanModal, { BilanData, buildMldsBilanPayload } from '../Modals/CloseProjectBilanModal';
 import ConfirmModal from '../Modals/ConfirmModal';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';

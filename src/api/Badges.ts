@@ -14,6 +14,7 @@ export interface AssignBadgeData {
   comment?: string;
   domaine_engagement?: string;
   organization_id?: number;
+  event_id?: number;
 }
 
 /**
@@ -168,6 +169,9 @@ export const assignBadge = async (
     }
     if (badgeData.organization_id) {
       formData.append('organization_id', badgeData.organization_id.toString());
+    }
+    if (badgeData.event_id) {
+      formData.append('event_id', badgeData.event_id.toString());
     }
     
     // Append files

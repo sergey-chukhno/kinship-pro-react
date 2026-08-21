@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getProjectById } from '../../api/Project';
 import { getProjectBadges } from '../../api/Badges';
 import { getCompanyGroup, getCompanyGroups, CompanyGroup } from '../../api/CompanyDashboard/Groups';
@@ -56,6 +56,7 @@ import {
   setProjectSpaceExtras,
 } from '../../utils/projectSpaceStore';
 import EuMcGoldSummary from './EuMcGoldSummary';
+import AttestCompetenceModal from '../Modals/AttestCompetenceModal';
 import './ProjectAffichePage.css';
 
 type AfficheTab = 'overview' | 'requests' | 'participants' | 'teams' | 'proofs' | 'documents';
@@ -223,8 +224,9 @@ function nextVisibility(current: DocVisibility): DocVisibility {
 }
 
 const ProjectAffichePage: React.FC = () => {
-  const { state, setCurrentPage, setSelectedProject } = useAppContext();
+  const { state, setCurrentPage } = useAppContext();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { showSuccess, showError } = useToast();
   const userRef = useRef(state.user);
   userRef.current = state.user;
@@ -238,6 +240,8 @@ const ProjectAffichePage: React.FC = () => {
     }
   }, [navigate]);
 
+  const [isAttestOpen, setIsAttestOpen] = useState(false);
+  const [attestPersonId, setAttestPersonId] = useState<string | null>(null);
   const [tab, setTab] = useState<AfficheTab>('overview');
   const [project, setProject] = useState<Project | null>(null);
   const [apiProject, setApiProject] = useState<any>(null);
@@ -540,12 +544,22 @@ const ProjectAffichePage: React.FC = () => {
     navigate('/project-space');
   };
 
-  const attest = () => {
+  const attest = (personId?: string | null) => {
     if (!project) return;
-    setSelectedProject(project);
-    setCurrentPage('project-management');
-    navigate('/project-management?open=assign-badge');
+    setAttestPersonId(personId || null);
+    setIsAttestOpen(true);
   };
+
+  useEffect(() => {
+    if (searchParams.get('open') !== 'attest' || !project) return;
+    setAttestPersonId(null);
+    setIsAttestOpen(true);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('open');
+      return next;
+    }, { replace: true });
+  }, [searchParams, project, setSearchParams]);
 
   const patchProject = async (fields: Parameters<typeof updateProject>[1]['project'], success?: string) => {
     if (!projectId) return;
@@ -1019,7 +1033,7 @@ const ProjectAffichePage: React.FC = () => {
             <button type="button" className="pa-bt-red" onClick={() => setRemoveTarget({ id, name })}>Retirer</button>
           )}
           {canAttest && (
-            <button type="button" className="pa-bt-green" onClick={attest}>🏅 Attester</button>
+            <button type="button" className="pa-bt-green" onClick={() => attest(id)}>🏅 Attester</button>
           )}
         </div>
       </div>
@@ -1038,7 +1052,7 @@ const ProjectAffichePage: React.FC = () => {
                 <button type="button" className="pa-bt-ghost" onClick={() => setCloseOpen(true)}>✓ Clôturer le projet</button>
               )}
               {canAttest && (
-                <button type="button" className="pa-bt-main" onClick={attest}>🏅 Attester une compétence</button>
+                <button type="button" className="pa-bt-main" onClick={() => attest()}>🏅 Attester une compétence</button>
               )}
               {isVisitor && !isEnded && (
                 <button type="button" className="pa-join" onClick={() => void join()}>+ Rejoindre</button>
@@ -1524,7 +1538,7 @@ const ProjectAffichePage: React.FC = () => {
                             <td>{memberJob(m)}</td>
                             <td>{memberOrg(m, project.organization)}</td>
                             <td>{roleLabel(memberRole(m))}</td>
-                            <td>{canAttest && <button type="button" className="pa-bt-green" onClick={attest}>🏅</button>}</td>
+                            <td>{canAttest && <button type="button" className="pa-bt-green" onClick={() => attest(memberId(m))}>🏅</button>}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1883,6 +1897,34 @@ const ProjectAffichePage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {isAttestOpen && project && (
+        <AttestCompetenceModal
+          onClose={() => {
+            setIsAttestOpen(false);
+            setAttestPersonId(null);
+          }}
+          onAssign={async () => {
+            if (!projectId) return;
+            try {
+              const badgeRes = await getProjectBadges(Number(projectId), 1, 50);
+              setBadges(Array.isArray(badgeRes?.data) ? badgeRes.data : []);
+            } catch {
+              /* keep current list */
+            }
+          }}
+          participants={confirmedMembers.map((m) => ({
+            id: memberId(m),
+            memberId: memberId(m),
+            name: memberName(m),
+            avatar: m?.user?.avatar_url || m?.avatar_url || '',
+            organization: memberOrg(m, project.organization),
+          }))}
+          preselectedParticipant={attestPersonId}
+          projectId={projectId}
+          projectTitle={project.title}
+        />
       )}
     </div>
   );
