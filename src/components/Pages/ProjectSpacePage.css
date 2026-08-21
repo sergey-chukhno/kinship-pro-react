@@ -696,6 +696,37 @@
   flex-wrap: wrap;
 }
 
+.ps-docrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ps-docvis {
+  margin: 0 0 0 auto;
+}
+
+.ps-docpill {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 7px;
+  padding: 2px 7px;
+}
+
+.ps-docpill.priv {
+  background: #f1efe9;
+  color: #5c594f;
+  border: 1px solid #d0ccc0;
+}
+
+.ps-docpill.pub {
+  background: #e7f2ec;
+  color: #2e7d5b;
+  border: 1px solid #bfe0cf;
+}
+
 .ps-doc {
   font-size: 11px;
   background: #eef5f4;

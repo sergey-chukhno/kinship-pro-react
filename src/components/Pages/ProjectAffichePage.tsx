@@ -28,6 +28,7 @@ import {
   removeProjectMember,
   Team,
   updateProject,
+  updateProjectDocumentVisibility,
   updateProjectMember,
 } from '../../api/Projects';
 import { getPersonalUserRoles } from '../../api/RegistrationRessource';
@@ -61,6 +62,15 @@ type AfficheTab = 'overview' | 'requests' | 'participants' | 'teams' | 'proofs' 
 type AddPanel = 'person' | 'partner' | 'funder' | 'document' | 'link' | 'team' | null;
 type ViewMode = 'cards' | 'list';
 
+const INNER_AFFICHE_TABS: [AfficheTab, string][] = [
+  ['overview', 'Vue d’ensemble'],
+  ['requests', 'Demandes'],
+  ['participants', 'Participants'],
+  ['teams', 'Équipes'],
+  ['proofs', 'Preuves de compétences'],
+  ['documents', 'Documents'],
+];
+
 const STATUS_CHIP: Record<string, { label: string; cls: string }> = {
   coming: { label: 'À VENIR', cls: 'coming' },
   in_progress: { label: 'EN COURS', cls: 'run' },
@@ -89,6 +99,10 @@ const VIS_CYCLE: DocVisibility[] = ['team', 'participants', 'public'];
 const VIS_LABEL: Record<DocVisibility, string> = {
   team: 'Équipe',
   participants: 'Participants',
+  public: 'Public',
+};
+const DOC_VIS_LABEL: Record<'private' | 'public', string> = {
+  private: 'Privé',
   public: 'Public',
 };
 const VIS_CLASS: Record<DocVisibility, string> = {
@@ -258,7 +272,7 @@ const ProjectAffichePage: React.FC = () => {
   const [linkLabel, setLinkLabel] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [docFile, setDocFile] = useState<File | null>(null);
-  const [docVis, setDocVis] = useState<DocVisibility>('team');
+  const [docVis, setDocVis] = useState<'private' | 'public'>('private');
   const [linkVis, setLinkVis] = useState<DocVisibility>('team');
   const [participantView, setParticipantView] = useState<ViewMode>('cards');
   const [proofView, setProofView] = useState<ViewMode>('cards');
@@ -412,6 +426,13 @@ const ProjectAffichePage: React.FC = () => {
     if (!apiProject) return;
     setTeamOpen(!isVisitor);
   }, [apiProject, isVisitor]);
+
+  useEffect(() => {
+    if (!isVisitor) return;
+    if (documents.some((d) => d.visibility === 'public')) {
+      setTab('documents');
+    }
+  }, [isVisitor, documents]);
 
   const rolePill = isOwner
     ? 'Responsable du projet'
@@ -794,21 +815,26 @@ const ProjectAffichePage: React.FC = () => {
       return;
     }
     try {
-      const res = await addProjectDocuments(Number(projectId), [docFile]);
-      const nextDocs = res.data || [];
-      const added = nextDocs.find((d) => d.filename === docFile.name) || nextDocs[nextDocs.length - 1];
-      setDocuments(nextDocs);
-      if (added) {
-        persistExtras({
-          ...extras,
-          documentVisibility: { ...(extras.documentVisibility || {}), [String(added.id)]: docVis },
-        });
-      }
+      const res = await addProjectDocuments(Number(projectId), [docFile], docVis);
+      setDocuments(res.data || []);
       setDocFile(null);
-      setDocVis('team');
+      setDocVis('private');
       setAddPanel(null);
     } catch {
       showError('Impossible d’ajouter le document.');
+    }
+  };
+
+  const setDocumentVisibility = async (id: number, visibility: 'public' | 'private') => {
+    if (!projectId) return;
+    const previous = documents;
+    setDocuments((current) => current.map((d) => (d.id === id ? { ...d, visibility } : d)));
+    try {
+      const res = await updateProjectDocumentVisibility(Number(projectId), id, visibility);
+      setDocuments(res.data || []);
+    } catch {
+      setDocuments(previous);
+      showError('Impossible de changer la visibilité du document.');
     }
   };
 
@@ -901,10 +927,13 @@ const ProjectAffichePage: React.FC = () => {
     }
   };
 
-  const docVisOf = (id: string | number): DocVisibility => extras.documentVisibility?.[String(id)] || 'team';
+  const docIsPublic = (doc: ProjectDocument) => doc.visibility === 'public';
   const linkVisOf = (link: any): DocVisibility => extras.linkVisibility?.[String(link.url || link.id)] || 'team';
-  const visibleDocs = isVisitor ? documents.filter((d) => docVisOf(d.id) === 'public') : documents;
+  const visibleDocs = isVisitor ? documents.filter(docIsPublic) : documents;
   const visibleLinks = isVisitor ? links.filter((l: any) => linkVisOf(l) === 'public') : links;
+  const hasPublicDocuments = documents.some(docIsPublic);
+  const showTabs = canSeeInner || (isVisitor && hasPublicDocuments);
+  const afficheTabs = canSeeInner ? INNER_AFFICHE_TABS : ([['documents', 'Documents']] as [AfficheTab, string][]);
 
   const openProof = (badge: any) => {
     const token = String(badge.share_token || '').trim();
@@ -1256,28 +1285,21 @@ const ProjectAffichePage: React.FC = () => {
 
           {isVisitor && (
             <div className="pa-vismicro">
-              <b>Qui voit, qui rejoint.</b> {isPrivate ? 'Privé → votre structure seulement.' : 'Public → tout Kinship voit l’affiche et peut demander à rejoindre (un compte est nécessaire).'} Le lien de partage et son QR code mènent à cette affiche. Ce que le visiteur voit : le responsable, les co-responsables, les partenaires — c’est tout.
+              <b>Qui voit, qui rejoint.</b> {isPrivate ? 'Privé → votre structure seulement.' : 'Public → tout Kinship voit l’affiche et peut demander à rejoindre (un compte est nécessaire).'} Le lien de partage et son QR code mènent à cette affiche. Ce que le visiteur voit : le responsable, les co-responsables, les partenaires — et les documents publics.
             </div>
           )}
 
-          {canSeeInner && (
+          {showTabs && (
             <>
-              <div className="pa-tabs">
-                {([
-                  ['overview', 'Vue d’ensemble'],
-                  ['requests', 'Demandes'],
-                  ['participants', 'Participants'],
-                  ['teams', 'Équipes'],
-                  ['proofs', 'Preuves de compétences'],
-                  ['documents', 'Documents'],
-                ] as [AfficheTab, string][]).map(([id, label]) => (
+              <div className="pt-2 pa-tabs">
+                {afficheTabs.map(([id, label]) => (
                   <button key={id} type="button" className={`pa-tab ${tab === id ? 'on' : ''}`} onClick={() => setTab(id)}>
                     {label}
                   </button>
                 ))}
               </div>
 
-              {tab === 'overview' && (
+              {canSeeInner && tab === 'overview' && (
                 <>
                   <div className="pa-kpis">
                     <div className="pa-kpi">
@@ -1320,7 +1342,7 @@ const ProjectAffichePage: React.FC = () => {
                 </>
               )}
 
-              {tab === 'requests' && (
+              {canSeeInner && tab === 'requests' && (
                 <div className="pa-sec">
                   <h4>Demandes de participation ({pendingMembers.length})</h4>
                   {!canGovern && (
@@ -1347,7 +1369,7 @@ const ProjectAffichePage: React.FC = () => {
                 </div>
               )}
 
-              {tab === 'participants' && (
+              {canSeeInner && tab === 'participants' && (
                 <div className="pa-sec">
                   <h4>
                     Participants du projet ({confirmedMembers.length + preparedPeople.length})
@@ -1511,7 +1533,7 @@ const ProjectAffichePage: React.FC = () => {
                 </div>
               )}
 
-              {tab === 'teams' && (
+              {canSeeInner && tab === 'teams' && (
                 <div className="pa-sec">
                   <h4>
                     Gestion des équipes ({teams.length})
@@ -1599,7 +1621,7 @@ const ProjectAffichePage: React.FC = () => {
                 </div>
               )}
 
-              {tab === 'proofs' && (
+              {canSeeInner && tab === 'proofs' && (
                 <div className="pa-sec">
                   <h4>Preuves de compétences attestées ({filteredBadges.length})</h4>
                   <div className="pa-filters">
@@ -1692,12 +1714,12 @@ const ProjectAffichePage: React.FC = () => {
                       <input type="file" onChange={(e) => setDocFile(e.target.files?.[0] || null)} />
                       {docFile && <div className="pa-rline">📄 <div>{docFile.name} <small>· {formatBytes(docFile.size)}</small></div></div>}
                       <div className="pa-klabel">qui peut le voir ?</div>
-                      {(['team', 'participants', 'public'] as DocVisibility[]).map((v) => (
+                      {(['private', 'public'] as const).map((v) => (
                         <button key={v} type="button" className={`pa-radio ${docVis === v ? 'on' : ''}`} onClick={() => setDocVis(v)}>
                           <span className="dot">{docVis === v ? <i /> : null}</span>
                           <div>
-                            <b>{VIS_LABEL[v]}</b>
-                            {v === 'team' ? ' — responsable et co-responsables' : v === 'participants' ? ' — la cohorte y accède' : ' — suit l’affiche'}
+                            <b>{DOC_VIS_LABEL[v]}</b>
+                            {v === 'private' ? ' — l’équipe du projet' : ' — visible sur l’affiche (suit la visibilité du projet)'}
                           </div>
                         </button>
                       ))}
@@ -1727,20 +1749,20 @@ const ProjectAffichePage: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  {visibleDocs.map((d) => (
+                  {visibleDocs.map((d) => {
+                    const isPublic = d.visibility === 'public';
+                    return (
                     <div key={d.id} className="pa-docline">
                       📄
                       <div>{d.filename}<small> · {formatBytes(d.byte_size)}</small></div>
                       {!isVisitor && (
                         <button
                           type="button"
-                          className={`pa-vispill ${VIS_CLASS[docVisOf(d.id)]}`}
-                          onClick={() => persistExtras({
-                            ...extras,
-                            documentVisibility: { ...(extras.documentVisibility || {}), [String(d.id)]: nextVisibility(docVisOf(d.id)) },
-                          })}
+                          className={`pa-vispill ${isPublic ? 'vpub' : 'vpriv'}`}
+                          disabled={isEnded || !(isOwner || isCoOwner)}
+                          onClick={() => void setDocumentVisibility(d.id, isPublic ? 'private' : 'public')}
                         >
-                          {VIS_LABEL[docVisOf(d.id)]}
+                          {isPublic ? 'Public' : 'Privé'}
                         </button>
                       )}
                       <div className="sp">
@@ -1750,7 +1772,8 @@ const ProjectAffichePage: React.FC = () => {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   {visibleLinks.map((l: any) => (
                     <div key={l.id || l.url} className="pa-docline">
                       🔗

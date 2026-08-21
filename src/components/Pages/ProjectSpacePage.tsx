@@ -20,6 +20,7 @@ import {
   Tag,
   removeProjectFunder,
   updateProject,
+  updateProjectDocumentVisibility,
   updateProjectMember,
 } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
@@ -188,6 +189,7 @@ const ProjectSpacePage: React.FC = () => {
   const [funderQuery, setFunderQuery] = useState('');
   const [funderEmail, setFunderEmail] = useState('');
   const [funderShare, setFunderShare] = useState<'nominatif' | 'anonyme'>('nominatif');
+  const [uploadDocVis, setUploadDocVis] = useState<'private' | 'public'>('private');
   const [funders, setFunders] = useState<ProjectFunder[]>([]);
   const [prepFirst, setPrepFirst] = useState('');
   const [prepLast, setPrepLast] = useState('');
@@ -571,11 +573,25 @@ const ProjectSpacePage: React.FC = () => {
       return;
     }
     try {
-      const res = await addProjectDocuments(Number(projectId), [file]);
+      const res = await addProjectDocuments(Number(projectId), [file], uploadDocVis);
       setDocuments(res.data || []);
+      setUploadDocVis('private');
       setAddPanel(null);
     } catch {
       showError('Impossible d’ajouter le document.');
+    }
+  };
+
+  const setDocumentVisibility = async (id: number, visibility: 'public' | 'private') => {
+    if (!projectId) return;
+    const previous = documents;
+    setDocuments((current) => current.map((d) => (d.id === id ? { ...d, visibility } : d)));
+    try {
+      const res = await updateProjectDocumentVisibility(Number(projectId), id, visibility);
+      setDocuments(res.data || []);
+    } catch {
+      setDocuments(previous);
+      showError('Impossible de changer la visibilité du document.');
     }
   };
 
@@ -1175,9 +1191,36 @@ const ProjectSpacePage: React.FC = () => {
                   )}
                 </h2>
                 <div className="ps-docs">
-                  {documents.map((d) => (
-                    <span key={d.id} className="ps-doc">📄 {d.filename}</span>
-                  ))}
+                  {documents.map((d) => {
+                    const isPublic = d.visibility === 'public';
+                    return (
+                      <div key={d.id} className="ps-docrow">
+                        <span className="ps-doc">📄 {d.filename}</span>
+                        {!isEnded ? (
+                          <div className="ps-share ps-docvis">
+                            <button
+                              type="button"
+                              className={!isPublic ? 'on' : ''}
+                              aria-pressed={!isPublic}
+                              onClick={() => void setDocumentVisibility(d.id, 'private')}
+                            >
+                              Privé
+                            </button>
+                            <button
+                              type="button"
+                              className={isPublic ? 'on' : ''}
+                              aria-pressed={isPublic}
+                              onClick={() => void setDocumentVisibility(d.id, 'public')}
+                            >
+                              Public
+                            </button>
+                          </div>
+                        ) : (
+                          <span className={`ps-docpill ${isPublic ? 'pub' : 'priv'}`}>{isPublic ? 'Public' : 'Privé'}</span>
+                        )}
+                      </div>
+                    );
+                  })}
                   {links.map((l: any) => (
                     <span key={l.id} className="ps-doc">🔗 {l.name || l.url}</span>
                   ))}
@@ -1189,6 +1232,15 @@ const ProjectSpacePage: React.FC = () => {
                     <input className="ps-in" placeholder="https://…" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} />
                     <button type="button" className="ps-btn outline" onClick={() => void addLink()} disabled={!linkUrl.trim()}>Ajouter le lien</button>
                     <div className="ps-plabel" style={{ marginTop: 12 }}>Ajouter un document ({documents.length}/5)</div>
+                    <div className="ps-share">
+                      <button type="button" className={uploadDocVis === 'private' ? 'on' : ''} onClick={() => setUploadDocVis('private')}>
+                        Privé — ma structure
+                      </button>
+                      <button type="button" className={uploadDocVis === 'public' ? 'on' : ''} onClick={() => setUploadDocVis('public')}>
+                        Public — tout Kinship
+                      </button>
+                    </div>
+                    <p className="ps-sub">Privé : l’équipe du projet. Public : visible sur l’affiche (suit la visibilité du projet).</p>
                     <input
                       className="ps-in"
                       type="file"

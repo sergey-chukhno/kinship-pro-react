@@ -1099,6 +1099,17 @@ select.pa-seldd {
   border-color: #d0ccc0;
 }
 
+.pa-vispill.vpriv {
+  background: #f1efe9;
+  color: #5c594f;
+  border-color: #d0ccc0;
+}
+
+.pa-vispill:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
 .pa-vispill.vpart {
   background: #eef2fb;
   color: #3b5bb8;

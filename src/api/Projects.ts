@@ -1353,6 +1353,7 @@ export interface ProjectDocument {
     byte_size: number;
     created_at: string;
     url: string;
+    visibility?: 'public' | 'private';
 }
 
 export const getProjectDocuments = async (projectId: number): Promise<{ data: ProjectDocument[] }> => {
@@ -1362,18 +1363,32 @@ export const getProjectDocuments = async (projectId: number): Promise<{ data: Pr
 
 export const addProjectDocuments = async (
     projectId: number,
-    files: File[]
+    files: File[],
+    visibility: 'public' | 'private' = 'private'
 ): Promise<{ data: ProjectDocument[] }> => {
     const formData = new FormData();
     files.forEach(file => {
         formData.append('project[documents][]', file);
     });
+    formData.append('visibility', visibility);
 
     const response = await apiClient.post(`/api/v1/projects/${projectId}/documents`, formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
         },
     });
+    return response.data;
+};
+
+export const updateProjectDocumentVisibility = async (
+    projectId: number,
+    attachmentId: number,
+    visibility: 'public' | 'private'
+): Promise<{ data: ProjectDocument[] }> => {
+    const response = await apiClient.patch(
+        `/api/v1/projects/${projectId}/documents/${attachmentId}`,
+        { visibility }
+    );
     return response.data;
 };
 
