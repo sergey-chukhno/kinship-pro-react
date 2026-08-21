@@ -1,12 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { confirmFunderFollowToken, declineFunderFollowToken, getProjectFunderFollow } from '../../api/Projects';
+import { useAppContext } from '../../context/AppContext';
 import { getFunderFollow, FunderFollowData } from '../../data/mockFunderView';
 import { getFormationById, getFormationPeople } from '../../utils/formationStore';
 import { followViewFromFormation } from '../../utils/funderFollowFromFormation';
+import {
+  applyCompanySpaceContext,
+  currentUserIsDesignatedFunder,
+  governableCompanies,
+  isAuthenticatedSession,
+  isCompanyGovernContext,
+} from '../../utils/contextUtils';
 import FunderFollowView from '../FunderView/FunderFollowView';
 import NotFoundPage from './NotFoundPage';
 import '../FunderView/FunderView.css';
+
+function followTokenFromLocation(pathname: string, param?: string): string | undefined {
+  if (param) return param;
+  const match = pathname.match(/^\/follow\/([^/]+)\/?$/);
+  return match?.[1] ? decodeURIComponent(match[1]) : undefined;
+}
 
 function followViewFromProjectApi(payload: Awaited<ReturnType<typeof getProjectFunderFollow>>): FunderFollowData {
   const outcomes = (payload.learning_outcomes || '')
@@ -59,6 +73,10 @@ function followViewFromProjectApi(payload: Awaited<ReturnType<typeof getProjectF
     lastActivityDays: payload.last_activity_days,
     partners: payload.partners,
     designatedOn: payload.designated_on || undefined,
+    funderCompanyId: payload.funder_company_id ?? null,
+    funderEmail: payload.funder_email ?? null,
+    funderUserId: payload.funder_user_id ?? null,
+    viewerIsFunder: payload.viewer_is_funder ?? null,
     informedOn: payload.informed_on || undefined,
     reportDue: payload.report_due || undefined,
     report: payload.report
@@ -76,9 +94,16 @@ function followViewFromProjectApi(payload: Awaited<ReturnType<typeof getProjectF
 }
 
 const FunderFollowPage: React.FC = () => {
-  const { token } = useParams<{ token: string }>();
+  const { token: paramToken } = useParams<{ token: string }>();
+  const { pathname } = useLocation();
+  const token = followTokenFromLocation(pathname, paramToken);
+  const { state, setShowingPageType } = useAppContext();
   const [data, setData] = useState<FunderFollowData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const viewerIsLoggedIn = isAuthenticatedSession() && Boolean(state.user?.available_contexts);
+  const viewerIsFunder = viewerIsLoggedIn && currentUserIsDesignatedFunder(state.user, data);
+  const viewerHasCompanySpace = viewerIsFunder && isCompanyGovernContext(state.user, state.showingPageType);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,9 +116,19 @@ const FunderFollowPage: React.FC = () => {
 
       try {
         const payload = await getProjectFunderFollow(token);
-        if (!cancelled) setData(followViewFromProjectApi(payload));
+        if (!cancelled) {
+          setAccessDenied(false);
+          setData(followViewFromProjectApi(payload));
+        }
         return;
-      } catch {
+      } catch (error: any) {
+        if (error?.response?.status === 403) {
+          if (!cancelled) {
+            setAccessDenied(true);
+            setData(null);
+          }
+          return;
+        }
         const known = getFunderFollow(token);
         const formation = !known ? getFormationById(token) : undefined;
         const people = formation ? getFormationPeople(formation.id) : undefined;
@@ -117,6 +152,23 @@ const FunderFollowPage: React.FC = () => {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!viewerIsFunder || loading || !data) return;
+    const companies = governableCompanies(state.user);
+    if (companies.length === 0) return;
+    const preferred = data.funderCompanyId
+      ? companies.find((company) => Number(company.id) === Number(data.funderCompanyId))
+      : undefined;
+    const target = preferred || companies[0];
+    if (!target) return;
+    if (state.showingPageType === 'pro' && isCompanyGovernContext(state.user, 'pro')) {
+      const currentId = localStorage.getItem('selectedContextId');
+      if (!preferred || String(currentId) === String(target.id)) return;
+    }
+    applyCompanySpaceContext(Number(target.id));
+    setShowingPageType('pro');
+  }, [viewerIsFunder, loading, data, state.user, state.showingPageType, setShowingPageType]);
+
   if (loading) {
     return (
       <div className="fv-page">
@@ -128,13 +180,46 @@ const FunderFollowPage: React.FC = () => {
       </div>
     );
   }
+  if (accessDenied || (viewerIsLoggedIn && data && !viewerIsFunder)) {
+    return (
+      <div className="fv-page">
+        <div className="fv-shell">
+          <div className="fv-follow" style={{ textAlign: 'center' }}>
+            <p className="fv-ended-title">Ce suivi ne vous est pas destiné</p>
+            <p className="fv-ended-sub">
+              Cette page est réservée au financeur désigné. Connectez-vous avec le compte de l’organisation
+              financeuse.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!data) return <NotFoundPage />;
+
+  if (viewerIsLoggedIn && state.showingPageType === 'pro' && viewerIsFunder && !viewerHasCompanySpace) {
+    return (
+      <div className="fv-page">
+        <div className="fv-shell">
+          <div className="fv-follow" style={{ textAlign: 'center' }}>
+            <p className="fv-ended-title">Rôle insuffisant sur cet espace</p>
+            <p className="fv-ended-sub">
+              Ce suivi financeur s’ouvre depuis un espace organisation où vous êtes admin ou super admin.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fv-page">
       <div className={`fv-shell ${data.closed ? 'ended' : ''}`}>
         <FunderFollowView
           data={data}
+          viewerIsLoggedIn={viewerIsLoggedIn}
+          viewerHasCompanySpace={viewerHasCompanySpace}
           onConfirmToken={async () => {
             if (!token) return;
             const payload = await confirmFunderFollowToken(token);

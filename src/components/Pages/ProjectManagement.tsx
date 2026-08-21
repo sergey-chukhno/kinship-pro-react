@@ -18,7 +18,8 @@ import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/
 import AddParticipantModal from '../Modals/AddParticipantModal';
 import BadgeAssignmentModal from '../Modals/AttestCompetenceModal';
 import CloseProjectBilanModal, { BilanData, buildMldsBilanPayload } from '../Modals/CloseProjectBilanModal';
-import ConfirmModal from '../Modals/ConfirmModal';
+import CloseProjectBirthOverlay from '../Modals/CloseProjectBirthOverlay';
+import CloseProjectModal from '../Modals/CloseProjectModal';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
@@ -32,7 +33,6 @@ import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
 import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import { translateRole } from '../../utils/roleTranslations';
 import {
-  buildCloseProjectConfirmationMessage,
   canOwnerCloseProject,
   isProjectReadOnly,
   shouldShowEndDateWarningBanner
@@ -43,7 +43,7 @@ import {
   validateServiceQuoteSelection
 } from '../../utils/mldsServiceQuotes';
 import { hseLineHours, hvLineHours } from '../../utils/mldsHvLines';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 /** Safely render a value that may be a string or an object with id/name/type/city (e.g. organization from API). */
 function toDisplayString(value: unknown): string {
@@ -200,6 +200,7 @@ const CollapsiblePillsCell: React.FC<{
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject, setTags } = useAppContext();
+  const navigate = useNavigate();
   const { showWarning } = useToast();
 
   // Charger les tags (parcours) depuis l'API /api/v1/tags pour la modal d'édition
@@ -450,6 +451,7 @@ const ProjectManagement: React.FC = () => {
   const [isClosingProject, setIsClosingProject] = useState(false);
   const [isCloseProjectConfirmOpen, setIsCloseProjectConfirmOpen] = useState(false);
   const [isCloseProjectModalOpen, setIsCloseProjectModalOpen] = useState(false);
+  const [bornProof, setBornProof] = useState(false);
 
   // State for badge assignment permissions
   const [canAssignBadges, setCanAssignBadges] = useState(false);
@@ -875,11 +877,6 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
-  const closeProjectConfirmationMessage = buildCloseProjectConfirmationMessage(
-    project?.title || '',
-    Boolean((project as { hasFunders?: boolean } | null)?.hasFunders)
-  );
-
   /**
    * Open close-project confirmation flow.
    */
@@ -933,6 +930,9 @@ const ProjectManagement: React.FC = () => {
       setSelectedProject(mappedProject);
       setApiProjectData(apiProject);
       setIsCloseProjectModalOpen(false);
+      if (!bilanData) {
+        setBornProof(true);
+      }
     } catch (error: any) {
       console.error('Error closing project:', error);
       if (error?.response?.status === 403) {
@@ -9149,16 +9149,27 @@ const ProjectManagement: React.FC = () => {
 
       </div>
 
-      <ConfirmModal
+      <CloseProjectModal
         isOpen={isCloseProjectConfirmOpen}
-        title="Clôture définitive du projet"
-        message={closeProjectConfirmationMessage}
-        confirmText="Confirmer la clôture définitive"
-        cancelText="Annuler"
+        projectTitle={project?.title || ''}
+        hasFunders={Boolean((project as { hasFunders?: boolean } | null)?.hasFunders)}
+        isSubmitting={isClosingProject}
         onConfirm={handleConfirmCloseIntent}
-        onCancel={() => setIsCloseProjectConfirmOpen(false)}
-        variant="warning"
+        onCancel={() => !isClosingProject && setIsCloseProjectConfirmOpen(false)}
       />
+
+      {bornProof && project && (
+        <CloseProjectBirthOverlay
+          title={project.title}
+          organization={project.organization}
+          onOpen={() => {
+            setBornProof(false);
+            setCurrentPage('pik');
+            navigate(`/pik/preuve/pp/${project.id}`);
+          }}
+          onContinue={() => setBornProof(false)}
+        />
+      )}
 
       {/* Modal bilan à la clôture du projet (MLDS uniquement) */}
       {isCloseProjectModalOpen && isMLDSProject && (

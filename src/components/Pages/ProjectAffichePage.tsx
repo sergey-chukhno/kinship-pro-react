@@ -31,6 +31,8 @@ import {
   updateProjectDocumentVisibility,
   updateProjectMember,
 } from '../../api/Projects';
+import CloseProjectBirthOverlay from '../Modals/CloseProjectBirthOverlay';
+import CloseProjectModal from '../Modals/CloseProjectModal';
 import { getPersonalUserRoles } from '../../api/RegistrationRessource';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
@@ -289,6 +291,8 @@ const ProjectAffichePage: React.FC = () => {
   const [teamMemberQuery, setTeamMemberQuery] = useState('');
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string; prepared?: boolean } | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [closeSubmitting, setCloseSubmitting] = useState(false);
+  const [bornProof, setBornProof] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [addedFlash, setAddedFlash] = useState<string | null>(null);
@@ -771,14 +775,34 @@ const ProjectAffichePage: React.FC = () => {
 
   const confirmClose = async () => {
     if (!projectId) return;
+    setCloseSubmitting(true);
     try {
       await closeProject(Number(projectId));
       setCloseOpen(false);
-      showSuccess('Projet clôturé.');
-      await loadProject();
+      await loadProject({ silent: true });
+      setBornProof(true);
     } catch (e: any) {
       showError(e?.response?.data?.message || 'Impossible de clôturer le projet.');
+    } finally {
+      setCloseSubmitting(false);
     }
+  };
+
+  const archiveEndedProject = async () => {
+    if (!projectId || project?.status !== 'ended') return;
+    try {
+      await updateProject(Number(projectId), { project: { status: 'archived' } });
+      await loadProject({ silent: true });
+      showSuccess('Projet archivé.');
+    } catch (e: any) {
+      showError(e?.response?.data?.message || 'Impossible d’archiver le projet.');
+    }
+  };
+
+  const openBornProofPage = () => {
+    setBornProof(false);
+    setCurrentPage('pik');
+    navigate(`/pik/preuve/pp/${projectId}`);
   };
 
   const openShare = async () => {
@@ -1051,6 +1075,9 @@ const ProjectAffichePage: React.FC = () => {
               {canGovern && project.status === 'in_progress' && (
                 <button type="button" className="pa-bt-ghost" onClick={() => setCloseOpen(true)}>✓ Clôturer le projet</button>
               )}
+              {isOwner && project.status === 'ended' && !isSuperadminReadOnly && (
+                <button type="button" className="pa-bt-ghost" onClick={() => void archiveEndedProject()}>Archiver le projet</button>
+              )}
               {canAttest && (
                 <button type="button" className="pa-bt-main" onClick={() => attest()}>🏅 Attester une compétence</button>
               )}
@@ -1090,6 +1117,17 @@ const ProjectAffichePage: React.FC = () => {
                 {project.organization} · {orgSubtitle}
                 <span className="pa-pill-conf">✓ Vérifié</span>
               </div>
+              {(project.status === 'ended' || project.status === 'archived') && (
+                <div className="pa-proof-banner">
+                  <div>
+                    <div className="pa-proof-banner-title">Preuve Projet — générée à la clôture</div>
+                    <div className="pa-proof-banner-sub">Authentique et vérifiable.</div>
+                  </div>
+                  <button type="button" className="pa-proof-banner-open" onClick={openBornProofPage}>
+                    Ouvrir la preuve
+                  </button>
+                </div>
+              )}
               {desc && <div className="pa-desc">{descShort}</div>}
               {desc.length > 160 && (
                 <button type="button" className="pa-voirplus" onClick={() => setDescOpen((v) => !v)}>
@@ -1859,17 +1897,22 @@ const ProjectAffichePage: React.FC = () => {
         </div>
       )}
 
-      {closeOpen && (
-        <div className="pa-movl" onClick={() => setCloseOpen(false)}>
-          <div className="pa-modal" onClick={(e) => e.stopPropagation()}>
-            <h6>Clôturer le projet ?</h6>
-            <p>La clôture fige le projet et permet de générer sa Preuve Projet — authentique et vérifiable. On ne rouvre pas un projet clos.</p>
-            <div className="mb">
-              <button type="button" className="pa-bt-ghost" onClick={() => setCloseOpen(false)}>Annuler</button>
-              <button type="button" className="pa-addb" onClick={() => void confirmClose()}>Clôturer le projet</button>
-            </div>
-          </div>
-        </div>
+      <CloseProjectModal
+        isOpen={closeOpen}
+        projectTitle={project?.title || ''}
+        hasFunders={funders.length > 0}
+        isSubmitting={closeSubmitting}
+        onConfirm={() => void confirmClose()}
+        onCancel={() => !closeSubmitting && setCloseOpen(false)}
+      />
+
+      {bornProof && project && (
+        <CloseProjectBirthOverlay
+          title={project.title}
+          organization={project.organization}
+          onOpen={openBornProofPage}
+          onContinue={() => setBornProof(false)}
+        />
       )}
 
       {shareOpen && (

@@ -8,6 +8,8 @@ import SubscriptionRequiredModal from '../Modals/SubscriptionRequiredModal';
 import ProjectCard from '../Projects/ProjectCard';
 import CloseProjectBilanModal, { BilanData, buildMldsBilanPayload } from '../Modals/CloseProjectBilanModal';
 import ConfirmModal from '../Modals/ConfirmModal';
+import CloseProjectBirthOverlay from '../Modals/CloseProjectBirthOverlay';
+import CloseProjectModal from '../Modals/CloseProjectModal';
 import './Projects.css';
 
 // Imports API (Ajustez les chemins si nécessaire, basés sur la structure de Members.tsx)
@@ -26,7 +28,6 @@ import { openProjectAffiche, openProjectSpace } from '../../utils/projectSpaceSt
 import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
 import { useToast } from '../../hooks/useToast';
 import { isUnder15 } from '../../utils/ageUtils';
-import { buildCloseProjectConfirmationMessage } from '../../utils/projectStateGuards';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import {
   countMldsByType,
@@ -1625,11 +1626,6 @@ const Projects: React.FC = () => {
     }
   };
 
-  const closeProjectConfirmationMessage = buildCloseProjectConfirmationMessage(
-    projectToClose?.title || '',
-    Boolean(projectToClose?.hasFunders)
-  );
-
   const cancelDeleteProject = () => {
     setIsDeleteModalOpen(false);
     setProjectToDelete(null);
@@ -2781,15 +2777,13 @@ const Projects: React.FC = () => {
         />
       )}
 
-      <ConfirmModal
+      <CloseProjectModal
         isOpen={isCloseProjectConfirmOpen && !!projectToClose}
-        title="Clôture définitive du projet"
-        message={closeProjectConfirmationMessage}
-        confirmText="Confirmer la clôture définitive"
-        cancelText="Annuler"
+        projectTitle={projectToClose?.title || ''}
+        hasFunders={Boolean(projectToClose?.hasFunders)}
+        isSubmitting={isClosingProject}
         onConfirm={confirmCloseProjectIntent}
         onCancel={cancelCloseProject}
-        variant="warning"
       />
 
       {/* Modal bilan à la clôture du projet (projets MLDS uniquement) */}
@@ -2805,39 +2799,21 @@ const Projects: React.FC = () => {
       )}
 
       {bornProofProject && (
-        <div className="pp-birth-overlay" role="dialog" aria-label="Preuve Projet née">
-          <div className="pp-birth-title">Votre Preuve Projet est née.</div>
-          <div className="pp-birth-sub">Authentique et vérifiable — elle rejoint les preuves de votre structure.</div>
-          <div className="pp-birth-card">
-            <div className="pp-birth-card-head">Kinship · Preuve Projet®</div>
-            <div className="pp-birth-card-title">{bornProofProject.title}</div>
-            <div className="pp-birth-card-meta">{bornProofProject.organization}</div>
-          </div>
-          <div className="pp-birth-actions">
-            <button
-              type="button"
-              className="pp-birth-open"
-              onClick={() => {
-                const project = bornProofProject;
-                setBornProofProject(null);
-                handleManageProject(project);
-              }}
-            >
-              Ouvrir la preuve
-            </button>
-            <button
-              type="button"
-              className="pp-birth-continue"
-              onClick={() => {
-                const project = bornProofProject;
-                setBornProofProject(null);
-                handleManageProject(project);
-              }}
-            >
-              Continuer
-            </button>
-          </div>
-        </div>
+        <CloseProjectBirthOverlay
+          title={bornProofProject.title}
+          organization={bornProofProject.organization}
+          onOpen={() => {
+            const project = bornProofProject;
+            setBornProofProject(null);
+            setCurrentPage('pik');
+            navigate(`/pik/preuve/pp/${project.id}`);
+          }}
+          onContinue={() => {
+            const project = bornProofProject;
+            setBornProofProject(null);
+            handleManageProject(project);
+          }}
+        />
       )}
 
     </section>

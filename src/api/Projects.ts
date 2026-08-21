@@ -1697,6 +1697,10 @@ export interface ProjectFunderFollow {
     designation_kind?: string;
     confirmation_status?: string;
     funder_name?: string;
+    funder_email?: string | null;
+    funder_user_id?: number | null;
+    funder_company_id?: number | null;
+    viewer_is_funder?: boolean | null;
     financement?: string;
     informed_on?: string | null;
     report_due?: string | null;
@@ -1721,17 +1725,17 @@ export interface ProjectFunderFollow {
 }
 
 export const getProjectFunderFollow = async (token: string): Promise<ProjectFunderFollow> => {
-    const response = await axiosClientWithoutToken.get(`/api/v1/projects/funder_follow/${token}`);
+    const response = await apiClient.get(`/api/v1/projects/funder_follow/${token}`);
     return response.data;
 };
 
 export const confirmFunderFollowToken = async (token: string): Promise<ProjectFunderFollow> => {
-    const response = await axiosClientWithoutToken.post(`/api/v1/projects/funder_follow/${token}/confirm`);
+    const response = await apiClient.post(`/api/v1/projects/funder_follow/${token}/confirm`);
     return response.data;
 };
 
 export const declineFunderFollowToken = async (token: string): Promise<ProjectFunderFollow> => {
-    const response = await axiosClientWithoutToken.post(`/api/v1/projects/funder_follow/${token}/decline`);
+    const response = await apiClient.post(`/api/v1/projects/funder_follow/${token}/decline`);
     return response.data;
 };
 

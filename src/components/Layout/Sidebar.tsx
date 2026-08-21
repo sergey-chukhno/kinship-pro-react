@@ -306,110 +306,94 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 
         <hr className="side-divider" aria-hidden="true" />
 
-        {/* Actions rapides (teacher, edu, pro, of only) */}
-        {state.showingPageType !== 'user' && (
+        {/* Actions rapides (teacher, edu, pro) */}
+        {state.showingPageType !== 'user' && state.showingPageType !== 'of' && (
           <div className="sidebar-quick-actions">
             <div className="sidebar-quick-actions-title">Actions rapides</div>
             <div className="sidebar-quick-actions-buttons">
-              {state.showingPageType === 'of' ? (
-                <button
-                  type="button"
-                  className="side-link quick-action-btn"
-                  onClick={() => {
-                    onPageChange('dashboard');
-                    navigate('/dashboard?open=create');
-                  }}
-                >
+              <Menu as="div" className="quick-action-menu">
+                <Menu.Button className={`side-link quick-action-btn ${currentPage === 'create' ? 'active' : ''}`}>
                   <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
-                  Créer une formation
-                </button>
-              ) : (
-                <Menu as="div" className="quick-action-menu">
-                  <Menu.Button className={`side-link quick-action-btn ${currentPage === 'create' ? 'active' : ''}`}>
-                    <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
-                    Créer
-                  </Menu.Button>
-                  <Transition
-                    enter="transition ease-out duration-100"
-                    enterFrom="transform opacity-0 scale-95"
-                    enterTo="transform opacity-100 scale-100"
-                    leave="transition ease-in duration-75"
-                    leaveFrom="transform opacity-100 scale-100"
-                    leaveTo="transform opacity-0 scale-95"
-                  >
-                    <Menu.Items className="sidebar-quick-actions-dropdown" anchor="bottom start">
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            type="button"
-                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                            onClick={() => {
-                              navigate('/create?type=project');
-                              onPageChange('create');
-                            }}
-                          >
-                            Projet classique
-                          </button>
-                        )}
-                      </Menu.Item>
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            type="button"
-                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                            onClick={() => {
-                              onPageChange('projects');
-                              navigate('/projects?open=create&variant=mlds');
-                            }}
-                          >
-                            Projet MLDS Volet Persévérance Scolaire
-                          </button>
-                        )}
-                      </Menu.Item>
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            type="button"
-                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                            onClick={() => {
-                              onPageChange('projects');
-                              navigate('/projects?open=create&variant=mlds-remediation');
-                            }}
-                          >
-                            Projet MLDS Volet Remédiation
-                          </button>
-                        )}
-                      </Menu.Item>
-                      <Menu.Item disabled>
-                        {({ active }) => (
-                          <button
-                            type="button"
-                            disabled
-                            className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
-                          >
-                            Formation
-                            <span className="sidebar-quick-action-soon">Bientôt</span>
-                          </button>
-                        )}
-                      </Menu.Item>
-                      <Menu.Item disabled>
-                        {({ active }) => (
-                          <button
-                            type="button"
-                            disabled
-                            className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
-                          >
-                            Stage
-                            <span className="sidebar-quick-action-soon">Bientôt</span>
-                          </button>
-                        )}
-                      </Menu.Item>
-                    </Menu.Items>
-                  </Transition>
-                </Menu>
-              )}
-              {state.showingPageType !== 'of' && (
-                <>
+                  Créer
+                </Menu.Button>
+                <Transition
+                  enter="transition ease-out duration-100"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
+                  leave="transition ease-in duration-75"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
+                >
+                  <Menu.Items className="sidebar-quick-actions-dropdown" anchor="bottom start">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          type="button"
+                          className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                          onClick={() => {
+                            navigate('/create?type=project');
+                            onPageChange('create');
+                          }}
+                        >
+                          Projet classique
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          type="button"
+                          className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                          onClick={() => {
+                            onPageChange('projects');
+                            navigate('/projects?open=create&variant=mlds');
+                          }}
+                        >
+                          Projet MLDS Volet Persévérance Scolaire
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          type="button"
+                          className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                          onClick={() => {
+                            onPageChange('projects');
+                            navigate('/projects?open=create&variant=mlds-remediation');
+                          }}
+                        >
+                          Projet MLDS Volet Remédiation
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item disabled>
+                      {({ active }) => (
+                        <button
+                          type="button"
+                          disabled
+                          className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
+                        >
+                          Formation
+                          <span className="sidebar-quick-action-soon">Bientôt</span>
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item disabled>
+                      {({ active }) => (
+                        <button
+                          type="button"
+                          disabled
+                          className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
+                        >
+                          Stage
+                          <span className="sidebar-quick-action-soon">Bientôt</span>
+                        </button>
+                      )}
+                    </Menu.Item>
+                  </Menu.Items>
+                </Transition>
+              </Menu>
               <button
                 type="button"
                 className="side-link quick-action-btn"
@@ -421,19 +405,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 <img src="/icons_logo/Icon=Event.svg" alt="" className="side-icon" />
                 Programmer un événement
               </button>
-              {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
-                <button
-                  type="button"
-                  className="side-link quick-action-btn"
-                  onClick={() => {
-                    onPageChange('formations');
-                    navigate('/formations?open=create');
-                  }}
-                >
-                  <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
-                  Créer une formation
-                </button>
-              )}
               {(state.showingPageType === 'edu' || state.showingPageType === 'pro') && (
                 <button
                   type="button"
@@ -463,8 +434,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 <img src="/icons_logo/Icon=Reseau.svg" alt="" className="side-icon" />
                 Ajouter un partenaire
               </button>
-                </>
-              )}
             </div>
           </div>
         )}

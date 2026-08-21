@@ -67,6 +67,10 @@ export interface FunderFollowData {
   lastActivityDays?: number;
   partners?: Array<{ name?: string; role?: string }>;
   designatedOn?: string;
+  funderCompanyId?: number | null;
+  funderEmail?: string | null;
+  funderUserId?: number | null;
+  viewerIsFunder?: boolean | null;
   report?: {
     weeks: number;
     participantsCount: number;

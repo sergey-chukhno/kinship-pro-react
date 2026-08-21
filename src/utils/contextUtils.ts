@@ -120,3 +120,43 @@ export const getFinancedProjectsCount = (
 };
 
 export const jeFinanceLabel = (count: number): string => `Je finance (${count})`;
+
+export const isAuthenticatedSession = (): boolean => Boolean(localStorage.getItem('jwt_token')?.trim());
+
+export const governableCompanies = (user: User) =>
+  (user.available_contexts?.companies || []).filter(
+    (company) => company.role === 'admin' || company.role === 'superadmin'
+  );
+
+export const applyCompanySpaceContext = (companyId: number): void => {
+  localStorage.setItem('selectedPageType', 'pro');
+  localStorage.setItem('selectedContextId', String(companyId));
+  localStorage.setItem('selectedContextType', 'company');
+};
+
+export const isCompanyGovernContext = (user: User, showingPageType: ShowingPageType): boolean => {
+  if (showingPageType !== 'pro') return false;
+  const orgId = getSelectedOrganizationId(user, showingPageType);
+  return Boolean(orgId) && governableCompanies(user).some((company) => Number(company.id) === Number(orgId));
+};
+
+export const currentUserIsDesignatedFunder = (
+  user: User,
+  funder?: {
+    funderEmail?: string | null;
+    funderUserId?: number | null;
+    funderCompanyId?: number | null;
+    viewerIsFunder?: boolean | null;
+  } | null
+): boolean => {
+  if (!funder) return false;
+  if (funder.viewerIsFunder === true) return true;
+  if (funder.viewerIsFunder === false) return false;
+  const email = user.email?.trim().toLowerCase();
+  if (email && funder.funderEmail?.trim().toLowerCase() === email) return true;
+  if (funder.funderUserId != null && String(user.id) === String(funder.funderUserId)) return true;
+  if (funder.funderCompanyId != null) {
+    return governableCompanies(user).some((company) => Number(company.id) === Number(funder.funderCompanyId));
+  }
+  return false;
+};

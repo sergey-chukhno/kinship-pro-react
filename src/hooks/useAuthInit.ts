@@ -5,6 +5,8 @@ import { applySpaceTheme } from "../utils/spaceTheme";
 import { PageType } from "../types";
 import { useLocation, useNavigate } from "react-router-dom";
 
+const isPublicFollowPath = (pathname: string) => pathname.startsWith("/follow/");
+
 export const useAuthInit = () => {
   const { setCurrentPage, setShowingPageType, setUser } = useAppContext();
   const location = useLocation()
@@ -64,6 +66,10 @@ export const useAuthInit = () => {
       return 'pik';
     }
 
+    if (path.startsWith('follow/')) {
+      return 'funder-follow';
+    }
+
     // Par défaut, retourner dashboard
     return "dashboard";
   };
@@ -73,8 +79,13 @@ export const useAuthInit = () => {
       const token = localStorage.getItem("jwt_token");
       if (!token) {
         setIsAuthChecking(false);
-        // Si pas de token et pas déjà sur une page d'auth, rediriger
-        if (location.pathname !== "/register" && location.pathname !== "/login" && !location.pathname.startsWith("/register/")) {
+        // Lien public follow/:token : consultable sans compte. Sinon, page d'auth.
+        if (
+          location.pathname !== "/register" &&
+          location.pathname !== "/login" &&
+          !location.pathname.startsWith("/register/") &&
+          !isPublicFollowPath(location.pathname)
+        ) {
           navigate("/register")
         }
         return;
@@ -232,7 +243,9 @@ export const useAuthInit = () => {
         localStorage.removeItem('selectedContextId');
         localStorage.removeItem('selectedContextType');
         setCurrentPage("Auth");
-        navigate("/register")
+        if (!isPublicFollowPath(location.pathname)) {
+          navigate("/register")
+        }
       } finally {
         setIsAuthChecking(false);
       }

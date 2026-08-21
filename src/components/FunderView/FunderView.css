@@ -1,8 +1,12 @@
 .fv-page {
   min-height: 100vh;
-  background: #eceae4;
   padding: 24px 16px 48px;
   color: #1a1a1a;
+}
+
+.app-layout .fv-page {
+  min-height: 0;
+  padding: 8px 0 24px;
 }
 
 .fv-shell {

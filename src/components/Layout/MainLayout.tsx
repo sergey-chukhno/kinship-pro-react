@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import Analytics from '../Pages/Analytics';
 import AuthPage from '../Pages/AuthPage';
@@ -33,9 +33,12 @@ import CreateProjectPage from '../Pages/CreateProjectPage';
 import ProjectSpacePage from '../Pages/ProjectSpacePage';
 import ProjectAffichePage from '../Pages/ProjectAffichePage';
 import FundedProjectsPage from '../Pages/FundedProjectsPage';
+import FunderFollowPage from '../Pages/FunderFollowPage';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
+  const location = useLocation();
+  const isFollowRoute = location.pathname.startsWith('/follow/');
 
   const { isAuthChecking } = useAuthInit();
 
@@ -44,7 +47,12 @@ const MainLayout: React.FC = () => {
     applySpaceTheme(null);
   }, []);
 
-  // Couleur d'espace : suit l'ESPACE via --couleur-espace (KIN_UX_TOTP V1.1.2)
+  useEffect(() => {
+    if (isAuthChecking || !isFollowRoute) return;
+    if (state.currentPage !== 'Auth' && state.currentPage !== 'funder-follow') {
+      setCurrentPage('funder-follow');
+    }
+  }, [isAuthChecking, isFollowRoute, state.currentPage, setCurrentPage]);
   useEffect(() => {
     if (isAuthChecking) return;
     applySpaceTheme(state.showingPageType);
@@ -83,6 +91,10 @@ const MainLayout: React.FC = () => {
           }} />
         </div>
       );
+    }
+
+    if (isFollowRoute) {
+      return <FunderFollowPage />;
     }
 
     switch (state.currentPage) {
@@ -136,6 +148,8 @@ const MainLayout: React.FC = () => {
         return <ProjectAffichePage />;
       case 'funded-projects':
         return <FundedProjectsPage />;
+      case 'funder-follow':
+        return <FunderFollowPage />;
       default:
         return <Dashboard />;
     }

@@ -55,6 +55,8 @@ import {
   EU_MC_LANGUAGES,
 } from '../../data/euMcCatalog';
 import EuMcGoldSummary from './EuMcGoldSummary';
+import CloseProjectBirthOverlay from '../Modals/CloseProjectBirthOverlay';
+import CloseProjectModal from '../Modals/CloseProjectModal';
 import './ProjectSpacePage.css';
 
 type AddPanel = 'person' | 'partner' | 'funder' | 'media' | null;
@@ -201,6 +203,9 @@ const ProjectSpacePage: React.FC = () => {
   const [prepBirth, setPrepBirth] = useState('');
   const [prepEmail, setPrepEmail] = useState('');
   const [extras, setExtras] = useState(() => getProjectSpaceExtras(projectId));
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [closeSubmitting, setCloseSubmitting] = useState(false);
+  const [bornProof, setBornProof] = useState(false);
 
   const isDraft = project?.status === 'draft';
   const isCreated = Boolean(project && project.status !== 'draft');
@@ -360,6 +365,21 @@ const ProjectSpacePage: React.FC = () => {
   }, [partnerships, partnerQuery]);
 
   const showCloseBanner = shouldShowEndDateWarningBanner(project?.status, project?.showEndDateWarning);
+
+  const confirmClose = async () => {
+    if (!projectId) return;
+    setCloseSubmitting(true);
+    try {
+      await closeProject(Number(projectId));
+      setCloseOpen(false);
+      await loadProject({ silent: true });
+      setBornProof(true);
+    } catch (e: any) {
+      showError(e?.response?.data?.message || 'Clôture impossible.');
+    } finally {
+      setCloseSubmitting(false);
+    }
+  };
 
   const patchProject = async (fields: Parameters<typeof updateProject>[1]['project'], success?: string) => {
     if (!projectId) return;
@@ -1020,18 +1040,7 @@ const ProjectSpacePage: React.FC = () => {
                   <div>
                     <b>Votre projet est-il terminé ?</b> La clôture permet de générer sa Preuve Projet — authentique et vérifiable.
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await closeProject(Number(projectId));
-                        showSuccess('Projet clôturé.');
-                        await loadProject();
-                      } catch {
-                        showError('Clôture impossible.');
-                      }
-                    }}
-                  >
+                  <button type="button" onClick={() => setCloseOpen(true)}>
                     Clôturer le projet
                   </button>
                 </div>
@@ -1342,6 +1351,33 @@ const ProjectSpacePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      <CloseProjectModal
+        isOpen={closeOpen}
+        projectTitle={project.title}
+        hasFunders={funders.length > 0}
+        isSubmitting={closeSubmitting}
+        onConfirm={() => void confirmClose()}
+        onCancel={() => !closeSubmitting && setCloseOpen(false)}
+      />
+
+      {bornProof && (
+        <CloseProjectBirthOverlay
+          title={project.title}
+          organization={project.organization}
+          onOpen={() => {
+            setBornProof(false);
+            setCurrentPage('pik');
+            navigate(`/pik/preuve/pp/${project.id}`);
+          }}
+          onContinue={() => {
+            setBornProof(false);
+            openProjectAffiche(project.id);
+            setCurrentPage('project-affiche');
+            navigate('/project-affiche');
+          }}
+        />
+      )}
     </div>
   );
 };
