@@ -136,6 +136,7 @@ export interface Project {
   owner: string;
   participants: number;
   badges: number;
+  hasFunders?: boolean;
   pendingRequests?: number; // Number of pending participation requests
   startDate: string;
   endDate: string;
@@ -404,7 +405,7 @@ export interface OrganizationStatsResponse {
   badges_assigned?: BadgesAssignedStats;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'formations' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'pik' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'presence-session' | 'formation-detail' | 'formation-affiche' | 'preuve-formation' | 'create' | 'project-space' | 'project-affiche' | 'funded-projects' | 'Auth';
+export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'formations' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'pik' | 'membership-requests' | 'partnership-requests' | 'funder-attachments' | 'project-management' | 'presence-session' | 'formation-detail' | 'formation-affiche' | 'preuve-formation' | 'create' | 'project-space' | 'project-affiche' | 'funded-projects' | 'Auth';
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user' | 'of';
 

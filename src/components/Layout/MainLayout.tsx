@@ -9,6 +9,7 @@ import Events from '../Pages/Events';
 import Members from '../Pages/Members';
 import MembershipRequests from '../Pages/MembershipRequests';
 import PartnershipRequests from '../Pages/PartnershipRequests';
+import FunderAttachmentRequests from '../Pages/FunderAttachmentRequests';
 import Network from '../Pages/Network';
 import Notifications from '../Pages/Notifications';
 import ProjectManagement from '../Pages/ProjectManagement';
@@ -115,6 +116,8 @@ const MainLayout: React.FC = () => {
         return <MembershipRequests />;
       case 'partnership-requests':
         return <PartnershipRequests />;
+      case 'funder-attachments':
+        return <FunderAttachmentRequests />;
       case 'project-management':
         return <ProjectManagement />;
       case 'presence-session':

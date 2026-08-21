@@ -26,7 +26,7 @@ export const useAuthInit = () => {
       "dashboard", "members", "events", "projects", "formations", "badges",
       "analytics", "network", "notifications", "settings",
       "personal-settings", "pik",
-      "membership-requests", "partnership-requests", "project-management",
+      "membership-requests", "partnership-requests", "funder-attachments", "project-management",
       "presence-session", "formation-detail", "formation-affiche", "preuve-formation",
       "create", "project-space", "project-affiche", "funded-projects"
     ];

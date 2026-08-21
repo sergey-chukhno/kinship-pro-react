@@ -1,6 +1,77 @@
-.fp-page {
-  padding: 24px;
-  max-width: 760px;
+.fp-page.embedded {
+  padding: 0;
+  max-width: none;
+}
+
+.fp-card.confirm {
+  border: 1.5px solid var(--couleur-espace, #115e59);
+}
+
+.fp-banner.confirm {
+  background: #eef5f4;
+  border-bottom-color: #bcd6d3;
+  color: #115e59;
+}
+
+.fp-btn-confirm {
+  font-size: 10px;
+  font-weight: 800;
+  color: #115e59;
+  border: 1.5px solid #115e59;
+  border-radius: 8px;
+  padding: 3px 10px;
+  background: #fff;
+}
+
+.fp-btn-ghost {
+  font-size: 10px;
+  font-weight: 700;
+  color: #8f8d86;
+  border: 1px solid #d7d4cb;
+  border-radius: 8px;
+  padding: 3px 10px;
+  background: #fff;
+}
+
+.fp-decline {
+  border: 1.5px solid #d9a698;
+  background: #fdf3f0;
+  border-radius: 9px;
+  padding: 9px 12px;
+  margin-top: 8px;
+}
+
+.fp-decline-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #a03d2e;
+  margin-bottom: 4px;
+}
+
+.fp-decline p {
+  font-size: 10px;
+  color: #4c4a44;
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+.fp-decline-yes {
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  background: #a03d2e;
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 11px;
+}
+
+.fp-propose {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #4c4a44;
+  margin-top: 8px;
 }
 
 .fp-title {

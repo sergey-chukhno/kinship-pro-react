@@ -21,6 +21,7 @@ import {
   projectBelongsToOrganizationContext,
 } from '../../utils/projectMapper';
 import { getSelectedOrganizationId as getSelectedOrgId, getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
+import FundedProjectsPage from './FundedProjectsPage';
 import { openProjectAffiche, openProjectSpace } from '../../utils/projectSpaceStore';
 import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
 import { useToast } from '../../hooks/useToast';
@@ -45,6 +46,18 @@ import {
 } from '../../utils/mldsProjectFetch';
 import { buildMyOrgProjectsParams } from '../../utils/orgProjectsApiParams';
 
+type ProjectsHubTab =
+  | 'nouveautes'
+  | 'mes-projets'
+  | 'mlds-projects'
+  | 'mlds-remediation-projects'
+  | 'brouillons'
+  | 'archives'
+  | 'coming'
+  | 'in_progress'
+  | 'ended'
+  | 'je-finance';
+
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
   const { showError } = useToast();
@@ -62,6 +75,7 @@ const Projects: React.FC = () => {
   const [isCloseProjectModalOpen, setIsCloseProjectModalOpen] = useState(false);
   const [projectToClose, setProjectToClose] = useState<Project | null>(null);
   const [isClosingProject, setIsClosingProject] = useState(false);
+  const [bornProofProject, setBornProofProject] = useState<Project | null>(null);
   const [duplicateSourceProject, setDuplicateSourceProject] = useState<Project | null>(null);
   
   // State local pour stocker les projets récupérés de l'API
@@ -105,11 +119,14 @@ const Projects: React.FC = () => {
   const isPersonalUser = state.showingPageType === 'teacher' || state.showingPageType === 'user';
   const isTeacher = state.showingPageType === 'teacher';
   const isMinorPersonalUser = state.showingPageType === 'user' && isUnder15(state.user?.birthday);
-  // For teachers, default to 'mes-projets' since they shouldn't see public projects
-  // For regular users and pro/edu, default to 'nouveautes' to show public/org projects
-  const [activeTab, setActiveTab] = useState<'nouveautes' | 'mes-projets' | 'mlds-projects' | 'mlds-remediation-projects' | 'brouillons' | 'archives'>(
-    isTeacher ? 'mes-projets' : 'nouveautes'
-  );
+  const isOrgHub = state.showingPageType === 'pro' || state.showingPageType === 'edu';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<ProjectsHubTab>(() => {
+    if (searchParams.get('tab') === 'je-finance') return 'je-finance';
+    if (isTeacher) return 'mes-projets';
+    if (isOrgHub) return 'in_progress';
+    return 'nouveautes';
+  });
 
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -123,7 +140,9 @@ const Projects: React.FC = () => {
   }, [searchTerm]);
 
   const [pathwayFilter, setPathwayFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(isOrgHub ? 'En cours' : 'all');
+  const [financementFilter, setFinancementFilter] = useState<'all' | 'with' | 'without'>('all');
+  const [lifecycleCounts, setLifecycleCounts] = useState({ coming: 0, in_progress: 0, ended: 0 });
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [organizationFilter, setOrganizationFilter] = useState<'my-org' | 'all-public' | 'school' | 'other-orgs' | 'other-schools' | 'companies'>('my-org');
@@ -168,6 +187,63 @@ const Projects: React.FC = () => {
   const getSelectedOrganizationId = (): number | undefined => {
     return getSelectedOrgId(state.user, state.showingPageType);
   };
+
+  const isLifecycleTab = activeTab === 'coming' || activeTab === 'in_progress' || activeTab === 'ended';
+
+  const writeHubTabToUrl = (tab: ProjectsHubTab) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tab === 'je-finance') next.set('tab', 'je-finance');
+      else next.delete('tab');
+      return next;
+    }, { replace: true });
+  };
+
+  const selectHubTab = (tab: ProjectsHubTab) => {
+    setActiveTab(tab);
+    writeHubTabToUrl(tab);
+  };
+
+  const selectLifecycleTab = (tab: 'coming' | 'in_progress' | 'ended') => {
+    selectHubTab(tab);
+    setProjectPage(1);
+    setStatusFilter(tab === 'coming' ? 'À venir' : tab === 'in_progress' ? 'En cours' : 'Terminée');
+  };
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'je-finance') {
+      setActiveTab((current) => (current === 'je-finance' ? current : 'je-finance'));
+    }
+  }, [searchParams]);
+
+  const fetchLifecycleCounts = React.useCallback(async () => {
+    if (!isOrgHub) return;
+    const contextId = getSelectedOrgId(state.user, state.showingPageType);
+    if (!contextId) return;
+    const isEdu = state.showingPageType === 'edu';
+    const fetchOne = async (filter: string) => {
+      const params = buildMyOrgProjectsParams(1, filter);
+      params.per_page = 1;
+      const response = isEdu
+        ? await getSchoolProjects(contextId, params)
+        : await getCompanyProjects(contextId, params);
+      return response.data?.meta?.total_count || 0;
+    };
+    try {
+      const [coming, inProgress, ended] = await Promise.all([
+        fetchOne('À venir'),
+        fetchOne('En cours'),
+        fetchOne('Terminée'),
+      ]);
+      setLifecycleCounts({ coming, in_progress: inProgress, ended });
+    } catch {
+      /* keep previous counts */
+    }
+  }, [isOrgHub, state.user, state.showingPageType]);
+
+  useEffect(() => {
+    void fetchLifecycleCounts();
+  }, [fetchLifecycleCounts]);
 
   // Fonction pour récupérer les projets publics (Nouveautés)
   const fetchPublicProjects = React.useCallback(async (page: number = 1) => {
@@ -924,7 +1000,6 @@ const Projects: React.FC = () => {
   }, [isProjectDropdownOpen]);
 
   // Open create modal from URL (e.g. from Sidebar "Actions rapides" -> Créer un projet)
-  const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     const open = searchParams.get('open');
     const variant = searchParams.get('variant');
@@ -1466,6 +1541,10 @@ const Projects: React.FC = () => {
 
       setIsCloseProjectModalOpen(false);
       setProjectToClose(null);
+      if (proj.mlds_information == null) {
+        setBornProofProject({ ...proj, status: 'ended' });
+        void fetchLifecycleCounts();
+      }
     } catch (error: any) {
       console.error('Error closing project:', error);
       if (error?.response?.status === 403) {
@@ -1546,7 +1625,10 @@ const Projects: React.FC = () => {
     }
   };
 
-  const closeProjectConfirmationMessage = buildCloseProjectConfirmationMessage(projectToClose?.title || '');
+  const closeProjectConfirmationMessage = buildCloseProjectConfirmationMessage(
+    projectToClose?.title || '',
+    Boolean(projectToClose?.hasFunders)
+  );
 
   const cancelDeleteProject = () => {
     setIsDeleteModalOpen(false);
@@ -1703,7 +1785,7 @@ const Projects: React.FC = () => {
   const disableLocalSearchForUserDashboard =
     state.showingPageType === 'user' && (activeTab === 'nouveautes' || activeTab === 'mes-projets');
   const disableLocalSearchForOrgMyOrg =
-    !isPersonalUser && organizationFilter === 'my-org' && activeTab === 'nouveautes';
+    !isPersonalUser && organizationFilter === 'my-org' && (activeTab === 'nouveautes' || isLifecycleTab);
   const normalizedSearch = searchTerm.toLowerCase();
   const filteredProjects = projectsToDisplay.filter(project => {
     // MLDS tabs: filtering and pagination are handled in applyMldsDisplay
@@ -1724,7 +1806,7 @@ const Projects: React.FC = () => {
       return false;
     }
     // For Projets tab (nouveautes) and Mes projets (mes-projets), exclude draft projects (they have their own tab)
-    if ((activeTab === 'nouveautes' || activeTab === 'mes-projets') && project.status === 'draft') {
+    if ((activeTab === 'nouveautes' || activeTab === 'mes-projets' || isLifecycleTab) && project.status === 'draft') {
       return false;
     }
     // Search filter
@@ -1812,7 +1894,14 @@ const Projects: React.FC = () => {
       }
     }
 
-    return matchesSearch && matchesPathway && matchesStatus && matchesOrganization && matchesVisibility && matchesStartDate && matchesEndDate && matchesMldsRequestedBy && matchesMldsTargetAudience && matchesMldsActionObjectives && matchesMldsOrganization;
+    const matchesFinancement =
+      isMldsTab ||
+      activeTab === 'brouillons' ||
+      financementFilter === 'all' ||
+      (financementFilter === 'with' && Boolean(project.hasFunders)) ||
+      (financementFilter === 'without' && !project.hasFunders);
+
+    return matchesSearch && matchesPathway && matchesStatus && matchesOrganization && matchesVisibility && matchesStartDate && matchesEndDate && matchesMldsRequestedBy && matchesMldsTargetAudience && matchesMldsActionObjectives && matchesMldsOrganization && matchesFinancement;
   });
 
   return (
@@ -2079,30 +2168,40 @@ const Projects: React.FC = () => {
         {/* For pro/edu: show Projets, Brouillons, MLDS, and Archives tabs */}
         {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
           <>
-            <button 
-              className={`filter-tab ${activeTab === 'nouveautes' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('nouveautes');
-                setProjectPage(1); // Reset pagination when switching tabs
-              }}
-            >
-              Projets ({projectTotalCount})
-            </button>
-            <button 
+            <button
               className={`filter-tab ${activeTab === 'brouillons' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('brouillons');
-              }}
+              onClick={() => selectHubTab('brouillons')}
             >
               Brouillons ({draftProjectsCount})
             </button>
+            <button
+              className={`filter-tab ${activeTab === 'coming' ? 'active' : ''}`}
+              onClick={() => selectLifecycleTab('coming')}
+            >
+              À venir ({lifecycleCounts.coming})
+            </button>
+            <button
+              className={`filter-tab ${activeTab === 'in_progress' ? 'active' : ''}`}
+              onClick={() => selectLifecycleTab('in_progress')}
+            >
+              En cours ({lifecycleCounts.in_progress})
+            </button>
+            <button
+              className={`filter-tab ${activeTab === 'ended' ? 'active' : ''}`}
+              onClick={() => selectLifecycleTab('ended')}
+            >
+              Terminés ({lifecycleCounts.ended})
+            </button>
+            <button
+              className={`filter-tab ${activeTab === 'archives' ? 'active' : ''}`}
+              onClick={() => selectHubTab('archives')}
+            >
+              Archivés ({archivedProjectsCount})
+            </button>
             {financedCount > 0 && (
               <button
-                className="filter-tab"
-                onClick={() => {
-                  setCurrentPage('funded-projects');
-                  navigate('/funded-projects');
-                }}
+                className={`filter-tab ${activeTab === 'je-finance' ? 'active' : ''}`}
+                onClick={() => selectHubTab('je-finance')}
               >
                 {jeFinanceLabel(financedCount)}
               </button>
@@ -2111,8 +2210,8 @@ const Projects: React.FC = () => {
               <button 
                 className={`filter-tab ${activeTab === 'mlds-projects' ? 'active' : ''}`}
                 onClick={() => {
-                  setActiveTab('mlds-projects');
-                  setMldsProjectsPage(1); // Reset pagination when switching tabs
+                  selectHubTab('mlds-projects');
+                  setMldsProjectsPage(1);
                 }}
               >
                 Projets MLDS Volet Persévérance ({mldsCatalogCounts.perseverance})
@@ -2122,33 +2221,25 @@ const Projects: React.FC = () => {
               <button
                 className={`filter-tab ${activeTab === 'mlds-remediation-projects' ? 'active' : ''}`}
                 onClick={() => {
-                  setActiveTab('mlds-remediation-projects');
+                  selectHubTab('mlds-remediation-projects');
                   setMldsRemediationProjectsPage(1);
                 }}
               >
                 Projets MLDS Volet Remédiation ({mldsCatalogCounts.remediation})
               </button>
             )}
-            <button
-              className={`filter-tab ${activeTab === 'archives' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab('archives');
-              }}
-            >
-              Archives ({archivedProjectsCount})
-            </button>
           </>
         )}
       </div>
 
-      {/* Search Bar */}
+      {activeTab !== 'je-finance' && (
       <div className="w-full projects-search-container">
         <div className="search-bar">
           <i className="fas fa-search search-icon"></i>
           <input
             type="text"
             className="w-full search-input"
-            placeholder="Rechercher un projet par titre, mot clé, parcours, statut..."
+            placeholder="Rechercher un projet par titre, mot clé, parcours…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -2357,6 +2448,20 @@ const Projects: React.FC = () => {
                 </select>
               </div>
               <div className="filter-group">
+                <label htmlFor="financement-filter">Financement</label>
+                <select
+                  id="financement-filter"
+                  className="filter-select"
+                  value={financementFilter}
+                  onChange={(e) => setFinancementFilter(e.target.value as 'all' | 'with' | 'without')}
+                >
+                  <option value="all">Tous</option>
+                  <option value="with">Avec financeur</option>
+                  <option value="without">Sans financeur</option>
+                </select>
+              </div>
+              {!isOrgHub && (
+              <div className="filter-group">
                 <label htmlFor="status-filter">Statut</label>
                 <select
                   id="status-filter"
@@ -2370,6 +2475,7 @@ const Projects: React.FC = () => {
                   <option value="Terminée">Terminée</option>
                 </select>
               </div>
+              )}
               <div className="filter-group">
                 <label htmlFor="start-date-filter">Date de début</label>
                 <input
@@ -2408,8 +2514,11 @@ const Projects: React.FC = () => {
           )}
         </div>
       </div>
+      )}
 
-      {(isLoadingMainProjects && !isMldsTab && (initialLoad || activeTab === 'nouveautes' || activeTab === 'mes-projets')) ||
+      {(activeTab === 'je-finance') ? (
+        <FundedProjectsPage embedded />
+      ) : (isLoadingMainProjects && !isMldsTab && (initialLoad || activeTab === 'nouveautes' || activeTab === 'mes-projets' || isLifecycleTab)) ||
         (isMldsTab && isLoadingMldsProjects && !mldsProjectsCacheRef.current) ||
         (activeTab === 'brouillons' && isLoadingDraftProjects && (isTeacher || state.showingPageType === 'pro' || state.showingPageType === 'edu')) ||
         (activeTab === 'archives' && isLoadingArchivedProjects) ? (
@@ -2487,14 +2596,15 @@ const Projects: React.FC = () => {
               
               // Check if project is ended - disable edit/delete actions if true, but allow viewing
               const isProjectEnded = project.status === 'ended';
-              const canClose = (project.status === 'in_progress' || project.status === 'coming') && isOwner;
-              // Suppression uniquement possible en brouillon ou archivé
+              const canClose = project.status === 'in_progress' && isOwner;
               const canDeleteProject =
                 canDelete &&
                 !isProjectEnded &&
                 (project.status === 'draft' || project.status === 'archived');
-              // Duplication : uniquement sur les brouillons (comme supprimer)
-              const canDuplicateProject =   state.showingPageType !== 'user' &&  state.showingPageType !== 'pro';
+              const canDuplicateProject =
+                isProjectEnded &&
+                isOwner &&
+                state.showingPageType !== 'user';
               
               return (
                 <ProjectCard
@@ -2692,6 +2802,42 @@ const Projects: React.FC = () => {
           onConfirm={(bilanData) => confirmCloseProject(bilanData)}
           isSubmitting={isClosingProject}
         />
+      )}
+
+      {bornProofProject && (
+        <div className="pp-birth-overlay" role="dialog" aria-label="Preuve Projet née">
+          <div className="pp-birth-title">Votre Preuve Projet est née.</div>
+          <div className="pp-birth-sub">Authentique et vérifiable — elle rejoint les preuves de votre structure.</div>
+          <div className="pp-birth-card">
+            <div className="pp-birth-card-head">Kinship · Preuve Projet®</div>
+            <div className="pp-birth-card-title">{bornProofProject.title}</div>
+            <div className="pp-birth-card-meta">{bornProofProject.organization}</div>
+          </div>
+          <div className="pp-birth-actions">
+            <button
+              type="button"
+              className="pp-birth-open"
+              onClick={() => {
+                const project = bornProofProject;
+                setBornProofProject(null);
+                handleManageProject(project);
+              }}
+            >
+              Ouvrir la preuve
+            </button>
+            <button
+              type="button"
+              className="pp-birth-continue"
+              onClick={() => {
+                const project = bornProofProject;
+                setBornProofProject(null);
+                handleManageProject(project);
+              }}
+            >
+              Continuer
+            </button>
+          </div>
+        </div>
       )}
 
     </section>

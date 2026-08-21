@@ -56,6 +56,26 @@ export interface FunderFollowData {
   outcomes: FunderOutcome[];
   sessions: FunderSession[];
   signals: FunderSignal[];
+  declined?: boolean;
+  declinedOn?: string;
+  needsConfirmation?: boolean;
+  orgKind?: string;
+  weekCurrent?: number;
+  weekTotal?: number;
+  participantsCount?: number;
+  proofsCount?: number;
+  lastActivityDays?: number;
+  partners?: Array<{ name?: string; role?: string }>;
+  designatedOn?: string;
+  report?: {
+    weeks: number;
+    participantsCount: number;
+    proofsCount: number;
+    life: string[];
+    participants: Array<{ name: string; role: string; proofs: number }>;
+    anonymous: boolean;
+    transmittedOn?: string | null;
+  };
 }
 
 export interface FunderHubCard {

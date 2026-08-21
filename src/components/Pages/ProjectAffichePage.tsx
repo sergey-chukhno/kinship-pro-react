@@ -1219,7 +1219,7 @@ const ProjectAffichePage: React.FC = () => {
                 {canSeeFunders && (
                   <>
                     <div className="pa-elabel">
-                      Financeur ⓘ
+                      Financeurs ({funders.length}) ⓘ
                       {canGovern && (
                         <button type="button" onClick={() => setAddPanel(addPanel === 'funder' ? null : 'funder')}>
                           + Ajouter un financeur
@@ -1421,7 +1421,7 @@ const ProjectAffichePage: React.FC = () => {
                       {!showPrepForm ? (
                         <button type="button" className="pa-rline dash" onClick={() => setShowPrepForm(true)}>
                           <div className="pa-av">➕</div>
-                          <div style={{ fontSize: 9.5, color: '#6d6a62' }}>Si la personne est déjà sur Kinship, le rapprochement sera automatique.</div>
+                          <div style={{ fontSize: 9.5, color: '#6d6a62' }}>Si la personne est déjà sur Kinship, son compte sera retrouvé automatiquement.</div>
                         </button>
                       ) : (
                         <div style={{ border: '1px dashed #bcd6d3', borderRadius: 9, padding: '8px 10px 6px', background: '#fff', marginBottom: 6 }}>
@@ -1466,7 +1466,7 @@ const ProjectAffichePage: React.FC = () => {
                             <label>Email — optionnel</label>
                             <input className="pa-fin" value={prepEmail} onChange={(e) => setPrepEmail(e.target.value)} placeholder="si vous le donnez, l’invitation part" />
                           </div>
-                          <div className="pa-hint">Si la personne est déjà sur Kinship, le rapprochement sera automatique. Pour faire co-attester le projet par une personne sans compte : ne la pré-inscrivez pas — cela se fera à la clôture.</div>
+                          <div className="pa-hint">Si la personne est déjà sur Kinship, son compte sera retrouvé automatiquement. Pour faire co-attester le projet par une personne sans compte : ne la pré-inscrivez pas — cela se fera à la clôture.</div>
                           <div className="pa-actions-end">
                             <button type="button" className="pa-bt-ghost" onClick={() => setShowPrepForm(false)}>Annuler</button>
                             <button type="button" className="pa-addb" onClick={() => void submitPrepared()}>Pré-inscrire</button>

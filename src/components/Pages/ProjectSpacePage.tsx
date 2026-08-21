@@ -14,6 +14,9 @@ import {
   getProjectMembers,
   getTags,
   getTeacherMembers,
+  lookupFunderOrganization,
+  getFunderAttachments,
+  FunderAttachment,
   Partnership,
   ProjectDocument,
   ProjectFunder,
@@ -191,6 +194,8 @@ const ProjectSpacePage: React.FC = () => {
   const [funderShare, setFunderShare] = useState<'nominatif' | 'anonyme'>('nominatif');
   const [uploadDocVis, setUploadDocVis] = useState<'private' | 'public'>('private');
   const [funders, setFunders] = useState<ProjectFunder[]>([]);
+  const [attachedFunders, setAttachedFunders] = useState<FunderAttachment[]>([]);
+  const [matchedFunderOrg, setMatchedFunderOrg] = useState<{ name: string; email: string } | null>(null);
   const [prepFirst, setPrepFirst] = useState('');
   const [prepLast, setPrepLast] = useState('');
   const [prepBirth, setPrepBirth] = useState('');
@@ -264,6 +269,27 @@ const ProjectSpacePage: React.FC = () => {
   useEffect(() => {
     void loadProject();
   }, [loadProject]);
+
+  useEffect(() => {
+    if (!orgId) return;
+    void getFunderAttachments(orgId, orgType === 'school' ? 'school' : 'company')
+      .then((res) => setAttachedFunders((res.received || []).filter((a) => a.status === 'confirmed')))
+      .catch(() => setAttachedFunders([]));
+  }, [orgId, orgType]);
+
+  useEffect(() => {
+    const email = funderEmail.trim();
+    if (!email.includes('@')) {
+      setMatchedFunderOrg(null);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      void lookupFunderOrganization(email).then((org) => {
+        setMatchedFunderOrg(org ? { name: org.name, email: org.email } : null);
+      });
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [funderEmail]);
 
   useEffect(() => {
     void getTags()
@@ -500,7 +526,7 @@ const ProjectSpacePage: React.FC = () => {
       setPrepBirth('');
       setPrepEmail('');
       setAddPanel(null);
-      showSuccess('Pré-inscription enregistrée — le rapprochement se fait si la personne est déjà sur Kinship.');
+      showSuccess('Pré-inscription enregistrée — son compte sera retrouvé automatiquement si la personne est déjà sur Kinship.');
     } catch (e: any) {
       showError(e?.response?.data?.message || e?.response?.data?.details?.[0] || 'Impossible d’enregistrer la pré-inscription.');
     }
@@ -559,6 +585,7 @@ const ProjectSpacePage: React.FC = () => {
   const funderStatusLabel = (f: ProjectFunder) => {
     if (isDraft) return 'préparé — informé au démarrage';
     if (f.closed_notified_at) return 'rapport transmis';
+    if (f.designation_kind === 'punctual') return 'désignation ponctuelle · sera informé au démarrage';
     if (f.started_notified_at) return 'informé · lien de suivi envoyé';
     return 'rattaché · sera informé au démarrage · rapport à la clôture';
   };
@@ -1069,7 +1096,7 @@ const ProjectSpacePage: React.FC = () => {
                       <button type="button" className="ps-btn ghost" onClick={() => setAddPanel(null)}>Annuler</button>
                       <button type="button" className="ps-btn primary" onClick={() => void submitPrepared()}>Pré-inscrire</button>
                     </div>
-                    <p className="ps-sub">Si la personne est déjà sur Kinship, le rapprochement sera automatique.</p>
+                    <p className="ps-sub">Si la personne est déjà sur Kinship, son compte sera retrouvé automatiquement.</p>
                     <p className="ps-sub">Pour faire co-attester le projet par une personne ou un partenaire sans compte : ne la pré-inscrivez pas — cela se fera à la clôture du projet.</p>
                   </div>
                 )}
@@ -1129,10 +1156,10 @@ const ProjectSpacePage: React.FC = () => {
 
               <section className="ps-sec">
                 <h2>
-                  Financeur ({funders.length})
+                  Financeurs ({funders.length})
                   {!isEnded && (
                     <button type="button" className={`ps-add ${addPanel === 'funder' ? 'on' : ''}`} onClick={() => setAddPanel(addPanel === 'funder' ? null : 'funder')}>
-                      + Ajouter le financeur
+                      + Ajouter un financeur
                     </button>
                   )}
                 </h2>
@@ -1156,11 +1183,33 @@ const ProjectSpacePage: React.FC = () => {
                 ))}
                 {addPanel === 'funder' && (
                   <div className="ps-panel">
-                    <div className="ps-steps" style={{ marginTop: 0 }}>Rechercher une organisation sur Kinship</div>
+                    <div className="ps-steps" style={{ marginTop: 0 }}>Vos financeurs — rattachés à votre structure</div>
+                    {attachedFunders.length === 0 && <p className="ps-sub">Le rattachement financeur se demande et s’approuve dans l’espace partenariat.</p>}
+                    {attachedFunders.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        className="ps-pick"
+                        onClick={() => {
+                          if (a.funder_company?.name) setFunderQuery(a.funder_company.name);
+                        }}
+                      >
+                        <div className="ps-pdot funder">{initialsOf(a.funder_company?.name ?? '')}</div>
+                        {a.funder_company?.name}
+                      </button>
+                    ))}
+                    <div className="ps-divider">ou</div>
+                    <div className="ps-steps">Rechercher une organisation sur Kinship</div>
                     <input className="ps-in" value={funderQuery} onChange={(e) => setFunderQuery(e.target.value)} placeholder="Fondation…" />
+                    <p className="ps-sub">Pas encore rattachée : elle sera ajoutée à ce projet seulement — son lien partira par email et elle retrouvera le projet dans son espace, avec une pastille « À confirmer ».</p>
                     <div className="ps-divider">ou</div>
                     <div className="ps-steps">Il n’est pas sur Kinship ? Entrez son email</div>
                     <input className="ps-in" type="email" value={funderEmail} onChange={(e) => setFunderEmail(e.target.value)} placeholder="contact@financeur.fr" />
+                    {matchedFunderOrg ? (
+                      <p className="ps-sub">Nous vous proposons <b>{matchedFunderOrg.name}</b> — la désignation la retrouvera directement.</p>
+                    ) : (
+                      <p className="ps-sub">Si cette adresse correspond à une organisation déjà sur Kinship, nous vous la proposerons — la désignation la retrouvera directement.</p>
+                    )}
                     <div className="ps-share">
                       <button type="button" className={funderShare === 'nominatif' ? 'on' : ''} onClick={() => setFunderShare('nominatif')}>nominatif</button>
                       <button type="button" className={funderShare === 'anonyme' ? 'on' : ''} onClick={() => setFunderShare('anonyme')}>anonyme</button>
@@ -1177,7 +1226,7 @@ const ProjectSpacePage: React.FC = () => {
                 <p className="ps-sub">
                   {isDraft
                     ? 'S’ajoute dès le brouillon — rien ne part avant la création.'
-                    : 'Un financeur n’est pas un partenaire : il suit, il n’agit pas. Le retrait, jusqu’au démarrage.'}
+                    : 'Un financeur n’est pas un partenaire : il suit, il n’agit pas. Plusieurs financeurs possibles — chacun son lien. L’ajout vit ici et sur l’affiche (porteur seul) — le retrait, jusqu’au démarrage.'}
                 </p>
               </section>
 

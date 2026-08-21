@@ -1,13 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FundedProjectCard, getFundedProjects } from '../../api/Projects';
+import {
+  confirmFundedProject,
+  declineFundedProject,
+  FundedProjectCard,
+  getFundedProjects,
+  proposeFunderAttachment,
+} from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import './FundedProjectsPage.css';
 
 type HubFilter = '' | 'run' | 'watch' | 'ended';
 
-const FundedProjectsPage: React.FC = () => {
+const FundedProjectsPage: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
   const { state } = useAppContext();
   const navigate = useNavigate();
   const [cards, setCards] = useState<FundedProjectCard[]>([]);
@@ -57,8 +63,26 @@ const FundedProjectsPage: React.FC = () => {
     [live.length, watch.length, endedThisYear.length, archives.length]
   );
 
+  const refreshCard = (next: FundedProjectCard) => {
+    setCards((prev) => prev.map((c) => (c.token === next.token ? next : c)));
+  };
+
+  const handleConfirm = async (token: string, propose?: boolean) => {
+    if (propose) {
+      await proposeFunderAttachment(token, companyId);
+      return;
+    }
+    const next = await confirmFundedProject(token, companyId);
+    if (next) refreshCard(next);
+  };
+
+  const handleDecline = async (token: string) => {
+    await declineFundedProject(token, companyId);
+    setCards((prev) => prev.filter((c) => c.token !== token));
+  };
+
   return (
-    <div className="fp-page">
+    <div className={`fp-page ${embedded ? 'embedded' : ''}`}>
       <h1 className="fp-title">{loading ? 'Je finance' : `Je finance (${cards.length})`}</h1>
       <p className="fp-sub">
         Les projets où une structure vous a désigné financeur — vous suivez, sans jamais y agir. Vos propres projets n’apparaissent pas ici.
@@ -83,7 +107,7 @@ const FundedProjectsPage: React.FC = () => {
         <p className="fp-empty-sub">Chargement…</p>
       ) : cards.length === 0 ? (
         <div className="fp-empty">
-          <div className="fp-empty-title">Aucune désignation pour l’instant</div>
+          <div className="fp-empty-title">Aucun projet financé pour l’instant</div>
           <p className="fp-empty-sub">
             Dès qu’une structure vous désigne financeur d’un projet, il apparaît ici — rattachement ou pas.
           </p>
@@ -94,7 +118,13 @@ const FundedProjectsPage: React.FC = () => {
             <section>
               <div className="fp-gsec">À regarder ({watch.length})</div>
               {watch.map((card) => (
-                <FundedCard key={card.token} card={card} onFollow={() => navigate(`/follow/${card.token}`)} />
+                <FundedCard
+                  key={card.token}
+                  card={card}
+                  onFollow={() => navigate(`/follow/${card.token}`)}
+                  onConfirm={handleConfirm}
+                  onDecline={handleDecline}
+                />
               ))}
             </section>
           )}
@@ -105,7 +135,13 @@ const FundedProjectsPage: React.FC = () => {
                 En cours ({(filter === 'run' ? live : live.filter((c) => !c.watch)).length})
               </div>
               {(filter === 'run' ? live : live.filter((c) => !c.watch)).map((card) => (
-                <FundedCard key={card.token} card={card} onFollow={() => navigate(`/follow/${card.token}`)} />
+                <FundedCard
+                  key={card.token}
+                  card={card}
+                  onFollow={() => navigate(`/follow/${card.token}`)}
+                  onConfirm={handleConfirm}
+                  onDecline={handleDecline}
+                />
               ))}
             </section>
           )}
@@ -143,35 +179,93 @@ function FundedCard({
   card,
   ended,
   onFollow,
+  onConfirm,
+  onDecline,
 }: {
   card: FundedProjectCard;
   ended?: boolean;
   onFollow: () => void;
+  onConfirm?: (token: string, propose?: boolean) => Promise<void>;
+  onDecline?: (token: string) => Promise<void>;
 }) {
+  const [declining, setDeclining] = useState(false);
+  const [justConfirmed, setJustConfirmed] = useState(false);
+  const pending = Boolean(card.needs_confirmation) && !ended;
+
   return (
-    <article className={`fp-card ${card.watch && !ended ? 'amber' : ''} ${ended ? 'ended' : ''}`}>
-      {card.watch && !ended && card.watch_label && <div className="fp-banner">⚠ {card.watch_label}</div>}
+    <article className={`fp-card ${card.watch && !ended ? 'amber' : ''} ${ended ? 'ended' : ''} ${pending ? 'confirm' : ''}`}>
+      {pending && (
+        <div className="fp-banner confirm">
+          ● À confirmer — {card.org || 'Une structure'} vous a désigné financeur de ce projet
+        </div>
+      )}
+      {card.watch && !ended && !pending && card.watch_label && <div className="fp-banner">⚠ {card.watch_label}</div>}
       <div className="fp-row1">
         <div className="fp-card-title">{card.title}</div>
         <span className={`fp-state ${ended ? 'end' : 'run'}`}>{card.status_label}</span>
       </div>
       <div className="fp-meta">
-        {[card.org, card.date_range, ended && card.report_transmitted ? 'le rapport transmis' : null]
+        {[
+          card.org,
+          card.date_range,
+          pending ? 'désignation ponctuelle' : null,
+          ended && card.report_transmitted ? 'le rapport transmis' : null,
+        ]
           .filter(Boolean)
           .join(' · ')}
       </div>
-      <div className="fp-row2">
-        {ended ? (
-          <span className="fp-sig ok">Preuve Projet générée</span>
-        ) : card.watch ? (
-          <span className="fp-sig warn">À regarder</span>
-        ) : (
-          <span className="fp-sig ok">● Rien à signaler</span>
-        )}
-        <button type="button" className={`fp-follow ${ended ? 'ghost' : ''}`} onClick={onFollow}>
-          {ended ? 'Le rapport →' : 'Suivre →'}
-        </button>
-      </div>
+      {declining ? (
+        <div className="fp-decline">
+          <div className="fp-decline-title">Décliner cette désignation ?</div>
+          <p>
+            Vous indiquez : « nous ne finançons pas ce projet ». La désignation sera retirée chez {card.org || 'la structure'}, qui en sera notifiée.
+          </p>
+          <div className="fp-row2">
+            <button type="button" className="fp-decline-yes" onClick={() => void onDecline?.(card.token)}>
+              Oui, décliner
+            </button>
+            <button type="button" className="fp-btn-ghost" onClick={() => setDeclining(false)}>
+              Revenir
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="fp-row2">
+          {pending ? (
+            <>
+              <button
+                type="button"
+                className="fp-btn-confirm"
+                onClick={() => {
+                  void onConfirm?.(card.token).then(() => setJustConfirmed(true));
+                }}
+              >
+                Confirmer
+              </button>
+              <button type="button" className="fp-btn-ghost" onClick={() => setDeclining(true)}>
+                Décliner
+              </button>
+            </>
+          ) : ended ? (
+            <span className="fp-sig ok">Preuve Projet générée</span>
+          ) : card.watch ? (
+            <span className="fp-sig warn">À regarder</span>
+          ) : (
+            <span className="fp-sig ok">● Rien à signaler</span>
+          )}
+          <button type="button" className={`fp-follow ${ended ? 'ghost' : ''}`} onClick={onFollow}>
+            {ended ? 'Le rapport →' : 'Suivre →'}
+          </button>
+        </div>
+      )}
+      {justConfirmed && (
+        <label className="fp-propose">
+          <input type="checkbox" onChange={(e) => {
+            if (e.target.checked) void onConfirm?.(card.token, true);
+          }} />
+          Proposer un rattachement financeur à {card.org || 'cette structure'} ?
+        </label>
+      )}
     </article>
   );
 }

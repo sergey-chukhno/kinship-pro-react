@@ -1249,7 +1249,7 @@ const Dashboard: React.FC = () => {
     { key: 'total_projects', label: 'Projets', icon: '/icons_logo/Icon=Projet grand.svg', value: overview?.total_projects, variant: 'stat-card2' as const },
     { key: 'formations_count', label: 'Formations', icon: '/icons_logo/Icon=Projet grand.svg', value: getFormations().length, variant: 'stat-card2' as const },
     { key: 'events_count', label: 'Événements', icon: '/icons_logo/Icon=Event grand.svg', value: overview?.events_count, variant: 'stat-card2' as const },
-    { key: 'badges_assigned', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg', value: badgesAssigned?.total, variant: 'stat-card2' as const },
+    { key: 'badges_assigned', label: 'Preuves', icon: '/icons_logo/Icon=Badges.svg', value: badgesAssigned?.total, variant: 'stat-card2' as const },
   ] : [];
 
   // Teacher dashboard: order is Classes, Élèves, Membres de mon réseau, Projets, Événements, Badges (same styling as edu)
@@ -1300,7 +1300,7 @@ const Dashboard: React.FC = () => {
     }] : []),
     {
       key: 'badges_assigned',
-      label: 'Badges',
+      label: 'Preuves',
       icon: '/icons_logo/Icon=Badges.svg',
       value: badgesAssigned?.total,
       variant: 'stat-card2',

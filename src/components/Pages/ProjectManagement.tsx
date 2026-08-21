@@ -875,7 +875,10 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
-  const closeProjectConfirmationMessage = buildCloseProjectConfirmationMessage(project?.title || '');
+  const closeProjectConfirmationMessage = buildCloseProjectConfirmationMessage(
+    project?.title || '',
+    Boolean((project as { hasFunders?: boolean } | null)?.hasFunders)
+  );
 
   /**
    * Open close-project confirmation flow.

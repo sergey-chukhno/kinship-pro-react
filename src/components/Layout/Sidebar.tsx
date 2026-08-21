@@ -263,6 +263,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                             role="menuitem"
                             className={`sidebar-nav-dropdown-item ${active ? 'active' : ''} ${currentPage === item.id ? 'current' : ''}`}
                             onClick={() => {
+                              if (item.id === 'funded-projects') {
+                                navigate('/projects?tab=je-finance');
+                                onPageChange('projects');
+                                return;
+                              }
                               onPageChange(item.id);
                               navigate(`/${item.id}`);
                             }}

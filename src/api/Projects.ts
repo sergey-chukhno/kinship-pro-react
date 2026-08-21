@@ -1654,6 +1654,10 @@ export interface ProjectFunder {
     has_linked_account: boolean;
     started_notified_at: string | null;
     closed_notified_at: string | null;
+    confirmation_status?: 'pending' | 'confirmed' | 'declined';
+    designation_kind?: 'email_only' | 'punctual' | 'attached';
+    needs_confirmation?: boolean;
+    company_name?: string | null;
 }
 
 export const getProjectFunders = async (projectId: number): Promise<ProjectFunder[]> => {
@@ -1677,19 +1681,57 @@ export interface ProjectFunderFollow {
     token: string;
     kind: 'project';
     closed: boolean;
+    declined?: boolean;
+    declined_on?: string | null;
     closed_on?: string | null;
-    title: string;
+    title?: string;
     org?: string | null;
-    date_range: string;
-    status_label: string;
+    org_kind?: string | null;
+    date_range?: string;
+    status_label?: string;
     description?: string | null;
     learning_outcomes?: string | null;
-    share_mode: 'nominatif' | 'anonyme';
+    share_mode?: 'nominatif' | 'anonyme';
     follow_active: boolean;
+    needs_confirmation?: boolean;
+    designation_kind?: string;
+    confirmation_status?: string;
+    funder_name?: string;
+    financement?: string;
+    informed_on?: string | null;
+    report_due?: string | null;
+    week_current?: number;
+    week_total?: number;
+    participants_count?: number;
+    proofs_count?: number;
+    last_activity_days?: number;
+    signals?: Array<{ kind: string; label: string; detail: string }>;
+    partners?: Array<{ name?: string; role?: string }>;
+    designated_on?: string | null;
+    report?: {
+        weeks: number;
+        participants_count: number;
+        proofs_count: number;
+        proof_project: boolean;
+        life: string[];
+        participants: Array<{ name: string; role: string; proofs: number }>;
+        anonymous: boolean;
+        transmitted_on?: string | null;
+    };
 }
 
 export const getProjectFunderFollow = async (token: string): Promise<ProjectFunderFollow> => {
     const response = await axiosClientWithoutToken.get(`/api/v1/projects/funder_follow/${token}`);
+    return response.data;
+};
+
+export const confirmFunderFollowToken = async (token: string): Promise<ProjectFunderFollow> => {
+    const response = await axiosClientWithoutToken.post(`/api/v1/projects/funder_follow/${token}/confirm`);
+    return response.data;
+};
+
+export const declineFunderFollowToken = async (token: string): Promise<ProjectFunderFollow> => {
+    const response = await axiosClientWithoutToken.post(`/api/v1/projects/funder_follow/${token}/decline`);
     return response.data;
 };
 
@@ -1705,6 +1747,10 @@ export interface FundedProjectCard {
     watch: boolean;
     watch_label?: string | null;
     closed_year?: number | null;
+    needs_confirmation?: boolean;
+    designation_kind?: string;
+    confirmation_status?: string;
+    funder_name?: string | null;
 }
 
 export const getFundedProjects = async (organizationId?: number): Promise<FundedProjectCard[]> => {
@@ -1712,6 +1758,65 @@ export const getFundedProjects = async (organizationId?: number): Promise<Funded
         params: organizationId ? { organization_id: organizationId } : undefined,
     });
     return response.data?.data || [];
+};
+
+export const confirmFundedProject = async (token: string, organizationId?: number): Promise<FundedProjectCard> => {
+    const response = await apiClient.post(`/api/v1/funded_projects/${token}/confirm`, undefined, {
+        params: organizationId ? { organization_id: organizationId } : undefined,
+    });
+    return response.data?.data;
+};
+
+export const declineFundedProject = async (token: string, organizationId?: number): Promise<void> => {
+    await apiClient.post(`/api/v1/funded_projects/${token}/decline`, undefined, {
+        params: organizationId ? { organization_id: organizationId } : undefined,
+    });
+};
+
+export const proposeFunderAttachment = async (token: string, organizationId?: number): Promise<void> => {
+    await apiClient.post(`/api/v1/funded_projects/${token}/propose_attachment`, undefined, {
+        params: organizationId ? { organization_id: organizationId } : undefined,
+    });
+};
+
+export const lookupFunderOrganization = async (email: string): Promise<{ id: number; type: string; name: string; city?: string; email: string } | null> => {
+    const response = await apiClient.get('/api/v1/funder_lookup', { params: { email } });
+    return response.data?.data || null;
+};
+
+export interface FunderAttachment {
+    id: number;
+    status: 'pending' | 'confirmed' | 'rejected';
+    created_at: string;
+    confirmed_at?: string | null;
+    rejected_at?: string | null;
+    funder_company?: { id: number; type: string; name: string; city?: string };
+    carrier?: { id: number; type: string; name: string; city?: string };
+    project_title?: string | null;
+    direction?: 'sent' | 'received';
+}
+
+export const getFunderAttachments = async (
+    organizationId: number,
+    organizationType: 'company' | 'school' = 'company'
+): Promise<{ sent: FunderAttachment[]; received: FunderAttachment[]; funders_count: number; funded_structures_count: number }> => {
+    const response = await apiClient.get('/api/v1/funder_attachments', {
+        params: { organization_id: organizationId, organization_type: organizationType },
+    });
+    return {
+        sent: response.data?.data?.sent || [],
+        received: response.data?.data?.received || [],
+        funders_count: response.data?.meta?.funders_count || 0,
+        funded_structures_count: response.data?.meta?.funded_structures_count || 0,
+    };
+};
+
+export const confirmFunderAttachment = async (id: number): Promise<void> => {
+    await apiClient.post(`/api/v1/funder_attachments/${id}/confirm`);
+};
+
+export const rejectFunderAttachment = async (id: number): Promise<void> => {
+    await apiClient.post(`/api/v1/funder_attachments/${id}/reject`);
 };
 
 /**

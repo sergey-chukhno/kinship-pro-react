@@ -646,3 +646,100 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.fv-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #e5e7eb;
+  overflow: hidden;
+  margin: 8px 0 12px;
+}
+
+.fv-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--couleur-espace, #115e59), #3a8a74);
+}
+
+.fv-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  background: #fbfaf8;
+  border: 1px solid #eceae2;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-bottom: 12px;
+  color: #6b7280;
+}
+
+.fv-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1.5px solid #eceae2;
+  margin-bottom: 10px;
+}
+
+.fv-tabs button {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 13px;
+  color: #6b7280;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1.5px;
+  cursor: pointer;
+}
+
+.fv-tabs button.on {
+  color: var(--couleur-espace, #115e59);
+  border-bottom-color: var(--couleur-espace, #115e59);
+}
+
+.fv-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #4c4a44;
+  margin: 0 0 8px;
+}
+
+.fv-klabel {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--couleur-espace, #115e59);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin: 10px 0 4px;
+}
+
+.fv-partner {
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.fv-partner span {
+  color: #9ca3af;
+}
+
+.fv-invite {
+  border: 1px solid #bcd6d3;
+  background: #eef5f4;
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin: 16px 0 8px;
+}
+
+.fv-invite b {
+  display: block;
+  font-size: 13px;
+  color: #115e59;
+  margin-bottom: 4px;
+}
+
+.fv-invite p {
+  font-size: 12px;
+  color: #4c6a5f;
+  margin: 0 0 8px;
+}

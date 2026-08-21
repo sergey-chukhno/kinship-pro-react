@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getProjectFunderFollow } from '../../api/Projects';
+import { confirmFunderFollowToken, declineFunderFollowToken, getProjectFunderFollow } from '../../api/Projects';
 import { getFunderFollow, FunderFollowData } from '../../data/mockFunderView';
 import { getFormationById, getFormationPeople } from '../../utils/formationStore';
 import { followViewFromFormation } from '../../utils/funderFollowFromFormation';
@@ -19,17 +19,20 @@ function followViewFromProjectApi(payload: Awaited<ReturnType<typeof getProjectF
     token: payload.token,
     kind: 'project',
     closed: payload.closed,
+    declined: payload.declined,
+    declinedOn: payload.declined_on || undefined,
     closedOn: payload.closed_on || undefined,
-    title: payload.title,
+    title: payload.title || '',
     org: payload.org || '',
-    dateRange: payload.date_range,
-    financement: '',
-    statusLabel: payload.status_label,
+    orgKind: payload.org_kind || undefined,
+    dateRange: payload.date_range || '',
+    financement: payload.financement || payload.funder_name || '',
+    statusLabel: payload.status_label || '',
     qualiopi: false,
     attendanceSurvey: false,
     hoursDone: '',
     hoursTotal: '',
-    hoursPercent: 0,
+    hoursPercent: payload.week_total ? Math.round(((payload.week_current || 0) / payload.week_total) * 100) : 0,
     attendanceRate: '',
     sessionsDone: 0,
     sessionsTotal: 0,
@@ -43,7 +46,32 @@ function followViewFromProjectApi(payload: Awaited<ReturnType<typeof getProjectF
     description: payload.description || '',
     outcomes,
     sessions: [],
-    signals: [],
+    signals: (payload.signals || []).map((s) => ({
+      kind: s.kind === 'overdue' || s.kind === 'dates' ? 'dates' : 'manual',
+      label: s.label,
+      detail: s.detail,
+    })),
+    needsConfirmation: payload.needs_confirmation,
+    weekCurrent: payload.week_current,
+    weekTotal: payload.week_total,
+    participantsCount: payload.participants_count,
+    proofsCount: payload.proofs_count,
+    lastActivityDays: payload.last_activity_days,
+    partners: payload.partners,
+    designatedOn: payload.designated_on || undefined,
+    informedOn: payload.informed_on || undefined,
+    reportDue: payload.report_due || undefined,
+    report: payload.report
+      ? {
+          weeks: payload.report.weeks,
+          participantsCount: payload.report.participants_count,
+          proofsCount: payload.report.proofs_count,
+          life: payload.report.life,
+          participants: payload.report.participants,
+          anonymous: payload.report.anonymous,
+          transmittedOn: payload.report.transmitted_on,
+        }
+      : undefined,
   };
 }
 
@@ -105,7 +133,19 @@ const FunderFollowPage: React.FC = () => {
   return (
     <div className="fv-page">
       <div className={`fv-shell ${data.closed ? 'ended' : ''}`}>
-        <FunderFollowView data={data} />
+        <FunderFollowView
+          data={data}
+          onConfirmToken={async () => {
+            if (!token) return;
+            const payload = await confirmFunderFollowToken(token);
+            setData(followViewFromProjectApi(payload));
+          }}
+          onDeclineToken={async () => {
+            if (!token) return;
+            const payload = await declineFunderFollowToken(token);
+            setData(followViewFromProjectApi(payload));
+          }}
+        />
       </div>
     </div>
   );

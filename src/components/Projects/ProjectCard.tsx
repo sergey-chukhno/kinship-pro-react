@@ -59,6 +59,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       case 'coming': return 'status-coming';
       case 'in_progress': return 'status-in-progress';
       case 'ended': return 'status-ended';
+      case 'archived': return 'status-ended';
       default: return 'status-coming';
     }
   };
@@ -70,7 +71,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       case 'pending_validation': return 'À valider';
       case 'coming': return 'À venir';
       case 'in_progress': return 'En cours';
-      case 'ended': return 'Terminée';
+      case 'ended': return 'TERMINÉ';
+      case 'archived': return 'ARCHIVÉ';
       default: return status;
     }
   };
@@ -88,10 +90,23 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   };
 
   return (
-    <div className="project-card">
-      <div className="project-image">
-        {project.image && (
+    <div
+      className={`project-card ${isProjectArchived ? 'is-archived' : ''} ${project.status === 'draft' ? 'is-draft' : ''}`}
+      onClick={() => onManage?.(project)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onManage?.(project);
+        }
+      }}
+    >
+      <div className={`project-image ${project.image ? 'has-photo' : 'title-fallback'} ${project.status === 'draft' ? 'draft-hatch' : ''}`}>
+        {project.image ? (
           <img src={project.image} alt={project.title} />
+        ) : (
+          <div className="project-image-title">{project.title}</div>
         )}
         <div className="project-status">
           <span className={`status-pill ${getStatusColor(project.status)}`}>
@@ -104,15 +119,15 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                 marginLeft: '8px',
                 backgroundColor: (() => {
                   const mldsInfo: any = (project as any).mlds_information;
-                  if (!mldsInfo) return '#e5e7eb'; // gray-200
+                  if (!mldsInfo) return '#e5e7eb';
                   const t = mldsInfo.type_mlds ?? mldsInfo.type;
-                  return t === 'remediation' ? '#ede9fe' : '#dbeafe'; // purple-100 / blue-100
+                  return t === 'remediation' ? '#ede9fe' : '#dbeafe';
                 })(),
                 color: (() => {
                   const mldsInfo: any = (project as any).mlds_information;
-                  if (!mldsInfo) return '#374151'; // gray-700
+                  if (!mldsInfo) return '#374151';
                   const t = mldsInfo.type_mlds ?? mldsInfo.type;
-                  return t === 'remediation' ? '#5b21b6' : '#1d4ed8'; // purple-800 / blue-700
+                  return t === 'remediation' ? '#5b21b6' : '#1d4ed8';
                 })(),
                 border: '1px solid rgba(0,0,0,0.06)',
               }}
@@ -122,6 +137,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
             </span>
           )}
         </div>
+        {project.hasFunders && project.status !== 'draft' && (
+          <span className="project-financed-pill">● Financé</span>
+        )}
       </div>
 
       <div className="project-content">
@@ -157,7 +175,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           {project.description.length > 120 && (
             <button 
               className="description-toggle-btn"
-              onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDescriptionExpanded(!isDescriptionExpanded);
+              }}
             >
               {isDescriptionExpanded ? (
                 <>
@@ -196,34 +217,33 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           </div>
         </div>
 
-        <div className="project-actions">
-          {onClose && (project.status === 'in_progress' || project.status === 'coming') && (
-            <button className="btn btn-outline btn-sm" onClick={() => onClose(project)}>
-              <i className="fas fa-check-circle"></i>
+        <div className="project-actions" onClick={(e) => e.stopPropagation()}>
+          {onClose && project.status === 'in_progress' && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => onClose(project)}>
               Clôturer
             </button>
           )}
-          {canDuplicate && onDuplicate  && (
-            <button className="btn btn-outline btn-sm" onClick={() => onDuplicate(project)}>
-              <i className="fas fa-copy"></i>
+          {canDuplicate && onDuplicate && isProjectEnded && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => onDuplicate(project)}>
               Dupliquer
             </button>
           )}
           {canDelete && onDelete && !isProjectEnded && (
-            <button className="btn btn-outline btn-sm btn-danger" onClick={() => onDelete(project)}>
-              <i className="fas fa-trash"></i>
+            <button type="button" className="btn btn-outline btn-sm btn-danger" onClick={() => onDelete(project)}>
               Supprimer
             </button>
           )}
-          {canManage && !isProjectEnded && !isProjectArchived ? (
-            <button className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
-              <i className="fas fa-cog"></i>
+          {project.status === 'draft' ? (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
+              Reprendre
+            </button>
+          ) : canManage && !isProjectEnded && !isProjectArchived ? (
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
               Gérer
             </button>
           ) : (
-            <button className="btn btn-primary btn-sm" onClick={() => onManage?.(project)}>
-              <i className="fas fa-eye"></i>
-              Voir plus
+            <button type="button" className="btn btn-primary btn-sm btn-see-project" onClick={() => onManage?.(project)}>
+              Voir le projet
             </button>
           )}
         </div>
@@ -235,7 +255,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           <img src="/icons_logo/Icon=Membres.svg" alt="Participants" className="counter-icon" />
           <span>{project.participants}</span>
         </div>
-        <div className="project-counter" title="Badges attribués">
+        <div className="project-counter" title="Preuves de compétences">
           <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="counter-icon" />
           <span>{project.badges}</span>
         </div>
