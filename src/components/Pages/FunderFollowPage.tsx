@@ -219,7 +219,6 @@ const FunderFollowPage: React.FC = () => {
         <FunderFollowView
           data={data}
           viewerIsLoggedIn={viewerIsLoggedIn}
-          viewerHasCompanySpace={viewerHasCompanySpace}
           onConfirmToken={async () => {
             if (!token) return;
             const payload = await confirmFunderFollowToken(token);

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppContext } from '../../context/AppContext';
 import { FunderFollowData, FunderSignal } from '../../data/mockFunderView';
 import './FunderView.css';
 import '../Pages/FundedProjectsPage.css';
@@ -44,7 +43,6 @@ interface FunderFollowViewProps {
   data: FunderFollowData;
   preview?: boolean;
   viewerIsLoggedIn?: boolean;
-  viewerHasCompanySpace?: boolean;
   onConfirmToken?: () => Promise<void>;
   onDeclineToken?: () => Promise<void>;
 }
@@ -53,16 +51,10 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
   data,
   preview,
   viewerIsLoggedIn = false,
-  viewerHasCompanySpace = false,
   onConfirmToken,
   onDeclineToken,
 }) => {
   const navigate = useNavigate();
-  const { setCurrentPage } = useAppContext();
-  const openJeFinance = () => {
-    setCurrentPage('projects');
-    navigate('/projects?tab=je-finance');
-  };
   const [tab, setTab] = useState<'seances' | 'programme'>('seances');
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
@@ -100,7 +92,6 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
         data={data}
         preview={preview}
         viewerIsLoggedIn={viewerIsLoggedIn}
-        viewerHasCompanySpace={viewerHasCompanySpace}
         onConfirmToken={onConfirmToken}
         onDeclineToken={onDeclineToken}
       />
@@ -326,22 +317,7 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
           </p>
         </>
       )}
-      {!preview && viewerHasCompanySpace && (
-        <>
-          <div className="fv-invite">
-            <div className="fv-invite-title">Retrouvez toutes vos formations au même endroit</div>
-            <p>Vos suivis sont dans l’onglet Je finance de votre espace organisation.</p>
-            <button type="button" className="fv-cta" onClick={openJeFinance}>
-              Voir tous vos projets
-            </button>
-          </div>
-          <p className="fv-journal">
-            Lien fourni par l&apos;organisme de formation · consultation journalisée ·
-            l&apos;organisme peut le révoquer
-          </p>
-        </>
-      )}
-      {!preview && viewerIsLoggedIn && !viewerHasCompanySpace && (
+      {!preview && viewerIsLoggedIn && (
         <p className="fv-journal">
           Lien fourni par l&apos;organisme de formation · consultation journalisée ·
           l&apos;organisme peut le révoquer
@@ -355,23 +331,16 @@ function ProjectFunderFollow({
   data,
   preview,
   viewerIsLoggedIn = false,
-  viewerHasCompanySpace = false,
   onConfirmToken,
   onDeclineToken,
 }: {
   data: FunderFollowData;
   preview?: boolean;
   viewerIsLoggedIn?: boolean;
-  viewerHasCompanySpace?: boolean;
   onConfirmToken?: () => Promise<void>;
   onDeclineToken?: () => Promise<void>;
 }) {
   const navigate = useNavigate();
-  const { setCurrentPage } = useAppContext();
-  const openJeFinance = () => {
-    setCurrentPage('projects');
-    navigate('/projects?tab=je-finance');
-  };
   const [tab, setTab] = useState<'avancement' | 'cadre'>('avancement');
   const [declining, setDeclining] = useState(false);
   const [confirmed, setConfirmed] = useState(!data.needsConfirmation);
@@ -492,15 +461,6 @@ function ProjectFunderFollow({
           <b>Retrouvez tous vos projets au même endroit</b>
           <p>Créez l’espace de votre organisation sur Kinship — vos suivis vous y retrouvent, en direct.</p>
           <button type="button" className="fv-cta" onClick={() => navigate('/register')}>Créer l’espace de mon organisation</button>
-        </div>
-      )}
-      {!preview && viewerHasCompanySpace && (
-        <div className="fv-invite">
-          <b>Retrouvez tous vos projets au même endroit</b>
-          <p>Vos suivis sont dans l’onglet Je finance de votre espace organisation.</p>
-          <button type="button" className="fv-cta" onClick={openJeFinance}>
-            Voir tous vos projets
-          </button>
         </div>
       )}
       <p className="fv-journal">Lien fourni par la structure porteuse · consultation journalisée</p>
