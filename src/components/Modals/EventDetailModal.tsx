@@ -95,21 +95,44 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
     try {
       const organizationId = getOrganizationId(state.user, state.showingPageType);
       const eventId = parseInt(event.id);
+      let result: { data: any; status: number } | null = null;
 
       if (state.showingPageType === 'edu' && organizationId) {
-        await completeSchoolEvent(organizationId, eventId, { assignments });
+        result = await completeSchoolEvent(organizationId, eventId, { assignments });
       } else if (state.showingPageType === 'pro' && organizationId) {
-        await completeCompanyEvent(organizationId, eventId, { assignments });
+        result = await completeCompanyEvent(organizationId, eventId, { assignments });
       } else if (state.showingPageType === 'teacher') {
-        await completeTeacherEvent(eventId, { assignments });
+        result = await completeTeacherEvent(eventId, { assignments });
       } else if (state.showingPageType === 'user') {
-        await completeUserEvent(eventId, { assignments });
+        result = await completeUserEvent(eventId, { assignments });
       } else {
         showError('Impossible de clôturer l\'événement dans ce contexte');
         return;
       }
 
-      showSuccess('Événement clôturé avec succès');
+      const data = result.data || {};
+      const errorCount = Number(data.error_count || (Array.isArray(data.errors) ? data.errors.length : 0));
+      const assignedCount = Number(data.assigned_count || 0);
+      const totalCount = Number(data.total_count ?? (assignedCount + errorCount));
+
+      if (result.status === 200 && errorCount === 0) {
+        showSuccess('Événement clôturé avec succès');
+      } else {
+        const detailLines = Array.isArray(data.errors)
+          ? data.errors
+              .map((err: any) => {
+                if (typeof err === 'string') return err;
+                const who = err.participant_id ? `Participant ${err.participant_id}` : 'Attribution';
+                return `${who}: ${err.message || err.code || 'échec'}`;
+              })
+              .slice(0, 5)
+          : [];
+        const summary =
+          data.message ||
+          `Clôture terminée : ${assignedCount}/${totalCount} attribution(s) réussie(s), ${errorCount} échec(s)`;
+        showError([summary, ...detailLines].filter(Boolean).join('\n'));
+      }
+
       setIsCompleteModalOpen(false);
 
       // Refresh event data
