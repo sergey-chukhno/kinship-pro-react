@@ -5990,7 +5990,7 @@ const ProjectManagement: React.FC = () => {
                 <div className="request-info">
                   <h4 className="request-name">{participant.name}</h4>
                   <p className="request-profession">{(participant as any).userRole ? translateRole((participant as any).userRole) : participant.profession}</p>
-                  {(participant as any).school_level_name && (
+                  {!isProjectEnded && (participant as any).school_level_name && (
                     <p className="text-sm request-school-level bg-[--primary-light]">classe : {(participant as any).school_level_name}</p>
                   )}
                   {showEmails && <p className="request-email" title={participant.email}>{participant.email}</p>}
@@ -6093,7 +6093,7 @@ const ProjectManagement: React.FC = () => {
                       <td>{participant.name}</td>
                       <td>
                         <span>{(participant as any).userRole ? translateRole((participant as any).userRole) : participant.profession || '—'}</span>
-                        {(participant as any).school_level_name && (
+                        {!isProjectEnded && (participant as any).school_level_name && (
                           <span className="participant-list-school"> — classe : {(participant as any).school_level_name}</span>
                         )}
                       </td>
@@ -7269,7 +7269,7 @@ const ProjectManagement: React.FC = () => {
                               {toDisplayString(participant.organization)}
                             </div>
                           )}
-                          {(participant as any).school_level_name && (
+                          {!isProjectEnded && (participant as any).school_level_name && (
                             <div className="member-school-level" style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                               {(participant as any).school_level_name}
                             </div>
