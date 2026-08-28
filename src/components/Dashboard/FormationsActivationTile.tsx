@@ -34,9 +34,19 @@ const FormationsActivationTile: React.FC = () => {
 
   if (status === 'activated') {
     return (
-      <button type="button" className="fat-tile fat-on" onClick={goFormations} title="Voir Formations">
-        <div className="fat-value">{count}</div>
-        <div className="fat-label">Formations</div>
+      <button
+        type="button"
+        className="stat-card2 stat-card-clickable"
+        onClick={goFormations}
+        title="Voir Formations"
+      >
+        <div className="stat-icon">
+          <img src="/icons_logo/Icon=Projet grand.svg" alt="Formations" />
+        </div>
+        <div className="stat-content">
+          <div className="stat-value">{count}</div>
+          <div className="stat-label2">Formations</div>
+        </div>
       </button>
     );
   }

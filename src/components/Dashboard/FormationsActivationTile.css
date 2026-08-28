@@ -75,21 +75,3 @@
 .fat-reject .fat-sub {
   color: #7a4437;
 }
-
-.fat-on {
-  background: #115e59;
-  border: 1.5px solid #115e59;
-  color: #fff;
-}
-
-.fat-value {
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.fat-on .fat-label {
-  font-size: 14px;
-  font-weight: 700;
-  margin-top: 4px;
-}
