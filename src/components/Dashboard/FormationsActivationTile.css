@@ -1,0 +1,95 @@
+.fat-tile {
+  flex: 0 0 calc(50% - 10px);
+  min-width: 250px;
+  border-radius: 16px;
+  padding: 20px 22px;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fat-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.fat-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.fat-sub {
+  font-size: 12.5px;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.fat-cta {
+  font-size: 13.5px;
+  font-weight: 800;
+  margin-top: 8px;
+}
+
+.fat-idle {
+  border: 1.5px dashed #b8b5ab;
+  background: #fff;
+  opacity: 0.92;
+}
+
+.fat-idle .fat-title,
+.fat-idle .fat-sub {
+  color: #8f8d86;
+}
+
+.fat-idle .fat-cta {
+  color: #33518e;
+}
+
+.fat-pending {
+  border: 1.5px solid #c9d2e4;
+  background: #eef1f7;
+}
+
+.fat-pending .fat-title,
+.fat-pending .fat-cta {
+  color: #33518e;
+}
+
+.fat-pending .fat-sub {
+  color: #4c5a7a;
+}
+
+.fat-reject {
+  border: 1.5px solid #d9a698;
+  background: #fdf3f0;
+}
+
+.fat-reject .fat-title,
+.fat-reject .fat-cta {
+  color: #a03d2e;
+}
+
+.fat-reject .fat-sub {
+  color: #7a4437;
+}
+
+.fat-on {
+  background: #115e59;
+  border: 1.5px solid #115e59;
+  color: #fff;
+}
+
+.fat-value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.fat-on .fat-label {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 4px;
+}

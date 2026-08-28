@@ -10,10 +10,12 @@ import {
   newLearningOutcome,
   serializeLearningOutcomes,
 } from '../../data/euMcCatalog';
-import { LearningOutcome, MOCK_OF_ORG } from '../../data/mockFormations';
+import { LearningOutcome, MOCK_OF_ORG, FinancementType, FINANCEMENT_OPTIONS } from '../../data/mockFormations';
 import { BadgeAPI, OrganizationContext } from '../../types';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { openProjectSpace } from '../../utils/projectSpaceStore';
+import { openFormationSpace, upsertFormation } from '../../utils/formationStore';
+import { canCreateFormation } from '../../utils/ofActivationStore';
 import {
   getContextFromPageType,
   getTagIdByPathway,
@@ -84,14 +86,22 @@ const CreateProjectPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const typeFromUrl = parseCreateKind(searchParams.get('type'));
 
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [kind, setKind] = useState<CreateKind | null>(typeFromUrl);
 
   useEffect(() => {
     if (typeFromUrl) setKind(typeFromUrl);
   }, [typeFromUrl]);
+
+  useEffect(() => {
+    if (typeFromUrl === 'formation' && !canCreateFormation()) {
+      setCurrentPage('of-activation');
+      navigate('/of-activation', { replace: true });
+    }
+  }, [typeFromUrl, navigate, setCurrentPage]);
   const [euMc, setEuMc] = useState(false);
   const [selectedOrgKey, setSelectedOrgKey] = useState<string>('');
+  const ofReady = canCreateFormation();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -116,6 +126,8 @@ const CreateProjectPage: React.FC = () => {
   const [validityUnit, setValidityUnit] = useState<ValidityUnit>('years');
   const [seriesPickerOpen, setSeriesPickerOpen] = useState(false);
   const [seriesBadges, setSeriesBadges] = useState<BadgeAPI[]>([]);
+  const [financement, setFinancement] = useState<FinancementType | ''>('');
+  const [attendanceSurvey, setAttendanceSurvey] = useState(false);
 
   const [availablePathways, setAvailablePathways] = useState<Tag[]>([]);
   const [pathwaySearch, setPathwaySearch] = useState('');
@@ -188,8 +200,9 @@ const CreateProjectPage: React.FC = () => {
 
   const selectedOrg = carrierOrgs.find((o) => o.key === selectedOrgKey) || carrierOrgs[0];
   const orgLocked = carrierOrgs.length <= 1;
-  const showQualiopi = Boolean(selectedOrg?.qualiopi || selectedOrg?.trustLevel === 'STRATEGIC_PARTNER');
-  const euMcEligible = Boolean(selectedOrg);
+  const showQualiopi = Boolean(selectedOrg?.qualiopi || selectedOrg?.trustLevel === 'STRATEGIC_PARTNER' || ofReady);
+  const euMcEligible = kind === 'formation' ? ofReady : Boolean(selectedOrg);
+  const isFormation = kind === 'formation';
 
   useEffect(() => {
     if (!selectedOrgKey && carrierOrgs[0]) {
@@ -262,9 +275,19 @@ const CreateProjectPage: React.FC = () => {
   };
 
   const goBack = () => {
+    if (step === 3) {
+      setStep(2);
+      setSubmitError(null);
+      return;
+    }
     if (step === 2) {
       setStep(1);
       setSubmitError(null);
+      return;
+    }
+    if (isFormation) {
+      setCurrentPage('formations');
+      navigate('/formations');
       return;
     }
     setCurrentPage('projects');
@@ -298,11 +321,57 @@ const CreateProjectPage: React.FC = () => {
 
   const saveProject = async (intent: 'draft' | 'next') => {
     if (!canSubmitForm || !kind || !selectedOrg) {
-      setSubmitError('Quatre champs suffisent pour exister : titre, description, date de début, date de fin.');
+      setSubmitError('Quatre champs suffisent pour un brouillon : titre, description, date de début, date de fin.');
       return;
     }
     if (endDate < startDate) {
       setSubmitError('La date de fin doit être postérieure à la date de début.');
+      return;
+    }
+
+    if (kind === 'formation') {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const now = new Date();
+      const createdLabel = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+      const outcomes =
+        euMc || euOutcomes.length
+          ? euOutcomes.filter((o) => o.text.trim())
+          : learningOutcomes
+              .split('\n')
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .map((text, i) => ({ id: `lo-${Date.now()}-${i}`, text, kind: 'free' as const }));
+      const formation = upsertFormation({
+        id: `f-${Date.now()}`,
+        title: title.trim(),
+        description: description.trim(),
+        status: 'draft',
+        financement: financement || undefined,
+        isEuMcDeclared: euMc,
+        startDate,
+        endDate,
+        attendanceSurveyOptIn: attendanceSurvey,
+        durationHours: workloadHours.trim() ? Number(workloadHours) : undefined,
+        participationMode,
+        learningOutcomes: outcomes,
+        imageName: imageFile?.name,
+        orgName: selectedOrg?.name,
+        workloadEcts: workloadEcts.trim() || undefined,
+        eqfLevel: eqfLevel === '' ? undefined : eqfLevel,
+        eqfFramework,
+        assessmentType: assessmentType.trim() || undefined,
+        teachingLanguages,
+        entryRequirements: entryRequirements.trim() || undefined,
+        meta: `créée le ${createdLabel} · jamais activée · visible par vous seul`,
+      });
+      if (intent === 'next') {
+        openFormationSpace(formation.id, 'gestion');
+        setCurrentPage('formation-detail');
+        navigate('/formation-detail');
+      } else {
+        setCurrentPage('formations');
+        navigate('/formations');
+      }
       return;
     }
 
@@ -393,7 +462,15 @@ const CreateProjectPage: React.FC = () => {
     <div className="create-project-page">
       <div className="cp-screen">
         <header className="cp-bar">
-          <span>{step === 1 ? 'Créer' : euMc ? 'Le formulaire MC UE' : kindLabel}</span>
+          <span>
+            {step === 1
+              ? 'Créer'
+              : step === 3
+                ? 'Le module formation'
+                : euMc
+                  ? 'Le formulaire MC UE'
+                  : kindLabel}
+          </span>
           <span className="cp-bar-meta">
             {step === 1
               ? 'Que voulez-vous créer ?'
@@ -463,20 +540,31 @@ const CreateProjectPage: React.FC = () => {
                   Stage
                   <small>en milieu professionnel — bientôt disponible</small>
                 </div>
-                <div className="cp-card off">
-                  Formation
-                  <small>réservé aux organismes vérifiés et agréés</small>
+                {ofReady ? (
                   <button
                     type="button"
-                    className="cp-card-link"
-                    onClick={() => {
-                      setCurrentPage('settings');
-                      navigate('/settings');
-                    }}
+                    className={`cp-card ${kind === 'formation' ? 'sel' : ''}`}
+                    onClick={() => setKind('formation')}
                   >
-                    Vérifier mon organisme →
+                    Formation
+                    <small>elle promet un programme</small>
                   </button>
-                </div>
+                ) : (
+                  <div className="cp-card off">
+                    Formation
+                    <small>réservé aux organismes vérifiés et agréés</small>
+                    <button
+                      type="button"
+                      className="cp-card-link"
+                      onClick={() => {
+                        setCurrentPage('of-activation');
+                        navigate('/of-activation');
+                      }}
+                    >
+                      Vérifier mon organisme →
+                    </button>
+                  </div>
+                )}
               </div>
             </section>
 
@@ -508,8 +596,8 @@ const CreateProjectPage: React.FC = () => {
                     type="button"
                     className="cp-card-link"
                     onClick={() => {
-                      setCurrentPage('settings');
-                      navigate('/settings');
+                      setCurrentPage('of-activation');
+                      navigate('/of-activation');
                     }}
                   >
                     Vérifier mon organisme →
@@ -552,6 +640,121 @@ const CreateProjectPage: React.FC = () => {
               </button>
             </div>
           </div>
+        ) : step === 3 && isFormation ? (
+          <div className="cp-inner">
+            {euMc && (
+              <div className="cp-orbar">
+                <div className="cp-orcnt">{Math.min(euGoldCount, 9)}/11</div>
+                <div className="cp-orlbl">
+                  {euGoldCount >= 9 ? (
+                    <>
+                      <b>Cadre européen complet.</b> Vos inscrits porteront le compteur à 10 — la
+                      clôture écrira le onzième.
+                    </>
+                  ) : (
+                    <>
+                      <b>Le cadre européen avance.</b> La création exigera le compteur à 9/11.
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+            <h1 className="cp-title">Le module formation</h1>
+            <p className="cp-sub">Durée, financement, assiduité — ces éléments se figent à la création.</p>
+
+            <div className="cp-gold">
+              <label className="cp-field">
+                <span>
+                  Durée en heures <span className="ob">✱</span>
+                  <span className="cp-tag antag">se fige à la création</span>
+                  {euMc && <span className="cp-tag">cadre européen</span>}
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  value={workloadHours}
+                  onChange={(e) => setWorkloadHours(e.target.value)}
+                  placeholder="60"
+                  style={{ maxWidth: 140 }}
+                />
+              </label>
+            </div>
+
+            <label className="cp-field">
+              <span>
+                Financement <span className="ob">✱</span>
+                <span className="cp-tag antag">se fige à la création</span>
+              </span>
+              <div className="cp-fin5">
+                {FINANCEMENT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    className={`cp-ropt ${financement === opt ? 'sel' : ''}`}
+                    onClick={() => setFinancement(opt)}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              <small className="cp-micro">
+                Le financeur — l’organisation elle-même — s’identifiera dans Équipe &amp; partenaires,
+                dès l’étape suivante (l’espace en mode brouillon).
+              </small>
+            </label>
+
+            <label className={`cp-opt ${attendanceSurvey ? 'on' : ''}`}>
+              <input
+                type="checkbox"
+                checked={attendanceSurvey}
+                onChange={(e) => setAttendanceSurvey(e.target.checked)}
+              />
+              <div>
+                <b>Vérification d’assiduité</b>
+                <small>
+                  En présentiel, chaque séance s’ouvre par un code de session — la présence de chacun
+                  est confirmée et prouvée. Cette option y ajoute un sondage indépendant après les
+                  séances. Début et durée : l’assiduité prouvée, face à votre financeur. Une fois
+                  engagée, elle ne s’éteint plus.
+                </small>
+              </div>
+            </label>
+
+            {submitError && <div className="cp-error">{submitError}</div>}
+
+            <div className="cp-foot">
+              <div className="cp-fcol" style={{ marginRight: 'auto' }}>
+                <button type="button" className="cp-btn ghost" onClick={goBack} disabled={isSubmitting}>
+                  Annuler
+                </button>
+              </div>
+              <div className="cp-fcol">
+                <button
+                  type="button"
+                  className="cp-btn outline"
+                  disabled={!canSubmitForm || isSubmitting}
+                  onClick={() => void saveProject('draft')}
+                >
+                  {isSubmitting ? 'Enregistrement…' : 'Sauvegarder en brouillon'}
+                </button>
+                <p className="cp-micro">
+                  Les co-responsables et vos partenaires pourront y accéder une fois la formation
+                  créée.
+                </p>
+              </div>
+              <div className="cp-fcol">
+                <button
+                  type="button"
+                  className="cp-btn primary"
+                  disabled={!canSubmitForm || isSubmitting}
+                  onClick={() => void saveProject('next')}
+                >
+                  {isSubmitting ? 'Enregistrement…' : 'Suivant →'}
+                </button>
+                <p className="cp-micro">L’espace de gestion : préparez tout, puis créez.</p>
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="cp-inner">
             {euMc && (
@@ -578,16 +781,18 @@ const CreateProjectPage: React.FC = () => {
               </div>
             )}
 
-            <h1 className="cp-title">Votre projet</h1>
+            <h1 className="cp-title">{isFormation ? 'Votre formation' : 'Votre projet'}</h1>
             <p className="cp-sub">
-              {euMc
-                ? 'Quatre champs suffisent pour un brouillon — le cadre européen pourra avancer ensuite.'
-                : 'Quatre champs suffisent pour exister — le reste enrichit votre preuve.'}
+              {isFormation
+                ? 'Quatre champs suffisent pour un brouillon — la création exigera le cadre complet.'
+                : euMc
+                  ? 'Quatre champs suffisent pour un brouillon — le cadre européen pourra avancer ensuite.'
+                  : 'Quatre champs suffisent pour exister — le reste enrichit votre preuve.'}
             </p>
 
             <label className="cp-field">
               <span>
-                Titre du projet <span className="ob">✱</span>
+                {isFormation ? 'Titre de la formation' : 'Titre du projet'} <span className="ob">✱</span>
                 {euMc && <span className="cp-tag">cadre européen — intitulé exact</span>}
               </span>
               <input
@@ -603,6 +808,7 @@ const CreateProjectPage: React.FC = () => {
             <label className="cp-field">
               <span>
                 Description <span className="ob">✱</span>
+                {isFormation && <span className="cp-tag antag">se fige à la création</span>}
               </span>
               <textarea
                 rows={4}
@@ -620,18 +826,26 @@ const CreateProjectPage: React.FC = () => {
               <label className="cp-field">
                 <span>
                   Date estimée de début <span className="ob">✱</span>
+                  {isFormation && <span className="cp-tag antag">se fige à la création</span>}
                 </span>
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </label>
               <label className="cp-field">
                 <span>
                   Date estimée de fin <span className="ob">✱</span>
+                  {isFormation && <span className="cp-tag antag">se fige à la création</span>}
                 </span>
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
               </label>
             </div>
+            {isFormation && (
+              <p className="cp-micro" style={{ marginTop: -8, marginBottom: 12 }}>
+                Après la création, les dates gardent une porte : le report reste possible jusqu’au
+                démarrage — justifié, chaque inscrit notifié.
+              </p>
+            )}
 
-            {euMc ? (
+            {euMc || isFormation ? (
               <>
                 <div className="cp-gold">
                   <div className="cp-gold-head">
@@ -1029,7 +1243,7 @@ const CreateProjectPage: React.FC = () => {
 
             <div className="cp-field">
               <span>
-                Image du projet <em>— optionnelle (sans elle : titre sur la couleur de confiance)</em>
+                Image {isFormation ? 'de la formation' : 'du projet'} <em>— optionnelle (sans elle : titre sur la couleur de confiance)</em>
               </span>
               <div className="cp-imgzone">
                 <div
@@ -1070,9 +1284,13 @@ const CreateProjectPage: React.FC = () => {
                   {isSubmitting ? 'Enregistrement…' : 'Sauvegarder en brouillon'}
                 </button>
                 <p className="cp-micro">
-                  {euMc
-                    ? 'Possible dès les 4 champs ✱ — le compteur attendra.'
-                    : 'Les co-responsables et vos partenaires pourront y accéder une fois le projet créé.'}
+                  {isFormation
+                    ? euMc
+                      ? 'Possible dès les 4 champs ✱ — le compteur attendra.'
+                      : 'Les co-responsables et vos partenaires pourront y accéder une fois la formation créée.'
+                    : euMc
+                      ? 'Possible dès les 4 champs ✱ — le compteur attendra.'
+                      : 'Les co-responsables et vos partenaires pourront y accéder une fois le projet créé.'}
                 </p>
               </div>
               <div className="cp-fcol">
@@ -1080,11 +1298,21 @@ const CreateProjectPage: React.FC = () => {
                   type="button"
                   className="cp-btn primary"
                   disabled={!canSubmitForm || isSubmitting}
-                  onClick={() => void saveProject('next')}
+                  onClick={() => {
+                    if (isFormation) {
+                      setStep(3);
+                      return;
+                    }
+                    void saveProject('next');
+                  }}
                 >
-                  {isSubmitting ? 'Enregistrement…' : 'Suivant →'}
+                  {isSubmitting ? 'Enregistrement…' : isFormation ? 'Continuer →' : 'Suivant →'}
                 </button>
-                <p className="cp-micro">L’espace de gestion : préparez tout, puis créez.</p>
+                <p className="cp-micro">
+                  {isFormation
+                    ? 'Le module formation : durée, financement, assiduité.'
+                    : 'L’espace de gestion : préparez tout, puis créez.'}
+                </p>
               </div>
             </div>
           </div>

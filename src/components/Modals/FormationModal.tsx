@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   DIGCOMP_SERIES_OUTCOME,
   FINANCEMENT_LABEL,
+  FINANCEMENT_OPTIONS,
   FinancementType,
   FormationStatus,
   LearningOutcome,
@@ -37,14 +38,6 @@ interface FormationModalProps {
   isEdit?: boolean;
   status?: FormationStatus;
 }
-
-const FINANCEMENT_OPTIONS: FinancementType[] = [
-  'CPF',
-  'OPCO',
-  'Entreprise',
-  'Associative',
-  'Autre',
-];
 
 const PARTICIPATION_OPTIONS: { id: ParticipationMode; label: string }[] = [
   { id: 'presentiel', label: 'Présentiel' },

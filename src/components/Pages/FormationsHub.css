@@ -1,5 +1,5 @@
 .formations-hub {
-  --of-primary: #33518e;
+  --of-primary: var(--couleur-espace, #115e59);
   --of-accent: #ffb557;
   --of-bg: #f9f8f5;
   --of-text: #1c1b18;

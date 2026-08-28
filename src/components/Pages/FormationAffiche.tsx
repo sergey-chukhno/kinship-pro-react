@@ -18,13 +18,18 @@ import {
   slotStatusLabel,
   subscribeFormationSlots,
   subscribeFormations,
+  subscribeFormationPeople,
   updateFormationSlot,
+  updateFormation,
+  verifyFormationIdentity,
 } from '../../utils/formationStore';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
 import { useToast } from '../../hooks/useToast';
 import FunderFollowView from '../FunderView/FunderFollowView';
 import { MOCK_FOLLOW_DEBUTER } from '../../data/mockFunderView';
 import { followViewFromFormation } from '../../utils/funderFollowFromFormation';
+import CloseFormationBirthOverlay from '../Modals/CloseFormationBirthOverlay';
+import AttestFormationModal from '../Modals/AttestFormationModal';
 import './FormationAffiche.css';
 
 type AfficheTab =
@@ -43,6 +48,43 @@ const TABS: { id: AfficheTab; label: string }[] = [
   { id: 'preuves', label: 'Preuves de compétences' },
   { id: 'documents', label: 'Documents' },
 ];
+
+const PARTICIPANT_TABS: { id: AfficheTab; label: string }[] = [
+  { id: 'overview', label: "Vue d'ensemble" },
+  { id: 'seances', label: 'Mes séances' },
+  { id: 'preuves', label: 'Mes preuves' },
+  { id: 'documents', label: 'Documents' },
+];
+
+const DOC_SEED: { id: string; name: string; vis: 'equipe' | 'participants' | 'structure' }[] = [
+  { id: 'd1', name: "Livret d'accueil.pdf", vis: 'participants' },
+  { id: 'd2', name: 'Convention-type.docx', vis: 'equipe' },
+  { id: 'd3', name: 'Plaquette de présentation.pdf', vis: 'structure' },
+];
+
+const VIS_LABEL = {
+  equipe: 'Équipe',
+  participants: 'Participants',
+  structure: 'Ma structure',
+} as const;
+
+const EU_CADRE_TOTAL = 11;
+
+function parseFrDateValue(s?: string): Date | null {
+  if (!s) return null;
+  if (s.includes('-')) {
+    const [y, m, d] = s.split('-');
+    return new Date(Number(y), Number(m) - 1, Number(d));
+  }
+  const [d, m, y] = s.split('/');
+  if (!y) return null;
+  return new Date(Number(y), Number(m) - 1, Number(d));
+}
+
+function qualiopiExpired(): boolean {
+  const d = parseFrDateValue(MOCK_OF_ORG.qualiopiValidUntil);
+  return Boolean(d && d.getTime() < Date.now());
+}
 
 const MONTHS = ['jan', 'fév', 'mar', 'avr', 'mai', 'juin', 'juil', 'août', 'sep', 'oct', 'nov', 'déc'];
 
@@ -68,7 +110,7 @@ const FormationAffiche: React.FC = () => {
   const formationId = getSelectedFormationId() || '';
   const [formation, setFormation] = useState(() => getFormationById(formationId) ?? null);
   const [slots, setSlots] = useState(() => getFormationSlots(formationId));
-  const people = getFormationPeople(formationId);
+  const [people, setPeople] = useState(() => getFormationPeople(formationId));
   const [tab, setTab] = useState<AfficheTab>('seances');
   const [visibility, setVisibility] = useState<'structure' | 'financeur'>('structure');
   const [createOpen, setCreateOpen] = useState(false);
@@ -82,6 +124,15 @@ const FormationAffiche: React.FC = () => {
   const [closeSlotId, setCloseSlotId] = useState<string | null>(null);
   const [cancelSlotId, setCancelSlotId] = useState<string | null>(null);
   const [attestIds, setAttestIds] = useState<Set<string>>(new Set());
+  const [closeFormationOpen, setCloseFormationOpen] = useState(false);
+  const [birthOpen, setBirthOpen] = useState(false);
+  const [attestOpen, setAttestOpen] = useState(false);
+  const [attestPerson, setAttestPerson] = useState<string | null>(null);
+  const [view, setView] = useState<'porteur' | 'participant'>('porteur');
+  const [shareNominatif, setShareNominatif] = useState(true);
+  const [docs, setDocs] = useState(DOC_SEED);
+  const [mcueWall, setMcueWall] = useState(false);
+  const [certTab, setCertTab] = useState<'preuves' | 'certificats'>('preuves');
 
   useEffect(() => subscribeFormations(() => setFormation(getFormationById(formationId) ?? null)), [formationId]);
   useEffect(
@@ -89,6 +140,10 @@ const FormationAffiche: React.FC = () => {
       subscribeFormationSlots(() => {
         setSlots(getFormationSlots(formationId));
       }),
+    [formationId]
+  );
+  useEffect(
+    () => subscribeFormationPeople(() => setPeople(getFormationPeople(formationId))),
     [formationId]
   );
 
@@ -171,6 +226,21 @@ const FormationAffiche: React.FC = () => {
     showSuccess('✓ Enregistré');
   };
 
+  const confirmCloseFormation = (share: boolean) => {
+    if (!formation) return;
+    const proof = formation.proofNumber || `PF·${new Date().getFullYear()}·FR·4K8NX2QM`;
+    updateFormation(formation.id, {
+      status: 'ended',
+      hasProof: true,
+      proofNumber: proof,
+      frameLocked: true,
+      meta: `clôturée le ${formatFr(formation.endDate)} · ${people.participants.length} participants · ${proof}`,
+    });
+    setCloseFormationOpen(false);
+    setBirthOpen(true);
+    if (share) showSuccess('Rapport envoyé aux financeurs cochés');
+  };
+
   const followPreview = useMemo(() => {
     if (!formation) return MOCK_FOLLOW_DEBUTER;
     if (formation.title.startsWith('Débuter dans le numérique')) return MOCK_FOLLOW_DEBUTER;
@@ -182,6 +252,41 @@ const FormationAffiche: React.FC = () => {
 
   const nextSlot = slots.find((s) => s.status === 'planned');
   const held = slots.filter((s) => s.status === 'closed').length;
+  const openSlot = slots.find((s) => s.status === 'open');
+  const visibleTabs = view === 'participant' ? PARTICIPANT_TABS : TABS;
+  const canClose =
+    view === 'porteur' &&
+    (formation?.status === 'in_progress' || formation?.status === 'coming');
+  const euFilled = formation
+    ? [
+        formation.title,
+        formation.description,
+        formation.startDate && formation.endDate,
+        (formation.learningOutcomes ?? []).length,
+        formation.participationMode,
+        formation.durationHours,
+        formation.workloadEcts,
+        formation.eqfLevel != null,
+        formation.eqfFramework,
+        formation.assessmentType,
+        (formation.teachingLanguages ?? []).length,
+      ].filter(Boolean).length
+    : 0;
+  const qExpired = qualiopiExpired();
+  const qExpiresBeforeEnd = Boolean(
+    formation?.endDate &&
+      parseFrDateValue(MOCK_OF_ORG.qualiopiValidUntil) &&
+      parseFrDateValue(MOCK_OF_ORG.qualiopiValidUntil)!.getTime() <
+        parseFrDateValue(formation.endDate)!.getTime()
+  );
+
+  const tryCloseFormation = () => {
+    if (formation?.isEuMcDeclared && qExpired) {
+      setMcueWall(true);
+      return;
+    }
+    setCloseFormationOpen(true);
+  };
 
   if (!formation) {
     return (
@@ -209,8 +314,42 @@ const FormationAffiche: React.FC = () => {
         </button>
         <h1>La formation</h1>
         <div className="fa-actions">
-          <button type="button" className="fa-btn ghost" onClick={() => setCreateOpen(true)}>
-            📅 Créer une séance
+          {canClose && (
+            <button type="button" className="fa-btn ghost" onClick={tryCloseFormation}>
+              ✓ Clôturer la formation
+            </button>
+          )}
+          {view === 'porteur' && formation.status !== 'ended' && formation.status !== 'archived' && (
+            <>
+              <button type="button" className="fa-btn ghost" onClick={() => setCreateOpen(true)}>
+                📅 Créer une séance
+              </button>
+              <button
+                type="button"
+                className="fa-btn primary"
+                onClick={() => {
+                  setAttestPerson(null);
+                  setAttestOpen(true);
+                }}
+              >
+                🏅 Attester une compétence
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            className="fa-btn ghost"
+            onClick={() =>
+              setView((v) => {
+                const next = v === 'porteur' ? 'participant' : 'porteur';
+                if (next === 'participant' && (tab === 'participants' || tab === 'equipes')) {
+                  setTab('overview');
+                }
+                return next;
+              })
+            }
+          >
+            {view === 'porteur' ? 'Vue participante' : 'Vue porteur'}
           </button>
         </div>
       </div>
@@ -225,7 +364,10 @@ const FormationAffiche: React.FC = () => {
             <span className="fa-chip date">
               {formatFr(formation.startDate)} → {formatFr(formation.endDate)}
             </span>
-            <span className="fa-role">Responsable de la formation</span>
+            <span className="fa-role">
+              {view === 'participant' ? 'Participante' : 'Responsable de la formation'}
+            </span>
+            {formation.isEuMcDeclared && <span className="fa-chip mc">MC UE déclarée</span>}
           </div>
           <h2>{formation.title}</h2>
           <p className="fa-org">
@@ -234,9 +376,21 @@ const FormationAffiche: React.FC = () => {
           </p>
           <p className="fa-desc">{formation.description}</p>
           <div className="fa-meta">
-            <span>👥 {people.participants.length} participants</span>
-            <span>📅 {slots.length} séances</span>
+            {view === 'participant' ? (
+              <>
+                <span>
+                  📅 {held}/{slots.length} séances
+                </span>
+                <span>🏅 2 preuves à moi</span>
+              </>
+            ) : (
+              <>
+                <span>👥 {people.participants.length} participants</span>
+                <span>📅 {slots.length} séances</span>
+              </>
+            )}
           </div>
+          {view === 'porteur' && (
           <div className="fa-tog">
             <button
               type="button"
@@ -253,15 +407,57 @@ const FormationAffiche: React.FC = () => {
               Ouverte — au financeur
             </button>
           </div>
+          )}
         </div>
       </header>
 
-      {visibility === 'financeur' ? (
+      {formation.isEuMcDeclared && view === 'porteur' && (
+        <div className="fa-eubar">
+          <div className="fa-eucount">
+            {qExpired ? Math.max(0, euFilled - 1) : euFilled}/{EU_CADRE_TOTAL}
+          </div>
+          <div>
+            <b>Le compteur européen.</b>{' '}
+            {formation.status === 'ended'
+              ? 'La preuve est née — le cadre est posé.'
+              : 'Vos inscrits l’ont porté — la clôture écrira le dernier. La preuve naîtra à 11/11.'}
+          </div>
+        </div>
+      )}
+      {formation.isEuMcDeclared && view === 'porteur' && (qExpired || qExpiresBeforeEnd) && (
+        <div className="fa-cpfban">
+          ⚠{' '}
+          <div>
+            <b>Si une condition tombe, l’alerte est immédiate</b>
+            {qExpired
+              ? ` — le compteur est redescendu (${Math.max(0, euFilled - 1)}/${EU_CADRE_TOTAL}) : l’agrément a expiré le ${MOCK_OF_ORG.qualiopiValidUntil}.`
+              : ` — l’agrément Qualiopi expire le ${MOCK_OF_ORG.qualiopiValidUntil}, avant la fin de la formation.`}
+          </div>
+        </div>
+      )}
+      {view === 'participant' && openSlot && (
+        <div className="fa-presence">
+          <div>
+            <b>📍 Une session de présence est en cours</b>
+            <p>
+              Séance du jour · {openSlot.label} — saisissez le code affiché par votre formateur.
+            </p>
+          </div>
+          <div className="fa-presence-row">
+            <input className="fa-code" maxLength={6} placeholder="______" aria-label="Code de présence" />
+            <button type="button" className="fa-btn primary">
+              Confirmer ma présence
+            </button>
+          </div>
+        </div>
+      )}
+
+      {visibility === 'financeur' && view === 'porteur' ? (
         <FunderFollowView data={followPreview} preview />
       ) : (
         <>
           <div className="fa-tabs" role="tablist">
-            {TABS.map((item) => (
+            {visibleTabs.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -275,14 +471,54 @@ const FormationAffiche: React.FC = () => {
 
           {tab === 'overview' && (
             <div>
+              {formation.status === 'ended' && view === 'porteur' && (
+                <>
+                  <section className="fa-sec fa-pfblock">
+                    <h3>🛡 Preuve Formation® — générée</h3>
+                    <div className="fa-pfnum">{formation.proofNumber}</div>
+                    <p className="fa-sub">
+                      {people.participants.length} participants · {formation.durationHours ?? '—'}{' '}
+                      heures · {slots.length} séances · présences restituées par séance · accès
+                      nominatif
+                    </p>
+                    <div className="fa-pfacts">
+                      <button type="button" className="fa-btn primary">
+                        Exporter PDF
+                      </button>
+                      <button type="button" className="fa-btn ghost">
+                        Partager avec DGEFP / Qualiopi
+                      </button>
+                      <button type="button" className="fa-btn ghost">
+                        Vérification publique
+                      </button>
+                    </div>
+                  </section>
+                  <section className="fa-sec">
+                    <h3>📜 Certificats de réalisation — {people.participants.length} générés</h3>
+                    <p className="fa-sub">
+                      <b>9 envoyés par email</b> · <b>3 à imprimer</b> — la remise papier est le
+                      pont vers leur espace : chaque certificat porte le QR d’activation personnel
+                      de l’apprenant.
+                    </p>
+                    <button type="button" className="fa-btn ghost">
+                      🖨 Imprimer les 3 certificats
+                    </button>
+                  </section>
+                </>
+              )}
+              {view === 'porteur' && (
               <div className="fa-kpis">
                 <div>
                   <b>{people.participants.length}</b>
                   <span>Participants</span>
+                  <em>
+                    identités {people.participants.filter((p) => p.identityVerified).length}/
+                    {people.participants.length || 0}
+                  </em>
                 </div>
                 <div>
                   <b>
-                    {held}/{slots.length}
+                    {held}/{slots.length || 0}
                   </b>
                   <span>Séances tenues</span>
                 </div>
@@ -290,12 +526,26 @@ const FormationAffiche: React.FC = () => {
                   <b>{formation.durationHours ?? '—'} h</b>
                   <span>Durée</span>
                 </div>
+                <div>
+                  <b>{held * 2}</b>
+                  <span>Preuves</span>
+                </div>
               </div>
+              )}
               <section className="fa-sec">
-                <h3>📚 Le programme — les acquis d&apos;apprentissage</h3>
+                <h3>
+                  {view === 'participant'
+                    ? '📚 Le programme de la formation'
+                    : '📚 Le programme — les acquis d\'apprentissage'}
+                </h3>
                 <p className="fa-sub">
-                  La promesse figée à la création — et le travail accompli, acquis par acquis.
+                  {view === 'participant'
+                    ? 'Ce que vous saurez faire — le cadre remis, figé à la création.'
+                    : 'La promesse figée à la création — et le travail accompli, acquis par acquis.'}
                 </p>
+                {view === 'participant' && formation.description ? (
+                  <p>{formation.description}</p>
+                ) : null}
                 {(formation.learningOutcomes ?? []).map((o) => (
                   <div key={o.id} className="fa-acq">
                     <span>{o.text}</span>
@@ -341,13 +591,15 @@ const FormationAffiche: React.FC = () => {
           {tab === 'seances' && (
             <section className="fa-sec">
               <h3>
-                📅 Séances ({slots.length}){' '}
-                <button type="button" className="fa-add" onClick={() => setCreateOpen((v) => !v)}>
-                  + Créer une séance
-                </button>
+                {view === 'participant' ? `📅 Mes séances (${slots.length})` : `📅 Séances (${slots.length})`}{' '}
+                {view === 'porteur' && (
+                  <button type="button" className="fa-add" onClick={() => setCreateOpen((v) => !v)}>
+                    + Créer une séance
+                  </button>
+                )}
               </h3>
 
-              {createOpen && (
+              {createOpen && view === 'porteur' && (
                 <div className="fa-panel">
                   <div className="fa-panel-h">
                     <h4>Créer une séance</h4>
@@ -520,6 +772,7 @@ const FormationAffiche: React.FC = () => {
                         )}
                       </div>
                       {(slot.status === 'planned' || slot.status === 'open') &&
+                        view === 'porteur' &&
                         (slot.animatedBy === 'vous' || slot.status === 'open') && (
                           <div className="fa-seance-actions">
                             <button
@@ -544,7 +797,7 @@ const FormationAffiche: React.FC = () => {
                     </div>
                     <div className="fa-side">
                       <span className={`fa-sst ${sst}`}>{slotStatusLabel(slot.status)}</span>
-                      {slot.status === 'planned' && (
+                      {slot.status === 'planned' && view === 'porteur' && (
                         <button
                           type="button"
                           className="fa-btn danger"
@@ -558,18 +811,47 @@ const FormationAffiche: React.FC = () => {
                 );
               })}
 
+              {view === 'porteur' && (
               <p className="fa-note">
                 <b>Attester avec ou sans séance :</b> au geste « Attester une compétence », le
                 choix de la séance est proposé — séance choisie, la preuve porte la séance ;
                 sans séance, elle porte la formation. Une séance terminée n&apos;accepte plus
                 d&apos;attestation — seules les séances ouvertes sont proposées.
               </p>
+              )}
             </section>
           )}
 
           {tab === 'participants' && (
             <section className="fa-sec">
-              <h3>Participants ({people.participants.length})</h3>
+              <h3>
+                👥 Participants ({people.participants.length})
+                {view === 'porteur' && (
+                  <button
+                    type="button"
+                    className="fa-add"
+                    onClick={() => {
+                      setCurrentPage('formation-detail');
+                      navigate('/formation-detail');
+                    }}
+                  >
+                    + Ajouter une personne
+                  </button>
+                )}
+              </h3>
+              {formation.financement === 'CPF' &&
+                people.participants.some((p) => !p.identityVerified) && (
+                  <div className="fa-cpfban">
+                    ⚠{' '}
+                    <div>
+                      <b>
+                        Identité à vérifier :{' '}
+                        {people.participants.filter((p) => !p.identityVerified).length} participant
+                      </b>{' '}
+                      — formation CPF : à vérifier avant la clôture.
+                    </div>
+                  </div>
+                )}
               {people.participants.map((p) => (
                 <div key={p.id} className="fa-person">
                   <div className="fa-av">
@@ -579,15 +861,45 @@ const FormationAffiche: React.FC = () => {
                       .map((w) => w[0])
                       .join('')}
                   </div>
-                  <div>
+                  <div className="fa-person-bd">
                     <b>{p.name}</b>
                     <div className="fa-sub">
-                      {p.preRegistered ? 'pré-inscrite · en attente d&apos;activation' : 'inscrite'}{' '}
-                      · {p.role ?? 'Participant'}
+                      {p.preRegistered ? "pré-inscrit · en attente d'activation" : 'inscrit'}
+                      {' · '}
+                      {p.role ?? 'Participant'}
                     </div>
+                    {view === 'porteur' && (
+                      <div className="fa-person-actions">
+                        <button
+                          type="button"
+                          className="fa-btn primary"
+                          style={{ padding: '3px 8px', fontSize: 11 }}
+                          onClick={() => {
+                            setAttestPerson(p.id);
+                            setAttestOpen(true);
+                          }}
+                        >
+                          🏅 Attester
+                        </button>
+                        {!p.identityVerified && (
+                          <button
+                            type="button"
+                            className="fa-btn ghost"
+                            style={{ padding: '3px 8px', fontSize: 11 }}
+                            onClick={() => {
+                              setPeople(verifyFormationIdentity(formationId, p.id));
+                              showSuccess('✓ Identité vérifiée ce jour — jamais conservée · au journal');
+                            }}
+                          >
+                            ☑ Identité vérifiée ce jour
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
+                  <span className="fa-role-tag">{p.role ?? 'Participant'}</span>
                   <span className={p.identityVerified ? 'fa-idok' : 'fa-idko'}>
-                    {p.identityVerified ? '✓ identité' : '⚠ à vérifier'}
+                    {p.identityVerified ? '✓ identité vérifiée' : '⚠ à vérifier'}
                   </span>
                 </div>
               ))}
@@ -612,18 +924,105 @@ const FormationAffiche: React.FC = () => {
 
           {tab === 'preuves' && (
             <section className="fa-sec">
-              <h3>Preuves de compétences</h3>
-              <p className="fa-sub">
-                L&apos;attestation reprend le geste existant du produit — une séance ouverte, ou
-                la formation.
-              </p>
+              {view === 'participant' ? (
+                <>
+                  <h3>🏅 Mes preuves (2)</h3>
+                  <div className="fa-ptabs">
+                    <button
+                      type="button"
+                      className={certTab === 'preuves' ? 'on' : ''}
+                      onClick={() => setCertTab('preuves')}
+                    >
+                      Preuves (2)
+                    </button>
+                    <button
+                      type="button"
+                      className={certTab === 'certificats' ? 'on' : ''}
+                      onClick={() => setCertTab('certificats')}
+                    >
+                      Mes certificats (1)
+                    </button>
+                  </div>
+                  {certTab === 'preuves' ? (
+                    <>
+                      {formation.status === 'ended' && (
+                        <div className="fa-mypf">
+                          <div className="fa-mypf-h">Kinship · Preuve Formation®</div>
+                          <div className="fa-mypf-t">{formation.title}</div>
+                          <div className="fa-mypf-n">{formation.proofNumber}</div>
+                        </div>
+                      )}
+                      <div className="fa-pbgrid">
+                        <div className="fa-pbcard">
+                          <div className="fa-pbhead ev">PREUVE KINSHIP · ÉVÉNEMENT</div>
+                          <div className="fa-pbbody">
+                            <b>Présence vérifiée ✓</b>
+                            <span>Séance 1 · Atelier Numérique Formation</span>
+                          </div>
+                        </div>
+                        <div className="fa-pbcard">
+                          <div className="fa-pbhead sk">PREUVE KINSHIP · COMPÉTENCE</div>
+                          <div className="fa-pbbody">
+                            <b>Utiliser un traitement de texte</b>
+                            <span>📚 DigComp · EQF 2 · ✓ Attestée</span>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="fa-certline">
+                      <span>📜 Certificat de réalisation — téléchargeable (visible par vous seule)</span>
+                      <button type="button" className="fa-btn ghost">
+                        Télécharger
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h3>Preuves de compétences</h3>
+                  <p className="fa-sub">
+                    L&apos;attestation reprend le geste existant du produit — une séance ouverte, ou
+                    la formation. Les preuves de présence y vivent aussi.
+                  </p>
+                </>
+              )}
             </section>
           )}
 
           {tab === 'documents' && (
             <section className="fa-sec">
-              <h3>Documents</h3>
-              <p className="fa-sub">Les documents s&apos;ajoutent aussi depuis l&apos;espace de gestion.</p>
+              <h3>Documents ({view === 'participant' ? docs.filter((d) => d.vis === 'participants').length : docs.length})</h3>
+              <p className="fa-sub">
+                {view === 'participant'
+                  ? 'Le livret d’accueil · le programme détaillé — visibles des participants.'
+                  : 'Équipe (défaut) · Participants · Ma structure — « Public » n’existe pas pour une formation.'}
+              </p>
+              {(view === 'participant' ? docs.filter((d) => d.vis === 'participants') : docs).map(
+                (doc) => (
+                  <div key={doc.id} className="fa-docrow">
+                    <span>📄 {doc.name}</span>
+                    {view === 'porteur' && (
+                      <span className="fa-vispills">
+                        {(Object.keys(VIS_LABEL) as Array<keyof typeof VIS_LABEL>).map((id) => (
+                          <button
+                            key={id}
+                            type="button"
+                            className={doc.vis === id ? 'on' : ''}
+                            onClick={() =>
+                              setDocs((prev) =>
+                                prev.map((d) => (d.id === doc.id ? { ...d, vis: id } : d))
+                              )
+                            }
+                          >
+                            {VIS_LABEL[id]}
+                          </button>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                )
+              )}
             </section>
           )}
         </>
@@ -701,6 +1100,140 @@ const FormationAffiche: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {mcueWall && formation && (
+        <div className="fa-modal">
+          <div className="fa-modal-card">
+            <h3>Le sceau MC UE ne peut pas être posé</h3>
+            <div className="fa-cpfban" style={{ margin: '0 0 12px' }}>
+              ⚠{' '}
+              <div>
+                <b>L’agrément Qualiopi a expiré le {MOCK_OF_ORG.qualiopiValidUntil}</b> — après le
+                démarrage. Le compteur est redescendu ({Math.max(0, euFilled - 1)}/{EU_CADRE_TOTAL}
+                ). Trois portes, toutes signées :
+              </div>
+            </div>
+            <button
+              type="button"
+              className="fa-door"
+              onClick={() => {
+                setMcueWall(false);
+                showSuccess('La formation reste ouverte — renouveler l’agrément, puis clore avec le sceau.');
+              }}
+            >
+              <b>Attendre</b> — renouveler l’agrément, puis clore avec le sceau. La formation reste
+              ouverte.
+            </button>
+            <button
+              type="button"
+              className="fa-door"
+              onClick={() => {
+                setMcueWall(false);
+                if (formation) updateFormation(formation.id, { isEuMcDeclared: false });
+                setCloseFormationOpen(true);
+              }}
+            >
+              <b>Renoncer au sceau</b> — clore en Preuve Formation Enrichie.{' '}
+              <span className="fa-oneway">Sens unique.</span>
+            </button>
+            <button
+              type="button"
+              className="fa-door"
+              onClick={() => {
+                setMcueWall(false);
+                setCloseFormationOpen(true);
+              }}
+            >
+              <b>Dérogation</b> — la cohorte entrée sous agrément valide reste certifiable
+              (L.6113-9) — appréciée par apprenant, sous votre signature.
+            </button>
+            <p className="fa-sub">
+              Rien ne bloque en silence : le mur dit la cause, les portes portent une signature.
+              Jamais de repli automatique.
+            </p>
+            <div className="fa-modal-actions">
+              <button type="button" className="fa-btn ghost" onClick={() => setMcueWall(false)}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {closeFormationOpen && formation && (
+        <div className="fa-modal">
+          <div className="fa-modal-card fa-close-f">
+            <h3>Clôturer la formation</h3>
+            <div className="afm-k">1 · Les gardes</div>
+            <div className={people.participants.every((p) => p.identityVerified) ? 'fa-guard ok' : 'fa-guard warn'}>
+              {people.participants.every((p) => p.identityVerified)
+                ? `✓ Identités vérifiées : ${people.participants.length}/${people.participants.length} — la formation CPF peut se clore.`
+                : `⚠ Identité à vérifier : ${people.participants.filter((p) => !p.identityVerified).length} — formation CPF : à vérifier avant la clôture.`}
+            </div>
+            <div className="fa-guard mute">
+              {slots.length} séances — {held} closes · {formation.durationHours ?? '—'} heures ·{' '}
+              {people.participants.length} participants
+            </div>
+            <div className="afm-k">3 · Clôturer et partager</div>
+            {people.funders.map((f) => (
+              <div key={f.id} className="fa-share-row">
+                ☑ <b>{f.name}</b> — votre financeur
+                <span className="fa-share-mode">
+                  <button type="button" className={shareNominatif ? 'on' : ''} onClick={() => setShareNominatif(true)}>
+                    nominatif
+                  </button>
+                  <button type="button" className={!shareNominatif ? 'on' : ''} onClick={() => setShareNominatif(false)}>
+                    anonyme
+                  </button>
+                </span>
+              </div>
+            ))}
+            <p>
+              La clôture génère la <b>Preuve Formation</b> — authentique et vérifiable — et le{' '}
+              <b>certificat de réalisation de chaque apprenant</b>. On ne rouvre pas une formation close.
+            </p>
+            <div className="fa-modal-actions">
+              <button type="button" className="fa-btn ghost" onClick={() => confirmCloseFormation(false)}>
+                Clôturer sans partager
+              </button>
+              <button type="button" className="fa-btn primary" onClick={() => confirmCloseFormation(true)}>
+                Clôturer et partager
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {birthOpen && formation && (
+        <CloseFormationBirthOverlay
+          title={formation.title}
+          organization={MOCK_OF_ORG.name}
+          proofNumber={formation.proofNumber}
+          datesLabel={`${formatFr(formation.startDate)} → ${formatFr(formation.endDate)}`}
+          qualiopi
+          euMc={Boolean(formation.isEuMcDeclared)}
+          onOpen={() => {
+            setBirthOpen(false);
+            setCurrentPage('preuve-formation');
+            navigate('/preuve-formation');
+          }}
+          onContinue={() => setBirthOpen(false)}
+        />
+      )}
+
+      {attestOpen && (
+        <AttestFormationModal
+          participants={people.participants}
+          outcomes={formation?.learningOutcomes ?? []}
+          slots={slots.map((s) => ({ id: s.id, label: s.label, status: s.status }))}
+          preselectedId={attestPerson}
+          onClose={() => setAttestOpen(false)}
+          onAttest={() => {
+            setAttestOpen(false);
+            showSuccess('✓ Compétence attestée — une preuve par personne');
+          }}
+        />
       )}
     </section>
   );

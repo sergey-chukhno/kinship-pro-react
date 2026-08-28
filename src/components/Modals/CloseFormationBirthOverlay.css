@@ -1,0 +1,135 @@
+.pf-birth-overlay {
+  background: rgba(20, 24, 22, 0.82);
+}
+
+.pfc {
+  width: 280px;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
+}
+
+.pfc-head {
+  background: #003189;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pfc.eumc .pfc-head {
+  background: linear-gradient(135deg, #8a6d1a, #d4960a);
+}
+
+.pfc-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pfc-kname {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pfc-ktype {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 8.5px;
+}
+
+.pfc-num {
+  color: rgba(255, 255, 255, 0.45);
+  font-family: ui-monospace, monospace;
+  font-size: 9px;
+  text-align: right;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: pre-line;
+}
+
+.pfc-body {
+  padding: 13px 14px;
+}
+
+.pfc-titre {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+  margin-bottom: 2px;
+  color: #1a1a2e;
+}
+
+.pfc-dates {
+  text-align: center;
+  font-size: 8.5px;
+  color: #6b7280;
+  margin-bottom: 9px;
+}
+
+.pfc-org {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.pfc-flag {
+  display: inline-flex;
+  width: 15px;
+  height: 10px;
+  border: 0.5px solid #ddd;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pfc-flag span:nth-child(1) { flex: 1; background: #0055a4; }
+.pfc-flag span:nth-child(2) { flex: 1; background: #fff; }
+.pfc-flag span:nth-child(3) { flex: 1; background: #ef4135; }
+
+.pfc-orgname {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pfc-trust {
+  font-size: 8.5px;
+  color: #ff616f;
+  padding-left: 21px;
+  margin-bottom: 9px;
+}
+
+.pfc-share {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8f9fb;
+  border-radius: 9px;
+  padding: 7px 10px;
+}
+
+.pfc-qr {
+  width: 30px;
+  height: 30px;
+  background: #fff;
+  border: 0.5px solid #e5e7eb;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pfc-share-t {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.pfc-share-h {
+  font-size: 7.5px;
+  color: #9ca3af;
+  font-family: ui-monospace, monospace;
+}

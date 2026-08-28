@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { useAppContext } from '../../context/AppContext';
@@ -11,6 +11,7 @@ import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
 import { MOCK_OF_ORG } from '../../data/mockFormations';
 import { openProjectAffiche } from '../../utils/projectSpaceStore';
+import { canCreateFormation, isOfActivated, subscribeOfActivation } from '../../utils/ofActivationStore';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
@@ -24,6 +25,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const navigate = useNavigate();
   const [isSelectProjectForBadgeOpen, setIsSelectProjectForBadgeOpen] = useState(false);
   const [isSelectPartnerModalOpen, setIsSelectPartnerModalOpen] = useState(false);
+  const [ofOn, setOfOn] = useState(() => isOfActivated());
+
+  useEffect(() => subscribeOfActivation(() => setOfOn(isOfActivated())), []);
 
   // Get currently selected context
   const getCurrentContext = useMemo(() => {
@@ -102,7 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         });
       }
 
-      // Add formation organizations (OF) — from API or demo prototype entry
+      // Add formation organizations (OF) — API, ou démo une fois l’activation validée (F0)
       if (contexts.formation_organizations && contexts.formation_organizations.length > 0) {
         contexts.formation_organizations.forEach(org => {
           if (org.role === 'superadmin' || org.role === 'admin') {
@@ -115,7 +119,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
             });
           }
         });
-      } else {
+      }
+      if (ofOn && !orgs.some((o) => o.type === 'formation')) {
         orgs.push({
           id: MOCK_OF_ORG.id,
           name: 'Organisme de formation',
@@ -133,7 +138,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           isAdmin: false
         });
       }
-    } else {
+    } else if (ofOn) {
       orgs.push({
         id: MOCK_OF_ORG.id,
         name: 'Organisme de formation',
@@ -143,7 +148,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     }
 
     return orgs;
-  }, [state.user.available_contexts]);
+  }, [state.user.available_contexts, ofOn]);
 
   // Handle organization switching
   const handleOrganizationSwitch = (orgId: number | string, orgType: ContextOrgType) => {
@@ -269,6 +274,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                                 onPageChange('projects');
                                 return;
                               }
+                              if (item.id === 'formations' && !ofOn) {
+                                onPageChange('of-activation');
+                                navigate('/of-activation');
+                                return;
+                              }
                               onPageChange(item.id);
                               navigate(`/${item.id}`);
                             }}
@@ -367,17 +377,33 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                         </button>
                       )}
                     </Menu.Item>
-                    <Menu.Item disabled>
-                      {({ active }) => (
-                        <button
-                          type="button"
-                          disabled
-                          className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
-                        >
-                          Formation
-                          <span className="sidebar-quick-action-soon">Bientôt</span>
-                        </button>
-                      )}
+                    <Menu.Item>
+                      {({ active }) =>
+                        canCreateFormation() || ofOn ? (
+                          <button
+                            type="button"
+                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                            onClick={() => {
+                              navigate('/create?type=formation');
+                              onPageChange('create');
+                            }}
+                          >
+                            Formation
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                            onClick={() => {
+                              navigate('/of-activation');
+                              onPageChange('of-activation');
+                            }}
+                          >
+                            Formation
+                            <span className="sidebar-quick-action-soon">Vérifier mon organisme</span>
+                          </button>
+                        )
+                      }
                     </Menu.Item>
                     <Menu.Item disabled>
                       {({ active }) => (
@@ -435,6 +461,23 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 Ajouter un partenaire
               </button>
             </div>
+          </div>
+        )}
+
+        {state.showingPageType === 'of' && (
+          <div className="sidebar-quick-actions">
+            <div className="sidebar-quick-actions-title">Actions rapides</div>
+            <button
+              type="button"
+              className="side-link quick-action-btn"
+              onClick={() => {
+                navigate('/create?type=formation');
+                onPageChange('create');
+              }}
+            >
+              <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
+              Créer une formation
+            </button>
           </div>
         )}
 

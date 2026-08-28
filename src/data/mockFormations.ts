@@ -1,5 +1,5 @@
 export type FormationStatus = 'draft' | 'coming' | 'in_progress' | 'ended' | 'archived';
-export type FinancementType = 'CPF' | 'OPCO' | 'Entreprise' | 'Associative' | 'Autre';
+export type FinancementType = 'CPF' | 'OPCO' | 'Entreprise' | 'Association' | 'Institution' | 'Autre';
 export type ParticipationMode = 'presentiel' | 'distanciel' | 'hybride';
 
 export interface LearningOutcome {
@@ -34,6 +34,13 @@ export interface FormationCard {
   frameLocked?: boolean;
   dateChanges?: DateChangeRecord[];
   pfShareToken?: string;
+  workloadEcts?: string;
+  eqfLevel?: number;
+  eqfFramework?: 'EQF' | 'QF_EHEA';
+  assessmentType?: string;
+  teachingLanguages?: string[];
+  entryRequirements?: string;
+  orgName?: string;
   meta: string;
   identitiesToVerify?: number;
   endDateOverdue?: boolean;
@@ -65,9 +72,19 @@ export const FINANCEMENT_LABEL: Record<FinancementType, string> = {
   CPF: 'CPF',
   OPCO: 'OPCO',
   Entreprise: 'Entreprise',
-  Associative: 'Association',
+  Association: 'Association',
+  Institution: 'Institution',
   Autre: 'Autre',
 };
+
+export const FINANCEMENT_OPTIONS: FinancementType[] = [
+  'CPF',
+  'OPCO',
+  'Entreprise',
+  'Association',
+  'Institution',
+  'Autre',
+];
 
 export const PARTICIPATION_LABEL: Record<ParticipationMode, string> = {
   presentiel: 'Présentiel',
@@ -189,7 +206,7 @@ export const MOCK_FORMATIONS: FormationCard[] = [
     description:
       'Session d’approfondissement BAFA : animation, responsabilité éducative et encadrement de séjours de vacances.',
     status: 'ended',
-    financement: 'Associative',
+    financement: 'Association',
     durationHours: 24,
     participationMode: 'presentiel',
     frameLocked: true,

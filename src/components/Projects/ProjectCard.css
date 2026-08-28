@@ -128,7 +128,8 @@
     var(--hover-primary, var(--couleur-espace-hover, #1a7a70))
   );
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
   padding: 12px;
 }
 
@@ -142,6 +143,10 @@
 
 .project-image.draft-hatch {
   background: repeating-linear-gradient(45deg, #f0efe9, #f0efe9 8px, #e8e6de 8px, #e8e6de 16px);
+}
+
+.project-image.draft-hatch .project-image-title {
+  color: var(--primary, #5570F1) !important;
 }
 
 .btn-see-project {

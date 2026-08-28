@@ -27,6 +27,7 @@ function read(): FormationCard[] {
         learningOutcomes: f.learningOutcomes ?? seed.learningOutcomes,
         frameLocked: f.frameLocked ?? seed.frameLocked,
         pfShareToken: f.pfShareToken ?? seed.pfShareToken,
+        financement: (f.financement as string) === 'Associative' ? 'Association' : f.financement ?? seed.financement,
       };
     });
   } catch {
@@ -50,6 +51,23 @@ export function getFormationById(id: string): FormationCard | undefined {
 /** Formation courante (fiche / PF) — hors URL */
 export function getSelectedFormationId(): string | null {
   return sessionStorage.getItem(SELECTED_ID_KEY);
+}
+
+export function openFormationSpace(id: string, tab: 'informations' | 'gestion' = 'gestion') {
+  setSelectedFormationId(id);
+  sessionStorage.setItem('kinship_f2_tab', tab);
+}
+
+export function missingCadre(formation: FormationCard): string[] {
+  const miss: string[] = [];
+  if (!formation.durationHours) miss.push('la durée en heures');
+  if (!formation.financement) miss.push('le financement');
+  if (!(formation.learningOutcomes ?? []).some((o) => o.text.trim())) miss.push('le programme (acquis)');
+  if (formation.isEuMcDeclared) {
+    if (formation.eqfLevel == null) miss.push('le niveau EQF');
+    if (!formation.assessmentType?.trim()) miss.push('le type d’évaluation');
+  }
+  return miss;
 }
 
 export function setSelectedFormationId(id: string | null) {
@@ -203,6 +221,7 @@ function writePeople(formationId: string, state: PeopleState) {
   const map = readPeopleMap();
   map[formationId] = state;
   localStorage.setItem(PEOPLE_KEY, JSON.stringify(map));
+  window.dispatchEvent(new CustomEvent('kinship-formation-people'));
 }
 
 export function getFormationPeople(formationId: string): PeopleState {
@@ -211,6 +230,25 @@ export function getFormationPeople(formationId: string): PeopleState {
 
 export function setFormationPeople(formationId: string, state: PeopleState) {
   writePeople(formationId, state);
+}
+
+export function verifyFormationIdentity(formationId: string, personId: string) {
+  const people = getFormationPeople(formationId);
+  const next = {
+    ...people,
+    participants: people.participants.map((p) =>
+      p.id === personId ? { ...p, identityVerified: true, pendingActivation: false } : p
+    ),
+  };
+  writePeople(formationId, next);
+  window.dispatchEvent(new CustomEvent('kinship-formation-people'));
+  return next;
+}
+
+export function subscribeFormationPeople(cb: () => void): () => void {
+  const handler = () => cb();
+  window.addEventListener('kinship-formation-people', handler);
+  return () => window.removeEventListener('kinship-formation-people', handler);
 }
 
 /** Participants démo pour la fiche — la 26 : ✓ vert / ⚠ orange */

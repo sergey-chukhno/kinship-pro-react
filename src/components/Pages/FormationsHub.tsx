@@ -6,6 +6,7 @@ import {
   FormationStatus,
   FinancementType,
   FINANCEMENT_LABEL,
+  FINANCEMENT_OPTIONS,
   MOCK_OF_ORG,
 } from '../../data/mockFormations';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
@@ -22,6 +23,7 @@ import {
   formatSlotDateLabel,
 } from '../../utils/formationStore';
 import FormationModal, { FormationFormData } from '../Modals/FormationModal';
+import { canBrowseFormationsReadOnly, canCreateFormation } from '../../utils/ofActivationStore';
 import { useToast } from '../../hooks/useToast';
 import './FormationsHub.css';
 
@@ -37,17 +39,10 @@ const FINANCEMENT_CLASS: Record<FinancementType, string> = {
   CPF: 'cpf',
   OPCO: 'opco',
   Entreprise: 'entreprise',
-  Associative: 'associative',
+  Association: 'associative',
+  Institution: 'autre',
   Autre: 'autre',
 };
-
-const FINANCEMENT_OPTIONS: FinancementType[] = [
-  'CPF',
-  'OPCO',
-  'Entreprise',
-  'Associative',
-  'Autre',
-];
 
 const MONTH_OPTIONS: { value: number; label: string }[] = [
   { value: 1, label: 'Janvier' },
@@ -140,17 +135,27 @@ const FormationsHub: React.FC = () => {
 
   useEffect(() => {
     if (searchParams.get('open') === 'create') {
-      setEditingFormation(null);
-      setIsCreateModalOpen(true);
       const next = new URLSearchParams(searchParams);
       next.delete('open');
       setSearchParams(next, { replace: true });
+      if (!canCreateFormation()) {
+        setCurrentPage('of-activation');
+        navigate('/of-activation');
+        return;
+      }
+      setCurrentPage('create');
+      navigate('/create?type=formation');
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, navigate, setCurrentPage]);
 
   const openCreateModal = () => {
-    setEditingFormation(null);
-    setIsCreateModalOpen(true);
+    if (!canCreateFormation()) {
+      setCurrentPage('of-activation');
+      navigate('/of-activation');
+      return;
+    }
+    setCurrentPage('create');
+    navigate('/create?type=formation');
   };
 
   const openEditModal = (formation: FormationCard) => {
@@ -170,10 +175,6 @@ const FormationsHub: React.FC = () => {
   };
 
   const openCard = (formation: FormationCard) => {
-    if (formation.status === 'draft') {
-      openEditModal(formation);
-      return;
-    }
     openDetail(formation);
   };
 
@@ -615,9 +616,14 @@ const FormationsHub: React.FC = () => {
             dernière vérification : {MOCK_OF_ORG.lastVerified}
           </p>
         </div>
-        <button type="button" className="formations-hub-create" onClick={openCreateModal}>
-          + Créer une formation
-        </button>
+        {canCreateFormation() && (
+          <button type="button" className="formations-hub-create" onClick={openCreateModal}>
+            + Créer une formation
+          </button>
+        )}
+        {!canCreateFormation() && canBrowseFormationsReadOnly() && (
+          <p className="formations-hub-subtitle">Espace en lecture — la création s’ouvrira à l’activation.</p>
+        )}
       </div>
 
       <div className="formations-hub-shell">

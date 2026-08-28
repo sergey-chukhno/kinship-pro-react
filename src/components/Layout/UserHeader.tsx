@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { useAppContext } from '../../context/AppContext';
@@ -7,6 +7,7 @@ import './UserHeader.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { MOCK_OF_ORG } from '../../data/mockFormations';
+import { isOfActivated, subscribeOfActivation } from '../../utils/ofActivationStore';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
@@ -19,6 +20,8 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   const { state, setShowingPageType } = useAppContext();
   const user = state.user;
   const navigate = useNavigate();
+  const [ofOn, setOfOn] = useState(() => isOfActivated());
+  useEffect(() => subscribeOfActivation(() => setOfOn(isOfActivated())), []);
 
   // Get currently selected context
   const getCurrentContext = useMemo(() => {
@@ -109,7 +112,8 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
             });
           }
         });
-      } else {
+      }
+      if (ofOn && !orgs.some((o) => o.type === 'formation')) {
         orgs.push({
           id: MOCK_OF_ORG.id,
           name: 'Organisme de formation',
@@ -127,7 +131,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
           isAdmin: false
         });
       }
-    } else {
+    } else if (ofOn) {
       orgs.push({
         id: MOCK_OF_ORG.id,
         name: 'Organisme de formation',
@@ -137,7 +141,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
     }
 
     return orgs;
-  }, [state.user.available_contexts]);
+  }, [state.user.available_contexts, ofOn]);
 
   const handlePageChange = (page: PageType) => {
     onPageChange(page);

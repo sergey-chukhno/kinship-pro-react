@@ -3,6 +3,7 @@ import { useAppContext } from "../context/AppContext";
 import { getCurrentUser, refreshToken } from "../api/Authentication"; // adapte le chemin selon ton projet
 import { applySpaceTheme } from "../utils/spaceTheme";
 import { PageType } from "../types";
+import { isOfActivated, restoreOfRoleContext } from "../utils/ofActivationStore";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const isPublicFollowPath = (pathname: string) => pathname.startsWith("/follow/");
@@ -30,7 +31,8 @@ export const useAuthInit = () => {
       "personal-settings", "pik",
       "membership-requests", "partnership-requests", "funder-attachments", "project-management",
       "presence-session", "formation-detail", "formation-affiche", "preuve-formation",
-      "create", "project-space", "project-affiche", "funded-projects"
+      "create", "project-space", "project-affiche", "funded-projects",
+      "of-activation", "admin-of-queue"
     ];
 
     if (validPages.includes(path as PageType)) {
@@ -60,6 +62,14 @@ export const useAuthInit = () => {
 
     if (path.startsWith('funded-projects')) {
       return 'funded-projects';
+    }
+
+    if (path.startsWith('of-activation')) {
+      return 'of-activation';
+    }
+
+    if (path.startsWith('admin-of-queue')) {
+      return 'admin-of-queue';
     }
 
     if (path.startsWith('pik')) {
@@ -118,6 +128,8 @@ export const useAuthInit = () => {
 
           const isAuthPage = location.pathname === "/register" || location.pathname === "/login" || location.pathname.startsWith("/register/");
 
+          restoreOfRoleContext();
+
           // Vérifier s'il y a un contexte sauvegardé et valide
           const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | "of" | null;
           const savedContextId = localStorage.getItem('selectedContextId');
@@ -143,13 +155,11 @@ export const useAuthInit = () => {
                   (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
                 ) || false;
               case 'formation':
-                if (user.available_contexts?.formation_organizations?.length) {
-                  return user.available_contexts.formation_organizations.some(
-                    (o: any) => o.id.toString() === savedContextId && (o.role === 'admin' || o.role === 'superadmin')
-                  );
-                }
-                // Demo OF space always available until API provides formation_organizations
-                return savedPageType === 'of';
+                if (savedPageType === 'of' && isOfActivated()) return true;
+                if (!savedContextId) return false;
+                return user.available_contexts?.formation_organizations?.some(
+                  (o: any) => o.id.toString() === savedContextId && (o.role === 'admin' || o.role === 'superadmin')
+                ) || false;
               default:
                 return false;
             }

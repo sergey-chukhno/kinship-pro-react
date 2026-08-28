@@ -1,0 +1,174 @@
+.afm-ov {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(30, 28, 24, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px 24px;
+  overflow: auto;
+}
+
+.afm-modal {
+  background: #fff;
+  border: 1px solid #cfccc2;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  max-width: 430px;
+  width: 100%;
+}
+
+.afm-modal h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.afm-k {
+  font-size: 11px;
+  font-weight: 800;
+  color: #115e59;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin: 8px 0 6px;
+}
+
+.afm-k span {
+  font-weight: 400;
+  color: #8f8d86;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.afm-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.afm-chips button,
+.afm-list button {
+  font-size: 12px;
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid #d0ccc0;
+  color: #8f8d86;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.afm-chips button.on,
+.afm-list button.on {
+  background: #eef5f4;
+  border-color: #115e59;
+  color: #115e59;
+}
+
+.afm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.afm-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.afm-list em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 11px;
+  background: #f1efe9;
+  border: 1px solid #d0ccc0;
+  border-radius: 6px;
+  padding: 1px 7px;
+  color: #5c594f;
+}
+
+.afm-comment {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 10px 0;
+}
+
+.afm-comment i {
+  color: #c0392b;
+  font-style: normal;
+}
+
+.afm-comment textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  border: 1px solid #bcd6d3;
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.afm-selon {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 13px;
+  margin: 12px 0;
+}
+
+.afm-selon button {
+  border: 1px solid #bcd6d3;
+  color: #115e59;
+  background: #fff;
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.afm-selon button.on {
+  background: #115e59;
+  color: #fff;
+  border-color: #115e59;
+}
+
+.afm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.afm-cancel {
+  border: 1.5px solid #b9b6ac;
+  background: #fff;
+  color: #6d6b64;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.afm-go {
+  background: #115e59;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.afm-go:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

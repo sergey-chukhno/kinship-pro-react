@@ -43,6 +43,7 @@ import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { isUnder15 } from '../../utils/ageUtils';
 import FormationsHub from './FormationsHub';
+import FormationsActivationTile from '../Dashboard/FormationsActivationTile';
 import { getFormations } from '../../utils/formationStore';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
@@ -59,7 +60,7 @@ function getStatCardNavigation(
     if (key === 'active_partnerships') return { path: '/network?card=partners', page: 'network' };
     if (key === 'network_count') return { path: '/network?card=members', page: 'network' };
     if (key === 'total_projects') return { path: '/projects', page: 'projects' };
-    if (key === 'formations_count') return { path: '/formations', page: 'formations' };
+    if (key === 'formations_count') return null;
     if (key === 'badges_assigned') return { path: '/badges', page: 'badges' };
     if (key === 'events_count') return { path: '/events', page: 'events' };
   }
@@ -68,7 +69,7 @@ function getStatCardNavigation(
     if (key === 'total_levels') return { path: '/members?tab=class', page: 'members' };
     if (key === 'active_partnerships') return { path: '/network?card=partners', page: 'network' };
     if (key === 'total_projects') return { path: '/projects', page: 'projects' };
-    if (key === 'formations_count') return { path: '/formations', page: 'formations' };
+    if (key === 'formations_count') return null;
     if (key === 'events_count') return { path: '/events', page: 'events' };
     if (key === 'badges_assigned') return { path: '/badges', page: 'badges' };
   }
@@ -1716,6 +1717,9 @@ const Dashboard: React.FC = () => {
           <div className="dashboard-stats">
             <div className="stats-grid">
               {statCards.map((card) => {
+                if (card.key === 'formations_count') {
+                  return <FormationsActivationTile key="formations_count" />;
+                }
                 const labelClass = card.variant === 'stat-card2' ? 'stat-label2' : 'stat-label';
                 const nav = getStatCardNavigation(state.showingPageType, card.key);
                 const content = (
