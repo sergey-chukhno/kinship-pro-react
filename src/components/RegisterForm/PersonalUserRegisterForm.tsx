@@ -436,7 +436,8 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
       .then((response) => {
         console.log("Inscription réussie :", response)
         showSuccess("Inscription réussie !")
-        navigate("/login")
+        const redirect = new URLSearchParams(location.search).get("redirect")
+        navigate(redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : "/login")
       })
       .catch((error) => {
         console.error("Erreur lors de l'inscription :", error)
