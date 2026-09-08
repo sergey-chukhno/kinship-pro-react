@@ -20,6 +20,7 @@ const MesEnfants: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // showError from useToast is recreated every render — omit from deps to avoid a fetch loop.
   const loadLinks = useCallback(async () => {
     setLoading(true);
     setForbidden(false);
@@ -36,10 +37,11 @@ const MesEnfants: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    loadLinks();
+    void loadLinks();
   }, [loadLinks]);
 
   const handleSubmit = async (e: React.FormEvent) => {
