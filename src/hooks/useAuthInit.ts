@@ -3,6 +3,7 @@ import { useAppContext } from "../context/AppContext";
 import { getCurrentUser, refreshToken } from "../api/Authentication"; // adapte le chemin selon ton projet
 import { PageType } from "../types";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getSafePostAuthRedirect } from "../utils/authRedirect";
 
 export const useAuthInit = () => {
   const { setCurrentPage, setShowingPageType, setUser } = useAppContext();
@@ -24,7 +25,9 @@ export const useAuthInit = () => {
     const validPages: PageType[] = [
       "dashboard", "members", "events", "projects", "badges",
       "analytics", "network", "notifications", "settings",
-      "membership-requests", "partnership-requests", "project-management"
+      "personal-settings",
+      "membership-requests", "partnership-requests", "project-management",
+      "mes-enfants"
     ];
 
     if (validPages.includes(path as PageType)) {
@@ -187,10 +190,24 @@ export const useAuthInit = () => {
 
           setShowingPageType(pageType);
 
-          // Si on est sur une page d'auth, rediriger vers la page par défaut
+          // Si on est sur une page d'auth, rediriger vers redirect sûr ou page par défaut
           if (isAuthPage) {
-            setCurrentPage(defaultPage);
-            navigate(`/${defaultPage}`);
+            const redirect = getSafePostAuthRedirect(location.search);
+            if (redirect === "/mes-enfants") {
+              setShowingPageType("user");
+              localStorage.setItem("selectedPageType", "user");
+              localStorage.setItem("selectedContextId", "user-dashboard");
+              localStorage.setItem("selectedContextType", "user");
+              setCurrentPage("mes-enfants");
+              navigate("/mes-enfants");
+            } else if (redirect) {
+              const pageFromRedirect = getPageFromPath(redirect);
+              setCurrentPage(pageFromRedirect);
+              navigate(redirect);
+            } else {
+              setCurrentPage(defaultPage);
+              navigate(`/${defaultPage}`);
+            }
           } else {
             // Sinon, mettre à jour le currentPage en fonction de la route actuelle
             const currentPageFromPath = getPageFromPath(location.pathname);

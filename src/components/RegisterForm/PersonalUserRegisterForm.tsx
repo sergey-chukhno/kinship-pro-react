@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   getSkills,
   getSubSkills,
@@ -85,6 +85,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
 
 
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useToast()
 
   // Friendly error mapper for registration
