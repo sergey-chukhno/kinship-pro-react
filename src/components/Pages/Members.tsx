@@ -24,6 +24,7 @@ import ClassStudentsModal from '../Modals/ClassStudentsModal';
 import ContactModal from '../Modals/ContactModal';
 import MemberModal from '../Modals/MemberModal';
 import MemberCsvImportModal from '../Modals/MemberCsvImportModal';
+import ParticipantImportWizardModal from '../Modals/ParticipantImportWizardModal';
 import ConfirmModal from '../Modals/ConfirmModal';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './Members.css';
@@ -96,6 +97,7 @@ const Members: React.FC = () => {
   const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
+  const [isParticipantImportOpen, setIsParticipantImportOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community' | 'students' | 'staff' | 'groups'>(
     isTeacherContext ? 'class' : isProContext ? 'staff' : 'members'
   );
@@ -1816,13 +1818,23 @@ const Members: React.FC = () => {
             ) : null;
           })()}
             <div className="dropdown-container" ref={dropdownRef}>
-              <button
-                className="btn btn-outline"
-                onClick={() => setIsCsvImportModalOpen(true)}
-              >
-                <i className="fas fa-upload"></i>
-                Importer de csv
-              </button>
+              {isSchoolContext && currentSchoolId ? (
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setIsParticipantImportOpen(true)}
+                >
+                  <i className="fas fa-upload"></i>
+                  Importer des élèves
+                </button>
+              ) : (
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setIsCsvImportModalOpen(true)}
+                >
+                  <i className="fas fa-upload"></i>
+                  Importer de csv
+                </button>
+              )}
             </div>
           </div>
           {state.showingPageType === 'pro' && companyAllowsMinorMembers ? (
@@ -2546,6 +2558,7 @@ const Members: React.FC = () => {
           badgeCartographyUrl={isSchoolContext ? badgeCartographyUrlForSelectedMember : undefined}
           hasBadges={isSchoolContext ? selectedMemberHasBadges : false}
           isCartographyLoading={isSchoolContext ? isCartographyLoadingForSelected : false}
+          schoolId={isSchoolContext ? currentSchoolId ?? undefined : undefined}
         />
       )}
 
@@ -2596,6 +2609,23 @@ const Members: React.FC = () => {
         isSchool={isSchoolContext}
         allowsMinorMembers={companyAllowsMinorMembers}
       />
+
+      {currentSchoolId ? (
+        <ParticipantImportWizardModal
+          isOpen={isParticipantImportOpen}
+          onClose={() => setIsParticipantImportOpen(false)}
+          schoolId={currentSchoolId}
+          schoolName={
+            state.user?.available_contexts?.schools?.find(
+              (s: { id?: number }) => s.id === currentSchoolId
+            )?.name
+          }
+          onValidated={() => {
+            void fetchMembers();
+            void fetchLevels();
+          }}
+        />
+      ) : null}
 
       {isClassStudentsModalOpen && selectedClass && (
         <ClassStudentsModal
