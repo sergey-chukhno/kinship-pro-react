@@ -1,4 +1,5 @@
 import axiosClient from './config';
+import { messageFromBlobError } from './ParticipantImports';
 
 export type SchoolParentLinkCode = {
   id: number;
@@ -41,12 +42,25 @@ export async function regenerateSchoolParentLinkCode(
   schoolId: number,
   studentId: number | string
 ): Promise<{ code: string | null }> {
-  const res = await axiosClient.post(base(schoolId, studentId) + '/regenerate', null, {
-    responseType: 'blob',
-  });
-  const codeHeader = res.headers['x-parent-link-code'] as string | undefined;
-  const disposition = res.headers['content-disposition'] as string | undefined;
-  const match = disposition ? /filename="?([^"]+)"?/i.exec(disposition) : null;
-  downloadBlob(res.data, match?.[1] || `coupon-${studentId}.pdf`);
-  return { code: codeHeader || null };
+  try {
+    const res = await axiosClient.post(base(schoolId, studentId) + '/regenerate', null, {
+      responseType: 'blob',
+    });
+    const contentType = String(res.headers['content-type'] || '');
+    if (contentType.includes('application/json')) {
+      const text = await (res.data as Blob).text();
+      const parsed = JSON.parse(text);
+      throw Object.assign(new Error(parsed?.message || parsed?.error || 'Régénération impossible'), {
+        response: { data: parsed, status: res.status },
+      });
+    }
+    const codeHeader = res.headers['x-parent-link-code'] as string | undefined;
+    const disposition = res.headers['content-disposition'] as string | undefined;
+    const match = disposition ? /filename="?([^"]+)"?/i.exec(disposition) : null;
+    downloadBlob(res.data, match?.[1] || `coupon-${studentId}.pdf`);
+    return { code: codeHeader || null };
+  } catch (err: any) {
+    const message = await messageFromBlobError(err, 'Régénération impossible');
+    throw Object.assign(new Error(message), { response: err?.response, cause: err });
+  }
 }

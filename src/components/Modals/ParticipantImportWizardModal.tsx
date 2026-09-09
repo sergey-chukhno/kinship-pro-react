@@ -365,6 +365,18 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
     }
   };
 
+  const runDownload = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError('');
+    try {
+      await fn();
+    } catch (err: any) {
+      setError(err?.message || 'Téléchargement impossible');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const barTitle =
     step === 'deposit'
       ? 'M1 — Le dépôt'
@@ -969,7 +981,9 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                             className="piw-chip btnish"
                             disabled={busy}
                             onClick={() =>
-                              void downloadRecapCoupons(schoolId, recap.public_token, [c.class_name])
+                              void runDownload(() =>
+                                downloadRecapCoupons(schoolId, recap.public_token, [c.class_name])
+                              )
                             }
                           >
                             ⬇ coupons
@@ -981,9 +995,9 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                             className="piw-chip btnish"
                             disabled={busy}
                             onClick={() =>
-                              void downloadRecapRouteSheets(schoolId, recap.public_token, [
-                                c.class_name,
-                              ])
+                              void runDownload(() =>
+                                downloadRecapRouteSheets(schoolId, recap.public_token, [c.class_name])
+                              )
                             }
                           >
                             ⬇ feuille de route
@@ -1000,7 +1014,9 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                       type="button"
                       className="piw-chip btnish"
                       disabled={busy}
-                      onClick={() => void downloadRecapDirectionNote(schoolId, recap.public_token)}
+                      onClick={() =>
+                        void runDownload(() => downloadRecapDirectionNote(schoolId, recap.public_token))
+                      }
                     >
                       ⬇ PDF
                     </button>

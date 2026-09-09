@@ -127,6 +127,23 @@ function filenameFromDisposition(header: string | undefined, fallback: string) {
   return match?.[1] || fallback;
 }
 
+/** Axios blob errors carry a Blob body — recover message for UI. */
+export async function messageFromBlobError(err: any, fallback = 'Téléchargement impossible'): Promise<string> {
+  const data = err?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const parsed = JSON.parse(text);
+      if (typeof parsed?.message === 'string' && parsed.message.trim()) return parsed.message;
+      if (typeof parsed?.error === 'string' && parsed.error.trim()) return parsed.error;
+    } catch {
+      /* ignore */
+    }
+  }
+  if (typeof data?.message === 'string' && data.message.trim()) return data.message;
+  return err?.message || fallback;
+}
+
 export function createParticipantImport(
   schoolId: number,
   file: File,
@@ -187,14 +204,18 @@ export async function downloadRecapCoupons(
   publicToken: string,
   classNames?: string[]
 ) {
-  const res = await axiosClient.get(`${recapBase(schoolId, publicToken)}/coupons`, {
-    params: classNames?.length ? { class_names: classNames } : undefined,
-    responseType: 'blob',
-  });
-  downloadBlob(
-    res.data,
-    filenameFromDisposition(res.headers['content-disposition'], `coupons-${publicToken}.pdf`)
-  );
+  try {
+    const res = await axiosClient.get(`${recapBase(schoolId, publicToken)}/coupons`, {
+      params: classNames?.length ? { class_names: classNames } : undefined,
+      responseType: 'blob',
+    });
+    downloadBlob(
+      res.data,
+      filenameFromDisposition(res.headers['content-disposition'], `coupons-${publicToken}.pdf`)
+    );
+  } catch (err) {
+    throw new Error(await messageFromBlobError(err, 'Téléchargement des coupons impossible'));
+  }
 }
 
 export async function downloadRecapRouteSheets(
@@ -202,24 +223,32 @@ export async function downloadRecapRouteSheets(
   publicToken: string,
   classNames?: string[]
 ) {
-  const res = await axiosClient.get(`${recapBase(schoolId, publicToken)}/route_sheets`, {
-    params: classNames?.length ? { class_names: classNames } : undefined,
-    responseType: 'blob',
-  });
-  downloadBlob(
-    res.data,
-    filenameFromDisposition(res.headers['content-disposition'], `feuille-de-route-${publicToken}.pdf`)
-  );
+  try {
+    const res = await axiosClient.get(`${recapBase(schoolId, publicToken)}/route_sheets`, {
+      params: classNames?.length ? { class_names: classNames } : undefined,
+      responseType: 'blob',
+    });
+    downloadBlob(
+      res.data,
+      filenameFromDisposition(res.headers['content-disposition'], `feuille-de-route-${publicToken}.pdf`)
+    );
+  } catch (err) {
+    throw new Error(await messageFromBlobError(err, 'Téléchargement de la feuille de route impossible'));
+  }
 }
 
 export async function downloadRecapDirectionNote(schoolId: number, publicToken: string) {
-  const res = await axiosClient.get(`${recapBase(schoolId, publicToken)}/direction_note`, {
-    responseType: 'blob',
-  });
-  downloadBlob(
-    res.data,
-    filenameFromDisposition(res.headers['content-disposition'], `note-direction-${publicToken}.pdf`)
-  );
+  try {
+    const res = await axiosClient.get(`${recapBase(schoolId, publicToken)}/direction_note`, {
+      responseType: 'blob',
+    });
+    downloadBlob(
+      res.data,
+      filenameFromDisposition(res.headers['content-disposition'], `note-direction-${publicToken}.pdf`)
+    );
+  } catch (err) {
+    throw new Error(await messageFromBlobError(err, 'Téléchargement de la note direction impossible'));
+  }
 }
 
 export function eraseRecapNominative(schoolId: number, publicToken: string) {

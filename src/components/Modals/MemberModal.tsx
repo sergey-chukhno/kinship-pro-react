@@ -232,9 +232,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
       await regenerateSchoolParentLinkCode(schoolId, member.id);
       await loadParentLinkCodes();
     } catch (err: any) {
-      setParentCodesError(
-        err?.response?.data?.message || err.message || 'Régénération impossible'
-      );
+      setParentCodesError(err?.message || 'Régénération impossible');
     } finally {
       setRegeneratingCode(false);
     }
