@@ -6,16 +6,18 @@
   background: #eceae4;
   padding: 24px 16px 40px;
   color: #1a1a1a;
+  box-sizing: border-box;
 }
 
-.famille-landing-card {
-  max-width: 430px;
+.famille-landing-inner {
   width: 100%;
+  max-width: 430px;
   background: #f7f6f3;
   border: 1px solid #cfccc2;
   border-radius: 14px;
-  padding: 20px 18px 22px;
+  padding: 16px 18px 18px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
 }
 
 .famille-landing-logo {
@@ -25,18 +27,23 @@
 }
 
 .famille-title {
-  font-size: 1.05rem;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.45;
   margin: 0 0 14px;
+}
+
+.famille-title-rule {
+  display: none;
 }
 
 .famille-block {
   background: #fff;
   border: 1px solid #ddd9cf;
   border-radius: 10px;
-  padding: 12px 13px;
+  padding: 11px 13px;
   margin-bottom: 11px;
+  box-sizing: border-box;
 }
 
 .famille-block-last {
@@ -44,28 +51,31 @@
 }
 
 .famille-label {
-  font-size: 0.7rem;
+  font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #8f8d86;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
 }
 
 .famille-block ul {
   margin: 0;
   padding-left: 18px;
-  font-size: 0.92rem;
-  line-height: 1.55;
+  font-size: 11.5px;
+  line-height: 1.6;
+  list-style-type: disc;
+  list-style-position: outside;
 }
 
 .famille-block li {
-  margin-bottom: 6px;
+  margin-bottom: 5px;
+  display: list-item;
 }
 
 .famille-body {
-  font-size: 0.92rem;
-  line-height: 1.55;
+  font-size: 11.5px;
+  line-height: 1.6;
   margin: 0;
   color: #3f3d38;
 }
@@ -76,26 +86,31 @@
 }
 
 .famille-btn-primary {
-  display: block;
+  display: inline-block;
   width: 100%;
-  margin-top: 12px;
+  margin-top: 11px;
   text-align: center;
-  background: #115e59;
+  background: var(--primary, #db087c);
   color: #fff;
   border: none;
   border-radius: 9px;
-  padding: 12px 16px;
-  font-size: 0.95rem;
+  padding: 10px 18px;
+  font-size: 12px;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
   box-sizing: border-box;
 }
 
+.famille-btn-primary:hover {
+  filter: brightness(0.95);
+  color: #fff;
+}
+
 .famille-btn-secondary {
   display: inline-block;
   margin-top: 12px;
-  color: #115e59;
+  color: var(--primary, #db087c);
   font-weight: 700;
 }
 
@@ -103,10 +118,57 @@
   margin: 12px 0 0;
   font-size: 0.85rem;
   color: #6d6b64;
-  text-align: center;
+  text-align: left;
 }
 
 .famille-login-hint a {
-  color: #115e59;
+  color: var(--primary, #db087c);
   font-weight: 700;
+}
+
+/* V1.2 — vue ordinateur (~600px+) : colonne ~520px, titre + filet, bouton contenu, blocs plus aérés */
+@media (min-width: 600px) {
+  .famille-landing-page {
+    padding: 20px 24px 40px;
+    background: #fff;
+  }
+
+  .famille-landing-inner {
+    max-width: 520px;
+    margin: 0 auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .famille-title {
+    font-size: 17px;
+    margin: 0 0 18px;
+  }
+
+  .famille-title-rule {
+    display: block;
+    height: 1px;
+    background: #eceae4;
+    border: none;
+    margin: 0 0 18px;
+  }
+
+  .famille-block {
+    padding: 14px 16px;
+    margin-bottom: 13px;
+  }
+
+  .famille-block ul,
+  .famille-body {
+    font-size: 12px;
+  }
+
+  .famille-btn-primary {
+    width: auto;
+    margin-top: 13px;
+    padding: 11px 22px;
+  }
 }

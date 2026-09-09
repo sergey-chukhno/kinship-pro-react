@@ -16,6 +16,7 @@ import { submitPersonalUserRegistration } from "../../api/Authentication"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
 import { useToast } from "../../hooks/useToast"
+import SelfRegistrationLegalNotice from "./SelfRegistrationLegalNotice"
 
 
 interface availability {
@@ -454,23 +455,7 @@ const PersonalUserRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) 
         <h2 className="pur-title">Inscription Utilisateur Personnel</h2>
       </div>
 
-      <div className="form-step visible">
-        <p>
-          Cette application se conforme au Règlement Européen sur la Protection des Données Personnelles et à la loi
-          informatique et Libertés du Nº78-17 du 6 janvier 1978. Responsable des traitements : DASEN pour les écoles
-          publiques ou chef d'établissement pour les écoles privées. Traitements réalisés par Kinship en qualité de
-          sous-traitant.
-        </p>
-        <p>
-          Vous pouvez exercer vos droits sur les données qui vous concernent auprès du responsable des traitements.
-        </p>
-        <p>
-          Vous pouvez également interpeller la <a href="https://www.cnil.fr/fr">CNIL</a> en tant qu'autorité de contrôle.
-        </p>
-        <p>
-          Plus de détails sur le portail : <a href="/privacy-policy">Politique de protection des données de Kinship</a>
-        </p>
-      </div>
+      <SelfRegistrationLegalNotice />
 
       {/* Step 1: Rôle avec boutons radio en grille */}
       {currentStep >= 1 && (

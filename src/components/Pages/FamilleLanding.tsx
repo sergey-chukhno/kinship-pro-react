@@ -41,7 +41,7 @@ const FamilleLanding: React.FC = () => {
 
   return (
     <div className="famille-landing-page">
-      <div className="famille-landing-card">
+      <div className="famille-landing-inner">
         <img src="/Kinship_logo.png" alt="Kinship" className="famille-landing-logo" />
 
         {status === 'loading' && <p className="famille-muted">Chargement…</p>}
@@ -49,8 +49,9 @@ const FamilleLanding: React.FC = () => {
         {status === 'error' && (
           <>
             <h1 className="famille-title">Lien indisponible</h1>
+            <hr className="famille-title-rule" />
             <p className="famille-body">
-              Ce lien n&apos;est pas valide ou a expiré. Adressez-vous à l&apos;établissement si besoin.
+              Ce lien n&apos;est pas valide. Adressez-vous à l&apos;établissement si besoin.
             </p>
             <Link className="famille-btn-secondary" to="/login">
               Se connecter
@@ -65,6 +66,7 @@ const FamilleLanding: React.FC = () => {
               {schoolCity ? `, à ${schoolCity}` : ''}, a inscrit votre enfant sur Kinship — pour
               valoriser ses expériences et son implication dans les différents projets du collège.
             </h1>
+            <hr className="famille-title-rule" />
 
             <section className="famille-block">
               <div className="famille-label">Ce que vous pourrez suivre</div>
