@@ -313,23 +313,44 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
     if (!batch?.public_token) return;
     setBusy(true);
     setError('');
+
+    let validateRes: Awaited<ReturnType<typeof validateParticipantImport>>;
     try {
-      const res = await validateParticipantImport(schoolId, batch.public_token, classLevels);
-      setRecapToken(res.data.recap.public_token);
-      const [recapRes, indexRes] = await Promise.all([
-        getParticipantImportRecap(schoolId, res.data.recap.public_token),
-        getParticipantImportDocumentIndex(schoolId, res.data.recap.public_token),
-      ]);
-      setRecap(recapRes.data);
-      setDocIndex(indexRes.data);
-      setStep('receipt');
-      onValidated?.();
+      validateRes = await validateParticipantImport(schoolId, batch.public_token, classLevels);
     } catch (err: any) {
       if (err?.response?.status === 410) {
         setStep('expired');
       } else {
         setError(err?.response?.data?.message || err.message || 'Validation impossible');
       }
+      setBusy(false);
+      return;
+    }
+
+    const token = validateRes.data.recap.public_token;
+    setRecapToken(token);
+    setRecap({
+      public_token: token,
+      counts: validateRes.data.recap.counts,
+      nominative_present: true,
+    });
+    setDocIndex(null);
+    setStep('receipt');
+    onValidated?.();
+
+    try {
+      const [recapRes, indexRes] = await Promise.all([
+        getParticipantImportRecap(schoolId, token),
+        getParticipantImportDocumentIndex(schoolId, token),
+      ]);
+      setRecap(recapRes.data);
+      setDocIndex(indexRes.data);
+    } catch (err: any) {
+      setError(
+        err?.response?.data?.message ||
+          err.message ||
+          'Reçu partiellement disponible — les élèves sont bien inscrits.'
+      );
     } finally {
       setBusy(false);
     }
