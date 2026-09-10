@@ -417,18 +417,7 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
     }
   };
 
-  const barTitle =
-    step === 'deposit'
-      ? 'M1 — Le dépôt'
-      : step === 'mapping'
-        ? "M2 — Voici ce que j'ai compris"
-        : step === 'control'
-          ? 'M3 — L\'écran de contrôle'
-          : step === 'live'
-            ? 'M4bis — Un import est en cours'
-            : step === 'expired'
-              ? 'M4ter — Le lot a expiré'
-              : 'M6 — Le reçu';
+  const barTitle = 'Importer des élèves';
 
   const columnEntries = Object.entries(payload?.column_map || {}).sort(
     (a, b) => Number(a[1]) - Number(b[1])
@@ -452,7 +441,6 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
           {step === 'deposit' && (
             <>
               <div className="piw-title">Ajouter des élèves</div>
-              <div className="piw-sub">Trois entrées, un seul moteur. Cette version livre le dépôt de fichier.</div>
               <div
                 className={`piw-drop${drag ? ' drag' : ''}`}
                 onClick={() => fileRef.current?.click()}
@@ -522,8 +510,10 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
 
           {step === 'mapping' && batch && (
             <>
-              <div className="piw-title">Voici ce que j&apos;ai compris</div>
-              <div className="piw-sub">Avant de vous parler de problèmes.</div>
+              <div className="piw-title">Vérifiez la lecture de votre fichier</div>
+              <div className="piw-sub">
+                Les colonnes reconnues et les trois premières lignes. Rien n&apos;est encore inscrit.
+              </div>
               <div className="piw-blk">
                 {columnEntries.length === 0 ? (
                   <div className="piw-muted">Colonnes reconnues automatiquement.</div>
@@ -579,7 +569,10 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
           {step === 'control' && batch && (
             <>
               <div className="piw-title">Ce qui va se passer</div>
-              <div className="piw-sub">Le dépôt n&apos;écrit rien. Trois blocs, toujours dans cet ordre.</div>
+              <div className="piw-sub">
+                Rien n&apos;est encore inscrit. Vérifiez le compte, les classes et les points à régler,
+                puis validez.
+              </div>
 
               <div className="piw-blk">
                 <h4>① Le compte</h4>
@@ -622,7 +615,6 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                     </div>
                   );
                 })}
-                <div className="piw-muted">Le niveau est une valeur modifiable, pas une question.</div>
               </div>
 
               <div className="piw-blk">
@@ -833,7 +825,6 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                     </div>
                   ) : null}
                 </div>
-                <div className="piw-muted">Le mécanique d&apos;abord, les personnes ensuite.</div>
               </div>
 
               {removals.length > 0 ? (
@@ -984,7 +975,7 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
           {step === 'receipt' && recap && (
             <>
               <div className="piw-title">C&apos;est fait</div>
-              <div className="piw-sub">Écran final à adresse stable, retrouvable par « Derniers imports ».</div>
+              <div className="piw-sub">Vous retrouverez cette page dans « Derniers imports ».</div>
 
               <div className="piw-blk">
                 <h4>Ce qui est parti</h4>
