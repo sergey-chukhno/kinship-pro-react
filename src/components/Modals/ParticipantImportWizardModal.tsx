@@ -386,22 +386,6 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
     }
   };
 
-  const requestClose = () => {
-    // Closing a live preview via overlay must release the lot (F3) — same as Annuler.
-    if (
-      batch?.public_token &&
-      batch.status !== 'validated' &&
-      step !== 'receipt' &&
-      step !== 'deposit' &&
-      step !== 'live' &&
-      step !== 'expired'
-    ) {
-      void handleCancelBatch();
-      return;
-    }
-    onClose();
-  };
-
   const handleEraseNominative = async () => {
     if (!recapToken) return;
     if (!window.confirm('Effacer le contenu nominatif ? On efface la liste, pas les élèves.')) return;
@@ -456,7 +440,7 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
   const activeClassGroup = classConflictGroups[seriesIndex];
 
   return (
-    <div className="piw-overlay" onClick={requestClose}>
+    <div className="piw-overlay" onClick={onClose}>
       <div className="piw-modal" onClick={(e) => e.stopPropagation()}>
         <div className="piw-bar">
           <span>{barTitle}</span>
