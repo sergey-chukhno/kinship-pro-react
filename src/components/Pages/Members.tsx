@@ -25,9 +25,11 @@ import ContactModal from '../Modals/ContactModal';
 import MemberModal from '../Modals/MemberModal';
 import MemberCsvImportModal from '../Modals/MemberCsvImportModal';
 import ParticipantImportWizardModal from '../Modals/ParticipantImportWizardModal';
+import { listParticipantImportRecaps, RecapListItem } from '../../api/ParticipantImports';
 import ConfirmModal from '../Modals/ConfirmModal';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './Members.css';
+import '../Modals/Modal.css';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSelectedOrganizationId, getSelectedSchoolId, getSelectedCompanyId, getSelectedOrganizationRole } from '../../utils/contextUtils';
 
@@ -98,6 +100,9 @@ const Members: React.FC = () => {
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
   const [isParticipantImportOpen, setIsParticipantImportOpen] = useState(false);
+  const [isRecentImportsOpen, setIsRecentImportsOpen] = useState(false);
+  const [importRecapToken, setImportRecapToken] = useState<string | null>(null);
+  const [recentImports, setRecentImports] = useState<RecapListItem[]>([]);
   const [activeTab, setActiveTab] = useState<'members' | 'class' | 'community' | 'students' | 'staff' | 'groups'>(
     isTeacherContext ? 'class' : isProContext ? 'staff' : 'members'
   );
@@ -545,6 +550,24 @@ const Members: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const refreshRecentImports = useCallback(async () => {
+    if (!isSchoolContext || !currentSchoolId) {
+      setRecentImports([]);
+      return;
+    }
+    try {
+      const res = await listParticipantImportRecaps(currentSchoolId);
+      setRecentImports(res.data?.recaps || []);
+    } catch (err) {
+      console.error('Erreur récupération derniers imports:', err);
+      setRecentImports([]);
+    }
+  }, [isSchoolContext, currentSchoolId]);
+
+  useEffect(() => {
+    void refreshRecentImports();
+  }, [refreshRecentImports]);
 
   const fetchCommunityVolunteers = async (page: number = 1) => {
     // Ne pas récupérer les volontaires pour les teachers
@@ -1819,13 +1842,25 @@ const Members: React.FC = () => {
           })()}
             <div className="dropdown-container" ref={dropdownRef}>
               {isSchoolContext && currentSchoolId ? (
-                <button
-                  className="btn btn-outline"
-                  onClick={() => setIsParticipantImportOpen(true)}
-                >
-                  <i className="fas fa-upload"></i>
-                  Importer des élèves
-                </button>
+                <>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => {
+                      setImportRecapToken(null);
+                      setIsParticipantImportOpen(true);
+                    }}
+                  >
+                    <i className="fas fa-upload"></i>
+                    Importer des élèves
+                  </button>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => setIsRecentImportsOpen(true)}
+                  >
+                    <i className="fas fa-history"></i>
+                    Derniers imports
+                  </button>
+                </>
               ) : (
                 <button
                   className="btn btn-outline"
@@ -1911,8 +1946,7 @@ const Members: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs visibles pour les contextes scolaires (admin & enseignants) */}
-      {isSchoolContext && (
+      {/* Tabs visibles pour les contextes scolaires (admin & enseignants) */}      {isSchoolContext && (
         <div className="bg-yellow-300 tabs-container">
           {showStaffTab && (
           <button
@@ -2610,19 +2644,81 @@ const Members: React.FC = () => {
         allowsMinorMembers={companyAllowsMinorMembers}
       />
 
+      {isRecentImportsOpen ? (
+        <div className="modal-overlay" onClick={() => setIsRecentImportsOpen(false)}>
+          <div
+            className="modal-content recent-imports-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Derniers imports</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setIsRecentImportsOpen(false)}
+                aria-label="Fermer"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body">
+              {recentImports.length === 0 ? (
+                <p className="recent-imports-empty">Aucun import validé pour le moment.</p>
+              ) : (
+                <ul className="recent-imports-list">
+                  {recentImports.map((item) => {
+                    const dateLabel = item.validated_at
+                      ? new Date(item.validated_at).toLocaleDateString('fr-FR', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                        })
+                      : 'Date inconnue';
+                    const n = item.student_count;
+                    return (
+                      <li key={item.public_token}>
+                        <button
+                          type="button"
+                          className="recent-imports-row"
+                          onClick={() => {
+                            setImportRecapToken(item.public_token);
+                            setIsRecentImportsOpen(false);
+                            setIsParticipantImportOpen(true);
+                          }}
+                        >
+                          <span>{dateLabel}</span>
+                          <span>
+                            {n} élève{n > 1 ? 's' : ''}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {currentSchoolId ? (
         <ParticipantImportWizardModal
           isOpen={isParticipantImportOpen}
-          onClose={() => setIsParticipantImportOpen(false)}
+          onClose={() => {
+            setIsParticipantImportOpen(false);
+            setImportRecapToken(null);
+          }}
           schoolId={currentSchoolId}
           schoolName={
             state.user?.available_contexts?.schools?.find(
               (s: { id?: number }) => s.id === currentSchoolId
             )?.name
           }
+          initialRecapToken={importRecapToken}
           onValidated={() => {
             void fetchMembers();
             void fetchLevels();
+            void refreshRecentImports();
           }}
         />
       ) : null}

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createParticipantImport,
   destroyParticipantImport,
+  downloadImportDirectionNote,
+  downloadImportTemplate,
   downloadRecapCoupons,
   downloadRecapDirectionNote,
   downloadRecapRouteSheets,
@@ -47,6 +49,8 @@ type Props = {
   schoolId: number;
   schoolName?: string;
   onValidated?: () => void;
+  /** Open directly on M6 for a past validated import (Derniers imports). */
+  initialRecapToken?: string | null;
 };
 
 function operatorLabel(batch?: ParticipantImportBatch | null) {
@@ -82,12 +86,20 @@ function lineDisplayName(line: ParticipantImportLine) {
   return `${prenom} ${nom}`.trim();
 }
 
+function familyEmailCounts(counts?: Record<string, number> | null) {
+  return {
+    sent: Number(counts?.emails_sent ?? 0),
+    missing: Number(counts?.not_notified_no_address ?? 0),
+  };
+}
+
 const ParticipantImportWizardModal: React.FC<Props> = ({
   isOpen,
   onClose,
   schoolId,
   schoolName,
   onValidated,
+  initialRecapToken = null,
 }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>('deposit');
@@ -121,8 +133,39 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
       setRecap(null);
       setDocIndex(null);
       setShowRemovals(false);
+      return;
     }
-  }, [isOpen]);
+
+    if (!initialRecapToken) return;
+
+    let cancelled = false;
+    const openReceipt = async () => {
+      setBusy(true);
+      setError('');
+      try {
+        const [recapRes, docRes] = await Promise.all([
+          getParticipantImportRecap(schoolId, initialRecapToken),
+          getParticipantImportDocumentIndex(schoolId, initialRecapToken),
+        ]);
+        if (cancelled) return;
+        setRecapToken(initialRecapToken);
+        setRecap(recapRes.data);
+        setDocIndex(docRes.data);
+        setStep('receipt');
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err?.response?.data?.message || err.message || 'Reçu introuvable');
+          setStep('deposit');
+        }
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    };
+    void openReceipt();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, initialRecapToken, schoolId]);
 
   const payload = batch?.payload;
   const lines = payload?.lines || [];
@@ -492,6 +535,24 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                   que les informations indiquées ci-dessus.
                 </div>
               </div>
+              <div className="piw-dl" style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <button
+                  type="button"
+                  className="piw-chip btnish"
+                  disabled={busy}
+                  onClick={() => void runDownload(() => downloadImportTemplate(schoolId))}
+                >
+                  ⬇ Le modèle de fichier
+                </button>
+                <button
+                  type="button"
+                  className="piw-chip btnish"
+                  disabled={busy}
+                  onClick={() => void runDownload(() => downloadImportDirectionNote(schoolId))}
+                >
+                  ⬇ La note à votre direction (PDF)
+                </button>
+              </div>
               <div className="piw-foot" style={{ justifyContent: 'flex-start' }}>
                 <button type="button" className="piw-btn" onClick={onClose} disabled={busy}>
                   Fermer
@@ -658,16 +719,17 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                       <div style={{ fontSize: 10, color: '#6d6b64', marginBottom: 8 }}>
                         {dateIssues[seriesIndex].issues?.find((i) => i.type === 'invalid_birthday')
                           ?.message || 'Date de naissance illisible.'}{' '}
-                        Corrigez le fichier puis redéposez — « Passer » laisse la ligne en attente.
+                        Corrigez le fichier puis redéposez. « Laisser en attente » conserve la ligne
+                        sans l&apos;inscrire et ferme ce panneau.
                       </div>
                       <div style={{ display: 'flex', gap: 7 }}>
                         <button
                           type="button"
                           className="piw-btn sm"
-                          disabled={busy || seriesIndex >= dateIssues.length - 1}
-                          onClick={() => setSeriesIndex((i) => Math.min(dateIssues.length - 1, i + 1))}
+                          disabled={busy}
+                          onClick={() => setOpenSeries(null)}
                         >
-                          Passer
+                          Laisser en attente
                         </button>
                       </div>
                     </div>
@@ -980,15 +1042,16 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
               <div className="piw-blk">
                 <h4>Ce qui est parti</h4>
                 <div className="piw-cnt" style={{ fontSize: 12 }}>
-                  <em>{recap.counts?.coupons_generated ?? '—'}</em> coupons générés
-                  {typeof recap.counts?.guardian_emails_updated === 'number' ? (
-                    <>
-                      {' '}
-                      — <em>{recap.counts.guardian_emails_updated}</em> adresse
-                      {recap.counts.guardian_emails_updated === 1 ? '' : 's'} de représentant mise
-                      {recap.counts.guardian_emails_updated === 1 ? '' : 's'} à jour
-                    </>
-                  ) : null}
+                  {(() => {
+                    const { sent, missing } = familyEmailCounts(recap.counts);
+                    return (
+                      <>
+                        <em>{sent}</em> email{sent > 1 ? 's' : ''} envoyé{sent > 1 ? 's' : ''} —{' '}
+                        <em>{missing}</em> personne{missing > 1 ? 's' : ''} non prévenue
+                        {missing > 1 ? 's' : ''} (aucune adresse)
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="piw-muted">
                   Vous pouvez compléter les adresses de représentants. Les coupons sont produits pour

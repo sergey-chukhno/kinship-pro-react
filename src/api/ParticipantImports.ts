@@ -199,8 +199,54 @@ export function getParticipantImportRecap(schoolId: number, publicToken: string)
   return axiosClient.get<RecapSummary>(recapBase(schoolId, publicToken));
 }
 
+export type RecapListItem = {
+  public_token: string;
+  validated_at?: string | null;
+  student_count: number;
+  source_format?: string;
+  nominative_present: boolean;
+  counts?: Record<string, number>;
+};
+
+export function listParticipantImportRecaps(schoolId: number) {
+  return axiosClient.get<{ recaps: RecapListItem[] }>(
+    `/api/v1/schools/${schoolId}/participant_import_recaps`
+  );
+}
+
 export function getParticipantImportDocumentIndex(schoolId: number, publicToken: string) {
   return axiosClient.get<RecapDocumentIndex>(`${recapBase(schoolId, publicToken)}/document_index`);
+}
+
+export async function downloadImportTemplate(schoolId: number) {
+  try {
+    const res = await axiosClient.get(`${base(schoolId)}/template`, {
+      responseType: 'blob',
+    });
+    downloadBlob(
+      res.data,
+      filenameFromDisposition(
+        res.headers['content-disposition'],
+        '57_KINSHIP_Liste_des_eleves_MODELE_V2.csv'
+      )
+    );
+  } catch (err) {
+    throw new Error(await messageFromBlobError(err, 'Téléchargement du modèle impossible'));
+  }
+}
+
+export async function downloadImportDirectionNote(schoolId: number) {
+  try {
+    const res = await axiosClient.get(`${base(schoolId)}/direction_note`, {
+      responseType: 'blob',
+    });
+    downloadBlob(
+      res.data,
+      filenameFromDisposition(res.headers['content-disposition'], `note-direction-${schoolId}.pdf`)
+    );
+  } catch (err) {
+    throw new Error(await messageFromBlobError(err, 'Téléchargement de la note direction impossible'));
+  }
 }
 
 export async function downloadRecapCoupons(
