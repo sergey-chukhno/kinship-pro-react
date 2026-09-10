@@ -357,12 +357,47 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
   };
 
   const handleCancelBatch = async () => {
-    if (batch?.public_token && batch.status !== 'validated') {
-      try {
-        await destroyParticipantImport(schoolId, batch.public_token);
-      } catch {
-        /* ignore */
+    if (!batch?.public_token || batch.status === 'validated') {
+      onClose();
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    try {
+      await destroyParticipantImport(schoolId, batch.public_token);
+      setBatch(null);
+      onClose();
+    } catch (err: any) {
+      const status = err?.response?.status;
+      // Already gone — treat as success so the operator is not stuck on M4bis.
+      if (status === 404) {
+        setBatch(null);
+        onClose();
+        return;
       }
+      setError(
+        err?.response?.data?.message ||
+          err.message ||
+          "Impossible d'annuler le lot. Réessayez ou utilisez « Le remplacer » au prochain dépôt."
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestClose = () => {
+    // Closing a live preview via overlay must release the lot (F3) — same as Annuler.
+    if (
+      batch?.public_token &&
+      batch.status !== 'validated' &&
+      step !== 'receipt' &&
+      step !== 'deposit' &&
+      step !== 'live' &&
+      step !== 'expired'
+    ) {
+      void handleCancelBatch();
+      return;
     }
     onClose();
   };
@@ -421,7 +456,7 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
   const activeClassGroup = classConflictGroups[seriesIndex];
 
   return (
-    <div className="piw-overlay" onClick={onClose}>
+    <div className="piw-overlay" onClick={requestClose}>
       <div className="piw-modal" onClick={(e) => e.stopPropagation()}>
         <div className="piw-bar">
           <span>{barTitle}</span>

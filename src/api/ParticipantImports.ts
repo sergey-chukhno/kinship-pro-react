@@ -188,7 +188,11 @@ export function validateParticipantImport(
 }
 
 export function destroyParticipantImport(schoolId: number, publicToken: string) {
-  return axiosClient.delete(`${base(schoolId)}/${publicToken}`);
+  return axiosClient.delete(`${base(schoolId)}/${publicToken}`, {
+    // Avoid JSON body parsing quirks on 204 No Content.
+    headers: { Accept: 'application/json' },
+    validateStatus: (status) => (status >= 200 && status < 300) || status === 204,
+  });
 }
 
 export function getParticipantImportRecap(schoolId: number, publicToken: string) {
