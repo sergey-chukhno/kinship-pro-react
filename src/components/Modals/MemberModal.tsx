@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { mockBadges } from '../../data/mockData';
 import { Badge, Member } from '../../types';
@@ -12,6 +12,12 @@ import { getLocalBadgeImage } from '../../utils/badgeImages';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
 import MemberCardBadgeProgressModal from './MemberCardBadgeProgressModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import {
+  listSchoolParentLinkCodes,
+  regenerateSchoolParentLinkCode,
+  SchoolParentActiveLink,
+  SchoolParentLinkCode,
+} from '../../api/SchoolParentLinkCodes';
 
 interface MemberModalProps {
   member: Member;
@@ -26,6 +32,7 @@ interface MemberModalProps {
   hasBadges?: boolean; // When true, show Cartographie entry even while URL is loading (Élèves tab)
   isCartographyLoading?: boolean; // When true, show "Cartographie (chargement…)" instead of link
   hideContactAndEmail?: boolean; // When true (e.g. viewer is personal user under 15 in Mon réseau), hide contact actions and email in modal
+  schoolId?: number; // School context — enables Parent-Link codes on student card
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
@@ -40,12 +47,19 @@ const MemberModal: React.FC<MemberModalProps> = ({
   badgeCartographyUrl,
   hasBadges = false,
   isCartographyLoading = false,
-  hideContactAndEmail = false
+  hideContactAndEmail = false,
+  schoolId
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
   // Profession should be the actual job, not translated system role
   const professionLabel = member.profession || '';
+
+  const [parentCodes, setParentCodes] = useState<SchoolParentLinkCode[]>([]);
+  const [parentLinks, setParentLinks] = useState<SchoolParentActiveLink[]>([]);
+  const [parentCodesLoading, setParentCodesLoading] = useState(false);
+  const [parentCodesError, setParentCodesError] = useState('');
+  const [regeneratingCode, setRegeneratingCode] = useState(false);
 
   // Helper function to translate skill (tries main skill first, then sub-skill)
   const translateSkillName = (skillName: string): string => {
@@ -183,6 +197,45 @@ const MemberModal: React.FC<MemberModalProps> = ({
     });
 
     return isRoleStudent || member.hasTemporaryEmail;
+  };
+
+  const loadParentLinkCodes = useCallback(async () => {
+    if (!schoolId || !isStudent()) return;
+    setParentCodesLoading(true);
+    setParentCodesError('');
+    try {
+      const res = await listSchoolParentLinkCodes(schoolId, member.id);
+      setParentCodes(res.data.data?.codes || []);
+      setParentLinks(res.data.data?.active_links || []);
+    } catch (err: any) {
+      setParentCodesError(
+        err?.response?.data?.message || err.message || 'Impossible de charger les codes Parent-Link'
+      );
+      setParentCodes([]);
+      setParentLinks([]);
+    } finally {
+      setParentCodesLoading(false);
+    }
+    // isStudent depends on member fields already covered by member.id / roles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId, member.id]);
+
+  useEffect(() => {
+    void loadParentLinkCodes();
+  }, [loadParentLinkCodes]);
+
+  const handleRegenerateParentCode = async () => {
+    if (!schoolId) return;
+    setRegeneratingCode(true);
+    setParentCodesError('');
+    try {
+      await regenerateSchoolParentLinkCode(schoolId, member.id);
+      await loadParentLinkCodes();
+    } catch (err: any) {
+      setParentCodesError(err?.message || 'Régénération impossible');
+    } finally {
+      setRegeneratingCode(false);
+    }
   };
 
   const toggleDescriptionExpansion = (badgeKey: string) => {
@@ -455,6 +508,97 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     )}
                   </div>
                 </div>
+
+                {schoolId && isStudent() && (
+                <div className="info-section">
+                  <h3>Lien famille</h3>
+                  {parentCodesLoading ? (
+                    <p className="w-full text-center no-badges">Chargement…</p>
+                  ) : (
+                    <>
+                      {parentCodesError ? (
+                        <p style={{ color: '#c0392b', fontSize: '0.9rem' }}>{parentCodesError}</p>
+                      ) : null}
+                      {parentLinks.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                          {parentLinks.map((link) => (
+                            <span
+                              key={link.id}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: link.suspended ? '#f3f4f6' : '#fce7f3',
+                                color: link.suspended ? '#6b7280' : '#db087c',
+                                border: `1px solid ${link.suspended ? '#d1d5db' : '#f9a8d4'}`,
+                                borderRadius: '999px',
+                                padding: '4px 10px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                              }}
+                              title={link.suspended ? 'Suivi suspendu par l’élève' : undefined}
+                            >
+                              {link.label}
+                              {link.suspended ? ' · suspendu' : ''}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-badges" style={{ marginBottom: '12px' }}>Aucun rattachement parent pour cet établissement.</p>
+                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {parentCodes.length === 0 ? (
+                          <p className="no-badges">Aucun code émis pour cet établissement.</p>
+                        ) : (
+                          parentCodes.map((code) => (
+                            <div
+                              key={code.id}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '12px',
+                                padding: '8px 10px',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                              }}
+                            >
+                              <span>
+                                {code.status === 'unused' && code.code ? (
+                                  <strong style={{ letterSpacing: '0.08em' }}>{code.code}</strong>
+                                ) : (
+                                  <span style={{ color: '#6b7280' }}>Code masqué</span>
+                                )}
+                                <span style={{ marginLeft: 8, color: '#6b7280' }}>
+                                  · {code.status === 'unused' ? 'non utilisé' : code.status === 'used' ? 'utilisé' : 'invalidé'}
+                                </span>
+                              </span>
+                              {code.issued_at ? (
+                                <span style={{ color: '#9ca3af', fontSize: '11px' }}>
+                                  {new Date(code.issued_at).toLocaleDateString('fr-FR')}
+                                </span>
+                              ) : null}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div style={{ marginTop: '12px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          disabled={regeneratingCode}
+                          onClick={() => void handleRegenerateParentCode()}
+                          title="Invalide le code non utilisé et télécharge un nouveau coupon"
+                        >
+                          <i className="fas fa-redo"></i>
+                          {regeneratingCode ? 'Régénération…' : 'Régénérer un code'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                )}
 
                 {/* Compétences Section - hidden for members with temporary email */}
                 {!member.hasTemporaryEmail && (

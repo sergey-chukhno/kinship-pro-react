@@ -15,6 +15,7 @@ import ProjectManagement from '../Pages/ProjectManagement';
 import Projects from '../Pages/Projects';
 import Settings from '../Pages/Settings';
 import PersonalSettings from '../Pages/PersonalSettings';
+import MesEnfants from '../Pages/MesEnfants';
 import PrivacyPolicy from '../RegisterForm/PrivacyPolicy';
 import './MainLayout.css';
 import Sidebar from './Sidebar';
@@ -118,6 +119,8 @@ const MainLayout: React.FC = () => {
         return <Settings />;
       case 'personal-settings':
         return <PersonalSettings />;
+      case 'mes-enfants':
+        return <MesEnfants />;
       case 'membership-requests':
         return <MembershipRequests />;
       case 'partnership-requests':
