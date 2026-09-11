@@ -293,7 +293,9 @@ const Members: React.FC = () => {
             classes: s.classes || [], // Include class information from API
             claim_token: s.claim_token || null,
             hasTemporaryEmail: s.has_temporary_email || false,
-            confirmedAt: s.confirmed_at
+            confirmedAt: s.confirmed_at,
+            guardianEmail: s.guardian_email || null,
+            birthday: s.birthday || undefined
           } as Member;
         }) : [];
 
@@ -398,7 +400,9 @@ const Members: React.FC = () => {
           hasTemporaryEmail: m.has_temporary_email || false,
           confirmedAt: m.confirmed_at,
           isSuperadmin: isSuperadmin,
-          classes: m.classes || []
+          classes: m.classes || [],
+          guardianEmail: m.guardian_email || null,
+          birthday: m.birthday || undefined
         } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
       });
 

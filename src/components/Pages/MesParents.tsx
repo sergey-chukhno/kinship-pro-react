@@ -116,14 +116,17 @@ const MesParents: React.FC = () => {
             <span className="mes-parents-switch-label">
               {meta.follow_active ? 'Suivi actif' : "Suivi n'est plus actif"}
             </span>
-            <input
-              type="checkbox"
-              className="mes-parents-switch"
-              checked={Boolean(meta.follow_active)}
-              disabled={toggling || links.length === 0}
-              onChange={(e) => void handleToggle(e.target.checked)}
-              aria-label="Activer ou suspendre le suivi parental"
-            />
+            <span className={`mes-parents-toggle-switch${toggling || links.length === 0 ? ' is-disabled' : ''}`}>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={Boolean(meta.follow_active)}
+                disabled={toggling || links.length === 0}
+                onChange={(e) => void handleToggle(e.target.checked)}
+                aria-label="Activer ou suspendre le suivi parental"
+              />
+              <span className="mes-parents-toggle-slider" aria-hidden="true" />
+            </span>
           </label>
           <p className="mes-parents-guard">{FOLLOW_GUARD}</p>
         </section>

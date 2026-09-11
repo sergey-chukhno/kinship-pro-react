@@ -90,10 +90,7 @@ const FamilleLanding: React.FC = () => {
               <p className="famille-body">
                 Créez votre compte — ou connectez-vous si vous en avez déjà un — puis, dans
                 l&apos;onglet « Mes enfants »,{' '}
-                <strong>
-                  saisissez le code que l&apos;école vous remet et la date de naissance de votre
-                  enfant.
-                </strong>
+                <strong>saisissez ce code et la date de naissance de votre enfant.</strong>
               </p>
 
               {hasJwt ? (

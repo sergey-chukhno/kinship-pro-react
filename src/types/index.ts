@@ -43,6 +43,7 @@ export interface Member {
   hasTemporaryEmail?: boolean; // Indicates if email is temporary
   confirmedAt?: string | null; // ISO date when email was confirmed; null = pending activation
   birthday?: string; // Date de naissance
+  guardianEmail?: string | null; // Email représentant légal (école) — never parent account email
   role?: string; // Rôle unique (pour les étudiants)
   levelId?: string; // ID de la classe/level
   roleAdditionalInfo?: string; // Information complémentaire sur le rôle

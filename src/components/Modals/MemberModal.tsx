@@ -18,6 +18,13 @@ import {
   SchoolParentActiveLink,
   SchoolParentLinkCode,
 } from '../../api/SchoolParentLinkCodes';
+import {
+  sendStudentGuardianInvitation,
+  updateStudentGuardianEmail,
+} from '../../api/SchoolStudentGuardian';
+
+/** D-LINK-SURFACES ㉒/㉓ — coded but off until PIK Lot 6 / Patrick unlock. */
+const SHOW_KINSHIP_PERSONAL_KEY_SECTION = false;
 
 interface MemberModalProps {
   member: Member;
@@ -60,6 +67,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
   const [parentCodesLoading, setParentCodesLoading] = useState(false);
   const [parentCodesError, setParentCodesError] = useState('');
   const [regeneratingCode, setRegeneratingCode] = useState(false);
+  const [guardianEmailDraft, setGuardianEmailDraft] = useState(member.guardianEmail || '');
+  const [guardianSaving, setGuardianSaving] = useState(false);
+  const [guardianInviting, setGuardianInviting] = useState(false);
+  const [guardianMessage, setGuardianMessage] = useState('');
+  const [guardianError, setGuardianError] = useState('');
 
   // Helper function to translate skill (tries main skill first, then sub-skill)
   const translateSkillName = (skillName: string): string => {
@@ -223,6 +235,52 @@ const MemberModal: React.FC<MemberModalProps> = ({
   useEffect(() => {
     void loadParentLinkCodes();
   }, [loadParentLinkCodes]);
+
+  useEffect(() => {
+    setGuardianEmailDraft(member.guardianEmail || '');
+  }, [member.guardianEmail, member.id]);
+
+  const handleSaveGuardianEmail = async () => {
+    if (!schoolId) return;
+    const next = guardianEmailDraft.trim();
+    if (!next) {
+      setGuardianError('Indiquez une adresse email.');
+      return;
+    }
+    setGuardianSaving(true);
+    setGuardianError('');
+    setGuardianMessage('');
+    try {
+      const res = await updateStudentGuardianEmail(schoolId, member.id, next);
+      const saved = res.data.data.guardian_email;
+      setGuardianEmailDraft(saved);
+      onUpdate({ guardianEmail: saved });
+      setGuardianMessage('Adresse enregistrée. Aucune invitation n’a été envoyée.');
+    } catch (err: any) {
+      setGuardianError(
+        err?.response?.data?.message || err.message || 'Enregistrement impossible'
+      );
+    } finally {
+      setGuardianSaving(false);
+    }
+  };
+
+  const handleSendGuardianInvitation = async () => {
+    if (!schoolId) return;
+    setGuardianInviting(true);
+    setGuardianError('');
+    setGuardianMessage('');
+    try {
+      await sendStudentGuardianInvitation(schoolId, member.id);
+      setGuardianMessage('Invitation envoyée.');
+    } catch (err: any) {
+      setGuardianError(
+        err?.response?.data?.message || err.message || 'Envoi impossible'
+      );
+    } finally {
+      setGuardianInviting(false);
+    }
+  };
 
   const handleRegenerateParentCode = async () => {
     if (!schoolId) return;
@@ -507,7 +565,79 @@ const MemberModal: React.FC<MemberModalProps> = ({
                       <span>{professionLabel}</span>
                     )}
                   </div>
+                  {isStudent() && member.classes && member.classes.length > 0 && (
+                    <div className="info-item">
+                      <label>Classe:</label>
+                      <span>
+                        {member.classes.map((c) => c.name).filter(Boolean).join(', ')}
+                      </span>
+                    </div>
+                  )}
                 </div>
+
+                {SHOW_KINSHIP_PERSONAL_KEY_SECTION && schoolId && isStudent() && (
+                  <div className="info-section">
+                    <h3>Clé personnelle Kinship</h3>
+                    <p className="no-badges">
+                      {member.confirmedAt
+                        ? 'Compte activé — remise de clé gérée hors de cette carte.'
+                        : 'Remise de clé disponible après levée du verrou (Lot PIK).'}
+                    </p>
+                  </div>
+                )}
+
+                {schoolId && isStudent() && (
+                  <div className="info-section">
+                    <h3>Représentant légal</h3>
+                    <p className="no-badges" style={{ marginBottom: 8 }}>
+                      Adresse de l&apos;établissement (pas celle du compte parent rattaché).
+                    </p>
+                    <div className="info-item" style={{ alignItems: 'center' }}>
+                      <label htmlFor={`guardian-email-${member.id}`}>Email:</label>
+                      <input
+                        id={`guardian-email-${member.id}`}
+                        type="email"
+                        className="edit-input"
+                        value={guardianEmailDraft}
+                        onChange={(e) => setGuardianEmailDraft(e.target.value)}
+                        placeholder="parent@exemple.fr"
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        disabled={guardianSaving}
+                        onClick={() => void handleSaveGuardianEmail()}
+                      >
+                        {guardianSaving ? 'Enregistrement…' : 'Enregistrer'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={
+                          guardianInviting ||
+                          !guardianEmailDraft.trim() ||
+                          guardianEmailDraft.trim() !== (member.guardianEmail || '').trim()
+                        }
+                        title={
+                          guardianEmailDraft.trim() !== (member.guardianEmail || '').trim()
+                            ? 'Enregistrez d’abord la nouvelle adresse'
+                            : undefined
+                        }
+                        onClick={() => void handleSendGuardianInvitation()}
+                      >
+                        {guardianInviting ? 'Envoi…' : "Envoyer l'invitation"}
+                      </button>
+                    </div>
+                    {guardianMessage ? (
+                      <p style={{ color: '#057a55', fontSize: '0.85rem', marginTop: 8 }}>{guardianMessage}</p>
+                    ) : null}
+                    {guardianError ? (
+                      <p style={{ color: '#c0392b', fontSize: '0.85rem', marginTop: 8 }}>{guardianError}</p>
+                    ) : null}
+                  </div>
+                )}
 
                 {schoolId && isStudent() && (
                 <div className="info-section">
@@ -528,18 +658,16 @@ const MemberModal: React.FC<MemberModalProps> = ({
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                background: link.suspended ? '#f3f4f6' : '#fce7f3',
-                                color: link.suspended ? '#6b7280' : '#db087c',
-                                border: `1px solid ${link.suspended ? '#d1d5db' : '#f9a8d4'}`,
+                                background: '#fce7f3',
+                                color: '#db087c',
+                                border: '1px solid #f9a8d4',
                                 borderRadius: '999px',
                                 padding: '4px 10px',
                                 fontSize: '12px',
                                 fontWeight: 600,
                               }}
-                              title={link.suspended ? 'Suivi suspendu par l’élève' : undefined}
                             >
                               {link.label}
-                              {link.suspended ? ' · suspendu' : ''}
                             </span>
                           ))}
                         </div>
@@ -715,11 +843,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   </div>
                 )}
 
-                {/* Recent Badges Section - show for all members */}
+                {/* Recent Preuves Projet — D-LINK-SURFACES-01 §2.1bis / DoD ㉑ */}
                 <div className="info-section">
-                  <h3>3 derniers badges reçus</h3>
+                  <h3>3 dernières Preuves Projet</h3>
                   {!member.latestBadges || member.latestBadges.length === 0 ? (
-                    <p className="w-full text-center no-badges">Aucun badge reçu</p>
+                    <p className="w-full text-center no-badges">Aucune Preuve Projet</p>
                   ) : (
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                       {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
