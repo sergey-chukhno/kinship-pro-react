@@ -326,7 +326,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
             marginBottom: '12px',
             marginTop: 0
           }}>
-            3 derniers badges reçus
+            3 dernières Preuves Projet
           </h4>
           <div style={{ 
             display: 'flex', 
