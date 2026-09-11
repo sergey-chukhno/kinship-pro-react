@@ -6,6 +6,7 @@ import { PageType } from '../../types';
 import './UserHeader.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
+import { isUnder18 } from '../../utils/ageUtils';
 
 interface UserHeaderProps {
   currentPage: PageType;
@@ -255,12 +256,25 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                 {({ active }: { active: boolean }) => (
                   <button
                     className={`${active ? 'active' : ''}`}
-                    onClick={() => handlePageChange('mes-enfants')}
+                    onClick={() => handlePageChange('mes-parents')}
                   >
-                    Mes enfants
+                    Mes parents
                   </button>
                 )}
               </Menu.Item>
+
+              {!isUnder18(user?.birthday) && (
+                <Menu.Item>
+                  {({ active }: { active: boolean }) => (
+                    <button
+                      className={`${active ? 'active' : ''}`}
+                      onClick={() => handlePageChange('mes-enfants')}
+                    >
+                      Mes enfants
+                    </button>
+                  )}
+                </Menu.Item>
+              )}
 
               <div className="dropdown-divider" />
 
