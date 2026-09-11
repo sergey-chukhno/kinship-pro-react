@@ -295,6 +295,7 @@ const Members: React.FC = () => {
             hasTemporaryEmail: s.has_temporary_email || false,
             confirmedAt: s.confirmed_at,
             guardianEmail: s.guardian_email || null,
+            pendingGuardianEmail: s.pending_guardian_email || null,
             birthday: s.birthday || undefined
           } as Member;
         }) : [];
@@ -402,6 +403,7 @@ const Members: React.FC = () => {
           isSuperadmin: isSuperadmin,
           classes: m.classes || [],
           guardianEmail: m.guardian_email || null,
+          pendingGuardianEmail: m.pending_guardian_email || null,
           birthday: m.birthday || undefined
         } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
       });

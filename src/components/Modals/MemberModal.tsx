@@ -237,8 +237,17 @@ const MemberModal: React.FC<MemberModalProps> = ({
   }, [loadParentLinkCodes]);
 
   useEffect(() => {
-    setGuardianEmailDraft(member.guardianEmail || '');
-  }, [member.guardianEmail, member.id]);
+    setGuardianEmailDraft(member.pendingGuardianEmail || member.guardianEmail || '');
+  }, [member.guardianEmail, member.pendingGuardianEmail, member.id]);
+
+  const savedGuardianForInvite = (
+    member.pendingGuardianEmail ||
+    member.guardianEmail ||
+    ''
+  ).trim();
+  const guardianDraftMatchesSaved =
+    guardianEmailDraft.trim() !== '' &&
+    guardianEmailDraft.trim() === savedGuardianForInvite;
 
   const handleSaveGuardianEmail = async () => {
     if (!schoolId) return;
@@ -252,10 +261,19 @@ const MemberModal: React.FC<MemberModalProps> = ({
     setGuardianMessage('');
     try {
       const res = await updateStudentGuardianEmail(schoolId, member.id, next);
-      const saved = res.data.data.guardian_email;
-      setGuardianEmailDraft(saved);
-      onUpdate({ guardianEmail: saved });
-      setGuardianMessage('Adresse enregistrée. Aucune invitation n’a été envoyée.');
+      const payload = res.data.data;
+      const pending = payload.pending_guardian_email;
+      const saved = payload.guardian_email;
+      setGuardianEmailDraft(pending || saved || '');
+      onUpdate({
+        guardianEmail: saved,
+        pendingGuardianEmail: pending,
+      });
+      setGuardianMessage(
+        pending
+          ? 'Nouvelle adresse enregistrée en attente. L’invitation partira à l’adresse encore en base ; la nouvelle sera appliquée après envoi.'
+          : 'Adresse enregistrée. Aucune invitation n’a été envoyée.'
+      );
     } catch (err: any) {
       setGuardianError(
         err?.response?.data?.message || err.message || 'Enregistrement impossible'
@@ -271,7 +289,13 @@ const MemberModal: React.FC<MemberModalProps> = ({
     setGuardianError('');
     setGuardianMessage('');
     try {
-      await sendStudentGuardianInvitation(schoolId, member.id);
+      const res = await sendStudentGuardianInvitation(schoolId, member.id);
+      const payload = res.data.data;
+      setGuardianEmailDraft(payload.guardian_email || '');
+      onUpdate({
+        guardianEmail: payload.guardian_email,
+        pendingGuardianEmail: payload.pending_guardian_email,
+      });
       setGuardianMessage('Invitation envoyée.');
     } catch (err: any) {
       setGuardianError(
@@ -615,13 +639,9 @@ const MemberModal: React.FC<MemberModalProps> = ({
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
-                        disabled={
-                          guardianInviting ||
-                          !guardianEmailDraft.trim() ||
-                          guardianEmailDraft.trim() !== (member.guardianEmail || '').trim()
-                        }
+                        disabled={guardianInviting || !guardianDraftMatchesSaved}
                         title={
-                          guardianEmailDraft.trim() !== (member.guardianEmail || '').trim()
+                          !guardianDraftMatchesSaved
                             ? 'Enregistrez d’abord la nouvelle adresse'
                             : undefined
                         }
