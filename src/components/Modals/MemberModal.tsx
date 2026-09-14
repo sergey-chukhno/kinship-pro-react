@@ -240,6 +240,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
     setGuardianEmailDraft(member.pendingGuardianEmail || member.guardianEmail || '');
   }, [member.guardianEmail, member.pendingGuardianEmail, member.id]);
 
+  const hasPendingGuardianEmail = Boolean(member.pendingGuardianEmail?.trim());
   const savedGuardianForInvite = (
     member.pendingGuardianEmail ||
     member.guardianEmail ||
@@ -248,6 +249,9 @@ const MemberModal: React.FC<MemberModalProps> = ({
   const guardianDraftMatchesSaved =
     guardianEmailDraft.trim() !== '' &&
     guardianEmailDraft.trim() === savedGuardianForInvite;
+  const inviteButtonLabel = hasPendingGuardianEmail
+    ? "Prévenir l'adresse actuelle et appliquer"
+    : "Envoyer l'invitation";
 
   const handleSaveGuardianEmail = async () => {
     if (!schoolId) return;
@@ -285,6 +289,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
   const handleSendGuardianInvitation = async () => {
     if (!schoolId) return;
+    const wasPendingReplace = hasPendingGuardianEmail;
     setGuardianInviting(true);
     setGuardianError('');
     setGuardianMessage('');
@@ -296,7 +301,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
         guardianEmail: payload.guardian_email,
         pendingGuardianEmail: payload.pending_guardian_email,
       });
-      setGuardianMessage('Invitation envoyée.');
+      setGuardianMessage(
+        wasPendingReplace
+          ? 'Invitation envoyée à l’adresse actuelle ; nouvelle adresse appliquée.'
+          : 'Invitation envoyée.'
+      );
     } catch (err: any) {
       setGuardianError(
         err?.response?.data?.message || err.message || 'Envoi impossible'
@@ -616,17 +625,40 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     <p className="no-badges" style={{ marginBottom: 8 }}>
                       Adresse de l&apos;établissement (pas celle du compte parent rattaché).
                     </p>
-                    <div className="info-item" style={{ alignItems: 'center' }}>
-                      <label htmlFor={`guardian-email-${member.id}`}>Email:</label>
-                      <input
-                        id={`guardian-email-${member.id}`}
-                        type="email"
-                        className="edit-input"
-                        value={guardianEmailDraft}
-                        onChange={(e) => setGuardianEmailDraft(e.target.value)}
-                        placeholder="parent@exemple.fr"
-                      />
-                    </div>
+                    {hasPendingGuardianEmail ? (
+                      <>
+                        <div className="info-item" style={{ alignItems: 'center' }}>
+                          <label>Adresse actuelle:</label>
+                          <span>{member.guardianEmail || '—'}</span>
+                        </div>
+                        <div className="info-item" style={{ alignItems: 'center' }}>
+                          <label htmlFor={`guardian-email-${member.id}`}>Nouvelle adresse:</label>
+                          <input
+                            id={`guardian-email-${member.id}`}
+                            type="email"
+                            className="edit-input"
+                            value={guardianEmailDraft}
+                            onChange={(e) => setGuardianEmailDraft(e.target.value)}
+                            placeholder="parent@exemple.fr"
+                          />
+                        </div>
+                        <p className="no-badges" style={{ marginTop: 4, marginBottom: 0, fontSize: '0.85rem' }}>
+                          L&apos;invitation partira à l&apos;adresse actuelle ; la nouvelle sera appliquée ensuite.
+                        </p>
+                      </>
+                    ) : (
+                      <div className="info-item" style={{ alignItems: 'center' }}>
+                        <label htmlFor={`guardian-email-${member.id}`}>Email:</label>
+                        <input
+                          id={`guardian-email-${member.id}`}
+                          type="email"
+                          className="edit-input"
+                          value={guardianEmailDraft}
+                          onChange={(e) => setGuardianEmailDraft(e.target.value)}
+                          placeholder="parent@exemple.fr"
+                        />
+                      </div>
+                    )}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                       <button
                         type="button"
@@ -647,7 +679,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                         }
                         onClick={() => void handleSendGuardianInvitation()}
                       >
-                        {guardianInviting ? 'Envoi…' : "Envoyer l'invitation"}
+                        {guardianInviting ? 'Envoi…' : inviteButtonLabel}
                       </button>
                     </div>
                     {guardianMessage ? (
