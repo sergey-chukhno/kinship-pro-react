@@ -1,0 +1,381 @@
+/* Participant import wizard — micro-copies from KIN_UX_IMPORT V0.3 (Fatima). */
+.piw-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 26, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1200;
+  padding: 24px 12px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.piw-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #f7f6f3;
+  border: 1px solid #cfccc2;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  margin-bottom: 40px;
+}
+
+.piw-bar {
+  background: var(--primary, #db087c);
+  color: #fff;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.piw-bar-x {
+  font-weight: 400;
+  opacity: 0.75;
+  font-size: 10px;
+}
+
+.piw-inner {
+  padding: 16px 18px 18px;
+}
+
+.piw-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+
+.piw-sub {
+  font-size: 10.5px;
+  color: #6d6b64;
+  margin-bottom: 12px;
+}
+
+.piw-blk {
+  background: #fff;
+  border: 1px solid #ddd9cf;
+  border-radius: 10px;
+  padding: 11px 13px;
+  margin-bottom: 11px;
+}
+
+.piw-blk h4 {
+  margin: 0 0 7px;
+  font-size: 11px;
+  color: var(--primary, #db087c);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.piw-mc {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1.5px dashed #d0ccc0;
+  border-radius: 9px;
+  background: #f4f2ec;
+  color: #6d6b64;
+  font-size: 10.5px;
+  margin-bottom: 8px;
+  line-height: 1.45;
+}
+
+.piw-mc b {
+  color: #3f3d38;
+}
+
+.piw-mc.accent {
+  background: #fce7f3;
+  border-color: #f9a8d4;
+  color: #9d174d;
+}
+
+.piw-warn {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: #fdf6e3;
+  border: 1px solid #e7d9ae;
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 10.5px;
+  color: #6b5410;
+  margin-bottom: 11px;
+  line-height: 1.45;
+}
+
+.piw-drop {
+  border: 2px dashed #cfccc2;
+  border-radius: 11px;
+  padding: 22px 14px;
+  text-align: center;
+  background: #fff;
+  margin-bottom: 11px;
+  cursor: pointer;
+}
+
+.piw-drop:hover,
+.piw-drop.drag {
+  border-color: var(--primary, #db087c);
+  background: #fff7fb;
+}
+
+.piw-drop .t {
+  font-size: 12.5px;
+  font-weight: 700;
+  margin: 6px 0 2px;
+}
+
+.piw-drop .s2 {
+  font-size: 10px;
+  color: #8f8d86;
+}
+
+.piw-foot {
+  display: flex;
+  gap: 9px;
+  justify-content: flex-end;
+  align-items: center;
+  border-top: 1px solid #ddd9cf;
+  padding-top: 12px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.piw-foot .n {
+  font-size: 9px;
+  color: #8f8d86;
+  margin-right: auto;
+  max-width: 240px;
+  line-height: 1.35;
+}
+
+.piw-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #fff;
+  color: #6d6b64;
+  border: 1.5px solid #b9b6ac;
+}
+
+.piw-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.piw-btn.p {
+  background: var(--primary, #db087c);
+  color: #fff;
+  border-color: var(--primary, #db087c);
+}
+
+.piw-btn.s {
+  color: var(--primary, #db087c);
+  border-color: var(--primary, #db087c);
+}
+
+.piw-btn.d {
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
+.piw-btn.sm {
+  padding: 6px 11px;
+  font-size: 10.5px;
+}
+
+.piw-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.piw-chip {
+  font-size: 10px;
+  background: #fce7f3;
+  color: var(--primary, #db087c);
+  border: 1px solid #f9a8d4;
+  border-radius: 9px;
+  padding: 2px 8px;
+  font-weight: 700;
+}
+
+.piw-chip.o {
+  background: #fdf6e3;
+  color: #8a6d1a;
+  border-color: #e7d9ae;
+}
+
+.piw-chip.btnish {
+  cursor: pointer;
+  background: #fff;
+}
+
+.piw-cnt {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.piw-cnt em {
+  font-style: normal;
+  color: var(--primary, #db087c);
+}
+
+.piw-map {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid #f0ede5;
+  font-size: 10.5px;
+}
+
+.piw-map:last-child {
+  border-bottom: none;
+}
+
+.piw-map .k {
+  color: #8f8d86;
+}
+
+.piw-map .v {
+  font-weight: 700;
+}
+
+.piw-map .ig {
+  color: #a09d93;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.piw-prev {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5px;
+  margin-top: 6px;
+}
+
+.piw-prev th {
+  text-align: left;
+  color: #8f8d86;
+  font-weight: 700;
+  padding: 4px 5px;
+  border-bottom: 1px solid #ddd9cf;
+}
+
+.piw-prev td {
+  padding: 4px 5px;
+  border-bottom: 1px solid #f0ede5;
+}
+
+.piw-lvl {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0ede5;
+  font-size: 11px;
+  gap: 8px;
+}
+
+.piw-lvl:last-child {
+  border-bottom: none;
+}
+
+.piw-sel {
+  border: 1px solid #f9a8d4;
+  border-radius: 7px;
+  padding: 3px 8px;
+  font-size: 10px;
+  background: #fce7f3;
+  color: var(--primary, #db087c);
+  font-weight: 700;
+}
+
+.piw-sel.o {
+  background: #fdf6e3;
+  color: #8a6d1a;
+  border-color: #e7d9ae;
+}
+
+.piw-serie {
+  border: 1px solid #ddd9cf;
+  border-radius: 9px;
+  overflow: hidden;
+  margin-bottom: 7px;
+  background: #fff;
+}
+
+.piw-sh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 11px;
+  font-size: 11px;
+  gap: 8px;
+}
+
+.piw-sh.done {
+  background: #fce7f3;
+  color: var(--primary, #db087c);
+}
+
+.piw-sb {
+  padding: 11px;
+  border-top: 1px solid #ddd9cf;
+  background: #faf9f6;
+}
+
+.piw-cpt {
+  font-size: 9px;
+  color: #8f8d86;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.piw-dl {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.piw-dlrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  border: 1px solid #ddd9cf;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #fff;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.piw-error {
+  color: #c0392b;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
+.piw-muted {
+  font-size: 9px;
+  color: #8f8d86;
+  margin-top: 6px;
+  line-height: 1.35;
+}
+
+.piw-file-input {
+  display: none;
+}

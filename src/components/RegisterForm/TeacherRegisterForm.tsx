@@ -10,6 +10,7 @@ import { translateSkill, translateSubSkill } from "../../translations/skills"
 import "./CommonForms.css"
 import "./PersonalUserRegisterForm.css"
 import { privatePolicy } from "../../data/PrivacyPolicy"
+import SelfRegistrationLegalNotice from "./SelfRegistrationLegalNotice"
 
 interface PasswordCriteria {
   minLength: boolean
@@ -357,21 +358,7 @@ const TeacherRegisterForm: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <h2 className="form-title">Inscription Enseignant</h2>
       </div>
 
-      <div className="visible form-step">
-        <p>
-          Cette application se conforme au Règlement Européen sur la Protection des Données Personnelles et à la loi informatique et Libertés du Nº78-17 du 6 janvier 1978.
-          Responsable des traitements : DASEN pour les écoles publiques ou chef d'établissement pour les écoles privées. Traitements réalisés par Kinship en qualité de sous-traitant.
-        </p>
-        <p>
-          Vous pouvez exercer vos droits sur les données qui vous concernent auprès du responsable des traitements.
-        </p>
-        <p>
-          Vous pouvez également interpeller la <a href="https://www.cnil.fr/fr">CNIL</a> en tant qu'autorité de contrôle.
-        </p>
-        <p>
-          Plus de détails sur le portail : <a href="/privacy-policy">Politique de protection des données de Kinship</a>
-        </p>
-      </div>
+      <SelfRegistrationLegalNotice />
 
       {/* Step 1: Role Selection (Moved from Step 2) */}
       <div className={`form-step ${currentStep >= 1 ? "visible" : ""}`}>

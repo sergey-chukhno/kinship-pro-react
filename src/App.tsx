@@ -13,6 +13,7 @@ import NotFoundPage from './components/Pages/NotFoundPage';
 import SharedProjectInfo from './components/Pages/SharedProjectInfo';
 import SharedEventInfo from './components/Pages/SharedEventInfo';
 import SelectedStudentsBadgeCartography from './components/Pages/SelectedStudentsBadgeCartography';
+import FamilleLanding from './components/Pages/FamilleLanding';
 import './App.css';
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/checkin-student" element={<CheckinStudent />} />
             <Route path="/parental-claim" element={<ParentalClaim />} />
+            <Route path="/famille/:token" element={<FamilleLanding />} />
             <Route path="/badge-cartography/:token" element={<PublicBadgeCartography />} />
             <Route path="/badge-cartography-selected/:token" element={<SelectedStudentsBadgeCartography />} />
             <Route path="/p/:id" element={<NotFoundPage />} />

@@ -251,6 +251,17 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                 )}
               </Menu.Item>
 
+              <Menu.Item>
+                {({ active }: { active: boolean }) => (
+                  <button
+                    className={`${active ? 'active' : ''}`}
+                    onClick={() => handlePageChange('mes-enfants')}
+                  >
+                    Mes enfants
+                  </button>
+                )}
+              </Menu.Item>
+
               <div className="dropdown-divider" />
 
               {organizations.length > 0 && (
