@@ -6,6 +6,7 @@ import {
   downloadImportTemplate,
   downloadRecapCoupons,
   downloadRecapDirectionNote,
+  downloadRecapPersonalKeys,
   downloadRecapRouteSheets,
   eraseRecapNominative,
   getParticipantImport,
@@ -23,6 +24,8 @@ import './Modal.css';
 import './ParticipantImportWizardModal.css';
 
 type Step = 'deposit' | 'mapping' | 'control' | 'live' | 'expired' | 'receipt';
+
+const FEATURE_PIK_REMISE = process.env.REACT_APP_FEATURE_PIK_REMISE === 'true';
 
 const LEVEL_OPTIONS = [
   { value: 'sixieme', label: 'sixième' },
@@ -1115,6 +1118,42 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                       ⬇ PDF
                     </button>
                   </div>
+                  {FEATURE_PIK_REMISE ? (
+                    <div className="piw-dlrow" style={{ background: '#EEF4FF' }}>
+                      <span>
+                        <b>Clés personnelles</b>
+                        {docIndex?.pik_class_keys_printed_at ? (
+                          <span style={{ color: '#8f8d86' }}>
+                            {' '}
+                            — imprimées le {formatShortDate(docIndex.pik_class_keys_printed_at)}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#8f8d86' }}> — 3 par feuille, une seule fois</span>
+                        )}
+                      </span>
+                      {docIndex?.pik_class_keys_available ? (
+                        <button
+                          type="button"
+                          className="piw-chip btnish"
+                          disabled={busy}
+                          onClick={() =>
+                            void runDownload(async () => {
+                              await downloadRecapPersonalKeys(schoolId, recap.public_token);
+                              const idx = await getParticipantImportDocumentIndex(
+                                schoolId,
+                                recap.public_token
+                              );
+                              setDocIndex(idx.data);
+                            })
+                          }
+                        >
+                          ⬇ clés
+                        </button>
+                      ) : docIndex?.pik_class_keys_printed_at ? (
+                        <span style={{ fontSize: 11, color: '#6b6a64' }}>déjà imprimé</span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
