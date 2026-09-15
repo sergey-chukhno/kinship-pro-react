@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import ProfileSection from '../Settings/ProfileSection';
 import SecuritySection from '../Settings/SecuritySection';
@@ -12,9 +12,26 @@ import './PersonalSettings.css';
 
 const FEATURE_PIK_REMISE = process.env.REACT_APP_FEATURE_PIK_REMISE === 'true';
 
+type SettingsTab = 'profile' | 'security' | 'skills' | 'profession' | 'organizations' | 'role' | 'delete' | 'pik';
+
 const PersonalSettings: React.FC = () => {
   const { state } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'skills' | 'profession' | 'organizations' | 'role' | 'delete' | 'pik'>('profile');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    if (FEATURE_PIK_REMISE && typeof sessionStorage !== 'undefined' && sessionStorage.getItem('openPersonalKeyTab') === '1') {
+      sessionStorage.removeItem('openPersonalKeyTab');
+      return 'pik';
+    }
+    return 'profile';
+  });
+
+  useEffect(() => {
+    if (!FEATURE_PIK_REMISE) return;
+    if (typeof sessionStorage === 'undefined') return;
+    if (sessionStorage.getItem('openPersonalKeyTab') === '1') {
+      sessionStorage.removeItem('openPersonalKeyTab');
+      setActiveTab('pik');
+    }
+  }, []);
 
   return (
     <section className="personal-settings-container with-sidebar">

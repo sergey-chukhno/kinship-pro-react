@@ -11,6 +11,7 @@ type IdentityPayload = {
   pik_acknowledged_at?: string | null;
   door_label?: string | null;
   feature_enabled?: boolean;
+  backup_email?: string | null;
 };
 
 /**
@@ -19,13 +20,16 @@ type IdentityPayload = {
 const PersonalKeySection: React.FC = () => {
   const [payload, setPayload] = useState<IdentityPayload | null>(null);
   const [plaintext, setPlaintext] = useState<string | null>(null);
+  const [backupEmail, setBackupEmail] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await axiosClient.get('/api/v1/account/identity');
       setPayload(res.data);
+      setBackupEmail(res.data?.backup_email || '');
     } catch {
       setError('Impossible de charger la clé personnelle.');
     }
@@ -42,6 +46,7 @@ const PersonalKeySection: React.FC = () => {
   const reveal = async () => {
     setBusy(true);
     setError('');
+    setMessage('');
     try {
       const res = await axiosClient.post('/api/v1/account/identity/reveal');
       setPlaintext(res.data.plaintext);
@@ -56,6 +61,7 @@ const PersonalKeySection: React.FC = () => {
   const downloadPdf = async () => {
     setBusy(true);
     setError('');
+    setMessage('');
     try {
       const res = await axiosClient.get('/api/v1/account/identity/pdf', { responseType: 'blob' });
       const url = window.URL.createObjectURL(res.data);
@@ -78,12 +84,36 @@ const PersonalKeySection: React.FC = () => {
     )) return;
     setBusy(true);
     setError('');
+    setMessage('');
     try {
       const res = await axiosClient.post('/api/v1/account/identity/replace');
       setPlaintext(res.data.plaintext);
       await load();
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Remplacement impossible.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveBackupEmail = async () => {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const res = await axiosClient.patch('/api/v1/account/identity', {
+        backup_email: backupEmail.trim() || null,
+      });
+      setPayload(res.data);
+      setBackupEmail(res.data?.backup_email || '');
+      setMessage('Adresse de secours enregistrée.');
+    } catch (e: any) {
+      const details = e?.response?.data?.details;
+      setError(
+        (Array.isArray(details) && details.join(', ')) ||
+          e?.response?.data?.message ||
+          'Enregistrement impossible.'
+      );
     } finally {
       setBusy(false);
     }
@@ -97,6 +127,7 @@ const PersonalKeySection: React.FC = () => {
         y compris si votre compte est un jour supprimé ou anonymisé.
       </p>
       {error ? <p style={{ color: '#c0392b' }}>{error}</p> : null}
+      {message ? <p style={{ color: '#1a7f37' }}>{message}</p> : null}
       {!remitted ? (
         <>
           <p><strong>Votre Clé personnelle Kinship</strong></p>
@@ -131,6 +162,31 @@ const PersonalKeySection: React.FC = () => {
           </button>
         </>
       )}
+
+      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #e8e6df' }}>
+        <h3 style={{ fontSize: '1rem', marginBottom: 8 }}>Adresse email de secours</h3>
+        <p style={{ fontSize: '0.9rem', color: '#6b6a64' }}>
+          Optionnelle. Différente de votre email de connexion. Elle ne reçoit jamais la clé —
+          uniquement des alertes de sécurité liées à vos droits.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+          <input
+            type="email"
+            value={backupEmail}
+            onChange={(e) => setBackupEmail(e.target.value)}
+            placeholder="secours@exemple.fr"
+            style={{
+              flex: '1 1 220px',
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1px solid #cfd3e6',
+            }}
+          />
+          <button type="button" className="btn btn-outline" disabled={busy} onClick={() => void saveBackupEmail()}>
+            Enregistrer
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
