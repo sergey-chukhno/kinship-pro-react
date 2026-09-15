@@ -1118,7 +1118,9 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                       ⬇ PDF
                     </button>
                   </div>
-                  {FEATURE_PIK_REMISE ? (
+                  {FEATURE_PIK_REMISE &&
+                  (docIndex?.pik_class_keys_available ||
+                    docIndex?.pik_class_keys_printed_at) ? (
                     <div className="piw-dlrow" style={{ background: '#EEF4FF' }}>
                       <span>
                         <b>Clés personnelles</b>
@@ -1138,20 +1140,27 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                           disabled={busy}
                           onClick={() =>
                             void runDownload(async () => {
-                              await downloadRecapPersonalKeys(schoolId, recap.public_token);
-                              const idx = await getParticipantImportDocumentIndex(
-                                schoolId,
-                                recap.public_token
-                              );
-                              setDocIndex(idx.data);
+                              try {
+                                await downloadRecapPersonalKeys(schoolId, recap.public_token);
+                              } finally {
+                                try {
+                                  const idx = await getParticipantImportDocumentIndex(
+                                    schoolId,
+                                    recap.public_token
+                                  );
+                                  setDocIndex(idx.data);
+                                } catch {
+                                  /* keep prior index if refresh fails */
+                                }
+                              }
                             })
                           }
                         >
                           ⬇ clés
                         </button>
-                      ) : docIndex?.pik_class_keys_printed_at ? (
+                      ) : (
                         <span style={{ fontSize: 11, color: '#6b6a64' }}>déjà imprimé</span>
-                      ) : null}
+                      )}
                     </div>
                   ) : null}
                 </div>

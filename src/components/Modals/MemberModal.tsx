@@ -709,7 +709,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 {companyId && !isStudent() && isUnderDigitalMajority(member.birthday) && member.legalRepresentativeConsentGivenAt && (
                   <div className="info-section">
                     <h3>Autorisation du représentant légal</h3>
-                    {member.parentalClaimValidUntil || member.membershipStatus === 'confirmed' ? (
+                    {member.parentalClaimValidUntil ? (
                       <>
                         <div className="info-item">
                           <label>Accordée le :</label>
