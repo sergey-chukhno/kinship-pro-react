@@ -716,13 +716,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
                           <span>{formatFrDate(member.legalRepresentativeConsentGivenAt)}</span>
                         </div>
                         <p className="no-badges" style={{ marginTop: 4 }}>
-                          Échéance indicative : {formatFrDate(
-                            (() => {
-                              const d = new Date(member.legalRepresentativeConsentGivenAt!);
-                              d.setFullYear(d.getFullYear() + 1);
-                              return d.toISOString();
-                            })()
-                          )} (calcul affichage — pas de relance automatique dans ce lot).
+                          Échéance : {formatFrDate(member.parentalClaimValidUntil)}
+                          {' '}(pas de relance automatique dans ce lot).
                         </p>
                       </>
                     ) : (
