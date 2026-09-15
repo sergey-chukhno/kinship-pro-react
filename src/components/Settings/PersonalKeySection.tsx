@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 import React, { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../api/config';
 
