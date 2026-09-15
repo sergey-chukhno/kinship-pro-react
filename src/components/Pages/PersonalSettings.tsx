@@ -7,11 +7,14 @@ import ProfessionSection from '../Settings/ProfessionSection';
 import OrganizationsSection from '../Settings/OrganizationsSection';
 import RoleSection from '../Settings/RoleSection';
 import DeleteAccountSection from '../Settings/DeleteAccountSection';
+import PersonalKeySection from '../Settings/PersonalKeySection';
 import './PersonalSettings.css';
+
+const FEATURE_PIK_REMISE = process.env.REACT_APP_FEATURE_PIK_REMISE === 'true';
 
 const PersonalSettings: React.FC = () => {
   const { state } = useAppContext();
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'skills' | 'profession' | 'organizations' | 'role' | 'delete'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'skills' | 'profession' | 'organizations' | 'role' | 'delete' | 'pik'>('profile');
 
   return (
     <section className="personal-settings-container with-sidebar">
@@ -34,6 +37,14 @@ const PersonalSettings: React.FC = () => {
           >
             <i className="fas fa-lock"></i> Sécurité
           </button>
+          {FEATURE_PIK_REMISE && (
+            <button
+              className={`tab-button ${activeTab === 'pik' ? 'active' : ''}`}
+              onClick={() => setActiveTab('pik')}
+            >
+              <i className="fas fa-key"></i> Ma clé personnelle
+            </button>
+          )}
           <button 
             className={`tab-button ${activeTab === 'skills' ? 'active' : ''}`}
             onClick={() => setActiveTab('skills')}
@@ -79,6 +90,7 @@ const PersonalSettings: React.FC = () => {
               <SecuritySection />
             </div>
           )}
+          {activeTab === 'pik' && FEATURE_PIK_REMISE && <PersonalKeySection />}
           {activeTab === 'skills' && (
             <div className="settings-section">
               <SkillsAvailabilitySection />

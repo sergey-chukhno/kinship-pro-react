@@ -45,6 +45,9 @@ export interface Member {
   birthday?: string; // Date de naissance
   guardianEmail?: string | null; // Email représentant légal (école) — never parent account email
   pendingGuardianEmail?: string | null; // Replace pending until invite notifies then applies
+  legalRepresentativeConsentGivenAt?: string | null; // BLEU Premium <15 — date demande autorisation
+  parentalClaimValidUntil?: string | null; // BLEU — autorisation parentale accordée jusqu'à
+  membershipStatus?: string; // confirmed | pending | …
   role?: string; // Rôle unique (pour les étudiants)
   levelId?: string; // ID de la classe/level
   roleAdditionalInfo?: string; // Information complémentaire sur le rôle

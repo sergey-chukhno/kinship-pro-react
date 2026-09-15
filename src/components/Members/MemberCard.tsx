@@ -6,7 +6,6 @@ import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
-import MemberCardBadgeProgressModal from '../Modals/MemberCardBadgeProgressModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 
 interface MemberCardProps {
@@ -45,11 +44,6 @@ const MemberCard: React.FC<MemberCardProps> = ({
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [showAllClasses, setShowAllClasses] = useState(false);
   const [showAllSchools, setShowAllSchools] = useState<Record<string, boolean>>({});
-  const [progressModalBadge, setProgressModalBadge] = useState<{
-    badge: { name: string; level: string; series: string; image_url?: string | null };
-    fullExpertiseNames: string[];
-    receivedExpertiseNames: string[];
-  } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleRoleClick = (e: React.MouseEvent) => {
@@ -326,7 +320,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
             marginBottom: '12px',
             marginTop: 0
           }}>
-            3 dernières Preuves Projet
+            3 dernières Preuves de compétences
           </h4>
           <div style={{ 
             display: 'flex', 
@@ -352,13 +346,6 @@ const MemberCard: React.FC<MemberCardProps> = ({
                     badge={badge}
                     fullExpertiseNames={fullExpertiseNames}
                     receivedExpertiseNames={receivedExpertiseNames}
-                    onClick={() => {
-                      setProgressModalBadge({
-                        badge,
-                        fullExpertiseNames,
-                        receivedExpertiseNames,
-                      });
-                    }}
                   />
                 );
               }
@@ -376,18 +363,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
                     borderRadius: '8px',
                     overflow: 'hidden',
                     border: '1px solid #e5e7eb',
-                    cursor: 'pointer',
-                    transition: 'transform 0.2s ease',
                   }}
                   title={`${badge.name} - ${badgeLevel.replace('level_', 'Niveau ')}`}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'scale(1.1)';
-                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
                 >
                   <img
                     src={badgeImage}
@@ -405,16 +382,6 @@ const MemberCard: React.FC<MemberCardProps> = ({
             })}
           </div>
         </div>
-      )}
-
-      {progressModalBadge && (
-        <MemberCardBadgeProgressModal
-          isOpen={!!progressModalBadge}
-          onClose={() => setProgressModalBadge(null)}
-          badge={progressModalBadge.badge}
-          fullExpertiseNames={progressModalBadge.fullExpertiseNames}
-          receivedExpertiseNames={progressModalBadge.receivedExpertiseNames}
-        />
       )}
 
       <div className="member-footer">

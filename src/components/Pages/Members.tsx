@@ -404,7 +404,10 @@ const Members: React.FC = () => {
           classes: m.classes || [],
           guardianEmail: m.guardian_email || null,
           pendingGuardianEmail: m.pending_guardian_email || null,
-          birthday: m.birthday || undefined
+          birthday: m.birthday || undefined,
+          legalRepresentativeConsentGivenAt: m.legal_representative_consent_given_at || null,
+          parentalClaimValidUntil: m.parental_claim_valid_until || null,
+          membershipStatus: m.status || undefined
         } as Member & { isSuperadmin?: boolean; systemRole?: string; membershipRole?: string };
       });
 
@@ -2599,6 +2602,7 @@ const Members: React.FC = () => {
           hasBadges={isSchoolContext ? selectedMemberHasBadges : false}
           isCartographyLoading={isSchoolContext ? isCartographyLoadingForSelected : false}
           schoolId={isSchoolContext ? currentSchoolId ?? undefined : undefined}
+          companyId={!isSchoolContext ? (getSelectedCompanyId(state.user, state.showingPageType) ?? undefined) : undefined}
         />
       )}
 

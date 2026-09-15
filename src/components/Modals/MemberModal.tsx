@@ -10,7 +10,6 @@ import { translateRoles, translateRole, normalizeRoleKey } from '../../utils/rol
 import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
-import MemberCardBadgeProgressModal from './MemberCardBadgeProgressModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 import {
   listSchoolParentLinkCodes,
@@ -22,9 +21,53 @@ import {
   sendStudentGuardianInvitation,
   updateStudentGuardianEmail,
 } from '../../api/SchoolStudentGuardian';
+import {
+  getSchoolPersonalKeyStatus,
+  printSchoolPersonalKey,
+  SchoolPersonalKeyStatus,
+} from '../../api/SchoolPersonalKey';
+import { resendCompanyGuardianAuthorization } from '../../api/CompanyDashboard/Members';
 
-/** D-LINK-SURFACES ㉒/㉓ — coded but off until PIK Lot 6 / Patrick unlock. */
-const SHOW_KINSHIP_PERSONAL_KEY_SECTION = false;
+const FEATURE_PIK_REMISE = process.env.REACT_APP_FEATURE_PIK_REMISE === 'true';
+
+function isUnderDigitalMajority(birthday?: string | null): boolean {
+  if (!birthday) return false;
+  const dob = new Date(birthday);
+  if (Number.isNaN(dob.getTime())) return false;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age < 15;
+}
+
+function formatFrDate(iso?: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('fr-FR');
+}
+
+type FoldableSectionProps = {
+  title: string;
+  isOpen: boolean;
+  emptySuffix?: string;
+  children?: React.ReactNode;
+  collapsedContent?: React.ReactNode;
+};
+
+const FoldableSection: React.FC<FoldableSectionProps> = ({
+  title,
+  isOpen,
+  emptySuffix = 'aucune',
+  children,
+  collapsedContent,
+}) => (
+  <div className={`info-section${isOpen ? '' : ' info-section--folded'}`}>
+    <h3>{isOpen ? title : `${title} — ${emptySuffix}`}</h3>
+    {isOpen ? children : collapsedContent}
+  </div>
+);
 
 interface MemberModalProps {
   member: Member;
@@ -40,6 +83,7 @@ interface MemberModalProps {
   isCartographyLoading?: boolean; // When true, show "Cartographie (chargement…)" instead of link
   hideContactAndEmail?: boolean; // When true (e.g. viewer is personal user under 15 in Mon réseau), hide contact actions and email in modal
   schoolId?: number; // School context — enables Parent-Link codes on student card
+  companyId?: number; // Company context — BLEU Premium <15 guardian authorization card
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
@@ -55,7 +99,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
   hasBadges = false,
   isCartographyLoading = false,
   hideContactAndEmail = false,
-  schoolId
+  schoolId,
+  companyId
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
@@ -72,6 +117,14 @@ const MemberModal: React.FC<MemberModalProps> = ({
   const [guardianInviting, setGuardianInviting] = useState(false);
   const [guardianMessage, setGuardianMessage] = useState('');
   const [guardianError, setGuardianError] = useState('');
+  const [consentResending, setConsentResending] = useState(false);
+  const [consentMessage, setConsentMessage] = useState('');
+  const [consentError, setConsentError] = useState('');
+  const [pikStatus, setPikStatus] = useState<SchoolPersonalKeyStatus | null>(null);
+  const [pikLoading, setPikLoading] = useState(false);
+  const [pikError, setPikError] = useState('');
+  const [pikPrinting, setPikPrinting] = useState(false);
+  const [revealedParentCodeIds, setRevealedParentCodeIds] = useState<Set<number>>(new Set());
 
   // Helper function to translate skill (tries main skill first, then sub-skill)
   const translateSkillName = (skillName: string): string => {
@@ -151,18 +204,6 @@ const MemberModal: React.FC<MemberModalProps> = ({
     skills: [...member.skills],
     availability: [...member.availability]
   });
-  const hasRoleLabel = (label: string) => displayRoles.includes(label);
-
-  // Permission display is read-only (derived from role); no state so users don't think they can change it
-  const permissionMembers = hasRoleLabel('Admin');
-  const permissionProjects = hasRoleLabel('Admin') || hasRoleLabel('Référent');
-  const permissionBadges = hasRoleLabel('Admin') || hasRoleLabel('Référent') || hasRoleLabel('Intervenant');
-  const permissionEvents = hasRoleLabel('Admin') || hasRoleLabel('Référent');
-  const [progressModalBadge, setProgressModalBadge] = useState<{
-    badge: { name: string; level: string; series: string; image_url?: string | null };
-    fullExpertiseNames: string[];
-    receivedExpertiseNames: string[];
-  } | null>(null);
   const [proposals, setProposals] = useState({
     canProposeStage: member.canProposeStage || false,
     canProposeAtelier: member.canProposeAtelier || false
@@ -211,6 +252,27 @@ const MemberModal: React.FC<MemberModalProps> = ({
     return isRoleStudent || member.hasTemporaryEmail;
   };
 
+  const studentCanPrintKey = member.hasTemporaryEmail || !member.confirmedAt;
+  const pikSectionOpen = studentCanPrintKey;
+
+  const loadPersonalKeyStatus = useCallback(async () => {
+    if (!FEATURE_PIK_REMISE || !schoolId || !isStudent()) return;
+    setPikLoading(true);
+    setPikError('');
+    try {
+      const res = await getSchoolPersonalKeyStatus(schoolId, member.id);
+      setPikStatus(res.data.data);
+    } catch (err: any) {
+      setPikError(
+        err?.response?.data?.message || err.message || 'Impossible de charger le statut de la clé'
+      );
+      setPikStatus(null);
+    } finally {
+      setPikLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId, member.id]);
+
   const loadParentLinkCodes = useCallback(async () => {
     if (!schoolId || !isStudent()) return;
     setParentCodesLoading(true);
@@ -235,6 +297,10 @@ const MemberModal: React.FC<MemberModalProps> = ({
   useEffect(() => {
     void loadParentLinkCodes();
   }, [loadParentLinkCodes]);
+
+  useEffect(() => {
+    void loadPersonalKeyStatus();
+  }, [loadPersonalKeyStatus]);
 
   useEffect(() => {
     setGuardianEmailDraft(member.pendingGuardianEmail || member.guardianEmail || '');
@@ -313,6 +379,37 @@ const MemberModal: React.FC<MemberModalProps> = ({
     } finally {
       setGuardianInviting(false);
     }
+  };
+
+  const handlePrintPersonalKey = async () => {
+    if (!schoolId) return;
+    setPikPrinting(true);
+    setPikError('');
+    try {
+      await printSchoolPersonalKey(schoolId, member.id);
+      await loadPersonalKeyStatus();
+    } catch (err: any) {
+      setPikError(err?.message || 'Impression impossible');
+    } finally {
+      setPikPrinting(false);
+    }
+  };
+
+  const toggleParentCodeVisibility = (codeId: number) => {
+    setRevealedParentCodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(codeId)) {
+        next.delete(codeId);
+      } else {
+        next.add(codeId);
+      }
+      return next;
+    });
+  };
+
+  const formatPikDate = (iso: string | null | undefined) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('fr-FR');
   };
 
   const handleRegenerateParentCode = async () => {
@@ -608,22 +705,70 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   )}
                 </div>
 
-                {SHOW_KINSHIP_PERSONAL_KEY_SECTION && schoolId && isStudent() && (
+                {/* BLEU Premium <15 — autorisation représentant légal (carte membre, Lot 6) */}
+                {companyId && !isStudent() && isUnderDigitalMajority(member.birthday) && member.legalRepresentativeConsentGivenAt && (
                   <div className="info-section">
-                    <h3>Clé personnelle Kinship</h3>
-                    <p className="no-badges">
-                      {member.confirmedAt
-                        ? 'Compte activé — remise de clé gérée hors de cette carte.'
-                        : 'Remise de clé disponible après levée du verrou (Lot PIK).'}
-                    </p>
+                    <h3>Autorisation du représentant légal</h3>
+                    {member.parentalClaimValidUntil || member.membershipStatus === 'confirmed' ? (
+                      <>
+                        <div className="info-item">
+                          <label>Accordée le :</label>
+                          <span>{formatFrDate(member.legalRepresentativeConsentGivenAt)}</span>
+                        </div>
+                        <p className="no-badges" style={{ marginTop: 4 }}>
+                          Échéance indicative : {formatFrDate(
+                            (() => {
+                              const d = new Date(member.legalRepresentativeConsentGivenAt!);
+                              d.setFullYear(d.getFullYear() + 1);
+                              return d.toISOString();
+                            })()
+                          )} (calcul affichage — pas de relance automatique dans ce lot).
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="info-item">
+                          <label>Adresse :</label>
+                          <span>{member.guardianEmail || '—'}</span>
+                        </div>
+                        <div className="info-item">
+                          <label>Date de la demande :</label>
+                          <span>{formatFrDate(member.legalRepresentativeConsentGivenAt)}</span>
+                        </div>
+                        <p className="no-badges">
+                          Sans validation, le rattachement n&apos;est pas effectif.
+                        </p>
+                        {consentMessage ? <p className="no-badges" style={{ color: '#1a7f37' }}>{consentMessage}</p> : null}
+                        {consentError ? <p style={{ color: '#c0392b', fontSize: '0.85rem' }}>{consentError}</p> : null}
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          disabled={consentResending}
+                          onClick={async () => {
+                            setConsentResending(true);
+                            setConsentMessage('');
+                            setConsentError('');
+                            try {
+                              await resendCompanyGuardianAuthorization(companyId, member.id);
+                              setConsentMessage("Demande d'autorisation renvoyée.");
+                            } catch (e: any) {
+                              setConsentError(e?.response?.data?.message || 'Envoi impossible.');
+                            } finally {
+                              setConsentResending(false);
+                            }
+                          }}
+                        >
+                          {consentResending ? 'Envoi…' : "Renvoyer la demande d'autorisation"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
 
                 {schoolId && isStudent() && (
-                  <div className="info-section">
-                    <h3>Représentant légal</h3>
+                  <FoldableSection title="Représentant légal" isOpen>
                     <p className="no-badges" style={{ marginBottom: 8 }}>
-                      Adresse de l&apos;établissement (pas celle du compte parent rattaché).
+                      L&apos;adresse du représentant légal, telle que l&apos;établissement la détient — jamais celle du compte Kinship d&apos;un parent rattaché.
                     </p>
                     {hasPendingGuardianEmail ? (
                       <>
@@ -688,12 +833,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     {guardianError ? (
                       <p style={{ color: '#c0392b', fontSize: '0.85rem', marginTop: 8 }}>{guardianError}</p>
                     ) : null}
-                  </div>
+                  </FoldableSection>
                 )}
 
                 {schoolId && isStudent() && (
-                <div className="info-section">
-                  <h3>Lien famille</h3>
+                <FoldableSection title="Lien famille" isOpen>
                   {parentCodesLoading ? (
                     <p className="w-full text-center no-badges">Chargement…</p>
                   ) : (
@@ -724,7 +868,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                           ))}
                         </div>
                       ) : (
-                        <p className="no-badges" style={{ marginBottom: '12px' }}>Aucun rattachement parent pour cet établissement.</p>
+                        <p className="no-badges" style={{ marginBottom: '12px' }}>Aucun parent rattaché.</p>
                       )}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {parentCodes.length === 0 ? (
@@ -744,13 +888,25 @@ const MemberModal: React.FC<MemberModalProps> = ({
                                 fontSize: '13px',
                               }}
                             >
-                              <span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 {code.status === 'unused' && code.code ? (
-                                  <strong style={{ letterSpacing: '0.08em' }}>{code.code}</strong>
+                                  <>
+                                    <strong style={{ letterSpacing: '0.08em' }}>
+                                      {revealedParentCodeIds.has(code.id) ? code.code : 'Code ••••••'}
+                                    </strong>
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline btn-sm"
+                                      style={{ padding: '2px 8px', fontSize: '11px' }}
+                                      onClick={() => toggleParentCodeVisibility(code.id)}
+                                    >
+                                      {revealedParentCodeIds.has(code.id) ? 'Masquer' : 'Afficher'}
+                                    </button>
+                                  </>
                                 ) : (
                                   <span style={{ color: '#6b7280' }}>Code masqué</span>
                                 )}
-                                <span style={{ marginLeft: 8, color: '#6b7280' }}>
+                                <span style={{ color: '#6b7280' }}>
                                   · {code.status === 'unused' ? 'non utilisé' : code.status === 'used' ? 'utilisé' : 'invalidé'}
                                 </span>
                               </span>
@@ -777,80 +933,135 @@ const MemberModal: React.FC<MemberModalProps> = ({
                       </div>
                     </>
                   )}
-                </div>
+                </FoldableSection>
+                )}
+
+                {FEATURE_PIK_REMISE && schoolId && isStudent() && (
+                  <FoldableSection
+                    title="Clé personnelle"
+                    isOpen={pikSectionOpen}
+                    emptySuffix="compte activé"
+                    collapsedContent={
+                      <p className="no-badges" style={{ margin: 0 }}>
+                        Cet élève a un compte activé — il remplace sa clé lui-même.
+                      </p>
+                    }
+                  >
+                    {pikLoading ? (
+                      <p className="no-badges">Chargement…</p>
+                    ) : (
+                      <>
+                        {pikError ? (
+                          <p style={{ color: '#c0392b', fontSize: '0.85rem', marginBottom: 8 }}>{pikError}</p>
+                        ) : null}
+                        <div className="info-item">
+                          <label>Clé remise :</label>
+                          <span>{pikStatus?.remitted_label || 'JAMAIS'}</span>
+                        </div>
+                        <div className="info-item">
+                          <label>Dernière impression :</label>
+                          <span>{formatPikDate(pikStatus?.pik_last_printed_at)}</span>
+                        </div>
+                        {studentCanPrintKey && (
+                          <div style={{ marginTop: 12 }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              disabled={pikPrinting}
+                              onClick={() => void handlePrintPersonalKey()}
+                            >
+                              <i className="fas fa-print"></i>
+                              {pikPrinting ? 'Impression…' : 'Imprimer une nouvelle clé'}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </FoldableSection>
                 )}
 
                 {/* Compétences Section - hidden for members with temporary email */}
-                {!member.hasTemporaryEmail && (
-                <div className="info-section">
-                  <h3>Compétences</h3>
-                  {(() => {
-                    const skillsToDisplay = isEditing ? editedMember.skills : member.skills;
-                    const { mainSkills, subSkills } = organizeSkills(skillsToDisplay);
-                    return (
-                      <>
-                        <div className="skills-grid">
-                          {mainSkills.length === 0 && subSkills.length === 0 ? (
-                            <p className="w-full text-center no-badges">Aucune compétence renseignée</p>
-                          ) : (
-                            mainSkills.map((skill, index) => (
-                              <span key={index} className="skill-tag">
-                                {translateSkill(skill)}
+                {!member.hasTemporaryEmail && (() => {
+                  const skillsToDisplay = isEditing ? editedMember.skills : member.skills;
+                  const { mainSkills, subSkills } = organizeSkills(skillsToDisplay);
+                  const hasSkills = mainSkills.length > 0 || subSkills.length > 0;
+                  const useStudentFold = Boolean(schoolId && isStudent());
+                  const skillsContent = (
+                    <>
+                      <div className="skills-grid">
+                        {mainSkills.map((skill, index) => (
+                          <span key={index} className="skill-tag">
+                            {translateSkill(skill)}
+                            {isEditing && (
+                              <button
+                                className="remove-tag-btn"
+                                onClick={() => handleRemoveSkill(skill)}
+                                title="Supprimer cette compétence"
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                        {isEditing && (
+                          <button className="add-tag-btn" onClick={handleAddSkill}>
+                            <i className="fas fa-plus"></i>
+                            Ajouter une compétence
+                          </button>
+                        )}
+                      </div>
+                      {subSkills.length > 0 && (
+                        <>
+                          <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600 }}>Sous-compétences</h4>
+                          <div className="skills-grid">
+                            {subSkills.map((skill, index) => (
+                              <span key={index} className="sub-skill-tag">
+                                {translateSubSkill(skill)}
                                 {isEditing && (
                                   <button
                                     className="remove-tag-btn"
                                     onClick={() => handleRemoveSkill(skill)}
-                                    title="Supprimer cette compétence"
+                                    title="Supprimer cette sous-compétence"
                                   >
                                     <i className="fas fa-times"></i>
                                   </button>
                                 )}
                               </span>
-                            ))
-                          )}
-                          {isEditing && (
-                            <button className="add-tag-btn" onClick={handleAddSkill}>
-                              <i className="fas fa-plus"></i>
-                              Ajouter une compétence
-                            </button>
-                          )}
-                        </div>
-                        {subSkills.length > 0 && (
-                          <>
-                            <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600 }}>Sous-compétences</h4>
-                            <div className="skills-grid">
-                              {subSkills.map((skill, index) => (
-                                <span key={index} className="sub-skill-tag">
-                                  {translateSubSkill(skill)}
-                                  {isEditing && (
-                                    <button
-                                      className="remove-tag-btn"
-                                      onClick={() => handleRemoveSkill(skill)}
-                                      title="Supprimer cette sous-compétence"
-                                    >
-                                      <i className="fas fa-times"></i>
-                                    </button>
-                                  )}
-                                </span>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  );
+
+                  if (useStudentFold) {
+                    return (
+                      <FoldableSection title="Compétences" isOpen={hasSkills || isEditing}>
+                        {skillsContent}
+                      </FoldableSection>
                     );
-                  })()}
-                </div>
-                )}
+                  }
+
+                  return (
+                    <div className="info-section">
+                      <h3>Compétences</h3>
+                      {!hasSkills ? (
+                        <p className="w-full text-center no-badges">Aucune compétence renseignée</p>
+                      ) : (
+                        skillsContent
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Disponibilités Section - hidden for members with temporary email */}
-                {!member.hasTemporaryEmail && (
-                <div className="info-section">
-                  <h3>Disponibilités</h3>
-                  <div className="availability-grid">
-                    {member.availability.length === 0 ? (
-                      <p className="w-full text-center no-badges">Aucune disponibilité renseignée</p>
-                    ) : (
-                      (isEditing ? editedMember.availability : member.availability).map((day, index) => (
+                {!member.hasTemporaryEmail && (() => {
+                  const availabilityToDisplay = isEditing ? editedMember.availability : member.availability;
+                  const hasAvailability = availabilityToDisplay.length > 0;
+                  const useStudentFold = Boolean(schoolId && isStudent());
+                  const availabilityContent = (
+                    <div className="availability-grid">
+                      {availabilityToDisplay.map((day, index) => (
                         <span key={index} className="availability-tag">
                           {day}
                           {isEditing && (
@@ -863,16 +1074,35 @@ const MemberModal: React.FC<MemberModalProps> = ({
                             </button>
                           )}
                         </span>
-                      )))}
-                    {isEditing && (
-                      <button className="add-tag-btn" onClick={handleAddAvailability}>
-                        <i className="fas fa-plus"></i>
-                        Ajouter une disponibilité
-                      </button>
-                    )}
-                  </div>
-                </div>
-                )}
+                      ))}
+                      {isEditing && (
+                        <button className="add-tag-btn" onClick={handleAddAvailability}>
+                          <i className="fas fa-plus"></i>
+                          Ajouter une disponibilité
+                        </button>
+                      )}
+                    </div>
+                  );
+
+                  if (useStudentFold) {
+                    return (
+                      <FoldableSection title="Disponibilités" isOpen={hasAvailability || isEditing}>
+                        {availabilityContent}
+                      </FoldableSection>
+                    );
+                  }
+
+                  return (
+                    <div className="info-section">
+                      <h3>Disponibilités</h3>
+                      {!hasAvailability ? (
+                        <p className="w-full text-center no-badges">Aucune disponibilité renseignée</p>
+                      ) : (
+                        availabilityContent
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Services Section - only show for network members and not for temporary email */}
                 {!member.hasTemporaryEmail && (member.take_trainee || member.propose_workshop) && (
@@ -895,11 +1125,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   </div>
                 )}
 
-                {/* Recent Preuves Projet — D-LINK-SURFACES-01 §2.1bis / DoD ㉑ */}
+                {/* Recent Preuves de compétences — D-LINK-SURFACES-01 §2.1bis / DoD ㉑ */}
                 <div className="info-section">
-                  <h3>3 dernières Preuves Projet</h3>
+                  <h3>3 dernières Preuves de compétences</h3>
                   {!member.latestBadges || member.latestBadges.length === 0 ? (
-                    <p className="w-full text-center no-badges">Aucune Preuve Projet</p>
+                    <p className="w-full text-center no-badges">Aucune Preuve de compétences</p>
                   ) : (
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                       {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
@@ -920,13 +1150,6 @@ const MemberModal: React.FC<MemberModalProps> = ({
                               badge={badge}
                               fullExpertiseNames={fullExpertiseNames}
                               receivedExpertiseNames={receivedExpertiseNames}
-                              onClick={() => {
-                                setProgressModalBadge({
-                                  badge,
-                                  fullExpertiseNames,
-                                  receivedExpertiseNames,
-                                });
-                              }}
                             />
                           );
                         }
@@ -944,7 +1167,6 @@ const MemberModal: React.FC<MemberModalProps> = ({
                               width: '48px',
                               height: '48px',
                               objectFit: 'contain',
-                              cursor: 'pointer',
                               borderRadius: '8px',
                               border: '1px solid #e5e7eb',
                               padding: '4px',
@@ -956,16 +1178,6 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     </div>
                   )}
                 </div>
-
-                {progressModalBadge && (
-                  <MemberCardBadgeProgressModal
-                    isOpen={!!progressModalBadge}
-                    onClose={() => setProgressModalBadge(null)}
-                    badge={progressModalBadge.badge}
-                    fullExpertiseNames={progressModalBadge.fullExpertiseNames}
-                    receivedExpertiseNames={progressModalBadge.receivedExpertiseNames}
-                  />
-                )}
 
                 {/* Badges reçus section - hidden as not used */}
                 {false && (
@@ -1140,49 +1352,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
               </div>
 
-              {/* Permissions Section - read-only, derived from role (hidden for members with temporary email) */}
-              {!hideDeleteButton && !member.hasTemporaryEmail && (
-                <div className="info-section">
-                  <h3>Permissions</h3>
-                  <p className="section-subtitle">Selon son rôle dans l&apos;organisation, ce membre peut gérer :</p>
-                  <div className="permissions-grid permissions-grid--readonly">
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input type="checkbox" checked={permissionMembers} disabled readOnly aria-hidden />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Membres</span>
-                    </label>
-                  </div>
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input type="checkbox" checked={permissionProjects} disabled readOnly aria-hidden />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Projets</span>
-                    </label>
-                  </div>
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input type="checkbox" checked={permissionBadges} disabled readOnly aria-hidden />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Badges</span>
-                    </label>
-                  </div>
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input type="checkbox" checked={permissionEvents} disabled readOnly aria-hidden />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Événements</span>
-                    </label>
-                  </div>
-                </div>
-                </div>
-              )}
-
-              {/* Proposals Section - hidden for members with temporary email */}
-              {!hideDeleteButton && !member.hasTemporaryEmail && (
+              {/* Proposals Section — staff/company only; hidden for students and temporary email */}
+              {!hideDeleteButton && !member.hasTemporaryEmail && !isStudent() && (
                 <div className="info-section">
                   <h3>Propositions</h3>
-                  <p className="section-subtitle">Le membre peut proposer :</p>
+                  <p className="section-subtitle">Ce que ce membre a indiqué dans ses paramètres personnels :</p>
                   <div className="proposals-grid">
                     <div className="permission-item">
                       <label className="permission-checkbox">
