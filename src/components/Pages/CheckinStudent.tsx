@@ -174,6 +174,7 @@ const CheckinStudent: React.FC = () => {
     setPikLoading(true);
     try {
       await downloadClaimPersonalKeyPdf(pikPdfToken);
+      setPikPdfToken(null);
       showSuccess('PDF téléchargé.');
     } catch (error: any) {
       const message =
