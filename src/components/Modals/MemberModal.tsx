@@ -41,11 +41,34 @@ function isUnderDigitalMajority(birthday?: string | null): boolean {
   return age < 15;
 }
 
+/** Parse API date-only (YYYY-MM-DD) as local calendar day — avoid UTC-midnight skew. */
+function parseApiDateParts(iso: string): { y: number; m: number; d: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!match) return null;
+  return { y: Number(match[1]), m: Number(match[2]) - 1, d: Number(match[3]) };
+}
+
 function formatFrDate(iso?: string | null): string {
   if (!iso) return '—';
+  const parts = parseApiDateParts(iso);
+  if (parts) {
+    return new Date(parts.y, parts.m, parts.d).toLocaleDateString('fr-FR');
+  }
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('fr-FR');
+}
+
+/** Parental claim date-only is valid through the end of that local calendar day. */
+function isParentalClaimActive(iso?: string | null): boolean {
+  if (!iso) return false;
+  const parts = parseApiDateParts(iso);
+  if (parts) {
+    const endOfDay = new Date(parts.y, parts.m, parts.d, 23, 59, 59, 999);
+    return endOfDay.getTime() >= Date.now();
+  }
+  const t = new Date(iso).getTime();
+  return !Number.isNaN(t) && t > Date.now();
 }
 
 type FoldableSectionProps = {
@@ -705,15 +728,17 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   )}
                 </div>
 
-                {/* BLEU Premium <15 — autorisation représentant légal (carte membre, Lot 6) */}
-                {companyId && !isStudent() && isUnderDigitalMajority(member.birthday) && member.legalRepresentativeConsentGivenAt && (
+                {/* BLEU Premium <15 — autorisation représentant légal (carte membre, Lot 6).
+                    Gate on companyId only — do not use !isStudent(): hasTemporaryEmail would hide
+                    company minors who still use a temporary email. */}
+                {companyId && isUnderDigitalMajority(member.birthday) && member.legalRepresentativeConsentGivenAt && (
                   <div className="info-section">
                     <h3>Autorisation du représentant légal</h3>
-                    {member.parentalClaimValidUntil ? (
+                    {isParentalClaimActive(member.parentalClaimValidUntil) ? (
                       <>
                         <div className="info-item">
-                          <label>Accordée le :</label>
-                          <span>{formatFrDate(member.legalRepresentativeConsentGivenAt)}</span>
+                          <label>Statut :</label>
+                          <span>Accordée</span>
                         </div>
                         <p className="no-badges" style={{ marginTop: 4 }}>
                           Échéance : {formatFrDate(member.parentalClaimValidUntil)}
@@ -730,9 +755,16 @@ const MemberModal: React.FC<MemberModalProps> = ({
                           <label>Date de la demande :</label>
                           <span>{formatFrDate(member.legalRepresentativeConsentGivenAt)}</span>
                         </div>
-                        <p className="no-badges">
-                          Sans validation, le rattachement n&apos;est pas effectif.
-                        </p>
+                        {member.parentalClaimValidUntil ? (
+                          <p className="no-badges">
+                            Autorisation expirée le {formatFrDate(member.parentalClaimValidUntil)}.
+                            {' '}Sans nouvelle validation, le rattachement n&apos;est pas effectif.
+                          </p>
+                        ) : (
+                          <p className="no-badges">
+                            Sans validation, le rattachement n&apos;est pas effectif.
+                          </p>
+                        )}
                         {consentMessage ? <p className="no-badges" style={{ color: '#1a7f37' }}>{consentMessage}</p> : null}
                         {consentError ? <p style={{ color: '#c0392b', fontSize: '0.85rem' }}>{consentError}</p> : null}
                         <button
