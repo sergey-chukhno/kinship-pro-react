@@ -274,7 +274,7 @@ const CheckinStudent: React.FC = () => {
             </div>
             <div
               className={`checkin-step ${
-                step === 'completed' ? 'completed' : step === 'credentials' || step === 'choice' ? 'current' : ''
+                step === 'credentials' || step === 'choice' ? 'current' : ''
               }`}
             >
               <span>2</span>

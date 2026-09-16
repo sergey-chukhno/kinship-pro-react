@@ -742,7 +742,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                         </div>
                         <p className="no-badges" style={{ marginTop: 4 }}>
                           Échéance : {formatFrDate(member.parentalClaimValidUntil)}
-                          {' '}(pas de relance automatique dans ce lot).
+                          {' '}(pas de relance automatique).
                         </p>
                       </>
                     ) : (
