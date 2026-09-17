@@ -63,3 +63,9 @@ export function importCompanyMembersCsv(
         },
     });
 }
+
+export function resendCompanyGuardianAuthorization(companyId: number, memberId: number | string) {
+  return axiosClient.post(
+    `/api/v1/companies/${companyId}/members/${memberId}/resend_guardian_authorization`
+  );
+}

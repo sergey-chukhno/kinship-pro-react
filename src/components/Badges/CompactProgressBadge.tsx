@@ -11,7 +11,7 @@ export interface CompactProgressBadgeProps {
   };
   fullExpertiseNames: string[];
   receivedExpertiseNames: string[];
-  onClick: () => void;
+  onClick?: () => void;
 }
 
 const CompactProgressBadge: React.FC<CompactProgressBadgeProps> = ({
@@ -20,6 +20,7 @@ const CompactProgressBadge: React.FC<CompactProgressBadgeProps> = ({
   receivedExpertiseNames,
   onClick,
 }) => {
+  const isInteractive = Boolean(onClick);
   const total = fullExpertiseNames.length;
   const received = receivedExpertiseNames.length;
   const isComplete = total > 0 && received >= total;
@@ -32,20 +33,28 @@ const CompactProgressBadge: React.FC<CompactProgressBadgeProps> = ({
 
   return (
     <div
-      className="compact-progress-badge"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          e.stopPropagation();
-          onClick();
-        }
-      }}
-      role="button"
-      tabIndex={0}
+      className={`compact-progress-badge${isInteractive ? '' : ' compact-progress-badge--static'}`}
+      onClick={
+        isInteractive
+          ? (e) => {
+              e.stopPropagation();
+              onClick!();
+            }
+          : undefined
+      }
+      onKeyDown={
+        isInteractive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onClick!();
+              }
+            }
+          : undefined
+      }
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
       title={badge.name}
     >
       <div className={`compact-progress-badge-icon ${!isComplete ? 'compact-progress-badge-icon-greyed' : ''}`}>

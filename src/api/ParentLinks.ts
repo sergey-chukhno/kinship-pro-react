@@ -28,3 +28,15 @@ export function createParentLink(payload: { code: string; birthday: string }) {
 export function deleteParentLink(id: number) {
   return axiosClient.delete<{ message: string }>(`/api/v1/parent_links/${id}`);
 }
+
+export type ParentLinkProof = {
+  id: number;
+  badge_name: string;
+  created_at: string | null;
+  proof_number: string | null;
+  proof_type: string | null;
+};
+
+export function listParentLinkProofs(linkId: number) {
+  return axiosClient.get<{ data: ParentLinkProof[] }>(`/api/v1/parent_links/${linkId}/proofs`);
+}

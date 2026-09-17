@@ -43,6 +43,11 @@ export interface Member {
   hasTemporaryEmail?: boolean; // Indicates if email is temporary
   confirmedAt?: string | null; // ISO date when email was confirmed; null = pending activation
   birthday?: string; // Date de naissance
+  guardianEmail?: string | null; // Email représentant légal (école) — never parent account email
+  pendingGuardianEmail?: string | null; // Replace pending until invite notifies then applies
+  legalRepresentativeConsentGivenAt?: string | null; // BLEU Premium <15 — date demande autorisation
+  parentalClaimValidUntil?: string | null; // BLEU — autorisation parentale accordée jusqu'à
+  membershipStatus?: string; // confirmed | pending | …
   role?: string; // Rôle unique (pour les étudiants)
   levelId?: string; // ID de la classe/level
   roleAdditionalInfo?: string; // Information complémentaire sur le rôle
@@ -386,7 +391,7 @@ export interface OrganizationStatsResponse {
   badges_assigned?: BadgesAssignedStats;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'mes-enfants' | 'Auth';
+export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'mes-enfants' | 'mes-parents' | 'Auth';
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';
 

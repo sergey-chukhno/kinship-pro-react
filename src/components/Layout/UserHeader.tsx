@@ -6,6 +6,9 @@ import { PageType } from '../../types';
 import './UserHeader.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
+import { isUnder18 } from '../../utils/ageUtils';
+
+const STUDENT_ROLES = new Set(['eleve_primaire', 'collegien', 'lyceen', 'etudiant']);
 
 interface UserHeaderProps {
   currentPage: PageType;
@@ -251,16 +254,31 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                 )}
               </Menu.Item>
 
-              <Menu.Item>
-                {({ active }: { active: boolean }) => (
-                  <button
-                    className={`${active ? 'active' : ''}`}
-                    onClick={() => handlePageChange('mes-enfants')}
-                  >
-                    Mes enfants
-                  </button>
-                )}
-              </Menu.Item>
+              {STUDENT_ROLES.has(String(user?.role || '')) && (
+                <Menu.Item>
+                  {({ active }: { active: boolean }) => (
+                    <button
+                      className={`${active ? 'active' : ''}`}
+                      onClick={() => handlePageChange('mes-parents')}
+                    >
+                      Mes parents
+                    </button>
+                  )}
+                </Menu.Item>
+              )}
+
+              {!isUnder18(user?.birthday) && (
+                <Menu.Item>
+                  {({ active }: { active: boolean }) => (
+                    <button
+                      className={`${active ? 'active' : ''}`}
+                      onClick={() => handlePageChange('mes-enfants')}
+                    >
+                      Mes enfants
+                    </button>
+                  )}
+                </Menu.Item>
+              )}
 
               <div className="dropdown-divider" />
 

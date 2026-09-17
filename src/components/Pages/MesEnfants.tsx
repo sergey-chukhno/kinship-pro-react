@@ -2,13 +2,19 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   createParentLink,
   deleteParentLink,
+  listParentLinkProofs,
   listParentLinks,
   ParentLink,
+  ParentLinkProof,
 } from '../../api/ParentLinks';
 import { useToast } from '../../hooks/useToast';
 import './MesEnfants.css';
 
 const MUTE = "Ce rattachement n'est pas disponible.";
+const COUPON_INTRO =
+  'Saisissez ce code et la date de naissance de votre enfant.';
+const SCHOOL_ORIENTATION =
+  "Votre enfant n'apparaît pas ? Son établissement vous remettra un code.";
 
 const MesEnfants: React.FC = () => {
   const { showSuccess, showError } = useToast();
@@ -19,6 +25,10 @@ const MesEnfants: React.FC = () => {
   const [birthday, setBirthday] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [proofsLinkId, setProofsLinkId] = useState<number | null>(null);
+  const [proofs, setProofs] = useState<ParentLinkProof[]>([]);
+  const [proofsLoading, setProofsLoading] = useState(false);
+  const [proofsError, setProofsError] = useState('');
 
   // showError from useToast is recreated every render — omit from deps to avoid a fetch loop.
   const loadLinks = useCallback(async () => {
@@ -84,9 +94,33 @@ const MesEnfants: React.FC = () => {
     try {
       await deleteParentLink(link.id);
       showSuccess('Rattachement retiré');
+      if (proofsLinkId === link.id) {
+        setProofsLinkId(null);
+        setProofs([]);
+      }
       await loadLinks();
     } catch {
       showError("Impossible de retirer ce rattachement.");
+    }
+  };
+
+  const handleOpenProofs = async (link: ParentLink) => {
+    if (link.suspended) return;
+    setProofsLinkId(link.id);
+    setProofsLoading(true);
+    setProofsError('');
+    setProofs([]);
+    try {
+      const res = await listParentLinkProofs(link.id);
+      setProofs(res.data.data || []);
+    } catch (err: any) {
+      setProofsError(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          'Impossible de charger les preuves.'
+      );
+    } finally {
+      setProofsLoading(false);
     }
   };
 
@@ -101,12 +135,13 @@ const MesEnfants: React.FC = () => {
     );
   }
 
+  const proofsChild = links.find((l) => l.id === proofsLinkId);
+
   return (
     <div className="mes-enfants-page">
       <h1>Mes enfants</h1>
-      <p className="mes-enfants-intro">
-        Saisissez le code que l&apos;école vous remet et la date de naissance de votre enfant.
-      </p>
+      <p className="mes-enfants-intro">{COUPON_INTRO}</p>
+      <p className="mes-enfants-orientation">{SCHOOL_ORIENTATION}</p>
 
       <form className="mes-enfants-form" onSubmit={handleSubmit}>
         <label className="mes-enfants-field">
@@ -154,18 +189,75 @@ const MesEnfants: React.FC = () => {
                     <div className="mes-enfants-suspended">Le suivi n&apos;est plus actif</div>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="mes-enfants-detach"
-                  onClick={() => handleDetach(link)}
-                >
-                  Se détacher
-                </button>
+                <div className="mes-enfants-actions">
+                  {!link.suspended && (
+                    <button
+                      type="button"
+                      className="mes-enfants-proofs"
+                      onClick={() => void handleOpenProofs(link)}
+                    >
+                      Voir les preuves
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="mes-enfants-detach"
+                    onClick={() => handleDetach(link)}
+                  >
+                    Se détacher
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {proofsLinkId != null && (
+        <section className="mes-enfants-proofs-section">
+          <div className="mes-enfants-proofs-header">
+            <h2>
+              Preuves
+              {proofsChild
+                ? ` — ${proofsChild.first_name} ${proofsChild.last_name}`
+                : ''}
+            </h2>
+            <button
+              type="button"
+              className="mes-enfants-proofs-close"
+              onClick={() => {
+                setProofsLinkId(null);
+                setProofs([]);
+                setProofsError('');
+              }}
+            >
+              Fermer
+            </button>
+          </div>
+          {proofsLoading ? (
+            <p className="mes-enfants-muted">Chargement…</p>
+          ) : proofsError ? (
+            <p className="mes-enfants-error">{proofsError}</p>
+          ) : proofs.length === 0 ? (
+            <p className="mes-enfants-muted">Aucune preuve pour le moment.</p>
+          ) : (
+            <ul className="mes-enfants-proofs-list">
+              {proofs.map((p) => (
+                <li key={p.id} className="mes-enfants-proof-item">
+                  <div className="mes-enfants-proof-name">{p.badge_name}</div>
+                  <div className="mes-enfants-proof-meta">
+                    {p.proof_type ? `${p.proof_type} · ` : ''}
+                    {p.proof_number || `Preuve #${p.id}`}
+                    {p.created_at
+                      ? ` · ${new Date(p.created_at).toLocaleDateString('fr-FR')}`
+                      : ''}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 };

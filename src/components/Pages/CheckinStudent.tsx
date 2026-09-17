@@ -4,13 +4,15 @@ import './CheckinStudent.css';
 import '../RegisterForm/CommonForms.css';
 import {
   ClaimVerificationPayload,
+  downloadClaimPersonalKeyPdf,
+  revealClaimPersonalKey,
   updateStudentCredentials,
   verifyStudentClaim,
 } from '../../api/Claim';
 import { useToast } from '../../hooks/useToast';
 import { privatePolicy } from '../../data/PrivacyPolicy';
 
-type Step = 'verify' | 'credentials' | 'completed';
+type Step = 'verify' | 'choice' | 'credentials' | 'pik_revealed' | 'completed';
 
 interface PasswordCriteria {
   minLength: boolean;
@@ -18,6 +20,8 @@ interface PasswordCriteria {
   uppercase: boolean;
   specialChar: boolean;
 }
+
+const FEATURE_PIK_REMISE = process.env.REACT_APP_FEATURE_PIK_REMISE === 'true';
 
 const CheckinStudent: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -28,8 +32,11 @@ const CheckinStudent: React.FC = () => {
   const [step, setStep] = useState<Step>('verify');
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [pikLoading, setPikLoading] = useState(false);
   const [serverMessage, setServerMessage] = useState<string | null>(null);
   const [verifiedStudent, setVerifiedStudent] = useState<Record<string, unknown> | null>(null);
+  const [pikPlaintext, setPikPlaintext] = useState<string | null>(null);
+  const [pikPdfToken, setPikPdfToken] = useState<string | null>(null);
 
   const [verificationForm, setVerificationForm] = useState<
     Omit<ClaimVerificationPayload, 'claim_token'>
@@ -110,8 +117,13 @@ const CheckinStudent: React.FC = () => {
         setCredentialsForm((prev) => ({ ...prev, email: emailFromApi }));
       }
 
-      setStep('credentials');
-      showSuccess('Identité confirmée, merci de définir vos identifiants.');
+      if (FEATURE_PIK_REMISE) {
+        setStep('choice');
+        showSuccess('Identité confirmée.');
+      } else {
+        setStep('credentials');
+        showSuccess('Identité confirmée, merci de définir vos identifiants.');
+      }
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
@@ -122,6 +134,67 @@ const CheckinStudent: React.FC = () => {
       showError(message);
     } finally {
       setVerifyLoading(false);
+    }
+  };
+
+  const handleRevealPersonalKey = async () => {
+    if (isTokenMissing) {
+      const message = 'Lien invalide. Merci de scanner un QR code valide.';
+      setServerMessage(message);
+      showError(message);
+      return;
+    }
+
+    setPikLoading(true);
+    setServerMessage(null);
+    try {
+      const { data } = await revealClaimPersonalKey({
+        ...verificationForm,
+        claim_token: claimToken,
+      });
+      setPikPlaintext(data.plaintext);
+      setPikPdfToken(data.pdf_token);
+      setStep('pik_revealed');
+      showSuccess('Clé personnelle remise. Enregistrez-la maintenant.');
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Impossible de récupérer la clé personnelle.';
+      setServerMessage(message);
+      showError(message);
+    } finally {
+      setPikLoading(false);
+    }
+  };
+
+  const handleDownloadPikPdf = async () => {
+    if (!pikPdfToken) return;
+    setPikLoading(true);
+    try {
+      await downloadClaimPersonalKeyPdf(pikPdfToken);
+      setPikPdfToken(null);
+      showSuccess('PDF téléchargé.');
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Téléchargement impossible ou expiré.';
+      setServerMessage(message);
+      showError(message);
+    } finally {
+      setPikLoading(false);
+    }
+  };
+
+  const handleCopyPik = async () => {
+    if (!pikPlaintext) return;
+    try {
+      await navigator.clipboard.writeText(pikPlaintext.replace(/\s+/g, ''));
+      showSuccess('Clé copiée.');
+    } catch {
+      showError('Copie impossible.');
     }
   };
 
@@ -171,28 +244,44 @@ const CheckinStudent: React.FC = () => {
     }
   };
 
+  const showSteps = step === 'verify' || step === 'choice' || step === 'credentials';
+
   return (
     <div className="checkin-page">
       <div className="checkin-card">
         <header className="checkin-header">
           <img src="/Kinship_logo.png" alt="Kinship" className="object-contain m-auto w-40 h-10" />
 
-          <h1>Activation de votre compte</h1>
+          <h1>
+            {step === 'pik_revealed' || step === 'choice'
+              ? 'Votre clé personnelle'
+              : 'Activation de votre compte'}
+          </h1>
           <p className="checkin-subtitle">
-            Merci de confirmer votre identité pour créer vos identifiants personnels.
+            {step === 'choice'
+              ? 'Une clé vous appartient. Elle vous permettra de retrouver et de gérer vos preuves plus tard — même sans compte.'
+              : step === 'pik_revealed'
+                ? 'Enregistrez-la maintenant. Nous ne pourrons pas vous la réafficher — et nous ne vous l’enverrons jamais par email.'
+                : 'Merci de confirmer votre identité pour créer vos identifiants personnels.'}
           </p>
         </header>
 
-        <div className="checkin-steps">
-          <div className={`checkin-step ${step !== 'verify' ? 'completed' : 'current'}`}>
-            <span>1</span>
-            <p>Confirmer l&apos;identité</p>
+        {showSteps && (
+          <div className="checkin-steps">
+            <div className={`checkin-step ${step !== 'verify' ? 'completed' : 'current'}`}>
+              <span>1</span>
+              <p>Confirmer l&apos;identité</p>
+            </div>
+            <div
+              className={`checkin-step ${
+                step === 'credentials' || step === 'choice' ? 'current' : ''
+              }`}
+            >
+              <span>2</span>
+              <p>{FEATURE_PIK_REMISE ? 'Suite' : 'Créer ses identifiants'}</p>
+            </div>
           </div>
-          <div className={`checkin-step ${step === 'completed' ? 'completed' : step === 'credentials' ? 'current' : ''}`}>
-            <span>2</span>
-            <p>Créer ses identifiants</p>
-          </div>
-        </div>
+        )}
 
         {serverMessage && <div className="checkin-alert">{serverMessage}</div>}
 
@@ -249,6 +338,65 @@ const CheckinStudent: React.FC = () => {
               {verifyLoading ? 'Vérification...' : 'Confirmer le profil'}
             </button>
           </form>
+        )}
+
+        {step === 'choice' && FEATURE_PIK_REMISE && (
+          <div className="checkin-form">
+            <p className="checkin-context">
+              Bonjour{' '}
+              <strong>
+                {verificationForm.first_name} {verificationForm.last_name}
+              </strong>
+              .
+            </p>
+            <button
+              type="button"
+              className="checkin-button checkin-button-pik"
+              disabled={pikLoading || isTokenMissing}
+              onClick={() => void handleRevealPersonalKey()}
+            >
+              {pikLoading ? 'Remise en cours…' : 'Récupérer ma clé personnelle'}
+            </button>
+            <button
+              type="button"
+              className="checkin-button checkin-button-secondary"
+              disabled={pikLoading}
+              onClick={() => setStep('credentials')}
+            >
+              Créer mes identifiants
+            </button>
+            <p className="checkin-pik-hint">
+              Récupérer la clé consomme ce code document — comme une activation. Vous ne pourrez plus
+              l&apos;utiliser ensuite pour créer un compte depuis ce lien.
+            </p>
+          </div>
+        )}
+
+        {step === 'pik_revealed' && (
+          <div className="checkin-form">
+            <div className="checkin-pik-reveal">
+              <p className="checkin-pik-label">Votre Clé personnelle Kinship</p>
+              <p className="checkin-pik-value">{pikPlaintext}</p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="checkin-button"
+                disabled={pikLoading || !pikPdfToken}
+                onClick={() => void handleDownloadPikPdf()}
+              >
+                Télécharger le PDF
+              </button>
+              <button
+                type="button"
+                className="checkin-button checkin-button-secondary"
+                disabled={!pikPlaintext}
+                onClick={() => void handleCopyPik()}
+              >
+                Copier
+              </button>
+            </div>
+          </div>
         )}
 
         {step === 'credentials' && (
@@ -323,7 +471,7 @@ const CheckinStudent: React.FC = () => {
                   onChange={(e) => setAcceptPrivacyPolicy(e.target.checked)}
                   required
                 />
-                <span>J'accepte la politique de confidentialité *</span>
+                <span>J&apos;accepte la politique de confidentialité *</span>
               </label>
             </div>
 
@@ -331,11 +479,20 @@ const CheckinStudent: React.FC = () => {
               <p className="checkin-context">
                 Compte de{' '}
                 <strong>
-                  {(verifiedStudent.first_name as string) || verificationForm.first_name}{' '}
-                  {(verifiedStudent.last_name as string) || verificationForm.last_name}
+                  {verificationForm.first_name} {verificationForm.last_name}
                 </strong>
               </p>
             )}
+
+            {FEATURE_PIK_REMISE ? (
+              <button
+                type="button"
+                className="checkin-button checkin-button-secondary"
+                onClick={() => setStep('choice')}
+              >
+                Retour
+              </button>
+            ) : null}
 
             <button type="submit" className="checkin-button" disabled={updateLoading || !acceptPrivacyPolicy}>
               {updateLoading ? 'Mise à jour en cours...' : 'Enregistrer mes identifiants'}
@@ -358,4 +515,3 @@ const CheckinStudent: React.FC = () => {
 };
 
 export default CheckinStudent;
-
