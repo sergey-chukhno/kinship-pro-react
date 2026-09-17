@@ -93,19 +93,24 @@ const QRCodePrintModal: React.FC<QRCodePrintModalProps> = ({ onClose, claimToken
           </div>
         </div>
 
-        <div className="modal-footer print:hidden">
-          <button type="button" className="btn btn-outline" onClick={onClose}>
-            <i className="mr-2 fas fa-times"></i>
-            Fermer
-          </button>
-          <button type="button" className="btn btn-outline" onClick={handleCopyLink}>
-            <i className="mr-2 fas fa-copy"></i>
-            Copier le lien
-          </button>
-          <button type="button" className="btn btn-primary" onClick={handlePrint}>
-            <i className="mr-2 fas fa-print"></i>
-            Imprimer
-          </button>
+        <div className="modal-footer print:hidden" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-outline" onClick={onClose}>
+              <i className="mr-2 fas fa-times"></i>
+              Fermer
+            </button>
+            <button type="button" className="btn btn-outline" onClick={handleCopyLink}>
+              <i className="mr-2 fas fa-copy"></i>
+              Copier le lien
+            </button>
+            <button type="button" className="btn btn-primary" onClick={handlePrint}>
+              <i className="mr-2 fas fa-print"></i>
+              Imprimer
+            </button>
+          </div>
+          <p style={{ margin: '10px 0 0', fontSize: 13, color: '#6b6a64', textAlign: 'left' }}>
+            Ce lien est personnel — ne l&apos;envoyez jamais à une autre personne.
+          </p>
         </div>
       </div>
 

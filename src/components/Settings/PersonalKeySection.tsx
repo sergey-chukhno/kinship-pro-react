@@ -14,10 +14,13 @@ type IdentityPayload = {
 
 /**
  * D-PIK-REMISE / KIN_UX_PIK V1.9 — behind FEATURE_PIK_REMISE (default OFF).
+ * After Afficher / Remplacer: plaintext stays in page session with Copier + PDF
+ * until navigation away (§5.1) — same pattern as check-in pik_revealed.
  */
 const PersonalKeySection: React.FC = () => {
   const [payload, setPayload] = useState<IdentityPayload | null>(null);
   const [plaintext, setPlaintext] = useState<string | null>(null);
+  const [pdfToken, setPdfToken] = useState<string | null>(null);
   const [backupEmail, setBackupEmail] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -40,6 +43,7 @@ const PersonalKeySection: React.FC = () => {
   if (!FEATURE_PIK_REMISE) return null;
 
   const remitted = Boolean(payload?.remitted);
+  const sessionKeyVisible = Boolean(plaintext);
 
   const reveal = async () => {
     setBusy(true);
@@ -48,6 +52,7 @@ const PersonalKeySection: React.FC = () => {
     try {
       const res = await axiosClient.post('/api/v1/account/identity/reveal');
       setPlaintext(res.data.plaintext);
+      setPdfToken(res.data.pdf_token || null);
       await load();
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Remise impossible.');
@@ -61,18 +66,35 @@ const PersonalKeySection: React.FC = () => {
     setError('');
     setMessage('');
     try {
-      const res = await axiosClient.get('/api/v1/account/identity/pdf', { responseType: 'blob' });
+      const res = pdfToken
+        ? await axiosClient.get('/api/v1/account/identity/pdf', {
+            params: { pdf_token: pdfToken },
+            responseType: 'blob',
+          })
+        : await axiosClient.get('/api/v1/account/identity/pdf', { responseType: 'blob' });
       const url = window.URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'kinship-cle-personnelle.pdf';
       a.click();
       window.URL.revokeObjectURL(url);
+      if (pdfToken) setPdfToken(null);
       await load();
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Téléchargement impossible.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const copyKey = async () => {
+    if (!plaintext) return;
+    try {
+      await navigator.clipboard.writeText(plaintext.replace(/\s+/g, ''));
+      setMessage('Clé copiée.');
+      setError('');
+    } catch {
+      setError('Copie impossible.');
     }
   };
 
@@ -86,6 +108,7 @@ const PersonalKeySection: React.FC = () => {
     try {
       const res = await axiosClient.post('/api/v1/account/identity/replace');
       setPlaintext(res.data.plaintext);
+      setPdfToken(res.data.pdf_token || null);
       await load();
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Remplacement impossible.');
@@ -142,6 +165,41 @@ const PersonalKeySection: React.FC = () => {
             </button>
           </div>
         </>
+      ) : sessionKeyVisible ? (
+        <>
+          <p>
+            Votre clé vous a été remise
+            {payload?.pik_acknowledged_at
+              ? ` le ${new Date(payload.pik_acknowledged_at).toLocaleDateString('fr-FR')}`
+              : ''}
+            {payload?.door_label ? `, ${payload.door_label}` : ''}.
+          </p>
+          <p>Enregistrez-la maintenant. Nous ne pourrons pas vous la réafficher ensuite.</p>
+          <p style={{ fontFamily: 'monospace', letterSpacing: '0.08em', fontSize: '1.1rem' }}>
+            {plaintext}
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled={!plaintext}
+              onClick={() => void copyKey()}
+            >
+              Copier
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled={busy || !pdfToken}
+              onClick={() => void downloadPdf()}
+            >
+              Télécharger le PDF
+            </button>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void replaceKey()}>
+              Remplacer ma clé
+            </button>
+          </div>
+        </>
       ) : (
         <>
           <p>
@@ -152,9 +210,6 @@ const PersonalKeySection: React.FC = () => {
             {payload?.door_label ? `, ${payload.door_label}` : ''}.
           </p>
           <p>Nous ne la conservons pas et ne pouvons pas vous la réafficher.</p>
-          {plaintext ? (
-            <p style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>{plaintext}</p>
-          ) : null}
           <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void replaceKey()}>
             Remplacer ma clé
           </button>

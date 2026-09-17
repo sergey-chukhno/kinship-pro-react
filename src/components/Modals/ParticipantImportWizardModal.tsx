@@ -1123,14 +1123,17 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                     docIndex?.pik_class_keys_printed_at) ? (
                     <div className="piw-dlrow" style={{ background: '#EEF4FF' }}>
                       <span>
-                        <b>Clés personnelles</b>
                         {docIndex?.pik_class_keys_printed_at ? (
-                          <span style={{ color: '#8f8d86' }}>
+                          <span>
+                            Clés imprimées le {formatShortDate(docIndex.pik_class_keys_printed_at)}
                             {' '}
-                            — imprimées le {formatShortDate(docIndex.pik_class_keys_printed_at)}
+                            — pour un élève qui n'a pas la sienne, passez par sa carte élève.
                           </span>
                         ) : (
-                          <span style={{ color: '#8f8d86' }}> — 3 par feuille, une seule fois</span>
+                          <>
+                            <b>Clés personnelles</b>
+                            <span style={{ color: '#8f8d86' }}> — 3 par feuille, une seule fois</span>
+                          </>
                         )}
                       </span>
                       {docIndex?.pik_class_keys_available ? (
@@ -1158,9 +1161,7 @@ const ParticipantImportWizardModal: React.FC<Props> = ({
                         >
                           ⬇ clés
                         </button>
-                      ) : (
-                        <span style={{ fontSize: 11, color: '#6b6a64' }}>déjà imprimé</span>
-                      )}
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
