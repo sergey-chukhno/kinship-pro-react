@@ -1851,25 +1851,13 @@ const Members: React.FC = () => {
           })()}
             <div className="dropdown-container" ref={dropdownRef}>
               {isSchoolContext && currentSchoolId ? (
-                <>
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => {
-                      setImportRecapToken(null);
-                      setIsParticipantImportOpen(true);
-                    }}
-                  >
-                    <i className="fas fa-upload"></i>
-                    Importer des élèves
-                  </button>
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => setIsRecentImportsOpen(true)}
-                  >
-                    <i className="fas fa-history"></i>
-                    Derniers imports
-                  </button>
-                </>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setIsCsvImportModalOpen(true)}
+                >
+                  <i className="fas fa-upload"></i>
+                  Importer des élèves
+                </button>
               ) : (
                 <button
                   className="btn btn-outline"
