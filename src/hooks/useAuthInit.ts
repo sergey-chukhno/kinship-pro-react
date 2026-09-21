@@ -4,6 +4,7 @@ import { getCurrentUser, refreshToken } from "../api/Authentication"; // adapte 
 import { applySpaceTheme } from "../utils/spaceTheme";
 import { PageType } from "../types";
 import { isOfActivated, restoreOfRoleContext } from "../utils/ofActivationStore";
+import { isFunderAppPath } from "../utils/contextUtils";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const isPublicFollowPath = (pathname: string) => pathname.startsWith("/follow/");
@@ -128,7 +129,9 @@ export const useAuthInit = () => {
 
           const isAuthPage = location.pathname === "/register" || location.pathname === "/login" || location.pathname.startsWith("/register/");
 
-          restoreOfRoleContext();
+          if (!isFunderAppPath(location.pathname, location.search)) {
+            restoreOfRoleContext();
+          }
 
           // Vérifier s'il y a un contexte sauvegardé et valide
           const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | "of" | null;

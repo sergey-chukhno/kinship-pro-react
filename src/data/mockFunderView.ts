@@ -151,6 +151,7 @@ const DEBUTER_OUTCOMES: FunderOutcome[] = [
 
 export const MOCK_FOLLOW_DEBUTER: FunderFollowData = {
   token: 'debuter',
+  kind: 'formation',
   closed: false,
   title: 'Débuter dans le numérique — bureautique, internet, démarches en ligne',
   org: 'Atelier Numérique Formation',
@@ -272,6 +273,10 @@ const FOLLOWS: Record<string, FunderFollowData> = {
 
 export function getFunderFollow(token: string): FunderFollowData | undefined {
   return FOLLOWS[token];
+}
+
+export function isMockFunderFollowToken(token?: string | null): boolean {
+  return Boolean(token && FOLLOWS[token]);
 }
 
 export const MOCK_FUNDER_HUB_CARDS: FunderHubCard[] = [

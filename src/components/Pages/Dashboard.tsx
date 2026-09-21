@@ -1398,6 +1398,13 @@ const Dashboard: React.FC = () => {
     (state.showingPageType === 'pro'
       ? "l'organisation"
       : null);
+  const isFunderDashboard =
+    state.showingPageType === 'pro' &&
+    Number(
+      state.user?.available_contexts?.companies?.find(
+        (company) => Number(company.id) === Number(organizationId)
+      )?.financed_projects_count || 0
+    ) > 0;
 
   const getStatusMeta = (status?: string) => {
     switch (status) {
@@ -1698,7 +1705,13 @@ const Dashboard: React.FC = () => {
                 </span>
               </div>
             )}
-            {state.showingPageType !== 'teacher' && (
+            {state.showingPageType === 'pro' && (
+              <div className="flex gap-2 items-center">
+                <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+                <span>{isFunderDashboard ? 'Tableau de bord financeur' : `Tableau de bord de ${organizationDisplayName}`}</span>
+              </div>
+            )}
+            {state.showingPageType !== 'teacher' && state.showingPageType !== 'pro' && (
               <div className="flex gap-2 items-center">
                 <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
                 <span>Tableau de bord de {organizationDisplayName}</span>

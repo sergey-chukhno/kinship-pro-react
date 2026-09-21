@@ -82,6 +82,11 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
           {data.kind === 'project' ? 'Ce projet est clôturé le' : 'Cette formation est clôturée le'} {data.closedOn ?? '—'}.
         </p>
         <p className="fv-ended-sub">Le rapport vous a été transmis par email.</p>
+        {!preview && viewerIsLoggedIn && data.kind !== 'project' && (
+          <button type="button" className="fv-link" onClick={() => navigate('/projects?tab=je-finance')}>
+            ← Formations suivies
+          </button>
+        )}
       </div>
     );
   }
@@ -112,7 +117,14 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
             <div className="fv-brand-sub">Suivi financeur</div>
           </div>
         </div>
-        {data.financement && <span className="fv-chip cpf">{data.financement}</span>}
+        <div className="fv-top-actions">
+          {!preview && viewerIsLoggedIn && (
+            <button type="button" className="fv-link" onClick={() => navigate('/projects?tab=je-finance')}>
+              ← Formations suivies
+            </button>
+          )}
+          {data.financement && <span className="fv-chip cpf">{data.financement}</span>}
+        </div>
       </header>
 
       <h1 className="fv-title">{data.title}</h1>
@@ -307,7 +319,7 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
               Créez l&apos;espace de votre organisation sur Kinship — chaque formation que vous
               financez vous y attend, en direct.
             </p>
-            <button type="button" className="fv-cta" onClick={() => navigate('/financeur')}>
+            <button type="button" className="fv-cta" onClick={() => navigate('/register')}>
               Créer l&apos;espace de mon organisation
             </button>
           </div>

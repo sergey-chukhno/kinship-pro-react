@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { confirmFunderFollowToken, declineFunderFollowToken, getProjectFunderFollow } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
-import { getFunderFollow, FunderFollowData } from '../../data/mockFunderView';
+import { getFunderFollow, FunderFollowData, isMockFunderFollowToken } from '../../data/mockFunderView';
 import { getFormationById, getFormationPeople } from '../../utils/formationStore';
 import { followViewFromFormation } from '../../utils/funderFollowFromFormation';
 import {
@@ -102,7 +102,11 @@ const FunderFollowPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const viewerIsLoggedIn = isAuthenticatedSession() && Boolean(state.user?.available_contexts);
-  const viewerIsFunder = viewerIsLoggedIn && currentUserIsDesignatedFunder(state.user, data);
+  const mockFormationFollow = isMockFunderFollowToken(data?.token);
+  const viewerIsFunder =
+    viewerIsLoggedIn &&
+    (currentUserIsDesignatedFunder(state.user, data) ||
+      (mockFormationFollow && governableCompanies(state.user).length > 0));
   const viewerHasCompanySpace = viewerIsFunder && isCompanyGovernContext(state.user, state.showingPageType);
 
   useEffect(() => {
@@ -122,14 +126,14 @@ const FunderFollowPage: React.FC = () => {
         }
         return;
       } catch (error: any) {
-        if (error?.response?.status === 403) {
+        const known = getFunderFollow(token);
+        if (error?.response?.status === 403 && !known) {
           if (!cancelled) {
             setAccessDenied(true);
             setData(null);
           }
           return;
         }
-        const known = getFunderFollow(token);
         const formation = !known ? getFormationById(token) : undefined;
         const people = formation ? getFormationPeople(formation.id) : undefined;
         const fallback =

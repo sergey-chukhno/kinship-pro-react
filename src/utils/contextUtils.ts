@@ -1,5 +1,8 @@
 import { User, ShowingPageType } from '../types';
 
+/** Mock formation hub cards — Je finance exists in every company/asso space. */
+const FORMATION_FUNDER_HUB_COUNT = 4;
+
 /**
  * Get the selected organization ID from localStorage
  * Validates that user still has admin/superadmin access
@@ -116,10 +119,18 @@ export const getFinancedProjectsCount = (
   const company = user.available_contexts?.companies?.find(
     (c) => Number(c.id) === Number(orgId)
   );
-  return Number(company?.financed_projects_count || 0);
+  const apiCount = Number(company?.financed_projects_count || 0);
+  return Math.max(apiCount, FORMATION_FUNDER_HUB_COUNT);
 };
 
 export const jeFinanceLabel = (count: number): string => `Je finance (${count})`;
+
+/** Surfaces where the funder stays in the company (Pro) space — do not steal OF. */
+export const isFunderAppPath = (pathname: string, search = ''): boolean =>
+  pathname.startsWith('/follow/') ||
+  pathname.startsWith('/funded-projects') ||
+  pathname === '/financeur' ||
+  (pathname.startsWith('/projects') && new URLSearchParams(search).get('tab') === 'je-finance');
 
 export const isAuthenticatedSession = (): boolean => Boolean(localStorage.getItem('jwt_token')?.trim());
 

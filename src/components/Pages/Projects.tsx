@@ -1900,6 +1900,13 @@ const Projects: React.FC = () => {
     return matchesSearch && matchesPathway && matchesStatus && matchesOrganization && matchesVisibility && matchesStartDate && matchesEndDate && matchesMldsRequestedBy && matchesMldsTargetAudience && matchesMldsActionObjectives && matchesMldsOrganization && matchesFinancement;
   });
 
+  const projectsHeading =
+    state.showingPageType === 'user'
+      ? 'Rechercher une idée de projet sur Kinship'
+      : activeTab === 'je-finance'
+        ? 'Tableau de bord financeur'
+        : 'Gestion des projets';
+
   return (
     <section className="flex flex-col gap-12 p-8 with-sidebar">
       {state.showingPageType === 'user' && (
@@ -1913,7 +1920,7 @@ const Projects: React.FC = () => {
       <div className="flex justify-between items-start">
         <div className="flex gap-2 items-center w-full section-title-left">
           <img src="/icons_logo/Icon=projet.svg" alt="Projets" className="section-icon" />
-          <h2>{state.showingPageType === 'user' ? 'Rechercher une idée de projet sur Kinship' : 'Gestion des projets'}</h2>
+          <h2>{projectsHeading}</h2>
         </div>
         <div className="projects-actions">
           {state.showingPageType !== 'user' && !isMinorPersonalUser && (

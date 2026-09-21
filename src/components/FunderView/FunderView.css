@@ -9,6 +9,22 @@
   padding: 8px 0 24px;
 }
 
+.fv-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fp-page .fv-hub {
+  padding: 0 0 8px;
+}
+
+.fp-projects-block {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
 .fv-shell {
   max-width: 720px;
   margin: 0 auto;
@@ -457,10 +473,8 @@
   margin: 12px 0 6px;
 }
 
-.fv-ended-sub {
-  font-size: 13px;
-  color: #6b7280;
-  margin: 0;
+.fv-ended .fv-link {
+  margin-top: 14px;
 }
 
 .fv-hub-head {
@@ -523,7 +537,7 @@
 }
 
 .fv-tile.on {
-  outline: 2px solid #003189;
+  outline: 2px solid var(--couleur-espace, #003189);
   outline-offset: -1px;
 }
 

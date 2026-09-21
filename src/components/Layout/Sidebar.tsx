@@ -7,6 +7,7 @@ import './Sidebar.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
+import { applySpaceTheme } from '../../utils/spaceTheme';
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
 import { MOCK_OF_ORG } from '../../data/mockFormations';
@@ -179,8 +180,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     localStorage.setItem('selectedContextId', orgId.toString());
     localStorage.setItem('selectedContextType', orgType);
 
-    // Update the showing page type
     setShowingPageType(newPageType);
+    applySpaceTheme(newPageType);
 
     // Navigate to appropriate page
     if (orgType === 'user') {

@@ -1,15 +1,15 @@
 import React from 'react';
-import FunderHub from '../FunderView/FunderHub';
-import '../FunderView/FunderView.css';
+import { Navigate } from 'react-router-dom';
+import { isAuthenticatedSession } from '../../utils/contextUtils';
 
+const FUNDER_HUB_IN_APP = '/projects?tab=je-finance';
+
+/** The funder hub lives in the company/asso (Kinship Pro) space — never a standalone page. */
 const FunderHubPage: React.FC = () => {
-  return (
-    <div className="fv-page">
-      <div className="fv-shell">
-        <FunderHub />
-      </div>
-    </div>
-  );
+  if (isAuthenticatedSession()) {
+    return <Navigate to={FUNDER_HUB_IN_APP} replace />;
+  }
+  return <Navigate to="/login" replace />;
 };
 
 export default FunderHubPage;

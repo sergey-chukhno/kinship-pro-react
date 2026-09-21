@@ -1,3 +1,9 @@
+.fp-projects-block {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
 .fp-page.embedded {
   padding: 0;
   max-width: none;

@@ -8,7 +8,9 @@ import {
   proposeFunderAttachment,
 } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
+import FunderHub from '../FunderView/FunderHub';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
+import '../FunderView/FunderView.css';
 import './FundedProjectsPage.css';
 
 type HubFilter = '' | 'run' | 'watch' | 'ended';
@@ -83,37 +85,31 @@ const FundedProjectsPage: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
 
   return (
     <div className={`fp-page ${embedded ? 'embedded' : ''}`}>
-      <h1 className="fp-title">{loading ? 'Je finance' : `Je finance (${cards.length})`}</h1>
-      <p className="fp-sub">
-        Les projets où une structure vous a désigné financeur — vous suivez, sans jamais y agir. Vos propres projets n’apparaissent pas ici.
-      </p>
+      <FunderHub />
 
-      <div className="fp-tiles">
-        <button type="button" className={`fp-tile ${filter === 'run' ? 'on' : ''}`} onClick={() => toggle('run')}>
-          <b>{counts.run}</b>
-          <span>En cours</span>
-        </button>
-        <button type="button" className={`fp-tile amber ${filter === 'watch' ? 'on' : ''}`} onClick={() => toggle('watch')}>
-          <b>{counts.watch}</b>
-          <span>À regarder</span>
-        </button>
-        <button type="button" className={`fp-tile ${filter === 'ended' ? 'on' : ''}`} onClick={() => toggle('ended')}>
-          <b>{counts.ended}</b>
-          <span>Terminés</span>
-        </button>
-      </div>
-
-      {loading ? (
-        <p className="fp-empty-sub">Chargement…</p>
-      ) : cards.length === 0 ? (
-        <div className="fp-empty">
-          <div className="fp-empty-title">Aucun projet financé pour l’instant</div>
-          <p className="fp-empty-sub">
-            Dès qu’une structure vous désigne financeur d’un projet, il apparaît ici — rattachement ou pas.
+      {!loading && cards.length > 0 && (
+        <div className="fp-projects-block">
+          <h2 className="fp-title">Projets financés ({cards.length})</h2>
+          <p className="fp-sub">
+            Les projets où une structure vous a désigné financeur — vous suivez, sans jamais y agir.
+            Vos propres projets n’apparaissent pas ici.
           </p>
-        </div>
-      ) : (
-        <>
+
+          <div className="fp-tiles">
+            <button type="button" className={`fp-tile ${filter === 'run' ? 'on' : ''}`} onClick={() => toggle('run')}>
+              <b>{counts.run}</b>
+              <span>En cours</span>
+            </button>
+            <button type="button" className={`fp-tile amber ${filter === 'watch' ? 'on' : ''}`} onClick={() => toggle('watch')}>
+              <b>{counts.watch}</b>
+              <span>À regarder</span>
+            </button>
+            <button type="button" className={`fp-tile ${filter === 'ended' ? 'on' : ''}`} onClick={() => toggle('ended')}>
+              <b>{counts.ended}</b>
+              <span>Terminés</span>
+            </button>
+          </div>
+
           {showLive && filter !== 'run' && watch.length > 0 && (
             <section>
               <div className="fp-gsec">À regarder ({watch.length})</div>
@@ -169,7 +165,7 @@ const FundedProjectsPage: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
               })}
             </section>
           )}
-        </>
+        </div>
       )}
     </div>
   );

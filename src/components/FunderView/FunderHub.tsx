@@ -45,7 +45,7 @@ const FunderHub: React.FC = () => {
       <header className="fv-hub-head">
         <div>
           <h1>Formations suivies</h1>
-          <p>OPCO Atlas — les formations que vous financez</p>
+          <p>Les formations que vous financez</p>
         </div>
         <div className="fv-hub-tiles">
           <button
