@@ -122,7 +122,7 @@ const FunderHub: React.FC = () => {
             <article key={card.token} className="fv-card ended">
               <div className="fv-card-top">
                 <h3>{card.title}</h3>
-                <span className="fv-chip ended">TERMINÉE</span>
+                <span className="fv-chip ended">TERMINÉ</span>
               </div>
               <p className="fv-card-meta">
                 {card.org} · {card.meta}

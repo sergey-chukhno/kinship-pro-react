@@ -1051,7 +1051,7 @@ const ProjectSpacePage: React.FC = () => {
                   Participants ({confirmedMembers.length + preparedPeople.length})
                   {!isEnded && (
                     <button type="button" className={`ps-add ${addPanel === 'person' ? 'on' : ''}`} onClick={() => setAddPanel(addPanel === 'person' ? null : 'person')}>
-                      + Ajouter une personne
+                      + Ajouter un participant
                     </button>
                   )}
                 </h2>

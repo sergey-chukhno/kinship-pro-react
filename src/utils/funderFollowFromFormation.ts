@@ -69,7 +69,7 @@ export function followViewFromFormation(
         ? 'EN COURS'
         : formation.status === 'coming'
           ? 'À VENIR'
-          : 'TERMINÉE',
+          : 'TERMINÉ',
     qualiopi: true,
     attendanceSurvey: Boolean(formation.attendanceSurveyOptIn),
     hoursDone: coming ? '0h' : ended ? `${hoursTotal}h` : `${Math.round(hoursTotal * 0.5)}h`,

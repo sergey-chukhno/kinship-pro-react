@@ -304,7 +304,7 @@ const FormationAffiche: React.FC = () => {
       ? 'EN COURS'
       : formation.status === 'coming'
         ? 'À VENIR'
-        : 'TERMINÉE';
+        : 'TERMINÉ';
 
   return (
     <section className="fa-page" aria-label="Affiche formation">
