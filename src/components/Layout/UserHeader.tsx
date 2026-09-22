@@ -8,8 +8,11 @@ import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { MOCK_OF_ORG } from '../../data/mockFormations';
 import { isOfActivated, subscribeOfActivation } from '../../utils/ofActivationStore';
+import { isUnder18 } from '../../utils/ageUtils';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
+
+const STUDENT_ROLES = new Set(['eleve_primaire', 'collegien', 'lyceen', 'etudiant']);
 
 interface UserHeaderProps {
   currentPage: PageType;
@@ -302,6 +305,32 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                   </button>
                 )}
               </Menu.Item>
+
+              {STUDENT_ROLES.has(String(user?.role || '')) && (
+                <Menu.Item>
+                  {({ active }: { active: boolean }) => (
+                    <button
+                      className={`${active ? 'active' : ''}`}
+                      onClick={() => handlePageChange('mes-parents')}
+                    >
+                      Mes parents
+                    </button>
+                  )}
+                </Menu.Item>
+              )}
+
+              {!isUnder18(user?.birthday) && (
+                <Menu.Item>
+                  {({ active }: { active: boolean }) => (
+                    <button
+                      className={`${active ? 'active' : ''}`}
+                      onClick={() => handlePageChange('mes-enfants')}
+                    >
+                      Mes enfants
+                    </button>
+                  )}
+                </Menu.Item>
+              )}
 
               <div className="dropdown-divider" />
 

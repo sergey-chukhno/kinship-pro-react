@@ -17,6 +17,8 @@ import Projects from '../Pages/Projects';
 import Settings from '../Pages/Settings';
 import PersonalSettings from '../Pages/PersonalSettings';
 import Pik from '../Pages/Pik';
+import MesEnfants from '../Pages/MesEnfants';
+import MesParents from '../Pages/MesParents';
 import PrivacyPolicy from '../RegisterForm/PrivacyPolicy';
 import './MainLayout.css';
 import Sidebar from './Sidebar';
@@ -126,6 +128,10 @@ const MainLayout: React.FC = () => {
         return <PersonalSettings />;
       case 'pik':
         return <Pik />;
+      case 'mes-enfants':
+        return <MesEnfants />;
+      case 'mes-parents':
+        return <MesParents />;
       case 'membership-requests':
         return <MembershipRequests />;
       case 'partnership-requests':

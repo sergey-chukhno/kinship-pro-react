@@ -13,6 +13,8 @@ import PrivacyPolicy from "../RegisterForm/PrivacyPolicy"
 import CGU from "../RegisterForm/CGU"
 import { useAppContext } from "../../context/AppContext"
 import { useToast } from "../../hooks/useToast"
+import { getSafePostAuthRedirect } from "../../utils/authRedirect"
+import type { PageType } from "../../types"
 
 
 type RegisterType = "user" | "teacher" | "school" | "company" | "privacy-policy" | "CGU" | ""
@@ -123,6 +125,29 @@ const AuthPage: React.FC = () => {
             setUser(normalizedUser)
           }
 
+          const redirect = getSafePostAuthRedirect(location.search)
+
+          const goAfterAuth = (pageType: "user" | "teacher" | "pro" | "edu", page: PageType = "dashboard") => {
+            if (redirect === "/mes-enfants") {
+              localStorage.setItem("selectedPageType", "user")
+              localStorage.setItem("selectedContextId", "user-dashboard")
+              localStorage.setItem("selectedContextType", "user")
+              setShowingPageType("user")
+              setCurrentPage("mes-enfants")
+              navigate("/mes-enfants")
+              return
+            }
+            setShowingPageType(pageType)
+            if (redirect) {
+              const fromPath = redirect.replace(/^\//, "") as PageType
+              setCurrentPage(fromPath === "mes-enfants" ? "mes-enfants" : page)
+              navigate(redirect)
+              return
+            }
+            setCurrentPage(page)
+            navigate(`/${page}`)
+          }
+
           // Check if user has admin access to any company
           const hasAdminCompany = response.data.user.available_contexts.companies?.some(
             (c: any) => c.role === 'admin' || c.role === 'superadmin'
@@ -138,9 +163,7 @@ const AuthPage: React.FC = () => {
             localStorage.setItem('selectedPageType', 'user');
             localStorage.setItem('selectedContextId', 'user-dashboard');
             localStorage.setItem('selectedContextType', 'user');
-            setShowingPageType("user")
-            setCurrentPage("dashboard")
-            navigate("/dashboard")
+            goAfterAuth("user", "dashboard")
           }
           // Priority 2: Teacher dashboard (vérifié avant les accès admin)
           else if (
@@ -156,9 +179,7 @@ const AuthPage: React.FC = () => {
             localStorage.setItem('selectedPageType', 'teacher');
             localStorage.setItem('selectedContextId', 'teacher-dashboard');
             localStorage.setItem('selectedContextType', 'teacher');
-            setShowingPageType("teacher")
-            setCurrentPage("dashboard")
-            navigate("/dashboard")
+            goAfterAuth("teacher", "dashboard")
           }
           // Priority 3: Companies (only if admin/superadmin)
           else if (
@@ -178,9 +199,7 @@ const AuthPage: React.FC = () => {
             localStorage.setItem('selectedPageType', 'pro');
             localStorage.setItem('selectedContextId', firstAdminCompany?.id?.toString() || '');
             localStorage.setItem('selectedContextType', 'company');
-            setShowingPageType("pro")
-            setCurrentPage("dashboard")
-            navigate("/dashboard")
+            goAfterAuth("pro", "dashboard")
           }
           // Priority 4: Schools (only if admin/superadmin)
           else if (
@@ -200,9 +219,7 @@ const AuthPage: React.FC = () => {
             localStorage.setItem('selectedPageType', 'edu');
             localStorage.setItem('selectedContextId', firstAdminSchool?.id?.toString() || '');
             localStorage.setItem('selectedContextType', 'school');
-            setShowingPageType("edu")
-            setCurrentPage("dashboard")
-            navigate("/dashboard")
+            goAfterAuth("edu", "dashboard")
           }
         } else {
           showError("Échec de la connexion (simulation)")

@@ -1807,6 +1807,15 @@ html[data-theme="dark"] .badge-explorer-card .badge-icon i {
   margin: 0 0 1rem 0;
 }
 
+.info-section--folded h3 {
+  margin-bottom: 0;
+  color: var(--text-secondary, #6b7280);
+}
+
+.info-section--folded .no-badges {
+  margin-top: 0.5rem;
+}
+
 .member-management-content .info-item {
   display: flex;
   justify-content: space-between;

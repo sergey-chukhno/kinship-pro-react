@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { mockBadges } from '../../data/mockData';
 import { Badge, Member } from '../../types';
@@ -10,8 +10,87 @@ import { translateRoles, translateRole, normalizeRoleKey } from '../../utils/rol
 import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
-import MemberCardBadgeProgressModal from './MemberCardBadgeProgressModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import {
+  listSchoolParentLinkCodes,
+  regenerateSchoolParentLinkCode,
+  SchoolParentActiveLink,
+  SchoolParentLinkCode,
+} from '../../api/SchoolParentLinkCodes';
+import {
+  sendStudentGuardianInvitation,
+  updateStudentGuardianEmail,
+} from '../../api/SchoolStudentGuardian';
+import {
+  getSchoolPersonalKeyStatus,
+  printSchoolPersonalKey,
+  SchoolPersonalKeyStatus,
+} from '../../api/SchoolPersonalKey';
+import { resendCompanyGuardianAuthorization } from '../../api/CompanyDashboard/Members';
+
+const FEATURE_PIK_REMISE = process.env.REACT_APP_FEATURE_PIK_REMISE === 'true';
+
+function isUnderDigitalMajority(birthday?: string | null): boolean {
+  if (!birthday) return false;
+  const dob = new Date(birthday);
+  if (Number.isNaN(dob.getTime())) return false;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age < 15;
+}
+
+/** Parse API date-only (YYYY-MM-DD) as local calendar day — avoid UTC-midnight skew. */
+function parseApiDateParts(iso: string): { y: number; m: number; d: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!match) return null;
+  return { y: Number(match[1]), m: Number(match[2]) - 1, d: Number(match[3]) };
+}
+
+function formatFrDate(iso?: string | null): string {
+  if (!iso) return '—';
+  const parts = parseApiDateParts(iso);
+  if (parts) {
+    return new Date(parts.y, parts.m, parts.d).toLocaleDateString('fr-FR');
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('fr-FR');
+}
+
+/** Parental claim date-only is valid through the end of that local calendar day. */
+function isParentalClaimActive(iso?: string | null): boolean {
+  if (!iso) return false;
+  const parts = parseApiDateParts(iso);
+  if (parts) {
+    const endOfDay = new Date(parts.y, parts.m, parts.d, 23, 59, 59, 999);
+    return endOfDay.getTime() >= Date.now();
+  }
+  const t = new Date(iso).getTime();
+  return !Number.isNaN(t) && t > Date.now();
+}
+
+type FoldableSectionProps = {
+  title: string;
+  isOpen: boolean;
+  emptySuffix?: string;
+  children?: React.ReactNode;
+  collapsedContent?: React.ReactNode;
+};
+
+const FoldableSection: React.FC<FoldableSectionProps> = ({
+  title,
+  isOpen,
+  emptySuffix = 'aucune',
+  children,
+  collapsedContent,
+}) => (
+  <div className={`info-section${isOpen ? '' : ' info-section--folded'}`}>
+    <h3>{isOpen ? title : `${title} — ${emptySuffix}`}</h3>
+    {isOpen ? children : collapsedContent}
+  </div>
+);
 
 interface MemberModalProps {
   member: Member;
@@ -26,6 +105,8 @@ interface MemberModalProps {
   hasBadges?: boolean; // When true, show Cartographie entry even while URL is loading (Élèves tab)
   isCartographyLoading?: boolean; // When true, show "Cartographie (chargement…)" instead of link
   hideContactAndEmail?: boolean; // When true (e.g. viewer is personal user under 15 in Mon réseau), hide contact actions and email in modal
+  schoolId?: number; // School context — enables Parent-Link codes on student card
+  companyId?: number; // Company context — BLEU Premium <15 guardian authorization card
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
@@ -40,12 +121,33 @@ const MemberModal: React.FC<MemberModalProps> = ({
   badgeCartographyUrl,
   hasBadges = false,
   isCartographyLoading = false,
-  hideContactAndEmail = false
+  hideContactAndEmail = false,
+  schoolId,
+  companyId
 }) => {
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
   // Profession should be the actual job, not translated system role
   const professionLabel = member.profession || '';
+
+  const [parentCodes, setParentCodes] = useState<SchoolParentLinkCode[]>([]);
+  const [parentLinks, setParentLinks] = useState<SchoolParentActiveLink[]>([]);
+  const [parentCodesLoading, setParentCodesLoading] = useState(false);
+  const [parentCodesError, setParentCodesError] = useState('');
+  const [regeneratingCode, setRegeneratingCode] = useState(false);
+  const [guardianEmailDraft, setGuardianEmailDraft] = useState(member.guardianEmail || '');
+  const [guardianSaving, setGuardianSaving] = useState(false);
+  const [guardianInviting, setGuardianInviting] = useState(false);
+  const [guardianMessage, setGuardianMessage] = useState('');
+  const [guardianError, setGuardianError] = useState('');
+  const [consentResending, setConsentResending] = useState(false);
+  const [consentMessage, setConsentMessage] = useState('');
+  const [consentError, setConsentError] = useState('');
+  const [pikStatus, setPikStatus] = useState<SchoolPersonalKeyStatus | null>(null);
+  const [pikLoading, setPikLoading] = useState(false);
+  const [pikError, setPikError] = useState('');
+  const [pikPrinting, setPikPrinting] = useState(false);
+  const [revealedParentCodeIds, setRevealedParentCodeIds] = useState<Set<number>>(new Set());
 
   // Helper function to translate skill (tries main skill first, then sub-skill)
   const translateSkillName = (skillName: string): string => {
@@ -125,18 +227,6 @@ const MemberModal: React.FC<MemberModalProps> = ({
     skills: [...member.skills],
     availability: [...member.availability]
   });
-  const hasRoleLabel = (label: string) => displayRoles.includes(label);
-
-  // Permission display is read-only (derived from role); no state so users don't think they can change it
-  const permissionMembers = hasRoleLabel('Admin');
-  const permissionProjects = hasRoleLabel('Admin') || hasRoleLabel('Référent');
-  const permissionBadges = hasRoleLabel('Admin') || hasRoleLabel('Référent') || hasRoleLabel('Intervenant');
-  const permissionEvents = hasRoleLabel('Admin') || hasRoleLabel('Référent');
-  const [progressModalBadge, setProgressModalBadge] = useState<{
-    badge: { name: string; level: string; series: string; image_url?: string | null };
-    fullExpertiseNames: string[];
-    receivedExpertiseNames: string[];
-  } | null>(null);
   const [proposals, setProposals] = useState({
     canProposeStage: member.canProposeStage || false,
     canProposeAtelier: member.canProposeAtelier || false
@@ -183,6 +273,180 @@ const MemberModal: React.FC<MemberModalProps> = ({
     });
 
     return isRoleStudent || member.hasTemporaryEmail;
+  };
+
+  const studentCanPrintKey = member.hasTemporaryEmail || !member.confirmedAt;
+  const pikSectionOpen = studentCanPrintKey;
+
+  const loadPersonalKeyStatus = useCallback(async () => {
+    if (!FEATURE_PIK_REMISE || !schoolId || !isStudent()) return;
+    setPikLoading(true);
+    setPikError('');
+    try {
+      const res = await getSchoolPersonalKeyStatus(schoolId, member.id);
+      setPikStatus(res.data.data);
+    } catch (err: any) {
+      setPikError(
+        err?.response?.data?.message || err.message || 'Impossible de charger le statut de la clé'
+      );
+      setPikStatus(null);
+    } finally {
+      setPikLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId, member.id]);
+
+  const loadParentLinkCodes = useCallback(async () => {
+    if (!schoolId || !isStudent()) return;
+    setParentCodesLoading(true);
+    setParentCodesError('');
+    try {
+      const res = await listSchoolParentLinkCodes(schoolId, member.id);
+      setParentCodes(res.data.data?.codes || []);
+      setParentLinks(res.data.data?.active_links || []);
+    } catch (err: any) {
+      setParentCodesError(
+        err?.response?.data?.message || err.message || 'Impossible de charger les codes Parent-Link'
+      );
+      setParentCodes([]);
+      setParentLinks([]);
+    } finally {
+      setParentCodesLoading(false);
+    }
+    // isStudent depends on member fields already covered by member.id / roles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId, member.id]);
+
+  useEffect(() => {
+    void loadParentLinkCodes();
+  }, [loadParentLinkCodes]);
+
+  useEffect(() => {
+    void loadPersonalKeyStatus();
+  }, [loadPersonalKeyStatus]);
+
+  useEffect(() => {
+    setGuardianEmailDraft(member.pendingGuardianEmail || member.guardianEmail || '');
+  }, [member.guardianEmail, member.pendingGuardianEmail, member.id]);
+
+  const hasPendingGuardianEmail = Boolean(member.pendingGuardianEmail?.trim());
+  const savedGuardianForInvite = (
+    member.pendingGuardianEmail ||
+    member.guardianEmail ||
+    ''
+  ).trim();
+  const guardianDraftMatchesSaved =
+    guardianEmailDraft.trim() !== '' &&
+    guardianEmailDraft.trim() === savedGuardianForInvite;
+  const inviteButtonLabel = hasPendingGuardianEmail
+    ? "Prévenir l'adresse actuelle et appliquer"
+    : "Envoyer l'invitation";
+
+  const handleSaveGuardianEmail = async () => {
+    if (!schoolId) return;
+    const next = guardianEmailDraft.trim();
+    if (!next) {
+      setGuardianError('Indiquez une adresse email.');
+      return;
+    }
+    setGuardianSaving(true);
+    setGuardianError('');
+    setGuardianMessage('');
+    try {
+      const res = await updateStudentGuardianEmail(schoolId, member.id, next);
+      const payload = res.data.data;
+      const pending = payload.pending_guardian_email;
+      const saved = payload.guardian_email;
+      setGuardianEmailDraft(pending || saved || '');
+      onUpdate({
+        guardianEmail: saved,
+        pendingGuardianEmail: pending,
+      });
+      setGuardianMessage(
+        pending
+          ? 'Nouvelle adresse enregistrée en attente. L’invitation partira à l’adresse encore en base ; la nouvelle sera appliquée après envoi.'
+          : 'Adresse enregistrée. Aucune invitation n’a été envoyée.'
+      );
+    } catch (err: any) {
+      setGuardianError(
+        err?.response?.data?.message || err.message || 'Enregistrement impossible'
+      );
+    } finally {
+      setGuardianSaving(false);
+    }
+  };
+
+  const handleSendGuardianInvitation = async () => {
+    if (!schoolId) return;
+    const wasPendingReplace = hasPendingGuardianEmail;
+    setGuardianInviting(true);
+    setGuardianError('');
+    setGuardianMessage('');
+    try {
+      const res = await sendStudentGuardianInvitation(schoolId, member.id);
+      const payload = res.data.data;
+      setGuardianEmailDraft(payload.guardian_email || '');
+      onUpdate({
+        guardianEmail: payload.guardian_email,
+        pendingGuardianEmail: payload.pending_guardian_email,
+      });
+      setGuardianMessage(
+        wasPendingReplace
+          ? 'Invitation envoyée à l’adresse actuelle ; nouvelle adresse appliquée.'
+          : 'Invitation envoyée.'
+      );
+    } catch (err: any) {
+      setGuardianError(
+        err?.response?.data?.message || err.message || 'Envoi impossible'
+      );
+    } finally {
+      setGuardianInviting(false);
+    }
+  };
+
+  const handlePrintPersonalKey = async () => {
+    if (!schoolId) return;
+    setPikPrinting(true);
+    setPikError('');
+    try {
+      await printSchoolPersonalKey(schoolId, member.id);
+      await loadPersonalKeyStatus();
+    } catch (err: any) {
+      setPikError(err?.message || 'Impression impossible');
+    } finally {
+      setPikPrinting(false);
+    }
+  };
+
+  const toggleParentCodeVisibility = (codeId: number) => {
+    setRevealedParentCodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(codeId)) {
+        next.delete(codeId);
+      } else {
+        next.add(codeId);
+      }
+      return next;
+    });
+  };
+
+  const formatPikDate = (iso: string | null | undefined) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('fr-FR');
+  };
+
+  const handleRegenerateParentCode = async () => {
+    if (!schoolId) return;
+    setRegeneratingCode(true);
+    setParentCodesError('');
+    try {
+      await regenerateSchoolParentLinkCode(schoolId, member.id);
+      await loadParentLinkCodes();
+    } catch (err: any) {
+      setParentCodesError(err?.message || 'Régénération impossible');
+    } finally {
+      setRegeneratingCode(false);
+    }
   };
 
   const toggleDescriptionExpansion = (badgeKey: string) => {
@@ -454,79 +718,376 @@ const MemberModal: React.FC<MemberModalProps> = ({
                       <span>{professionLabel}</span>
                     )}
                   </div>
+                  {isStudent() && member.classes && member.classes.length > 0 && (
+                    <div className="info-item">
+                      <label>Classe:</label>
+                      <span>
+                        {member.classes.map((c) => c.name).filter(Boolean).join(', ')}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Compétences Section - hidden for members with temporary email */}
-                {!member.hasTemporaryEmail && (
-                <div className="info-section">
-                  <h3>Compétences</h3>
-                  {(() => {
-                    const skillsToDisplay = isEditing ? editedMember.skills : member.skills;
-                    const { mainSkills, subSkills } = organizeSkills(skillsToDisplay);
-                    return (
+                {/* BLEU Premium <15 — autorisation représentant légal (carte membre, Lot 6).
+                    Gate on companyId only — do not use !isStudent(): hasTemporaryEmail would hide
+                    company minors who still use a temporary email. */}
+                {companyId && isUnderDigitalMajority(member.birthday) && member.legalRepresentativeConsentGivenAt && (
+                  <div className="info-section">
+                    <h3>Autorisation du représentant légal</h3>
+                    {isParentalClaimActive(member.parentalClaimValidUntil) ? (
                       <>
-                        <div className="skills-grid">
-                          {mainSkills.length === 0 && subSkills.length === 0 ? (
-                            <p className="w-full text-center no-badges">Aucune compétence renseignée</p>
-                          ) : (
-                            mainSkills.map((skill, index) => (
-                              <span key={index} className="skill-tag">
-                                {translateSkill(skill)}
+                        <div className="info-item">
+                          <label>Statut :</label>
+                          <span>Accordée</span>
+                        </div>
+                        <p className="no-badges" style={{ marginTop: 4 }}>
+                          Échéance : {formatFrDate(member.parentalClaimValidUntil)}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="info-item">
+                          <label>Adresse :</label>
+                          <span>{member.guardianEmail || '—'}</span>
+                        </div>
+                        <div className="info-item">
+                          <label>Date de la demande :</label>
+                          <span>{formatFrDate(member.legalRepresentativeConsentGivenAt)}</span>
+                        </div>
+                        {member.parentalClaimValidUntil ? (
+                          <p className="no-badges">
+                            Autorisation expirée le {formatFrDate(member.parentalClaimValidUntil)}.
+                            {' '}Sans nouvelle validation, le rattachement n&apos;est pas effectif.
+                          </p>
+                        ) : (
+                          <p className="no-badges">
+                            Sans validation, le rattachement n&apos;est pas effectif.
+                          </p>
+                        )}
+                        {consentMessage ? <p className="no-badges" style={{ color: '#1a7f37' }}>{consentMessage}</p> : null}
+                        {consentError ? <p style={{ color: '#c0392b', fontSize: '0.85rem' }}>{consentError}</p> : null}
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          disabled={consentResending}
+                          onClick={async () => {
+                            setConsentResending(true);
+                            setConsentMessage('');
+                            setConsentError('');
+                            try {
+                              await resendCompanyGuardianAuthorization(companyId, member.id);
+                              setConsentMessage("Demande d'autorisation renvoyée.");
+                            } catch (e: any) {
+                              setConsentError(e?.response?.data?.message || 'Envoi impossible.');
+                            } finally {
+                              setConsentResending(false);
+                            }
+                          }}
+                        >
+                          {consentResending ? 'Envoi…' : "Renvoyer la demande d'autorisation"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {schoolId && isStudent() && (
+                  <FoldableSection title="Représentant légal" isOpen>
+                    <p className="no-badges" style={{ marginBottom: 8 }}>
+                      L&apos;adresse du représentant légal, telle que l&apos;établissement la détient — jamais celle du compte Kinship d&apos;un parent rattaché.
+                    </p>
+                    {hasPendingGuardianEmail ? (
+                      <>
+                        <div className="info-item" style={{ alignItems: 'center' }}>
+                          <label>Adresse actuelle:</label>
+                          <span>{member.guardianEmail || '—'}</span>
+                        </div>
+                        <div className="info-item" style={{ alignItems: 'center' }}>
+                          <label htmlFor={`guardian-email-${member.id}`}>Nouvelle adresse:</label>
+                          <input
+                            id={`guardian-email-${member.id}`}
+                            type="email"
+                            className="edit-input"
+                            value={guardianEmailDraft}
+                            onChange={(e) => setGuardianEmailDraft(e.target.value)}
+                            placeholder="parent@exemple.fr"
+                          />
+                        </div>
+                        <p className="no-badges" style={{ marginTop: 4, marginBottom: 0, fontSize: '0.85rem' }}>
+                          L&apos;invitation partira à l&apos;adresse actuelle ; la nouvelle sera appliquée ensuite.
+                        </p>
+                      </>
+                    ) : (
+                      <div className="info-item" style={{ alignItems: 'center' }}>
+                        <label htmlFor={`guardian-email-${member.id}`}>Email:</label>
+                        <input
+                          id={`guardian-email-${member.id}`}
+                          type="email"
+                          className="edit-input"
+                          value={guardianEmailDraft}
+                          onChange={(e) => setGuardianEmailDraft(e.target.value)}
+                          placeholder="parent@exemple.fr"
+                        />
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        disabled={guardianSaving}
+                        onClick={() => void handleSaveGuardianEmail()}
+                      >
+                        {guardianSaving ? 'Enregistrement…' : 'Enregistrer'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={guardianInviting || !guardianDraftMatchesSaved}
+                        title={
+                          !guardianDraftMatchesSaved
+                            ? 'Enregistrez d’abord la nouvelle adresse'
+                            : undefined
+                        }
+                        onClick={() => void handleSendGuardianInvitation()}
+                      >
+                        {guardianInviting ? 'Envoi…' : inviteButtonLabel}
+                      </button>
+                    </div>
+                    {guardianMessage ? (
+                      <p style={{ color: '#057a55', fontSize: '0.85rem', marginTop: 8 }}>{guardianMessage}</p>
+                    ) : null}
+                    {guardianError ? (
+                      <p style={{ color: '#c0392b', fontSize: '0.85rem', marginTop: 8 }}>{guardianError}</p>
+                    ) : null}
+                  </FoldableSection>
+                )}
+
+                {schoolId && isStudent() && (
+                <FoldableSection title="Lien famille" isOpen>
+                  {parentCodesLoading ? (
+                    <p className="w-full text-center no-badges">Chargement…</p>
+                  ) : (
+                    <>
+                      {parentCodesError ? (
+                        <p style={{ color: '#c0392b', fontSize: '0.9rem' }}>{parentCodesError}</p>
+                      ) : null}
+                      {parentLinks.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                          {parentLinks.map((link) => (
+                            <span
+                              key={link.id}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: '#fce7f3',
+                                color: '#db087c',
+                                border: '1px solid #f9a8d4',
+                                borderRadius: '999px',
+                                padding: '4px 10px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                              }}
+                            >
+                              {link.label}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-badges" style={{ marginBottom: '12px' }}>Aucun parent rattaché.</p>
+                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {parentCodes.length === 0 ? (
+                          <p className="no-badges">Aucun code émis pour cet établissement.</p>
+                        ) : (
+                          parentCodes.map((code) => (
+                            <div
+                              key={code.id}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '12px',
+                                padding: '8px 10px',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                              }}
+                            >
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                {code.status === 'unused' && code.code ? (
+                                  <>
+                                    <strong style={{ letterSpacing: '0.08em' }}>
+                                      {revealedParentCodeIds.has(code.id) ? code.code : 'Code ••••••'}
+                                    </strong>
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline btn-sm"
+                                      style={{ padding: '2px 8px', fontSize: '11px' }}
+                                      onClick={() => toggleParentCodeVisibility(code.id)}
+                                    >
+                                      {revealedParentCodeIds.has(code.id) ? 'Masquer' : 'Afficher'}
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span style={{ color: '#6b7280' }}>Code masqué</span>
+                                )}
+                                <span style={{ color: '#6b7280' }}>
+                                  · {code.status === 'unused' ? 'non utilisé' : code.status === 'used' ? 'utilisé' : 'invalidé'}
+                                </span>
+                              </span>
+                              {code.issued_at ? (
+                                <span style={{ color: '#9ca3af', fontSize: '11px' }}>
+                                  {new Date(code.issued_at).toLocaleDateString('fr-FR')}
+                                </span>
+                              ) : null}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div style={{ marginTop: '12px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          disabled={regeneratingCode}
+                          onClick={() => void handleRegenerateParentCode()}
+                          title="Invalide le code non utilisé et télécharge un nouveau coupon"
+                        >
+                          <i className="fas fa-redo"></i>
+                          {regeneratingCode ? 'Régénération…' : 'Régénérer un code'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </FoldableSection>
+                )}
+
+                {FEATURE_PIK_REMISE && schoolId && isStudent() && (
+                  <FoldableSection
+                    title="Clé personnelle"
+                    isOpen={pikSectionOpen}
+                    emptySuffix="compte activé"
+                    collapsedContent={
+                      <p className="no-badges" style={{ margin: 0 }}>
+                        Cet élève a un compte activé — il remplace sa clé lui-même.
+                      </p>
+                    }
+                  >
+                    {pikLoading ? (
+                      <p className="no-badges">Chargement…</p>
+                    ) : (
+                      <>
+                        {pikError ? (
+                          <p style={{ color: '#c0392b', fontSize: '0.85rem', marginBottom: 8 }}>{pikError}</p>
+                        ) : null}
+                        <div className="info-item">
+                          <label>Clé remise :</label>
+                          <span>{pikStatus?.remitted_label || 'JAMAIS'}</span>
+                        </div>
+                        <div className="info-item">
+                          <label>Dernière impression :</label>
+                          <span>{formatPikDate(pikStatus?.pik_last_printed_at)}</span>
+                        </div>
+                        {studentCanPrintKey && (
+                          <div style={{ marginTop: 12 }}>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              disabled={pikPrinting}
+                              onClick={() => void handlePrintPersonalKey()}
+                            >
+                              <i className="fas fa-print"></i>
+                              {pikPrinting ? 'Impression…' : 'Imprimer une nouvelle clé'}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </FoldableSection>
+                )}
+
+                {/* Compétences Section - hidden for members with temporary email */}
+                {!member.hasTemporaryEmail && (() => {
+                  const skillsToDisplay = isEditing ? editedMember.skills : member.skills;
+                  const { mainSkills, subSkills } = organizeSkills(skillsToDisplay);
+                  const hasSkills = mainSkills.length > 0 || subSkills.length > 0;
+                  const useStudentFold = Boolean(schoolId && isStudent());
+                  const skillsContent = (
+                    <>
+                      <div className="skills-grid">
+                        {mainSkills.map((skill, index) => (
+                          <span key={index} className="skill-tag">
+                            {translateSkill(skill)}
+                            {isEditing && (
+                              <button
+                                className="remove-tag-btn"
+                                onClick={() => handleRemoveSkill(skill)}
+                                title="Supprimer cette compétence"
+                              >
+                                <i className="fas fa-times"></i>
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                        {isEditing && (
+                          <button className="add-tag-btn" onClick={handleAddSkill}>
+                            <i className="fas fa-plus"></i>
+                            Ajouter une compétence
+                          </button>
+                        )}
+                      </div>
+                      {subSkills.length > 0 && (
+                        <>
+                          <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600 }}>Sous-compétences</h4>
+                          <div className="skills-grid">
+                            {subSkills.map((skill, index) => (
+                              <span key={index} className="sub-skill-tag">
+                                {translateSubSkill(skill)}
                                 {isEditing && (
                                   <button
                                     className="remove-tag-btn"
                                     onClick={() => handleRemoveSkill(skill)}
-                                    title="Supprimer cette compétence"
+                                    title="Supprimer cette sous-compétence"
                                   >
                                     <i className="fas fa-times"></i>
                                   </button>
                                 )}
                               </span>
-                            ))
-                          )}
-                          {isEditing && (
-                            <button className="add-tag-btn" onClick={handleAddSkill}>
-                              <i className="fas fa-plus"></i>
-                              Ajouter une compétence
-                            </button>
-                          )}
-                        </div>
-                        {subSkills.length > 0 && (
-                          <>
-                            <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600 }}>Sous-compétences</h4>
-                            <div className="skills-grid">
-                              {subSkills.map((skill, index) => (
-                                <span key={index} className="sub-skill-tag">
-                                  {translateSubSkill(skill)}
-                                  {isEditing && (
-                                    <button
-                                      className="remove-tag-btn"
-                                      onClick={() => handleRemoveSkill(skill)}
-                                      title="Supprimer cette sous-compétence"
-                                    >
-                                      <i className="fas fa-times"></i>
-                                    </button>
-                                  )}
-                                </span>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  );
+
+                  if (useStudentFold) {
+                    return (
+                      <FoldableSection title="Compétences" isOpen={hasSkills || isEditing}>
+                        {skillsContent}
+                      </FoldableSection>
                     );
-                  })()}
-                </div>
-                )}
+                  }
+
+                  return (
+                    <div className="info-section">
+                      <h3>Compétences</h3>
+                      {!hasSkills ? (
+                        <p className="w-full text-center no-badges">Aucune compétence renseignée</p>
+                      ) : (
+                        skillsContent
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Disponibilités Section - hidden for members with temporary email */}
-                {!member.hasTemporaryEmail && (
-                <div className="info-section">
-                  <h3>Disponibilités</h3>
-                  <div className="availability-grid">
-                    {member.availability.length === 0 ? (
-                      <p className="w-full text-center no-badges">Aucune disponibilité renseignée</p>
-                    ) : (
-                      (isEditing ? editedMember.availability : member.availability).map((day, index) => (
+                {!member.hasTemporaryEmail && (() => {
+                  const availabilityToDisplay = isEditing ? editedMember.availability : member.availability;
+                  const hasAvailability = availabilityToDisplay.length > 0;
+                  const useStudentFold = Boolean(schoolId && isStudent());
+                  const availabilityContent = (
+                    <div className="availability-grid">
+                      {availabilityToDisplay.map((day, index) => (
                         <span key={index} className="availability-tag">
                           {day}
                           {isEditing && (
@@ -539,16 +1100,35 @@ const MemberModal: React.FC<MemberModalProps> = ({
                             </button>
                           )}
                         </span>
-                      )))}
-                    {isEditing && (
-                      <button className="add-tag-btn" onClick={handleAddAvailability}>
-                        <i className="fas fa-plus"></i>
-                        Ajouter une disponibilité
-                      </button>
-                    )}
-                  </div>
-                </div>
-                )}
+                      ))}
+                      {isEditing && (
+                        <button className="add-tag-btn" onClick={handleAddAvailability}>
+                          <i className="fas fa-plus"></i>
+                          Ajouter une disponibilité
+                        </button>
+                      )}
+                    </div>
+                  );
+
+                  if (useStudentFold) {
+                    return (
+                      <FoldableSection title="Disponibilités" isOpen={hasAvailability || isEditing}>
+                        {availabilityContent}
+                      </FoldableSection>
+                    );
+                  }
+
+                  return (
+                    <div className="info-section">
+                      <h3>Disponibilités</h3>
+                      {!hasAvailability ? (
+                        <p className="w-full text-center no-badges">Aucune disponibilité renseignée</p>
+                      ) : (
+                        availabilityContent
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Services Section - only show for network members and not for temporary email */}
                 {!member.hasTemporaryEmail && (member.take_trainee || member.propose_workshop) && (
@@ -571,11 +1151,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   </div>
                 )}
 
-                {/* Recent Badges Section - show for all members */}
+                {/* Recent Preuves de compétences — D-LINK-SURFACES-01 §2.1bis / DoD ㉑ */}
                 <div className="info-section">
-                  <h3>3 derniers badges reçus</h3>
+                  <h3>3 dernières Preuves de compétences</h3>
                   {!member.latestBadges || member.latestBadges.length === 0 ? (
-                    <p className="w-full text-center no-badges">Aucun badge reçu</p>
+                    <p className="w-full text-center no-badges">Aucune Preuve de compétences</p>
                   ) : (
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                       {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
@@ -596,13 +1176,6 @@ const MemberModal: React.FC<MemberModalProps> = ({
                               badge={badge}
                               fullExpertiseNames={fullExpertiseNames}
                               receivedExpertiseNames={receivedExpertiseNames}
-                              onClick={() => {
-                                setProgressModalBadge({
-                                  badge,
-                                  fullExpertiseNames,
-                                  receivedExpertiseNames,
-                                });
-                              }}
                             />
                           );
                         }
@@ -620,7 +1193,6 @@ const MemberModal: React.FC<MemberModalProps> = ({
                               width: '48px',
                               height: '48px',
                               objectFit: 'contain',
-                              cursor: 'pointer',
                               borderRadius: '8px',
                               border: '1px solid #e5e7eb',
                               padding: '4px',
@@ -632,16 +1204,6 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     </div>
                   )}
                 </div>
-
-                {progressModalBadge && (
-                  <MemberCardBadgeProgressModal
-                    isOpen={!!progressModalBadge}
-                    onClose={() => setProgressModalBadge(null)}
-                    badge={progressModalBadge.badge}
-                    fullExpertiseNames={progressModalBadge.fullExpertiseNames}
-                    receivedExpertiseNames={progressModalBadge.receivedExpertiseNames}
-                  />
-                )}
 
                 {/* Badges reçus section - hidden as not used */}
                 {false && (
@@ -816,49 +1378,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
               </div>
 
-              {/* Permissions Section - read-only, derived from role (hidden for members with temporary email) */}
-              {!hideDeleteButton && !member.hasTemporaryEmail && (
-                <div className="info-section">
-                  <h3>Permissions</h3>
-                  <p className="section-subtitle">Selon son rôle dans l&apos;organisation, ce membre peut gérer :</p>
-                  <div className="permissions-grid permissions-grid--readonly">
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input type="checkbox" checked={permissionMembers} disabled readOnly aria-hidden />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Membres</span>
-                    </label>
-                  </div>
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input type="checkbox" checked={permissionProjects} disabled readOnly aria-hidden />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Projets</span>
-                    </label>
-                  </div>
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input type="checkbox" checked={permissionBadges} disabled readOnly aria-hidden />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Badges</span>
-                    </label>
-                  </div>
-                  <div className="permission-item">
-                    <label className="permission-checkbox">
-                      <input type="checkbox" checked={permissionEvents} disabled readOnly aria-hidden />
-                      <span className="checkmark"></span>
-                      <span className="permission-label">Événements</span>
-                    </label>
-                  </div>
-                </div>
-                </div>
-              )}
-
-              {/* Proposals Section - hidden for members with temporary email */}
-              {!hideDeleteButton && !member.hasTemporaryEmail && (
+              {/* Proposals Section — staff/company only; hidden for students and temporary email */}
+              {!hideDeleteButton && !member.hasTemporaryEmail && !isStudent() && (
                 <div className="info-section">
                   <h3>Propositions</h3>
-                  <p className="section-subtitle">Le membre peut proposer :</p>
+                  <p className="section-subtitle">Ce que ce membre a indiqué dans ses paramètres personnels :</p>
                   <div className="proposals-grid">
                     <div className="permission-item">
                       <label className="permission-checkbox">

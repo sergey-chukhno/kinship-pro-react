@@ -1367,7 +1367,7 @@ export const completeSchoolEvent = async (
   schoolId: number,
   eventId: number,
   payload: CompleteEventPayload
-): Promise<any> => {
+): Promise<{ data: any; status: number }> => {
   // Check if any assignment has a proof file
   const hasFiles = payload.assignments.some(assignment => assignment.proof instanceof File);
   
@@ -1395,14 +1395,14 @@ export const completeSchoolEvent = async (
         },
       }
     );
-    return response.data.data || response.data;
+    return { data: response.data.data || response.data, status: response.status };
   } else {
     // Use JSON for regular requests
     const response = await apiClient.post(
       `/api/v1/schools/${schoolId}/events/${eventId}/complete`,
       payload
     );
-    return response.data.data || response.data;
+    return { data: response.data.data || response.data, status: response.status };
   }
 };
 
@@ -1413,7 +1413,7 @@ export const completeCompanyEvent = async (
   companyId: number,
   eventId: number,
   payload: CompleteEventPayload
-): Promise<any> => {
+): Promise<{ data: any; status: number }> => {
   // Check if any assignment has a proof file
   const hasFiles = payload.assignments.some(assignment => assignment.proof instanceof File);
   
@@ -1441,14 +1441,14 @@ export const completeCompanyEvent = async (
         },
       }
     );
-    return response.data.data || response.data;
+    return { data: response.data.data || response.data, status: response.status };
   } else {
     // Use JSON for regular requests
     const response = await apiClient.post(
       `/api/v1/companies/${companyId}/events/${eventId}/complete`,
       payload
     );
-    return response.data.data || response.data;
+    return { data: response.data.data || response.data, status: response.status };
   }
 };
 
@@ -1458,7 +1458,7 @@ export const completeCompanyEvent = async (
 export const completeTeacherEvent = async (
   eventId: number,
   payload: CompleteEventPayload
-): Promise<any> => {
+): Promise<{ data: any; status: number }> => {
   // Check if any assignment has a proof file
   const hasFiles = payload.assignments.some(assignment => assignment.proof instanceof File);
   
@@ -1486,14 +1486,14 @@ export const completeTeacherEvent = async (
         },
       }
     );
-    return response.data.data || response.data;
+    return { data: response.data.data || response.data, status: response.status };
   } else {
     // Use JSON for regular requests
     const response = await apiClient.post(
       `/api/v1/teachers/events/${eventId}/complete`,
       payload
     );
-    return response.data.data || response.data;
+    return { data: response.data.data || response.data, status: response.status };
   }
 };
 
@@ -1503,7 +1503,7 @@ export const completeTeacherEvent = async (
 export const completeUserEvent = async (
   eventId: number,
   payload: CompleteEventPayload
-): Promise<any> => {
+): Promise<{ data: any; status: number }> => {
   // Check if any assignment has a proof file
   const hasFiles = payload.assignments.some(assignment => assignment.proof instanceof File);
   
@@ -1531,14 +1531,14 @@ export const completeUserEvent = async (
         },
       }
     );
-    return response.data.data || response.data;
+    return { data: response.data.data || response.data, status: response.status };
   } else {
     // Use JSON for regular requests
     const response = await apiClient.post(
       `/api/v1/users/events/${eventId}/complete`,
       payload
     );
-    return response.data.data || response.data;
+    return { data: response.data.data || response.data, status: response.status };
   }
 };
 

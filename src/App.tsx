@@ -18,6 +18,7 @@ import FunderHubPage from './components/Pages/FunderHubPage';
 import PublicProofPage from './components/Pages/PublicProofPage';
 import ProofIndex from './components/Pages/ProofIndex';
 import PikDroits from './components/Pages/PikDroits';
+import FamilleLanding from './components/Pages/FamilleLanding';
 import './App.css';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/checkin-student" element={<CheckinStudent />} />
             <Route path="/parental-claim" element={<ParentalClaim />} />
+            <Route path="/famille/:token" element={<FamilleLanding />} />
             <Route path="/badge-cartography/:token" element={<PublicBadgeCartography />} />
             <Route path="/badge-cartography-selected/:token" element={<SelectedStudentsBadgeCartography />} />
             <Route path="/p/:id" element={<NotFoundPage />} />

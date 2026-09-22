@@ -43,6 +43,11 @@ export interface Member {
   hasTemporaryEmail?: boolean; // Indicates if email is temporary
   confirmedAt?: string | null; // ISO date when email was confirmed; null = pending activation
   birthday?: string; // Date de naissance
+  guardianEmail?: string | null; // Email représentant légal (école) — never parent account email
+  pendingGuardianEmail?: string | null; // Replace pending until invite notifies then applies
+  legalRepresentativeConsentGivenAt?: string | null; // BLEU Premium <15 — date demande autorisation
+  parentalClaimValidUntil?: string | null; // BLEU — autorisation parentale accordée jusqu'à
+  membershipStatus?: string; // confirmed | pending | …
   role?: string; // Rôle unique (pour les étudiants)
   levelId?: string; // ID de la classe/level
   roleAdditionalInfo?: string; // Information complémentaire sur le rôle
@@ -405,7 +410,37 @@ export interface OrganizationStatsResponse {
   badges_assigned?: BadgesAssignedStats;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'formations' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'pik' | 'membership-requests' | 'partnership-requests' | 'funder-attachments' | 'project-management' | 'presence-session' | 'formation-detail' | 'formation-affiche' | 'preuve-formation' | 'create' | 'project-space' | 'project-affiche' | 'funded-projects' | 'funder-follow' | 'of-activation' | 'admin-of-queue' | 'Auth';
+export type PageType =
+  | 'dashboard'
+  | 'members'
+  | 'events'
+  | 'projects'
+  | 'formations'
+  | 'badges'
+  | 'analytics'
+  | 'network'
+  | 'notifications'
+  | 'settings'
+  | 'personal-settings'
+  | 'pik'
+  | 'membership-requests'
+  | 'partnership-requests'
+  | 'funder-attachments'
+  | 'project-management'
+  | 'presence-session'
+  | 'formation-detail'
+  | 'formation-affiche'
+  | 'preuve-formation'
+  | 'create'
+  | 'project-space'
+  | 'project-affiche'
+  | 'funded-projects'
+  | 'funder-follow'
+  | 'of-activation'
+  | 'admin-of-queue'
+  | 'mes-enfants'
+  | 'mes-parents'
+  | 'Auth';
 
 export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user' | 'of';
 
@@ -475,6 +510,25 @@ export interface BadgeSkillAPI {
   category: 'domain' | 'expertise';
 }
 
+export interface EventCompleteAwardError {
+  participant_id?: number | null;
+  badge_id?: number | null;
+  status: 'failed' | string;
+  code: string;
+  message: string;
+  duplicate_of?: number;
+}
+
+export interface EventCompleteResponse {
+  message: string;
+  assigned_count: number;
+  error_count?: number;
+  total_count?: number;
+  assignments?: Array<Record<string, unknown>>;
+  errors?: EventCompleteAwardError[] | null;
+  event?: unknown;
+}
+
 export interface BadgeAssignmentResponse {
   message: string;
   assigned_count: number;
@@ -495,7 +549,7 @@ export interface BadgeAssignmentResponse {
     status: string;
     user_badge_id: number;
   }>;
-  errors?: string[];
+  errors?: Array<string | EventCompleteAwardError>;
 }
 
 export interface ClassList {
