@@ -467,7 +467,7 @@ const ProjectSpacePage: React.FC = () => {
             }
           : {}),
       },
-      'Brouillon enregistré'
+      isDraft ? 'Brouillon enregistré' : 'Informations mises à jour'
     );
   };
 
@@ -728,18 +728,18 @@ const ProjectSpacePage: React.FC = () => {
           {tab === 'informations' && (
             <>
               <div className="ps-banner">
-                {isDraft
-                  ? 'En brouillon, tout se modifie. Après la création : les dates seulement (justifiées, chaque inscrit notifié) — le reste se fige.'
-                  : 'Après la création, cet onglet se consulte tel quel — l’unique porte : modifier les dates.'}
+                {isEnded
+                  ? 'Projet clôturé : cet onglet se consulte tel quel.'
+                  : 'Le formulaire reste éditable jusqu’à la clôture — titre, description, dates, image de couverture.'}
               </div>
 
               <label className="ps-field">
                 <span>Titre du projet {isDraft && <span className="ob">✱</span>}</span>
-                <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={!isDraft || isEnded} />
+                <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={isEnded} />
               </label>
               <label className="ps-field">
                 <span>Description {isDraft && <span className="ob">✱</span>}</span>
-                <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} disabled={!isDraft || isEnded} />
+                <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} disabled={isEnded} />
               </label>
               <div className="ps-two">
                 <label className="ps-field">
@@ -993,6 +993,13 @@ const ProjectSpacePage: React.FC = () => {
                 <div className="ps-foot">
                   <button type="button" className="ps-btn outline" disabled={saving} onClick={saveInformations}>
                     {saving ? 'Enregistrement…' : 'Sauvegarder le brouillon'}
+                  </button>
+                </div>
+              )}
+              {!isDraft && !isEnded && (
+                <div className="ps-foot">
+                  <button type="button" className="ps-btn outline" disabled={saving} onClick={saveInformations}>
+                    {saving ? 'Enregistrement…' : 'Enregistrer'}
                   </button>
                 </div>
               )}

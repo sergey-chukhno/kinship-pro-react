@@ -23,7 +23,7 @@
 .ps-hero {
   color: #fff;
   padding: 18px 18px 14px;
-  background: var(--ps-verified);
+  background: var(--primary, var(--ps-verified));
 }
 
 .ps-hero.is-draft {
