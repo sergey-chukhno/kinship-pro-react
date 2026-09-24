@@ -13,7 +13,7 @@ const TAB_LABELS: Record<TabId, string> = {
   cadre: 'Cadre',
   acteurs: 'Acteurs',
   etapes: 'Étapes',
-  badges: 'Badges',
+  badges: 'Preuves',
   confiance: 'Confiance',
 };
 
@@ -127,7 +127,7 @@ const ProjectProofDetail: React.FC<ProjectProofDetailProps> = ({
             </div>
             <div className="kpi">
               <div className="kpi-n">{proof.kpis.badges}</div>
-              <div className="kpi-l">Badges distribués</div>
+              <div className="kpi-l">Preuves distribuées</div>
             </div>
             <div className="kpi kpi-gold">
               <div className="kpi-n">{proof.kpis.hours}</div>
@@ -192,7 +192,7 @@ const ProjectProofDetail: React.FC<ProjectProofDetailProps> = ({
           <ProjectProofConstellation proof={proof} />
           <div className="rgpd-note">
             {proof.kpis.participants} participants · non affichés (RGPD) · seuls les émetteurs de
-            badges apparaissent
+            preuves apparaissent
           </div>
         </div>
 
@@ -247,10 +247,10 @@ const ProjectProofDetail: React.FC<ProjectProofDetailProps> = ({
         <div
           className={`tab-content ${activeTab === 'badges' ? 'active' : ''}`}
           role="tabpanel"
-          aria-label="Badges"
+          aria-label="Preuves"
         >
           <div className="badges-sum">
-            {proof.badgesReceived} badges reçus par {holderLabel} · {proof.badgeSeriesCount}{' '}
+            {proof.badgesReceived} preuves reçues par {holderLabel} · {proof.badgeSeriesCount}{' '}
             séries
           </div>
           <div className="prereq-block">
@@ -280,7 +280,7 @@ const ProjectProofDetail: React.FC<ProjectProofDetailProps> = ({
                   </div>
                 ))}
                 {serie.extraCount && (
-                  <div className="badge-extra">{serie.extraCount} badges supplémentaires ▾</div>
+                  <div className="badge-extra">{serie.extraCount} preuves supplémentaires ▾</div>
                 )}
               </div>
             </div>

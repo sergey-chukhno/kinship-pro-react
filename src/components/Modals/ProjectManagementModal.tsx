@@ -83,7 +83,7 @@ const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
                   <i className="fas fa-link"></i> Copier le lien
                 </button>
                 <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
-                  <i className="fas fa-award"></i> Attribuer un badge
+                  <i className="fas fa-award"></i> Attribuer une preuve de compétences
                 </button>
                 <button type="button" className="modal-close" onClick={onClose} title="Fermer">
                   <i className="fas fa-times"></i>
@@ -119,8 +119,8 @@ const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
                     <span className="meta-text">{project.participants} participants</span>
                   </div>
                   <div className="meta-item">
-                    <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="meta-icon" />
-                    <span className="meta-text">{project.badges} badges</span>
+                    <img src="/icons_logo/Icon=Badges.svg" alt="Preuves" className="meta-icon" />
+                    <span className="meta-text">{project.badges} preuves</span>
                   </div>
                 </div>
                 <div className="project-tags-row">
@@ -190,7 +190,7 @@ const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
               className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
               onClick={() => setActiveTab('badges')}
             >
-              Badges
+              Preuves
             </button>
           </div>
 
@@ -257,8 +257,8 @@ const ProjectManagementModal: React.FC<ProjectManagementModalProps> = ({
           {activeTab === 'badges' && (
             <div className="tab-content">
               <div className="badges-section">
-                <h3>Badges du projet</h3>
-                <p>{project.badges} badges attribués</p>
+                <h3>Preuves du projet</h3>
+                <p>{project.badges} preuves attribuées</p>
               </div>
             </div>
           )}

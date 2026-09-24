@@ -351,7 +351,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
         {/* Badges Section */}
         {eventBadges.length > 0 && (
           <div className="bg-white event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
-            <h3 className="participants-title">Badges de l'événement</h3>
+            <h3 className="participants-title">Preuves de l'événement</h3>
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',

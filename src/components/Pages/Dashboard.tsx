@@ -323,8 +323,8 @@ const buildActivityDescription = (activity: any) => {
           activity?.badge?.title ||
           activity?.badge?.name ||
           activity?.title ||
-          'Nouveau badge';
-        return `a reçu le badge "${badgeTitle}"`;
+          'Nouvelle preuve';
+        return `a reçu la preuve "${badgeTitle}"`;
       }
     case 'partnership_created':
       return `a créé un nouveau partenariat`;
@@ -921,11 +921,11 @@ const Dashboard: React.FC = () => {
           setBadgeDistributionTotal(total);
         }
       } catch (error) {
-        console.error('Erreur lors du chargement de la répartition des badges :', error);
+        console.error('Erreur lors du chargement de la répartition des preuves de compétences :', error);
         if (!ignore) {
           setBadgeDistribution(initializeBadgeSegments());
           setBadgeDistributionTotal(0);
-          setBadgeDistributionError('Impossible de charger la répartition des badges pour le moment.');
+          setBadgeDistributionError('Impossible de charger la répartition des preuves pour le moment.');
         }
       } finally {
         if (!ignore) {
@@ -1282,7 +1282,7 @@ const Dashboard: React.FC = () => {
     { key: 'network_count', label: 'Membres de mon réseau', icon: '/icons_logo/Icon=Membres.svg', value: overview?.network_count, variant: 'stat-card' as const },
     { key: 'total_projects', label: 'Projets', icon: '/icons_logo/Icon=Projet grand.svg', value: overview?.total_projects, variant: 'stat-card2' as const },
     { key: 'events_count', label: 'Événements', icon: '/icons_logo/Icon=Event grand.svg', value: overview?.events_count, variant: 'stat-card2' as const },
-    { key: 'badges_assigned', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg', value: overview?.badges_assigned ?? badgesAssigned?.total, variant: 'stat-card2' as const },
+    { key: 'badges_assigned', label: 'Preuves', icon: '/icons_logo/Icon=Badges.svg', value: overview?.badges_assigned ?? badgesAssigned?.total, variant: 'stat-card2' as const },
   ] : [];
 
   const statCards = state.showingPageType === 'edu' ? eduStatCards : state.showingPageType === 'teacher' ? teacherStatCards : [
@@ -1524,7 +1524,7 @@ const Dashboard: React.FC = () => {
     const userStatCards = [
       { key: 'projects', label: 'Mes projets', sub: 'projets', count: s?.projects_count ?? 0, last30: s?.projects_last_30_days ?? 0, path: '/projects', icon: '/icons_logo/Icon=Projet grand.svg' },
       { key: 'events', label: 'Mes événements', sub: 'événements', count: s?.events_count ?? 0, last30: s?.events_last_30_days ?? 0, path: '/events', icon: '/icons_logo/Icon=Event grand.svg' },
-      { key: 'badges', label: 'Mes badges', sub: 'badges', count: s?.badges_count ?? 0, last30: s?.badges_last_30_days ?? 0, path: '/badges', icon: '/icons_logo/Icon=Badges.svg' },
+      { key: 'badges', label: 'Mes preuves', sub: 'preuves', count: s?.badges_count ?? 0, last30: s?.badges_last_30_days ?? 0, path: '/badges', icon: '/icons_logo/Icon=Badges.svg' },
       { key: 'network', label: 'Mon réseau', sub: 'contacts', count: s?.network_count ?? 0, last30: s?.network_last_30_days ?? 0, path: '/network', icon: '/icons_logo/Icon=Reseau.svg' },
     ];
     return (
@@ -1542,7 +1542,7 @@ const Dashboard: React.FC = () => {
         </div>
         {isUnder15(state.user?.birthday) && (
           <div className="checkin-alert" style={{ margin: '0 0 1rem', backgroundColor: '#e0f2fe', borderColor: '#0ea5e9', color: '#0c4a6e' }}>
-            Vous avez moins de 15 ans. Votre compte dispose de fonctionnalités limitées. Vous pouvez toutefois participer aux projets de vos établissements ou organisations et recevoir des badges.
+            Vous avez moins de 15 ans. Votre compte dispose de fonctionnalités limitées. Vous pouvez toutefois participer aux projets de vos établissements ou organisations et recevoir des preuves de compétences.
           </div>
         )}
         {FEATURE_PIK_REMISE && showPikEncart && (
@@ -1621,10 +1621,10 @@ const Dashboard: React.FC = () => {
                       return (
                         <li key={ub.id} className="personal-dashboard-badge-item">
                           <div className="personal-dashboard-badge-item-icon">
-                            <img src={badgeImage} alt={ub.badge?.name ?? 'Badge'} />
+                            <img src={badgeImage} alt={ub.badge?.name ?? 'Compétence'} />
                           </div>
                           <div className="personal-dashboard-badge-item-text">
-                            <span className="personal-dashboard-badge-name">{ub.badge?.name ?? 'Badge'}</span>
+                            <span className="personal-dashboard-badge-name">{ub.badge?.name ?? 'Compétence'}</span>
                             <span className="personal-dashboard-badge-level">{ub.badge?.level?.replace('level_', 'Niveau ') ?? ''}</span>
                             {ub.created_at && (
                               <span className="personal-dashboard-badge-date">
@@ -1639,7 +1639,7 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
               <button type="button" className="btn btn-text personal-dashboard-link" onClick={() => { setCurrentPage('badges'); navigate('/badges'); }}>
-                Voir tous mes badges →
+                Voir toutes mes preuves →
               </button>
             </div>
             <div className="personal-dashboard-card personal-dashboard-stats-card">
@@ -1995,7 +1995,7 @@ const Dashboard: React.FC = () => {
             {/* PARTIE GAUCHE : Répartition des badges (1/3 width) */}
             <div className="chart-container badge-distribution-chart">
               <div className="chart-header">
-                <h3>Répartition des badges</h3>
+                <h3>Répartition des preuves</h3>
               </div>
               <div className="chart-placeholder">
                 {badgeDistributionLoading && (
@@ -2025,7 +2025,7 @@ const Dashboard: React.FC = () => {
                         ))}
                       </div>
                     ) : (
-                      <p className="chart-feedback-text">Aucun badge attribué pour le moment.</p>
+                      <p className="chart-feedback-text">Aucune preuve attribuée pour le moment.</p>
                     )}
                   </div>
                 )}
@@ -2049,7 +2049,7 @@ const Dashboard: React.FC = () => {
                     className={`activity-tab ${selectedActivity === 'badges' ? 'activity-tab-active' : ''}`}
                     onClick={() => setSelectedActivity('badges')}
                   >
-                    Attribution des badges
+                    Attribution des preuves
                   </button>
                 </div>
               </div>
@@ -2145,7 +2145,7 @@ const Dashboard: React.FC = () => {
                     >
                       <div className="tooltip-label">{hoveredBar.label}</div>
                       <div className="tooltip-value">
-                        {hoveredBar.value} {selectedActivity === 'projects' ? 'projets' : 'badges'}
+                        {hoveredBar.value} {selectedActivity === 'projects' ? 'projets' : 'preuves'}
                       </div>
                     </div>
                   )}

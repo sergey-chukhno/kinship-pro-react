@@ -112,7 +112,7 @@ export const RadarChartByCompetenceStats: React.FC<Props> = ({ axes, series }) =
       {hoveredSeries && (
         <div className="chart-tooltip" style={{ left: mousePosition.x + 10, top: mousePosition.y - 10 }}>
         <div className="tooltip-title">{hoveredSeries.level}</div>
-        <div className="tooltip-value">{hoveredSeries.values.reduce((a, b) => a + b, 0)} badges</div>
+        <div className="tooltip-value">{hoveredSeries.values.reduce((a, b) => a + b, 0)} preuves</div>
         </div>
       )}
     </div>

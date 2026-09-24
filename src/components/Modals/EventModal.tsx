@@ -973,7 +973,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
     if (competencies.length === 0) {
       return (
         <p className="event-competencies-empty">
-          Les compétences ne sont pas encore disponibles pour ce badge.
+          Les compétences ne sont pas encore disponibles pour cette preuve de compétences.
         </p>
       );
     }
@@ -982,7 +982,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
       <div className="event-competencies">
         <div className="event-competencies-label">Compétences</div>
         <p className="event-competencies-hint">
-          Sélectionnez les compétences associées à ce badge.
+          Sélectionnez les compétences associées à cette preuve de compétences.
         </p>
         <div className="event-competencies-list">
           {competencies.map((comp) => {
@@ -1655,10 +1655,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           </div>
 
          <div className="form-group">
-            <label htmlFor="eventBadges">Badges assignés à l'événement</label>
+            <label htmlFor="eventBadges">Preuves assignées à l'événement</label>
             {availableBadges.length === 0 ? (
               <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic' }}>
-                Aucun badge disponible
+                Aucune preuve de compétences disponible
               </p>
             ) : (
               <div
@@ -1708,7 +1708,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                       <div style={{ fontSize: '13px', color: '#666' }}>
                         {previewBadge
                           ? `${displaySeries(previewBadge.series)} · Niveau ${previewBadge.level.replace('level_', '')}`
-                          : 'Choisissez une série puis un badge'}
+                          : 'Choisissez une série puis une preuve de compétences'}
                       </div>
                     </div>
                   </div>
@@ -1721,7 +1721,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label style={{ fontWeight: 500 }}>Série de badge</label>
+                    <label style={{ fontWeight: 500 }}>Série de preuve de compétences</label>
                     <select
                       className="form-select"
                       value={badgeSeriesFilter}
@@ -1762,14 +1762,14 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                   )}
 
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label style={{ fontWeight: 500 }}>Badge</label>
+                    <label style={{ fontWeight: 500 }}>Preuve de compétences</label>
                     <select
                       className="form-select"
                       value={badgeToAdd}
                       onChange={(e) => setBadgeToAdd(e.target.value)}
                       disabled={!badgeSeriesFilter}
                     >
-                      <option value="">{badgeSeriesFilter ? 'Sélectionner un badge' : 'Choisissez une série d’abord'}</option>
+                      <option value="">{badgeSeriesFilter ? 'Sélectionner une preuve de compétences' : 'Choisissez une série d’abord'}</option>
                       {filteredBadges.map((badge) => (
                         <option key={badge.id} value={badge.id.toString()}>
                           {badge.name}
@@ -1789,11 +1789,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                       onClick={handleAddBadge}
                       disabled={!badgeToAdd}
                     >
-                      <i className="fas fa-plus"></i> Ajouter le badge
+                      <i className="fas fa-plus"></i> Ajouter la preuve de compétences
                     </button>
                     {badgeToAdd && formData.badges.includes(badgeToAdd) && (
                       <span style={{ color: '#666', fontSize: '12px', alignSelf: 'center' }}>
-                        Ce badge est déjà sélectionné
+                        Cette preuve de compétences est déjà sélectionnée
                       </span>
                     )}
                   </div>
@@ -1804,7 +1804,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
             {formData.badges.length > 0 && (
               <div style={{ marginTop: '14px' }}>
                 <div style={{ fontWeight: 600, marginBottom: '8px', color: '#333' }}>
-                  {formData.badges.length} badge(s) sélectionné(s)
+                  {formData.badges.length} preuve(s) de compétences sélectionnée(s)
                 </div>
                 <div className="event-selected-badges">
                   {formData.badges.map((badgeId) => {
@@ -1827,7 +1827,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                             onClick={() => handleBadgeToggle(badgeId)}
                             className="participant-remove"
                             style={{ border: 'none', background: 'transparent', color: '#666' }}
-                            title="Retirer le badge"
+                            title="Retirer la preuve de compétences"
                           >
                             <i className="fas fa-times"></i>
                           </button>

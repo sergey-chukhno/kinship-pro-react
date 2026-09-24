@@ -279,7 +279,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                     className={`${active ? 'active' : ''}`}
                     onClick={() => handlePageChange('badges')}
                   >
-                    Mes badges
+                    Mes preuves
                   </button>
                 )}
               </Menu.Item>

@@ -17,7 +17,7 @@ const SubscriptionManagement: React.FC = () => {
         'Stockage 5GB'
       ],
       limitations: [
-        'Pas de gestion des badges',
+        'Pas de gestion des preuves',
         'Pas d\'analytics avancés',
         'Pas de support prioritaire'
       ]
@@ -29,7 +29,7 @@ const SubscriptionManagement: React.FC = () => {
       features: [
         'Jusqu\'à 200 membres',
         'Gestion complète des projets',
-        'Système de badges',
+        'Système de preuves',
         'Analytics avancés',
         'Support prioritaire',
         'Stockage 50GB'

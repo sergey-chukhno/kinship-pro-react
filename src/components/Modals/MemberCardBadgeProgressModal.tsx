@@ -55,7 +55,7 @@ const MemberCardBadgeProgressModal: React.FC<MemberCardBadgeProgressModalProps> 
         aria-labelledby="member-card-badge-progress-title"
       >
         <div className="member-card-badge-progress-header">
-          <h2 id="member-card-badge-progress-title">Progression du badge</h2>
+          <h2 id="member-card-badge-progress-title">Progression de la preuve de compétences</h2>
           <button type="button" className="member-card-badge-progress-close" onClick={onClose} aria-label="Fermer">
             <i className="fas fa-times" />
           </button>

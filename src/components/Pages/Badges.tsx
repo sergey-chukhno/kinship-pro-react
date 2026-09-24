@@ -11,6 +11,8 @@ import BadgeAssignmentModal from '../Modals/AttestCompetenceModal';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import BadgeExportModal from '../Modals/BadgeExportModal';
 import BadgeExplorer from './BadgeExplorer';
+import MesCompetences from '../Cartographie/MesCompetences';
+import CompetenceCatalogue from '../Cartographie/CompetenceCatalogue';
 import { getBadges, getUserBadges } from '../../api/Badges';
 import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
@@ -44,6 +46,7 @@ const Badges: React.FC = () => {
 
   // Personal user: main tab "Ma cartographie" | "Mes statistiques" (default cartography)
   const [userMainTab, setUserMainTab] = useState<'cartography' | 'statistics'>('cartography');
+  const [cartoSubView, setCartoSubView] = useState<'mine' | 'catalogue'>('mine');
   // Mes statistiques: Compétences par niveau
   const [selectedSeriesStats, setSelectedSeriesStats] = useState<string>('Série TouKouLeur');
   const [selectedProjectIdStats, setSelectedProjectIdStats] = useState<string>('');
@@ -163,7 +166,7 @@ const Badges: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error fetching badges:', error);
-      setBadgesError('Erreur lors du chargement des badges');
+      setBadgesError('Erreur lors du chargement des preuves de compétences');
       setBadges([]);
     } finally {
       setIsLoadingBadges(false);
@@ -460,13 +463,13 @@ const Badges: React.FC = () => {
           <>
             <div className="section-title-row">
               <div className="section-title-left">
-                <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
-                <h2>Mes badges</h2>
+                <img src="/icons_logo/Icon=Badges.svg" alt="Preuves" className="section-icon" />
+                <h2>Mes preuves de compétences</h2>
               </div>
               {userMainTab === 'cartography' && (
                 <div className="badges-actions">
                   <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
-                    <i className="fas fa-search"></i> Explorer les badges
+                    <i className="fas fa-search"></i> Explorer les preuves de compétences
                   </button>
                   <button className="btn btn-outline" onClick={handleExportBadges}>
                     <i className="fas fa-download"></i> Exporter
@@ -498,7 +501,7 @@ const Badges: React.FC = () => {
           <ChartCardStats title="Compétences par niveau">
             <div className="analytics-chart-filters">
               <div className="analytics-filter-group">
-                <label>Par série des badges</label>
+                <label>Par série des preuves de compétences</label>
                 <select
                   value={selectedSeriesStats}
                   onChange={(e) => setSelectedSeriesStats(e.target.value)}
@@ -536,12 +539,12 @@ const Badges: React.FC = () => {
         {state.showingPageType !== 'user' && activeTab === 'cartography' && (
           <div className="section-title-row">
             <div className="section-title-left">
-              <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="section-icon" />
-              <h2>Cartographie des badges attribués</h2>
+              <img src="/icons_logo/Icon=Badges.svg" alt="Preuves" className="section-icon" />
+              <h2>Cartographie des preuves de compétences attribuées</h2>
             </div>
             <div className="badges-actions">
               <button className="btn btn-outline" onClick={() => setActiveTab('explorer')}>
-                <i className="fas fa-search"></i> Explorer les badges
+                <i className="fas fa-search"></i> Explorer les preuves de compétences
               </button>
               <button className="btn btn-outline" onClick={handleExportBadges}>
                 <i className="fas fa-download"></i> Exporter
@@ -550,13 +553,35 @@ const Badges: React.FC = () => {
           </div>
         )}
 
-        {(state.showingPageType !== 'user' || userMainTab === 'cartography') && activeTab === 'cartography' && (
+        {state.showingPageType === 'user' && userMainTab === 'cartography' && activeTab === 'cartography' && (
+          <>
+            <div className="badges-user-tabs carto-sub-tabs">
+              <button
+                type="button"
+                className={`badges-user-tab ${cartoSubView === 'mine' ? 'active' : ''}`}
+                onClick={() => setCartoSubView('mine')}
+              >
+                Mes compétences
+              </button>
+              <button
+                type="button"
+                className={`badges-user-tab ${cartoSubView === 'catalogue' ? 'active' : ''}`}
+                onClick={() => setCartoSubView('catalogue')}
+              >
+                Catalogue
+              </button>
+            </div>
+            {cartoSubView === 'mine' ? <MesCompetences /> : <CompetenceCatalogue />}
+          </>
+        )}
+
+        {state.showingPageType !== 'user' && activeTab === 'cartography' && (
           <>
             {/* Loading/Error States */}
             {isLoadingBadges && (
               <div className="badges-loading">
                 <i className="fas fa-spinner fa-spin"></i>
-                <p>Chargement des badges...</p>
+                <p>Chargement des preuves de compétences...</p>
               </div>
             )}
             
@@ -575,7 +600,7 @@ const Badges: React.FC = () => {
                     <i className="fas fa-search"></i>
                     <input
                       type="text"
-                      placeholder="Rechercher un badge par nom, catégorie, niveau..."
+                      placeholder="Rechercher une preuve de compétences par nom, catégorie, niveau..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -585,18 +610,12 @@ const Badges: React.FC = () => {
                       value={selectedSeries}
                       onChange={(e) => setSelectedSeries(e.target.value)}
                       className="filter-select big-select"
-                      disabled={state.showingPageType !== 'user' && loadingCartographySeries}
+                      disabled={loadingCartographySeries}
                     >
-                      {state.showingPageType === 'user' && badgeSeriesOptionsStats.length === 0 && (
-                        <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
-                      )}
-                      {state.showingPageType === 'user' && badgeSeriesOptionsStats.map((s) => (
-                        <option key={s} value={s}>{displaySeries(s)}</option>
-                      ))}
-                      {state.showingPageType !== 'user' && loadingCartographySeries && (
+                      {loadingCartographySeries && (
                         <option value={selectedSeries}>Chargement…</option>
                       )}
-                      {state.showingPageType !== 'user' && !loadingCartographySeries && cartographySeriesOptions.length === 0 && (
+                      {!loadingCartographySeries && cartographySeriesOptions.length === 0 && (
                         <>
                           <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
                           <option value="Série Parcours des possibles">Série Parcours des possibles</option>
@@ -604,7 +623,7 @@ const Badges: React.FC = () => {
                           <option value="Série Parcours professionnel">Série Parcours professionnel</option>
                         </>
                       )}
-                      {state.showingPageType !== 'user' && !loadingCartographySeries && cartographySeriesOptions.length > 0 && cartographySeriesOptions.map((s) => (
+                      {!loadingCartographySeries && cartographySeriesOptions.length > 0 && cartographySeriesOptions.map((s) => (
                         <option key={s} value={s}>{displaySeries(s)}</option>
                       ))}
                     </select>
@@ -628,8 +647,8 @@ const Badges: React.FC = () => {
          {/*<div className="cartography-header">
           <h2>
             {selectedSeries === 'CPS' 
-              ? 'Cartographie des badges par domaine par série CPS'
-              : 'Cartographie des badges par niveaux par série TouKouLeur'
+              ? 'Cartographie des preuves de compétences par domaine par série CPS'
+              : 'Cartographie des preuves de compétences par niveaux par série TouKouLeur'
             }
           </h2>
         </div> */}
@@ -639,10 +658,10 @@ const Badges: React.FC = () => {
                   {badges.length === 0 ? (
                     <div className="badges-empty">
                       <i className="fas fa-award"></i>
-                      <h4>Aucun badge trouvé</h4>
-                      <p>Les badges attribués apparaîtront ici.</p>
+                      <h4>Aucune preuve de compétences trouvée</h4>
+                      <p>Les preuves de compétences attribuées apparaîtront ici.</p>
                     </div>
-                  ) : state.showingPageType === 'user' && isSeriesWithCompetenceProgress(selectedSeries) ? (
+                  ) : isSeriesWithCompetenceProgress(selectedSeries) ? (
                     /* Progress card (greyed image, segmented bar, legend) for Compétences à s'orienter & Métiers de la mer */
                     sections.map((section) => {
                       const rawSectionItems = competencesOrienterProgressByLevel[section.key] || [];

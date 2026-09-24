@@ -217,8 +217,8 @@ const PublicBadgeCartography: React.FC = () => {
       <div className="public-cartography-header">
         <h1>
           {shareInfo?.cartography_owner_name
-            ? `Cartographie publique des badges – ${shareInfo.cartography_owner_name}`
-            : 'Cartographie publique des badges'}
+            ? `Cartographie publique des preuves de compétences – ${shareInfo.cartography_owner_name}`
+            : 'Cartographie publique des preuves de compétences'}
         </h1>
       </div>
 
@@ -226,8 +226,8 @@ const PublicBadgeCartography: React.FC = () => {
         {badges.length === 0 ? (
           <div className="public-cartography-empty">
             <i className="fas fa-award"></i>
-            <h4>Aucun badge trouvé</h4>
-            <p>Cette cartographie ne contient aucun badge.</p>
+            <h4>Aucune preuve de compétences trouvée</h4>
+            <p>Cette cartographie ne contient aucune preuve de compétences.</p>
           </div>
         ) : (
           sections.map((section) => {

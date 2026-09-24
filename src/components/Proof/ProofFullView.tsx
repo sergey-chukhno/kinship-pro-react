@@ -68,7 +68,7 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
 
       {/* Zone 3 — Émetteur */}
       <div className="proof-zone proof-zone-main">
-        <div className="proof-zone-label">Émetteur du badge</div>
+        <div className="proof-zone-label">Émetteur de la preuve</div>
         <div className="proof-emetteur-block">
           <div
             className="proof-avatar"

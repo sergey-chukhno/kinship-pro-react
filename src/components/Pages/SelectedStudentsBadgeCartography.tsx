@@ -213,15 +213,15 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   return (
     <div className="public-cartography-container">
       <div className="public-cartography-header">
-        <h1>Cartographie des badges - <span className="capitalize">{shareInfo?.context?.student?.full_name}</span></h1>
+        <h1>Cartographie des preuves de compétences - <span className="capitalize">{shareInfo?.context?.student?.full_name}</span></h1>
       </div>
 
       <div className="public-cartography-content">
         {badges.length === 0 ? (
           <div className="public-cartography-empty">
             <i className="fas fa-award"></i>
-            <h4>Aucun badge trouvé</h4>
-            <p>Cette cartographie ne contient aucun badge.</p>
+            <h4>Aucune preuve de compétences trouvée</h4>
+            <p>Cette cartographie ne contient aucune preuve de compétences.</p>
           </div>
         ) : (
           sections.map((section) => {

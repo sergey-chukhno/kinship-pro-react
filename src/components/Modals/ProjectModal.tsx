@@ -2589,7 +2589,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                     <ul>
                       <li>voir le projet dans leur profil</li>
                       <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
-                      <li>attribuer des badges</li>
+                      <li>attribuer des preuves</li>
                       <li>faire des équipes et donner des rôles dans équipe</li>
                       <li>plus tard attribuer des tâches (Kanban)</li>
                     </ul>

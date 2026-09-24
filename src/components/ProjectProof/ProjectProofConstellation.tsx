@@ -46,42 +46,42 @@ const SENDER_TIPS: Record<string, Omit<ActorTip, 'name'> & { name: string }> = {
   dubois: {
     name: 'Pierre Dubois',
     meta: 'Prof. technologie · Référent projet',
-    badges: '32 badges attribués',
+    badges: '32 preuves attribuées',
   },
   lefevre: {
     name: 'Aline Lefèvre',
     meta: 'Animatrice · Référente TouKouLeur',
-    badges: '18 badges attribués',
+    badges: '18 preuves attribuées',
   },
   laurent: {
     name: 'Marie Laurent',
     meta: 'Prof. arts plastiques · Co-animatrice',
-    badges: '20 badges attribués',
+    badges: '20 preuves attribuées',
   },
   tessier: {
     name: 'Romain Tessier',
     meta: "Fab manager · Référent Fab'Azur",
-    badges: '17 badges attribués',
+    badges: '17 preuves attribuées',
   },
 };
 
-const ORG_BADGE_COUNTS = ['52 badges émis', '18 badges émis', "17 badges émis"];
+const ORG_BADGE_COUNTS = ['52 preuves émises', '18 preuves émises', "17 preuves émises"];
 
 const ORG_DEFAULTS: Record<string, ActorTip> = {
   lycee: {
     name: 'Lycée Jean Moulin',
     meta: "Porteur du projet · Reconnu et supervisé par l'É.N.",
-    badges: '52 badges émis',
+    badges: '52 preuves émises',
   },
   toukouleur: {
     name: 'TouKouLeur',
     meta: "Partenaire · Association d'éducation populaire · ✓ Vérifié",
-    badges: '18 badges émis',
+    badges: '18 preuves émises',
   },
   fabazur: {
     name: "Fab'Azur",
     meta: 'Partenaire · Fab lab · ✓ Certifié',
-    badges: '17 badges émis',
+    badges: '17 preuves émises',
   },
 };
 
@@ -172,7 +172,7 @@ function buildTips(proof: ProjectProofData): Record<string, ActorTip> {
   const tips: Record<string, ActorTip> = {
     projet: {
       name: proof.projectTitle,
-      meta: `${proof.kpis.participants} participants · ${proof.kpis.badges} badges distribués · ${proof.kpis.coAttestants} co-attestants`,
+      meta: `${proof.kpis.participants} participants · ${proof.kpis.badges} preuves distribuées · ${proof.kpis.coAttestants} co-attestants`,
       badges: '',
     },
     ...ORG_DEFAULTS,
@@ -185,7 +185,7 @@ function buildTips(proof: ProjectProofData): Record<string, ActorTip> {
     tips[key] = {
       name: co.name,
       meta: `${i === 0 ? 'Porteur du projet' : 'Partenaire'} · ${co.description} · ${co.pillLabel}`,
-      badges: ORG_BADGE_COUNTS[i] ?? `${Math.round(proof.kpis.badges / proof.coAttestants.length)} badges émis`,
+      badges: ORG_BADGE_COUNTS[i] ?? `${Math.round(proof.kpis.badges / proof.coAttestants.length)} preuves émises`,
     };
   });
 

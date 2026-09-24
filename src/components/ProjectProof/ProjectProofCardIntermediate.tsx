@@ -97,7 +97,7 @@ const ProjectProofCardIntermediate: React.FC<ProjectProofCardIntermediateProps> 
         </div>
         <div className="pp-inter-kpi">
           <div className="pp-inter-kpi-n">{proof.kpis.badges}</div>
-          <div className="pp-inter-kpi-l">Badges</div>
+          <div className="pp-inter-kpi-l">Preuves</div>
         </div>
       </div>
 

@@ -128,8 +128,12 @@ export function activateMyOf(): OfActivationDossier {
 /** Une fois : active l’OF et bascule l’espace courant dessus. */
 export function restoreOfRoleContext(): OfActivationDossier {
   const next = activateMyOf();
-  enterOfSpace();
-  localStorage.setItem(RESTORE_FLAG, '1');
+  // Ne forcer l'espace formation qu'au premier boot démo — sinon un reload
+  // écrase le contexte choisi par l'utilisateur (user / pro / edu / …).
+  if (!localStorage.getItem(RESTORE_FLAG)) {
+    enterOfSpace();
+    localStorage.setItem(RESTORE_FLAG, '1');
+  }
   return next;
 }
 

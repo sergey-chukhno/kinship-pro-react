@@ -657,7 +657,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
 
 /**
  * Get user's role in a project
- * Returns: 'owner' | 'co-owner' | 'admin' | 'participant avec droit de badges' | 'participant' | null
+ * Returns: 'owner' | 'co-owner' | 'admin' | 'participant avec droit de preuves' | 'participant' | null
  */
 export const getUserProjectRole = (
     apiProject: any,
@@ -696,7 +696,7 @@ export const getUserProjectRole = (
             }
 
             if (member.can_assign_badges_in_project) {
-                return 'participant avec droit de badges';
+                return 'participant avec droit de preuves';
             }
             return 'participant';
         }

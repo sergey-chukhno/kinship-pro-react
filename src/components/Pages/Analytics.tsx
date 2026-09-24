@@ -888,7 +888,7 @@ const Analytics: React.FC = () => {
             className={`tab-button ${activeTab === 'badges' ? 'active' : ''}`}
             onClick={() => setActiveTab('badges')}
           >
-            Badges
+            Preuves
           </button>
           <button
             className={`tab-button ${activeTab === 'projects' ? 'active' : ''}`}
@@ -975,7 +975,7 @@ const Analytics: React.FC = () => {
               ) : (
                 <>
               <StatCard
-                title="Badges totaux"
+                title="Preuves de compétences totales"
                     value={totalBadges}
                     subtitle={`${totalBadges} attribués`}
                 icon="/icons_logo/Icon=Badges.svg"
@@ -985,14 +985,14 @@ const Analytics: React.FC = () => {
               <StatCard
                 title="Moyenne par membre"
                     value={averagePerMember}
-                subtitle="Badges par personne"
+                subtitle="Preuves de compétences par personne"
                 icon="fas fa-user-graduate"
                 color="#10B981"
               />
               <StatCard
                 title="Attributions ce mois"
                     value={badgesThisMonth}
-                subtitle="Nouveaux badges"
+                subtitle="Nouvelles preuves de compétences"
                 icon="fas fa-star"
                 color="#EF4444"
               />
@@ -1040,7 +1040,7 @@ const Analytics: React.FC = () => {
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
-                      <label htmlFor="analytics-monthly-series">Par série des badges</label>
+                      <label htmlFor="analytics-monthly-series">Par série des preuves de compétences</label>
                       <select
                         id="analytics-monthly-series"
                         className="analytics-select"
@@ -1086,7 +1086,7 @@ const Analytics: React.FC = () => {
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
-                      <label htmlFor="analytics-trend-series">Par série des badges</label>
+                      <label htmlFor="analytics-trend-series">Par série des preuves de compétences</label>
                       <select
                         id="analytics-trend-series"
                         className="analytics-select"
@@ -1132,7 +1132,7 @@ const Analytics: React.FC = () => {
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
-                      <label htmlFor="analytics-badge-series">Par série des badges</label>
+                      <label htmlFor="analytics-badge-series">Par série des preuves de compétences</label>
                       <select
                         id="analytics-badge-series"
                         className="analytics-select"

@@ -110,14 +110,14 @@ const ParcoursProofDetail: React.FC<ParcoursProofDetailProps> = ({
             { id: 'diplome', label: 'Diplôme ✦', gold: true },
             { id: 'cadre', label: 'Cadre' },
             { id: 'parcours', label: 'Parcours' },
-            { id: 'badges', label: 'Badges' },
+            { id: 'badges', label: 'Preuves' },
             { id: 'confiance', label: 'Confiance' },
           ]
         : [
             { id: 'cadre', label: 'Cadre' },
             { id: 'parcours', label: 'Parcours' },
             { id: 'projets', label: 'Projets' },
-            { id: 'badges', label: 'Badges' },
+            { id: 'badges', label: 'Preuves' },
             { id: 'confiance', label: 'Confiance' },
           ],
     [hasDiploma]
@@ -174,7 +174,7 @@ const ParcoursProofDetail: React.FC<ParcoursProofDetailProps> = ({
           <div className="kpi-n" style={{ color: trustColor }}>
             {proof.kpis.badges}
           </div>
-          <div className="kpi-l">badges</div>
+          <div className="kpi-l">preuves</div>
         </div>
         {proof.kpis.fourthGold ? (
           <div className="kpi kpi-g">
@@ -211,7 +211,7 @@ const ParcoursProofDetail: React.FC<ParcoursProofDetailProps> = ({
           <div className="ch-bot">
             <span className="ch-period">{item.period}</span>
             <span className="ch-badges" style={{ color: trustColor }}>
-              {item.badges} badges
+              {item.badges} preuves
             </span>
             {withLinks && (
               <span className="ch-link" style={{ color: trustColor }}>
@@ -248,13 +248,13 @@ const ParcoursProofDetail: React.FC<ParcoursProofDetailProps> = ({
   );
 
   const renderBadges = () => (
-    <div className={`tab-pane ${activeTab === 'badges' ? 'active' : ''}`} role="tabpanel" aria-label="Badges">
+    <div className={`tab-pane ${activeTab === 'badges' ? 'active' : ''}`} role="tabpanel" aria-label="Preuves">
       {proof.badgeSeries.map((serie, idx) => (
         <div key={serie.name}>
           <button type="button" className="serie-hd" onClick={() => toggleSeries(idx)}>
             <span className="serie-dot" style={{ background: serie.color }} />
             <span className="serie-name">{serie.name}</span>
-            <span className="serie-count">{serie.count} badges</span>
+            <span className="serie-count">{serie.count} preuves</span>
             <span className={`serie-chev ${openSeries[idx] ? 'open' : ''}`}>▶</span>
           </button>
           <div className={`serie-body ${openSeries[idx] ? 'open' : ''}`}>

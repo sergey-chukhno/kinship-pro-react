@@ -207,7 +207,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     ...((state.showingPageType === 'edu' || state.showingPageType === 'pro')
       ? [{ id: 'formations' as PageType, label: 'Formations', icon: '/icons_logo/Icon=projet.svg' }]
       : []),
-    { id: 'badges', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
+    { id: 'badges', label: 'Preuves', icon: '/icons_logo/Icon=Badges.svg' },
     { id: 'network', label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' },
   ];
 
@@ -451,7 +451,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 onClick={() => setIsSelectProjectForBadgeOpen(true)}
               >
                 <img src="/icons_logo/Icon=Badges.svg" alt="" className="side-icon" />
-                Attribuer un badge
+                Attribuer une preuve
               </button>
               <button
                 type="button"

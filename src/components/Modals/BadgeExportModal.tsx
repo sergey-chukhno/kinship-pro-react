@@ -107,7 +107,7 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content badge-export-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Exporter la cartographie des badges</h2>
+          <h2>Exporter la cartographie des preuves de compétences</h2>
           <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
@@ -127,7 +127,7 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
                 </div>
                 <div className="badge-export-option-info">
                   <h3>Export PDF</h3>
-                  <p>Liste des attributions avec badge, niveau, date, attribué par/à, domaine, compétences, projet, commentaire et preuves</p>
+                  <p>Liste des attributions avec preuve de compétences, niveau, date, attribué par/à, domaine, compétences, projet, commentaire et preuves</p>
                 </div>
               </div>
               <button
@@ -157,7 +157,7 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
                 </div>
                 <div className="badge-export-option-info">
                   <h3>Export CSV</h3>
-                  <p>Fichier CSV avec les informations de base de chaque badge</p>
+                  <p>Fichier CSV avec les informations de base de chaque preuve de compétences</p>
                 </div>
               </div>
               <button

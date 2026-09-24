@@ -68,6 +68,178 @@
   flex: 1;
 }
 
+.att-org-picker {
+  padding: 10px 16px 0;
+}
+
+.att-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 8px 8px;
+}
+
+.att-success-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--couleur-espace, #115e59);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.att-success-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.att-success-sub {
+  font-size: 12.5px;
+  color: #6b6980;
+  margin: 0 0 20px;
+  max-width: 320px;
+}
+
+.att-success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.att-success-btn {
+  border: 1.5px solid var(--couleur-espace, #115e59);
+  color: var(--couleur-espace, #115e59);
+  background: #fff;
+  border-radius: 9px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.att-success-actions .att-go {
+  width: 100%;
+}
+
+.att-participant-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+
+.att-switch-chip {
+  border: 1.5px solid #e4e2ee;
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #4a4840;
+  cursor: pointer;
+}
+
+.att-switch-chip.on {
+  border-color: var(--couleur-espace, #115e59);
+  background: var(--couleur-espace, #115e59);
+  color: #fff;
+}
+
+.att-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 28, 24, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  padding: 20px;
+}
+
+.att-confirm-card {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.22);
+  padding: 20px 22px;
+  animation: attSlideIn 0.22s ease-out;
+}
+
+.att-confirm-title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+
+.att-confirm-sub {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #4a4840;
+  line-height: 1.4;
+}
+
+.att-confirm-recap {
+  background: #eef0f6;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  color: #2c2b33;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.att-confirm-recap b {
+  display: inline-block;
+  min-width: 78px;
+  color: #4a4870;
+  font-weight: 800;
+}
+
+.att-confirm-warn {
+  background: #fdecea;
+  color: #a02a20;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+
+.att-confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.att-confirm-cancel {
+  background: none;
+  border: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b6980;
+  cursor: pointer;
+  padding: 0;
+}
+
 .att-slab {
   font-size: 11px;
   font-weight: 800;
@@ -288,10 +460,27 @@
 }
 
 .att-subs-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 11px;
   font-weight: 800;
   color: var(--couleur-espace, #115e59);
   margin-bottom: 2px;
+}
+
+.att-tout-cocher {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  color: #2D4EA8;
+  text-decoration: underline;
+  white-space: nowrap;
 }
 
 .att-subs-hint {
@@ -299,6 +488,51 @@
   color: #8f8d86;
   font-style: italic;
   margin-bottom: 6px;
+}
+
+.att-participants-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+@media (max-width: 420px) {
+  .att-participants-grid { grid-template-columns: 1fr; }
+}
+
+.att-participant-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1.5px solid #e4e2ee;
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1a1a1a;
+  cursor: pointer;
+  text-align: left;
+}
+
+.att-participant-row.on {
+  border-color: var(--couleur-espace, #115e59);
+  background: color-mix(in srgb, var(--couleur-espace, #115e59) 6%, #fff);
+}
+
+.att-participants-more {
+  margin-top: 6px;
+  background: none;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #6b6980;
+  text-decoration: underline;
+  padding: 0;
 }
 
 .att-subline {
@@ -332,6 +566,16 @@
   font-size: 11px;
   color: #8a6d1a;
   margin-top: 6px;
+}
+
+.att-facultatif-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: #8f8d86;
+  margin-top: 12px;
+  margin-bottom: 2px;
 }
 
 .att-comment {
@@ -426,6 +670,10 @@
   cursor: not-allowed;
 }
 
+.att-danger {
+  background: #b42318;
+}
+
 .att-frozen {
   display: flex;
   align-items: center;
@@ -461,4 +709,299 @@
   border-radius: 7px;
   color: #991b1b;
   font-size: 12px;
+}
+/* ============================================================
+   V1.1 -- passe de style ("fait moi le meme style", 23/09/2026)
+   Reprend la charte du mockup KIN_UX_ATTESTER_COMPETENCE_V1_1 :
+   bandeau + fil d'etapes, cases a cocher pleines, listes aerees.
+   La couleur reste --couleur-espace (celle de la structure) --
+   le mockup l'a explicitement en bleu "provisoire".
+   ============================================================ */
+
+.att-modal {
+  max-width: 480px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.att-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--couleur-espace, #115e59);
+  padding: 12px 44px 12px 14px;
+}
+
+.att-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--couleur-espace, #115e59);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.att-topbar-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.att-topbar-org {
+  margin-left: auto;
+  text-align: right;
+  line-height: 1.3;
+}
+
+.att-org-name {
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.att-org-project {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.att-topbar .att-close {
+  top: 11px;
+  right: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.att-steps {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  background: #fff;
+  border-bottom: 1px solid #ece9f4;
+  font-size: 10.5px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.att-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #a7a5b3;
+  font-weight: 600;
+}
+
+.att-step .num {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e9e8f1;
+  color: #9391a3;
+  font-size: 8.5px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.att-step.done {
+  color: #74728a;
+}
+
+.att-step.done .num {
+  background: color-mix(in srgb, var(--couleur-espace, #115e59) 55%, #fff);
+  color: #fff;
+}
+
+.att-step.current {
+  color: var(--couleur-espace, #115e59);
+  font-weight: 800;
+}
+
+.att-step.current .num {
+  background: var(--couleur-espace, #115e59);
+  color: #fff;
+}
+
+.att-step-sep {
+  color: #d8d6e2;
+}
+
+.att-slab-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.att-slab-row .att-slab {
+  margin-bottom: 6px;
+}
+
+.att-qline {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1a1a2c;
+  margin: 2px 0 1px;
+}
+
+.att-qhelp {
+  font-size: 11px;
+  color: #8f8da0;
+  margin: 0 0 8px;
+}
+
+.att-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  border-radius: 4px;
+  border: 1.5px solid #cbc9d6;
+  background: #fff;
+  flex-shrink: 0;
+  position: relative;
+  top: 1px;
+}
+
+.att-box.on {
+  background: #E8630F;
+  border-color: #E8630F;
+}
+
+.att-box.on::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: -1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.att-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--couleur-espace, #115e59) 14%, #fff);
+  color: var(--couleur-espace, #115e59);
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+/* Rows/cards -- reprise plus aeree, coins plus ronds, legere ombre au survol */
+.att-card {
+  border-radius: 11px;
+  padding: 9px 12px;
+}
+
+.att-srow {
+  border-radius: 10px;
+  padding: 9px 12px;
+  gap: 9px;
+}
+
+.att-srow:hover,
+.att-card:hover {
+  box-shadow: 0 1px 3px rgba(20, 20, 40, 0.06);
+}
+
+.att-crow {
+  align-items: center;
+  gap: 8px;
+  padding: 9px 2px;
+}
+
+.att-subline {
+  padding: 4px 6px;
+  border-radius: 6px;
+  gap: 8px;
+}
+
+.att-subline.on {
+  background: #FDF1E7;
+  color: #1a1a1a;
+}
+
+.att-subs-title {
+  margin-bottom: 4px;
+}
+
+/* Barre du bas -- recap a gauche, action a droite, sur une seule ligne */
+.att-bottombar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed #d8d6e2;
+}
+
+.att-recap {
+  font-size: 11px;
+  color: #8f8da0;
+}
+
+.att-recap b {
+  color: var(--couleur-espace, #115e59);
+}
+
+.att-bottombar .att-go {
+  flex-shrink: 0;
+}
+
+/* ---- Assistant en écrans séparés (23/09, suite au retour "mix des 2") ---- */
+
+.att-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #d8d6e2;
+  font-size: 10.5px;
+  color: #a7a5b3;
+}
+
+.att-navhint {
+  text-align: right;
+}
+
+.att-back-link {
+  background: none;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8f8da0;
+  text-decoration: underline;
+  padding: 0;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.att-bottombar .att-recap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
 }

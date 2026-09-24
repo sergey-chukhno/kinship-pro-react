@@ -87,7 +87,7 @@ const ParcoursProofCardIntermediate: React.FC<ParcoursProofCardIntermediateProps
           <div className="pa-inter-kpi-n" style={{ color: trust.color }}>
             {proof.kpis.badges}
           </div>
-          <div className="pa-inter-kpi-l">badges</div>
+          <div className="pa-inter-kpi-l">preuves</div>
         </div>
         <div className={`pa-inter-kpi ${proof.kpis.fourthGold ? 'pa-inter-kpi-g' : ''}`}>
           <div

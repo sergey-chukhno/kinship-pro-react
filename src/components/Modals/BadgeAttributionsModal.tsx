@@ -341,7 +341,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
       <div className="modal-content badge-attributions-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2>Attributions du badge</h2>
+            <h2>Attributions de la preuve de compétences</h2>
             <p className="badge-attributions-subtitle">
               <img 
                 src={badgeImage} 
@@ -368,7 +368,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           {!error && !isLoading && attributions.length === 0 && (
             <div className="badge-attributions-empty">
               <i className="fas fa-inbox"></i>
-              <p>Aucune attribution trouvée pour ce badge</p>
+              <p>Aucune attribution trouvée pour cette preuve de compétences</p>
             </div>
           )}
 

@@ -200,8 +200,8 @@ const PublicProjectInfo: React.FC = () => {
                 <span className="meta-text">{project.participants} participants</span>
               </div>
               <div className="meta-item">
-                <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="meta-icon" />
-                <span className="meta-text">{project.badges ?? 0} badges</span>
+                <img src="/icons_logo/Icon=Badges.svg" alt="Preuves" className="meta-icon" />
+                <span className="meta-text">{project.badges ?? 0} preuves</span>
               </div>
             </div>
             <div className="project-tags-row">

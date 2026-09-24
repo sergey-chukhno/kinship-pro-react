@@ -61,7 +61,7 @@ const PikProofDetail: React.FC<PikProofDetailProps> = ({ documentType, token }) 
           setError(
             docType === 'PE'
               ? 'Impossible de charger cette preuve événement.'
-              : 'Impossible de charger cette preuve badge.'
+              : 'Impossible de charger cette preuve.'
           );
         }
       } finally {

@@ -256,7 +256,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           <span>{project.participants}</span>
         </div>
         <div className="project-counter" title="Preuves de compétences">
-          <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="counter-icon" />
+          <img src="/icons_logo/Icon=Badges.svg" alt="Preuves" className="counter-icon" />
           <span>{project.badges}</span>
         </div>
         {isOwnerOrCoOwner && (project.pendingRequests !== undefined && project.pendingRequests > 0) && (
