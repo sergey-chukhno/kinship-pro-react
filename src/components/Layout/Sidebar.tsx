@@ -12,7 +12,7 @@ import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
 import { MOCK_OF_ORG } from '../../data/mockFormations';
 import { openProjectAffiche } from '../../utils/projectSpaceStore';
-import { canCreateFormation, isOfActivated, subscribeOfActivation } from '../../utils/ofActivationStore';
+import { isOfActivated, subscribeOfActivation } from '../../utils/ofActivationStore';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
@@ -107,28 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         });
       }
 
-      // Add formation organizations (OF) — API, ou démo une fois l’activation validée (F0)
-      if (contexts.formation_organizations && contexts.formation_organizations.length > 0) {
-        contexts.formation_organizations.forEach(org => {
-          if (org.role === 'superadmin' || org.role === 'admin') {
-            orgs.push({
-              id: org.id,
-              name: org.name,
-              type: 'formation',
-              role: org.role,
-              isAdmin: true
-            });
-          }
-        });
-      }
-      if (ofOn && !orgs.some((o) => o.type === 'formation')) {
-        orgs.push({
-          id: MOCK_OF_ORG.id,
-          name: 'Organisme de formation',
-          type: 'formation',
-          isAdmin: true
-        });
-      }
+      // Formation / OF context temporarily hidden from the switcher
 
       // Add teacher dashboard if available
       if (contexts.teacher_dashboard) {
@@ -139,17 +118,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           isAdmin: false
         });
       }
-    } else if (ofOn) {
-      orgs.push({
-        id: MOCK_OF_ORG.id,
-        name: 'Organisme de formation',
-        type: 'formation',
-        isAdmin: true
-      });
     }
 
     return orgs;
-  }, [state.user.available_contexts, ofOn]);
+  }, [state.user.available_contexts]);
 
   // Handle organization switching
   const handleOrganizationSwitch = (orgId: number | string, orgType: ContextOrgType) => {
@@ -350,61 +322,49 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                         </button>
                       )}
                     </Menu.Item>
-                    <Menu.Item>
+                    {state.showingPageType !== 'pro' && (
+                      <>
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              type="button"
+                              className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                              onClick={() => {
+                                onPageChange('projects');
+                                navigate('/projects?open=create&variant=mlds');
+                              }}
+                            >
+                              Projet MLDS Volet Persévérance Scolaire
+                            </button>
+                          )}
+                        </Menu.Item>
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              type="button"
+                              className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                              onClick={() => {
+                                onPageChange('projects');
+                                navigate('/projects?open=create&variant=mlds-remediation');
+                              }}
+                            >
+                              Projet MLDS Volet Remédiation
+                            </button>
+                          )}
+                        </Menu.Item>
+                      </>
+                    )}
+                    <Menu.Item disabled>
                       {({ active }) => (
                         <button
                           type="button"
-                          className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                          onClick={() => {
-                            onPageChange('projects');
-                            navigate('/projects?open=create&variant=mlds');
-                          }}
+                          disabled
+                          className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
                         >
-                          Projet MLDS Volet Persévérance Scolaire
+                          Formation
+                          <span className="sidebar-quick-action-soon">Bientôt</span>
                         </button>
                       )}
-                    </Menu.Item>
-                    <Menu.Item>
-                      {({ active }) => (
-                        <button
-                          type="button"
-                          className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                          onClick={() => {
-                            onPageChange('projects');
-                            navigate('/projects?open=create&variant=mlds-remediation');
-                          }}
-                        >
-                          Projet MLDS Volet Remédiation
-                        </button>
-                      )}
-                    </Menu.Item>
-                    <Menu.Item>
-                      {({ active }) =>
-                        canCreateFormation() || ofOn ? (
-                          <button
-                            type="button"
-                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                            onClick={() => {
-                              navigate('/create?type=formation');
-                              onPageChange('create');
-                            }}
-                          >
-                            Formation
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                            onClick={() => {
-                              navigate('/of-activation');
-                              onPageChange('of-activation');
-                            }}
-                          >
-                            Formation
-                            <span className="sidebar-quick-action-soon">Vérifier mon organisme</span>
-                          </button>
-                        )
-                      }
                     </Menu.Item>
                     <Menu.Item disabled>
                       {({ active }) => (
@@ -471,10 +431,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
             <button
               type="button"
               className="side-link quick-action-btn"
-              onClick={() => {
-                navigate('/create?type=formation');
-                onPageChange('create');
-              }}
+              disabled
+              title="Bientôt disponible"
             >
               <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
               Créer une formation

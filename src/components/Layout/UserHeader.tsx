@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { useAppContext } from '../../context/AppContext';
@@ -6,8 +6,6 @@ import { PageType } from '../../types';
 import './UserHeader.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
-import { MOCK_OF_ORG } from '../../data/mockFormations';
-import { isOfActivated, subscribeOfActivation } from '../../utils/ofActivationStore';
 import { isUnder18 } from '../../utils/ageUtils';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
@@ -23,8 +21,6 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   const { state, setShowingPageType } = useAppContext();
   const user = state.user;
   const navigate = useNavigate();
-  const [ofOn, setOfOn] = useState(() => isOfActivated());
-  useEffect(() => subscribeOfActivation(() => setOfOn(isOfActivated())), []);
 
   // Get currently selected context
   const getCurrentContext = useMemo(() => {
@@ -43,8 +39,6 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
       return { id: 'teacher-dashboard', type: 'teacher' as const };
     } else if (state.showingPageType === 'user') {
       return { id: 'user-dashboard', type: 'user' as const };
-    } else if (state.showingPageType === 'of') {
-      return { id: MOCK_OF_ORG.id, type: 'formation' as const };
     }
     
     return null;
@@ -103,27 +97,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         });
       }
 
-      if (contexts.formation_organizations && contexts.formation_organizations.length > 0) {
-        contexts.formation_organizations.forEach(org => {
-          if (org.role === 'superadmin' || org.role === 'admin') {
-            orgs.push({
-              id: org.id,
-              name: org.name,
-              type: 'formation',
-              role: org.role,
-              isAdmin: true
-            });
-          }
-        });
-      }
-      if (ofOn && !orgs.some((o) => o.type === 'formation')) {
-        orgs.push({
-          id: MOCK_OF_ORG.id,
-          name: 'Organisme de formation',
-          type: 'formation',
-          isAdmin: true
-        });
-      }
+      // Formation / OF context temporarily hidden from the switcher
 
       // Add teacher dashboard if available
       if (contexts.teacher_dashboard) {
@@ -134,17 +108,10 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
           isAdmin: false
         });
       }
-    } else if (ofOn) {
-      orgs.push({
-        id: MOCK_OF_ORG.id,
-        name: 'Organisme de formation',
-        type: 'formation',
-        isAdmin: true
-      });
     }
 
     return orgs;
-  }, [state.user.available_contexts, ofOn]);
+  }, [state.user.available_contexts]);
 
   const handlePageChange = (page: PageType) => {
     onPageChange(page);

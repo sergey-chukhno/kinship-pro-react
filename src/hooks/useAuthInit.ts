@@ -3,7 +3,7 @@ import { useAppContext } from "../context/AppContext";
 import { getCurrentUser, refreshToken } from "../api/Authentication"; // adapte le chemin selon ton projet
 import { applySpaceTheme } from "../utils/spaceTheme";
 import { PageType } from "../types";
-import { isOfActivated, restoreOfRoleContext } from "../utils/ofActivationStore";
+import { restoreOfRoleContext } from "../utils/ofActivationStore";
 import { isFunderAppPath } from "../utils/contextUtils";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getSafePostAuthRedirect } from "../utils/authRedirect";
@@ -161,11 +161,8 @@ export const useAuthInit = () => {
                   (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
                 ) || false;
               case 'formation':
-                if (savedPageType === 'of' && isOfActivated()) return true;
-                if (!savedContextId) return false;
-                return user.available_contexts?.formation_organizations?.some(
-                  (o: any) => o.id.toString() === savedContextId && (o.role === 'admin' || o.role === 'superadmin')
-                ) || false;
+                // Formation / OF context temporarily shelved
+                return false;
               default:
                 return false;
             }

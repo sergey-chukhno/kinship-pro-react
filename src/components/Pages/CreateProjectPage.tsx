@@ -540,31 +540,10 @@ const CreateProjectPage: React.FC = () => {
                   Stage
                   <small>en milieu professionnel — bientôt disponible</small>
                 </div>
-                {ofReady ? (
-                  <button
-                    type="button"
-                    className={`cp-card ${kind === 'formation' ? 'sel' : ''}`}
-                    onClick={() => setKind('formation')}
-                  >
-                    Formation
-                    <small>elle promet un programme</small>
-                  </button>
-                ) : (
-                  <div className="cp-card off">
-                    Formation
-                    <small>réservé aux organismes vérifiés et agréés</small>
-                    <button
-                      type="button"
-                      className="cp-card-link"
-                      onClick={() => {
-                        setCurrentPage('of-activation');
-                        navigate('/of-activation');
-                      }}
-                    >
-                      Vérifier mon organisme →
-                    </button>
-                  </div>
-                )}
+                <div className="cp-card off">
+                  Formation
+                  <small>bientôt disponible</small>
+                </div>
               </div>
             </section>
 

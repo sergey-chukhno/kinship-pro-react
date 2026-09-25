@@ -178,7 +178,8 @@ export function canBrowseFormationsReadOnly(): boolean {
 }
 
 export function canCreateFormation(): boolean {
-  return readMine().status === 'activated';
+  // Formation creation temporarily disabled (demo shelved).
+  return false;
 }
 
 export function saveMyOfDraft(patch: Partial<OfActivationDossier>): OfActivationDossier {

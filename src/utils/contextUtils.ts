@@ -1,7 +1,7 @@
 import { User, ShowingPageType } from '../types';
 
-/** Mock formation hub cards — Je finance exists in every company/asso space. */
-const FORMATION_FUNDER_HUB_COUNT = 4;
+/** Mock formation hub cards — shelved; Je finance count comes from API only. */
+const FORMATION_FUNDER_HUB_COUNT = 0;
 
 /**
  * Get the selected organization ID from localStorage

@@ -8,7 +8,6 @@ import {
   proposeFunderAttachment,
 } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
-import FunderHub from '../FunderView/FunderHub';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import '../FunderView/FunderView.css';
 import './FundedProjectsPage.css';
@@ -85,9 +84,14 @@ const FundedProjectsPage: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
 
   return (
     <div className={`fp-page ${embedded ? 'embedded' : ''}`}>
-      <FunderHub />
-
-      {!loading && cards.length > 0 && (
+      {loading ? (
+        <div className="fp-empty">Chargement…</div>
+      ) : cards.length === 0 ? (
+        <div className="fp-empty">
+          <div className="fp-empty-title">Projets financés</div>
+          <p className="fp-empty-sub">Aucun projet financé pour le moment.</p>
+        </div>
+      ) : (
         <div className="fp-projects-block">
           <h2 className="fp-title">Projets financés ({cards.length})</h2>
           <p className="fp-sub">
