@@ -6,6 +6,7 @@ import { getAxeColor, displayAxeTitle, displayCompetenceName } from '../../const
 import { displaySeries } from '../../utils/badgeMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import CompetenceRing, { RingNiveau } from './CompetenceRing';
+import CompetenceIcon, { hasCompetenceIcon } from './CompetenceIcon';
 import CompetenceDetail from './CompetenceDetail';
 import { CompetenceEntry } from './MesCompetences';
 import './Cartographie.css';
@@ -158,7 +159,9 @@ const CompetenceCatalogue: React.FC = () => {
                             showThread={false}
                             title={displayCompetenceName(c.name)}
                             centerIcon={
-                              competenceImage(c) ? (
+                              hasCompetenceIcon(displayCompetenceName(c.name)) ? (
+                                <CompetenceIcon name={displayCompetenceName(c.name)} />
+                              ) : competenceImage(c) ? (
                                 <img src={competenceImage(c)} alt="" className="carto-ring-center-image" />
                               ) : undefined
                             }

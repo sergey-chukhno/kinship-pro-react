@@ -135,6 +135,17 @@ export const CompetenceRing: React.FC<CompetenceRingProps> = ({
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
     >
+      {/* Piste de fond pleine (même gris que les crans éteints) : comble les petits
+          interstices entre crans et entre niveaux pour qu'aucun blanc de la page ne
+          transparaisse dans l'anneau. */}
+      <circle
+        cx={CX}
+        cy={CY}
+        r={(INNER_R + OUTER_R) / 2}
+        fill="none"
+        stroke={CARTO_GRIS_ETEINT}
+        strokeWidth={OUTER_R - INNER_R}
+      />
       {segments.map((seg) => (
         <path key={seg.id} d={seg.path} fill={seg.color} />
       ))}

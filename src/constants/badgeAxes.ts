@@ -151,12 +151,12 @@ const TOUKOULEUR_AXE_CREATION_TITLE = "Création";
 const TOUKOULEUR_AXE_RELATIONNEL_BADGE_NAMES: string[] = ["Communication", "Coopération", "Sociabilité"];
 const TOUKOULEUR_AXE_PERSONNEL_BADGE_NAMES: string[] = ["Adaptabilité", "Engagement"];
 const TOUKOULEUR_AXE_METHODE_BADGE_NAMES: string[] = [
-  "Esprit critique",
+  "Esprit Critique",
   "Formation",
-  "Gestion de projet",
-  "Organisation opérationnelle",
+  "Gestion de Projet",
+  "Organisation Opérationnelle",
 ];
-const TOUKOULEUR_AXE_CREATION_BADGE_NAMES: string[] = ["Créativité", "Informatique & numérique"];
+const TOUKOULEUR_AXE_CREATION_BADGE_NAMES: string[] = ["Créativité", "Information Numérique"];
 
 const TOUKOULEUR_AXES: BadgeAxe[] = [
   { id: 'toukouleur_relationnel', title: TOUKOULEUR_AXE_RELATIONNEL_TITLE, badgeNames: TOUKOULEUR_AXE_RELATIONNEL_BADGE_NAMES },

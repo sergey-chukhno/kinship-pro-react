@@ -74,7 +74,9 @@ export function mapRawUserBadgeToAttributionForExport(raw: any): AttributionForE
   const receiver = raw?.receiver;
   const badgeImageUrl =
     badge?.image_url ||
-    (typeof getLocalBadgeImage === 'function' ? getLocalBadgeImage(name, level, series) : undefined);
+    (typeof getLocalBadgeImage === 'function'
+      ? getLocalBadgeImage(name, level, series, { allowVectorIcon: false })
+      : undefined);
 
   return {
     badgeImageUrl,

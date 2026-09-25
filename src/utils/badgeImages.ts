@@ -1,3 +1,6 @@
+import { COMPETENCE_ICONS } from '../constants/competenceIcons';
+import { displayCompetenceName } from '../constants/cartographieColors';
+
 // Local mapping of badge names and levels to existing static assets.
 // This preserves previous visuals while backend does not yet provide image URLs.
 const badgeImagesByName: Record<string, string> = {
@@ -242,9 +245,30 @@ const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>>
   },
 };
 
-export const getLocalBadgeImage = (badgeName?: string, badgeLevel?: string, badgeSeries?: string): string | undefined => {
+/**
+ * Icône d'une compétence, partout où elle est demandée dans l'appli.
+ * Priorité à l'icône spécifique de la maquette KIN_UX_CARTOGRAPHIE_V1_1
+ * (competenceIcons.ts, encodée en data URI SVG) ; repli sur les anciens visuels
+ * PNG/JPG ci-dessus si aucune icône n'existe pour ce nom.
+ * @param allowVectorIcon - à false pour forcer un visuel raster (ex. export PDF, qui ne
+ * sait pas afficher du SVG) même quand une icône vectorielle existe.
+ */
+export const getLocalBadgeImage = (
+  badgeName?: string,
+  badgeLevel?: string,
+  badgeSeries?: string,
+  opts?: { allowVectorIcon?: boolean }
+): string | undefined => {
   if (!badgeName) return undefined;
-  
+
+  if (opts?.allowVectorIcon ?? true) {
+    const svg = COMPETENCE_ICONS[displayCompetenceName(badgeName)];
+    if (svg) {
+      const fullSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${svg}</svg>`;
+      return `data:image/svg+xml;utf8,${encodeURIComponent(fullSvg)}`;
+    }
+  }
+
   // Check level-specific mapping first (for badges with same name at different levels)
   if (badgeLevel && badgeSeries && badgeImagesByLevel[badgeSeries]?.[badgeName]?.[badgeLevel]) {
     return badgeImagesByLevel[badgeSeries][badgeName][badgeLevel] as string;

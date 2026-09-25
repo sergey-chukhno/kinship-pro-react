@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import CompetenceRing from './CompetenceRing';
+import CompetenceIcon, { hasCompetenceIcon } from './CompetenceIcon';
 import { CompetenceEntry } from './MesCompetences';
 import { displayCompetenceName } from '../../constants/cartographieColors';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
@@ -81,7 +82,11 @@ const CompetenceDetail: React.FC<Props> = ({ competence, axeColor, series, userB
             showThread={competence.everCompleted}
             title={displayCompetenceName(competence.name)}
             centerIcon={
-              competenceImage ? <img src={competenceImage} alt="" className="carto-ring-center-image" /> : undefined
+              hasCompetenceIcon(displayCompetenceName(competence.name)) ? (
+                <CompetenceIcon name={displayCompetenceName(competence.name)} />
+              ) : competenceImage ? (
+                <img src={competenceImage} alt="" className="carto-ring-center-image" />
+              ) : undefined
             }
           />
           <h2>{displayCompetenceName(competence.name)}</h2>

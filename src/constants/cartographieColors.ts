@@ -63,7 +63,7 @@ export function getAxeColor(axeTitle: string | null | undefined): string {
  * (qui reste sur le nom brut), uniquement pour le texte affiché sur la tuile.
  */
 export function displayCompetenceName(name: string): string {
-  return name.replace(/^Niveau\s*\d+\s*[-\u2013\u2014]\s*/i, '').trim();
+  return name.replace(/^(Niveau|Comp\u00e9tence)\s*\d+\s*[-\u2013\u2014]\s*/i, '').trim();
 }
 
 /**
