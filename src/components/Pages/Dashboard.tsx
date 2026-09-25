@@ -43,7 +43,6 @@ import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { isUnder15 } from '../../utils/ageUtils';
-import FormationsHub from './FormationsHub';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
@@ -1502,9 +1501,10 @@ const Dashboard: React.FC = () => {
     return `Il y a ${years} an${years > 1 ? 's' : ''}`;
   };
 
-  if (state.showingPageType === 'of') {
-    return <FormationsHub />;
-  }
+  // Espace OF / formations temporairement désactivé
+  // if (state.showingPageType === 'of') {
+  //   return <FormationsHub />;
+  // }
 
   if (state.showingPageType === 'user') {
     const s = userDashboardStats;

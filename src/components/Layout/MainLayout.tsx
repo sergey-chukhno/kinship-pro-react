@@ -16,7 +16,7 @@ import ProjectManagement from '../Pages/ProjectManagement';
 import Projects from '../Pages/Projects';
 import Settings from '../Pages/Settings';
 import PersonalSettings from '../Pages/PersonalSettings';
-import Pik from '../Pages/Pik';
+// import Pik from '../Pages/Pik';
 import MesEnfants from '../Pages/MesEnfants';
 import MesParents from '../Pages/MesParents';
 import PrivacyPolicy from '../RegisterForm/PrivacyPolicy';
@@ -25,19 +25,19 @@ import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
 import { useAuthInit } from '../../hooks/useAuthInit';
 import { applySpaceTheme } from '../../utils/spaceTheme';
-import PresenceSessionPage from '../Pages/PresenceSessionPage';
+// import PresenceSessionPage from '../Pages/PresenceSessionPage';
 import PresenceBanner from '../Presence/PresenceBanner';
-import FormationDetail from '../Pages/FormationDetail';
-import FormationAffiche from '../Pages/FormationAffiche';
-import PreuveFormationPage from '../Pages/PreuveFormationPage';
-import FormationsHub from '../Pages/FormationsHub';
+// import FormationDetail from '../Pages/FormationDetail';
+// import FormationAffiche from '../Pages/FormationAffiche';
+// import PreuveFormationPage from '../Pages/PreuveFormationPage';
+// import FormationsHub from '../Pages/FormationsHub';
 import CreateProjectPage from '../Pages/CreateProjectPage';
 import ProjectSpacePage from '../Pages/ProjectSpacePage';
 import ProjectAffichePage from '../Pages/ProjectAffichePage';
 import FundedProjectsPage from '../Pages/FundedProjectsPage';
 import FunderFollowPage from '../Pages/FunderFollowPage';
-import OfActivationPage from '../Pages/OfActivationPage';
-import SuperAdminOfQueuePage from '../Pages/SuperAdminOfQueuePage';
+// import OfActivationPage from '../Pages/OfActivationPage';
+// import SuperAdminOfQueuePage from '../Pages/SuperAdminOfQueuePage';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
@@ -112,8 +112,8 @@ const MainLayout: React.FC = () => {
         return <Events />;
       case 'projects':
         return <Projects />;
-      case 'formations':
-        return <FormationsHub />;
+      // case 'formations':
+      //   return <FormationsHub />;
       case 'badges':
         return <Badges />;
       case 'analytics':
@@ -126,8 +126,8 @@ const MainLayout: React.FC = () => {
         return <Settings />;
       case 'personal-settings':
         return <PersonalSettings />;
-      case 'pik':
-        return <Pik />;
+      // case 'pik':
+      //   return <Pik />;
       case 'mes-enfants':
         return <MesEnfants />;
       case 'mes-parents':
@@ -140,14 +140,14 @@ const MainLayout: React.FC = () => {
         return <FunderAttachmentRequests />;
       case 'project-management':
         return <ProjectManagement />;
-      case 'presence-session':
-        return <PresenceSessionPage />;
-      case 'formation-detail':
-        return <FormationDetail />;
-      case 'formation-affiche':
-        return <FormationAffiche />;
-      case 'preuve-formation':
-        return <PreuveFormationPage />;
+      // case 'presence-session':
+      //   return <PresenceSessionPage />;
+      // case 'formation-detail':
+      //   return <FormationDetail />;
+      // case 'formation-affiche':
+      //   return <FormationAffiche />;
+      // case 'preuve-formation':
+      //   return <PreuveFormationPage />;
       case 'create':
         return <CreateProjectPage />;
       case 'project-space':
@@ -158,10 +158,10 @@ const MainLayout: React.FC = () => {
         return <FundedProjectsPage />;
       case 'funder-follow':
         return <FunderFollowPage />;
-      case 'of-activation':
-        return <OfActivationPage />;
-      case 'admin-of-queue':
-        return <SuperAdminOfQueuePage />;
+      // case 'of-activation':
+      //   return <OfActivationPage />;
+      // case 'admin-of-queue':
+      //   return <SuperAdminOfQueuePage />;
       default:
         return <Dashboard />;
     }

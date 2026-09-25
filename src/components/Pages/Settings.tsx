@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAppContext } from '../../context/AppContext';
 import SubscriptionManagement from '../Settings/SubscriptionManagement';
 import UserManagement from '../Settings/UserManagement';
 import './Settings.css';
 
 const Settings: React.FC = () => {
-  const { setCurrentPage } = useAppContext();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'users' | 'subscription'>('users');
 
   const handleTabChange = (tab: 'users' | 'subscription') => {
@@ -42,6 +38,7 @@ const Settings: React.FC = () => {
           {activeTab === 'subscription' && <SubscriptionManagement />}
         </div>
 
+        {/* Route OF / formation temporairement désactivée
         <div className="settings-internal">
           <h2>Outil interne Kinship</h2>
           <p>
@@ -59,6 +56,7 @@ const Settings: React.FC = () => {
             Dossiers d’activation à traiter →
           </button>
         </div>
+        */}
       </div>
     </section>
   );

@@ -262,6 +262,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                 )}
               </Menu.Item>
 
+              {/* Route pik temporairement désactivée
               <Menu.Item>
                 {({ active }: { active: boolean }) => (
                   <button
@@ -272,6 +273,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                   </button>
                 )}
               </Menu.Item>
+              */}
 
               {STUDENT_ROLES.has(String(user?.role || '')) && (
                 <Menu.Item>

@@ -28,13 +28,13 @@ export const useAuthInit = () => {
 
     // Mapper les routes aux pages
     const validPages: PageType[] = [
-      "dashboard", "members", "events", "projects", "formations", "badges",
+      "dashboard", "members", "events", "projects", /* "formations", */ "badges",
       "analytics", "network", "notifications", "settings",
-      "personal-settings", "pik",
+      "personal-settings", /* "pik", */
       "membership-requests", "partnership-requests", "funder-attachments", "project-management",
-      "presence-session", "formation-detail", "formation-affiche", "preuve-formation",
+      /* "presence-session", "formation-detail", "formation-affiche", "preuve-formation", */
       "create", "project-space", "project-affiche", "funded-projects",
-      "of-activation", "admin-of-queue",
+      /* "of-activation", "admin-of-queue", */
       "membership-requests", "partnership-requests", "project-management",
       "mes-enfants", "mes-parents"
     ];
@@ -43,18 +43,18 @@ export const useAuthInit = () => {
       return path as PageType;
     }
 
-    // formation-detail / affiche / preuve-formation (id hors URL)
-    if (path.startsWith('formation-detail')) {
-      return 'formation-detail';
-    }
-
-    if (path.startsWith('formation-affiche')) {
-      return 'formation-affiche';
-    }
-
-    if (path.startsWith('preuve-formation')) {
-      return 'preuve-formation';
-    }
+    // // Routes formation (temporairement désactivées)
+    // if (path.startsWith('formation-detail')) {
+    //   return 'formation-detail';
+    // }
+    //
+    // if (path.startsWith('formation-affiche')) {
+    //   return 'formation-affiche';
+    // }
+    //
+    // if (path.startsWith('preuve-formation')) {
+    //   return 'preuve-formation';
+    // }
 
     if (path.startsWith('project-space')) {
       return 'project-space';
@@ -68,17 +68,18 @@ export const useAuthInit = () => {
       return 'funded-projects';
     }
 
-    if (path.startsWith('of-activation')) {
-      return 'of-activation';
-    }
-
-    if (path.startsWith('admin-of-queue')) {
-      return 'admin-of-queue';
-    }
-
-    if (path.startsWith('pik')) {
-      return 'pik';
-    }
+    // // Routes OF / formation (temporairement désactivées)
+    // if (path.startsWith('of-activation')) {
+    //   return 'of-activation';
+    // }
+    //
+    // if (path.startsWith('admin-of-queue')) {
+    //   return 'admin-of-queue';
+    // }
+    //
+    // if (path.startsWith('pik')) {
+    //   return 'pik';
+    // }
 
     if (path.startsWith('follow/')) {
       return 'funder-follow';

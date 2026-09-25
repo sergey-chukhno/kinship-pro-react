@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { useAppContext } from '../../context/AppContext';
@@ -12,7 +12,6 @@ import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
 import { MOCK_OF_ORG } from '../../data/mockFormations';
 import { openProjectAffiche } from '../../utils/projectSpaceStore';
-import { isOfActivated, subscribeOfActivation } from '../../utils/ofActivationStore';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
@@ -26,9 +25,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const navigate = useNavigate();
   const [isSelectProjectForBadgeOpen, setIsSelectProjectForBadgeOpen] = useState(false);
   const [isSelectPartnerModalOpen, setIsSelectPartnerModalOpen] = useState(false);
-  const [ofOn, setOfOn] = useState(() => isOfActivated());
-
-  useEffect(() => subscribeOfActivation(() => setOfOn(isOfActivated())), []);
 
   // Get currently selected context
   const getCurrentContext = useMemo(() => {
@@ -167,7 +163,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
   };
 
-  // Dropdown under "Tableau de bord": sections (Formations for edu/pro)
+  // Dropdown under "Tableau de bord"
   const financedCount = getFinancedProjectsCount(state.user, state.showingPageType);
   const dashboardDropdownItems: Array<{ id: PageType; label: string; icon: string }> = [
     { id: 'members', label: state.showingPageType === 'teacher' ? 'Classes' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
@@ -175,9 +171,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     { id: 'projects', label: state.showingPageType === 'of' ? 'Formations' : 'Projets', icon: '/icons_logo/Icon=projet.svg' },
     ...(financedCount > 0
       ? [{ id: 'funded-projects' as PageType, label: jeFinanceLabel(financedCount), icon: '/icons_logo/Icon=projet.svg' }]
-      : []),
-    ...((state.showingPageType === 'edu' || state.showingPageType === 'pro')
-      ? [{ id: 'formations' as PageType, label: 'Formations', icon: '/icons_logo/Icon=projet.svg' }]
       : []),
     { id: 'badges', label: 'Preuves', icon: '/icons_logo/Icon=Badges.svg' },
     { id: 'network', label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' },
@@ -245,11 +238,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                               if (item.id === 'funded-projects') {
                                 navigate('/projects?tab=je-finance');
                                 onPageChange('projects');
-                                return;
-                              }
-                              if (item.id === 'formations' && !ofOn) {
-                                onPageChange('of-activation');
-                                navigate('/of-activation');
                                 return;
                               }
                               onPageChange(item.id);

@@ -201,7 +201,6 @@ const CreateProjectPage: React.FC = () => {
   const selectedOrg = carrierOrgs.find((o) => o.key === selectedOrgKey) || carrierOrgs[0];
   const orgLocked = carrierOrgs.length <= 1;
   const showQualiopi = Boolean(selectedOrg?.qualiopi || selectedOrg?.trustLevel === 'STRATEGIC_PARTNER' || ofReady);
-  const euMcEligible = kind === 'formation' ? ofReady : Boolean(selectedOrg);
   const isFormation = kind === 'formation';
 
   useEffect(() => {
@@ -257,22 +256,6 @@ const CreateProjectPage: React.FC = () => {
 
   const kindLabel =
     kind === 'stage' ? 'Stage' : kind === 'formation' ? 'Formation' : 'Projet';
-
-  const toggleEuMc = (checked: boolean) => {
-    setEuMc(checked);
-    if (!checked) {
-      setEuOutcomes([]);
-      setWorkloadHours('');
-      setWorkloadEcts('');
-      setEqfLevel('');
-      setEqfFramework('EQF');
-      setAssessmentType('');
-      setTeachingLanguages(['fr']);
-      setEntryRequirements('');
-      setValidityUnlimited(true);
-      setSeriesPickerOpen(false);
-    }
-  };
 
   const goBack = () => {
     if (step === 3) {
@@ -551,38 +534,12 @@ const CreateProjectPage: React.FC = () => {
               <h2>
                 Le cadre <sup>2</sup>
               </h2>
-              {euMcEligible ? (
-                <label className={`cp-mc ${euMc ? 'on' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={euMc}
-                    onChange={(e) => toggleEuMc(e.target.checked)}
-                  />
-                  <div>
-                    <b>Microcertification européenne</b>
-                    {euMc
-                      ? ' — votre organisme y est éligible. Les éléments du cadre européen seront à compléter avant la création.'
-                      : ' — les éléments du cadre européen seront à compléter avant la création.'}
-                  </div>
-                </label>
-              ) : (
-                <div className="cp-mc">
-                  <input type="checkbox" checked={false} disabled />
-                  <div>
-                    <b>Microcertification européenne</b> — réservée aux organismes vérifiés et agréés
-                  </div>
-                  <button
-                    type="button"
-                    className="cp-card-link"
-                    onClick={() => {
-                      setCurrentPage('of-activation');
-                      navigate('/of-activation');
-                    }}
-                  >
-                    Vérifier mon organisme →
-                  </button>
+              <div className="cp-mc">
+                <input type="checkbox" checked={false} disabled />
+                <div>
+                  <b>Microcertification européenne</b> — bientôt disponible
                 </div>
-              )}
+              </div>
             </section>
 
             {euMc && (
