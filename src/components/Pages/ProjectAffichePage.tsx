@@ -233,6 +233,7 @@ const ProjectAffichePage: React.FC = () => {
   const userRef = useRef(state.user);
   userRef.current = state.user;
   const qrRef = useRef<HTMLDivElement>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
 
   const projectId = resolveProjectSpaceId(state.selectedProject?.id);
 
@@ -856,6 +857,7 @@ const ProjectAffichePage: React.FC = () => {
       const res = await addProjectDocuments(Number(projectId), [docFile], docVis);
       setDocuments(res.data || []);
       setDocFile(null);
+      if (docFileInputRef.current) docFileInputRef.current.value = '';
       setDocVis('private');
       setAddPanel(null);
     } catch {
@@ -1765,8 +1767,17 @@ const ProjectAffichePage: React.FC = () => {
                   {addPanel === 'document' && (
                     <div className="pa-panel">
                       <h5>Ajouter un document</h5>
-                      <input type="file" onChange={(e) => setDocFile(e.target.files?.[0] || null)} />
-                      {docFile && <div className="pa-rline">📄 <div>{docFile.name} <small>· {formatBytes(docFile.size)}</small></div></div>}
+                      <label className="pa-filepick">
+                        <input
+                          ref={docFileInputRef}
+                          type="file"
+                          onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+                        />
+                        <span className="pa-filepick-btn">Choisir un fichier</span>
+                        <span className={`pa-filepick-name${docFile ? ' has-file' : ''}`}>
+                          {docFile ? `${docFile.name} · ${formatBytes(docFile.size)}` : 'Aucun fichier sélectionné'}
+                        </span>
+                      </label>
                       <div className="pa-klabel">qui peut le voir ?</div>
                       {(['private', 'public'] as const).map((v) => (
                         <button key={v} type="button" className={`pa-radio ${docVis === v ? 'on' : ''}`} onClick={() => setDocVis(v)}>
@@ -1778,7 +1789,7 @@ const ProjectAffichePage: React.FC = () => {
                         </button>
                       ))}
                       <div className="pa-actions-end">
-                        <button type="button" className="pa-bt-ghost" onClick={() => { setAddPanel(null); setDocFile(null); }}>Annuler</button>
+                        <button type="button" className="pa-bt-ghost" onClick={() => { setAddPanel(null); setDocFile(null); if (docFileInputRef.current) docFileInputRef.current.value = ''; }}>Annuler</button>
                         <button type="button" className="pa-addb" onClick={() => void addDocument()} disabled={!docFile}>Ajouter</button>
                       </div>
                       <div className="pa-klabel">ou un lien</div>
