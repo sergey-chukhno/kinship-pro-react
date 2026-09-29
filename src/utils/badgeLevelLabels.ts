@@ -1,7 +1,28 @@
 /**
+ * Soft Skills series — renamed 28/09/2026 (Patrick).
+ * Legacy DB name kept for local/staging until rename is applied everywhere.
+ */
+export const SOFT_SKILLS_SERIES_NAME = 'Compétences transversales (soft skills)';
+export const SOFT_SKILLS_SERIES_NAME_LEGACY = 'Série TouKouLeur';
+/** Marketing label shown in the assign-badge modal (4LAB). */
+export const SOFT_SKILLS_SERIES_DISPLAY_NAME = 'Série Soft Skills 4LAB';
+
+export const isSoftSkillsSeries = (seriesName: string | null | undefined): boolean => {
+  if (!seriesName) return false;
+  const normalized = seriesName.toLowerCase();
+  return (
+    seriesName === SOFT_SKILLS_SERIES_NAME ||
+    seriesName === SOFT_SKILLS_SERIES_NAME_LEGACY ||
+    normalized.includes('toukouleur') ||
+    normalized.includes('compétences transversales') ||
+    normalized.includes('competences transversales')
+  );
+};
+
+/**
  * Get the level label for a badge series and level number
  * Returns the appropriate label based on the series, matching the logic used in BadgeAssignmentModal
- * 
+ *
  * @param series - The badge series name (exact database name)
  * @param levelNumber - The level number as a string ("1", "2", "3", "4")
  * @returns The formatted level label
@@ -9,8 +30,12 @@
 export const getLevelLabel = (series: string, levelNumber: string): string => {
   // Handle empty/null series
   if (!series) {
-    // Default to TouKouLeur labels as fallback
-    return getTouKouLeurLabel(levelNumber);
+    return getSoftSkillsLabel(levelNumber);
+  }
+
+  // Soft Skills: Découverte / Appropriation only (Patrick 29/09)
+  if (isSoftSkillsSeries(series)) {
+    return getSoftSkillsLabel(levelNumber);
   }
 
   // Série Parcours des possibles: "Niveau 1", "Niveau 2" (no suffix)
@@ -71,20 +96,19 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  // Série Soft Skills 4LAB (TouKouLeur): Default labels
-  // Also handles "Série TouKouLeur" and any other series as fallback
-  return getTouKouLeurLabel(levelNumber);
+  return getSoftSkillsLabel(levelNumber);
 };
 
 /**
- * Get TouKouLeur level labels (default/fallback)
+ * Soft Skills level labels (Découverte / Appropriation).
+ * L3/L4 labels kept only for legacy display of existing proofs — not offered for new awards.
  */
-const getTouKouLeurLabel = (levelNumber: string): string => {
+const getSoftSkillsLabel = (levelNumber: string): string => {
   switch (levelNumber) {
     case '1':
       return 'Niveau 1: Découverte';
     case '2':
-      return 'Niveau 2: Application';
+      return 'Niveau 2: Appropriation';
     case '3':
       return 'Niveau 3: Maîtrise';
     case '4':
@@ -93,6 +117,3 @@ const getTouKouLeurLabel = (levelNumber: string): string => {
       return `Niveau ${levelNumber}`;
   }
 };
-
-
-
