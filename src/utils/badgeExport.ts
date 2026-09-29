@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { Badge } from '../types';
 import { getLocalBadgeImage } from './badgeImages';
+import { isSoftSkillsSeries } from '../constants/badgeAxes';
 
 interface ExportFilters {
   series: string;
@@ -123,7 +124,7 @@ export const exportToPDF = async (
       const mapSeriesForDisplay = (series: string): string => {
         if (!series) return '';
         const lower = series.toLowerCase();
-        if (lower.includes('toukouleur') || lower.includes('universelle')) return 'Série Soft Skills 4LAB';
+        if (isSoftSkillsSeries(series) || lower.includes('universelle')) return 'Série Soft Skills 4LAB';
         return series;
       };
 
@@ -294,7 +295,7 @@ export const exportToCSV = (badges: Badge[], filters: ExportFilters): void => {
     
     // Helper function to map series name for display
     const mapSeriesForDisplay = (series: string): string => {
-      if (series.toLowerCase().includes('toukouleur') || series.toLowerCase().includes('universelle')) {
+      if (isSoftSkillsSeries(series) || series.toLowerCase().includes('universelle')) {
         return 'Série Soft Skills 4LAB';
       }
       return series;

@@ -30,11 +30,12 @@ export const useAuthInit = () => {
     const validPages: PageType[] = [
       "dashboard", "members", "events", "projects", /* "formations", */ "badges",
       "analytics", "network", "notifications", "settings",
-      "personal-settings", /* "pik", */
-      "membership-requests", "partnership-requests", "funder-attachments", "project-management",
+       /* "pik", */
+      "funder-attachments",
       /* "presence-session", "formation-detail", "formation-affiche", "preuve-formation", */
       "create", "project-space", "project-affiche", "funded-projects",
       /* "of-activation", "admin-of-queue", */
+      "personal-settings",
       "membership-requests", "partnership-requests", "project-management",
       "mes-enfants", "mes-parents"
     ];

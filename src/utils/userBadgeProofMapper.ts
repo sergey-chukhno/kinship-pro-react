@@ -1,4 +1,5 @@
 import { ProofData, TrustLevelKey } from '../types/proof';
+import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
 
 const TRUST_LEVELS: TrustLevelKey[] = [
   'INSTITUTIONAL',
@@ -37,6 +38,22 @@ function formatAwardedDate(value?: string | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** Type d'organisme émetteur, en clair — depuis organization.type (School/Company/
+ * IndependentTeacher, cf. UserBadgeSerializer#organization_display_hash côté back).
+ * Jamais de valeur inventée : null si le type n'est pas reconnu. */
+function formatOrgType(raw?: string | null): string | null {
+  switch (raw) {
+    case 'School':
+      return 'Établissement scolaire';
+    case 'Company':
+      return 'Entreprise';
+    case 'IndependentTeacher':
+      return 'Formateur indépendant';
+    default:
+      return null;
+  }
 }
 
 function resolveTrustLevel(raw?: string | null): TrustLevelKey {
@@ -118,8 +135,15 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
     senderInitials: initialsFromName(senderName),
     senderJob: sender.job ? String(sender.job) : null,
     senderOrg: organization.name ? String(organization.name) : null,
+    senderOrgType: formatOrgType(organization.type as string | undefined),
     senderCountryFlag: '🇫🇷',
-    qaLabel: organization.name ? String(organization.name) : 'Preuve Kinship',
+    // organization.quality_framework exposé depuis le 29/09 par organization_display_hash
+    // (/users/me/badges + listes schools/teachers/companies — confirmé par Sergey).
+    qaLabel: resolveQualityFrameworkLabel({
+      qualityFramework: organization.quality_framework as string | undefined,
+      organizationTrustLevel: organization.trust_level as string | undefined,
+      organizationName: organization.name as string | undefined,
+    }),
     authority: null,
     senderCivilErased: false,
     skills: Array.isArray(userBadge.skills_indicated)

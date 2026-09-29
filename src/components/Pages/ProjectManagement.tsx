@@ -10,6 +10,7 @@ import { useToast } from '../../hooks/useToast';
 import ShareProjectLinkModal from '../Modals/ShareProjectLinkModal';
 import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '../../utils/memberContextPayload';
@@ -3760,14 +3761,12 @@ const ProjectManagement: React.FC = () => {
   };
 
   const displaySeries = (seriesName: string) => {
-    return seriesName?.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
+    return isSoftSkillsSeries(seriesName) ? 'Série Soft Skills 4LAB' : seriesName;
   };
 
   // Map frontend series name to backend series name for API calls
   const mapSeriesToBackend = (frontendSeries: string): string => {
-    if (frontendSeries === 'Série Soft Skills 4LAB') {
-      return 'Série TouKouLeur'; // Exact database value with capital K and L
-    }
+    if (isSoftSkillsSeries(frontendSeries)) return SOFT_SKILLS_SERIES;
     return frontendSeries;
   };
 
@@ -6826,7 +6825,7 @@ const ProjectManagement: React.FC = () => {
                               </span>
                             )}
                             <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
-                              {attribution.badgeSeries || 'Série TouKouLeur'}
+                              {attribution.badgeSeries || 'Série Soft Skills 4LAB'}
                             </span>
                           </div>
                           <div className="badge-info">
@@ -7647,7 +7646,7 @@ const ProjectManagement: React.FC = () => {
                             )}
                             {/* Series pill - bottom right */}
                             <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
-                              {attribution.badgeSeries || 'Série TouKouLeur'}
+                              {attribution.badgeSeries || 'Série Soft Skills 4LAB'}
                             </span>
                           </div>
                           <div className="badge-info">

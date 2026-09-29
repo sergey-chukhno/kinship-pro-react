@@ -32,6 +32,7 @@ import {
   getUserDashboardStats
 } from '../../api/Dashboard';
 import { getUserBadges } from '../../api/Badges';
+import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
 import axiosClient from '../../api/config';
 import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
 import { OrganizationStatsResponse, PageType } from '../../types';
@@ -573,7 +574,7 @@ const Dashboard: React.FC = () => {
     if (state.showingPageType !== 'user') return;
     let cancelled = false;
     setUserBadgesForChartLoading(true);
-    getUserBadges(1, 500, { series: 'Série TouKouLeur' })
+    getUserBadges(1, 500, { series: SOFT_SKILLS_SERIES })
       .then((res) => { if (!cancelled) setUserBadgesForChart(Array.isArray(res.data) ? res.data : []); })
       .catch(() => { if (!cancelled) setUserBadgesForChart([]); })
       .finally(() => { if (!cancelled) setUserBadgesForChartLoading(false); });
@@ -1531,6 +1532,39 @@ const Dashboard: React.FC = () => {
         {isUnder15(state.user?.birthday) && (
           <div className="checkin-alert" style={{ margin: '0 0 1rem', backgroundColor: '#e0f2fe', borderColor: '#0ea5e9', color: '#0c4a6e' }}>
             Vous avez moins de 15 ans. Votre compte dispose de fonctionnalités limitées. Vous pouvez toutefois participer aux projets de vos établissements ou organisations et recevoir des preuves de compétences.
+          </div>
+        )}
+        {FEATURE_PIK_REMISE && showPikEncart && (
+          <div
+            className="checkin-alert"
+            style={{
+              margin: '0 0 1rem',
+              backgroundColor: '#fff8ec',
+              border: '1px dashed #FFB557',
+              color: '#7a4a06',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <strong>Votre clé personnelle vous attend</strong>
+              <div style={{ fontSize: '0.9rem', marginTop: 4 }}>
+                Affichez-la une seule fois dans vos paramètres — Kinship ne pourra plus vous la réafficher ensuite.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                sessionStorage.setItem('openPersonalKeyTab', '1');
+                setCurrentPage('personal-settings');
+              }}
+            >
+              Prendre ma clé
+            </button>
           </div>
         )}
         {FEATURE_PIK_REMISE && showPikEncart && (

@@ -52,6 +52,8 @@ export interface ProofData {
   senderInitials: string;
   senderJob: string | null;
   senderOrg: string | null;
+  /** Type d'organisme émetteur, en clair (« Établissement scolaire », « Entreprise »…) — depuis organization.type (School/Company/IndependentTeacher), jamais inventé. */
+  senderOrgType: string | null;
   senderCountryFlag: string;
   qaLabel: string;
   authority: ProofAuthority | null;

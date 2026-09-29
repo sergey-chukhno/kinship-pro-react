@@ -6,6 +6,7 @@ import { getSchoolMembersAccepted } from '../../api/SchoolDashboard/Members';
 import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Members';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { displaySeries } from '../../utils/badgeMapper';
+import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
 import './Analytics.css';
 
 const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
@@ -68,19 +69,19 @@ const Analytics: React.FC = () => {
   const [loadingSeriesChart, setLoadingSeriesChart] = useState(false);
 
   // Attributions mensuelles: filters Par série + Par projet
-  const [selectedSeriesMonthlyChart, setSelectedSeriesMonthlyChart] = useState<string>('Série TouKouLeur');
+  const [selectedSeriesMonthlyChart, setSelectedSeriesMonthlyChart] = useState<string>(SOFT_SKILLS_SERIES);
   const [selectedProjectIdMonthlyChart, setSelectedProjectIdMonthlyChart] = useState<string>('');
   const [assignedBadgesMonthlyChart, setAssignedBadgesMonthlyChart] = useState<any[]>([]);
   const [loadingMonthlyChart, setLoadingMonthlyChart] = useState(false);
 
   // Tendances d'attribution: filters Par série + Par projet
-  const [selectedSeriesTrendChart, setSelectedSeriesTrendChart] = useState<string>('Série TouKouLeur');
+  const [selectedSeriesTrendChart, setSelectedSeriesTrendChart] = useState<string>(SOFT_SKILLS_SERIES);
   const [selectedProjectIdTrendChart, setSelectedProjectIdTrendChart] = useState<string>('');
   const [assignedBadgesTrendChart, setAssignedBadgesTrendChart] = useState<any[]>([]);
   const [loadingTrendChart, setLoadingTrendChart] = useState(false);
 
   // Compétences par niveau: filters Par série + Par projet
-  const [selectedSeries, setSelectedSeries] = useState<string>('Série TouKouLeur');
+  const [selectedSeries, setSelectedSeries] = useState<string>(SOFT_SKILLS_SERIES);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [assignedBadgesRaw, setAssignedBadgesRaw] = useState<any[]>([]);
   const [loadingAssignedBadges, setLoadingAssignedBadges] = useState(false);

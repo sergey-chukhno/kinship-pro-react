@@ -1,5 +1,6 @@
 import { BadgeProofApiResponse } from '../types/badgeProofApi';
 import { ProofData, TrustLevelKey } from '../types/proof';
+import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
 
 const IDENTITY_MASKED = 'Identité masquée';
 const CIVIL_ERASED = 'Données civiles effacées';
@@ -13,15 +14,6 @@ const TRUST_LEVELS: TrustLevelKey[] = [
   'VERIFIED',
   'STANDARD',
 ];
-
-const QA_LABELS: Record<string, string> = {
-  public_authority: '⬡ Accréditation publique',
-  diploma_accreditation: '⬡ Accréditation diplômante',
-  enhanced_external: '⬡ Partenaire stratégique',
-  state_supervised: 'Établissement scolaire',
-  external_audit: 'Certifié par audit externe',
-  internal_qa: 'Qualité interne vérifiée',
-};
 
 const COUNTRY_FLAGS: Record<string, string> = {
   FR: '🇫🇷',
@@ -94,10 +86,11 @@ function resolveTrustLevel(api: BadgeProofApiResponse): TrustLevelKey {
 }
 
 function resolveQaLabel(api: BadgeProofApiResponse): string {
-  const qaType = api.qa_type ?? api.series_authority_qa_type ?? '';
-  if (qaType && QA_LABELS[qaType]) return QA_LABELS[qaType];
-  const org = api.organization_name?.trim();
-  return org ? `Émis par ${org}` : 'Preuve Kinship';
+  return resolveQualityFrameworkLabel({
+    qualityFramework: api.quality_framework,
+    organizationTrustLevel: api.organization_trust_level,
+    organizationName: api.organization_name,
+  });
 }
 
 function resolveBadgeIcon(title?: string | null): string {
@@ -183,6 +176,8 @@ export function mapProofApiToProofData(
     senderInitials: senderCivilErased ? '—' : initialsFromName(senderName),
     senderJob: api.sender_job ?? null,
     senderOrg: api.organization_name ?? null,
+    // Pas de type d'organisme dans cette réponse API (page publique /pb/) — jamais inventé.
+    senderOrgType: null,
     senderCountryFlag: COUNTRY_FLAGS[countryCode] ?? '🏳️',
     qaLabel: resolveQaLabel(api),
     authority: null,

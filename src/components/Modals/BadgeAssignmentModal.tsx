@@ -3,6 +3,7 @@ import {
   isMetiersDeLaMerSeries,
   isSeriesWithAxesCompetenceSelection,
 } from '../../utils/badgeAssignmentCompetenceSelection';
+import { isSoftSkillsSeries } from '../../constants/badgeAxes';
 import { validateAxesSeriesCompetencies } from '../../utils/badgeAssignmentValidation';
 
 // Validation rules for level 1 badges (exported for BadgeExplorer)
@@ -527,7 +528,7 @@ const validateCompetencies = (
   }
 
   const isParcoursProfessionnel = badge.series === 'Série Parcours professionnel';
-  const isTouKouLeurLevel2 = badge.series === 'Série TouKouLeur' && badge.level === 'level_2';
+  const isTouKouLeurLevel2 = isSoftSkillsSeries(badge.series) && badge.level === 'level_2';
   const shouldValidate = badge.level === 'level_1' || 
                          (badge.level === 'level_2' && (badge.series === 'Série Parcours des possibles' || badge.series === 'Série Audiovisuelle')) ||
                          isParcoursProfessionnel ||

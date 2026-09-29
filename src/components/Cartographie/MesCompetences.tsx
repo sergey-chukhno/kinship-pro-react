@@ -8,9 +8,12 @@ import {
 import { getAxeColor, displayAxeTitle, displayCompetenceName } from '../../constants/cartographieColors';
 import { displaySeries } from '../../utils/badgeMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
-import CompetenceRing, { RingNiveau } from './CompetenceRing';
+import { RingNiveau } from './CompetenceRing';
 import CompetenceIcon, { hasCompetenceIcon } from './CompetenceIcon';
 import CompetenceDetail from './CompetenceDetail';
+import ProofCardCarto from './ProofCardCarto';
+import { mapUserBadgeToProofData } from '../../utils/userBadgeProofMapper';
+import { CompetenceEntry } from './cartographieTypes';
 import './Cartographie.css';
 
 const LEVEL_ORDER = ['level_1', 'level_2', 'level_3', 'level_4'];
@@ -22,22 +25,14 @@ const competenceImage = (c: CompetenceEntry): string | undefined => {
   return row.image_url || getLocalBadgeImage(row.name, row.level, row.series);
 };
 
-export interface CompetenceEntry {
-  name: string;
-  axeTitle: string | null;
-  levels: BadgeAPI[];
-  niveaux: RingNiveau[];
-  litCount: number;
-  totalCount: number;
-  everCompleted: boolean;
-}
-
 /**
  * Écran "Mes compétences" — cartographie V1.1 (spec §3/§8).
  * Bandeau de séries en haut, compétences groupées par axe en dessous (à plat
- * pour une série sans axe). Chaque compétence = un CompetenceRing construit à
- * partir de vraies données (catalogue via getBadges + preuves via getUserBadges),
- * jamais de données statiques.
+ * pour une série sans axe). Chaque compétence = une carte Preuve Kinship
+ * (ProofCardCarto, sur la preuve la plus récente) construite à partir de
+ * vraies données (catalogue via getBadges + preuves via getUserBadges),
+ * jamais de données statiques ; le catalogue (aucune preuve) garde un
+ * état vide dédié.
  */
 const MesCompetences: React.FC = () => {
   const [series, setSeries] = useState<string>(CARTOGRAPHIE_V1_1_SERIES[0]);
@@ -99,6 +94,18 @@ const MesCompetences: React.FC = () => {
       });
       const totalCount = niveaux.reduce((s, n) => s + n.items.length, 0);
       const litCount = niveaux.reduce((s, n) => s + n.items.filter((i) => i.lit).length, 0);
+      // Preuve la plus récente, toutes preuves de la compétence confondues (peu
+      // importe l'item précis) — sert de vraie carte Preuve Kinship pour la tuile.
+      const rowIds = new Set(sorted.map((row) => row.id));
+      const myRecords = userBadges.filter((ub: any) => rowIds.has(ub?.badge?.id));
+      const latestProof =
+        myRecords.length === 0
+          ? null
+          : myRecords.reduce((latest: any, ub: any) => {
+              const latestDate = new Date(latest.assigned_at || latest.created_at || 0).getTime();
+              const ubDate = new Date(ub.assigned_at || ub.created_at || 0).getTime();
+              return ubDate > latestDate ? ub : latest;
+            }, myRecords[0]);
       entries.push({
         name,
         axeTitle: axeForName(name),
@@ -107,6 +114,7 @@ const MesCompetences: React.FC = () => {
         litCount,
         totalCount,
         everCompleted: totalCount > 0 && litCount === totalCount,
+        latestProof,
       });
     });
     return entries.sort((a, b) => a.name.localeCompare(b.name));
@@ -172,38 +180,42 @@ const MesCompetences: React.FC = () => {
                   {displayAxeTitle(group.title)}
                 </h3>
               )}
-              <div className="carto-ring-grid">
+              <div className="carto-ring-grid carto-ring-grid-proof">
                 {group.items.map((c) => (
                   <button
                     key={c.name}
                     type="button"
-                    className="carto-ring-tile"
+                    className="carto-ring-tile carto-ring-tile-proof"
                     onClick={() => setOpenCompetence(c)}
                   >
-                    <CompetenceRing
-                      niveaux={c.niveaux}
-                      axeColor={getAxeColor(c.axeTitle)}
-                      size={120}
-                      showThread={c.everCompleted}
-                      title={displayCompetenceName(c.name)}
-                      centerIcon={
-                        hasCompetenceIcon(displayCompetenceName(c.name)) ? (
-                          <CompetenceIcon name={displayCompetenceName(c.name)} />
-                        ) : competenceImage(c) ? (
-                          <img src={competenceImage(c)} alt="" className="carto-ring-center-image" />
-                        ) : undefined
-                      }
-                    />
-                    <span className="carto-ring-tile-name">{displayCompetenceName(c.name)}</span>
-                    {c.totalCount > 0 && (
-                      <>
-                        <hr className="carto-ring-tile-divider" />
-                        <span className="carto-ring-tile-caption">
-                          {c.litCount > 0
-                            ? `${c.litCount} sur ${c.totalCount}`
-                            : `${c.totalCount} item${c.totalCount > 1 ? 's' : ''}`}
-                        </span>
-                      </>
+                    {c.latestProof ? (
+                      <ProofCardCarto
+                        proof={mapUserBadgeToProofData(c.latestProof)}
+                        axeColor={getAxeColor(c.axeTitle)}
+                      />
+                    ) : (
+                      <div className="carto-proof-card carto-proof-card-empty">
+                        <div className="carto-proof-band carto-proof-band-empty">Preuve Kinship · Compétence</div>
+                        <div className="carto-proof-body">
+                          <div className="carto-proof-title">{displayCompetenceName(c.name)}</div>
+                          <div className="carto-proof-orgtype carto-proof-orgtype-empty">Pas encore constatée</div>
+                          <hr className="carto-proof-hr" />
+                          <div className="carto-proof-context">
+                            <div className="carto-proof-icon" style={{ background: `${getAxeColor(c.axeTitle)}20` }}>
+                              {hasCompetenceIcon(displayCompetenceName(c.name)) ? (
+                                <CompetenceIcon name={displayCompetenceName(c.name)} size={20} />
+                              ) : competenceImage(c) ? (
+                                <img src={competenceImage(c)} alt="" className="carto-ring-center-image" />
+                              ) : null}
+                            </div>
+                            <div className="carto-proof-context-text">
+                              <div className="carto-proof-project">
+                                {c.totalCount} item{c.totalCount > 1 ? 's' : ''}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </button>
                 ))}

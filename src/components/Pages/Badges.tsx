@@ -21,7 +21,7 @@ import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
-import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import { isSeriesWithCompetenceProgress, isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
 import './Analytics.css';
 import './Badges.css';
 
@@ -40,7 +40,7 @@ const Badges: React.FC = () => {
   // Store raw badge data to access badge IDs
   const [rawBadgeData, setRawBadgeData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSeries, setSelectedSeries] = useState('Série TouKouLeur');
+  const [selectedSeries, setSelectedSeries] = useState(SOFT_SKILLS_SERIES);
   const [selectedLevel, setSelectedLevel] = useState('');
   const [activeTab, setActiveTab] = useState<'cartography' | 'explorer'>('cartography');
 
@@ -48,7 +48,7 @@ const Badges: React.FC = () => {
   const [userMainTab, setUserMainTab] = useState<'cartography' | 'statistics'>('cartography');
   const [cartoSubView, setCartoSubView] = useState<'mine' | 'catalogue'>('mine');
   // Mes statistiques: Compétences par niveau
-  const [selectedSeriesStats, setSelectedSeriesStats] = useState<string>('Série TouKouLeur');
+  const [selectedSeriesStats, setSelectedSeriesStats] = useState<string>(SOFT_SKILLS_SERIES);
   const [selectedProjectIdStats, setSelectedProjectIdStats] = useState<string>('');
   const [userBadgesForChart, setUserBadgesForChart] = useState<any[]>([]);
   const [loadingUserBadgesForChart, setLoadingUserBadgesForChart] = useState(false);
@@ -193,7 +193,7 @@ const Badges: React.FC = () => {
         setSelectedSeries((prev) => {
           if (sorted.length === 0) return prev;
           if (sorted.includes(prev)) return prev;
-          return sorted.includes('Série TouKouLeur') ? 'Série TouKouLeur' : sorted[0];
+          return sorted.find(isSoftSkillsSeries) ?? sorted[0];
         });
       } catch (e) {
         console.error('Error fetching cartography series options', e);
@@ -379,7 +379,7 @@ const Badges: React.FC = () => {
     ];
   };
 
-  const sections = getSections(selectedSeries || 'Série TouKouLeur');
+  const sections = getSections(selectedSeries || SOFT_SKILLS_SERIES);
 
   // For personal user + series with competence progress: aggregate by (name, level), full vs received competencies
   const competencesOrienterProgressByLevel = useMemo(() => {
@@ -507,7 +507,7 @@ const Badges: React.FC = () => {
                   onChange={(e) => setSelectedSeriesStats(e.target.value)}
                   disabled={loadingSeriesStats}
                 >
-                  {badgeSeriesOptionsStats.length === 0 && <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>}
+                  {badgeSeriesOptionsStats.length === 0 && <option value={SOFT_SKILLS_SERIES}>Série Soft Skills 4LAB</option>}
                   {badgeSeriesOptionsStats.map((s) => (
                     <option key={s} value={s}>{displaySeries(s)}</option>
                   ))}
@@ -617,7 +617,7 @@ const Badges: React.FC = () => {
                       )}
                       {!loadingCartographySeries && cartographySeriesOptions.length === 0 && (
                         <>
-                          <option value="Série TouKouLeur">Série Soft Skills 4LAB</option>
+                          <option value={SOFT_SKILLS_SERIES}>Série Soft Skills 4LAB</option>
                           <option value="Série Parcours des possibles">Série Parcours des possibles</option>
                           <option value="Série Audiovisuelle">Série Audiovisuelle</option>
                           <option value="Série Parcours professionnel">Série Parcours professionnel</option>

@@ -3,6 +3,7 @@ import { getBadges } from '../../api/Badges';
 import {
   COMPETENCES_ORIENTER_COLLEGE_SERIES,
   METIERS_DE_LA_MER_SERIES,
+  SOFT_SKILLS_SERIES,
   getAxesForSeries,
   getMetiersMerBadgesWithLevel
 } from '../../constants/badgeAxes';
@@ -68,7 +69,7 @@ export { COMPETENCES_ORIENTER_COLLEGE_SERIES };
 
 // Representative badge (name, level) per series dbName for series icon on parcours-detail view
 const SERIES_REPRESENTATIVE_BADGE: Record<string, { name: string; level: string }> = {
-  'Série TouKouLeur': { name: 'Adaptabilité', level: '1' },
+  [SOFT_SKILLS_SERIES]: { name: 'Adaptabilité', level: '1' },
   'Série Parcours des possibles': { name: 'Étape 1 : IMPLICATION INITIALE', level: '1' },
   'Série Parcours professionnel': { name: 'PARCOURS DE DÉCOUVERTE - COLLÈGE', level: '1' },
   'Série Audiovisuelle': { name: 'IMAGE', level: '1' },
@@ -88,7 +89,7 @@ const PARCOURS: Parcours[] = [
     series: [
       {
         displayName: 'Série Soft Skills 4LAB',
-        dbName: 'Série TouKouLeur',
+        dbName: SOFT_SKILLS_SERIES,
         comingSoon: false,
         description: "Les badges de la série Soft Skills 4LAB reconnaissent et valorisent les compétences transversales mobilisées par les jeunes dans le cadre de projets individuels ou collectifs (coopération, communication, créativité, engagement, gestion de projet...)"
       }

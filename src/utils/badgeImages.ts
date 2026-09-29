@@ -1,5 +1,6 @@
 import { COMPETENCE_ICONS } from '../constants/competenceIcons';
 import { displayCompetenceName } from '../constants/cartographieColors';
+import { isSoftSkillsSeries } from '../constants/badgeAxes';
 
 // Local mapping of badge names and levels to existing static assets.
 // This preserves previous visuals while backend does not yet provide image URLs.
@@ -270,8 +271,9 @@ export const getLocalBadgeImage = (
   }
 
   // Check level-specific mapping first (for badges with same name at different levels)
-  if (badgeLevel && badgeSeries && badgeImagesByLevel[badgeSeries]?.[badgeName]?.[badgeLevel]) {
-    return badgeImagesByLevel[badgeSeries][badgeName][badgeLevel] as string;
+  const seriesKey = isSoftSkillsSeries(badgeSeries) ? 'Série TouKouLeur' : badgeSeries;
+  if (badgeLevel && seriesKey && badgeImagesByLevel[seriesKey]?.[badgeName]?.[badgeLevel]) {
+    return badgeImagesByLevel[seriesKey][badgeName][badgeLevel] as string;
   }
   
   // Fallback to name-only mapping

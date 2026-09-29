@@ -21,6 +21,7 @@ import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { useToast } from '../../hooks/useToast';
 import { getBadgeCompetencies } from './BadgeAssignmentModal';
+import { isSoftSkillsSeries } from '../../constants/badgeAxes';
 
 interface EventModalProps {
   event?: Event | null;
@@ -94,7 +95,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
   const [groupDetailPopup, setGroupDetailPopup] = useState<{ groupId: string; groupName: string } | null>(null);
   const [isLoadingGroupMembers, setIsLoadingGroupMembers] = useState(false);
   const displaySeries = useCallback((seriesName: string) => {
-    return seriesName.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
+    return isSoftSkillsSeries(seriesName) ? 'Série Soft Skills 4LAB' : seriesName;
   }, []);
 
   const badgesBySeries = useMemo(() => {

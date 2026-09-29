@@ -5,6 +5,18 @@
 
 export const METIERS_DE_LA_MER_SERIES = "Série Métiers de la mer";
 export const COMPETENCES_ORIENTER_COLLEGE_SERIES = "Série Compétences à s'orienter - Collège";
+/** Nom encore en base. Affichage : Soft Skills 4LAB. Après le rake de rename, passer à « Compétences transversales (soft skills) ». */
+export const SOFT_SKILLS_SERIES = "Série TouKouLeur";
+
+export function isSoftSkillsSeries(seriesName?: string | null): boolean {
+  const n = (seriesName || "").toLowerCase();
+  return (
+    n.includes("toukouleur") ||
+    n.includes("4lab") ||
+    n.includes("compétences transversales") ||
+    n.includes("competences transversales")
+  );
+}
 
 /** One axis: title (for dropdown/label) and list of badge names belonging to that axis */
 export interface BadgeAxe {
@@ -141,7 +153,7 @@ export function getMetiersMerBadgesWithLevel(): MetiersMerBadgeDef[] {
 // qui correspond exactement au total annoncé). PAS vérifiés directement contre la base de données
 // (accès DB indisponible pour cette passe) — à confirmer avec Fatima ; une compétence dont le nom ne
 // matche aucune liste ci-dessous tombe dans un groupe "Non classé" plutôt que d'être mal affectée.
-export const TOUKOULEUR_SERIES = "Série TouKouLeur";
+export const TOUKOULEUR_SERIES = SOFT_SKILLS_SERIES;
 
 const TOUKOULEUR_AXE_RELATIONNEL_TITLE = "Relationnel";
 const TOUKOULEUR_AXE_PERSONNEL_TITLE = "Personnel";
@@ -204,7 +216,7 @@ export function getNiveauWordForSeries(seriesName: string): string {
  * Retourne [] pour une série sans axe (ex. une série non listée ici).
  */
 export function getCartographieAxesForSeries(seriesName: string): BadgeAxe[] {
-  if (seriesName === TOUKOULEUR_SERIES) return TOUKOULEUR_AXES;
+  if (isSoftSkillsSeries(seriesName)) return TOUKOULEUR_AXES;
   if (seriesName === PSYCHOSOCIALES_SERIES) return CPS_AXES;
   return getAxesForSeries(seriesName);
 }

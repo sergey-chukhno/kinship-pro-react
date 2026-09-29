@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import CompetenceRing from './CompetenceRing';
 import CompetenceIcon, { hasCompetenceIcon } from './CompetenceIcon';
-import { CompetenceEntry } from './MesCompetences';
+import { CompetenceEntry } from './cartographieTypes';
 import { displayCompetenceName } from '../../constants/cartographieColors';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { getNiveauWordForSeries } from '../../constants/badgeAxes';
@@ -50,23 +50,34 @@ const CompetenceDetail: React.FC<Props> = ({ competence, axeColor, series, userB
     return row.image_url || getLocalBadgeImage(row.name, row.level, row.series);
   }, [competence]);
 
+  // Une situation = un projet + un adulte (« Un même projet compte pour une
+  // situation, même avec plusieurs constats ; deux adultes différents, deux
+  // situations » — spec cartographie V1.1 §4/§7).
   const historyForItem = useMemo(() => {
     if (!openItem) return [] as HistoryEntry[];
     const rowIds = new Set(competence.levels.map((l) => l.id));
     const matches = userBadges.filter(
       (ub: any) => rowIds.has(ub?.badge?.id) && (ub.skills_indicated || []).includes(openItem.name)
     );
-    const byProject = new Map<string, HistoryEntry>();
+    const bySituation = new Map<string, HistoryEntry>();
     matches.forEach((ub: any) => {
-      const key = ub.project?.title || 'Sans projet';
-      if (!byProject.has(key)) {
-        byProject.set(key, { projectTitle: key, senderName: ub.sender?.full_name || '—', constats: [] });
+      const projectTitle = ub.project?.title || 'Sans projet';
+      const senderName = ub.sender?.full_name || '—';
+      const senderKey = ub.sender?.id ?? senderName;
+      const key = `${projectTitle}__${senderKey}`;
+      if (!bySituation.has(key)) {
+        bySituation.set(key, { projectTitle, senderName, constats: [] });
       }
       const comment = typeof ub.comment === 'string' ? ub.comment.trim() : '';
-      byProject.get(key)!.constats.push({ date: formatDate(ub.created_at), comment: comment || null });
+      bySituation.get(key)!.constats.push({
+        date: formatDate(ub.assigned_at || ub.created_at),
+        comment: comment || null,
+      });
     });
-    return Array.from(byProject.values());
+    return Array.from(bySituation.values());
   }, [openItem, competence, userBadges]);
+
+  const situationCount = historyForItem.length;
 
   return (
     <div className="carto-detail-overlay" onClick={onClose}>
@@ -126,13 +137,20 @@ const CompetenceDetail: React.FC<Props> = ({ competence, axeColor, series, userB
               <button type="button" className="carto-detail-close" onClick={() => setOpenItem(null)} aria-label="Fermer">
                 <i className="fas fa-times"></i>
               </button>
-              <h3>{openItem.name}</h3>
+              <h3 className="carto-history-title">
+                {openItem.name}
+                {situationCount > 0 && (
+                  <span className="carto-history-badge">
+                    constaté dans {situationCount} situation{situationCount > 1 ? 's' : ''}
+                  </span>
+                )}
+              </h3>
               {historyForItem.length === 0 ? (
                 <p>Aucune preuve de compétences trouvée pour cet item.</p>
               ) : (
                 <ul className="carto-history-list">
                   {historyForItem.map((h) => (
-                    <li key={h.projectTitle}>
+                    <li key={`${h.projectTitle}__${h.senderName}`}>
                       <div className="carto-history-project">{h.projectTitle}</div>
                       <div className="carto-history-meta">par {h.senderName}</div>
                       <ul className="carto-history-constats">
@@ -148,7 +166,9 @@ const CompetenceDetail: React.FC<Props> = ({ competence, axeColor, series, userB
                 </ul>
               )}
               <p className="carto-history-note">
-                Chaque constat est une preuve de compétences — elle est dans « Mes preuves ».
+                Un même projet compte pour une situation, même avec plusieurs constats ; deux adultes
+                différents, deux situations. Chaque constat est une preuve de compétences — elle est dans
+                « Mes preuves ». Jamais de note, jamais de moyenne.
               </p>
             </div>
           </div>

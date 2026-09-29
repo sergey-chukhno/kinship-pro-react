@@ -8,7 +8,7 @@ import { getLocalBadgeImage } from '../../utils/badgeImages';
 import CompetenceRing, { RingNiveau } from './CompetenceRing';
 import CompetenceIcon, { hasCompetenceIcon } from './CompetenceIcon';
 import CompetenceDetail from './CompetenceDetail';
-import { CompetenceEntry } from './MesCompetences';
+import { CompetenceEntry } from './cartographieTypes';
 import './Cartographie.css';
 
 const LEVEL_ORDER = ['level_1', 'level_2', 'level_3', 'level_4'];
@@ -50,6 +50,7 @@ const buildEntries = (catalogue: BadgeAPI[], series: string): CompetenceEntry[] 
       litCount: 0,
       totalCount,
       everCompleted: false,
+      latestProof: null,
     });
   });
   return entries.sort((a, b) => a.name.localeCompare(b.name));

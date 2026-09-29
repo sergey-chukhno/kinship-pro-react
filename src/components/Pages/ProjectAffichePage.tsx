@@ -1707,7 +1707,9 @@ const ProjectAffichePage: React.FC = () => {
                         const date = b.assigned_at ? formatFrDate(String(b.assigned_at).slice(0, 10)) : '—';
                         return (
                           <button key={b.id} type="button" className="pa-pbcard" onClick={() => openProof(b)}>
-                            <div className="pa-pbhead" style={{ background: seriesColor(String(series)) }}>{String(series).toUpperCase()}</div>
+                            <div className="pa-pbhead" style={{ background: seriesColor(String(series)) }}>
+                              <span className="pa-pbhead-text">{String(series).toUpperCase()}</span>
+                            </div>
                             <div className="pa-pbbody">
                               <div className="pa-pbt">{title}</div>
                               <div className="pa-pbrow">

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BadgeAttribution, BadgeAPI } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
-import { isSeriesWithAxes, getAxesForSeries, getBadgeNamesForAxe } from '../../constants/badgeAxes';
+import { isSeriesWithAxes, getAxesForSeries, getBadgeNamesForAxe, isSoftSkillsSeries } from '../../constants/badgeAxes';
 import { isSingleSelectCompetenceSeries } from '../../utils/badgeAssignmentCompetenceSelection';
 import { useToast } from '../../hooks/useToast';
 import apiClient from '../../api/config';
@@ -93,13 +93,13 @@ const seriesProvenance = (series: string): 'own' | 'catalogue' => {
 
 const commentRequiredFor = (badge: BadgeAPI): boolean => {
   if (badge.series === 'Série Audiovisuelle' && (badge.level === 'level_3' || badge.level === 'level_4')) return true;
-  if (badge.series === 'Série TouKouLeur' && badge.level === 'level_3') return true;
+  if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3') return true;
   return badge.level === 'level_2';
 };
 
 const documentRequiredFor = (badge: BadgeAPI): boolean => {
   if (badge.series === 'Série Audiovisuelle' && (badge.level === 'level_3' || badge.level === 'level_4')) return true;
-  if (badge.series === 'Série TouKouLeur' && badge.level === 'level_3') return true;
+  if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3') return true;
   return false;
 };
 
@@ -147,7 +147,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   const [activeParticipantId, setActiveParticipantId] = useState<string | null>(null);
 
   const displaySeries = useCallback((seriesName: string) => {
-    return seriesName.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
+    return isSoftSkillsSeries(seriesName) ? 'Série Soft Skills 4LAB' : seriesName;
   }, []);
 
   useEffect(() => {
@@ -634,7 +634,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               showWarningToast(`Le commentaire est obligatoire pour ${pLabel}`);
               return;
             }
-            if (badge.series === 'Série TouKouLeur' && badge.level === 'level_3' && text.length < 100) {
+            if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3' && text.length < 100) {
               showWarningToast('Le commentaire doit contenir au moins 100 caractères pour le niveau 3 de la Série Soft Skills 4LAB');
               return;
             }
@@ -663,7 +663,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
           showWarningToast(`Le commentaire est obligatoire pour ${getBadgeDisplayName(draft.name)}`);
           return;
         }
-        if (badge.series === 'Série TouKouLeur' && badge.level === 'level_3' && text.length < 100) {
+        if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3' && text.length < 100) {
           showWarningToast('Le commentaire doit contenir au moins 100 caractères pour le niveau 3 de la Série Soft Skills 4LAB');
           return;
         }
@@ -1506,7 +1506,8 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               </div>
             )}
             <div>
-              <b>Selon</b>{' '}
+              {/* V1.2 (28/09, mail Patrick) : "Constaté pendant" au lieu de "Selon" — récap écran 6. */}
+              <b>Constaté pendant</b>{' '}
               {selon === 'event' && eventId
                 ? `un événement « ${projectEvents.find((e) => e.id === eventId)?.title || ''} »`
                 : `le projet « ${projectTitle || 'Projet'} »`}
