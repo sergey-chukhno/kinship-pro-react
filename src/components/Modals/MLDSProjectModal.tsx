@@ -1761,7 +1761,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                     <ul>
                       <li>voir le projet dans leur profil</li>
                       <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
-                      <li>attribuer des badges</li>
+                      <li>attribuer des preuves</li>
                       <li>faire des équipes et donner des rôles dans équipe</li>
                       <li>plus tard attribuer des tâches (Kanban)</li>
                     </ul>
@@ -1916,7 +1916,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                   <div className="info-tooltip">
                     <div style={{ fontWeight: '600', marginBottom: '8px' }}>Compétences développées par l'action :</div>
                     <ul>
-                      <li>Les compétences que vous décrivez ici seront traduites en badges Kinship
+                      <li>Les compétences que vous décrivez ici seront traduites en preuves de compétences Kinship
                         attribués aux élèves participants. Elles apparaîtront dans les Stats &amp; KPI de votre
                         action.</li>
                     </ul>

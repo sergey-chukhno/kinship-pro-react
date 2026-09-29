@@ -47,7 +47,7 @@ const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
         setBadges(eventBadges);
       } catch (error) {
         console.error('Error fetching badges:', error);
-        showError('Erreur lors du chargement des badges');
+        showError('Erreur lors du chargement des preuves de compétences');
       } finally {
         setLoadingBadges(false);
       }
@@ -228,7 +228,7 @@ const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
       if (badge && requiresProof(badge)) {
         const proofFile = getProofFile(participantId, badgeId);
         if (!proofFile) {
-          showError(`Une preuve est requise pour le badge "${badge.name}" (${badge.level.replace('level_', 'Niveau ')})`);
+          showError(`Une preuve est requise pour la preuve de compétences "${badge.name}" (${badge.level.replace('level_', 'Niveau ')})`);
           return;
         }
       }
@@ -268,7 +268,7 @@ const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
 
         <div className="modal-body">
           <p style={{ marginBottom: '1.5rem', color: '#6b7280' }}>
-            Sélectionnez les badges à attribuer aux participants pour cet événement.
+            Sélectionnez les preuves de compétences à attribuer aux participants pour cet événement.
           </p>
 
           {/* Badges selection for all participants */}
@@ -362,12 +362,12 @@ const EventCompleteModal: React.FC<EventCompleteModalProps> = ({
           {loadingBadges ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>
               <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: '#5570F1' }}></i>
-              <p>Chargement des badges...</p>
+              <p>Chargement des preuves de compétences...</p>
             </div>
           ) : badges.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
               <i className="fas fa-info-circle" style={{ fontSize: '2rem', marginBottom: '1rem' }}></i>
-              <p>Aucun badge associé à cet événement.</p>
+              <p>Aucune preuve de compétences associée à cet événement.</p>
             </div>
           ) : participants.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>

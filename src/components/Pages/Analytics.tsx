@@ -6,6 +6,7 @@ import { getSchoolMembersAccepted } from '../../api/SchoolDashboard/Members';
 import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Members';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { displaySeries } from '../../utils/badgeMapper';
+import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
 import './Analytics.css';
 
 const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
@@ -68,19 +69,19 @@ const Analytics: React.FC = () => {
   const [loadingSeriesChart, setLoadingSeriesChart] = useState(false);
 
   // Attributions mensuelles: filters Par série + Par projet
-  const [selectedSeriesMonthlyChart, setSelectedSeriesMonthlyChart] = useState<string>('Série TouKouLeur');
+  const [selectedSeriesMonthlyChart, setSelectedSeriesMonthlyChart] = useState<string>(SOFT_SKILLS_SERIES);
   const [selectedProjectIdMonthlyChart, setSelectedProjectIdMonthlyChart] = useState<string>('');
   const [assignedBadgesMonthlyChart, setAssignedBadgesMonthlyChart] = useState<any[]>([]);
   const [loadingMonthlyChart, setLoadingMonthlyChart] = useState(false);
 
   // Tendances d'attribution: filters Par série + Par projet
-  const [selectedSeriesTrendChart, setSelectedSeriesTrendChart] = useState<string>('Série TouKouLeur');
+  const [selectedSeriesTrendChart, setSelectedSeriesTrendChart] = useState<string>(SOFT_SKILLS_SERIES);
   const [selectedProjectIdTrendChart, setSelectedProjectIdTrendChart] = useState<string>('');
   const [assignedBadgesTrendChart, setAssignedBadgesTrendChart] = useState<any[]>([]);
   const [loadingTrendChart, setLoadingTrendChart] = useState(false);
 
   // Compétences par niveau: filters Par série + Par projet
-  const [selectedSeries, setSelectedSeries] = useState<string>('Série TouKouLeur');
+  const [selectedSeries, setSelectedSeries] = useState<string>(SOFT_SKILLS_SERIES);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [assignedBadgesRaw, setAssignedBadgesRaw] = useState<any[]>([]);
   const [loadingAssignedBadges, setLoadingAssignedBadges] = useState(false);
@@ -888,7 +889,7 @@ const Analytics: React.FC = () => {
             className={`tab-button ${activeTab === 'badges' ? 'active' : ''}`}
             onClick={() => setActiveTab('badges')}
           >
-            Badges
+            Preuves
           </button>
           <button
             className={`tab-button ${activeTab === 'projects' ? 'active' : ''}`}
@@ -975,7 +976,7 @@ const Analytics: React.FC = () => {
               ) : (
                 <>
               <StatCard
-                title="Badges totaux"
+                title="Preuves de compétences totales"
                     value={totalBadges}
                     subtitle={`${totalBadges} attribués`}
                 icon="/icons_logo/Icon=Badges.svg"
@@ -985,14 +986,14 @@ const Analytics: React.FC = () => {
               <StatCard
                 title="Moyenne par membre"
                     value={averagePerMember}
-                subtitle="Badges par personne"
+                subtitle="Preuves de compétences par personne"
                 icon="fas fa-user-graduate"
                 color="#10B981"
               />
               <StatCard
                 title="Attributions ce mois"
                     value={badgesThisMonth}
-                subtitle="Nouveaux badges"
+                subtitle="Nouvelles preuves de compétences"
                 icon="fas fa-star"
                 color="#EF4444"
               />
@@ -1040,7 +1041,7 @@ const Analytics: React.FC = () => {
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
-                      <label htmlFor="analytics-monthly-series">Par série des badges</label>
+                      <label htmlFor="analytics-monthly-series">Par série des preuves de compétences</label>
                       <select
                         id="analytics-monthly-series"
                         className="analytics-select"
@@ -1086,7 +1087,7 @@ const Analytics: React.FC = () => {
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
-                      <label htmlFor="analytics-trend-series">Par série des badges</label>
+                      <label htmlFor="analytics-trend-series">Par série des preuves de compétences</label>
                       <select
                         id="analytics-trend-series"
                         className="analytics-select"
@@ -1132,7 +1133,7 @@ const Analytics: React.FC = () => {
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
-                      <label htmlFor="analytics-badge-series">Par série des badges</label>
+                      <label htmlFor="analytics-badge-series">Par série des preuves de compétences</label>
                       <select
                         id="analytics-badge-series"
                         className="analytics-select"

@@ -92,7 +92,7 @@ const SelectProjectForBadgeModal: React.FC<SelectProjectForBadgeModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
         <div className="modal-header">
-          <h2>Sélectionner un projet dans lequel vous voulez attribuer un badge</h2>
+          <h2>Sélectionner un projet dans lequel vous voulez attribuer une preuve de compétences</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Fermer">
             <i className="fas fa-times"></i>
           </button>
@@ -108,7 +108,7 @@ const SelectProjectForBadgeModal: React.FC<SelectProjectForBadgeModalProps> = ({
           )}
           {!loading && !error && projects.length === 0 && (
             <p style={{ textAlign: 'center', padding: '1rem', color: '#6b7280' }}>
-              Aucun projet dans lequel vous pouvez attribuer un badge.
+              Aucun projet dans lequel vous pouvez attribuer une preuve de compétences.
             </p>
           )}
           {!loading && !error && projects.length > 0 && (

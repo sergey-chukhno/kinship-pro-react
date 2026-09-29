@@ -83,7 +83,7 @@ const CompetencesOrienterProgressCard: React.FC<CompetencesOrienterProgressCardP
         )}
 
         <div className="competences-orienter-card-click-hint">
-          <span>Cliquer pour voir les attributions du badge</span>
+          <span>Cliquer pour voir les attributions de la preuve de compétences</span>
           <i className="fas fa-chevron-right"></i>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { Badge } from '../types';
 import { getLocalBadgeImage } from './badgeImages';
+import { isSoftSkillsSeries } from '../constants/badgeAxes';
 
 interface ExportFilters {
   series: string;
@@ -9,7 +10,7 @@ interface ExportFilters {
 }
 
 interface ExportContext {
-  showingPageType: 'user' | 'pro' | 'edu' | 'teacher';
+  showingPageType: 'user' | 'pro' | 'edu' | 'teacher' | 'of';
   organizationId?: number;
   organizationName?: string;
 }
@@ -74,7 +75,9 @@ export function mapRawUserBadgeToAttributionForExport(raw: any): AttributionForE
   const receiver = raw?.receiver;
   const badgeImageUrl =
     badge?.image_url ||
-    (typeof getLocalBadgeImage === 'function' ? getLocalBadgeImage(name, level, series) : undefined);
+    (typeof getLocalBadgeImage === 'function'
+      ? getLocalBadgeImage(name, level, series, { allowVectorIcon: false })
+      : undefined);
 
   return {
     badgeImageUrl,
@@ -82,7 +85,8 @@ export function mapRawUserBadgeToAttributionForExport(raw: any): AttributionForE
     badgeLevel: `Niveau ${levelDisplay}`,
     attributionDate: dateStr || '',
     attributedByName: sender?.full_name ?? '',
-    attributedToName: receiver?.full_name ?? '',
+    // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
+    attributedToName: receiver?.holder_display ?? receiver?.full_name ?? '',
     domaine: domaineDisplay,
     competencesIndiquees: Array.isArray(skillsIndicated) ? skillsIndicated : [],
     projectTitle: projectTitle ?? undefined,
@@ -121,7 +125,7 @@ export const exportToPDF = async (
       const mapSeriesForDisplay = (series: string): string => {
         if (!series) return '';
         const lower = series.toLowerCase();
-        if (lower.includes('toukouleur') || lower.includes('universelle')) return 'Série Soft Skills 4LAB';
+        if (isSoftSkillsSeries(series) || lower.includes('universelle')) return 'Série Soft Skills 4LAB';
         return series;
       };
 
@@ -292,7 +296,7 @@ export const exportToCSV = (badges: Badge[], filters: ExportFilters): void => {
     
     // Helper function to map series name for display
     const mapSeriesForDisplay = (series: string): string => {
-      if (series.toLowerCase().includes('toukouleur') || series.toLowerCase().includes('universelle')) {
+      if (isSoftSkillsSeries(series) || series.toLowerCase().includes('universelle')) {
         return 'Série Soft Skills 4LAB';
       }
       return series;

@@ -1,11 +1,13 @@
 import { Badge } from '../types';
+import { isSoftSkillsSeries } from '../constants/badgeAxes';
 import { getLocalBadgeImage } from './badgeImages';
 
 /**
  * Convertit le nom de série backend en nom d'affichage
  */
 export const displaySeries = (seriesName?: string): string => {
-  return seriesName?.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName || 'Série Soft Skills 4LAB';
+  if (!seriesName || isSoftSkillsSeries(seriesName)) return 'Série Soft Skills 4LAB';
+  return seriesName;
 };
 
 /**

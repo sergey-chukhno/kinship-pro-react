@@ -218,7 +218,7 @@ const SharedEventInfo: React.FC = () => {
 
           {eventBadges.length > 0 && (
             <div className="bg-white event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
-              <h3 className="participants-title">Badges de l&apos;événement</h3>
+              <h3 className="participants-title">Preuves de l&apos;événement</h3>
               <div
                 style={{
                   display: 'grid',

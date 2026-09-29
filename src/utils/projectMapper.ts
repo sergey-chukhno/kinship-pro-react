@@ -46,7 +46,8 @@ export const getContextFromPageType = (
         'pro': 'company',
         'edu': 'school',
         'teacher': 'teacher',
-        'user': 'general'
+        'user': 'general',
+        'of': 'company',
     };
 
     return mapping[showingPageType] || 'general';
@@ -468,6 +469,12 @@ export const projectBelongsToOrganizationContext = (
  * Map API project data to frontend Project format
  * Transforms backend API response to frontend Project interface
  */
+/** API `private` boolean → listing / toggle visibility. */
+export const mapApiVisibility = (value: unknown): 'public' | 'private' => {
+    if (value === true || value === 'true' || value === 1 || value === '1') return 'private';
+    return 'public';
+};
+
 export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType: ShowingPageType, user?: User): Project => {
     // Determine pathway from tags (first tag is the pathway)
     const pathway = getPathwayFromTags(apiProject.tags || []);
@@ -570,7 +577,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         title: apiProject.title,
         description: apiProject.description || '',
         status: apiProject.status,
-        visibility: apiProject.private ? 'private' : 'public',
+        visibility: mapApiVisibility(apiProject.private),
         pathway: pathway,
         pathways: pathwaysFromApi.length > 0 ? pathwaysFromApi : (pathway ? [pathway] : undefined),
         organization: projectOrganizationName, // Project's organization (can fallback to user's org)
@@ -578,6 +585,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         // Prefer members_count (owner + confirmed only) for display; fallback to participants_number for compatibility
         participants: (apiProject.members_count != null && apiProject.members_count !== undefined) ? apiProject.members_count : (apiProject.participants_number ?? 0),
         badges: apiProject.badge_count || 0, // Use badge_count from API
+        hasFunders: Boolean(apiProject.has_funders),
         pendingRequests: apiProject.pending_participation_requests_count || 0, // Number of pending participation requests
         startDate: apiProject.start_date ? apiProject.start_date.split('T')[0] : '',
         endDate: apiProject.end_date ? apiProject.end_date.split('T')[0] : '',
@@ -621,6 +629,27 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
             });
         })(),
         mlds_information: apiProject.mlds_information || undefined, // Map MLDS information
+        learningOutcomes: apiProject.learning_outcomes || undefined,
+        participationMode:
+          apiProject.participation_mode === 'online'
+            ? 'distanciel'
+            : apiProject.participation_mode === 'blended'
+              ? 'hybride'
+              : apiProject.participation_mode === 'on_site'
+                ? 'presentiel'
+                : undefined,
+        projectKind: apiProject.project_kind || undefined,
+        isEuMcDeclared: Boolean(apiProject.is_eu_mc_declared),
+        workloadHours: apiProject.workload_hours ?? null,
+        workloadEcts: apiProject.workload_ects ?? null,
+        eqfLevel: apiProject.project_eqf_level ?? null,
+        eqfFramework: apiProject.project_eqf_framework_type || null,
+        assessmentType: apiProject.assessment_type || null,
+        teachingLanguages: Array.isArray(apiProject.teaching_languages)
+          ? apiProject.teaching_languages
+          : [],
+        entryRequirements: apiProject.entry_requirements || null,
+        validityPeriodMonths: apiProject.validity_period_months ?? null,
         rs: apiProject.rs || undefined, // Map RS field
         showEndDateWarning: Boolean(apiProject.show_end_date_warning)
     };
@@ -628,7 +657,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
 
 /**
  * Get user's role in a project
- * Returns: 'owner' | 'co-owner' | 'admin' | 'participant avec droit de badges' | 'participant' | null
+ * Returns: 'owner' | 'co-owner' | 'admin' | 'participant avec droit de preuves' | 'participant' | null
  */
 export const getUserProjectRole = (
     apiProject: any,
@@ -667,7 +696,7 @@ export const getUserProjectRole = (
             }
 
             if (member.can_assign_badges_in_project) {
-                return 'participant avec droit de badges';
+                return 'participant avec droit de preuves';
             }
             return 'participant';
         }

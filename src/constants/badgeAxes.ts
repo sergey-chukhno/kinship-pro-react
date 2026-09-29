@@ -5,6 +5,18 @@
 
 export const METIERS_DE_LA_MER_SERIES = "Série Métiers de la mer";
 export const COMPETENCES_ORIENTER_COLLEGE_SERIES = "Série Compétences à s'orienter - Collège";
+/** Nom encore en base. Affichage : Soft Skills 4LAB. Après le rake de rename, passer à « Compétences transversales (soft skills) ». */
+export const SOFT_SKILLS_SERIES = "Série TouKouLeur";
+
+export function isSoftSkillsSeries(seriesName?: string | null): boolean {
+  const n = (seriesName || "").toLowerCase();
+  return (
+    n.includes("toukouleur") ||
+    n.includes("4lab") ||
+    n.includes("compétences transversales") ||
+    n.includes("competences transversales")
+  );
+}
 
 /** One axis: title (for dropdown/label) and list of badge names belonging to that axis */
 export interface BadgeAxe {
@@ -135,4 +147,97 @@ export function getMetiersMerBadgesWithLevel(): MetiersMerBadgeDef[] {
     });
   });
   return result;
+}
+// --- Série TouKouLeur ("Compétences transversales" dans la spec cartographie V1.1) ---
+// Noms tirés de la spec KIN_UX_CARTOGRAPHIE_V1_1 §3 (exemple complet : 3+2+4+2 = 11 compétences,
+// qui correspond exactement au total annoncé). PAS vérifiés directement contre la base de données
+// (accès DB indisponible pour cette passe) — à confirmer avec Fatima ; une compétence dont le nom ne
+// matche aucune liste ci-dessous tombe dans un groupe "Non classé" plutôt que d'être mal affectée.
+export const TOUKOULEUR_SERIES = SOFT_SKILLS_SERIES;
+
+const TOUKOULEUR_AXE_RELATIONNEL_TITLE = "Relationnel";
+const TOUKOULEUR_AXE_PERSONNEL_TITLE = "Personnel";
+const TOUKOULEUR_AXE_METHODE_TITLE = "Méthode";
+const TOUKOULEUR_AXE_CREATION_TITLE = "Création";
+
+const TOUKOULEUR_AXE_RELATIONNEL_BADGE_NAMES: string[] = ["Communication", "Coopération", "Sociabilité"];
+const TOUKOULEUR_AXE_PERSONNEL_BADGE_NAMES: string[] = ["Adaptabilité", "Engagement"];
+const TOUKOULEUR_AXE_METHODE_BADGE_NAMES: string[] = [
+  "Esprit Critique",
+  "Formation",
+  "Gestion de Projet",
+  "Organisation Opérationnelle",
+];
+const TOUKOULEUR_AXE_CREATION_BADGE_NAMES: string[] = ["Créativité", "Information Numérique"];
+
+const TOUKOULEUR_AXES: BadgeAxe[] = [
+  { id: 'toukouleur_relationnel', title: TOUKOULEUR_AXE_RELATIONNEL_TITLE, badgeNames: TOUKOULEUR_AXE_RELATIONNEL_BADGE_NAMES },
+  { id: 'toukouleur_personnel', title: TOUKOULEUR_AXE_PERSONNEL_TITLE, badgeNames: TOUKOULEUR_AXE_PERSONNEL_BADGE_NAMES },
+  { id: 'toukouleur_methode', title: TOUKOULEUR_AXE_METHODE_TITLE, badgeNames: TOUKOULEUR_AXE_METHODE_BADGE_NAMES },
+  { id: 'toukouleur_creation', title: TOUKOULEUR_AXE_CREATION_TITLE, badgeNames: TOUKOULEUR_AXE_CREATION_BADGE_NAMES },
+];
+
+// --- Série Compétences Psychosociales (nom exact DB, vérifié contre BadgeSeries::CPS_SERIES_NAME
+// et db/competences_psychosociales.rb le 29/09 : pas de préfixe « Série », 3 axes / 6 compétences / 17 badges) ---
+export const PSYCHOSOCIALES_SERIES = "Compétences psychosociales";
+
+const CPS_AXE_COGNITIVES_TITLE = "Cognitives";
+const CPS_AXE_EMOTIONNELLES_TITLE = "Émotionnelles";
+const CPS_AXE_SOCIALES_TITLE = "Sociales";
+
+// Valeurs = Badge.name réels (le badge = l'item C1.1/C2.3/etc., pas le nom de la compétence C1/C2/etc.
+// — vérifié directement contre db/competences_psychosociales.rb, 7+5+5 = 17 badges).
+const CPS_AXE_COGNITIVES_BADGE_NAMES: string[] = [
+  "Renforcer sa connaissance de soi (C1.1) et penser de façon critique (C1.2)",
+  "Connaître ses valeurs, ses besoins psychologiques et ses buts personnels (C1.3) et Prendre des décisions constructives (C1.4)",
+  "S'auto-évaluer positivement (C1.5)",
+  "Renforcer sa pleine attention – à soi (C1.6)",
+  "Atteindre ses buts personnels (C2.1)",
+  "Gérer ses impulsions (C2.2)",
+  "Résoudre des problèmes de façon créative et efficace (C2.3) & Savoir demander de l'aide (C2.4)",
+];
+const CPS_AXE_EMOTIONNELLES_BADGE_NAMES: string[] = [
+  "Comprendre les émotions (E1.1)",
+  "Identifier ses émotions (E1.2)",
+  "Exprimer ses émotions de façon constructive (E2.1)",
+  "Réguler ses émotions agréables (E.2.2.a) et désagréables (E2.2.b)",
+  "Gérer son stress (E2.3)",
+];
+const CPS_AXE_SOCIALES_BADGE_NAMES: string[] = [
+  "Communiquer de façon efficace et positive (S1.1)",
+  "Communiquer de façon empathique (S1.2)",
+  "Développer des liens et des comportements prosociaux (S1.3)",
+  "S'affirmer (et résister à la pression sociale) par l'assertivité et le refus (S2.1)",
+  "Résoudre les conflits de façon constructive (S2.2)",
+];
+
+const CPS_AXES: BadgeAxe[] = [
+  { id: 'cps_cognitives', title: CPS_AXE_COGNITIVES_TITLE, badgeNames: CPS_AXE_COGNITIVES_BADGE_NAMES },
+  { id: 'cps_emotionnelles', title: CPS_AXE_EMOTIONNELLES_TITLE, badgeNames: CPS_AXE_EMOTIONNELLES_BADGE_NAMES },
+  { id: 'cps_sociales', title: CPS_AXE_SOCIALES_TITLE, badgeNames: CPS_AXE_SOCIALES_BADGE_NAMES },
+];
+
+/** Séries couvertes par la cartographie V1.1 (anneaux), dans l'ordre d'affichage des onglets. */
+export const CARTOGRAPHIE_V1_1_SERIES = [
+  TOUKOULEUR_SERIES,
+  COMPETENCES_ORIENTER_COLLEGE_SERIES,
+  METIERS_DE_LA_MER_SERIES,
+  PSYCHOSOCIALES_SERIES,
+] as const;
+
+/** Nom du "3e étage" (niveau / CPS spécifique) selon la série — spec §1. */
+export function getNiveauWordForSeries(seriesName: string): string {
+  if (seriesName === PSYCHOSOCIALES_SERIES) return 'CPS spécifique';
+  return 'Niveau';
+}
+
+/**
+ * Retourne les axes de la cartographie V1.1 pour une série donnée, y compris TouKouLeur et CPS
+ * (contrairement à getAxesForSeries, réservée aux séries de l'ancien flux "Attribuer une preuve").
+ * Retourne [] pour une série sans axe (ex. une série non listée ici).
+ */
+export function getCartographieAxesForSeries(seriesName: string): BadgeAxe[] {
+  if (isSoftSkillsSeries(seriesName)) return TOUKOULEUR_AXES;
+  if (seriesName === PSYCHOSOCIALES_SERIES) return CPS_AXES;
+  return getAxesForSeries(seriesName);
 }

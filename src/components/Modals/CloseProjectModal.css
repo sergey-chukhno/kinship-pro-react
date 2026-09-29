@@ -1,0 +1,213 @@
+.cp-close-ov {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(30, 28, 24, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.cp-close-modal {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  padding: 18px 20px;
+  max-width: 420px;
+  width: 100%;
+}
+
+.cp-close-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.cp-close-ico {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fdf1e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d9822b;
+  font-weight: 800;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.cp-close-head h2 {
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0;
+  flex: 1;
+  color: #1a1a1a;
+}
+
+.cp-close-x {
+  border: 0;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cp-close-body {
+  font-size: 13px;
+  color: #3f3d38;
+  line-height: 1.65;
+}
+
+.cp-close-born {
+  color: var(--couleur-espace, #115e59);
+  font-weight: 700;
+}
+
+.cp-close-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 1px solid #eee;
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.cp-close-cancel {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4c4a44;
+  background: #fff;
+  border: 1px solid #d7d4cb;
+  border-radius: 9px;
+  padding: 7px 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cp-close-go {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #e09a3e, #d9822b);
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cp-close-go:disabled,
+.cp-close-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pp-birth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(20, 24, 22, 0.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.pp-birth-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.pp-birth-sub {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  text-align: center;
+  max-width: 320px;
+}
+
+.pp-birth-card {
+  width: 280px;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
+}
+
+.pp-birth-card-head {
+  background: #48a78d;
+  color: #fff;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pp-birth-k {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pp-birth-kname {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pp-birth-ktype {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.pp-birth-card-title {
+  padding: 16px 14px 4px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.pp-birth-card-meta {
+  padding: 0 14px 16px;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.pp-birth-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pp-birth-open {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0d2b26;
+  background: #fff;
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.pp-birth-continue {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-family: inherit;
+  cursor: pointer;
+}

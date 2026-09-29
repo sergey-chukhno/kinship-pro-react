@@ -409,3 +409,84 @@
 .dashboard-back-link:hover {
   text-decoration: underline;
 }
+
+.pp-birth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(20, 24, 22, 0.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.pp-birth-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.pp-birth-sub {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  text-align: center;
+  max-width: 320px;
+}
+
+.pp-birth-card {
+  width: 280px;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.35);
+}
+
+.pp-birth-card-head {
+  background: #48a78d;
+  color: #fff;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pp-birth-card-title {
+  padding: 16px 14px 4px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pp-birth-card-meta {
+  padding: 0 14px 16px;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.pp-birth-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pp-birth-open {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0d2b26;
+  background: #fff;
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 16px;
+}
+
+.pp-birth-continue {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: 9px;
+  padding: 8px 16px;
+}

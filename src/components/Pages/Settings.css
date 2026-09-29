@@ -417,3 +417,22 @@ input:checked + .toggle-slider:before {
     justify-content: center;
   }
 }
+
+.settings-internal {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px dashed #d7d4cb;
+}
+
+.settings-internal h2 {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+
+.settings-internal p {
+  font-size: 13px;
+  color: #6d6b64;
+  margin: 0 0 12px;
+  max-width: 560px;
+}

@@ -145,7 +145,7 @@ const BadgeModal: React.FC<BadgeModalProps> = ({ badge, onClose, onSave }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{badge ? 'Modifier le badge' : 'Créer un nouveau badge'}</h2>
+          <h2>{badge ? 'Modifier la preuve de compétences' : 'Créer une nouvelle preuve de compétences'}</h2>
           <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
@@ -154,7 +154,7 @@ const BadgeModal: React.FC<BadgeModalProps> = ({ badge, onClose, onSave }) => {
         <form onSubmit={handleSubmit} className="modal-body">
           <div className="form-grid">
             <div className="form-group">
-              <label htmlFor="name">Nom du badge *</label>
+              <label htmlFor="name">Nom de la preuve de compétences *</label>
               <input
                 type="text"
                 id="name"
@@ -163,7 +163,7 @@ const BadgeModal: React.FC<BadgeModalProps> = ({ badge, onClose, onSave }) => {
                 onChange={handleInputChange}
                 required
                 className="form-input"
-                placeholder="Nom du badge"
+                placeholder="Nom de la preuve de compétences"
               />
             </div>
 
@@ -232,13 +232,13 @@ const BadgeModal: React.FC<BadgeModalProps> = ({ badge, onClose, onSave }) => {
               value={formData.description}
               onChange={handleInputChange}
               className="form-textarea"
-              placeholder="Description du badge"
+              placeholder="Description de la preuve de compétences"
               rows={3}
             />
           </div>
 
           <div className="form-section">
-            <h3>Image du badge</h3>
+            <h3>Image de la preuve de compétences</h3>
             <div className="image-upload">
               <input
                 type="file"
@@ -329,7 +329,7 @@ const BadgeModal: React.FC<BadgeModalProps> = ({ badge, onClose, onSave }) => {
           </button>
           <button type="submit" className="btn btn-primary" onClick={handleSubmit}>
             <i className="fas fa-save"></i>
-            {badge ? 'Modifier' : 'Créer'} le badge
+            {badge ? 'Modifier' : 'Créer'} la preuve de compétences
           </button>
         </div>
       </div>

@@ -50,7 +50,7 @@ const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete,
         <h3 className="badge-title">{badge.name}</h3>
         {showClickHint && (
           <div className="badge-click-hint">
-            <span>Cliquer pour voir les attributions du badge</span>
+            <span>Cliquer pour voir les attributions de la preuve de compétences</span>
             <i className="fas fa-chevron-right"></i>
           </div>
         )}
@@ -59,7 +59,7 @@ const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete,
       {/* Green counters positioned like in projects section */}
       <div className="badge-counters">
         <div className="badge-counter">
-          <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="counter-icon" />
+          <img src="/icons_logo/Icon=Badges.svg" alt="Preuves" className="counter-icon" />
           <span>{attributionCount}</span>
         </div>
       </div>

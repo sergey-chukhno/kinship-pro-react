@@ -1,0 +1,270 @@
+.ofa-page {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 8px 0 48px;
+  color: #1a1a1a;
+}
+
+.ofa-back {
+  border: 0;
+  background: none;
+  color: #6d6b64;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 16px;
+  font-family: inherit;
+}
+
+.ofa-page h1 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 6px;
+}
+
+.ofa-lead {
+  font-size: 14px;
+  color: #6d6b64;
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+
+.ofa-fld {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.ofa-fld > span {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  color: #33518e;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.ofa-fld i {
+  color: #a03d2e;
+  font-style: normal;
+}
+
+.ofa-inp {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #d7d4cb;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+  color: #1a1a1a;
+  font-family: inherit;
+}
+
+.ofa-inp.ok {
+  border-color: #48a78d;
+  background: #f4faf8;
+}
+
+.ofa-inp.ok em {
+  color: #48a78d;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.ofa-fld.flagged > span {
+  color: #a03d2e;
+}
+
+.ofa-fld.flagged .ofa-inp {
+  border: 1.5px solid #a03d2e;
+  background: #fdf3f0;
+}
+
+.ofa-fld small {
+  display: block;
+  font-size: 12px;
+  color: #8f8d86;
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+.ofa-fld small.flag {
+  color: #a03d2e;
+}
+
+.ofa-docs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.ofa-chip {
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ofa-chip.ok {
+  background: #f0faf5;
+  border: 1px solid #bfe0cf;
+  color: #2e7d5b;
+}
+
+.ofa-chip.add {
+  border: 1px dashed #c9d2e4;
+  color: #33518e;
+  cursor: pointer;
+}
+
+.ofa-cgu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin: 8px 0 16px;
+}
+
+.ofa-cgu em {
+  color: #8f8d86;
+  font-style: normal;
+}
+
+.ofa-btn {
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ofa-btn.amber {
+  background: #ffb557;
+  color: #1c1b18;
+}
+
+.ofa-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ofa-wait {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #eef1f7;
+  border: 1px solid #c9d2e4;
+  border-radius: 9px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #33518e;
+}
+
+.ofa-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #33518e;
+  flex-shrink: 0;
+}
+
+.ofa-vrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0efe9;
+}
+
+.ofa-vrow span.ok {
+  color: #177245;
+  font-weight: 800;
+}
+
+.ofa-vrow span.off {
+  color: #c4c1b8;
+  font-weight: 800;
+}
+
+.ofa-vrow em {
+  margin-left: auto;
+  color: #9ca3af;
+  font-style: normal;
+  font-size: 13px;
+}
+
+.ofa-call {
+  font-size: 14px;
+  color: #4c4a44;
+  background: #fff;
+  border: 1px solid #e6e3da;
+  border-radius: 9px;
+  padding: 10px 13px;
+  margin-top: 14px;
+  line-height: 1.5;
+}
+
+.ofa-note {
+  font-size: 13px;
+  color: #4c4a44;
+  background: #f4f3ef;
+  border: 1px solid #ddd9cf;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.ofa-link {
+  display: inline;
+  margin-left: 6px;
+  border: 0;
+  background: none;
+  color: #33518e;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.ofa-issue {
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.ofa-issue.ok {
+  border: 1.5px solid #115e59;
+  background: #f1f8f6;
+}
+
+.ofa-issue.ok h1 {
+  color: #115e59;
+  font-size: 18px;
+}
+
+.ofa-issue.ok p {
+  font-size: 14px;
+  color: #4c4a44;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.ofa-issue.ko {
+  border: 1px solid #d9a698;
+  background: #fdf3f0;
+  font-size: 14px;
+  color: #7a4437;
+  line-height: 1.5;
+}
+
+.ofa-issue.ko b {
+  color: #a03d2e;
+}

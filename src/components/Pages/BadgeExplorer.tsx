@@ -3,6 +3,7 @@ import { getBadges } from '../../api/Badges';
 import {
   COMPETENCES_ORIENTER_COLLEGE_SERIES,
   METIERS_DE_LA_MER_SERIES,
+  SOFT_SKILLS_SERIES,
   getAxesForSeries,
   getMetiersMerBadgesWithLevel
 } from '../../constants/badgeAxes';
@@ -68,7 +69,7 @@ export { COMPETENCES_ORIENTER_COLLEGE_SERIES };
 
 // Representative badge (name, level) per series dbName for series icon on parcours-detail view
 const SERIES_REPRESENTATIVE_BADGE: Record<string, { name: string; level: string }> = {
-  'Série TouKouLeur': { name: 'Adaptabilité', level: '1' },
+  [SOFT_SKILLS_SERIES]: { name: 'Adaptabilité', level: '1' },
   'Série Parcours des possibles': { name: 'Étape 1 : IMPLICATION INITIALE', level: '1' },
   'Série Parcours professionnel': { name: 'PARCOURS DE DÉCOUVERTE - COLLÈGE', level: '1' },
   'Série Audiovisuelle': { name: 'IMAGE', level: '1' },
@@ -88,7 +89,7 @@ const PARCOURS: Parcours[] = [
     series: [
       {
         displayName: 'Série Soft Skills 4LAB',
-        dbName: 'Série TouKouLeur',
+        dbName: SOFT_SKILLS_SERIES,
         comingSoon: false,
         description: "Les badges de la série Soft Skills 4LAB reconnaissent et valorisent les compétences transversales mobilisées par les jeunes dans le cadre de projets individuels ou collectifs (coopération, communication, créativité, engagement, gestion de projet...)"
       }
@@ -925,7 +926,7 @@ function getStaticBadgesByAxis(): AxisSection[] {
   });
 }
 
-const INTRO_MESSAGE = "Explorez les parcours Kinship et les badges associés, qui permettent d'identifier et de valoriser les compétences développées par les jeunes à travers des projets, des expériences et des parcours métiers.";
+const INTRO_MESSAGE = "Explorez les parcours Kinship et les preuves de compétences associées, qui permettent d'identifier et de valoriser les compétences développées par les jeunes à travers des projets, des expériences et des parcours métiers.";
 
 const LEVEL_ORDER = ['level_1', 'level_2', 'level_3', 'level_4'] as const;
 
@@ -982,7 +983,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
         setBadges(fetchedBadges);
       } catch (err: any) {
         console.error('Error fetching badges:', err);
-        setError('Erreur lors du chargement des badges');
+        setError('Erreur lors du chargement des preuves de compétences');
         setBadges([]);
       } finally {
         setIsLoading(false);
@@ -1217,7 +1218,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                         setBadgeInfoModalBadge(levelBadge);
                       }}
                     >
-                      Voir les infos du badge
+                      Voir les infos de la preuve de compétences
                         </button>
                       </div>
                 );
@@ -1385,7 +1386,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                     onClick={() => handleExplorerSeries(series)}
                     disabled={series.comingSoon}
                   >
-                    {series.comingSoon ? 'À venir' : 'Explorer les badges de la série'}
+                    {series.comingSoon ? 'À venir' : 'Explorer les preuves de compétences de la série'}
                         </button>
                       </div>
                     </div>
@@ -1429,14 +1430,14 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               </div>
             </div>
             <div className="badge-list-filter-wrap">
-              <label htmlFor="badgeFilter" className="badge-list-filter-label">Tous les badges</label>
+              <label htmlFor="badgeFilter" className="badge-list-filter-label">Toutes les preuves de compétences</label>
               <select
                 id="badgeFilter"
                 className="badge-list-filter-select"
                 value={badgeFilter}
                 onChange={(e) => setBadgeFilter(e.target.value)}
               >
-                <option value="all">Tous les badges</option>
+                <option value="all">Toutes les preuves de compétences</option>
                 {contentAxes ? (
                   selectedSeriesDbName === METIERS_DE_LA_MER_SERIES ? (
                     contentAxes.map((axis) => (
@@ -1466,7 +1467,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
         {isLoading ? (
           <div className="loading-container">
             <div className="loading-spinner"></div>
-            <p className="loading-text">Chargement des badges...</p>
+            <p className="loading-text">Chargement des preuves de compétences...</p>
               </div>
         ) : error ? (
           <div className="error-container">
@@ -1542,7 +1543,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                     </div>
         ) : badgesByName.length === 0 ? (
           <div className="empty-level-message">
-            <p>Aucun badge disponible pour cette série</p>
+            <p>Aucune preuve de compétences disponible pour cette série</p>
                   </div>
         ) : (
           <div className="badge-explorer-by-title-list">

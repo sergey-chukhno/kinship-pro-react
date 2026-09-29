@@ -79,6 +79,7 @@ const Events: React.FC = () => {
       groupIds: apiEvent.group_ids?.map((gid) => gid.toString()) || [],
       manualParticipantIds: apiEvent.manual_participant_ids || [],
       badges: apiEvent.badges?.map(b => b.toString()) || [],
+      badgeSkills: apiEvent.badge_skills || {},
       image: apiEvent.image || '',
       status: apiEvent.status as Event['status'],
       projectId: '',

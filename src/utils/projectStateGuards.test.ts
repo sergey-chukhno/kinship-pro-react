@@ -41,7 +41,14 @@ describe('projectStateGuards', () => {
       const message = buildCloseProjectConfirmationMessage('Projet Alpha');
       expect(message).toContain('Projet Alpha');
       expect(message).toContain('définitive et irréversible');
-      expect(message).toContain('lecture seule');
+      expect(message).toContain('voir leurs preuves');
+      expect(message).toContain('Sa Preuve Projet est générée');
+      expect(message).not.toContain('Vos financeurs recevront leur rapport');
+    });
+
+    it('adds the funder report line only when the project has a funder', () => {
+      const message = buildCloseProjectConfirmationMessage('Ateliers radio', true);
+      expect(message).toContain('Vos financeurs recevront leur rapport');
     });
   });
 });

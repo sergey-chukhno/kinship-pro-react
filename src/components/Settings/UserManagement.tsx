@@ -127,7 +127,7 @@ const UserManagement: React.FC = () => {
             <div className="permission-item">
               <div className="permission-header">
                 <i className="fas fa-award"></i>
-                <span>Gestion des badges</span>
+                <span>Gestion des preuves</span>
               </div>
               <div className="permission-toggle">
                 <label className="toggle-switch">

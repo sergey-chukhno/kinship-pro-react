@@ -1,4 +1,9 @@
 /* Global App Styles */
+:root {
+  --couleur-espace: #6b7280;
+  --couleur-espace-hover: #4b5563;
+}
+
 * {
   margin: 0;
   padding: 0;

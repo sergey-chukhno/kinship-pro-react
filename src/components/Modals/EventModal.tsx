@@ -20,6 +20,7 @@ import {
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { useToast } from '../../hooks/useToast';
+import { getBadgeCompetencies } from './BadgeAssignmentModal';
 import {
   isSoftSkillsSeries,
   SOFT_SKILLS_SERIES_DISPLAY_NAME,
@@ -79,6 +80,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
   const [badgeSeriesFilter, setBadgeSeriesFilter] = useState('');
   const [badgeLevelFilter, setBadgeLevelFilter] = useState('');
   const [badgeToAdd, setBadgeToAdd] = useState('');
+  const [badgeSkillsByBadgeId, setBadgeSkillsByBadgeId] = useState<Record<string, number[]>>({});
   const [documents, setDocuments] = useState<File[]>([]);
   const [csvUploadError, setCsvUploadError] = useState<string>('');
   const [csvUploadSuccess, setCsvUploadSuccess] = useState<string>('');
@@ -390,6 +392,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         badges: seed.badges || [],
         image: seed.image || ''
       });
+      setBadgeSkillsByBadgeId((seed as Event).badgeSkills || {});
       setImagePreview(seed.image || '');
       setNewParticipants([]);
       setCsvRows([]);
@@ -411,6 +414,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         date: today.toISOString().split('T')[0],
         time: today.toTimeString().slice(0, 5)
       }));
+      setBadgeSkillsByBadgeId({});
       setNewParticipants([]);
       setCsvRows([]);
     }
@@ -499,6 +503,14 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         location: formData.location || undefined,
         status: 'upcoming',
         badges: formData.badges.length > 0 ? formData.badges : undefined,
+        badge_skills: formData.badges.length > 0
+          ? Object.fromEntries(
+              formData.badges.map((badgeId) => [
+                badgeId,
+                (badgeSkillsByBadgeId[badgeId] || []).filter((id) => id > 0)
+              ])
+            )
+          : undefined,
         organization_id: state.showingPageType === 'teacher' ? selectedOrganizationId : undefined,
         school_id: state.showingPageType === 'teacher' ? selectedOrganizationId : undefined,
         participants: formData.participants.length > 0
@@ -598,6 +610,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         groupIds: (createdEvent.group_ids || []).map((gid: any) => gid.toString()),
         manualParticipantIds: createdEvent.manual_participant_ids || [],
         badges: createdEvent.badges?.map(b => b.toString()) || [],
+        badgeSkills: createdEvent.badge_skills || badgeSkillsByBadgeId,
         image: createdEvent.image || '',
         status: createdEvent.status as Event['status'],
         projectId: '',
@@ -910,19 +923,26 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
 
   // Handle badge selection
   const handleBadgeToggle = (badgeId: string) => {
+    const badgeIdStr = badgeId.toString();
     setFormData(prev => {
-      const badgeIdStr = badgeId.toString();
       if (prev.badges.includes(badgeIdStr)) {
         return {
           ...prev,
           badges: prev.badges.filter(id => id !== badgeIdStr)
         };
-      } else {
-        return {
-          ...prev,
-          badges: [...prev.badges, badgeIdStr]
-        };
       }
+      return {
+        ...prev,
+        badges: [...prev.badges, badgeIdStr]
+      };
+    });
+    setBadgeSkillsByBadgeId(prev => {
+      if (formData.badges.includes(badgeIdStr)) {
+        const next = { ...prev };
+        delete next[badgeIdStr];
+        return next;
+      }
+      return prev;
     });
   };
 
@@ -938,6 +958,55 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
         badges: [...prev.badges, badgeIdStr]
       };
     });
+  };
+
+  const toggleBadgeSkill = (badgeId: string, skillId: number) => {
+    setBadgeSkillsByBadgeId((prev) => {
+      const current = prev[badgeId] || [];
+      const next = current.includes(skillId)
+        ? current.filter((id) => id !== skillId)
+        : [...current, skillId];
+      return { ...prev, [badgeId]: next };
+    });
+  };
+
+  const renderCompetencyPicker = (badge: BadgeAPI | null) => {
+    if (!badge) return null;
+    const competencies = getBadgeCompetencies(badge);
+    if (competencies.length === 0) {
+      return (
+        <p className="event-competencies-empty">
+          Les compétences ne sont pas encore disponibles pour cette preuve de compétences.
+        </p>
+      );
+    }
+    const selected = badgeSkillsByBadgeId[badge.id.toString()] || [];
+    return (
+      <div className="event-competencies">
+        <div className="event-competencies-label">Compétences</div>
+        <p className="event-competencies-hint">
+          Sélectionnez les compétences associées à cette preuve de compétences.
+        </p>
+        <div className="event-competencies-list">
+          {competencies.map((comp) => {
+            const checked = selected.includes(comp.id);
+            return (
+              <label
+                key={comp.id}
+                className={`event-competency-item${checked ? 'is-selected' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleBadgeSkill(badge.id.toString(), comp.id)}
+                />
+                <span>{comp.name}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -1589,10 +1658,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           </div>
 
          <div className="form-group">
-            <label htmlFor="eventBadges">Badges assignés à l'événement</label>
+            <label htmlFor="eventBadges">Preuves assignées à l'événement</label>
             {availableBadges.length === 0 ? (
               <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic' }}>
-                Aucun badge disponible
+                Aucune preuve de compétences disponible
               </p>
             ) : (
               <div
@@ -1642,7 +1711,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                       <div style={{ fontSize: '13px', color: '#666' }}>
                         {previewBadge
                           ? `${displaySeries(previewBadge.series)} · Niveau ${previewBadge.level.replace('level_', '')}`
-                          : 'Choisissez une série puis un badge'}
+                          : 'Choisissez une série puis une preuve de compétences'}
                       </div>
                     </div>
                   </div>
@@ -1655,7 +1724,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label style={{ fontWeight: 500 }}>Série de badge</label>
+                    <label style={{ fontWeight: 500 }}>Série de preuve de compétences</label>
                     <select
                       className="form-select"
                       value={badgeSeriesFilter}
@@ -1696,14 +1765,14 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                   )}
 
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label style={{ fontWeight: 500 }}>Badge</label>
+                    <label style={{ fontWeight: 500 }}>Preuve de compétences</label>
                     <select
                       className="form-select"
                       value={badgeToAdd}
                       onChange={(e) => setBadgeToAdd(e.target.value)}
                       disabled={!badgeSeriesFilter}
                     >
-                      <option value="">{badgeSeriesFilter ? 'Sélectionner un badge' : 'Choisissez une série d’abord'}</option>
+                      <option value="">{badgeSeriesFilter ? 'Sélectionner une preuve de compétences' : 'Choisissez une série d’abord'}</option>
                       {filteredBadges.map((badge) => (
                         <option key={badge.id} value={badge.id.toString()}>
                           {badge.name}
@@ -1712,6 +1781,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                     </select>
                   </div>
 
+                  {previewBadge && !formData.badges.includes(previewBadge.id.toString()) && (
+                    renderCompetencyPicker(previewBadge)
+                  )}
+
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
                       type="button"
@@ -1719,11 +1792,11 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                       onClick={handleAddBadge}
                       disabled={!badgeToAdd}
                     >
-                      <i className="fas fa-plus"></i> Ajouter le badge
+                      <i className="fas fa-plus"></i> Ajouter la preuve de compétences
                     </button>
                     {badgeToAdd && formData.badges.includes(badgeToAdd) && (
                       <span style={{ color: '#666', fontSize: '12px', alignSelf: 'center' }}>
-                        Ce badge est déjà sélectionné
+                        Cette preuve de compétences est déjà sélectionnée
                       </span>
                     )}
                   </div>
@@ -1734,41 +1807,36 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
             {formData.badges.length > 0 && (
               <div style={{ marginTop: '14px' }}>
                 <div style={{ fontWeight: 600, marginBottom: '8px', color: '#333' }}>
-                  {formData.badges.length} badge(s) sélectionné(s)
+                  {formData.badges.length} preuve(s) de compétences sélectionnée(s)
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                <div className="event-selected-badges">
                   {formData.badges.map((badgeId) => {
                     const badge = availableBadges.find((b) => b.id.toString() === badgeId);
                     return (
-                      <span
-                        key={badgeId}
-                        className="participant-tag"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 10px',
-                          background: '#f1f5f9',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '20px'
-                        }}
-                      >
-                        <span style={{ fontWeight: 500 }}>{badge ? badge.name : `Badge ${badgeId}`}</span>
-                        {badge && (
-                          <span style={{ fontSize: '11px', color: '#666' }}>
-                            {displaySeries(badge.series)} · Niv {badge.level.replace('level_', '')}
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleBadgeToggle(badgeId)}
-                          className="participant-remove"
-                          style={{ border: 'none', background: 'transparent', color: '#666' }}
-                          title="Retirer le badge"
-                        >
-                          <i className="fas fa-times"></i>
-                        </button>
-                      </span>
+                      <div key={badgeId} className="event-selected-badge">
+                        <div className="event-selected-badge-header">
+                          <div>
+                            <span className="event-selected-badge-name">
+                              {badge ? badge.name : `Badge ${badgeId}`}
+                            </span>
+                            {badge && (
+                              <span className="event-selected-badge-meta">
+                                {displaySeries(badge.series)} · Niv {badge.level.replace('level_', '')}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleBadgeToggle(badgeId)}
+                            className="participant-remove"
+                            style={{ border: 'none', background: 'transparent', color: '#666' }}
+                            title="Retirer la preuve de compétences"
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                        {renderCompetencyPicker(badge || null)}
+                      </div>
                     );
                   })}
                 </div>

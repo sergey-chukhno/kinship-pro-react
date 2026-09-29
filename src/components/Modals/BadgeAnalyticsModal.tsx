@@ -35,7 +35,7 @@ const BadgeAnalyticsModal: React.FC<BadgeAnalyticsModalProps> = ({ onClose }) =>
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Analytics des Badges</h2>
+          <h2>Analytics des Preuves</h2>
           <button className="modal-close" onClick={onClose}>
             <i className="fas fa-times"></i>
           </button>
@@ -81,7 +81,7 @@ const BadgeAnalyticsModal: React.FC<BadgeAnalyticsModalProps> = ({ onClose }) =>
               </div>
               <div className="summary-content">
                 <h3>{analyticsData.totalBadges}</h3>
-                <p>Total des badges</p>
+                <p>Total des preuves</p>
               </div>
             </div>
             <div className="summary-card">
@@ -90,7 +90,7 @@ const BadgeAnalyticsModal: React.FC<BadgeAnalyticsModalProps> = ({ onClose }) =>
               </div>
               <div className="summary-content">
                 <h3>156</h3>
-                <p>Badges attribués</p>
+                <p>Preuves attribuées</p>
               </div>
             </div>
             <div className="summary-card">
@@ -165,7 +165,7 @@ const BadgeAnalyticsModal: React.FC<BadgeAnalyticsModalProps> = ({ onClose }) =>
                   </div>
                   <div className="activity-content">
                     <div className="activity-text">
-                      <strong>{activity.member}</strong> a obtenu le badge <strong>{activity.badge}</strong>
+                      <strong>{activity.member}</strong> a obtenu la preuve <strong>{activity.badge}</strong>
                     </div>
                     <div className="activity-date">{activity.date}</div>
                   </div>

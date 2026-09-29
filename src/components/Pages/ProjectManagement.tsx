@@ -10,15 +10,17 @@ import { useToast } from '../../hooks/useToast';
 import ShareProjectLinkModal from '../Modals/ShareProjectLinkModal';
 import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '../../utils/memberContextPayload';
 import { getMldsActionObjectiveLabel, getMldsActionObjectivesOptions } from '../../utils/mldsActionObjectives';
 import { mapApiTeamToFrontendTeam, mapFrontendTeamToBackend } from '../../utils/teamMapper';
 import AddParticipantModal from '../Modals/AddParticipantModal';
-import BadgeAssignmentModal from '../Modals/BadgeAssignmentModal';
+import BadgeAssignmentModal from '../Modals/AttestCompetenceModal';
 import CloseProjectBilanModal, { BilanData, buildMldsBilanPayload } from '../Modals/CloseProjectBilanModal';
-import ConfirmModal from '../Modals/ConfirmModal';
+import CloseProjectBirthOverlay from '../Modals/CloseProjectBirthOverlay';
+import CloseProjectModal from '../Modals/CloseProjectModal';
 import AvatarImage, { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './MembershipRequests.css';
@@ -32,7 +34,6 @@ import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
 import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import { translateRole } from '../../utils/roleTranslations';
 import {
-  buildCloseProjectConfirmationMessage,
   canOwnerCloseProject,
   isProjectReadOnly,
   shouldShowEndDateWarningBanner
@@ -43,7 +44,7 @@ import {
   validateServiceQuoteSelection
 } from '../../utils/mldsServiceQuotes';
 import { hseLineHours, hvLineHours } from '../../utils/mldsHvLines';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 /** Safely render a value that may be a string or an object with id/name/type/city (e.g. organization from API). */
 function toDisplayString(value: unknown): string {
@@ -200,6 +201,7 @@ const CollapsiblePillsCell: React.FC<{
 
 const ProjectManagement: React.FC = () => {
   const { state, setCurrentPage, setSelectedProject, setTags } = useAppContext();
+  const navigate = useNavigate();
   const { showWarning } = useToast();
 
   // Charger les tags (parcours) depuis l'API /api/v1/tags pour la modal d'édition
@@ -450,6 +452,7 @@ const ProjectManagement: React.FC = () => {
   const [isClosingProject, setIsClosingProject] = useState(false);
   const [isCloseProjectConfirmOpen, setIsCloseProjectConfirmOpen] = useState(false);
   const [isCloseProjectModalOpen, setIsCloseProjectModalOpen] = useState(false);
+  const [bornProof, setBornProof] = useState(false);
 
   // State for badge assignment permissions
   const [canAssignBadges, setCanAssignBadges] = useState(false);
@@ -715,10 +718,10 @@ const ProjectManagement: React.FC = () => {
   }, [badgeReceiverFilter]);
 
   // Fetch project badges only when the user can see badges (tab or "Badges que j'ai attribués" section)
-  // Avoids fetching all badges when role is "participant" and then overwriting with stale response when role becomes "participant avec droit de badges"
+  // Avoids fetching all badges when role is "participant" and then overwriting with stale response when role becomes "participant avec droit de preuves"
   useEffect(() => {
     if (!project?.id) return;
-    if (!shouldShowTabs() && userProjectRole !== 'participant avec droit de badges') return;
+    if (!shouldShowTabs() && userProjectRole !== 'participant avec droit de preuves') return;
     fetchProjectBadgesData(badgePage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [badgePage, badgeSeriesFilter, badgeLevelFilter, debouncedBadgeReceiverQuery, userProjectRole, state.user?.id, apiProjectData]);
@@ -875,8 +878,6 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
-  const closeProjectConfirmationMessage = buildCloseProjectConfirmationMessage(project?.title || '');
-
   /**
    * Open close-project confirmation flow.
    */
@@ -930,6 +931,9 @@ const ProjectManagement: React.FC = () => {
       setSelectedProject(mappedProject);
       setApiProjectData(apiProject);
       setIsCloseProjectModalOpen(false);
+      if (!bilanData) {
+        setBornProof(true);
+      }
     } catch (error: any) {
       console.error('Error closing project:', error);
       if (error?.response?.status === 403) {
@@ -1032,7 +1036,7 @@ const ProjectManagement: React.FC = () => {
       case 'owner': return 'Propriétaire';
       case 'co-owner': return 'Co-propriétaire';
       case 'admin': return 'Admin';
-      case 'participant avec droit de badges': return 'Participant avec droit de badges';
+      case 'participant avec droit de preuves': return 'Participant avec droit de preuves';
       case 'participant': return 'Participant';
       default: return '';
     }
@@ -1174,7 +1178,7 @@ const ProjectManagement: React.FC = () => {
       }
 
       // No tabs for simple participants
-      if (userProjectRole === 'participant' || userProjectRole === 'participant avec droit de badges') {
+      if (userProjectRole === 'participant' || userProjectRole === 'participant avec droit de preuves') {
         return false;
       }
 
@@ -3372,7 +3376,7 @@ const ProjectManagement: React.FC = () => {
             <ul>
               <li>voir le projet dans leur profil</li>
               <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
-              <li>attribuer des badges</li>
+              <li>attribuer des preuves</li>
               <li>faire des équipes et donner des rôles dans équipe</li>
               <li>plus tard attribuer des tâches (Kanban)</li>
             </ul>
@@ -3747,7 +3751,7 @@ const ProjectManagement: React.FC = () => {
 
     // Prevent assigning badges if project is ended
     if (isProjectEnded) {
-      showError('Impossible d\'attribuer des badges à un projet terminé');
+      showError('Impossible d\'attribuer des preuves à un projet terminé');
       return;
     }
 
@@ -3757,14 +3761,12 @@ const ProjectManagement: React.FC = () => {
   };
 
   const displaySeries = (seriesName: string) => {
-    return seriesName?.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
+    return isSoftSkillsSeries(seriesName) ? 'Série Soft Skills 4LAB' : seriesName;
   };
 
   // Map frontend series name to backend series name for API calls
   const mapSeriesToBackend = (frontendSeries: string): string => {
-    if (frontendSeries === 'Série Soft Skills 4LAB') {
-      return 'Série TouKouLeur'; // Exact database value with capital K and L
-    }
+    if (isSoftSkillsSeries(frontendSeries)) return SOFT_SKILLS_SERIES;
     return frontendSeries;
   };
 
@@ -3801,7 +3803,8 @@ const ProjectManagement: React.FC = () => {
       badgeLevel,
       badgeImage: imageUrl,
       participantId: receiver.id?.toString() || '',
-      participantName: receiver.full_name || receiver.name || 'Inconnu',
+      // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
+      participantName: receiver.holder_display || receiver.full_name || receiver.name || 'Inconnu',
       participantAvatar: receiver.avatar_url || DEFAULT_AVATAR_SRC,
       participantOrganization: receiver.organization || organization.name || 'Non spécifiée',
       participantIsDeleted: receiver.is_deleted || false,
@@ -3832,8 +3835,8 @@ const ProjectManagement: React.FC = () => {
       if (badgeSeriesFilter) filters.series = mapSeriesToBackend(badgeSeriesFilter);
       if (badgeLevelFilter) filters.level = `level_${badgeLevelFilter}`;
       if (debouncedBadgeReceiverQuery) filters.receiver_query = debouncedBadgeReceiverQuery;
-      // Participant avec droit de badges: only badges they attributed
-      if (userProjectRole === 'participant avec droit de badges' && state.user?.id != null) {
+      // Participant avec droit de preuves : only preuves they attributed
+      if (userProjectRole === 'participant avec droit de preuves' && state.user?.id != null) {
         filters.sender_id = typeof state.user.id === 'number' ? state.user.id : parseInt(String(state.user.id), 10);
       }
       const response = await getProjectBadges(projectId, page, 12, filters);
@@ -3847,7 +3850,7 @@ const ProjectManagement: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error fetching project badges:', error);
-      setProjectBadgesError('Erreur lors du chargement des badges attribués');
+      setProjectBadgesError('Erreur lors du chargement des preuves de compétences attribuées');
     } finally {
       setIsLoadingProjectBadges(false);
     }
@@ -4420,7 +4423,7 @@ const ProjectManagement: React.FC = () => {
       case 'owner': return 'Responsable du projet';
       case 'co-owner': return 'Co-responsable du projet';
       case 'member': return 'Participant';
-      case 'member-with-badges': return 'Participant avec droit de badges';
+      case 'member-with-badges': return 'Participant avec droit de preuves';
       case 'admin': return 'Admin';
       default: return value;
     }
@@ -6032,7 +6035,7 @@ const ProjectManagement: React.FC = () => {
                     <>
                       <option value="member">Participant</option>
                       {!isMLDSProject && (
-                        <option value="member-with-badges">Participant avec droit de badges</option>
+                        <option value="member-with-badges">Participant avec droit de preuves</option>
                       )}
                       <option value="admin">Admin</option>
                     </>
@@ -6056,10 +6059,10 @@ const ProjectManagement: React.FC = () => {
                       <button
                         className="btn-accept"
                         onClick={() => handleAwardBadge(participant.memberId)}
-                        title="Attribuer un badge"
+                        title="Attribuer une preuve de compétences"
                       >
                         <i className="fas fa-award"></i>
-                        Badge
+                        Preuve
                       </button>
                     )}
                   </div>
@@ -6128,7 +6131,7 @@ const ProjectManagement: React.FC = () => {
                             <>
                               <option value="member">Participant</option>
                               {!isMLDSProject && (
-                                <option value="member-with-badges">Participant avec droit de badges</option>
+                                <option value="member-with-badges">Participant avec droit de preuves</option>
                               )}
                               <option value="admin">Admin</option>
                             </>
@@ -6153,9 +6156,9 @@ const ProjectManagement: React.FC = () => {
                                 type="button"
                                 className="btn-accept btn-sm"
                                 onClick={() => handleAwardBadge(participant.memberId)}
-                                title="Attribuer un badge"
+                                title="Attribuer une preuve de compétences"
                               >
-                                <i className="fas fa-award"></i> Badge
+                                <i className="fas fa-award"></i> Preuve
                               </button>
                             )}
                           </div>
@@ -6267,7 +6270,7 @@ const ProjectManagement: React.FC = () => {
           )}
           {canAssignBadges && !isMLDSProject && !isProjectEnded && !isReadOnlyMode && project.status !== 'draft' && (
             <button type="button" className="btn btn-primary" onClick={handleAssignBadge}>
-              <i className="fas fa-award"></i> Attribuer un badge
+              <i className="fas fa-award"></i> Attribuer une preuve de compétences
             </button>
           )}
         </div>
@@ -6502,7 +6505,7 @@ const ProjectManagement: React.FC = () => {
                   <span className="meta-text">{project.participants} participants</span>
                 </div>
                 <div className="meta-item">
-                  <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="meta-icon" />
+                  <img src="/icons_logo/Icon=Badges.svg" alt="Preuves" className="meta-icon" />
                   <span className="meta-text">{isLoadingStats ? '...' : (projectStats?.badges?.total ?? project?.badges ?? 0)} badges</span>
                 </div>
               </div>
@@ -6618,7 +6621,7 @@ const ProjectManagement: React.FC = () => {
                           <ul>
                             <li>voir le projet dans leur profil</li>
                             <li>ajouter des membres de leur organisation uniquement et modifier leur statut (sauf admin)</li>
-                            <li>attribuer des badges</li>
+                            <li>attribuer des preuves</li>
                             <li>faire des équipes et donner des rôles dans équipe</li>
                             <li>plus tard attribuer des tâches (Kanban)</li>
                           </ul>
@@ -6711,8 +6714,8 @@ const ProjectManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* Fixed section for "participant avec droit de badges": Badges que j'ai attribués + Participants du projet */}
-        {!shouldShowTabs() && userProjectRole === 'participant avec droit de badges' && (
+        {/* Fixed section for "participant avec droit de preuves": Preuves que j'ai attribuées + Participants du projet */}
+        {!shouldShowTabs() && userProjectRole === 'participant avec droit de preuves' && (
           <div style={{ marginTop: '1.5rem' }}>
             <div className="project-management-tabs">
               <button
@@ -6720,7 +6723,7 @@ const ProjectManagement: React.FC = () => {
                 className={`tab-btn ${badgeHolderSubView === 'badges' ? 'active' : ''}`}
                 onClick={() => setBadgeHolderSubView('badges')}
               >
-                Badges que j&apos;ai attribués
+                Preuves de compétences que j&apos;ai attribuées
               </button>
               <button
                 type="button"
@@ -6734,7 +6737,7 @@ const ProjectManagement: React.FC = () => {
               <div className="tab-content active">
                 <div className="badges-section">
                   <div className="badges-section-header">
-                    <h3>Badges que j&apos;ai attribués</h3>
+                    <h3>Preuves de compétences que j&apos;ai attribuées</h3>
                   </div>
                   <div className="badges-filters">
                     <div className="filter-group">
@@ -6823,7 +6826,7 @@ const ProjectManagement: React.FC = () => {
                               </span>
                             )}
                             <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
-                              {attribution.badgeSeries || 'Série TouKouLeur'}
+                              {attribution.badgeSeries || 'Série Soft Skills 4LAB'}
                             </span>
                           </div>
                           <div className="badge-info">
@@ -6929,7 +6932,7 @@ const ProjectManagement: React.FC = () => {
                         <table className="badges-attribution-table">
                           <thead>
                             <tr>
-                              <th>Badge</th>
+                              <th>Preuve</th>
                               <th>Titre</th>
                               <th>Série</th>
                               <th>Niveau</th>
@@ -6986,8 +6989,8 @@ const ProjectManagement: React.FC = () => {
                         <div className="empty-icon">
                           <i className="fas fa-award"></i>
                         </div>
-                        <h4>Aucun badge attribué</h4>
-                        <p>Les badges que vous avez attribués dans ce projet apparaîtront ici.</p>
+                        <h4>Aucune preuve de compétences attribuée</h4>
+                        <p>Les preuves de compétences que vous avez attribuées dans ce projet apparaîtront ici.</p>
                       </div>
                     )}
                     {isLoadingProjectBadges && (
@@ -6995,7 +6998,7 @@ const ProjectManagement: React.FC = () => {
                         <div className="empty-icon">
                           <i className="fas fa-spinner fa-spin"></i>
                         </div>
-                        <h4>Chargement des badges...</h4>
+                        <h4>Chargement des preuves...</h4>
                         <p>Merci de patienter.</p>
                       </div>
                     )}
@@ -7092,7 +7095,7 @@ const ProjectManagement: React.FC = () => {
               className={`tab-btn ${activeTab === 'badges' ? 'active' : ''}`}
               onClick={() => setActiveTab('badges')}
             >
-              Badges
+              Preuves
             </button>
             <button
               type="button"
@@ -7224,7 +7227,7 @@ const ProjectManagement: React.FC = () => {
                       <div className="stat-value">
                         {isLoadingStats ? '...' : (projectStats?.badges?.total || 0)}
                       </div>
-                      <div className="stat-label">Badges attribués</div>
+                      <div className="stat-label">Preuves de compétences attribuées</div>
                       <div className="stat-change positive">
                         +{isLoadingStats ? '...' : (projectStats?.badges?.this_month || 0)} ce mois
                       </div>
@@ -7303,13 +7306,13 @@ const ProjectManagement: React.FC = () => {
                             <button
                               type="button"
                               className="btn-icon badge-btn"
-                              title="Attribuer un badge"
+                              title="Attribuer une preuve de compétences"
                               onClick={() => {
                                 setSelectedParticipantForBadge(participant.memberId);
                                 setIsBadgeModalOpen(true);
                               }}
                             >
-                              <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer un badge" className="action-icon" />
+                              <img src="/icons_logo/Icon=Badges.svg" alt="Attribuer une preuve de compétences" className="action-icon" />
                             </button>
                           )}
                           {/* Show remove button if user can see it and participant can be removed */}
@@ -7548,7 +7551,7 @@ const ProjectManagement: React.FC = () => {
               <div className="tab-content active">
                 <div className="badges-section">
                   <div className="badges-section-header">
-                    <h3>Badges attribués</h3>
+                    <h3>Preuves de compétences attribuées</h3>
                   </div>
 
                   <div className="badges-filters">
@@ -7644,7 +7647,7 @@ const ProjectManagement: React.FC = () => {
                             )}
                             {/* Series pill - bottom right */}
                             <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
-                              {attribution.badgeSeries || 'Série TouKouLeur'}
+                              {attribution.badgeSeries || 'Série Soft Skills 4LAB'}
                             </span>
                           </div>
                           <div className="badge-info">
@@ -7762,7 +7765,7 @@ const ProjectManagement: React.FC = () => {
                         <table className="badges-attribution-table">
                           <thead>
                             <tr>
-                              <th>Badge</th>
+                              <th>Preuve</th>
                               <th>Titre</th>
                               <th>Série</th>
                               <th>Niveau</th>
@@ -7820,8 +7823,8 @@ const ProjectManagement: React.FC = () => {
                         <div className="empty-icon">
                           <i className="fas fa-award"></i>
                         </div>
-                        <h4>Aucun badge attribué</h4>
-                        <p>Les badges attribués dans ce projet apparaîtront ici.</p>
+                        <h4>Aucune preuve de compétences attribuée</h4>
+                        <p>Les preuves de compétences attribuées dans ce projet apparaîtront ici.</p>
                       </div>
                     )}
 
@@ -7830,7 +7833,7 @@ const ProjectManagement: React.FC = () => {
                         <div className="empty-icon">
                           <i className="fas fa-spinner fa-spin"></i>
                         </div>
-                        <h4>Chargement des badges...</h4>
+                        <h4>Chargement des preuves...</h4>
                         <p>Merci de patienter.</p>
                       </div>
                     )}
@@ -9146,16 +9149,27 @@ const ProjectManagement: React.FC = () => {
 
       </div>
 
-      <ConfirmModal
+      <CloseProjectModal
         isOpen={isCloseProjectConfirmOpen}
-        title="Clôture définitive du projet"
-        message={closeProjectConfirmationMessage}
-        confirmText="Confirmer la clôture définitive"
-        cancelText="Annuler"
+        projectTitle={project?.title || ''}
+        hasFunders={Boolean((project as { hasFunders?: boolean } | null)?.hasFunders)}
+        isSubmitting={isClosingProject}
         onConfirm={handleConfirmCloseIntent}
-        onCancel={() => setIsCloseProjectConfirmOpen(false)}
-        variant="warning"
+        onCancel={() => !isClosingProject && setIsCloseProjectConfirmOpen(false)}
       />
+
+      {bornProof && project && (
+        <CloseProjectBirthOverlay
+          title={project.title}
+          organization={project.organization}
+          onOpen={() => {
+            setBornProof(false);
+            setCurrentPage('pik');
+            navigate(`/pik/preuve/pp/${project.id}`);
+          }}
+          onContinue={() => setBornProof(false)}
+        />
+      )}
 
       {/* Modal bilan à la clôture du projet (MLDS uniquement) */}
       {isCloseProjectModalOpen && isMLDSProject && (

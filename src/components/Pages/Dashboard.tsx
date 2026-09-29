@@ -32,6 +32,7 @@ import {
   getUserDashboardStats
 } from '../../api/Dashboard';
 import { getUserBadges } from '../../api/Badges';
+import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
 import axiosClient from '../../api/config';
 import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
 import { OrganizationStatsResponse, PageType } from '../../types';
@@ -48,10 +49,10 @@ const numberFormatter = new Intl.NumberFormat('fr-FR');
 
 /** Returns navigation target for dashboard stat card (pro / edu / teacher). */
 function getStatCardNavigation(
-  showingPageType: 'pro' | 'edu' | 'teacher' | 'user',
+  showingPageType: 'pro' | 'edu' | 'teacher' | 'user' | 'of',
   cardKey: string
 ): { path: string; page: PageType } | null {
-  if (showingPageType === 'user') return null;
+  if (showingPageType === 'user' || showingPageType === 'of') return null;
   const key = cardKey as string;
   if (showingPageType === 'pro') {
     if (key === 'total_members') return { path: '/members', page: 'members' };
@@ -296,7 +297,10 @@ const getActorAvatar = (activity: any) => {
 };
 
 const getReceiverName = (activity: any) => {
+  // Famille A (annexe §8bis) : porteur d'attribution — holder_display d'abord, jamais de
+  // recomposition first_name/last_name pour ce type d'activité (badge_awarded).
   return (
+    activity?.receiver?.holder_display ||
     formatPersonName(activity?.receiver) ||
     activity?.receiver_name ||
     activity?.member_name ||
@@ -318,8 +322,8 @@ const buildActivityDescription = (activity: any) => {
           activity?.badge?.title ||
           activity?.badge?.name ||
           activity?.title ||
-          'Nouveau badge';
-        return `a reçu le badge "${badgeTitle}"`;
+          'Nouvelle preuve';
+        return `a reçu la preuve "${badgeTitle}"`;
       }
     case 'partnership_created':
       return `a créé un nouveau partenariat`;
@@ -573,7 +577,7 @@ const Dashboard: React.FC = () => {
     if (state.showingPageType !== 'user') return;
     let cancelled = false;
     setUserBadgesForChartLoading(true);
-    getUserBadges(1, 500, { series: 'Série TouKouLeur' })
+    getUserBadges(1, 500, { series: SOFT_SKILLS_SERIES })
       .then((res) => { if (!cancelled) setUserBadgesForChart(Array.isArray(res.data) ? res.data : []); })
       .catch(() => { if (!cancelled) setUserBadgesForChart([]); })
       .finally(() => { if (!cancelled) setUserBadgesForChartLoading(false); });
@@ -916,11 +920,11 @@ const Dashboard: React.FC = () => {
           setBadgeDistributionTotal(total);
         }
       } catch (error) {
-        console.error('Erreur lors du chargement de la répartition des badges :', error);
+        console.error('Erreur lors du chargement de la répartition des preuves de compétences :', error);
         if (!ignore) {
           setBadgeDistribution(initializeBadgeSegments());
           setBadgeDistributionTotal(0);
-          setBadgeDistributionError('Impossible de charger la répartition des badges pour le moment.');
+          setBadgeDistributionError('Impossible de charger la répartition des preuves pour le moment.');
         }
       } finally {
         if (!ignore) {
@@ -1266,7 +1270,7 @@ const Dashboard: React.FC = () => {
     { key: 'active_partnerships', label: 'Mes partenaires', icon: '/icons_logo/Icon=Reseau.svg', value: overview?.active_partnerships, variant: 'stat-card' as const },
     { key: 'total_projects', label: 'Projets', icon: '/icons_logo/Icon=Projet grand.svg', value: overview?.total_projects, variant: 'stat-card2' as const },
     { key: 'events_count', label: 'Événements', icon: '/icons_logo/Icon=Event grand.svg', value: overview?.events_count, variant: 'stat-card2' as const },
-    { key: 'badges_assigned', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg', value: badgesAssigned?.total, variant: 'stat-card2' as const },
+    { key: 'badges_assigned', label: 'Preuves', icon: '/icons_logo/Icon=Badges.svg', value: badgesAssigned?.total, variant: 'stat-card2' as const },
   ] : [];
 
   // Teacher dashboard: order is Classes, Élèves, Membres de mon réseau, Projets, Événements, Badges (same styling as edu)
@@ -1276,7 +1280,7 @@ const Dashboard: React.FC = () => {
     { key: 'network_count', label: 'Membres de mon réseau', icon: '/icons_logo/Icon=Membres.svg', value: overview?.network_count, variant: 'stat-card' as const },
     { key: 'total_projects', label: 'Projets', icon: '/icons_logo/Icon=Projet grand.svg', value: overview?.total_projects, variant: 'stat-card2' as const },
     { key: 'events_count', label: 'Événements', icon: '/icons_logo/Icon=Event grand.svg', value: overview?.events_count, variant: 'stat-card2' as const },
-    { key: 'badges_assigned', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg', value: overview?.badges_assigned ?? badgesAssigned?.total, variant: 'stat-card2' as const },
+    { key: 'badges_assigned', label: 'Preuves', icon: '/icons_logo/Icon=Badges.svg', value: overview?.badges_assigned ?? badgesAssigned?.total, variant: 'stat-card2' as const },
   ] : [];
 
   const statCards = state.showingPageType === 'edu' ? eduStatCards : state.showingPageType === 'teacher' ? teacherStatCards : [
@@ -1310,7 +1314,7 @@ const Dashboard: React.FC = () => {
     },
     {
       key: 'badges_assigned',
-      label: 'Badges',
+      label: 'Preuves',
       icon: '/icons_logo/Icon=Badges.svg',
       value: badgesAssigned?.total,
       variant: 'stat-card2',
@@ -1407,6 +1411,13 @@ const Dashboard: React.FC = () => {
     (state.showingPageType === 'pro'
       ? "l'organisation"
       : null);
+  const isFunderDashboard =
+    state.showingPageType === 'pro' &&
+    Number(
+      state.user?.available_contexts?.companies?.find(
+        (company) => Number(company.id) === Number(organizationId)
+      )?.financed_projects_count || 0
+    ) > 0;
 
   const getStatusMeta = (status?: string) => {
     switch (status) {
@@ -1494,13 +1505,18 @@ const Dashboard: React.FC = () => {
     return `Il y a ${years} an${years > 1 ? 's' : ''}`;
   };
 
+  // Espace OF / formations temporairement désactivé
+  // if (state.showingPageType === 'of') {
+  //   return <FormationsHub />;
+  // }
+
   if (state.showingPageType === 'user') {
     const s = userDashboardStats;
     const formatUserStat = (value?: number | null) => (value === undefined || value === null ? '—' : numberFormatter.format(value));
     const userStatCards = [
       { key: 'projects', label: 'Mes projets', sub: 'projets', count: s?.projects_count ?? 0, last30: s?.projects_last_30_days ?? 0, path: '/projects', icon: '/icons_logo/Icon=Projet grand.svg' },
       { key: 'events', label: 'Mes événements', sub: 'événements', count: s?.events_count ?? 0, last30: s?.events_last_30_days ?? 0, path: '/events', icon: '/icons_logo/Icon=Event grand.svg' },
-      { key: 'badges', label: 'Mes badges', sub: 'badges', count: s?.badges_count ?? 0, last30: s?.badges_last_30_days ?? 0, path: '/badges', icon: '/icons_logo/Icon=Badges.svg' },
+      { key: 'badges', label: 'Mes preuves', sub: 'preuves', count: s?.badges_count ?? 0, last30: s?.badges_last_30_days ?? 0, path: '/badges', icon: '/icons_logo/Icon=Badges.svg' },
       { key: 'network', label: 'Mon réseau', sub: 'contacts', count: s?.network_count ?? 0, last30: s?.network_last_30_days ?? 0, path: '/network', icon: '/icons_logo/Icon=Reseau.svg' },
     ];
     return (
@@ -1518,7 +1534,106 @@ const Dashboard: React.FC = () => {
         </div>
         {isUnder15(state.user?.birthday) && (
           <div className="checkin-alert" style={{ margin: '0 0 1rem', backgroundColor: '#e0f2fe', borderColor: '#0ea5e9', color: '#0c4a6e' }}>
-            Vous avez moins de 15 ans. Votre compte dispose de fonctionnalités limitées. Vous pouvez toutefois participer aux projets de vos établissements ou organisations et recevoir des badges.
+            Vous avez moins de 15 ans. Votre compte dispose de fonctionnalités limitées. Vous pouvez toutefois participer aux projets de vos établissements ou organisations et recevoir des preuves de compétences.
+          </div>
+        )}
+        {FEATURE_PIK_REMISE && showPikEncart && (
+          <div
+            className="checkin-alert"
+            style={{
+              margin: '0 0 1rem',
+              backgroundColor: '#fff8ec',
+              border: '1px dashed #FFB557',
+              color: '#7a4a06',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <strong>Votre clé personnelle vous attend</strong>
+              <div style={{ fontSize: '0.9rem', marginTop: 4 }}>
+                Affichez-la une seule fois dans vos paramètres — Kinship ne pourra plus vous la réafficher ensuite.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                sessionStorage.setItem('openPersonalKeyTab', '1');
+                setCurrentPage('personal-settings');
+              }}
+            >
+              Prendre ma clé
+            </button>
+          </div>
+        )}
+        {FEATURE_PIK_REMISE && showPikEncart && (
+          <div
+            className="checkin-alert"
+            style={{
+              margin: '0 0 1rem',
+              backgroundColor: '#fff8ec',
+              border: '1px dashed #FFB557',
+              color: '#7a4a06',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <strong>Votre clé personnelle vous attend</strong>
+              <div style={{ fontSize: '0.9rem', marginTop: 4 }}>
+                Affichez-la une seule fois dans vos paramètres — Kinship ne pourra plus vous la réafficher ensuite.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                sessionStorage.setItem('openPersonalKeyTab', '1');
+                setCurrentPage('personal-settings');
+              }}
+            >
+              Prendre ma clé
+            </button>
+          </div>
+        )}
+        {FEATURE_PIK_REMISE && showPikEncart && (
+          <div
+            className="checkin-alert"
+            style={{
+              margin: '0 0 1rem',
+              backgroundColor: '#fff8ec',
+              border: '1px dashed #FFB557',
+              color: '#7a4a06',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <strong>Votre clé personnelle vous attend</strong>
+              <div style={{ fontSize: '0.9rem', marginTop: 4 }}>
+                Affichez-la une seule fois dans vos paramètres — Kinship ne pourra plus vous la réafficher ensuite.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                sessionStorage.setItem('openPersonalKeyTab', '1');
+                setCurrentPage('personal-settings');
+              }}
+            >
+              Prendre ma clé
+            </button>
           </div>
         )}
         {FEATURE_PIK_REMISE && showPikEncart && (
@@ -1597,10 +1712,10 @@ const Dashboard: React.FC = () => {
                       return (
                         <li key={ub.id} className="personal-dashboard-badge-item">
                           <div className="personal-dashboard-badge-item-icon">
-                            <img src={badgeImage} alt={ub.badge?.name ?? 'Badge'} />
+                            <img src={badgeImage} alt={ub.badge?.name ?? 'Compétence'} />
                           </div>
                           <div className="personal-dashboard-badge-item-text">
-                            <span className="personal-dashboard-badge-name">{ub.badge?.name ?? 'Badge'}</span>
+                            <span className="personal-dashboard-badge-name">{ub.badge?.name ?? 'Compétence'}</span>
                             <span className="personal-dashboard-badge-level">{ub.badge?.level?.replace('level_', 'Niveau ') ?? ''}</span>
                             {ub.created_at && (
                               <span className="personal-dashboard-badge-date">
@@ -1615,7 +1730,7 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
               <button type="button" className="btn btn-text personal-dashboard-link" onClick={() => { setCurrentPage('badges'); navigate('/badges'); }}>
-                Voir tous mes badges →
+                Voir toutes mes preuves →
               </button>
             </div>
             <div className="personal-dashboard-card personal-dashboard-stats-card">
@@ -1729,14 +1844,20 @@ const Dashboard: React.FC = () => {
                 <span>
                   Tableau de bord enseignant
                   {state.user.available_contexts?.schools && state.user.available_contexts.schools.length > 0 && (
-                    <span className="text-sm text-gray-600 ml-2">
+                    <span className="ml-2 text-sm text-gray-600">
                       ({state.user.available_contexts.schools.map((s: any) => s.name).join(', ')})
                     </span>
                   )}
                 </span>
               </div>
             )}
-            {state.showingPageType !== 'teacher' && (
+            {state.showingPageType === 'pro' && (
+              <div className="flex gap-2 items-center">
+                <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+                <span>{isFunderDashboard ? 'Tableau de bord financeur' : `Tableau de bord de ${organizationDisplayName}`}</span>
+              </div>
+            )}
+            {state.showingPageType !== 'teacher' && state.showingPageType !== 'pro' && (
               <div className="flex gap-2 items-center">
                 <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
                 <span>Tableau de bord de {organizationDisplayName}</span>
@@ -1962,7 +2083,7 @@ const Dashboard: React.FC = () => {
             {/* PARTIE GAUCHE : Répartition des badges (1/3 width) */}
             <div className="chart-container badge-distribution-chart">
               <div className="chart-header">
-                <h3>Répartition des badges</h3>
+                <h3>Répartition des preuves</h3>
               </div>
               <div className="chart-placeholder">
                 {badgeDistributionLoading && (
@@ -1992,7 +2113,7 @@ const Dashboard: React.FC = () => {
                         ))}
                       </div>
                     ) : (
-                      <p className="chart-feedback-text">Aucun badge attribué pour le moment.</p>
+                      <p className="chart-feedback-text">Aucune preuve attribuée pour le moment.</p>
                     )}
                   </div>
                 )}
@@ -2016,7 +2137,7 @@ const Dashboard: React.FC = () => {
                     className={`activity-tab ${selectedActivity === 'badges' ? 'activity-tab-active' : ''}`}
                     onClick={() => setSelectedActivity('badges')}
                   >
-                    Attribution des badges
+                    Attribution des preuves
                   </button>
                 </div>
               </div>
@@ -2112,7 +2233,7 @@ const Dashboard: React.FC = () => {
                     >
                       <div className="tooltip-label">{hoveredBar.label}</div>
                       <div className="tooltip-value">
-                        {hoveredBar.value} {selectedActivity === 'projects' ? 'projets' : 'badges'}
+                        {hoveredBar.value} {selectedActivity === 'projects' ? 'projets' : 'preuves'}
                       </div>
                     </div>
                   )}

@@ -31,6 +31,8 @@ interface BadgeAttribution {
   receiver: {
     id: number;
     full_name: string;
+    // Famille A (annexe §8bis) : porteur d'attribution — affichage via holder_display uniquement.
+    holder_display: string;
     email: string;
     role?: string;
     is_deleted?: boolean;
@@ -191,6 +193,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
         const receiver = item.receiver || { 
           id: item.receiver_id || 0, 
           full_name: item.receiver?.full_name || 'Unknown', 
+          holder_display: item.receiver?.holder_display || item.receiver?.full_name || 'Unknown',
           email: item.receiver?.email || '' 
         };
         
@@ -341,7 +344,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
       <div className="modal-content badge-attributions-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2>Attributions du badge</h2>
+            <h2>Attributions de la preuve de compétences</h2>
             <p className="badge-attributions-subtitle">
               <img 
                 src={badgeImage} 
@@ -368,7 +371,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           {!error && !isLoading && attributions.length === 0 && (
             <div className="badge-attributions-empty">
               <i className="fas fa-inbox"></i>
-              <p>Aucune attribution trouvée pour ce badge</p>
+              <p>Aucune attribution trouvée pour cette preuve de compétences</p>
             </div>
           )}
 
@@ -416,14 +419,14 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                           {attribution.receiver.is_deleted ? (
                             <DeletedUserDisplay 
                               user={{
-                                full_name: attribution.receiver.full_name,
+                                full_name: attribution.receiver.holder_display,
                                 email: attribution.receiver.email,
                                 is_deleted: true
                               }}
                               showEmail={false}
                             />
                           ) : (
-                            <span className="person-name">{attribution.receiver.full_name}</span>
+                            <span className="person-name">{attribution.receiver.holder_display}</span>
                           )}
                         </div>
                       </td>

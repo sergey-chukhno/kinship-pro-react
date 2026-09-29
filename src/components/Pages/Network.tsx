@@ -12,7 +12,7 @@ import MemberCard from '../Members/MemberCard';
 import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, getTeacherSchoolPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest } from '../../api/Projects';
+import { getPartnerships, getTeacherSchoolPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest, getFunderAttachments } from '../../api/Projects';
 import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
 import { isStudentRole } from '../../utils/roleUtils';
 import { getSkills } from '../../api/Skills';
@@ -155,6 +155,16 @@ const Network: React.FC = () => {
   const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | 'join-organization' | 'teacher-partnership-requests' | 'school-teacher-partnership-requests' | null>(
     isOrgDashboardInitial || isPersonalUserForType ? null : 'schools'
   );
+  const [funderTileCounts, setFunderTileCounts] = useState({ funders: 0, funded: 0 });
+
+  useEffect(() => {
+    const orgId = getSelectedOrganizationId(state.user, state.showingPageType);
+    if (!orgId || (state.showingPageType !== 'pro' && state.showingPageType !== 'edu')) return;
+    const type = state.showingPageType === 'edu' ? 'school' : 'company';
+    void getFunderAttachments(orgId, type)
+      .then((res) => setFunderTileCounts({ funders: res.funders_count, funded: res.funded_structures_count }))
+      .catch(() => setFunderTileCounts({ funders: 0, funded: 0 }));
+  }, [state.user, state.showingPageType]);
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
@@ -2608,6 +2618,16 @@ const Network: React.FC = () => {
                 )}
               </button>
               <button
+                className="btn btn-outline"
+                onClick={() => {
+                  setCurrentPage('funder-attachments');
+                  navigate('/funder-attachments');
+                }}
+              >
+                <i className="fas fa-landmark"></i>
+                Gérer les demandes de rattachement financeur
+              </button>
+              <button
                 className="btn btn-primary"
                 onClick={() => {
                   setActiveCard(null);
@@ -2642,6 +2662,34 @@ const Network: React.FC = () => {
               <p>Mes partenaires</p>
             </div>
           </div>
+          {(funderTileCounts.funders > 0 || funderTileCounts.funded > 0) && (
+            <div
+              className="summary-card"
+              onClick={() => {
+                setCurrentPage('funder-attachments');
+                navigate('/funder-attachments');
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="summary-icon">
+                <img src="/icons_logo/Icon=Reseau.svg" alt="Rattachements financeur" className="summary-icon-img" />
+              </div>
+              <div className="summary-content">
+                {funderTileCounts.funders > 0 && (
+                  <>
+                    <h3>{funderTileCounts.funders}</h3>
+                    <p>Mes financeurs</p>
+                  </>
+                )}
+                {funderTileCounts.funded > 0 && (
+                  <>
+                    <h3>{funderTileCounts.funded}</h3>
+                    <p>Structures financées</p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           <div 
             className={`summary-card ${activeCard === 'branches' ? 'active' : ''}`}
             onClick={() => {
