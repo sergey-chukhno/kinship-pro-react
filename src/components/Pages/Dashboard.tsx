@@ -32,6 +32,7 @@ import {
   getUserDashboardStats
 } from '../../api/Dashboard';
 import { getUserBadges } from '../../api/Badges';
+import axiosClient from '../../api/config';
 import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
 import { OrganizationStatsResponse, PageType } from '../../types';
 import { getOrganizationId, validateImageSize } from '../../utils/projectMapper';
@@ -435,6 +436,8 @@ const buildBadgePieBackground = (segments: BadgeDistributionSegment[], total: nu
   return `conic-gradient(${gradientStops.join(', ')})`;
 };
 
+const FEATURE_PIK_REMISE = process.env.REACT_APP_FEATURE_PIK_REMISE === 'true';
+
 type UserDashboardStats = {
   projects_count: number;
   events_count: number;
@@ -456,6 +459,7 @@ const Dashboard: React.FC = () => {
   const [userLast3BadgesLoading, setUserLast3BadgesLoading] = useState(false);
   const [userBadgesForChart, setUserBadgesForChart] = useState<any[]>([]);
   const [userBadgesForChartLoading, setUserBadgesForChartLoading] = useState(false);
+  const [showPikEncart, setShowPikEncart] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<ActivityPeriodKey>('1m');
@@ -533,6 +537,24 @@ const Dashboard: React.FC = () => {
       .then((data) => { if (!cancelled) setUserDashboardStats(data); })
       .catch(() => { if (!cancelled) setUserDashboardStats(null); })
       .finally(() => { if (!cancelled) setUserDashboardStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, [state.showingPageType]);
+
+  // PIK remittance reminder banner (KIN_UX_PIK V1.9) — flag-gated, non-blocking
+  useEffect(() => {
+    if (!FEATURE_PIK_REMISE || state.showingPageType !== 'user') {
+      setShowPikEncart(false);
+      return;
+    }
+    let cancelled = false;
+    axiosClient
+      .get('/api/v1/account/identity/encart')
+      .then((res) => {
+        if (!cancelled) setShowPikEncart(Boolean(res.data?.show_encart));
+      })
+      .catch(() => {
+        if (!cancelled) setShowPikEncart(false);
+      });
     return () => { cancelled = true; };
   }, [state.showingPageType]);
 
@@ -1499,6 +1521,39 @@ const Dashboard: React.FC = () => {
             Vous avez moins de 15 ans. Votre compte dispose de fonctionnalités limitées. Vous pouvez toutefois participer aux projets de vos établissements ou organisations et recevoir des badges.
           </div>
         )}
+        {FEATURE_PIK_REMISE && showPikEncart && (
+          <div
+            className="checkin-alert"
+            style={{
+              margin: '0 0 1rem',
+              backgroundColor: '#fff8ec',
+              border: '1px dashed #FFB557',
+              color: '#7a4a06',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div>
+              <strong>Votre clé personnelle vous attend</strong>
+              <div style={{ fontSize: '0.9rem', marginTop: 4 }}>
+                Affichez-la une seule fois dans vos paramètres — Kinship ne pourra plus vous la réafficher ensuite.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                sessionStorage.setItem('openPersonalKeyTab', '1');
+                setCurrentPage('personal-settings');
+              }}
+            >
+              Prendre ma clé
+            </button>
+          </div>
+        )}
         <div className="dashboard-main-content personal-dashboard-content">
           <div className="personal-dashboard-stats-row">
             {userDashboardStatsLoading ? (
@@ -1527,12 +1582,12 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="personal-dashboard-second-row">
             <div className="personal-dashboard-card personal-dashboard-badges-card">
-              <h3 className="personal-dashboard-card-title">3 derniers badges</h3>
+              <h3 className="personal-dashboard-card-title">3 dernières Preuves de compétences</h3>
               <div className="personal-dashboard-card-content">
                 {userLast3BadgesLoading ? (
                   <p className="personal-dashboard-loading">Chargement…</p>
                 ) : userLast3Badges.length === 0 ? (
-                  <p className="personal-dashboard-empty">Aucun badge reçu</p>
+                  <p className="personal-dashboard-empty">Aucune Preuve de compétences</p>
                 ) : (
                   <ul className="personal-dashboard-badges-list">
                     {userLast3Badges.map((ub: any) => {

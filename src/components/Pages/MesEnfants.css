@@ -16,8 +16,15 @@
 
 .mes-enfants-intro {
   color: #4b5563;
-  margin: 0 0 20px;
+  margin: 0 0 8px;
   line-height: 1.5;
+}
+
+.mes-enfants-orientation {
+  color: #6b7280;
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .mes-enfants-form {
@@ -101,6 +108,13 @@
   padding: 12px 14px;
 }
 
+.mes-enfants-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .mes-enfants-name {
   font-weight: 700;
 }
@@ -109,6 +123,18 @@
   font-size: 0.85rem;
   color: #8a6d1a;
   margin-top: 4px;
+}
+
+.mes-enfants-proofs {
+  background: #fff;
+  border: 1px solid #c7d2fe;
+  color: #3730a3;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .mes-enfants-detach {
@@ -121,4 +147,58 @@
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.mes-enfants-proofs-section {
+  margin-top: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.mes-enfants-proofs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mes-enfants-proofs-header h2 {
+  margin: 0;
+}
+
+.mes-enfants-proofs-close {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.mes-enfants-proofs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mes-enfants-proof-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.mes-enfants-proof-name {
+  font-weight: 700;
+}
+
+.mes-enfants-proof-meta {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 4px;
 }

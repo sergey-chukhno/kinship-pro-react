@@ -27,7 +27,7 @@ export const useAuthInit = () => {
       "analytics", "network", "notifications", "settings",
       "personal-settings",
       "membership-requests", "partnership-requests", "project-management",
-      "mes-enfants"
+      "mes-enfants", "mes-parents"
     ];
 
     if (validPages.includes(path as PageType)) {

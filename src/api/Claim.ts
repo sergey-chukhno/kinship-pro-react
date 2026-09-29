@@ -16,6 +16,13 @@ export interface ClaimCredentialsPayload {
   accept_privacy_policy?: boolean; // Optional for backward compatibility
 }
 
+export type ClaimPersonalKeyResponse = {
+  plaintext: string;
+  pik_acknowledged_at?: string | null;
+  door_label?: string | null;
+  pdf_token: string;
+};
+
 export const verifyStudentClaim = (payload: ClaimVerificationPayload) => {
   return axiosClient.post('/api/v1/account/claim/verify', payload);
 };
@@ -23,4 +30,23 @@ export const verifyStudentClaim = (payload: ClaimVerificationPayload) => {
 export const updateStudentCredentials = (payload: ClaimCredentialsPayload) => {
   return axiosClient.post('/api/v1/account/claim', payload);
 };
+
+export const revealClaimPersonalKey = (payload: ClaimVerificationPayload) => {
+  return axiosClient.post<ClaimPersonalKeyResponse>('/api/v1/account/claim/personal_key', payload);
+};
+
+export async function downloadClaimPersonalKeyPdf(pdfToken: string) {
+  const res = await axiosClient.get('/api/v1/account/claim/personal_key/pdf', {
+    params: { pdf_token: pdfToken },
+    responseType: 'blob',
+  });
+  const url = window.URL.createObjectURL(res.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'kinship-cle-personnelle.pdf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}
 

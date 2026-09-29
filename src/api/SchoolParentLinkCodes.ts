@@ -12,7 +12,6 @@ export type SchoolParentLinkCode = {
 export type SchoolParentActiveLink = {
   id: number;
   label: string;
-  suspended: boolean;
 };
 
 export type SchoolParentLinkCodesPayload = {

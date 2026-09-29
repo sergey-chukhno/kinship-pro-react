@@ -179,6 +179,49 @@
   transform: translateY(-1px);
 }
 
+.checkin-button-secondary {
+  background: #fff;
+  color: #30387a;
+  border: 1px solid #cfd3e6;
+}
+
+.checkin-button-pik {
+  background: #b4531a;
+}
+
+.checkin-button-pik:not(:disabled):hover {
+  background: #9a4214;
+}
+
+.checkin-pik-hint {
+  font-size: 0.8rem;
+  color: #6b6a64;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.checkin-pik-reveal {
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #f9f8f5;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.checkin-pik-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: #1c1b18;
+}
+
+.checkin-pik-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.08em;
+  font-size: 1.05rem;
+  margin: 0;
+  word-break: break-all;
+}
+
 .checkin-context {
   font-size: 0.9rem;
   color: #475569;

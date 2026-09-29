@@ -98,6 +98,8 @@ export type RecapDocumentIndex = {
   public_token: string;
   nominative_present: boolean;
   direction_note_available: boolean;
+  pik_class_keys_printed_at?: string | null;
+  pik_class_keys_available?: boolean;
   classes: Array<{
     class_name: string;
     student_count: number;
@@ -298,6 +300,24 @@ export async function downloadRecapDirectionNote(schoolId: number, publicToken: 
     );
   } catch (err) {
     throw new Error(await messageFromBlobError(err, 'Téléchargement de la note direction impossible'));
+  }
+}
+
+export async function downloadRecapPersonalKeys(schoolId: number, publicToken: string) {
+  try {
+    const res = await axiosClient.get(`${recapBase(schoolId, publicToken)}/personal_keys`, {
+      responseType: 'blob',
+      validateStatus: (status) => (status >= 200 && status < 300) || status === 201,
+    });
+    downloadBlob(
+      res.data,
+      filenameFromDisposition(
+        res.headers['content-disposition'],
+        `cles-personnelles-${publicToken}.pdf`
+      )
+    );
+  } catch (err) {
+    throw new Error(await messageFromBlobError(err, 'Téléchargement des clés personnelles impossible'));
   }
 }
 

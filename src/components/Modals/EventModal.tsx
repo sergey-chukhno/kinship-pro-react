@@ -20,6 +20,10 @@ import {
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { useToast } from '../../hooks/useToast';
+import {
+  isSoftSkillsSeries,
+  SOFT_SKILLS_SERIES_DISPLAY_NAME,
+} from '../../utils/badgeLevelLabels';
 
 interface EventModalProps {
   event?: Event | null;
@@ -92,7 +96,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
   const [groupDetailPopup, setGroupDetailPopup] = useState<{ groupId: string; groupName: string } | null>(null);
   const [isLoadingGroupMembers, setIsLoadingGroupMembers] = useState(false);
   const displaySeries = useCallback((seriesName: string) => {
-    return seriesName.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
+    return isSoftSkillsSeries(seriesName) ? SOFT_SKILLS_SERIES_DISPLAY_NAME : seriesName;
   }, []);
 
   const badgesBySeries = useMemo(() => {
@@ -110,9 +114,8 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
     const allLevels = Array.from(
       new Set((badgesBySeries[badgeSeriesFilter] || []).map((b) => b.level))
     );
-    // For "Série Parcours des possibles", only show levels 1 and 2
-    // For "Série Audiovisuelle" and "Série Parcours professionnel", show all levels (1, 2, 3, 4)
-    if (badgeSeriesFilter === 'Série Parcours des possibles') {
+    // Soft Skills / Parcours des possibles: only Découverte + Appropriation (or L1/L2)
+    if (isSoftSkillsSeries(badgeSeriesFilter) || badgeSeriesFilter === 'Série Parcours des possibles') {
       return allLevels.filter(level => level === 'level_1' || level === 'level_2');
     }
     return allLevels;
@@ -122,10 +125,10 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
     return availableBadges.filter((badge) => {
       if (badgeSeriesFilter && badge.series !== badgeSeriesFilter) return false;
       if (badgeLevelFilter && badge.level !== badgeLevelFilter) return false;
-      // For "Série Parcours des possibles", hide levels 3 and 4
-      // For "Série Audiovisuelle" and "Série Parcours professionnel", show all levels (1, 2, 3, 4)
-      if (badge.series === 'Série Parcours des possibles' && 
-          (badge.level === 'level_3' || badge.level === 'level_4')) {
+      if (
+        (isSoftSkillsSeries(badge.series) || badge.series === 'Série Parcours des possibles') &&
+        (badge.level === 'level_3' || badge.level === 'level_4')
+      ) {
         return false;
       }
       return true;
