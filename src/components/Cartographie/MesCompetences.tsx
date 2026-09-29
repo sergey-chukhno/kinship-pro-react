@@ -120,14 +120,16 @@ const MesCompetences: React.FC = () => {
     return entries.sort((a, b) => a.name.localeCompare(b.name));
   }, [catalogue, userBadges, series]);
 
+  const attested = useMemo(() => competences.filter((c) => c.litCount > 0), [competences]);
+
   const grouped = useMemo(() => {
     const axes = getCartographieAxesForSeries(series);
     if (axes.length === 0) {
-      return [{ title: null as string | null, items: competences }];
+      return [{ title: null as string | null, items: attested }];
     }
     const buckets = axes.map((a) => ({ title: a.title as string | null, items: [] as CompetenceEntry[] }));
     const unclassed: CompetenceEntry[] = [];
-    competences.forEach((c) => {
+    attested.forEach((c) => {
       const bucket = buckets.find((b) => b.title === c.axeTitle);
       if (bucket) bucket.items.push(c);
       else unclassed.push(c);
@@ -135,7 +137,7 @@ const MesCompetences: React.FC = () => {
     const result = buckets.filter((b) => b.items.length > 0);
     if (unclassed.length > 0) result.push({ title: 'Non classé', items: unclassed });
     return result;
-  }, [competences, series]);
+  }, [attested, series]);
 
   return (
     <div className="carto-mes-competences">
@@ -231,6 +233,7 @@ const MesCompetences: React.FC = () => {
           axeColor={getAxeColor(openCompetence.axeTitle)}
           series={series}
           userBadges={userBadges}
+          onlyLit
           onClose={() => setOpenCompetence(null)}
         />
       )}

@@ -25,6 +25,8 @@ interface Props {
   series: string;
   userBadges: any[];
   onClose: () => void;
+  /** Masque les niveaux dont aucun item n'est constaté (vue « Mes compétences »). */
+  onlyLit?: boolean;
 }
 
 const formatDate = (iso: string) => {
@@ -41,7 +43,7 @@ const formatDate = (iso: string) => {
  * constats (projet / adulte / date), à partir des vraies preuves de l'utilisateur
  * — jamais de note ou de moyenne, chaque constat reste une preuve individuelle.
  */
-const CompetenceDetail: React.FC<Props> = ({ competence, axeColor, series, userBadges, onClose }) => {
+const CompetenceDetail: React.FC<Props> = ({ competence, axeColor, series, userBadges, onClose, onlyLit = false }) => {
   const [openItem, setOpenItem] = useState<{ id: string; name: string } | null>(null);
   const niveauWord = getNiveauWordForSeries(series);
   const competenceImage = useMemo(() => {
@@ -106,7 +108,9 @@ const CompetenceDetail: React.FC<Props> = ({ competence, axeColor, series, userB
           </p>
         </div>
         <div className="carto-detail-body">
-          {competence.niveaux.map((niveau, idx) => (
+          {competence.niveaux.map((niveau, idx) => {
+            if (onlyLit && niveau.items.every((item) => !item.lit)) return null;
+            return (
             <div key={niveau.key} className="carto-detail-niveau">
               <h4>
                 {niveauWord} {idx + 1}
@@ -128,7 +132,8 @@ const CompetenceDetail: React.FC<Props> = ({ competence, axeColor, series, userB
                 ))}
               </ul>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {openItem && (
