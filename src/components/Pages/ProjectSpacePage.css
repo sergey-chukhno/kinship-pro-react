@@ -296,6 +296,87 @@
   margin: 8px 0 0;
 }
 
+.ps-cover-wrap {
+  margin-top: 4px;
+}
+
+.ps-cover-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.ps-cover-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 0;
+}
+
+.ps-cover-preview {
+  width: 148px;
+  height: 96px;
+  flex: none;
+  border-radius: 10px;
+  border: 1px solid #d7d4cb;
+  background: #f4f2ec;
+  overflow: hidden;
+}
+
+.ps-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ps-cover-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--ps-faint);
+}
+
+.ps-cover-actions {
+  min-width: 0;
+}
+
+.ps-cover-actions .ps-sub {
+  margin-top: 6px;
+}
+
+.ps-filepick {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.ps-filepick input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ps-filepick span {
+  display: inline-block;
+  background: #fff;
+  color: var(--couleur-espace, #115e59);
+  border: 1.5px solid var(--couleur-espace, #115e59);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .ps-panel {
   border: 1.5px solid var(--couleur-espace, #115e59);
   border-radius: 10px;

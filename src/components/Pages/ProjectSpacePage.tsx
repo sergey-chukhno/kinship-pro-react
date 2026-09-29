@@ -168,6 +168,10 @@ const ProjectSpacePage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const coverPreviewRef = useRef<string | null>(null);
   const [pathways, setPathways] = useState<string[]>([]);
   const [learningOutcomes, setLearningOutcomes] = useState<LearningOutcome[]>([]);
   const [participationMode, setParticipationMode] = useState<ParticipationMode>('presentiel');
@@ -381,12 +385,53 @@ const ProjectSpacePage: React.FC = () => {
     }
   };
 
-  const patchProject = async (fields: Parameters<typeof updateProject>[1]['project'], success?: string) => {
+  const clearCoverSelection = () => {
+    if (coverPreviewRef.current) {
+      URL.revokeObjectURL(coverPreviewRef.current);
+      coverPreviewRef.current = null;
+    }
+    setCoverFile(null);
+    setCoverPreview(null);
+    if (coverInputRef.current) coverInputRef.current.value = '';
+  };
+
+  const chooseCover = (file: File | null) => {
+    if (!file) {
+      clearCoverSelection();
+      return;
+    }
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!allowed.includes(file.type)) {
+      setError('Format accepté : JPEG, PNG, GIF, WebP ou SVG.');
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      setError('L’image doit faire moins de 1 Mo.');
+      return;
+    }
+    if (coverPreviewRef.current) URL.revokeObjectURL(coverPreviewRef.current);
+    const url = URL.createObjectURL(file);
+    coverPreviewRef.current = url;
+    setCoverFile(file);
+    setCoverPreview(url);
+    setError(null);
+  };
+
+  useEffect(() => () => {
+    if (coverPreviewRef.current) URL.revokeObjectURL(coverPreviewRef.current);
+  }, []);
+
+  const patchProject = async (
+    fields: Parameters<typeof updateProject>[1]['project'],
+    success?: string,
+    mainImage?: File | null
+  ) => {
     if (!projectId) return;
     setSaving(true);
     setError(null);
     try {
-      await updateProject(Number(projectId), { project: fields });
+      await updateProject(Number(projectId), { project: fields }, mainImage);
+      if (mainImage) clearCoverSelection();
       if (success) showSuccess(success);
       await loadProject({ silent: true });
     } catch (e: any) {
@@ -467,7 +512,8 @@ const ProjectSpacePage: React.FC = () => {
             }
           : {}),
       },
-      isDraft ? 'Brouillon enregistré' : 'Informations mises à jour'
+      isDraft ? 'Brouillon enregistré' : 'Informations mises à jour',
+      coverFile
     );
   };
 
@@ -500,7 +546,8 @@ const ProjectSpacePage: React.FC = () => {
             }
           : {}),
       },
-      'Projet créé — privé par défaut, visible par votre structure seulement.'
+      'Projet créé — privé par défaut, visible par votre structure seulement.',
+      coverFile
     );
   };
 
@@ -751,10 +798,42 @@ const ProjectSpacePage: React.FC = () => {
                   <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={isEnded} />
                 </label>
               </div>
-              <p className="ps-sub">
-                Image — optionnelle
-                {!isEuMc ? ` · Parcours : ${pathways.length ? pathways.join(' · ') : 'aucun'}` : ''}
-              </p>
+              <div className="ps-cover-wrap">
+                <span className="ps-cover-label">Image de couverture</span>
+                <div className="ps-cover-block">
+                <div className="ps-cover-preview">
+                  {(coverPreview || project.image) ? (
+                    <img src={coverPreview || project.image} alt="Image de couverture du projet" />
+                  ) : (
+                    <div className="ps-cover-empty">Aucune image</div>
+                  )}
+                </div>
+                {!isEnded && (
+                  <div className="ps-cover-actions">
+                    <label className="ps-filepick">
+                      <input
+                        ref={coverInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                        onChange={(e) => {
+                          chooseCover(e.target.files?.[0] || null);
+                          e.target.value = '';
+                        }}
+                      />
+                      <span>{project.image || coverFile ? 'Modifier l’image' : 'Choisir une image'}</span>
+                    </label>
+                    <p className="ps-sub">
+                      {coverFile
+                        ? `Nouvelle image : ${coverFile.name} — enregistrée avec le formulaire.`
+                        : 'Optionnelle · JPEG, PNG, GIF, WebP ou SVG · 1 Mo maximum'}
+                    </p>
+                  </div>
+                )}
+                </div>
+              </div>
+              {!isEuMc && (
+                <p className="ps-sub">Parcours : {pathways.length ? pathways.join(' · ') : 'aucun'}</p>
+              )}
               {isDraft && !isEuMc && (
                 <div className="ps-field">
                   <span>Parcours (max 2)</span>
