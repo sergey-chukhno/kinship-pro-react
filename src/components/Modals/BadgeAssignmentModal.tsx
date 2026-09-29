@@ -3,7 +3,11 @@ import { BadgeAttribution, BadgeAPI } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
-import { getLevelLabel } from '../../utils/badgeLevelLabels';
+import {
+  getLevelLabel,
+  isSoftSkillsSeries,
+  SOFT_SKILLS_SERIES_DISPLAY_NAME,
+} from '../../utils/badgeLevelLabels';
 import { isSeriesWithAxes, getAxesForSeries, getBadgeNamesForAxe } from '../../constants/badgeAxes';
 import {
   isMetiersDeLaMerSeries,
@@ -564,7 +568,7 @@ const validateCompetencies = (
   }
 
   const isParcoursProfessionnel = badge.series === 'Série Parcours professionnel';
-  const isTouKouLeurLevel2 = badge.series === 'Série TouKouLeur' && badge.level === 'level_2';
+  const isTouKouLeurLevel2 = isSoftSkillsSeries(badge.series) && badge.level === 'level_2';
   const shouldValidate = badge.level === 'level_1' || 
                          (badge.level === 'level_2' && (badge.series === 'Série Parcours des possibles' || badge.series === 'Série Audiovisuelle')) ||
                          isParcoursProfessionnel ||
@@ -675,7 +679,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
   const [selectedBadge, setSelectedBadge] = useState<BadgeAPI | null>(null);
   
   const displaySeries = useCallback((seriesName: string) => {
-    return seriesName.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName;
+    return isSoftSkillsSeries(seriesName) ? SOFT_SKILLS_SERIES_DISPLAY_NAME : seriesName;
   }, []);
   
   // Determine preview image (backend URL > local mapping > fallback)
@@ -909,11 +913,11 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
 
     // Validate competencies: axes series + level rules for other séries
     const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
-    const isTouKouLeurLevel2 = selectedBadge.series === 'Série TouKouLeur' && selectedBadge.level === 'level_2';
+    const isTouKouLeurLevel2 = isSoftSkillsSeries(selectedBadge.series) && selectedBadge.level === 'level_2';
     const shouldValidateCompetencies =
       isSeriesWithAxesCompetenceSelection(selectedBadge.series) ||
       selectedBadge.level === 'level_1' ||
-      (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
+      (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || isSoftSkillsSeries(selectedBadge.series))) ||
       isParcoursProfessionnel;
 
     if (shouldValidateCompetencies) {
@@ -1100,31 +1104,12 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
             <div className="badge-preview-info">
                 <h3>{selectedBadge ? getBadgeDisplayName(selectedBadge.name) : 'Sélectionnez un badge'}</h3>
               <p className="badge-series-level">
-                  {selectedBadge ? (() => {
-                    const levelNum = selectedBadge.level?.replace('level_', '') || '1';
-                    let levelLabel = `Niveau ${levelNum}`;
-                    if (selectedBadge.series === 'Série Parcours des possibles') {
-                      levelLabel = `Niveau ${levelNum}`;
-                    } else if (selectedBadge.series === 'Série Audiovisuelle') {
-                      if (levelNum === '1') levelLabel = 'Niveau 1: Observable';
-                      else if (levelNum === '2') levelLabel = 'Niveau 2: Preuve';
-                      else if (levelNum === '3') levelLabel = 'Niveau 3: Universitaire ou Associatif';
-                      else if (levelNum === '4') levelLabel = 'Niveau 4: Expérience professionnelle';
-                      else levelLabel = `Niveau ${levelNum}`;
-                    } else if (selectedBadge.series === 'Série Parcours professionnel') {
-                      if (levelNum === '1') levelLabel = 'Niveau 1: Découverte';
-                      else if (levelNum === '2') levelLabel = 'Niveau 2: Formation';
-                      else if (levelNum === '3') levelLabel = 'Niveau 3: Professionnalisation';
-                      else if (levelNum === '4') levelLabel = 'Niveau 4: Expériences Professionnelles';
-                      else levelLabel = `Niveau ${levelNum}`;
-                    } else {
-                      if (levelNum === '1') levelLabel = 'Niveau 1: Découverte';
-                      else if (levelNum === '2') levelLabel = 'Niveau 2: Application';
-                      else if (levelNum === '3') levelLabel = 'Niveau 3: Maîtrise';
-                      else if (levelNum === '4') levelLabel = 'Niveau 4: Expertise';
-                    }
-                    return `${displaySeries(selectedBadge.series)} - ${levelLabel}`;
-                  })() : 'Sélectionnez une série et un badge'}
+                  {selectedBadge
+                    ? `${displaySeries(selectedBadge.series)} - ${getLevelLabel(
+                        selectedBadge.series,
+                        selectedBadge.level?.replace('level_', '') || '1'
+                      )}`
+                    : 'Sélectionnez une série et un badge'}
               </p>
               {selectedBadge?.description && (
                 <div className="badge-info-detail">
@@ -1224,7 +1209,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                   </div>
                 )}
 
-                {/* Level selection - Dynamic based on series; when series has axes, require axe first */}
+                {/* Level selection - Soft Skills: Découverte + Appropriation only (Patrick 29/09) */}
                 {series && (!isSeriesWithAxes(series) || selectedAxe) && (
                   <div className="form-group">
                     <label htmlFor="badgeLevel">Niveau</label>
@@ -1242,27 +1227,63 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                       <option value="1">
                         {getLevelLabel(series, '1')}
                       </option>
-                      <option 
-                        value="2" 
-                        disabled={series !== 'Série Parcours des possibles' && series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel' && series !== 'Série TouKouLeur' && series !== "Série Métiers de la mer" && series !== "Série Compétences à s'orienter - Collège"}
+                      <option
+                        value="2"
+                        disabled={
+                          !isSoftSkillsSeries(series) &&
+                          series !== 'Série Parcours des possibles' &&
+                          series !== 'Série Audiovisuelle' &&
+                          series !== 'Série Parcours professionnel' &&
+                          series !== "Série Métiers de la mer" &&
+                          series !== "Série Compétences à s'orienter - Collège"
+                        }
                       >
                         {getLevelLabel(series, '2')}
-                        {series !== 'Série Parcours des possibles' && series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel' && series !== 'Série TouKouLeur' && series !== "Série Métiers de la mer" && series !== "Série Compétences à s'orienter - Collège" ? ' (non disponible)' : ''}
+                        {!isSoftSkillsSeries(series) &&
+                        series !== 'Série Parcours des possibles' &&
+                        series !== 'Série Audiovisuelle' &&
+                        series !== 'Série Parcours professionnel' &&
+                        series !== "Série Métiers de la mer" &&
+                        series !== "Série Compétences à s'orienter - Collège"
+                          ? ' (non disponible)'
+                          : ''}
                       </option>
-                      <option 
-                        value="3" 
-                        disabled={series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel' && series !== 'Série TouKouLeur' && series !== "Série Compétences à s'orienter - Collège"}
-                      >
-                        {getLevelLabel(series, '3')}
-                        {series === 'Série Parcours des possibles' || (series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel' && series !== 'Série TouKouLeur' && series !== "Série Compétences à s'orienter - Collège") ? ' (non disponible)' : ''}
-                      </option>
-                      <option 
-                        value="4" 
-                        disabled={series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel' && series !== "Série Compétences à s'orienter - Collège"}
-                      >
-                        {getLevelLabel(series, '4')}
-                        {series === 'Série Parcours des possibles' || series === 'Série TouKouLeur' || (series !== 'Série Audiovisuelle' && series !== 'Série Parcours professionnel' && series !== "Série Compétences à s'orienter - Collège") ? ' (non disponible)' : ''}
-                      </option>
+                      {!isSoftSkillsSeries(series) && (
+                        <option
+                          value="3"
+                          disabled={
+                            series !== 'Série Audiovisuelle' &&
+                            series !== 'Série Parcours professionnel' &&
+                            series !== "Série Compétences à s'orienter - Collège"
+                          }
+                        >
+                          {getLevelLabel(series, '3')}
+                          {series === 'Série Parcours des possibles' ||
+                          (series !== 'Série Audiovisuelle' &&
+                            series !== 'Série Parcours professionnel' &&
+                            series !== "Série Compétences à s'orienter - Collège")
+                            ? ' (non disponible)'
+                            : ''}
+                        </option>
+                      )}
+                      {!isSoftSkillsSeries(series) && (
+                        <option
+                          value="4"
+                          disabled={
+                            series !== 'Série Audiovisuelle' &&
+                            series !== 'Série Parcours professionnel' &&
+                            series !== "Série Compétences à s'orienter - Collège"
+                          }
+                        >
+                          {getLevelLabel(series, '4')}
+                          {series === 'Série Parcours des possibles' ||
+                          (series !== 'Série Audiovisuelle' &&
+                            series !== 'Série Parcours professionnel' &&
+                            series !== "Série Compétences à s'orienter - Collège")
+                            ? ' (non disponible)'
+                            : ''}
+                        </option>
+                      )}
                     </select>
                   </div>
                 )}
@@ -1424,7 +1445,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
 
             {/* Compétences - multiple select for most series; single-select for Compétences à s'orienter only */}
             {selectedBadge && (selectedBadge.level === 'level_1' || 
-              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
+              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || isSoftSkillsSeries(selectedBadge.series))) ||
               selectedBadge.series === 'Série Parcours professionnel' ||
               isSeriesWithAxesCompetenceSelection(selectedBadge.series)) && (
               <div className="form-group">
@@ -1480,7 +1501,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                             if (!expertise) return null;
                             const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
                             const rulesForChips = (selectedBadge.level === 'level_1' || 
-                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
+                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || isSoftSkillsSeries(selectedBadge.series))) ||
                               isParcoursProfessionnel) 
                               ? getBadgeValidationRules(selectedBadge.name, selectedBadge.level) : null;
                             // Use normalized comparison to check if competency is mandatory
@@ -1525,7 +1546,7 @@ const BadgeAssignmentModal: React.FC<BadgeAssignmentModalProps> = ({
                           
                             const isParcoursProfessionnel = selectedBadge.series === 'Série Parcours professionnel';
                             const rulesForList = (selectedBadge.level === 'level_1' || 
-                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || selectedBadge.series === 'Série TouKouLeur')) ||
+                              (selectedBadge.level === 'level_2' && (selectedBadge.series === 'Série Parcours des possibles' || selectedBadge.series === 'Série Audiovisuelle' || isSoftSkillsSeries(selectedBadge.series))) ||
                               isParcoursProfessionnel) 
                               ? getBadgeValidationRules(selectedBadge.name, selectedBadge.level) : null;
                           
