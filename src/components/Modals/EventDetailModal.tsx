@@ -15,6 +15,7 @@ import { getBadges } from '../../api/Badges';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { useToast } from '../../hooks/useToast';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import EventCompleteModal from './EventCompleteModal';
@@ -425,7 +426,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
                         fontWeight: 500,
                         textTransform: 'uppercase'
                       }}>
-                        {badge.level.replace('level_', 'Niveau ')}
+                        {getBadgeLevelDisplayLabel(badge.series, badge.level)}
                       </span>
                     )}
                   </div>

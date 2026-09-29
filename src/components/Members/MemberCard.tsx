@@ -5,6 +5,7 @@ import './MemberCard.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
 import MemberCardBadgeProgressModal from '../Modals/MemberCardBadgeProgressModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
@@ -379,7 +380,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
                     cursor: 'pointer',
                     transition: 'transform 0.2s ease',
                   }}
-                  title={`${badge.name} - ${badgeLevel.replace('level_', 'Niveau ')}`}
+                  title={`${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'scale(1.1)';
                     e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';

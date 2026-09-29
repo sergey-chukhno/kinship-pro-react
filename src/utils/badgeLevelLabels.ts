@@ -1,3 +1,5 @@
+import { COMPETENCES_PSYCHOSOCIALES_SERIES } from './cpsSeries';
+
 /**
  * Soft Skills series — renamed 28/09/2026 (Patrick).
  * Legacy DB name kept for local/staging until rename is applied everywhere.
@@ -25,7 +27,6 @@ export const isSoftSkillsSeries = (seriesName: string | null | undefined): boole
  * @returns The formatted level label
  */
 export const getLevelLabel = (series: string, levelNumber: string): string => {
-  // Handle empty/null series
   if (!series) {
     return getSoftSkillsLabel(levelNumber);
   }
@@ -35,12 +36,15 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     return getSoftSkillsLabel(levelNumber);
   }
 
-  // Série Parcours des possibles: "Niveau 1", "Niveau 2" (no suffix)
+  // Compétences psychosociales: "Phase 1" / "Phase 2" only (Patrick — nothing after)
+  if (series === COMPETENCES_PSYCHOSOCIALES_SERIES) {
+    return `Phase ${levelNumber}`;
+  }
+
   if (series === 'Série Parcours des possibles') {
     return `Niveau ${levelNumber}`;
   }
 
-  // Série Audiovisuelle: "Niveau 1: Observable", etc.
   if (series === 'Série Audiovisuelle') {
     switch (levelNumber) {
       case '1':
@@ -56,7 +60,6 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  // Série Parcours professionnel: "Niveau 1: Découverte", etc.
   if (series === 'Série Parcours professionnel') {
     switch (levelNumber) {
       case '1':
@@ -72,12 +75,10 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  // Série Métiers de la mer: "Niveau 1", "Niveau 2" (no suffix)
   if (series === 'Série Métiers de la mer') {
     return `Niveau ${levelNumber}`;
   }
 
-  // Série Compétences à s'orienter - Collège
   if (series === "Série Compétences à s'orienter - Collège") {
     switch (levelNumber) {
       case '1':
@@ -94,6 +95,17 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
   }
 
   return getSoftSkillsLabel(levelNumber);
+};
+
+/**
+ * Display label for a badge level enum (level_1…) given its series.
+ */
+export const getBadgeLevelDisplayLabel = (
+  series: string | undefined | null,
+  level: string | undefined | null
+): string => {
+  const num = (level || 'level_1').replace(/^level_/, '');
+  return getLevelLabel(series || '', num);
 };
 
 /**
