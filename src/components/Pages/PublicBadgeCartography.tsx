@@ -314,6 +314,8 @@ const PublicBadgeCartography: React.FC = () => {
             receiver: {
               id: attr.receiver.id,
               full_name: attr.receiver.full_name,
+              // Famille A (annexe §8bis) : affichage via holder_display uniquement.
+              holder_display: attr.receiver.holder_display ?? attr.receiver.full_name,
               email: attr.receiver.email || '',
               is_deleted: attr.receiver.is_deleted || false
             },

@@ -3803,7 +3803,8 @@ const ProjectManagement: React.FC = () => {
       badgeLevel,
       badgeImage: imageUrl,
       participantId: receiver.id?.toString() || '',
-      participantName: receiver.full_name || receiver.name || 'Inconnu',
+      // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
+      participantName: receiver.holder_display || receiver.full_name || receiver.name || 'Inconnu',
       participantAvatar: receiver.avatar_url || DEFAULT_AVATAR_SRC,
       participantOrganization: receiver.organization || organization.name || 'Non spécifiée',
       participantIsDeleted: receiver.is_deleted || false,

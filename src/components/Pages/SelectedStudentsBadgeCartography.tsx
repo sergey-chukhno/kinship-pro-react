@@ -213,7 +213,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   return (
     <div className="public-cartography-container">
       <div className="public-cartography-header">
-        <h1>Cartographie des preuves de compétences - <span className="capitalize">{shareInfo?.context?.student?.full_name}</span></h1>
+        <h1>Cartographie des preuves de compétences - <span className="capitalize">{shareInfo?.context?.student?.holder_display ?? shareInfo?.context?.student?.full_name}</span></h1>
       </div>
 
       <div className="public-cartography-content">
@@ -308,6 +308,8 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
             receiver: {
               id: attr.receiver.id,
               full_name: attr.receiver.full_name,
+              // Famille A (annexe §8bis) : affichage via holder_display uniquement.
+              holder_display: attr.receiver.holder_display ?? attr.receiver.full_name,
               email: attr.receiver.email || '',
               is_deleted: attr.receiver.is_deleted || false
             },

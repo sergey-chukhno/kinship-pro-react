@@ -177,18 +177,39 @@ const TOUKOULEUR_AXES: BadgeAxe[] = [
   { id: 'toukouleur_creation', title: TOUKOULEUR_AXE_CREATION_TITLE, badgeNames: TOUKOULEUR_AXE_CREATION_BADGE_NAMES },
 ];
 
-// --- Série Compétences Psychosociales (nom exact DB : "Série Compétences Psychosociales") ---
-// Idem : noms tirés de la spec §7 (2+2+2 = 6 compétences, correspond au total annoncé), non vérifiés
-// directement contre la base.
-export const PSYCHOSOCIALES_SERIES = "Série Compétences Psychosociales";
+// --- Série Compétences Psychosociales (nom exact DB, vérifié contre BadgeSeries::CPS_SERIES_NAME
+// et db/competences_psychosociales.rb le 29/09 : pas de préfixe « Série », 3 axes / 6 compétences / 17 badges) ---
+export const PSYCHOSOCIALES_SERIES = "Compétences psychosociales";
 
 const CPS_AXE_COGNITIVES_TITLE = "Cognitives";
 const CPS_AXE_EMOTIONNELLES_TITLE = "Émotionnelles";
 const CPS_AXE_SOCIALES_TITLE = "Sociales";
 
-const CPS_AXE_COGNITIVES_BADGE_NAMES: string[] = ["Renforcer sa conscience de soi", "Renforcer sa maîtrise de soi"];
-const CPS_AXE_EMOTIONNELLES_BADGE_NAMES: string[] = ["Renforcer sa conscience des émotions", "Réguler ses émotions et son stress"];
-const CPS_AXE_SOCIALES_BADGE_NAMES: string[] = ["Développer des relations constructives", "Résoudre des difficultés relationnelles"];
+// Valeurs = Badge.name réels (le badge = l'item C1.1/C2.3/etc., pas le nom de la compétence C1/C2/etc.
+// — vérifié directement contre db/competences_psychosociales.rb, 7+5+5 = 17 badges).
+const CPS_AXE_COGNITIVES_BADGE_NAMES: string[] = [
+  "Renforcer sa connaissance de soi (C1.1) et penser de façon critique (C1.2)",
+  "Connaître ses valeurs, ses besoins psychologiques et ses buts personnels (C1.3) et Prendre des décisions constructives (C1.4)",
+  "S'auto-évaluer positivement (C1.5)",
+  "Renforcer sa pleine attention – à soi (C1.6)",
+  "Atteindre ses buts personnels (C2.1)",
+  "Gérer ses impulsions (C2.2)",
+  "Résoudre des problèmes de façon créative et efficace (C2.3) & Savoir demander de l'aide (C2.4)",
+];
+const CPS_AXE_EMOTIONNELLES_BADGE_NAMES: string[] = [
+  "Comprendre les émotions (E1.1)",
+  "Identifier ses émotions (E1.2)",
+  "Exprimer ses émotions de façon constructive (E2.1)",
+  "Réguler ses émotions agréables (E.2.2.a) et désagréables (E2.2.b)",
+  "Gérer son stress (E2.3)",
+];
+const CPS_AXE_SOCIALES_BADGE_NAMES: string[] = [
+  "Communiquer de façon efficace et positive (S1.1)",
+  "Communiquer de façon empathique (S1.2)",
+  "Développer des liens et des comportements prosociaux (S1.3)",
+  "S'affirmer (et résister à la pression sociale) par l'assertivité et le refus (S2.1)",
+  "Résoudre les conflits de façon constructive (S2.2)",
+];
 
 const CPS_AXES: BadgeAxe[] = [
   { id: 'cps_cognitives', title: CPS_AXE_COGNITIVES_TITLE, badgeNames: CPS_AXE_COGNITIVES_BADGE_NAMES },

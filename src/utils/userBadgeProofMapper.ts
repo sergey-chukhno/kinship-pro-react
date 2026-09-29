@@ -102,7 +102,8 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
   const firstDoc = (documents[0] ?? {}) as Record<string, unknown>;
 
   const badgeTitle = String(badge.name ?? 'Badge');
-  const holderName = String(receiver.full_name ?? '—');
+  // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
+  const holderName = String(receiver.holder_display ?? receiver.full_name ?? '—');
   const senderName = String(sender.full_name ?? '—');
   const shareTokenRaw = String(userBadge.share_token ?? '').trim();
   const shareToken = shareTokenRaw || String(userBadge.id ?? '');

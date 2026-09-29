@@ -30,6 +30,18 @@
   color: #fff;
 }
 
+.carto-series-empty {
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.carto-series-empty h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6b6980;
+}
+
 .carto-groups {
   display: flex;
   flex-direction: column;
@@ -130,7 +142,7 @@
 }
 
 .carto-ring-tile-proof:hover .carto-proof-card {
-  border-color: #d8d4ec;
+  box-shadow: 0 2px 8px rgba(20, 20, 40, 0.08);
 }
 
 .carto-proof-card-empty {
@@ -420,7 +432,7 @@
   width: 210px;
   border-radius: 12px;
   overflow: hidden;
-  border: 0.5px solid rgba(0, 0, 0, 0.08);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
   background: #fff;
   text-decoration: none;
 }
@@ -455,6 +467,13 @@
   border: none;
   border-top: 1px solid #ece9f4;
   margin: 10px 0;
+}
+
+.carto-proof-trust {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b6980;
+  margin: -4px 0 8px;
 }
 
 .carto-proof-context {

@@ -85,7 +85,8 @@ export function mapRawUserBadgeToAttributionForExport(raw: any): AttributionForE
     badgeLevel: `Niveau ${levelDisplay}`,
     attributionDate: dateStr || '',
     attributedByName: sender?.full_name ?? '',
-    attributedToName: receiver?.full_name ?? '',
+    // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
+    attributedToName: receiver?.holder_display ?? receiver?.full_name ?? '',
     domaine: domaineDisplay,
     competencesIndiquees: Array.isArray(skillsIndicated) ? skillsIndicated : [],
     projectTitle: projectTitle ?? undefined,

@@ -3,6 +3,7 @@ import { getBadges, getUserBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
 import {
   CARTOGRAPHIE_V1_1_SERIES,
+  COMPETENCES_ORIENTER_COLLEGE_SERIES,
   getCartographieAxesForSeries,
 } from '../../constants/badgeAxes';
 import { getAxeColor, displayAxeTitle, displayCompetenceName } from '../../constants/cartographieColors';
@@ -172,6 +173,11 @@ const MesCompetences: React.FC = () => {
             <div className="badges-empty">
               <i className="fas fa-award"></i>
               <h4>Aucune compétence dans cette série pour le moment.</h4>
+            </div>
+          )}
+          {series === COMPETENCES_ORIENTER_COLLEGE_SERIES && competences.length > 0 && attested.length === 0 && (
+            <div className="carto-series-empty">
+              <h4>Tu n'as pas encore de preuve dans cette série.</h4>
             </div>
           )}
           {grouped.map((group) => (

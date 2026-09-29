@@ -7,6 +7,16 @@ export interface TrustLevelStyle {
   avatarStyle: { background: string; color: string };
 }
 
+export const TRUST_LEVEL_LABELS: Record<TrustLevelKey, string> = {
+  INSTITUTIONAL: 'Institutionnel',
+  DIPLOMA_NODE: 'Nœud diplôme',
+  STRATEGIC_PARTNER: 'Partenaire stratégique',
+  SCHOOL: 'Établissement',
+  CERTIFIED: 'Certifié',
+  VERIFIED: 'Vérifié',
+  STANDARD: 'Standard',
+};
+
 export const TRUST_LEVEL_STYLES: Record<TrustLevelKey, TrustLevelStyle> = {
   INSTITUTIONAL: {
     headerClass: 'proof-z1-institutional',

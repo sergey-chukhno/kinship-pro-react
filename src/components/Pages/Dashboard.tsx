@@ -297,7 +297,10 @@ const getActorAvatar = (activity: any) => {
 };
 
 const getReceiverName = (activity: any) => {
+  // Famille A (annexe §8bis) : porteur d'attribution — holder_display d'abord, jamais de
+  // recomposition first_name/last_name pour ce type d'activité (badge_awarded).
   return (
+    activity?.receiver?.holder_display ||
     formatPersonName(activity?.receiver) ||
     activity?.receiver_name ||
     activity?.member_name ||

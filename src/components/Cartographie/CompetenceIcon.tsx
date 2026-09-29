@@ -6,6 +6,8 @@ interface Props {
   name: string;
   size?: number;
   className?: string;
+  /** Recolore le pictogramme (couleur d'axe sur la carte Compétence). */
+  color?: string;
 }
 
 /** true si une icône spécifique (maquette KIN_UX_CARTOGRAPHIE_V1_1) existe pour ce nom. */
@@ -19,9 +21,10 @@ export const hasCompetenceIcon = (name: string): boolean => Boolean(COMPETENCE_I
  * retomber sur un autre visuel (ou laisser CompetenceRing afficher l'étoile
  * par défaut).
  */
-const CompetenceIcon: React.FC<Props> = ({ name, size = 26, className }) => {
-  const svg = COMPETENCE_ICONS[name];
-  if (!svg) return null;
+const CompetenceIcon: React.FC<Props> = ({ name, size = 26, className, color }) => {
+  const raw = COMPETENCE_ICONS[name];
+  if (!raw) return null;
+  const svg = color ? raw.replace(/#[0-9a-fA-F]{3,8}/g, color) : raw;
   return (
     <svg
       viewBox="0 0 24 24"

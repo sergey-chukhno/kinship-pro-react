@@ -1,8 +1,9 @@
 import React from 'react';
 import { ProofData } from '../../types/proof';
-import { TRUST_LEVEL_STYLES, truncateProofNumber, getProofSurtitle } from '../../utils/proofTrustLevel';
+import { TRUST_LEVEL_STYLES, truncateProofNumber } from '../../utils/proofTrustLevel';
 import { ProofChevron } from '../Proof/ProofShared';
-import { displayCompetenceName } from '../../constants/cartographieColors';
+import { displayCompetenceName, tintWithWhite } from '../../constants/cartographieColors';
+import { getLocalBadgeImage } from '../../utils/badgeImages';
 import CompetenceIcon, { hasCompetenceIcon } from './CompetenceIcon';
 import '../Proof/Proof.css';
 
@@ -12,30 +13,40 @@ interface Props {
 }
 
 /**
- * Carte « Preuve Kinship » pour la cartographie — maquette fournie par Fatima
- * (25/09) : bande fine (surtitre seul), titre en clair, sous-titre = type
- * d'organisme réel, pictogramme de la compétence, projet + organisme, date,
- * numéro de preuve. Variante propre à la cartographie (ne touche pas
- * ProofCardCompact/ProofCardIntermediate, utilisés ailleurs dans l'appli) —
- * réutilise volontairement les classes de couleur par niveau de confiance de
- * Proof.css pour rester cohérente avec le reste du système de preuves.
+ * Carte Compétence de la cartographie. Bandeau = couleur de qui atteste,
+ * famille « Compétence » en teinte claire. Contour 1,5 px dans cette même
+ * couleur. Pictogramme d'axe sur pastille teintée. Niveau de confiance sous le trait.
  */
 const ProofCardCarto: React.FC<Props> = ({ proof, axeColor }) => {
   const style = TRUST_LEVEL_STYLES[proof.trustLevel];
+  const cardColor = style.accentColor;
   const competenceName = displayCompetenceName(proof.badgeTitle);
+  const levelNum = proof.badgeLevel.match(/(\d+)/)?.[1];
+  const badgeImage = hasCompetenceIcon(competenceName)
+    ? undefined
+    : getLocalBadgeImage(
+        proof.badgeTitle.replace(/\s*[\u2013\u2014]\s*/g, ' - '),
+        levelNum ? `level_${levelNum}` : undefined,
+        proof.seriesPill
+      );
   const contextTitle = proof.projectTitle ?? proof.eventTitle ?? '—';
 
   return (
-    <div className="carto-proof-card">
-      <div className={`carto-proof-band ${style.headerClass}`}>{getProofSurtitle(proof)}</div>
+    <div className="carto-proof-card" style={{ borderColor: cardColor }}>
+      <div className="carto-proof-band" style={{ background: cardColor, color: tintWithWhite(cardColor, 0.72) }}>
+        Compétence
+      </div>
       <div className="carto-proof-body">
         <div className="carto-proof-title">{proof.badgeTitle}</div>
         {proof.senderOrgType && <div className="carto-proof-orgtype">{proof.senderOrgType}</div>}
         <hr className="carto-proof-hr" />
+        <div className="carto-proof-trust">{proof.qaLabel}</div>
         <div className="carto-proof-context">
-          <div className="carto-proof-icon" style={{ background: `${axeColor}20` }}>
+          <div className="carto-proof-icon" style={{ background: `${axeColor}20`, color: axeColor }}>
             {hasCompetenceIcon(competenceName) ? (
-              <CompetenceIcon name={competenceName} size={20} />
+              <CompetenceIcon name={competenceName} size={20} color={axeColor} />
+            ) : badgeImage ? (
+              <img src={badgeImage} alt="" className="carto-ring-center-image" />
             ) : (
               <span className="carto-proof-icon-fallback">{proof.badgeIcon}</span>
             )}

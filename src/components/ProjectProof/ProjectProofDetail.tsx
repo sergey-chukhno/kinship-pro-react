@@ -332,7 +332,7 @@ const ProjectProofDetail: React.FC<ProjectProofDetailProps> = ({
             <div className="integrity-d">
               {proof.kpis.coAttestants} organisations co-attestantes · empreintes agrégées ·
               manifeste figé à la clôture · hash inchangé en cas d&apos;effacement civil
-              (CIVIL_DATA_ERASED)
+              (« Données civiles effacées »)
             </div>
           </div>
           {showRightsLink && (
