@@ -22,8 +22,19 @@ import { displaySeries } from '../../utils/badgeMapper';
 import { getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { isSeriesWithCompetenceProgress, isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
+import { isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
 import './Analytics.css';
 import './Badges.css';
+
+const LEVEL_SECTION_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] as const;
+
+/** Soft Skills + CPS only expose levels 1–2 in cartography filters/sections. */
+const cartographyLevelNumbers = (series: string): number[] => {
+  if (isSoftSkillsSeries(series) || isCompetencesPsychosocialesSeries(series)) {
+    return [1, 2];
+  }
+  return [1, 2, 3, 4];
+};
 
 const Badges: React.FC = () => {
   const { state, setCurrentPage: setAppCurrentPage } = useAppContext();
@@ -367,19 +378,26 @@ const Badges: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredBadges]); // selectedSeries is already captured in filteredBadges dependency
 
-  // Define levels based on selected series - all series use level-based sections
+  // Define levels based on selected series (Soft Skills / CPS → 2 levels only)
   const getSections = (series: string) => {
-    // Use keys that match badge.level format ("Niveau 1", "Niveau 2", etc.)
-    // Labels are dynamically generated based on the series
-    return [
-      { key: 'Niveau 1', label: getLevelLabel(series, '1'), color: '#10b981', icon: undefined },
-      { key: 'Niveau 2', label: getLevelLabel(series, '2'), color: '#3b82f6', icon: undefined },
-      { key: 'Niveau 3', label: getLevelLabel(series, '3'), color: '#f59e0b', icon: undefined },
-      { key: 'Niveau 4', label: getLevelLabel(series, '4'), color: '#ef4444', icon: undefined }
-    ];
+    return cartographyLevelNumbers(series).map((n) => ({
+      key: `Niveau ${n}`,
+      label: getLevelLabel(series, String(n)),
+      color: LEVEL_SECTION_COLORS[n - 1],
+      icon: undefined as string | undefined,
+    }));
   };
 
   const sections = getSections(selectedSeries || SOFT_SKILLS_SERIES);
+
+  // Drop Niveau 3/4 filter when switching to a 2-level series
+  useEffect(() => {
+    if (!selectedLevel) return;
+    const allowed = new Set(cartographyLevelNumbers(selectedSeries || SOFT_SKILLS_SERIES).map((n) => `Niveau ${n}`));
+    if (!allowed.has(selectedLevel)) {
+      setSelectedLevel('');
+    }
+  }, [selectedSeries, selectedLevel]);
 
   // For personal user + series with competence progress: aggregate by (name, level), full vs received competencies
   const competencesOrienterProgressByLevel = useMemo(() => {
@@ -635,10 +653,11 @@ const Badges: React.FC = () => {
                       className="filter-select"
                     >
                       <option value="">Tous les niveaux</option>
-                      <option value="Niveau 1">Niveau 1</option>
-                      <option value="Niveau 2">Niveau 2</option>
-                      <option value="Niveau 3">Niveau 3</option>
-                      <option value="Niveau 4">Niveau 4</option>
+                      {cartographyLevelNumbers(selectedSeries || SOFT_SKILLS_SERIES).map((n) => (
+                        <option key={n} value={`Niveau ${n}`}>
+                          {getLevelLabel(selectedSeries || SOFT_SKILLS_SERIES, String(n))}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

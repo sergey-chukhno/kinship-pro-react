@@ -71,7 +71,10 @@ export interface Badge {
   id: string;
   name: string;
   description: string;
+  /** Stable grouping/filter key, e.g. "Niveau 1" */
   level: string;
+  /** Series-specific display label, e.g. "Phase 1" or "Niveau 1: Découverte" */
+  levelLabel?: string;
   levelClass: string;
   icon: string;
   image: string;
