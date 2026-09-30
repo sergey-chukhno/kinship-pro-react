@@ -11,7 +11,7 @@ import ShareProjectLinkModal from '../Modals/ShareProjectLinkModal';
 import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
-import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
+import { SOFT_SKILLS_SERIES_NAME, getLevelLabel } from '../../utils/badgeLevelLabels';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '../../utils/memberContextPayload';
@@ -6818,7 +6818,7 @@ const ProjectManagement: React.FC = () => {
                             <img src={attribution.badgeImage} alt={attribution.badgeTitle} />
                             {attribution.badgeSeries !== 'Série CPS' && (
                               <span className={`badge-level-pill level-${attribution.badgeLevel || '1'}`}>
-                                Niveau {attribution.badgeLevel || '1'}
+                                {getLevelLabel(attribution.badgeSeries || SOFT_SKILLS_SERIES_NAME, attribution.badgeLevel || '1')}
                               </span>
                             )}
                             {attribution.badgeSeries === 'Série CPS' && (
@@ -7637,7 +7637,7 @@ const ProjectManagement: React.FC = () => {
                             {/* Level pill - bottom left */}
                             {attribution.badgeSeries !== 'Série CPS' && (
                               <span className={`badge-level-pill level-${attribution.badgeLevel || '1'}`}>
-                                Niveau {attribution.badgeLevel || '1'}
+                                {getLevelLabel(attribution.badgeSeries || SOFT_SKILLS_SERIES_NAME, attribution.badgeLevel || '1')}
                               </span>
                             )}
                             {/* Domain pill for CPS - bottom left */}

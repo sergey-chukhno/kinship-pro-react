@@ -1126,13 +1126,6 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                 {pickedComps.length > 0 ? ` · ${pickedDraft.expertiseIds.length}/${pickedComps.length} coché${pickedDraft.expertiseIds.length > 1 ? 's' : ''}` : ''}
               </div>
 
-              {isIndividual && (
-                <>
-                  <div className="att-qline">Selon quelles conditions ?</div>
-                  <p className="att-qhelp">Ce qui a été coché reste modifiable en revenant à l’étape précédente.</p>
-                </>
-              )}
-
               {pickedBadge &&
                 isIndividual &&
                 (commentRequiredFor(pickedBadge) ||

@@ -2,6 +2,8 @@
  * Soft Skills series — renamed 28/09/2026 (Patrick).
  * Legacy DB name kept for local/staging until rename is applied everywhere.
  */
+import { PSYCHOSOCIALES_SERIES } from '../constants/badgeAxes';
+
 export const SOFT_SKILLS_SERIES_NAME = 'Compétences transversales (soft skills)';
 export const SOFT_SKILLS_SERIES_NAME_LEGACY = 'Série TouKouLeur';
 export const isSoftSkillsSeries = (seriesName: string | null | undefined): boolean => {
@@ -33,6 +35,11 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
   // Soft Skills: Découverte / Appropriation only (Patrick 29/09)
   if (isSoftSkillsSeries(series)) {
     return getSoftSkillsLabel(levelNumber);
+  }
+
+  // Compétences psychosociales: "Phase 1", "Phase 2"… (level_label = "Phase" côté back, Patrick 29/09)
+  if (series === PSYCHOSOCIALES_SERIES) {
+    return `Phase ${levelNumber}`;
   }
 
   // Série Parcours des possibles: "Niveau 1", "Niveau 2" (no suffix)
@@ -103,9 +110,10 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
 const getSoftSkillsLabel = (levelNumber: string): string => {
   switch (levelNumber) {
     case '1':
-      return 'Niveau 1: Découverte';
+      return 'Découverte';
     case '2':
-      return 'Niveau 2: Appropriation';
+      return 'Appropriation';
+    // L3/L4 : affichage legacy uniquement (anciennes preuves), plus jamais attribuables (Patrick 29/09).
     case '3':
       return 'Niveau 3: Maîtrise';
     case '4':

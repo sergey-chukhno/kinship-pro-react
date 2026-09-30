@@ -343,6 +343,18 @@ const ProjectAffichePage: React.FC = () => {
     }
   }, [projectId, state.showingPageType]);
 
+  // Recharge les compteurs (participants, preuves) après une action qui les change —
+  // sans quoi ils restent figés jusqu'au rechargement de la page (Patrick 29/09, point 4d).
+  const refreshStats = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const statsRes = await getProjectStats(Number(projectId));
+      setStats(statsRes);
+    } catch {
+      /* garder les stats actuelles si l'appel échoue */
+    }
+  }, [projectId]);
+
   useEffect(() => {
     void loadProject();
   }, [loadProject]);
@@ -623,6 +635,7 @@ const ProjectAffichePage: React.FC = () => {
       }
       const mem = await getProjectMembers(Number(projectId));
       setMembers(Array.isArray(mem) ? mem : []);
+      refreshStats();
       setPersonQuery('');
       setAddedFlash(`${memberName(person)} ajouté — ${role}, automatiquement.`);
       showSuccess(`${memberName(person)} ajouté.`);
@@ -644,6 +657,7 @@ const ProjectAffichePage: React.FC = () => {
       }
       const mem = await getProjectMembers(Number(projectId));
       setMembers(Array.isArray(mem) ? mem : []);
+      refreshStats();
       showSuccess(`${group.name} ajouté — participant par défaut.`);
     } catch (e: any) {
       showError(e?.response?.data?.message || 'Impossible d’ajouter ce groupe.');
@@ -668,6 +682,7 @@ const ProjectAffichePage: React.FC = () => {
       });
       const mem = await getProjectMembers(Number(projectId));
       setMembers(Array.isArray(mem) ? mem : []);
+      refreshStats();
       const name = `${prepFirst.trim()} ${prepLast.trim()}`;
       setAddedFlash(`${name} ajouté — Participant, automatiquement.`);
       setPrepFirst('');
@@ -1969,6 +1984,7 @@ const ProjectAffichePage: React.FC = () => {
             } catch {
               /* keep current list */
             }
+            refreshStats();
           }}
           participants={confirmedMembers.map((m) => ({
             id: memberId(m),
