@@ -3,6 +3,7 @@ import { BadgeAttribution, BadgeAPI } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
 import { isSeriesWithAxes, getAxesForSeries, getBadgeNamesForAxe, isSoftSkillsSeries } from '../../constants/badgeAxes';
+import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { isSingleSelectCompetenceSeries } from '../../utils/badgeAssignmentCompetenceSelection';
 import { useToast } from '../../hooks/useToast';
 import apiClient from '../../api/config';
@@ -147,7 +148,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   const [activeParticipantId, setActiveParticipantId] = useState<string | null>(null);
 
   const displaySeries = useCallback((seriesName: string) => {
-    return isSoftSkillsSeries(seriesName) ? 'Série Soft Skills 4LAB' : seriesName;
+    return isSoftSkillsSeries(seriesName) ? SOFT_SKILLS_SERIES_NAME : seriesName;
   }, []);
 
   useEffect(() => {
@@ -635,7 +636,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               return;
             }
             if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3' && text.length < 100) {
-              showWarningToast('Le commentaire doit contenir au moins 100 caractères pour le niveau 3 de la Série Soft Skills 4LAB');
+              showWarningToast(`Le commentaire doit contenir au moins 100 caractères pour le niveau 3 de la série ${SOFT_SKILLS_SERIES_NAME}`);
               return;
             }
           }
@@ -664,7 +665,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
           return;
         }
         if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3' && text.length < 100) {
-          showWarningToast('Le commentaire doit contenir au moins 100 caractères pour le niveau 3 de la Série Soft Skills 4LAB');
+          showWarningToast(`Le commentaire doit contenir au moins 100 caractères pour le niveau 3 de la série ${SOFT_SKILLS_SERIES_NAME}`);
           return;
         }
       }

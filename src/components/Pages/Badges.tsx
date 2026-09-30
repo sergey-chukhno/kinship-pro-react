@@ -19,7 +19,7 @@ import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBa
 import { getAllUserProjects } from '../../api/Project';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import { displaySeries } from '../../utils/badgeMapper';
-import { getLevelLabel } from '../../utils/badgeLevelLabels';
+import { getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { isSeriesWithCompetenceProgress, isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
 import './Analytics.css';
@@ -507,7 +507,7 @@ const Badges: React.FC = () => {
                   onChange={(e) => setSelectedSeriesStats(e.target.value)}
                   disabled={loadingSeriesStats}
                 >
-                  {badgeSeriesOptionsStats.length === 0 && <option value={SOFT_SKILLS_SERIES}>Série Soft Skills 4LAB</option>}
+                  {badgeSeriesOptionsStats.length === 0 && <option value={SOFT_SKILLS_SERIES}>{SOFT_SKILLS_SERIES_NAME}</option>}
                   {badgeSeriesOptionsStats.map((s) => (
                     <option key={s} value={s}>{displaySeries(s)}</option>
                   ))}
@@ -617,7 +617,7 @@ const Badges: React.FC = () => {
                       )}
                       {!loadingCartographySeries && cartographySeriesOptions.length === 0 && (
                         <>
-                          <option value={SOFT_SKILLS_SERIES}>Série Soft Skills 4LAB</option>
+                          <option value={SOFT_SKILLS_SERIES}>{SOFT_SKILLS_SERIES_NAME}</option>
                           <option value="Série Parcours des possibles">Série Parcours des possibles</option>
                           <option value="Série Audiovisuelle">Série Audiovisuelle</option>
                           <option value="Série Parcours professionnel">Série Parcours professionnel</option>

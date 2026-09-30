@@ -8,7 +8,7 @@ import {
   getMetiersMerBadgesWithLevel
 } from '../../constants/badgeAxes';
 import { BadgeAPI, BadgeSkillAPI } from '../../types';
-import { getLevelLabel } from '../../utils/badgeLevelLabels';
+import { getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import BadgeInfoModal from '../Modals/BadgeInfoModal';
 import { getBadgeDisplayName } from '../Modals/BadgeAssignmentModal';
@@ -88,10 +88,10 @@ const PARCOURS: Parcours[] = [
     iconType: 'fa',
     series: [
       {
-        displayName: 'Série Soft Skills 4LAB',
+        displayName: SOFT_SKILLS_SERIES_NAME,
         dbName: SOFT_SKILLS_SERIES,
         comingSoon: false,
-        description: "Les badges de la série Soft Skills 4LAB reconnaissent et valorisent les compétences transversales mobilisées par les jeunes dans le cadre de projets individuels ou collectifs (coopération, communication, créativité, engagement, gestion de projet...)"
+        description: `Les badges de la série ${SOFT_SKILLS_SERIES_NAME} reconnaissent et valorisent les compétences transversales mobilisées par les jeunes dans le cadre de projets individuels ou collectifs (coopération, communication, créativité, engagement, gestion de projet...)`
       }
     ],
     cadreLegitimite: [

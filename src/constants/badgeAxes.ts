@@ -5,7 +5,7 @@
 
 export const METIERS_DE_LA_MER_SERIES = "Série Métiers de la mer";
 export const COMPETENCES_ORIENTER_COLLEGE_SERIES = "Série Compétences à s'orienter - Collège";
-/** Nom encore en base. Affichage : Soft Skills 4LAB. Après le rake de rename, passer à « Compétences transversales (soft skills) ». */
+/** Nom encore en base (rake de rename pas encore passé côté back). Affichage FE : voir SOFT_SKILLS_SERIES_NAME dans utils/badgeLevelLabels.ts, plus « Soft Skills 4LAB » nulle part (Patrick, 29/09). */
 export const SOFT_SKILLS_SERIES = "Série TouKouLeur";
 
 export function isSoftSkillsSeries(seriesName?: string | null): boolean {

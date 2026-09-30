@@ -23,7 +23,7 @@ import { useToast } from '../../hooks/useToast';
 import { getBadgeCompetencies } from './BadgeAssignmentModal';
 import {
   isSoftSkillsSeries,
-  SOFT_SKILLS_SERIES_DISPLAY_NAME,
+  SOFT_SKILLS_SERIES_NAME,
 } from '../../utils/badgeLevelLabels';
 
 interface EventModalProps {
@@ -98,7 +98,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
   const [groupDetailPopup, setGroupDetailPopup] = useState<{ groupId: string; groupName: string } | null>(null);
   const [isLoadingGroupMembers, setIsLoadingGroupMembers] = useState(false);
   const displaySeries = useCallback((seriesName: string) => {
-    return isSoftSkillsSeries(seriesName) ? SOFT_SKILLS_SERIES_DISPLAY_NAME : seriesName;
+    return isSoftSkillsSeries(seriesName) ? SOFT_SKILLS_SERIES_NAME : seriesName;
   }, []);
 
   const badgesBySeries = useMemo(() => {

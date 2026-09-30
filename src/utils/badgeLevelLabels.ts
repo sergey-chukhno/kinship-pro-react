@@ -4,9 +4,6 @@
  */
 export const SOFT_SKILLS_SERIES_NAME = 'Compétences transversales (soft skills)';
 export const SOFT_SKILLS_SERIES_NAME_LEGACY = 'Série TouKouLeur';
-/** Marketing label shown in the assign-badge modal (4LAB). */
-export const SOFT_SKILLS_SERIES_DISPLAY_NAME = 'Série Soft Skills 4LAB';
-
 export const isSoftSkillsSeries = (seriesName: string | null | undefined): boolean => {
   if (!seriesName) return false;
   const normalized = seriesName.toLowerCase();

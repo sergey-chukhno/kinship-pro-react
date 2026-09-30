@@ -7,6 +7,7 @@ import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Members';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
+import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import './Analytics.css';
 
 const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
@@ -459,7 +460,7 @@ const Analytics: React.FC = () => {
     averagePerMember: 0,
     completionRate: 0,
     seriesDistribution: [
-      { name: 'Soft Skills 4LAB', value: 0, percentage: 0 },
+      { name: SOFT_SKILLS_SERIES_NAME, value: 0, percentage: 0 },
       // { name: 'CPS', value: 0, percentage: 0 },
       // { name: 'Audiovisuelle', value: 0, percentage: 0 }
     ],

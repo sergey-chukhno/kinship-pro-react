@@ -11,6 +11,7 @@ import ShareProjectLinkModal from '../Modals/ShareProjectLinkModal';
 import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
+import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '../../utils/memberContextPayload';
@@ -3761,7 +3762,7 @@ const ProjectManagement: React.FC = () => {
   };
 
   const displaySeries = (seriesName: string) => {
-    return isSoftSkillsSeries(seriesName) ? 'Série Soft Skills 4LAB' : seriesName;
+    return isSoftSkillsSeries(seriesName) ? SOFT_SKILLS_SERIES_NAME : seriesName;
   };
 
   // Map frontend series name to backend series name for API calls
@@ -3777,7 +3778,7 @@ const ProjectManagement: React.FC = () => {
     const organization = item?.organization || {};
 
     const badgeName = badge.name || 'Badge';
-    const badgeSeries = displaySeries(badge.series || 'Série Soft Skills 4LAB');
+    const badgeSeries = displaySeries(badge.series || SOFT_SKILLS_SERIES_NAME);
     const badgeLevel = badge.level ? badge.level.replace('level_', '') : '1';
     const badgeLevelKey = badge.level || 'level_1';
     const badgeSeriesRaw = badge.series || '';
@@ -6752,13 +6753,13 @@ const ProjectManagement: React.FC = () => {
                         }}
                       >
                         <option value="">Toutes les séries</option>
-                        <option value="Série Soft Skills 4LAB">Soft Skills 4LAB</option>
+                        <option value={SOFT_SKILLS_SERIES_NAME}>{SOFT_SKILLS_SERIES_NAME}</option>
                         <option value="Série Parcours des possibles">Série Parcours des possibles</option>
                         <option value="Série Audiovisuelle">Série Audiovisuelle</option>
                         <option value="Série Parcours professionnel">Série Parcours professionnel</option>
                       </select>
                     </div>
-                    {(badgeSeriesFilter === 'Série Soft Skills 4LAB' ||
+                    {(badgeSeriesFilter === SOFT_SKILLS_SERIES_NAME ||
                       badgeSeriesFilter === 'Série Parcours des possibles' ||
                       badgeSeriesFilter === 'Série Audiovisuelle' ||
                       badgeSeriesFilter === 'Série Parcours professionnel') && (
@@ -6825,8 +6826,8 @@ const ProjectManagement: React.FC = () => {
                                 Domaine - {attribution.domaineEngagement || 'Cognitives'}
                               </span>
                             )}
-                            <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
-                              {attribution.badgeSeries || 'Série Soft Skills 4LAB'}
+                            <span className={`badge-series-pill ${isSoftSkillsSeries(attribution.badgeSeries) ? 'series-soft-skills-4lab' : `series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}`}>
+                              {attribution.badgeSeries || SOFT_SKILLS_SERIES_NAME}
                             </span>
                           </div>
                           <div className="badge-info">
@@ -7567,14 +7568,14 @@ const ProjectManagement: React.FC = () => {
                         }}
                       >
                         <option value="">Toutes les séries</option>
-                        <option value="Série Soft Skills 4LAB">Soft Skills 4LAB</option>
+                        <option value={SOFT_SKILLS_SERIES_NAME}>{SOFT_SKILLS_SERIES_NAME}</option>
                         <option value="Série Parcours des possibles">Série Parcours des possibles</option>
                         <option value="Série Audiovisuelle">Série Audiovisuelle</option>
                         <option value="Série Parcours professionnel">Série Parcours professionnel</option>
                       </select>
                     </div>
 
-                    {(badgeSeriesFilter === 'Série Soft Skills 4LAB' ||
+                    {(badgeSeriesFilter === SOFT_SKILLS_SERIES_NAME ||
                       badgeSeriesFilter === 'Série Parcours des possibles' ||
                       badgeSeriesFilter === 'Série Audiovisuelle' ||
                       badgeSeriesFilter === 'Série Parcours professionnel') && (
@@ -7646,8 +7647,8 @@ const ProjectManagement: React.FC = () => {
                               </span>
                             )}
                             {/* Series pill - bottom right */}
-                            <span className={`badge-series-pill series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}>
-                              {attribution.badgeSeries || 'Série Soft Skills 4LAB'}
+                            <span className={`badge-series-pill ${isSoftSkillsSeries(attribution.badgeSeries) ? 'series-soft-skills-4lab' : `series-${attribution.badgeSeries?.replace('Série ', '').toLowerCase().replace(/\s+/g, '-') || 'toukouleur'}`}`}>
+                              {attribution.badgeSeries || SOFT_SKILLS_SERIES_NAME}
                             </span>
                           </div>
                           <div className="badge-info">
