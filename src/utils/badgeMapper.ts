@@ -31,7 +31,10 @@ export const mapBackendUserBadgeToBadge = (userBadge: any): Badge => {
     id: userBadge.id?.toString() || `badge-${Date.now()}-${Math.random()}`,
     name: badgeName,
     description: badge.description || '',
-    level: getBadgeLevelDisplayLabel(badgeSeriesRaw, badge.level),
+    // Stable key for cartography grouping/filters ("Niveau 1" … "Niveau 4")
+    level: `Niveau ${badgeLevel}`,
+    // Series-specific UI label ("Phase 1", "Niveau 1: Découverte", …)
+    levelLabel: getBadgeLevelDisplayLabel(badgeSeriesRaw, badge.level),
     levelClass: `level-${badgeLevel}`,
     icon: imageUrl,
     image: imageUrl,
