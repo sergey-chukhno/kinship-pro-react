@@ -33,6 +33,7 @@ import {
 } from '../../api/Dashboard';
 import { getUserBadges } from '../../api/Badges';
 import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
+import { COMPETENCES_PSYCHOSOCIALES_SERIES } from '../../utils/cpsSeries';
 import axiosClient from '../../api/config';
 import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
 import { OrganizationStatsResponse, PageType } from '../../types';
@@ -578,8 +579,16 @@ const Dashboard: React.FC = () => {
     if (state.showingPageType !== 'user') return;
     let cancelled = false;
     setUserBadgesForChartLoading(true);
-    getUserBadges(1, 500, { series: SOFT_SKILLS_SERIES })
-      .then((res) => { if (!cancelled) setUserBadgesForChart(Array.isArray(res.data) ? res.data : []); })
+    Promise.all([
+      getUserBadges(1, 500, { series: SOFT_SKILLS_SERIES }),
+      getUserBadges(1, 500, { series: COMPETENCES_PSYCHOSOCIALES_SERIES }),
+    ])
+      .then(([softRes, cpsRes]) => {
+        if (cancelled) return;
+        const soft = Array.isArray(softRes.data) ? softRes.data : [];
+        const cps = Array.isArray(cpsRes.data) ? cpsRes.data : [];
+        setUserBadgesForChart([...soft, ...cps]);
+      })
       .catch(() => { if (!cancelled) setUserBadgesForChart([]); })
       .finally(() => { if (!cancelled) setUserBadgesForChartLoading(false); });
     return () => { cancelled = true; };
@@ -1520,6 +1529,12 @@ const Dashboard: React.FC = () => {
       { key: 'badges', label: 'Mes preuves', sub: 'preuves', count: s?.badges_count ?? 0, last30: s?.badges_last_30_days ?? 0, path: '/badges', icon: '/icons_logo/Icon=Badges.svg' },
       { key: 'network', label: 'Mon réseau', sub: 'contacts', count: s?.network_count ?? 0, last30: s?.network_last_30_days ?? 0, path: '/network', icon: '/icons_logo/Icon=Reseau.svg' },
     ];
+    const deltaUnit = (card: (typeof userStatCards)[number]) => {
+      if (card.key === 'badges') {
+        return (card.last30 ?? 0) === 1 ? 'preuve' : 'preuves';
+      }
+      return card.sub;
+    };
     return (
       <section className="dashboard-main-layout active personal-user-dashboard">
         <div className="dashboard-header">
@@ -1689,7 +1704,7 @@ const Dashboard: React.FC = () => {
                     <div className="personal-stat-value">{formatUserStat(card.count)}</div>
                     <div className="personal-stat-label">{card.label}</div>
                     <div className="personal-stat-delta">
-                      +{formatUserStat(card.last30)} {card.sub} (30 derniers jours)
+                      +{formatUserStat(card.last30)} {deltaUnit(card)} (30 derniers jours)
                     </div>
                   </div>
                 </button>

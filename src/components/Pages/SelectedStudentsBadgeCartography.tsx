@@ -261,7 +261,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
                     <span>{sectionLabel}</span>
                   </div>
                   <div className="level-count">
-                    {totalCount} badge{totalCount > 1 ? 's' : ''}
+                    {totalCount} compétence{totalCount > 1 ? 's' : ''}
                   </div>
                 </div>
 

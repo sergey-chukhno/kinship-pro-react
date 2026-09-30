@@ -1063,7 +1063,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
                   if (useStudentFold) {
                     return (
-                      <FoldableSection title="Compétences" isOpen={hasSkills || isEditing}>
+                      <FoldableSection title="Compétences personnelles renseignées" isOpen={hasSkills || isEditing}>
                         {skillsContent}
                       </FoldableSection>
                     );
@@ -1113,7 +1113,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
                   if (useStudentFold) {
                     return (
-                      <FoldableSection title="Disponibilités" isOpen={hasAvailability || isEditing}>
+                      <FoldableSection title="Disponibilités" isOpen={hasAvailability || isEditing} emptySuffix="aucune renseignée">
                         {availabilityContent}
                       </FoldableSection>
                     );
