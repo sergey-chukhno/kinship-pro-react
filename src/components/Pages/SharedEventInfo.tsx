@@ -5,6 +5,7 @@ import { getBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
 import { useToast } from '../../hooks/useToast';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import '../Modals/Modal.css';
 import './SharedEventInfo.css';
 
@@ -285,7 +286,7 @@ const SharedEventInfo: React.FC = () => {
                             textTransform: 'uppercase'
                           }}
                         >
-                          {badge.level.replace('level_', 'Niveau ')}
+                          {getBadgeLevelDisplayLabel(badge.series, badge.level)}
                         </span>
                       )}
                     </div>

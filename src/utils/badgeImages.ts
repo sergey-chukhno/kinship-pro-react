@@ -4,6 +4,8 @@ import { isSoftSkillsSeries } from '../constants/badgeAxes';
 
 // Local mapping of badge names and levels to existing static assets.
 // This preserves previous visuals while backend does not yet provide image URLs.
+import { getCpsLocalBadgeImage, isCompetencesPsychosocialesSeries } from './cpsSeries';
+
 const badgeImagesByName: Record<string, string> = {
   // Série TouKouLeur (universelle)
   "Adaptabilité": "/NIV 1/Adaptabilite@2x.png",
@@ -17,17 +19,6 @@ const badgeImagesByName: Record<string, string> = {
   "Information Numérique": "/NIV 1/Inform Numerique@2x.png",
   "Organisation Opérationnelle": "/NIV 1/OrganisationOpe@2x.png",
   "Sociabilité": "/NIV 1/Sociabilite@2x.png",
-
-  // Série CPS (psychosociale)
-  "Avoir conscience de soi": "/badges_psychosociales/Cognitives.jpg",
-  "Capacité de maîtrise de soi": "/badges_psychosociales/Cognitives.jpg",
-  "Prendre des décisions constructives": "/badges_psychosociales/Cognitives.jpg",
-  "Gérer son stress": "/badges_psychosociales/Emotionnelles_final.png",
-  "Réguler ses émotions": "/badges_psychosociales/Emotionnelles_final.png",
-  "Avoir conscience de ses émotions et de son stress": "/badges_psychosociales/Emotionnelles_final.png",
-  "Communiquer de façon constructive": "/badges_psychosociales/Sociales_final.png",
-  "Développer des relations constructives": "/badges_psychosociales/Sociales_final.png",
-  "Résoudre des difficultés": "/badges_psychosociales/Sociales_final.png",
 
   // Série Audiovisuelle - Level 1
   "ORGANISATION-LOGISTIQUE": "/badges_audiovisuels/Badge_Organisation_Logistique_Level1.png",
@@ -262,6 +253,11 @@ export const getLocalBadgeImage = (
 ): string | undefined => {
   if (!badgeName) return undefined;
 
+  // Compétences psychosociales: pictogramme de la compétence générale (C1…S2)
+  if (isCompetencesPsychosocialesSeries(badgeSeries)) {
+    return getCpsLocalBadgeImage(badgeName);
+  }
+
   if (opts?.allowVectorIcon ?? true) {
     const svg = COMPETENCE_ICONS[displayCompetenceName(badgeName)];
     if (svg) {
@@ -275,7 +271,7 @@ export const getLocalBadgeImage = (
   if (badgeLevel && seriesKey && badgeImagesByLevel[seriesKey]?.[badgeName]?.[badgeLevel]) {
     return badgeImagesByLevel[seriesKey][badgeName][badgeLevel] as string;
   }
-  
+
   // Fallback to name-only mapping
   return badgeImagesByName[badgeName];
 };

@@ -40,6 +40,7 @@ import { getOrganizationId, validateImageSize } from '../../utils/projectMapper'
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { getTeacherProjects } from '../../api/Projects';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -1716,7 +1717,7 @@ const Dashboard: React.FC = () => {
                           </div>
                           <div className="personal-dashboard-badge-item-text">
                             <span className="personal-dashboard-badge-name">{ub.badge?.name ?? 'Compétence'}</span>
-                            <span className="personal-dashboard-badge-level">{ub.badge?.level?.replace('level_', 'Niveau ') ?? ''}</span>
+                            <span className="personal-dashboard-badge-level">{getBadgeLevelDisplayLabel(ub.badge?.series, ub.badge?.level)}</span>
                             {ub.created_at && (
                               <span className="personal-dashboard-badge-date">
                                 {new Date(ub.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
