@@ -399,7 +399,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 onClick={() => setIsSelectProjectForBadgeOpen(true)}
               >
                 <img src="/icons_logo/Icon=Badges.svg" alt="" className="side-icon" />
-                Attribuer une preuve
+                Attester une compétence
               </button>
               <button
                 type="button"

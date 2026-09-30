@@ -109,19 +109,19 @@ export const getBadgeLevelDisplayLabel = (
 };
 
 /**
- * Soft Skills level labels (Découverte / Appropriation).
+ * Soft Skills level labels (Découverte / Appropriation) — words only, no « Niveau » prefix (Patrick).
  * L3/L4 labels kept only for legacy display of existing proofs — not offered for new awards.
  */
 const getSoftSkillsLabel = (levelNumber: string): string => {
   switch (levelNumber) {
     case '1':
-      return 'Niveau 1: Découverte';
+      return 'Découverte';
     case '2':
-      return 'Niveau 2: Appropriation';
+      return 'Appropriation';
     case '3':
-      return 'Niveau 3: Maîtrise';
+      return 'Maîtrise';
     case '4':
-      return 'Niveau 4: Expertise';
+      return 'Expertise';
     default:
       return `Niveau ${levelNumber}`;
   }

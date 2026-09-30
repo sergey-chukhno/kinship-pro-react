@@ -702,7 +702,7 @@ const Badges: React.FC = () => {
                               <span>{section.label}</span>
                             </div>
                             <div className="bg-red-500 level-count">
-                              {sectionItems.length} badge{sectionItems.length > 1 ? 's' : ''}
+                              {sectionItems.length} compétence{sectionItems.length > 1 ? 's' : ''}
                             </div>
                           </div>
                           <div className="badges-grid">
@@ -736,7 +736,7 @@ const Badges: React.FC = () => {
                               <span>{section.label}</span>
                             </div>
                             <div className="bg-red-500 level-count">
-                              {sectionBadges.length} badge{sectionBadges.length > 1 ? 's' : ''}
+                              {sectionBadges.length} compétence{sectionBadges.length > 1 ? 's' : ''}
                             </div>
                           </div>
                           <div className="badges-grid">
