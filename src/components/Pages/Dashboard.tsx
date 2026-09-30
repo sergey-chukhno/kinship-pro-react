@@ -32,8 +32,8 @@ import {
   getUserDashboardStats
 } from '../../api/Dashboard';
 import { getUserBadges } from '../../api/Badges';
-import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
-import { COMPETENCES_PSYCHOSOCIALES_SERIES } from '../../utils/cpsSeries';
+import { isSoftSkillsSeries } from '../../constants/badgeAxes';
+import { COMPETENCES_PSYCHOSOCIALES_SERIES, isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
 import axiosClient from '../../api/config';
 import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
 import { OrganizationStatsResponse, PageType } from '../../types';
@@ -41,7 +41,7 @@ import { getOrganizationId, validateImageSize } from '../../utils/projectMapper'
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { getTeacherProjects } from '../../api/Projects';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
-import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
+import { getBadgeLevelDisplayLabel, getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -580,7 +580,7 @@ const Dashboard: React.FC = () => {
     let cancelled = false;
     setUserBadgesForChartLoading(true);
     Promise.all([
-      getUserBadges(1, 500, { series: SOFT_SKILLS_SERIES }),
+      getUserBadges(1, 500, { series: SOFT_SKILLS_SERIES_NAME }),
       getUserBadges(1, 500, { series: COMPETENCES_PSYCHOSOCIALES_SERIES }),
     ])
       .then(([softRes, cpsRes]) => {
@@ -1475,24 +1475,42 @@ const Dashboard: React.FC = () => {
       .slice(0, 3);
   }, [projects]);
 
-  const LEVEL_LABELS_STATS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
   const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
   const userRadarCompetenceData = useMemo(() => {
     const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
+    const seriesPresent = new Set<string>();
     userBadgesForChart.forEach((ub: any) => {
       const name = ub.badge?.name;
       const level = ub.badge?.level;
-      if (!name || !level) return;
+      const seriesName = ub.badge?.series;
+      if (seriesName) seriesPresent.add(seriesName);
+      if (!name || level == null || level === '') return;
       if (!byCompetenceAndLevel[name]) byCompetenceAndLevel[name] = { level_1: 0, level_2: 0, level_3: 0, level_4: 0 };
-      const key = level as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+      const key = String(level) as 'level_1' | 'level_2' | 'level_3' | 'level_4';
       if (key in byCompetenceAndLevel[name]) byCompetenceAndLevel[name][key] += 1;
     });
     const axes = Object.keys(byCompetenceAndLevel).sort();
     if (axes.length === 0) return { axes: [] as string[], series: [] as Array<{ level: string; values: number[]; color: string }> };
-    const series = LEVEL_LABELS_STATS.map((label, idx) => {
-      const levelKey = `level_${idx + 1}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+
+    const seriesList = Array.from(seriesPresent);
+    const allSoft = seriesList.length > 0 && seriesList.every((s) => isSoftSkillsSeries(s));
+    const allCps = seriesList.length > 0 && seriesList.every((s) => isCompetencesPsychosocialesSeries(s));
+    const mixedSoftCps =
+      seriesList.some((s) => isSoftSkillsSeries(s)) && seriesList.some((s) => isCompetencesPsychosocialesSeries(s));
+    const levelNums = allSoft || allCps || mixedSoftCps ? [1, 2] : [1, 2, 3, 4];
+    const labelFor = (n: number): string => {
+      if (allCps) return getLevelLabel(COMPETENCES_PSYCHOSOCIALES_SERIES, String(n));
+      if (allSoft) return getLevelLabel(SOFT_SKILLS_SERIES_NAME, String(n));
+      if (mixedSoftCps) {
+        return n === 1 ? 'Découverte / Phase 1' : 'Appropriation / Phase 2';
+      }
+      return `Niveau ${n}`;
+    };
+
+    const series = levelNums.map((n, idx) => {
+      const levelKey = `level_${n}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
       const values = axes.map((comp) => (byCompetenceAndLevel[comp]?.[levelKey] ?? 0));
-      return { level: label, values, color: LEVEL_COLORS_STATS[idx] ?? '#5570F1' };
+      return { level: labelFor(n), values, color: LEVEL_COLORS_STATS[idx] ?? '#5570F1' };
     });
     return { axes, series };
   }, [userBadgesForChart]);
