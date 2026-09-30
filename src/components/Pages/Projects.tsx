@@ -2358,7 +2358,7 @@ const Projects: React.FC = () => {
                     <option value="pending_validation">À valider</option>
                     <option value="À venir">À venir</option>
                     <option value="En cours">En cours</option>
-                    <option value="Terminée">Terminée</option>
+                    <option value="Terminée">TERMINÉ</option>
                   </select>
                 </div>
                 <div className="filter-group">
@@ -2475,7 +2475,7 @@ const Projects: React.FC = () => {
                   <option value="all">Tous les statuts</option>
                   <option value="À venir">À venir</option>
                   <option value="En cours">En cours</option>
-                  <option value="Terminée">Terminée</option>
+                  <option value="Terminée">TERMINÉ</option>
                 </select>
               </div>
               )}
