@@ -35,7 +35,7 @@ const STATUS_CHIP: Record<FormationStatus, string> = {
   draft: 'Brouillon',
   coming: 'À venir',
   in_progress: 'En cours',
-  ended: 'Terminée',
+  ended: 'TERMINÉ',
   archived: 'Archivée',
 };
 

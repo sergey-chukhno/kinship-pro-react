@@ -11,6 +11,7 @@ import OrganizationCard from '../Network/OrganizationCard';
 import MemberCard from '../Members/MemberCard';
 import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
 import { getPartnerships, getTeacherSchoolPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest, getFunderAttachments } from '../../api/Projects';
 import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
@@ -1469,7 +1470,7 @@ const Network: React.FC = () => {
           id: String(m.id),
           firstName: m.first_name,
           lastName: m.last_name,
-          fullName: m.full_name || `${m.first_name} ${m.last_name}`,
+          fullName: displayPersonName(m.full_name, m.first_name, m.last_name),
           email: m.email || '',
           profession: m.profession || m.job || '',
           roles: translateRoles([m.role || m.role_in_school || m.role_in_company || 'member']),
@@ -2048,8 +2049,9 @@ const Network: React.FC = () => {
         const allUserOrgIds = new Set([...commonIds, ...orgSchoolIds, ...orgCompanyIds]);
         return Array.from(allUserOrgIds).some(id => confirmedOrgIds.has(id));
       }).map((user: NetworkUser) => {
-        // Extract first and last name from full_name
-        const nameParts = user.full_name.split(' ');
+        // Extract first and last name from full_name (sentinel déjà traduit à la source par UserSerializer côté FE si besoin)
+        const displayFullName = displayPersonName(user.full_name, null, null, '');
+        const nameParts = displayFullName.split(' ');
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
         
@@ -2080,7 +2082,7 @@ const Network: React.FC = () => {
           id: String(user.id),
           firstName,
           lastName,
-          fullName: user.full_name,
+          fullName: displayFullName,
           email: user.email,
           profession: translateRole(user.job) || translatedRole,
           roles: translatedRoles,
@@ -2479,7 +2481,7 @@ const Network: React.FC = () => {
     type: 'partner' as const,
     description: r.description || '',
     members_count: 0,
-    location: r.teacher?.full_name || 'Enseignant',
+    location: displayPersonName(r.teacher?.full_name, null, null, 'Enseignant'),
     status: 'pending' as const,
     joinedDate: r.created_at || '',
     contactPerson: '',

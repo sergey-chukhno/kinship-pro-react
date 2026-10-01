@@ -1,5 +1,6 @@
 import { ProofData, TrustLevelKey } from '../types/proof';
 import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
+import { displayPersonName } from './civilDataErased';
 
 const TRUST_LEVELS: TrustLevelKey[] = [
   'INSTITUTIONAL',
@@ -103,8 +104,8 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
 
   const badgeTitle = String(badge.name ?? 'Badge');
   // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
-  const holderName = String(receiver.holder_display ?? receiver.full_name ?? '—');
-  const senderName = String(sender.full_name ?? '—');
+  const holderName = String(receiver.holder_display ?? displayPersonName(receiver.full_name as string | undefined, receiver.first_name as string | undefined, receiver.last_name as string | undefined, '—'));
+  const senderName = displayPersonName(sender.full_name as string | undefined, sender.first_name as string | undefined, sender.last_name as string | undefined, '—');
   const shareTokenRaw = String(userBadge.share_token ?? '').trim();
   const shareToken = shareTokenRaw || String(userBadge.id ?? '');
   const proofNumber = String(userBadge.proof_number ?? `PB·${userBadge.id ?? '—'}`);
@@ -165,8 +166,15 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
     hashVersion: 'sha256-v1',
     retentionExpiry: awardedDate,
     ppProofNumber: null,
-    shareUrl: shareToken ? `kinshipedu.fr/pb/${shareToken}` : 'kinshipedu.fr/pb',
+    shareUrl: shareToken ? `mykinship.fr/pb/${shareToken}` : 'mykinship.fr/pb',
     showRightsLink: true,
+    // /users/me/badges n'expose pas (encore) le contrat ESCO/verify de proofs_controller.rb (confirmé
+    // par Sergey, UserBadgeSerializer) — pas de pastille ESCO ici, bouton Vérifier laissé visible
+    // comme avant (comportement existant, non couvert par le flag serveur).
+    escoUri: null,
+    escoLabel: null,
+    escoMatch: null,
+    verifyServiceEnabled: true,
   };
 }
 

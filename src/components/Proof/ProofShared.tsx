@@ -78,6 +78,27 @@ export const ProofHeader: React.FC<ProofHeaderProps> = ({ proof, compact, interm
           <div>
             <div className="proof-z1-surtitle">{surtitle}</div>
             <div className="proof-z1-title">{proof.badgeTitle}</div>
+            {proof.escoLabel && (
+              <div className="proof-z1-esco">
+                {proof.escoUri ? (
+                  <a
+                    href={proof.escoUri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="proof-z1-esco-link"
+                  >
+                    ESCO · {proof.escoLabel} ↗
+                  </a>
+                ) : (
+                  <span className="proof-z1-esco-link">ESCO · {proof.escoLabel}</span>
+                )}
+                {proof.escoMatch && (
+                  <span className="proof-z1-esco-match">
+                    {proof.escoMatch === 'exact' ? 'Correspondance exacte' : 'Correspondance proche'}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="proof-z1-pills">
               <span className="proof-pill proof-pill-level">{proof.badgeLevel}</span>
               {proof.eqfPill && (

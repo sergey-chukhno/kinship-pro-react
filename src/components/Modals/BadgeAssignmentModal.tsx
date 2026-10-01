@@ -1,9 +1,9 @@
-import { BadgeAPI } from '../../types';
+import { BadgeAPI, BadgeSkillAPI } from '../../types';
 import {
   isMetiersDeLaMerSeries,
   isSeriesWithAxesCompetenceSelection,
 } from '../../utils/badgeAssignmentCompetenceSelection';
-import { isSoftSkillsSeries } from '../../constants/badgeAxes';
+import { isSoftSkillsSeries, hasTypedSavoirSavoirFaireItems } from '../../constants/badgeAxes';
 import { validateAxesSeriesCompetencies } from '../../utils/badgeAssignmentValidation';
 
 // Validation rules for level 1 badges (exported for BadgeExplorer)
@@ -487,7 +487,25 @@ const FALLBACK_COMPETENCIES_BY_LEVEL: Record<string, Record<string, Array<{ id: 
 };
 
 // Helper function to get competencies for a badge (exported for BadgeExplorer; API data or fallback)
-export const getBadgeCompetencies = (badge: BadgeAPI | null): Array<{ id: number; name: string }> => {
+//
+// Bug corrigé (30/09) : pour la série Compétences psychosociales, cette fonction ne
+// renvoyait que badge.expertises (scope back « savoir_faire » = expertise + both),
+// donc tout item purement « savoir » (category: domain, ex. CPS S1.2 « Connaître les
+// caractéristiques de la communication empathique ») était invisible dans tout le
+// tunnel d'attestation. Pour cette série, on fusionne domains + expertises,
+// dédupliqué par id : un item « both » (savoir ET savoir-faire, CPS S2.1) apparaît
+// dans les deux listes côté API mais ne doit compter/s'afficher qu'une seule fois
+// (V1.2, note écran 5 : « il compte pour un »).
+//
+// ATTENTION — category: 'domain' ne veut pas dire « savoir » pour toutes les séries :
+// pour la série transversale (Soft Skills / TouKouLeur), badge.domains porte les
+// « domaines d'engagement » (Cognitives, Sociabilité, etc. — cf. db/seeds.rb), un tout
+// autre concept, jamais des items de constat. Ne fusionner domains que pour les
+// séries où category: domain signifie réellement « savoir » à cocher (CPS
+// aujourd'hui, via hasTypedSavoirSavoirFaireItems) — jamais un blanket merge pour
+// toutes les séries.
+
+export const getBadgeCompetencies = (badge: BadgeAPI | null): Array<{ id: number; name: string; category?: BadgeSkillAPI['category'] }> => {
   if (!badge) return [];
   
   // Level-specific fallback takes precedence (e.g. Adaptabilité Niveau 2 – corrected list); match badge name case-insensitively
@@ -497,9 +515,21 @@ export const getBadgeCompetencies = (badge: BadgeAPI | null): Array<{ id: number
     if (byLevel) return byLevel;
   }
   
-  // If badge has expertises from API, use them
-  if (badge.expertises && badge.expertises.length > 0) {
-    return badge.expertises;
+  const expertises = badge.expertises || [];
+  const domains = badge.domains || [];
+  const mergeDomains = hasTypedSavoirSavoirFaireItems(badge.series) && domains.length > 0;
+
+  if (mergeDomains || expertises.length > 0) {
+    if (!mergeDomains) return expertises;
+    // Dédup par id — voir note ci-dessus sur l'item « both ».
+    const seen = new Set<number>();
+    const merged: Array<{ id: number; name: string; category?: BadgeSkillAPI['category'] }> = [];
+    [...domains, ...expertises].forEach((item) => {
+      if (seen.has(item.id)) return;
+      seen.add(item.id);
+      merged.push(item);
+    });
+    return merged;
   }
   
   // Otherwise, check for fallback competencies

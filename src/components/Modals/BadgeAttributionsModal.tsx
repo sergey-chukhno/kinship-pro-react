@@ -5,6 +5,7 @@ import { getUserBadges } from '../../api/Badges';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { translateRole } from '../../utils/roleTranslations';
+import { displayPersonName } from '../../utils/civilDataErased';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './Modal.css';
 import './BadgeAttributionsModal.css';
@@ -200,7 +201,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
         // Always construct sender object to ensure all fields are present (role = system role, job = profession)
         const sender = {
           id: item.sender?.id || item.sender_id || 0,
-          full_name: item.sender?.full_name || 'Unknown',
+          full_name: displayPersonName(item.sender?.full_name, item.sender?.first_name, item.sender?.last_name, 'Unknown'),
           email: item.sender?.email || '',
           role: item.sender?.role || '',
           job: item.sender?.job ?? '',

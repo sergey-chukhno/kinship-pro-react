@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { TeacherPartnershipRequest } from '../../api/Projects';
 import './Modal.css';
 
@@ -72,7 +73,7 @@ const SchoolTeacherPartnershipRequestDetailsModal: React.FC<SchoolTeacherPartner
               <div className="form-group">
                 <label>Demandeur</label>
                 <div style={{ fontSize: '1rem', color: '#374151', fontWeight: 500 }}>
-                  {request.teacher.full_name}
+                  {displayPersonName(request.teacher.full_name)}
                 </div>
               </div>
             )}

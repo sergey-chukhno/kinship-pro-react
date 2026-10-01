@@ -45,7 +45,7 @@
 
 .att-sub {
   margin: 2px 0 0;
-  font-size: 11px;
+  font-size: 13px;
   color: #8f8d86;
 }
 
@@ -145,7 +145,7 @@
   padding: 5px 12px;
   background: #fff;
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #4a4840;
   cursor: pointer;
@@ -216,7 +216,7 @@
   color: #a02a20;
   border-radius: 10px;
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.4;
   margin-bottom: 16px;
@@ -241,7 +241,7 @@
 }
 
 .att-slab {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--couleur-espace, #115e59);
   text-transform: uppercase;
@@ -277,7 +277,7 @@
   border-radius: 7px;
   padding: 3px 8px;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 14px;
   color: #1a1a1a;
   font-family: inherit;
   cursor: pointer;
@@ -291,7 +291,7 @@
 }
 
 .att-hint {
-  font-size: 11px;
+  font-size: 13px;
   color: #8f8d86;
   margin-top: 4px;
 }
@@ -301,7 +301,7 @@
   border: 1px solid #b9d6d0;
   border-radius: 7px;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: 14px;
   font-family: inherit;
   margin-bottom: 6px;
   background: #fff;
@@ -336,7 +336,7 @@
 
 .att-srow .ct {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 13px;
   color: #8f8d86;
   white-space: nowrap;
 }
@@ -361,7 +361,7 @@
 }
 
 .att-grp {
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 800;
   color: #8f8d86;
   text-transform: uppercase;
@@ -415,7 +415,7 @@
 }
 
 .att-lv {
-  font-size: 11px;
+  font-size: 13px;
   background: #fff;
   border: 1px solid #d0ccc0;
   border-radius: 6px;
@@ -434,7 +434,7 @@
 }
 
 .att-ok {
-  font-size: 11px;
+  font-size: 13px;
   color: #2e7d5b;
   font-weight: 800;
   white-space: nowrap;
@@ -463,11 +463,26 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--couleur-espace, #115e59);
   margin-bottom: 2px;
 }
+
+/* Rendu typé savoir/savoir-faire (P2.13 V1.2, écran 5/14) — série CPS uniquement,
+   cf. hasTypedSavoirSavoirFaireItems(). Bandeaux « Je connais » (savoir, vert) /
+   « Je fais » (savoir-faire, violet) ; les autres séries restent en liste à plat. */
+.att-type-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  margin: 10px 0 4px;
+}
+
+.att-type-label.gr { color: #0E8A66; }
+.att-type-label.vi { color: #7E3F9D; }
+.att-type-label.both { color: #4B5675; }
 
 .att-tout-cocher {
   margin-left: auto;
@@ -475,7 +490,7 @@
   border: 0;
   font-family: inherit;
   cursor: pointer;
-  font-size: 10.5px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: .2px;
   color: #2D4EA8;
@@ -484,7 +499,7 @@
 }
 
 .att-subs-hint {
-  font-size: 11px;
+  font-size: 13px;
   color: #8f8d86;
   font-style: italic;
   margin-bottom: 6px;
@@ -528,7 +543,7 @@
   border: 0;
   font-family: inherit;
   cursor: pointer;
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #6b6980;
   text-decoration: underline;
@@ -559,17 +574,17 @@
   color: #c98a1b;
   font-weight: 800;
   font-style: italic;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .att-doctrine {
-  font-size: 11px;
+  font-size: 13px;
   color: #8a6d1a;
   margin-top: 6px;
 }
 
 .att-facultatif-title {
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 800;
   letter-spacing: .4px;
   text-transform: uppercase;
@@ -597,7 +612,7 @@
   color: var(--couleur-espace, #115e59);
   border-radius: 7px;
   padding: 3px 8px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   background: #fff;
   cursor: pointer;
@@ -636,7 +651,7 @@
 }
 
 .att-foot {
-  font-size: 11px;
+  font-size: 13px;
   color: #8f8d86;
   border-top: 1px dashed #d0ccc0;
   padding-top: 8px;
@@ -708,7 +723,7 @@
   border: 1px solid #fecaca;
   border-radius: 7px;
   color: #991b1b;
-  font-size: 12px;
+  font-size: 14px;
 }
 /* ============================================================
    V1.1 -- passe de style ("fait moi le meme style", 23/09/2026)
@@ -719,7 +734,8 @@
    ============================================================ */
 
 .att-modal {
-  max-width: 480px;
+  /* Modale "Attester une compétence" = 640px (Patrick 29/09) */
+  max-width: 640px;
   border-radius: 14px;
   overflow: hidden;
 }
@@ -761,13 +777,13 @@
 }
 
 .att-org-name {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: #fff;
 }
 
 .att-org-project {
-  font-size: 10px;
+  font-size: 12.5px;
   color: rgba(255, 255, 255, 0.75);
 }
 
@@ -784,7 +800,7 @@
   padding: 8px 14px;
   background: #fff;
   border-bottom: 1px solid #ece9f4;
-  font-size: 10.5px;
+  font-size: 13px;
   overflow-x: auto;
   white-space: nowrap;
 }
@@ -803,7 +819,7 @@
   border-radius: 50%;
   background: #e9e8f1;
   color: #9391a3;
-  font-size: 8.5px;
+  font-size: 12.5px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -853,7 +869,7 @@
 }
 
 .att-qhelp {
-  font-size: 11px;
+  font-size: 13px;
   color: #8f8da0;
   margin: 0 0 8px;
 }
@@ -878,6 +894,16 @@
   border-color: #E8630F;
 }
 
+.att-box.on.gr {
+  background: #0E9B72;
+  border-color: #0E9B72;
+}
+
+.att-box.on.vi {
+  background: #8043A8;
+  border-color: #8043A8;
+}
+
 .att-box.on::after {
   content: '';
   position: absolute;
@@ -896,7 +922,7 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--couleur-espace, #115e59) 14%, #fff);
   color: var(--couleur-espace, #115e59);
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
@@ -955,7 +981,7 @@
 }
 
 .att-recap {
-  font-size: 11px;
+  font-size: 13px;
   color: #8f8da0;
 }
 
@@ -977,7 +1003,7 @@
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px dashed #d8d6e2;
-  font-size: 10.5px;
+  font-size: 13px;
   color: #a7a5b3;
 }
 
@@ -990,7 +1016,7 @@
   border: 0;
   font-family: inherit;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #8f8da0;
   text-decoration: underline;

@@ -15,6 +15,11 @@ export interface BadgeProofApiResponse {
   series_authority_entity_id?: number | null;
   holder_uuid?: number | string | null;
   holder_display: string;
+  /** Contrat actuel : { name, job } à la racine. sender_name / sender_job restent pour les réponses legacy. */
+  sender_display?: {
+    name?: string | null;
+    job?: string | null;
+  } | null;
   sender_name?: string | null;
   sender_job?: string | null;
   sender_role?: string | null;
@@ -51,6 +56,11 @@ export interface BadgeProofApiResponse {
   /** Bulle présence — afficher tel quel, sans transformation front */
   attestation_label?: string;
   proof_manifest?: Partial<BadgeProofApiResponse>;
+  /** Expositions page de preuve (contrat Sergey/Patrick 01/10) — toujours à la racine, jamais dans proof_manifest. */
+  esco_uri?: string | null;
+  esco_label?: string | null;
+  esco_match?: 'exact' | 'close' | null;
+  verify_service_enabled?: boolean;
 }
 
 export interface UserBadgeProofSummary {

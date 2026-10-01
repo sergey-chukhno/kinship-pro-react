@@ -108,6 +108,34 @@
   letter-spacing: 0.04em;
 }
 
+.proof-z1-esco {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.proof-z1-esco-link {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+}
+
+a.proof-z1-esco-link:hover {
+  text-decoration: underline;
+}
+
+.proof-z1-esco-match {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
 .proof-z1-pills {
   display: flex;
   gap: 6px;

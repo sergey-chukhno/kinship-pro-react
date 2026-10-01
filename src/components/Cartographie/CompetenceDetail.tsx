@@ -6,6 +6,7 @@ import { displayCompetenceName } from '../../constants/cartographieColors';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { getNiveauWordForSeries } from '../../constants/badgeAxes';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
+import { displayPersonName } from '../../utils/civilDataErased';
 import './Cartographie.css';
 
 interface HistoryConstat {
@@ -64,7 +65,7 @@ const CompetenceDetail: React.FC<Props> = ({ competence, axeColor, series, userB
     const bySituation = new Map<string, HistoryEntry>();
     matches.forEach((ub: any) => {
       const projectTitle = ub.project?.title || 'Sans projet';
-      const senderName = ub.sender?.full_name || '—';
+      const senderName = displayPersonName(ub.sender?.full_name, ub.sender?.first_name, ub.sender?.last_name, '—');
       const senderKey = ub.sender?.id ?? senderName;
       const key = `${projectTitle}__${senderKey}`;
       if (!bySituation.has(key)) {

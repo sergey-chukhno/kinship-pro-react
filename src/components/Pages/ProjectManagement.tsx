@@ -11,7 +11,8 @@ import ShareProjectLinkModal from '../Modals/ShareProjectLinkModal';
 import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
-import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
+import { SOFT_SKILLS_SERIES_NAME, getLevelLabel } from '../../utils/badgeLevelLabels';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '../../utils/memberContextPayload';
@@ -591,7 +592,7 @@ const ProjectManagement: React.FC = () => {
           const mappedRequests = pendingMembers.map((member: any) => ({
             id: member.id?.toString() || member.user_id?.toString(),
             memberId: member.user_id?.toString() || member.user?.id?.toString(),
-            name: member.user?.full_name || `${member.user?.first_name || ''} ${member.user?.last_name || ''}`.trim() || 'Inconnu',
+            name: displayPersonName(member.user?.full_name, member.user?.first_name, member.user?.last_name),
             profession: member.user?.job || 'Non renseigné',
             email: member.user?.email || '',
             avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
@@ -1290,7 +1291,7 @@ const ProjectManagement: React.FC = () => {
       const ownerParticipant = {
         id: `owner-${projectData.owner.id}`,
         memberId: ownerId,
-        name: projectData.owner.full_name || `${projectData.owner.first_name || ''} ${projectData.owner.last_name || ''}`.trim() || 'Inconnu',
+        name: displayPersonName(projectData.owner.full_name, projectData.owner.first_name, projectData.owner.last_name),
         profession: projectData.owner.job || 'Propriétaire',
         email: projectData.owner.email || '',
         avatar: projectData.owner.avatar_url || DEFAULT_AVATAR_SRC,
@@ -1332,7 +1333,7 @@ const ProjectManagement: React.FC = () => {
         const coOwnerParticipant = {
           id: `co-owner-${coOwnerId}`,
           memberId: coOwnerId,
-          name: coOwner.full_name || `${coOwner.first_name || ''} ${coOwner.last_name || ''}`.trim() || 'Inconnu',
+          name: displayPersonName(coOwner.full_name, coOwner.first_name, coOwner.last_name),
           profession: coOwner.job || 'Co-propriétaire',
           email: coOwner.email || '',
           avatar: coOwner.avatar_url || DEFAULT_AVATAR_SRC,
@@ -1380,7 +1381,7 @@ const ProjectManagement: React.FC = () => {
         const memberParticipant = {
           id: `member-${member.id}`,
           memberId: member.user?.id?.toString() || member.user_id?.toString(),
-          name: member.user?.full_name || 'Inconnu',
+          name: displayPersonName(member.user?.full_name, member.user?.first_name, member.user?.last_name),
           profession: member.user?.job || 'Membre',
           email: member.user?.email || '',
           avatar: member.user?.avatar_url || DEFAULT_AVATAR_SRC,
@@ -1443,7 +1444,7 @@ const ProjectManagement: React.FC = () => {
             hasMore = false;
           } else {
             allStudents.push(...list.map((student: any) => {
-              const name = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Inconnu';
+              const name = displayPersonName(student.full_name, student.first_name, student.last_name);
               const organization = student.schools?.length
                 ? (student.schools as any[]).map((s: any) => s.name).join(', ')
                 : '';
@@ -1525,7 +1526,7 @@ const ProjectManagement: React.FC = () => {
           allMembers.push(...members.map((member: any) => ({
             id: member.id?.toString(),
             memberId: member.id?.toString(), // API returns id: user.id directly
-            name: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Inconnu',
+            name: displayPersonName(member.full_name, member.first_name, member.last_name),
             profession: member.job || 'Membre',
             email: member.email || '',
             avatar: member.avatar_url || DEFAULT_AVATAR_SRC,
@@ -1576,7 +1577,7 @@ const ProjectManagement: React.FC = () => {
                     allMembers.push(...branchMembers.map((member: any) => ({
                       id: member.id?.toString(),
                       memberId: member.id?.toString(), // API returns id: user.id directly
-                      name: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Inconnu',
+                      name: displayPersonName(member.full_name, member.first_name, member.last_name),
                       profession: member.job || 'Membre',
                       email: member.email || '',
                       avatar: member.avatar_url || DEFAULT_AVATAR_SRC,
@@ -1849,7 +1850,7 @@ const ProjectManagement: React.FC = () => {
     if (!u) return undefined;
     return {
       id: u.id ?? u.user?.id,
-      full_name: u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+      full_name: displayPersonName(u.full_name, u.first_name, u.last_name),
       first_name: u.first_name,
       last_name: u.last_name,
       avatar_url: u.avatar_url,
@@ -1997,7 +1998,7 @@ const ProjectManagement: React.FC = () => {
     const ownerId = apiProjectData?.owner?.id != null ? apiProjectData.owner.id.toString() : null;
     const contactUsersRaw = (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
       id: c.id,
-      full_name: c.full_name || '',
+      full_name: displayPersonName(c.full_name, null, null, ''),
       email: c.email || '',
       role: c.role_in_organization || '',
       role_in_organization: c.role_in_organization || '',
@@ -2393,7 +2394,7 @@ const ProjectManagement: React.FC = () => {
           const contactUsersRaw = (partnership.partners || []).flatMap((p: any) =>
             (p.contact_users || []).map((c: any) => ({
               id: c.id,
-              full_name: c.full_name || '',
+              full_name: displayPersonName(c.full_name, null, null, ''),
               email: c.email || '',
               role: c.role_in_organization || '',
               role_in_organization: c.role_in_organization || '',
@@ -3415,11 +3416,11 @@ const ProjectManagement: React.FC = () => {
                 <div key={memberId} className="selected-member">
                   <AvatarImage
                     src={member.avatar_url || '/default-avatar.png'}
-                    alt={member.full_name || `${member.first_name} ${member.last_name}`}
+                    alt={displayPersonName(member.full_name, member.first_name, member.last_name)}
                     className="selected-avatar"
                   />
                   <div className="selected-info">
-                    <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
+                    <div className="selected-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                     <div className="selected-role">Rôle : {translateRole(member.role ?? member.role_in_organization ?? '')}</div>
                     {partnershipContexts.length > 0 && (
                       <div className="selected-org" style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.2rem', fontWeight: 600 }}>
@@ -3470,9 +3471,9 @@ const ProjectManagement: React.FC = () => {
                     className={`selection-item ${isSelected ? 'selected' : ''}`}
                     onClick={() => handleEditMemberSelect('co_owners', member.id.toString())}
                   >
-                    <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                    <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={displayPersonName(member.full_name, member.first_name, member.last_name)} className="item-avatar" />
                     <div className="item-info">
-                      <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                      <div className="item-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                       <div className="item-role">Rôle : {translateRole(member.role ?? '')}</div>
                       {memberOrg && (
                         <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {toDisplayString(member.organization)}</div>
@@ -3805,12 +3806,12 @@ const ProjectManagement: React.FC = () => {
       badgeImage: imageUrl,
       participantId: receiver.id?.toString() || '',
       // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
-      participantName: receiver.holder_display || receiver.full_name || receiver.name || 'Inconnu',
+      participantName: receiver.holder_display || displayPersonName(receiver.full_name, receiver.first_name, receiver.last_name, receiver.name || 'Inconnu'),
       participantAvatar: receiver.avatar_url || DEFAULT_AVATAR_SRC,
       participantOrganization: receiver.organization || organization.name || 'Non spécifiée',
       participantIsDeleted: receiver.is_deleted || false,
       attributedBy: sender.id?.toString() || '',
-      attributedByName: sender.full_name || sender.name || 'Inconnu',
+      attributedByName: displayPersonName(sender.full_name, sender.first_name, sender.last_name, sender.name || 'Inconnu'),
       attributedByAvatar: sender.avatar_url || DEFAULT_AVATAR_SRC,
       attributedByJob: sender.job,
       attributedByRole: sender.role,
@@ -6818,7 +6819,7 @@ const ProjectManagement: React.FC = () => {
                             <img src={attribution.badgeImage} alt={attribution.badgeTitle} />
                             {attribution.badgeSeries !== 'Série CPS' && (
                               <span className={`badge-level-pill level-${attribution.badgeLevel || '1'}`}>
-                                Niveau {attribution.badgeLevel || '1'}
+                                {getLevelLabel(attribution.badgeSeries || SOFT_SKILLS_SERIES_NAME, attribution.badgeLevel || '1')}
                               </span>
                             )}
                             {attribution.badgeSeries === 'Série CPS' && (
@@ -7637,7 +7638,7 @@ const ProjectManagement: React.FC = () => {
                             {/* Level pill - bottom left */}
                             {attribution.badgeSeries !== 'Série CPS' && (
                               <span className={`badge-level-pill level-${attribution.badgeLevel || '1'}`}>
-                                Niveau {attribution.badgeLevel || '1'}
+                                {getLevelLabel(attribution.badgeSeries || SOFT_SKILLS_SERIES_NAME, attribution.badgeLevel || '1')}
                               </span>
                             )}
                             {/* Domain pill for CPS - bottom left */}
@@ -9762,7 +9763,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                               {students.map((student: any) => (
                                 <li key={student.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                                  {student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim()}
+                                  {displayPersonName(student.full_name, student.first_name, student.last_name)}
                                 </li>
                               ))}
                             </ul>
@@ -9800,7 +9801,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                             {students.map((student: any) => {
                               const sid = student.id?.toString();
                               const checked = (editClassManualParticipantIds[editClassDetailPopup.classId] || []).includes(sid);
-                              const name = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim();
+                              const name = displayPersonName(student.full_name, student.first_name, student.last_name);
                               return (
                                 <div
                                   key={student.id}
@@ -9881,7 +9882,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                         return (
                           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                             {membersArr.map((m: any) => {
-                              const name = m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email || 'Membre';
+                              const name = displayPersonName(m.full_name, m.first_name, m.last_name, m.email || 'Membre');
                               return (
                                 <li key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                   <AvatarImage
@@ -9946,7 +9947,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                             {teachers.map((teacher: any) => {
                               const teacherId = teacher.id?.toString();
                               const isSelected = selectedIds.includes(teacherId);
-                              const name = teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim();
+                              const name = displayPersonName(teacher.full_name, teacher.first_name, teacher.last_name);
                               return (
                                 <div
                                   key={teacher.id}
@@ -10043,7 +10044,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                             {contactUsers.map((user: any) => {
                               const userId = user.id?.toString();
                               const isSelected = selectedIds.includes(userId);
-                              const name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                              const name = displayPersonName(user.full_name, user.first_name, user.last_name);
                               return (
                                 <div
                                   key={user.id}
@@ -10153,7 +10154,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                               ))}
                               {memberEntries.map(({ memberId }) => {
                                 const member = getEditSelectedParticipant(memberId);
-                                const name = member ? (member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()) : `ID ${memberId}`;
+                                const name = member ? displayPersonName(member.full_name, member.first_name, member.last_name) : `ID ${memberId}`;
                                 const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? member.classes?.[0]?.school?.name ?? '')) : '';
                                 return (
                                   <div key={memberId} className="selected-member" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
@@ -10187,7 +10188,7 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                         }
                         return editForm.participants.map((memberId) => {
                           const member = getEditSelectedParticipant(memberId);
-                          const name = member ? (member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()) : `ID ${memberId}`;
+                          const name = member ? displayPersonName(member.full_name, member.first_name, member.last_name) : `ID ${memberId}`;
                           const memberOrg = member ? (typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? member.classes?.[0]?.school?.name ?? '')) : '';
                           return (
                             <div key={memberId} className="selected-member" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>

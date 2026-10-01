@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Member } from '../../types';
 import './Modal.css';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { getCurrentUser } from '../../api/Authentication';
 import { getPersonalUserRoles } from '../../api/RegistrationRessource';
 import { addCompanyMember } from '../../api/CompanyDashboard/Members';
@@ -253,7 +254,7 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ onClose, onAdd, onSucce
 
       // Extract data
       const claimToken = response.data?.data?.claim_token;
-      const fullName = response.data?.data?.full_name || `${formData.firstName} ${formData.lastName}`;
+      const fullName = displayPersonName(response.data?.data?.full_name, null, null, `${formData.firstName} ${formData.lastName}`);
 
       console.log('Claim token:', claimToken);
       console.log('Full name:', fullName);

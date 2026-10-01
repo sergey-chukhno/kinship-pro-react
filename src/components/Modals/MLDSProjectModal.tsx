@@ -25,6 +25,7 @@ import { buildMldsCoResponsibleContexts } from '../../utils/memberContextPayload
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { useToast } from '../../hooks/useToast';
 import {
   countServiceQuoteFiles,
@@ -873,7 +874,7 @@ const MLDSProjectModal: React.FC<MLDSProjectModalProps> = ({
     const ownerId = state.user?.id != null ? state.user.id.toString() : null;
     const contactUsersRaw = (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
       id: c.id,
-      full_name: c.full_name || '',
+      full_name: displayPersonName(c.full_name, null, null, ''),
       email: c.email || '',
       role: c.role_in_organization || c.role || '',
       role_in_organization: c.role_in_organization || '',
@@ -1796,9 +1797,9 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                           const partnershipContexts = getPartnershipContextLabelsForCoResponsible(memberId);
                           return member ? (
                             <div key={memberId} className="selected-member">
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={displayPersonName(member.full_name, member.first_name, member.last_name)} className="selected-avatar" />
                               <div className="selected-info">
-                                <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                <div className="selected-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                                 <div className="selected-role">{translateRole(member.role_in_system ?? member.role ?? '')}</div>
                                 {partnershipContexts.length > 0 && (
                                   <div className="selected-org" style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.2rem', fontWeight: 600 }}>
@@ -1834,9 +1835,9 @@ qualitatives (indicateurs, besoins identifiés, freins…)"
                             className="selection-item"
                             onClick={() => handleMemberSelect('coResponsibles', member.id)}
                           >
-                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={displayPersonName(member.full_name, member.first_name, member.last_name)} className="item-avatar" />
                             <div className="item-info">
-                              <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                              <div className="item-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                               <div className="item-role">{translateRole(member.role_in_system ?? member.role)}</div>
                               {(typeof member.organization === 'string' ? member.organization : member.organization?.name) && (
                                 <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {typeof member.organization === 'string' ? member.organization : member.organization?.name}</div>
@@ -2560,7 +2561,7 @@ développées par les participants"
                         {contactUsers.map((user: any) => {
                           const userId = user.id?.toString();
                           const isSelected = selectedIds.includes(userId);
-                          const name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                          const name = displayPersonName(user.full_name, user.first_name, user.last_name);
                           return (
                             <div
                               key={user.id}

@@ -231,6 +231,19 @@ export function getNiveauWordForSeries(seriesName: string): string {
   return 'Niveau';
 }
 
+// Séries dont les items de constat sont typés savoir / savoir-faire (BadgeSkill#category
+// domain/expertise/both a un vrai sens de "Je connais" / "Je fais" pour ces items).
+// P2.13 V1.2, écran 14 : « Trois de nos quatre séries — orientation, transversales, mer —
+// n'ont pas ce typage : leurs items forment une liste simple. » Seule la série CPS
+// déclare ce typage aujourd'hui — ne pas étendre cette liste sans vraies données typées
+// côté back pour la série concernée (category: domain n'y signifie pas forcément "savoir",
+// ex. Soft Skills où domain = "domaine d'engagement", un tout autre concept).
+const SERIES_WITH_TYPED_SAVOIR_ITEMS: string[] = [PSYCHOSOCIALES_SERIES];
+
+export function hasTypedSavoirSavoirFaireItems(seriesName: string): boolean {
+  return SERIES_WITH_TYPED_SAVOIR_ITEMS.includes(seriesName);
+}
+
 /**
  * Retourne les axes de la cartographie V1.1 pour une série donnée, y compris TouKouLeur et CPS
  * (contrairement à getAxesForSeries, réservée aux séries de l'ancien flux "Attribuer une preuve").

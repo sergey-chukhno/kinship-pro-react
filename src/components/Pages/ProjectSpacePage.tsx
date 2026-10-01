@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProjectById } from '../../api/Project';
+import { displayPersonName } from '../../utils/civilDataErased';
 import {
   addProjectDocuments,
   addProjectFunder,
@@ -108,12 +109,11 @@ function initialsOf(name: string): string {
 }
 
 function memberName(member: any): string {
-  return (
-    member?.user?.full_name ||
-    member?.full_name ||
-    `${member?.user?.first_name || member?.first_name || ''} ${member?.user?.last_name || member?.last_name || ''}`.trim() ||
-    member?.email ||
-    'Membre'
+  return displayPersonName(
+    member?.user?.full_name || member?.full_name,
+    member?.user?.first_name || member?.first_name,
+    member?.user?.last_name || member?.last_name,
+    member?.email || 'Membre'
   );
 }
 
