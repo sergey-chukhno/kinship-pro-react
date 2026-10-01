@@ -15,6 +15,11 @@ export interface BadgeProofApiResponse {
   series_authority_entity_id?: number | null;
   holder_uuid?: number | string | null;
   holder_display: string;
+  /** Contrat actuel : { name, job } à la racine. sender_name / sender_job restent pour les réponses legacy. */
+  sender_display?: {
+    name?: string | null;
+    job?: string | null;
+  } | null;
   sender_name?: string | null;
   sender_job?: string | null;
   sender_role?: string | null;

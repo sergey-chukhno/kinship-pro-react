@@ -1,10 +1,11 @@
 import { BadgeProofApiResponse } from '../types/badgeProofApi';
 import { ProofData, TrustLevelKey } from '../types/proof';
+import { CIVIL_DATA_ERASED_LABEL, CIVIL_DATA_ERASED_SENTINEL } from './civilDataErased';
 import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
 import { getLevelLabel } from './badgeLevelLabels';
 
 const IDENTITY_MASKED = 'Identité masquée';
-const CIVIL_ERASED = 'Données civiles effacées';
+const CIVIL_ERASED = CIVIL_DATA_ERASED_LABEL;
 
 const TRUST_LEVELS: TrustLevelKey[] = [
   'INSTITUTIONAL',
@@ -135,8 +136,11 @@ export function mapProofApiToProofData(
   // Flags UI uniquement (avatar) — le libellé affiché reste toujours holder_display
   const holderMasked = holderDisplay === IDENTITY_MASKED;
   const holderCivilErased = holderDisplay === CIVIL_ERASED;
-  const senderName = api.sender_name ?? '—';
-  const senderCivilErased = senderName === CIVIL_ERASED;
+  const rawSenderName = (api.sender_display?.name ?? api.sender_name ?? '').trim();
+  const senderCivilErased =
+    rawSenderName === CIVIL_DATA_ERASED_SENTINEL || rawSenderName === CIVIL_ERASED;
+  const senderName = senderCivilErased ? CIVIL_ERASED : rawSenderName || '—';
+  const senderJob = (api.sender_display?.job ?? api.sender_job ?? '').trim() || null;
   const countryCode = String(api.organization_country ?? 'FR').toUpperCase();
   const awardedDate = formatAwardedDate(api.timestamp_utc);
   const shareToken = api.share_token ?? '';
@@ -154,7 +158,13 @@ export function mapProofApiToProofData(
     proofNumber: api.proof_number ?? '—',
     trustLevel: resolveTrustLevel(api),
     badgeIcon: resolveBadgeIcon(api.badge_title),
-    badgeTitle: api.badge_title ?? (proofType === 'PE' ? 'Événement' : 'Badge'),
+    // Preuve de validation (badge_role=validation) : le titre affiché est attestation_label
+    // ("Réussite validée" / "Réussite validée par X"), jamais le nom technique du badge
+    // système ("Validation de la formation", qui reste interne) — Patrick 01/10.
+    badgeTitle:
+      api.badge_role === 'validation'
+        ? attestationLabel
+        : (api.badge_title ?? (proofType === 'PE' ? 'Événement' : 'Badge')),
     badgeLevel: formatBadgeLevel(api.badge_level, api.series_name),
     // Jamais le mot "EQF" sur la page de preuve publique (Patrick 01/10) — cf. userBadgeProofMapper.ts, même convention.
     eqfPill: null,
@@ -170,7 +180,7 @@ export function mapProofApiToProofData(
     holderMasked: holderMasked || holderCivilErased,
     senderName,
     senderInitials: senderCivilErased ? '—' : initialsFromName(senderName),
-    senderJob: api.sender_job ?? null,
+    senderJob,
     senderOrg: api.organization_name ?? null,
     // Pas de type d'organisme dans cette réponse API (page publique /pb/) — jamais inventé.
     senderOrgType: null,
@@ -195,8 +205,8 @@ export function mapProofApiToProofData(
     retentionExpiry: formatRetention(api.retention_policy, awardedDate),
     ppProofNumber: api.pp_proof_number ?? null,
     shareUrl: shareToken
-      ? `kinshipedu.fr/${proofType.toLowerCase()}/${shareToken}`
-      : `kinshipedu.fr/${proofType.toLowerCase()}`,
+      ? `mykinship.fr/${proofType.toLowerCase()}/${shareToken}`
+      : `mykinship.fr/${proofType.toLowerCase()}`,
     showRightsLink: true,
     // Contrat Sergey/Patrick 01/10 — champs top-level, jamais lus dans proof_manifest.
     escoUri: api.esco_uri?.trim() || null,
