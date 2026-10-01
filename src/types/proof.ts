@@ -72,4 +72,9 @@ export interface ProofData {
   ppProofNumber: string | null;
   shareUrl: string;
   showRightsLink: boolean;
+  /** Expositions ESCO + flag Vérifier (contrat Sergey/Patrick 01/10) — voir utils/pbProofMapper.ts. */
+  escoUri: string | null;
+  escoLabel: string | null;
+  escoMatch: 'exact' | 'close' | null;
+  verifyServiceEnabled: boolean;
 }

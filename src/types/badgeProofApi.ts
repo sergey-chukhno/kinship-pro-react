@@ -51,6 +51,11 @@ export interface BadgeProofApiResponse {
   /** Bulle présence — afficher tel quel, sans transformation front */
   attestation_label?: string;
   proof_manifest?: Partial<BadgeProofApiResponse>;
+  /** Expositions page de preuve (contrat Sergey/Patrick 01/10) — toujours à la racine, jamais dans proof_manifest. */
+  esco_uri?: string | null;
+  esco_label?: string | null;
+  esco_match?: 'exact' | 'close' | null;
+  verify_service_enabled?: boolean;
 }
 
 export interface UserBadgeProofSummary {

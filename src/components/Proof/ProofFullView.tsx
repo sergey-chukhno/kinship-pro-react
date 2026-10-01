@@ -121,17 +121,19 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
         <ProofSkillsList proof={proof} />
       </div>
 
-      {/* Bouton Vérifier — toujours visible */}
-      <div className="proof-zone" style={{ padding: '12px 24px' }}>
-        <button
-          type="button"
-          className="proof-verify-btn"
-          style={{ background: style.accentColor, margin: 0 }}
-          onClick={handleVerify}
-        >
-          Vérifier cette preuve ↗
-        </button>
-      </div>
+      {/* Bouton Vérifier — gated par verify_service_enabled (contrat Sergey/Patrick 01/10, même flag serveur que GET /api/v1/proofs/verify/*) */}
+      {proof.verifyServiceEnabled && (
+        <div className="proof-zone" style={{ padding: '12px 24px' }}>
+          <button
+            type="button"
+            className="proof-verify-btn"
+            style={{ background: style.accentColor, margin: 0 }}
+            onClick={handleVerify}
+          >
+            Vérifier cette preuve ↗
+          </button>
+        </div>
+      )}
 
       {/* Accordéon Z5+Z6 — fermé par défaut */}
       <button

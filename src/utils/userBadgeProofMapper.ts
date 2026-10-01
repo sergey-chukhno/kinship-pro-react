@@ -170,6 +170,13 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
     ppProofNumber: null,
     shareUrl: shareToken ? `kinshipedu.fr/pb/${shareToken}` : 'kinshipedu.fr/pb',
     showRightsLink: true,
+    // /users/me/badges n'expose pas (encore) le contrat ESCO/verify de proofs_controller.rb (confirmé
+    // par Sergey, UserBadgeSerializer) — pas de pastille ESCO ici, bouton Vérifier laissé visible
+    // comme avant (comportement existant, non couvert par le flag serveur).
+    escoUri: null,
+    escoLabel: null,
+    escoMatch: null,
+    verifyServiceEnabled: true,
   };
 }
 

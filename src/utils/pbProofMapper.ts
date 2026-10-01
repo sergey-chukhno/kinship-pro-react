@@ -198,5 +198,10 @@ export function mapProofApiToProofData(
       ? `kinshipedu.fr/${proofType.toLowerCase()}/${shareToken}`
       : `kinshipedu.fr/${proofType.toLowerCase()}`,
     showRightsLink: true,
+    // Contrat Sergey/Patrick 01/10 — champs top-level, jamais lus dans proof_manifest.
+    escoUri: api.esco_uri?.trim() || null,
+    escoLabel: api.esco_label?.trim() || null,
+    escoMatch: api.esco_match === 'exact' || api.esco_match === 'close' ? api.esco_match : null,
+    verifyServiceEnabled: Boolean(api.verify_service_enabled),
   };
 }

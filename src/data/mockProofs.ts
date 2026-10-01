@@ -56,6 +56,10 @@ export const MOCK_PB_NOMINAL: ProofData = {
   ppProofNumber: 'PP·2026·FR·8K2M4N6PQR',
   shareUrl: 'kinshipedu.fr/pb/3K1A7M9QRT',
   showRightsLink: true,
+  escoUri: 'http://data.europa.eu/esco/skill/9a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9',
+  escoLabel: 'communiquer de façon claire',
+  escoMatch: 'exact',
+  verifyServiceEnabled: true,
 };
 
 export const MOCK_PB_MASKED: ProofData = {
@@ -119,6 +123,10 @@ export const MOCK_PE_EVENT: ProofData = {
   ppProofNumber: 'PP·2026·FR·2H5J8K1MNP',
   shareUrl: 'kinshipedu.fr/pe/9A4CM8PZQR',
   showRightsLink: true,
+  escoUri: null,
+  escoLabel: null,
+  escoMatch: null,
+  verifyServiceEnabled: false,
 };
 
 export const MOCK_PE_PRESENCE: ProofData = {
