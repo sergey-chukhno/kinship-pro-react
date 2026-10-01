@@ -1,4 +1,4 @@
-import { COMPETENCES_PSYCHOSOCIALES_SERIES } from './cpsSeries';
+import { COMPETENCES_PSYCHOSOCIALES_SERIES, isCompetencesPsychosocialesSeries } from './cpsSeries';
 
 /**
  * Soft Skills series — renamed 28/09/2026 (Patrick).
@@ -106,6 +106,38 @@ export const getBadgeLevelDisplayLabel = (
 ): string => {
   const num = (level || 'level_1').replace(/^level_/, '');
   return getLevelLabel(series || '', num);
+};
+
+/**
+ * Level label for a SET of series mixed together (cross-series aggregates : distribution par
+ * niveau sur un dashboard/une vue analytics, qui peut mélanger plusieurs séries). Reprend
+ * exactement la logique déjà en place pour le radar du Dashboard (Niveau N générique sauf si
+ * toutes les séries présentes partagent le même mot, ou si le mélange est Soft Skills + CPS).
+ *
+ * @param seriesList - Toutes les séries présentes dans l'ensemble agrégé (peut contenir des doublons/vides)
+ * @param levelNumber - Le numéro de niveau ("1", "2", "3", "4")
+ */
+export const getLevelLabelForSeriesSet = (
+  seriesList: Array<string | null | undefined>,
+  levelNumber: string
+): string => {
+  const present = Array.from(new Set(seriesList.filter((s): s is string => !!s)));
+  if (present.length === 0) return `Niveau ${levelNumber}`;
+
+  const allSoft = present.every((s) => isSoftSkillsSeries(s));
+  const allCps = present.every((s) => isCompetencesPsychosocialesSeries(s));
+  const mixedSoftCps =
+    present.some((s) => isSoftSkillsSeries(s)) && present.some((s) => isCompetencesPsychosocialesSeries(s));
+
+  if (allCps) return getLevelLabel(COMPETENCES_PSYCHOSOCIALES_SERIES, levelNumber);
+  if (allSoft) return getLevelLabel(SOFT_SKILLS_SERIES_NAME, levelNumber);
+  if (mixedSoftCps) {
+    if (levelNumber === '1') return 'Découverte / Phase 1';
+    if (levelNumber === '2') return 'Appropriation / Phase 2';
+    return `Niveau ${levelNumber}`;
+  }
+  // Plusieurs séries génériques mélangées, sans mot commun : pas de faux-sens, on reste sur "Niveau N".
+  return `Niveau ${levelNumber}`;
 };
 
 /**

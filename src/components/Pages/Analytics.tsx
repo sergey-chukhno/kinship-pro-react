@@ -7,11 +7,10 @@ import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Members';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { displaySeries } from '../../utils/badgeMapper';
 import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
-import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
+import { SOFT_SKILLS_SERIES_NAME, getLevelLabelForSeriesSet } from '../../utils/badgeLevelLabels';
 import './Analytics.css';
 
 const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
-const LEVEL_LABELS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
 
 /** Split a long axis label into multiple lines to avoid overflow and overlap. */
 function wrapRadarLabel(label: string, maxCharsPerLine = 22): string[] {
@@ -414,10 +413,12 @@ const Analytics: React.FC = () => {
     });
     const axes = Object.keys(byCompetenceAndLevel).sort();
     if (axes.length === 0) return { axes: [], series: [] };
-    const series = LEVEL_LABELS.map((label, idx) => {
-      const levelKey = `level_${idx + 1}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+    // Mots de la série plutôt que "Niveau N" figé, mêmes règles que Dashboard.tsx (01/10).
+    const seriesPresent = assignedBadgesRaw.map((ub: any) => ub.badge?.series).filter(Boolean);
+    const series = [1, 2, 3, 4].map((n, idx) => {
+      const levelKey = `level_${n}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
       const values = axes.map((comp) => (byCompetenceAndLevel[comp]?.[levelKey] ?? 0));
-      return { level: label, values, color: LEVEL_COLORS[idx] ?? '#5570F1' };
+      return { level: getLevelLabelForSeriesSet(seriesPresent, String(n)), values, color: LEVEL_COLORS[idx] ?? '#5570F1' };
     });
     return { axes, series };
   }, [assignedBadgesRaw]);

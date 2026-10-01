@@ -904,6 +904,16 @@
   border-color: #8043A8;
 }
 
+/* Item à double type (category: both, ex. CPS S2.1) : case mi-verte mi-violette (P2.13 V1.2, note écran 5). */
+.att-box.both {
+  background: linear-gradient(135deg, #e8f7f1 50%, #f3e9f8 50%);
+}
+
+.att-box.on.both {
+  background: linear-gradient(135deg, #0E9B72 50%, #8043A8 50%);
+  border-color: #8043A8;
+}
+
 .att-box.on::after {
   content: '';
   position: absolute;

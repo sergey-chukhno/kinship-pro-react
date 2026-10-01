@@ -1,6 +1,7 @@
 import { ProofData, TrustLevelKey } from '../types/proof';
 import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
 import { displayPersonName } from './civilDataErased';
+import { getLevelLabel } from './badgeLevelLabels';
 
 const TRUST_LEVELS: TrustLevelKey[] = [
   'INSTITUTIONAL',
@@ -27,11 +28,12 @@ function resolveBadgeIcon(title: string): string {
   return title.slice(0, 2).toUpperCase() || 'PB';
 }
 
-function formatBadgeLevel(level?: string | null): string {
-  if (!level) return 'Niveau 1';
-  const match = level.match(/level[_-]?(\d+)/i);
-  if (match) return `Niveau ${match[1]}`;
-  return level.replace(/^level_/i, 'Niveau ');
+// Mots de la série (« Phase 1 », « Découverte »…), jamais « Niveau N » générique
+// (même convention que pbProofMapper.ts, corrigé le 01/10 suite à la demande de Patrick).
+function formatBadgeLevel(level: string | null | undefined, series: string | null | undefined): string {
+  const match = level?.match(/level[_-]?(\d+)/i);
+  const levelNumber = match ? match[1] : '1';
+  return getLevelLabel(series || '', levelNumber);
 }
 
 function formatAwardedDate(value?: string | null): string {
@@ -122,7 +124,7 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
     trustLevel: resolveTrustLevel(organization.trust_level as string | undefined),
     badgeIcon: resolveBadgeIcon(badgeTitle),
     badgeTitle,
-    badgeLevel: formatBadgeLevel(badge.level as string | undefined),
+    badgeLevel: formatBadgeLevel(badge.level as string | undefined, badge.series as string | undefined),
     eqfPill: null,
     seriesPill: String(badge.series ?? 'Référentiel Kinship'),
     statusBubble: '✓ Attestée',
