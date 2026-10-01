@@ -1,5 +1,6 @@
 import React from 'react';
 import './UserCard.css';
+import { displayPersonName } from '../../utils/civilDataErased';
 
 export interface NetworkUser {
   id: number;
@@ -25,7 +26,7 @@ const UserCard: React.FC<UserCardProps> = ({ user, onClick }) => {
       <div className="user-header">
         <div className="user-avatar">
           {user.avatar_url ? (
-            <img src={user.avatar_url} alt={user.full_name} />
+            <img src={user.avatar_url} alt={displayPersonName(user.full_name, user.first_name, user.last_name)} />
           ) : (
             <div className="avatar-placeholder">
               <i className="fas fa-user"></i>
@@ -33,7 +34,7 @@ const UserCard: React.FC<UserCardProps> = ({ user, onClick }) => {
           )}
         </div>
         <div className="user-info">
-          <h3 className="user-name">{user.full_name}</h3>
+          <h3 className="user-name">{displayPersonName(user.full_name, user.first_name, user.last_name)}</h3>
           <div className="user-meta">
             <span className="user-role">{user.role}</span>
             {user.job && <span className="user-job">{user.job}</span>}

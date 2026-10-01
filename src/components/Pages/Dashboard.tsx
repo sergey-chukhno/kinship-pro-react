@@ -44,6 +44,7 @@ import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { isUnder15 } from '../../utils/ageUtils';
+import { displayPersonName } from '../../utils/civilDataErased';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
@@ -262,7 +263,7 @@ const toActivityArray = (payload: any): any[] => {
 
 const formatPersonName = (person?: { full_name?: string; first_name?: string; last_name?: string }) => {
   if (!person) return undefined;
-  return person.full_name || [person.first_name, person.last_name].filter(Boolean).join(' ').trim() || undefined;
+  return displayPersonName(person.full_name, person.first_name, person.last_name, '') || undefined;
 };
 
 const getActorFromActivity = (activity: any) => {

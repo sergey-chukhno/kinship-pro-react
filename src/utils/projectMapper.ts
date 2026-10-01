@@ -1,6 +1,7 @@
 import { CreateProjectPayload, ProjectMemberAttribute, LinkAttribute, Tag, UpdateProjectPayload } from '../api/Projects';
 import { ShowingPageType, User, Project } from '../types';
 import { getSelectedOrganizationId } from './contextUtils';
+import { displayPersonName } from './civilDataErased';
 import { isUserListedAsCoResponsible, resolveProjectMemberUserId } from './projectPermissions';
 
 /**
@@ -513,7 +514,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
       ? {
         id: ownerUserId,
         name: owner
-          ? owner.full_name || `${owner.first_name || ''} ${owner.last_name || ''}`.trim() || owner.email || 'Responsable'
+          ? displayPersonName(owner.full_name, owner.first_name, owner.last_name, owner.email || 'Responsable')
           : 'Responsable',
         avatar: owner?.avatar_url || '/default-avatar.png',
         profession: owner?.job || owner?.role || 'Membre',
@@ -557,7 +558,7 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
                 : ownerOrganizationName);
         return ({
         id: coId != null ? coId.toString() : '',
-        name: coOwner.full_name || `${coOwner.first_name} ${coOwner.last_name}`,
+        name: displayPersonName(coOwner.full_name, coOwner.first_name, coOwner.last_name),
         avatar: coOwner.avatar_url || '/default-avatar.png',
         profession: coOwner.job || 'Membre', // Profession réelle
         organization: orgLabel,

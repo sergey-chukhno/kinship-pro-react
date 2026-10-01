@@ -6,6 +6,7 @@ import { getOrganizationMembers, getTeacherStudents } from '../../api/Projects';
 import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { base64ToFile } from '../../utils/projectMapper';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { 
   createSchoolEvent, 
   createCompanyEvent, 
@@ -287,7 +288,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
               id: student.id?.toString() || '',
               firstName: student.first_name || '',
               lastName: student.last_name || '',
-              fullName: student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+              fullName: displayPersonName(student.full_name, student.first_name, student.last_name),
               email: student.email || '',
               birthday: student.birthday || student.birth_date || student.birthdate || student.date_of_birth || undefined,
               hasTemporaryEmail: student.has_temporary_email || student.hasTemporaryEmail || false,
@@ -337,7 +338,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
           id: member.id?.toString() || '',
           firstName: member.first_name || '',
           lastName: member.last_name || '',
-          fullName: member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim(),
+          fullName: displayPersonName(member.full_name, member.first_name, member.last_name),
           email: member.email || '',
           birthday: member.birthday || member.birth_date || member.birthdate || member.date_of_birth || undefined,
           hasTemporaryEmail: member.has_temporary_email || member.hasTemporaryEmail || false,
@@ -1447,7 +1448,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                       return (
                         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                           {membersArr.map((m: any) => {
-                            const name = m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email || 'Membre';
+                            const name = displayPersonName(m.full_name, m.first_name, m.last_name, m.email || 'Membre');
                             return (
                               <li key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <AvatarImage

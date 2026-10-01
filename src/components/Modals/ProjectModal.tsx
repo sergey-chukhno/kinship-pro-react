@@ -15,6 +15,7 @@ import {
 } from '../../utils/projectMapper';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { translateRole } from '../../utils/roleTranslations';
+import { displayPersonName } from '../../utils/civilDataErased';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -1410,7 +1411,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
     const ownerId = state.user?.id != null ? state.user.id.toString() : null;
     const contactUsersRaw = (partnership.partners || []).flatMap((p: any) => (p.contact_users || []).map((c: any) => ({
       id: c.id,
-      full_name: c.full_name || '',
+      full_name: displayPersonName(c.full_name, null, null, ''),
       email: c.email || '',
       role: c.role_in_organization || c.role || '',
       role_in_organization: c.role_in_organization || '',
@@ -2120,7 +2121,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                             {students.map((student: any) => (
                               <li key={student.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                                {student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim()}
+                                {displayPersonName(student.full_name, student.first_name, student.last_name)}
                               </li>
                             ))}
                           </ul>
@@ -2158,7 +2159,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                           {students.map((student: any) => {
                             const sid = student.id?.toString();
                             const checked = (classManualParticipantIds[classDetailPopup.classId] || []).includes(sid);
-                            const name = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim();
+                            const name = displayPersonName(student.full_name, student.first_name, student.last_name);
                             return (
                               <div
                                 key={student.id}
@@ -2239,7 +2240,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                       return (
                         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                           {membersArr.map((m: any) => {
-                            const name = m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.email || 'Membre';
+                            const name = displayPersonName(m.full_name, m.first_name, m.last_name, m.email || 'Membre');
                             return (
                               <li key={m.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <AvatarImage
@@ -2304,7 +2305,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                           {teachers.map((teacher: any) => {
                             const teacherId = teacher.id?.toString();
                             const isSelected = selectedIds.includes(teacherId);
-                            const name = teacher.full_name || `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim();
+                            const name = displayPersonName(teacher.full_name, teacher.first_name, teacher.last_name);
                             return (
                               <div
                                 key={teacher.id}
@@ -2401,7 +2402,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                           {contactUsers.map((user: any) => {
                             const userId = user.id?.toString();
                             const isSelected = selectedIds.includes(userId);
-                            const name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                            const name = displayPersonName(user.full_name, user.first_name, user.last_name);
                             return (
                               <div
                                 key={user.id}
@@ -2624,9 +2625,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                           const partnershipContexts = getPartnershipContextLabelsForCoResponsible(memberId);
                           return member ? (
                             <div key={memberId} className="selected-member">
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()} className="selected-avatar" />
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={displayPersonName(member.full_name, member.first_name, member.last_name)} className="selected-avatar" />
                               <div className="selected-info">
-                                <div className="selected-name">{member.full_name || `${member.first_name || ''} ${member.last_name || ''}`.trim()}</div>
+                                <div className="selected-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                                 <div className="selected-role">{translateRole(member.role_in_system ?? member.role ?? '')}</div>
                                 {partnershipContexts.length > 0 && (
                                   <div className="selected-org" style={{ fontSize: '0.8rem', color: '#0369a1', marginTop: '0.2rem', fontWeight: 600 }}>
@@ -2662,9 +2663,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                             className="selection-item"
                             onClick={() => handleMemberSelect('coResponsibles', member.id)}
                           >
-                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={displayPersonName(member.full_name, member.first_name, member.last_name)} className="item-avatar" />
                             <div className="item-info">
-                              <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                              <div className="item-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                               <div className="item-role">{translateRole(member.role_in_system ?? member.role)}</div>
                               {(typeof member.organization === 'string' ? member.organization : member.organization?.name ?? member.classes?.[0]?.school?.name) && (
                                 <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {typeof member.organization === 'string' ? member.organization : (member.organization?.name ?? member.classes?.[0]?.school?.name ?? '')}</div>
@@ -2754,9 +2755,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                                   const memberOrg = (typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '')) || schoolLabel || classSchoolNames || '';
                           return member ? (
                             <div key={memberId} className="selected-member">
-                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                              <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={displayPersonName(member.full_name, member.first_name, member.last_name)} className="selected-avatar" />
                               <div className="selected-info">
-                                <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                <div className="selected-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                                         <div className="selected-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
                                         {memberOrg && (
                                           <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
@@ -2782,9 +2783,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                             const memberOrg = (typeof member?.organization === 'string' ? member?.organization : (member?.organization?.name ?? '')) || schoolLabel || classSchoolNames || '';
                             return member ? (
                               <div key={memberId} className="selected-member">
-                                <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="selected-avatar" />
+                                <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={displayPersonName(member.full_name, member.first_name, member.last_name)} className="selected-avatar" />
                                 <div className="selected-info">
-                                  <div className="selected-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                  <div className="selected-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                                   <div className="selected-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
                                   {memberOrg && (
                                     <div className="selected-org" style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>Organisation : {memberOrg}</div>
@@ -2865,9 +2866,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                                     handleMemberSelect('participants', member.id);
                                   }}
                                 >
-                                  <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                                  <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={displayPersonName(member.full_name, member.first_name, member.last_name)} className="item-avatar" />
                                   <div className="item-info">
-                                    <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                                    <div className="item-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                                     <div className="item-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
                                     {memberOrg && (
                                       <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {memberOrg}</div>
@@ -2906,9 +2907,9 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                               handleMemberSelect('participants', member.id);
                             }}
                           >
-                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={member.full_name || `${member.first_name} ${member.last_name}`} className="item-avatar" />
+                            <AvatarImage src={member.avatar_url || '/default-avatar.png'} alt={displayPersonName(member.full_name, member.first_name, member.last_name)} className="item-avatar" />
                             <div className="item-info">
-                              <div className="item-name">{member.full_name || `${member.first_name} ${member.last_name}`}</div>
+                              <div className="item-name">{displayPersonName(member.full_name, member.first_name, member.last_name)}</div>
                                 <div className="item-role">{translateRole(member.role ?? member.role_in_system ?? '')}</div>
                                 {memberOrg && (
                                   <div className="item-org" style={{ fontSize: '0.8rem', color: '#6b7280' }}>Organisation : {memberOrg}</div>

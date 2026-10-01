@@ -48,6 +48,7 @@ import {
 } from '../../utils/projectPermissions';
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
 import { translateRole } from '../../utils/roleTranslations';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { parseLearningOutcomes } from '../../data/euMcCatalog';
 import {
   DocVisibility,
@@ -131,12 +132,11 @@ function initialsOf(name: string): string {
 }
 
 function memberName(member: any): string {
-  return (
-    member?.user?.full_name ||
-    member?.full_name ||
-    `${member?.user?.first_name || member?.first_name || ''} ${member?.user?.last_name || member?.last_name || ''}`.trim() ||
-    member?.email ||
-    'Membre'
+  return displayPersonName(
+    member?.user?.full_name || member?.full_name,
+    member?.user?.first_name || member?.first_name,
+    member?.user?.last_name || member?.last_name,
+    member?.email || 'Membre'
   );
 }
 
@@ -542,7 +542,7 @@ const ProjectAffichePage: React.FC = () => {
   const filteredBadges = useMemo(() => {
     return badges.filter((b) => {
       const series = String(b.badge?.series || b.series || '');
-      const holder = String(b.receiver?.full_name || b.receiver_name || '');
+      const holder = String(displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name || ''));
       if (proofSeries && series !== proofSeries) return false;
       if (proofHolder.trim() && !holder.toLowerCase().includes(proofHolder.trim().toLowerCase())) return false;
       return true;
@@ -1679,10 +1679,10 @@ const ProjectAffichePage: React.FC = () => {
                   {teams.map((t) => (
                     <div key={t.id} className="pa-teamcard">
                       <div className="tt">{t.title}</div>
-                      <small>Chef d’équipe : {t.team_leader?.full_name || '—'} · {t.members_count || t.team_members?.length || 0} membres</small>
+                      <small>Chef d’équipe : {displayPersonName(t.team_leader?.full_name, null, null, '—')} · {t.members_count || t.team_members?.length || 0} membres</small>
                       <div className="pa-avs">
                         {(t.team_members || []).slice(0, 6).map((m) => (
-                          <div key={m.id} className="pa-av">{initialsOf(m.user?.full_name || '')}</div>
+                          <div key={m.id} className="pa-av">{initialsOf(displayPersonName(m.user?.full_name, null, null, ''))}</div>
                         ))}
                       </div>
                     </div>
@@ -1719,8 +1719,8 @@ const ProjectAffichePage: React.FC = () => {
                         const title = b.badge?.name || b.badge_name || 'Preuve';
                         const series = b.badge?.series || b.series || 'Série';
                         const level = b.badge?.level || b.level || 'Niveau 1';
-                        const holder = b.receiver?.full_name || b.receiver_name || '—';
-                        const sender = b.sender?.full_name || b.sender_name || '—';
+                        const holder = displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name || '—');
+                        const sender = displayPersonName(b.sender?.full_name, b.sender?.first_name, b.sender?.last_name, b.sender_name || '—');
                         const date = b.assigned_at ? formatFrDate(String(b.assigned_at).slice(0, 10)) : '—';
                         return (
                           <button key={b.id} type="button" className="pa-pbcard" onClick={() => openProof(b)}>
@@ -1758,8 +1758,8 @@ const ProjectAffichePage: React.FC = () => {
                             <td><b>{b.badge?.name || b.badge_name}</b></td>
                             <td>{b.badge?.series || b.series}</td>
                             <td>{b.badge?.level || b.level}</td>
-                            <td>{b.receiver?.full_name || b.receiver_name}</td>
-                            <td>{b.sender?.full_name || b.sender_name}</td>
+                            <td>{displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name)}</td>
+                            <td>{displayPersonName(b.sender?.full_name, b.sender?.first_name, b.sender?.last_name, b.sender_name)}</td>
                             <td>{b.assigned_at ? formatFrDate(String(b.assigned_at).slice(0, 10)) : '—'}</td>
                           </tr>
                         ))}

@@ -1,5 +1,6 @@
 import React from 'react';
 import './ClassCard.css';
+import { displayPersonName } from '../../utils/civilDataErased';
 
 /** Map API level values to French labels (matches AddClassModal options) */
 const LEVEL_LABEL_MAP: Record<string, string> = {
@@ -129,13 +130,13 @@ const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, leve
         )}
         <p><strong>Niveau :</strong> {levelDisplay}</p>
         {teachers && teachers.length > 0 && (
-          <p><strong>Responsable{teachers.length > 1 ? 's' : ''} :</strong> {teachers.map(t => t.full_name).join(', ')}</p>
+          <p><strong>Responsable{teachers.length > 1 ? 's' : ''} :</strong> {teachers.map(t => displayPersonName(t.full_name)).join(', ')}</p>
         )}
         {pedagogical_team_members && pedagogical_team_members.length > 0 && (
           <p style={{ marginTop: '4px', lineHeight: '1.5' }}>
             <strong>Équipe pédagogique :</strong>{' '}
             <span style={{ display: 'inline', wordBreak: 'break-word', whiteSpace: 'normal' }}>
-              {pedagogical_team_members.map(t => t.full_name).join(', ')}
+              {pedagogical_team_members.map(t => displayPersonName(t.full_name)).join(', ')}
             </span>
           </p>
         )}

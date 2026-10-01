@@ -31,6 +31,7 @@ import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import './Members.css';
 import '../Modals/Modal.css';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
+import { displayPersonName, CIVIL_DATA_ERASED_SENTINEL } from '../../utils/civilDataErased';
 import { getSelectedOrganizationId, getSelectedSchoolId, getSelectedCompanyId, getSelectedOrganizationRole } from '../../utils/contextUtils';
 
 const AVAILABILITY_OPTIONS = [
@@ -272,7 +273,7 @@ const Members: React.FC = () => {
             id: (s.id || s.user_id || s.student_id || `${Date.now()}-${Math.random()}`).toString(),
             firstName: s.first_name,
             lastName: s.last_name,
-            fullName: s.full_name || [s.first_name, s.last_name].filter(Boolean).join(' '),
+            fullName: displayPersonName(s.full_name, s.first_name, s.last_name, ''),
             email: s.email || '',
             profession: '',
             roles: [role],
@@ -370,7 +371,7 @@ const Members: React.FC = () => {
           id: (m.id).toString(),
           firstName: m.first_name,
           lastName: m.last_name,
-          fullName: m.full_name || `${m.first_name} ${m.last_name}`,
+          fullName: displayPersonName(m.full_name, m.first_name, m.last_name),
           email: m.email,
           profession: displayProfession,
           roles: roleValues as string[],
@@ -438,7 +439,7 @@ const Members: React.FC = () => {
           id: String(m.id),
           firstName: m.first_name || '',
           lastName: m.last_name || '',
-          fullName: m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+          fullName: displayPersonName(m.full_name, m.first_name, m.last_name),
           email: m.email || '',
           profession: m.job || '',
           roles: [m.role_in_school || m.role || 'member'],
@@ -488,7 +489,7 @@ const Members: React.FC = () => {
         id: Number(g.id),
         name: g.name,
         createdAt: g.created_at,
-        createdByName: g.created_by?.full_name || g.created_by?.fullName || '',
+        createdByName: displayPersonName(g.created_by?.full_name || g.created_by?.fullName, null, null, ''),
         membersCount: typeof g.members_count === 'number' ? g.members_count : (typeof g.membersCount === 'number' ? g.membersCount : undefined),
       }));
       setGroups(mapped);
@@ -617,7 +618,7 @@ const Members: React.FC = () => {
           id: (vol.id || vol.user_id || vol.user?.id || Date.now()).toString(),
           firstName: vol.first_name || vol.user?.first_name || 'Volontaire',
           lastName: vol.last_name || vol.user?.last_name || '',
-          fullName: vol.full_name || `${vol.first_name || ''} ${vol.last_name || ''}`.trim(),
+          fullName: displayPersonName(vol.full_name, vol.first_name, vol.last_name),
           email: vol.email || vol.user?.email || '',
           profession: volunteerProfession,
           roles: [volunteerRole], // Use membershipRole for role selector
@@ -1403,11 +1404,13 @@ const Members: React.FC = () => {
     const studentRole = student.role_in_system || student.role || 'eleve';
     const studentProfession = translateRole(student.role_in_system || student.role || '');
 
+    // full_name peut porter le littéral technique CIVIL_DATA_ERASED (RGPD) : ne jamais le découper par espace.
+    const studentSafeFullName = student.full_name && student.full_name !== CIVIL_DATA_ERASED_SENTINEL ? student.full_name : '';
     const fallbackMember: Member = {
       id: student.id?.toString() || `${Date.now()}`,
-      firstName: student.first_name || student.full_name?.split(' ')[0] || 'Inconnu',
-      lastName: student.last_name || student.full_name?.split(' ')[1] || '',
-      fullName: student.full_name,
+      firstName: student.first_name || studentSafeFullName.split(' ')[0] || 'Inconnu',
+      lastName: student.last_name || studentSafeFullName.split(' ')[1] || '',
+      fullName: displayPersonName(student.full_name, student.first_name, student.last_name),
       email: student.email || '',
       profession: studentProfession || '',
       roles: [studentRole],
@@ -2379,7 +2382,7 @@ const Members: React.FC = () => {
                         id: Number(data.id),
                         name: data.name || g.name,
                         createdAt: data.created_at || g.createdAt,
-                        createdByName: data.created_by?.full_name || g.createdByName,
+                        createdByName: displayPersonName(data.created_by?.full_name, null, null, g.createdByName),
                         memberIds,
                       });
                       setGroupModalMode('view');
@@ -2402,7 +2405,7 @@ const Members: React.FC = () => {
                         id: Number(data.id),
                         name: data.name || g.name,
                         createdAt: data.created_at || g.createdAt,
-                        createdByName: data.created_by?.full_name || g.createdByName,
+                        createdByName: displayPersonName(data.created_by?.full_name, null, null, g.createdByName),
                         memberIds,
                       });
                       setGroupModalMode('edit');

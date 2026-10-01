@@ -4,6 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { acceptPartnership, approveSchoolTeacherPartnershipRequest, getPartnerships, Partnership, getSchoolTeacherPartnershipRequests, rejectPartnership, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest } from '../../api/Projects';
 import { getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { useToast } from '../../hooks/useToast';
 import SchoolTeacherPartnershipRequestDetailsModal from '../Modals/SchoolTeacherPartnershipRequestDetailsModal';
 import './MembershipRequests.css';
@@ -376,7 +377,7 @@ const PartnershipRequests: React.FC = () => {
             <h3 className="organization-name">{req.name || 'Demande de partenariat'}</h3>
             <div className="organization-meta">
               <span className="organization-type" style={{ background: '#dbeafe', color: '#2563eb' }}>
-                Demande de {req.teacher?.full_name || 'un enseignant'}
+                Demande de {displayPersonName(req.teacher?.full_name, null, null, 'un enseignant')}
               </span>
               <span className="whitespace-nowrap organization-status" style={{ color: '#f59e0b' }}>
                 En attente

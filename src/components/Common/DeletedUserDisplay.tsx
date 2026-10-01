@@ -1,5 +1,6 @@
 import React from 'react';
 import './DeletedUserDisplay.css';
+import { displayPersonName } from '../../utils/civilDataErased';
 
 interface DeletedUserDisplayProps {
   user: {
@@ -18,9 +19,7 @@ const DeletedUserDisplay: React.FC<DeletedUserDisplayProps> = ({
   showEmail = true,
   className = '' 
 }) => {
-  const displayName = user.full_name || 
-    (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : 
-     user.first_name || user.last_name || 'Utilisateur supprimé');
+  const displayName = displayPersonName(user.full_name, user.first_name, user.last_name, 'Utilisateur supprimé');
 
   return (
     <div className={`deleted-user-display ${className}`}>

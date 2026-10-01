@@ -10,6 +10,7 @@ import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import './PublicBadgeCartography.css';
 import { translateRole } from '../../utils/roleTranslations';
+import { displayPersonName } from '../../utils/civilDataErased';
 
 function normalizeLevel(level: string | undefined): string {
   if (!level) return 'Niveau 1';
@@ -315,13 +316,13 @@ const PublicBadgeCartography: React.FC = () => {
               id: attr.receiver.id,
               full_name: attr.receiver.full_name,
               // Famille A (annexe §8bis) : affichage via holder_display uniquement.
-              holder_display: attr.receiver.holder_display ?? attr.receiver.full_name,
+              holder_display: attr.receiver.holder_display ?? displayPersonName(attr.receiver.full_name, attr.receiver.first_name, attr.receiver.last_name),
               email: attr.receiver.email || '',
               is_deleted: attr.receiver.is_deleted || false
             },
             sender: {
               id: attr.sender.id,
-              full_name: attr.sender.full_name,
+              full_name: displayPersonName(attr.sender.full_name, attr.sender.first_name, attr.sender.last_name),
               email: attr.sender.email || '',
               role: translateRole(attr.sender.role) || '',
               is_deleted: attr.sender.is_deleted || false

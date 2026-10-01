@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { Badge } from '../types';
 import { getLocalBadgeImage } from './badgeImages';
+import { displayPersonName } from './civilDataErased';
 import { isSoftSkillsSeries } from '../constants/badgeAxes';
 import { SOFT_SKILLS_SERIES_NAME } from './badgeLevelLabels';
 
@@ -85,9 +86,9 @@ export function mapRawUserBadgeToAttributionForExport(raw: any): AttributionForE
     badgeTitle: name,
     badgeLevel: `Niveau ${levelDisplay}`,
     attributionDate: dateStr || '',
-    attributedByName: sender?.full_name ?? '',
+    attributedByName: displayPersonName(sender?.full_name, sender?.first_name, sender?.last_name, ''),
     // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
-    attributedToName: receiver?.holder_display ?? receiver?.full_name ?? '',
+    attributedToName: receiver?.holder_display ?? displayPersonName(receiver?.full_name, receiver?.first_name, receiver?.last_name, ''),
     domaine: domaineDisplay,
     competencesIndiquees: Array.isArray(skillsIndicated) ? skillsIndicated : [],
     projectTitle: projectTitle ?? undefined,
