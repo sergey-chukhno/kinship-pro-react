@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BadgeAttribution, BadgeAPI } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
-import { isSeriesWithAxes, getAxesForSeries, getBadgeNamesForAxe, isSoftSkillsSeries } from '../../constants/badgeAxes';
+import { isSeriesWithAxes, getAxesForSeries, getBadgeNamesForAxe, isSoftSkillsSeries, hasTypedSavoirSavoirFaireItems } from '../../constants/badgeAxes';
 import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { isSingleSelectCompetenceSeries } from '../../utils/badgeAssignmentCompetenceSelection';
 import { useToast } from '../../hooks/useToast';
@@ -102,6 +102,84 @@ const documentRequiredFor = (badge: BadgeAPI): boolean => {
   if (badge.series === 'Série Audiovisuelle' && (badge.level === 'level_3' || badge.level === 'level_4')) return true;
   if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3') return true;
   return false;
+};
+
+type ChecklistItem = { id: number; name: string; category?: 'domain' | 'expertise' | 'both' };
+
+// Liste des items de constat, partagée par les 3 écrans où elle apparaît (étape
+// Compétence, étape Constat en mode groupe, étape Constat en mode participant par
+// participant). Rendu à plat pour la plupart des séries ; groupé en deux bandeaux
+// « Je connais — savoirs » / « Je fais — savoir-faire » pour les séries qui déclarent
+// ce typage (CPS aujourd'hui — hasTypedSavoirSavoirFaireItems, P2.13 V1.2 écran 5/14).
+// L'item à double type (category: both, ex. CPS S2.1) est affiché une seule fois, dans
+// sa propre section — la case mi-verte mi-violette (V1.2, note écran 5) reste à faire.
+const ChecklistItems: React.FC<{
+  comps: ChecklistItem[];
+  checkedIds: number[];
+  series: string;
+  onToggle: (id: number) => void;
+  onToggleAll: () => void;
+  hint?: string;
+}> = ({ comps, checkedIds, series, onToggle, onToggleAll, hint }) => {
+  if (comps.length === 0) return null;
+
+  const renderItem = (c: ChecklistItem) => {
+    const on = checkedIds.includes(c.id);
+    const typeClass = c.category === 'domain' ? 'gr' : c.category === 'expertise' ? 'vi' : '';
+    return (
+      <button key={c.id} type="button" className={`att-subline ${on ? 'on' : ''}`} onClick={() => onToggle(c.id)}>
+        <span className={`att-box ${on ? 'on' : ''} ${typeClass}`} />
+        <span>{getCompetencyDisplayName(c.name, false)}</span>
+      </button>
+    );
+  };
+
+  const typed = hasTypedSavoirSavoirFaireItems(series) && comps.some((c) => c.category);
+  const savoirOnly = comps.filter((c) => c.category === 'domain');
+  const savoirFaireOnly = comps.filter((c) => c.category === 'expertise');
+  const both = comps.filter((c) => c.category === 'both');
+
+  return (
+    <>
+      <div className="att-subs-title">
+        <span>
+          {checkedIds.length} sur {comps.length}
+        </span>
+        {comps.length > 1 && (
+          <button type="button" className="att-tout-cocher" onClick={onToggleAll}>
+            {checkedIds.length === comps.length ? 'Tout décocher' : 'Tout cocher'}
+          </button>
+        )}
+      </div>
+      {typed ? (
+        <>
+          {savoirOnly.length > 0 && (
+            <>
+              <div className="att-type-label gr">Je connais — savoirs</div>
+              {savoirOnly.map(renderItem)}
+            </>
+          )}
+          {savoirFaireOnly.length > 0 && (
+            <>
+              <div className="att-type-label vi">Je fais — savoir-faire</div>
+              {savoirFaireOnly.map(renderItem)}
+            </>
+          )}
+          {both.length > 0 && (
+            <>
+              <div className="att-type-label both">Je connais et je fais — savoir et savoir-faire</div>
+              {both.map(renderItem)}
+            </>
+          )}
+        </>
+      ) : (
+        comps.map(renderItem)
+      )}
+      <div className="att-hint" style={{ marginTop: 4 }}>
+        {hint || 'Un seul item coché suffit à produire une preuve.'}
+      </div>
+    </>
+  );
 };
 
 const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
@@ -983,41 +1061,13 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                           </div>
                         )}
                         {comps.length > 0 ? (
-                          <>
-                            <div className="att-subs-title">
-                              <span>
-                                {draft?.expertiseIds.length || 0} sur {comps.length}
-                              </span>
-                              {comps.length > 1 && (
-                                <button
-                                  type="button"
-                                  className="att-tout-cocher"
-                                  onClick={() =>
-                                    toggleAllExpertise(name, comps.map((c) => c.id), draft?.expertiseIds || [])
-                                  }
-                                >
-                                  {draft && draft.expertiseIds.length === comps.length ? 'Tout décocher' : 'Tout cocher'}
-                                </button>
-                              )}
-                            </div>
-                            {comps.map((c) => {
-                              const on = draft?.expertiseIds.includes(c.id) || false;
-                              return (
-                                <button
-                                  key={c.id}
-                                  type="button"
-                                  className={`att-subline ${on ? 'on' : ''}`}
-                                  onClick={() => toggleExpertise(name, c.id, isSingleSelectCompetenceSeries(badge!.series))}
-                                >
-                                  <span className={`att-box ${on ? 'on' : ''}`} />
-                                  <span>{getCompetencyDisplayName(c.name, false)}</span>
-                                </button>
-                              );
-                            })}
-                            <div className="att-hint" style={{ marginTop: 4 }}>
-                              Un seul item coché suffit à produire une preuve.
-                            </div>
-                          </>
+                          <ChecklistItems
+                            comps={comps}
+                            checkedIds={draft?.expertiseIds || []}
+                            series={badge!.series}
+                            onToggle={(id) => toggleExpertise(name, id, isSingleSelectCompetenceSeries(badge!.series))}
+                            onToggleAll={() => toggleAllExpertise(name, comps.map((c) => c.id), draft?.expertiseIds || [])}
+                          />
                         ) : (
                           <p className="att-hint">Rien à cocher pour cette compétence — la sélection suffit.</p>
                         )}
@@ -1219,43 +1269,18 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                         return (
                           <>
                             {pickedComps.length > 0 ? (
-                              <>
-                                <div className="att-subs-title">
-                                  <span>
-                                    {ad.expertiseIds.length} sur {pickedComps.length}
-                                  </span>
-                                  {pickedComps.length > 1 && (
-                                    <button
-                                      type="button"
-                                      className="att-tout-cocher"
-                                      onClick={() =>
-                                        toggleAllIndividualExpertise(aid, pickedComps.map((c) => c.id), ad.expertiseIds)
-                                      }
-                                    >
-                                      {ad.expertiseIds.length === pickedComps.length ? 'Tout décocher' : 'Tout cocher'}
-                                    </button>
-                                  )}
-                                </div>
-                                {pickedComps.map((c) => {
-                                  const on = ad.expertiseIds.includes(c.id);
-                                  return (
-                                    <button
-                                      key={c.id}
-                                      type="button"
-                                      className={`att-subline ${on ? 'on' : ''}`}
-                                      onClick={() =>
-                                        toggleIndividualExpertise(aid, c.id, isSingleSelectCompetenceSeries(pickedBadge!.series))
-                                      }
-                                    >
-                                      <span className={`att-box ${on ? 'on' : ''}`} />
-                                      <span>{getCompetencyDisplayName(c.name, false)}</span>
-                                    </button>
-                                  );
-                                })}
-                                <div className="att-hint" style={{ marginTop: 4 }}>
-                                  Un seul item coché suffit à produire une preuve — propre à {aName ? chipName(aName) : 'ce participant'}.
-                                </div>
-                              </>
+                              <ChecklistItems
+                                comps={pickedComps}
+                                checkedIds={ad.expertiseIds}
+                                series={pickedBadge!.series}
+                                onToggle={(id) =>
+                                  toggleIndividualExpertise(aid, id, isSingleSelectCompetenceSeries(pickedBadge!.series))
+                                }
+                                onToggleAll={() =>
+                                  toggleAllIndividualExpertise(aid, pickedComps.map((c) => c.id), ad.expertiseIds)
+                                }
+                                hint={`Un seul item coché suffit à produire une preuve — propre à ${aName ? chipName(aName) : 'ce participant'}.`}
+                              />
                             ) : (
                               <p className="att-hint">Rien à cocher pour cette compétence — la sélection suffit.</p>
                             )}
@@ -1294,41 +1319,15 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                       })()}
                     </>
                   ) : pickedComps.length > 0 ? (
-                    <>
-                      <div className="att-subs-title">
-                        <span>
-                          {pickedDraft.expertiseIds.length} sur {pickedComps.length}
-                        </span>
-                        {pickedComps.length > 1 && (
-                          <button
-                            type="button"
-                            className="att-tout-cocher"
-                            onClick={() =>
-                              toggleAllExpertise(pickedName, pickedComps.map((c) => c.id), pickedDraft.expertiseIds)
-                            }
-                          >
-                            {pickedDraft.expertiseIds.length === pickedComps.length ? 'Tout décocher' : 'Tout cocher'}
-                          </button>
-                        )}
-                      </div>
-                      {pickedComps.map((c) => {
-                        const on = pickedDraft.expertiseIds.includes(c.id);
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            className={`att-subline ${on ? 'on' : ''}`}
-                            onClick={() => toggleExpertise(pickedName, c.id, isSingleSelectCompetenceSeries(pickedBadge!.series))}
-                          >
-                            <span className={`att-box ${on ? 'on' : ''}`} />
-                            <span>{getCompetencyDisplayName(c.name, false)}</span>
-                          </button>
-                        );
-                      })}
-                      <div className="att-hint" style={{ marginTop: 4 }}>
-                        Un seul item coché suffit à produire une preuve.
-                      </div>
-                    </>
+                    <ChecklistItems
+                      comps={pickedComps}
+                      checkedIds={pickedDraft.expertiseIds}
+                      series={pickedBadge!.series}
+                      onToggle={(id) => toggleExpertise(pickedName, id, isSingleSelectCompetenceSeries(pickedBadge!.series))}
+                      onToggleAll={() =>
+                        toggleAllExpertise(pickedName, pickedComps.map((c) => c.id), pickedDraft.expertiseIds)
+                      }
+                    />
                   ) : (
                     <p className="att-hint">Rien à cocher pour cette compétence — la sélection suffit.</p>
                   )}

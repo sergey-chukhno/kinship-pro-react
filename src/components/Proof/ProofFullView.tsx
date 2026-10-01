@@ -49,9 +49,9 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
     <div className="proof-card">
       <ProofHeader proof={proof} />
 
-      {/* Zone 2 — Porteur */}
+      {/* Zone 2 — Titulaire (libellé "Titulaire" demandé par Patrick, 01/10) */}
       <div className="proof-zone proof-zone-main">
-        <div className="proof-zone-label">Porteur</div>
+        <div className="proof-zone-label">Titulaire</div>
         <div className="proof-porteur-row">
           <div
             className={`proof-avatar ${proof.holderMasked ? 'proof-avatar-masked' : ''}`}

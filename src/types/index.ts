@@ -507,7 +507,9 @@ export interface BadgeAPI {
 export interface BadgeSkillAPI {
   id: number;
   name: string;
-  category: 'domain' | 'expertise';
+  // 'both' = item savoir ET savoir-faire (CPS S2.1, V1.2) : présent une seule fois,
+  // à la fois dans badge.domains et badge.expertises côté API.
+  category: 'domain' | 'expertise' | 'both';
 }
 
 export interface EventCompleteAwardError {

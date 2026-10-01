@@ -1,6 +1,7 @@
 import { BadgeProofApiResponse } from '../types/badgeProofApi';
 import { ProofData, TrustLevelKey } from '../types/proof';
 import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
+import { getLevelLabel } from './badgeLevelLabels';
 
 const IDENTITY_MASKED = 'Identité masquée';
 const CIVIL_ERASED = 'Données civiles effacées';
@@ -51,17 +52,11 @@ function initialsFromName(name: string): string {
   return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
 }
 
-function formatBadgeLevel(level?: string | null): string {
-  if (!level) return 'Niveau 1';
-  const match = level.match(/level[_-]?(\d+)/i);
-  if (match) return `Niveau ${match[1]}`;
-  return level.replace(/^level_/i, 'Niveau ');
-}
-
-function formatEqfPill(api: BadgeProofApiResponse): string | null {
-  if (!api.badge_eqf_level) return null;
-  const framework = api.badge_eqf_framework?.trim();
-  return framework ? `EQF ${api.badge_eqf_level} — ${framework}` : `EQF ${api.badge_eqf_level}`;
+// Mots de la série (« Phase 1 », « Découverte »…), jamais « Niveau N » générique (Patrick 01/10).
+function formatBadgeLevel(level: string | null | undefined, series: string | null | undefined): string {
+  const match = level?.match(/level[_-]?(\d+)/i);
+  const levelNumber = match ? match[1] : '1';
+  return getLevelLabel(series || '', levelNumber);
 }
 
 function formatAwardedDate(timestamp?: string | null): string {
@@ -160,8 +155,9 @@ export function mapProofApiToProofData(
     trustLevel: resolveTrustLevel(api),
     badgeIcon: resolveBadgeIcon(api.badge_title),
     badgeTitle: api.badge_title ?? (proofType === 'PE' ? 'Événement' : 'Badge'),
-    badgeLevel: formatBadgeLevel(api.badge_level),
-    eqfPill: formatEqfPill(api),
+    badgeLevel: formatBadgeLevel(api.badge_level, api.series_name),
+    // Jamais le mot "EQF" sur la page de preuve publique (Patrick 01/10) — cf. userBadgeProofMapper.ts, même convention.
+    eqfPill: null,
     seriesPill: api.series_name ?? 'Référentiel Kinship',
     statusBubble: attestationLabel,
     awardedDate,

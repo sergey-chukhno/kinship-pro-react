@@ -469,6 +469,21 @@
   margin-bottom: 2px;
 }
 
+/* Rendu typé savoir/savoir-faire (P2.13 V1.2, écran 5/14) — série CPS uniquement,
+   cf. hasTypedSavoirSavoirFaireItems(). Bandeaux « Je connais » (savoir, vert) /
+   « Je fais » (savoir-faire, violet) ; les autres séries restent en liste à plat. */
+.att-type-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  margin: 10px 0 4px;
+}
+
+.att-type-label.gr { color: #0E8A66; }
+.att-type-label.vi { color: #7E3F9D; }
+.att-type-label.both { color: #4B5675; }
+
 .att-tout-cocher {
   margin-left: auto;
   background: none;
@@ -877,6 +892,16 @@
 .att-box.on {
   background: #E8630F;
   border-color: #E8630F;
+}
+
+.att-box.on.gr {
+  background: #0E9B72;
+  border-color: #0E9B72;
+}
+
+.att-box.on.vi {
+  background: #8043A8;
+  border-color: #8043A8;
 }
 
 .att-box.on::after {
