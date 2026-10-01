@@ -5,6 +5,8 @@ import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
 import { isSeriesWithAxes, getAxesForSeries, getBadgeNamesForAxe, isSoftSkillsSeries, hasTypedSavoirSavoirFaireItems } from '../../constants/badgeAxes';
 import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { isSingleSelectCompetenceSeries } from '../../utils/badgeAssignmentCompetenceSelection';
+import { isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
+import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { useToast } from '../../hooks/useToast';
 import apiClient from '../../api/config';
 import {
@@ -357,9 +359,14 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
         .map((b) => b.level.replace('level_', ''))
         .filter((v, i, a) => a.indexOf(v) === i)
         .sort();
-      return levels.length ? levels : ['1'];
+      const base = levels.length ? levels : ['1'];
+      // CPS: only Phase 1 and 2, both active (Patrick)
+      if (isCompetencesPsychosocialesSeries(series)) {
+        return base.filter((lv) => lv === '1' || lv === '2');
+      }
+      return base;
     },
-    [seriesBadges]
+    [seriesBadges, series]
   );
 
   const badgeFor = useCallback(
@@ -998,7 +1005,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                     <div key={`${f.name}-${f.level}`} className="att-frozen">
                       <span className="att-ok">✓</span>
                       {getBadgeDisplayName(f.name)}
-                      <span className="att-lv">Niveau {f.level}</span>
+                      <span className="att-lv">{getLevelLabel(series, f.level)}</span>
                       <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8f8d86' }}>
                         {f.date ? `le ${f.date} · ` : ''}sa preuve est née
                       </span>
@@ -1038,7 +1045,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                       <span>{getBadgeDisplayName(name)}</span>
                       {picked && !isExpanded && (
                         <span className="att-ok">
-                          Niveau {level}
+                          {getLevelLabel(series, level)}
                           {comps.length > 0 ? ` · ${draft!.expertiseIds.length}/${comps.length}` : ''}
                         </span>
                       )}
@@ -1055,7 +1062,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                                 className={`att-lv ${level === lv ? 'on' : ''}`}
                                 onClick={() => selectCompetence(name, lv)}
                               >
-                                Niveau {lv}
+                                {getLevelLabel(series, lv)}
                               </button>
                             ))}
                           </div>
@@ -1088,7 +1095,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                   <button type="button" className="att-back-link" onClick={goBack}>
                     Retour
                   </button>
-                  {pickedName ? `${getBadgeDisplayName(pickedName)} · Niveau ${pickedDraft?.level}` : 'Choisissez une compétence'}
+                  {pickedName ? `${getBadgeDisplayName(pickedName)} · ${getLevelLabel(series, pickedDraft?.level || '1')}` : 'Choisissez une compétence'}
                 </div>
                 <button
                   type="button"
@@ -1172,7 +1179,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
           {!successState && step === 'constat' && pickedName && pickedDraft && (
             <>
               <div className="att-grp">
-                {getBadgeDisplayName(pickedName)} · Niveau {pickedDraft.level}
+                {getBadgeDisplayName(pickedName)} · {getLevelLabel(series, pickedDraft.level)}
                 {pickedComps.length > 0 ? ` · ${pickedDraft.expertiseIds.length}/${pickedComps.length} coché${pickedDraft.expertiseIds.length > 1 ? 's' : ''}` : ''}
               </div>
 
@@ -1184,7 +1191,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                   pickedBadge.level === 'level_2') && (
                   <div className="att-doctrine">
                     {pickedBadge.level === 'level_1'
-                      ? 'Niveau 1 — commentaire et document optionnels'
+                      ? `${getLevelLabel(series, '1')} — commentaire et document optionnels`
                       : commentRequiredFor(pickedBadge)
                         ? `Commentaire obligatoire ✱${pickedBadge.level === 'level_2' ? ' · document fortement conseillé' : documentRequiredFor(pickedBadge) ? ' · document obligatoire' : ''}`
                         : 'Commentaire et document optionnels'}
@@ -1467,7 +1474,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
           </p>
           <div className="att-confirm-recap">
             <div>
-              <b>Compétence</b> {getBadgeDisplayName(pickedName)} · Niveau {pickedDraft.level}
+              <b>Compétence</b> {getBadgeDisplayName(pickedName)} · {getLevelLabel(series, pickedDraft.level)}
             </div>
             {!isIndividual && constatMode === 'individuel' ? (
               selectedParticipants.map((pid) => {

@@ -22,8 +22,19 @@ import { displaySeries } from '../../utils/badgeMapper';
 import { getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { isSeriesWithCompetenceProgress, isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
+import { isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
 import './Analytics.css';
 import './Badges.css';
+
+const LEVEL_SECTION_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] as const;
+
+/** Soft Skills + CPS only expose levels 1–2 in cartography filters/sections. */
+const cartographyLevelNumbers = (series: string): number[] => {
+  if (isSoftSkillsSeries(series) || isCompetencesPsychosocialesSeries(series)) {
+    return [1, 2];
+  }
+  return [1, 2, 3, 4];
+};
 
 const Badges: React.FC = () => {
   const { state, setCurrentPage: setAppCurrentPage } = useAppContext();
@@ -47,8 +58,8 @@ const Badges: React.FC = () => {
   // Personal user: main tab "Ma cartographie" | "Mes statistiques" (default cartography)
   const [userMainTab, setUserMainTab] = useState<'cartography' | 'statistics'>('cartography');
   const [cartoSubView, setCartoSubView] = useState<'mine' | 'catalogue'>('mine');
-  // Mes statistiques: Compétences par niveau
-  const [selectedSeriesStats, setSelectedSeriesStats] = useState<string>(SOFT_SKILLS_SERIES);
+  // Mes statistiques: Compétences par niveau (default = current Soft Skills DB name, not legacy TouKouLeur)
+  const [selectedSeriesStats, setSelectedSeriesStats] = useState<string>(SOFT_SKILLS_SERIES_NAME);
   const [selectedProjectIdStats, setSelectedProjectIdStats] = useState<string>('');
   const [userBadgesForChart, setUserBadgesForChart] = useState<any[]>([]);
   const [loadingUserBadgesForChart, setLoadingUserBadgesForChart] = useState(false);
@@ -213,7 +224,7 @@ const Badges: React.FC = () => {
         const list = await getBadges();
         const seriesSet = new Set<string>();
         (Array.isArray(list) ? list : []).forEach((b: any) => { if (b.series) seriesSet.add(b.series); });
-        setBadgeSeriesOptionsStats(Array.from(seriesSet));
+        setBadgeSeriesOptionsStats(Array.from(seriesSet).sort((a, b) => a.localeCompare(b, 'fr')));
       } catch (e) {
         console.error('Error fetching badge series', e);
       } finally {
@@ -222,6 +233,19 @@ const Badges: React.FC = () => {
     };
     fetchSeries();
   }, [state.showingPageType]);
+
+  // Keep select value in sync with catalogue options (avoids phantom CPS display while fetching Soft Skills legacy)
+  useEffect(() => {
+    if (badgeSeriesOptionsStats.length === 0) return;
+    setSelectedSeriesStats((prev) => {
+      if (badgeSeriesOptionsStats.includes(prev)) return prev;
+      if (isSoftSkillsSeries(prev)) {
+        const soft = badgeSeriesOptionsStats.find((s) => isSoftSkillsSeries(s));
+        if (soft) return soft;
+      }
+      return badgeSeriesOptionsStats[0];
+    });
+  }, [badgeSeriesOptionsStats]);
 
   // Mes statistiques (personal user): fetch user's projects for "Par projet" filter
   useEffect(() => {
@@ -367,19 +391,26 @@ const Badges: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredBadges]); // selectedSeries is already captured in filteredBadges dependency
 
-  // Define levels based on selected series - all series use level-based sections
+  // Define levels based on selected series (Soft Skills / CPS → 2 levels only)
   const getSections = (series: string) => {
-    // Use keys that match badge.level format ("Niveau 1", "Niveau 2", etc.)
-    // Labels are dynamically generated based on the series
-    return [
-      { key: 'Niveau 1', label: getLevelLabel(series, '1'), color: '#10b981', icon: undefined },
-      { key: 'Niveau 2', label: getLevelLabel(series, '2'), color: '#3b82f6', icon: undefined },
-      { key: 'Niveau 3', label: getLevelLabel(series, '3'), color: '#f59e0b', icon: undefined },
-      { key: 'Niveau 4', label: getLevelLabel(series, '4'), color: '#ef4444', icon: undefined }
-    ];
+    return cartographyLevelNumbers(series).map((n) => ({
+      key: `Niveau ${n}`,
+      label: getLevelLabel(series, String(n)),
+      color: LEVEL_SECTION_COLORS[n - 1],
+      icon: undefined as string | undefined,
+    }));
   };
 
   const sections = getSections(selectedSeries || SOFT_SKILLS_SERIES);
+
+  // Drop Niveau 3/4 filter when switching to a 2-level series
+  useEffect(() => {
+    if (!selectedLevel) return;
+    const allowed = new Set(cartographyLevelNumbers(selectedSeries || SOFT_SKILLS_SERIES).map((n) => `Niveau ${n}`));
+    if (!allowed.has(selectedLevel)) {
+      setSelectedLevel('');
+    }
+  }, [selectedSeries, selectedLevel]);
 
   // For personal user + series with competence progress: aggregate by (name, level), full vs received competencies
   const competencesOrienterProgressByLevel = useMemo(() => {
@@ -418,28 +449,32 @@ const Badges: React.FC = () => {
     return byLevel;
   }, [state.showingPageType, selectedSeries, rawBadgeData]);
 
-  // Mes statistiques: Compétences par niveau (same logic as Analytics)
+  // Mes statistiques: Compétences par niveau (labels follow selected series — Phase / Découverte / Niveau)
   const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
-  const LEVEL_LABELS_STATS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
   const radarCompetenceData = useMemo(() => {
     const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
     userBadgesForChart.forEach((ub: any) => {
       const name = ub.badge?.name;
       const level = ub.badge?.level;
-      if (!name || !level) return;
+      if (!name || level == null || level === '') return;
       if (!byCompetenceAndLevel[name]) byCompetenceAndLevel[name] = { level_1: 0, level_2: 0, level_3: 0, level_4: 0 };
-      const key = level as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+      const key = String(level) as 'level_1' | 'level_2' | 'level_3' | 'level_4';
       if (key in byCompetenceAndLevel[name]) byCompetenceAndLevel[name][key] += 1;
     });
     const axes = Object.keys(byCompetenceAndLevel).sort();
     if (axes.length === 0) return { axes: [], series: [] };
-    const series = LEVEL_LABELS_STATS.map((label, idx) => {
-      const levelKey = `level_${idx + 1}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+    const levelNums = cartographyLevelNumbers(selectedSeriesStats);
+    const series = levelNums.map((n, idx) => {
+      const levelKey = `level_${n}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
       const values = axes.map((comp) => (byCompetenceAndLevel[comp]?.[levelKey] ?? 0));
-      return { level: label, values, color: LEVEL_COLORS_STATS[idx] ?? '#5570F1' };
+      return {
+        level: getLevelLabel(selectedSeriesStats, String(n)),
+        values,
+        color: LEVEL_COLORS_STATS[idx] ?? '#5570F1',
+      };
     });
     return { axes, series };
-  }, [userBadgesForChart]);
+  }, [userBadgesForChart, selectedSeriesStats]);
 
   const ChartCardStats = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div className="analytics-chart-card badges-stats-chart-card">
@@ -507,7 +542,9 @@ const Badges: React.FC = () => {
                   onChange={(e) => setSelectedSeriesStats(e.target.value)}
                   disabled={loadingSeriesStats}
                 >
-                  {badgeSeriesOptionsStats.length === 0 && <option value={SOFT_SKILLS_SERIES}>{SOFT_SKILLS_SERIES_NAME}</option>}
+                  {badgeSeriesOptionsStats.length === 0 && (
+                    <option value={SOFT_SKILLS_SERIES_NAME}>{SOFT_SKILLS_SERIES_NAME}</option>
+                  )}
                   {badgeSeriesOptionsStats.map((s) => (
                     <option key={s} value={s}>{displaySeries(s)}</option>
                   ))}
@@ -635,10 +672,11 @@ const Badges: React.FC = () => {
                       className="filter-select"
                     >
                       <option value="">Tous les niveaux</option>
-                      <option value="Niveau 1">Niveau 1</option>
-                      <option value="Niveau 2">Niveau 2</option>
-                      <option value="Niveau 3">Niveau 3</option>
-                      <option value="Niveau 4">Niveau 4</option>
+                      {cartographyLevelNumbers(selectedSeries || SOFT_SKILLS_SERIES).map((n) => (
+                        <option key={n} value={`Niveau ${n}`}>
+                          {getLevelLabel(selectedSeries || SOFT_SKILLS_SERIES, String(n))}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -683,7 +721,7 @@ const Badges: React.FC = () => {
                               <span>{section.label}</span>
                             </div>
                             <div className="bg-red-500 level-count">
-                              {sectionItems.length} badge{sectionItems.length > 1 ? 's' : ''}
+                              {sectionItems.length} compétence{sectionItems.length > 1 ? 's' : ''}
                             </div>
                           </div>
                           <div className="badges-grid">
@@ -717,7 +755,7 @@ const Badges: React.FC = () => {
                               <span>{section.label}</span>
                             </div>
                             <div className="bg-red-500 level-count">
-                              {sectionBadges.length} badge{sectionBadges.length > 1 ? 's' : ''}
+                              {sectionBadges.length} compétence{sectionBadges.length > 1 ? 's' : ''}
                             </div>
                           </div>
                           <div className="badges-grid">

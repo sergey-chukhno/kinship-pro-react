@@ -32,7 +32,8 @@ import {
   getUserDashboardStats
 } from '../../api/Dashboard';
 import { getUserBadges } from '../../api/Badges';
-import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
+import { isSoftSkillsSeries } from '../../constants/badgeAxes';
+import { COMPETENCES_PSYCHOSOCIALES_SERIES, isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
 import axiosClient from '../../api/config';
 import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
 import { OrganizationStatsResponse, PageType } from '../../types';
@@ -40,6 +41,7 @@ import { getOrganizationId, validateImageSize } from '../../utils/projectMapper'
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { getTeacherProjects } from '../../api/Projects';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeLevelDisplayLabel, getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -578,8 +580,16 @@ const Dashboard: React.FC = () => {
     if (state.showingPageType !== 'user') return;
     let cancelled = false;
     setUserBadgesForChartLoading(true);
-    getUserBadges(1, 500, { series: SOFT_SKILLS_SERIES })
-      .then((res) => { if (!cancelled) setUserBadgesForChart(Array.isArray(res.data) ? res.data : []); })
+    Promise.all([
+      getUserBadges(1, 500, { series: SOFT_SKILLS_SERIES_NAME }),
+      getUserBadges(1, 500, { series: COMPETENCES_PSYCHOSOCIALES_SERIES }),
+    ])
+      .then(([softRes, cpsRes]) => {
+        if (cancelled) return;
+        const soft = Array.isArray(softRes.data) ? softRes.data : [];
+        const cps = Array.isArray(cpsRes.data) ? cpsRes.data : [];
+        setUserBadgesForChart([...soft, ...cps]);
+      })
       .catch(() => { if (!cancelled) setUserBadgesForChart([]); })
       .finally(() => { if (!cancelled) setUserBadgesForChartLoading(false); });
     return () => { cancelled = true; };
@@ -1466,24 +1476,42 @@ const Dashboard: React.FC = () => {
       .slice(0, 3);
   }, [projects]);
 
-  const LEVEL_LABELS_STATS = ['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'];
   const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
   const userRadarCompetenceData = useMemo(() => {
     const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
+    const seriesPresent = new Set<string>();
     userBadgesForChart.forEach((ub: any) => {
       const name = ub.badge?.name;
       const level = ub.badge?.level;
-      if (!name || !level) return;
+      const seriesName = ub.badge?.series;
+      if (seriesName) seriesPresent.add(seriesName);
+      if (!name || level == null || level === '') return;
       if (!byCompetenceAndLevel[name]) byCompetenceAndLevel[name] = { level_1: 0, level_2: 0, level_3: 0, level_4: 0 };
-      const key = level as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+      const key = String(level) as 'level_1' | 'level_2' | 'level_3' | 'level_4';
       if (key in byCompetenceAndLevel[name]) byCompetenceAndLevel[name][key] += 1;
     });
     const axes = Object.keys(byCompetenceAndLevel).sort();
     if (axes.length === 0) return { axes: [] as string[], series: [] as Array<{ level: string; values: number[]; color: string }> };
-    const series = LEVEL_LABELS_STATS.map((label, idx) => {
-      const levelKey = `level_${idx + 1}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
+
+    const seriesList = Array.from(seriesPresent);
+    const allSoft = seriesList.length > 0 && seriesList.every((s) => isSoftSkillsSeries(s));
+    const allCps = seriesList.length > 0 && seriesList.every((s) => isCompetencesPsychosocialesSeries(s));
+    const mixedSoftCps =
+      seriesList.some((s) => isSoftSkillsSeries(s)) && seriesList.some((s) => isCompetencesPsychosocialesSeries(s));
+    const levelNums = allSoft || allCps || mixedSoftCps ? [1, 2] : [1, 2, 3, 4];
+    const labelFor = (n: number): string => {
+      if (allCps) return getLevelLabel(COMPETENCES_PSYCHOSOCIALES_SERIES, String(n));
+      if (allSoft) return getLevelLabel(SOFT_SKILLS_SERIES_NAME, String(n));
+      if (mixedSoftCps) {
+        return n === 1 ? 'Découverte / Phase 1' : 'Appropriation / Phase 2';
+      }
+      return `Niveau ${n}`;
+    };
+
+    const series = levelNums.map((n, idx) => {
+      const levelKey = `level_${n}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';
       const values = axes.map((comp) => (byCompetenceAndLevel[comp]?.[levelKey] ?? 0));
-      return { level: label, values, color: LEVEL_COLORS_STATS[idx] ?? '#5570F1' };
+      return { level: labelFor(n), values, color: LEVEL_COLORS_STATS[idx] ?? '#5570F1' };
     });
     return { axes, series };
   }, [userBadgesForChart]);
@@ -1520,6 +1548,12 @@ const Dashboard: React.FC = () => {
       { key: 'badges', label: 'Mes preuves', sub: 'preuves', count: s?.badges_count ?? 0, last30: s?.badges_last_30_days ?? 0, path: '/badges', icon: '/icons_logo/Icon=Badges.svg' },
       { key: 'network', label: 'Mon réseau', sub: 'contacts', count: s?.network_count ?? 0, last30: s?.network_last_30_days ?? 0, path: '/network', icon: '/icons_logo/Icon=Reseau.svg' },
     ];
+    const deltaUnit = (card: (typeof userStatCards)[number]) => {
+      if (card.key === 'badges') {
+        return (card.last30 ?? 0) === 1 ? 'preuve' : 'preuves';
+      }
+      return card.sub;
+    };
     return (
       <section className="dashboard-main-layout active personal-user-dashboard">
         <div className="dashboard-header">
@@ -1689,7 +1723,7 @@ const Dashboard: React.FC = () => {
                     <div className="personal-stat-value">{formatUserStat(card.count)}</div>
                     <div className="personal-stat-label">{card.label}</div>
                     <div className="personal-stat-delta">
-                      +{formatUserStat(card.last30)} {card.sub} (30 derniers jours)
+                      +{formatUserStat(card.last30)} {deltaUnit(card)} (30 derniers jours)
                     </div>
                   </div>
                 </button>
@@ -1717,7 +1751,7 @@ const Dashboard: React.FC = () => {
                           </div>
                           <div className="personal-dashboard-badge-item-text">
                             <span className="personal-dashboard-badge-name">{ub.badge?.name ?? 'Compétence'}</span>
-                            <span className="personal-dashboard-badge-level">{ub.badge?.level?.replace('level_', 'Niveau ') ?? ''}</span>
+                            <span className="personal-dashboard-badge-level">{getBadgeLevelDisplayLabel(ub.badge?.series, ub.badge?.level)}</span>
                             {ub.created_at && (
                               <span className="personal-dashboard-badge-date">
                                 {new Date(ub.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}

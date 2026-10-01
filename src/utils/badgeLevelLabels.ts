@@ -1,9 +1,9 @@
+import { COMPETENCES_PSYCHOSOCIALES_SERIES } from './cpsSeries';
+
 /**
  * Soft Skills series — renamed 28/09/2026 (Patrick).
  * Legacy DB name kept for local/staging until rename is applied everywhere.
  */
-import { PSYCHOSOCIALES_SERIES } from '../constants/badgeAxes';
-
 export const SOFT_SKILLS_SERIES_NAME = 'Compétences transversales (soft skills)';
 export const SOFT_SKILLS_SERIES_NAME_LEGACY = 'Série TouKouLeur';
 export const isSoftSkillsSeries = (seriesName: string | null | undefined): boolean => {
@@ -27,7 +27,6 @@ export const isSoftSkillsSeries = (seriesName: string | null | undefined): boole
  * @returns The formatted level label
  */
 export const getLevelLabel = (series: string, levelNumber: string): string => {
-  // Handle empty/null series
   if (!series) {
     return getSoftSkillsLabel(levelNumber);
   }
@@ -37,17 +36,15 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     return getSoftSkillsLabel(levelNumber);
   }
 
-  // Compétences psychosociales: "Phase 1", "Phase 2"… (level_label = "Phase" côté back, Patrick 29/09)
-  if (series === PSYCHOSOCIALES_SERIES) {
+  // Compétences psychosociales: "Phase 1" / "Phase 2" only (Patrick — nothing after)
+  if (series === COMPETENCES_PSYCHOSOCIALES_SERIES) {
     return `Phase ${levelNumber}`;
   }
 
-  // Série Parcours des possibles: "Niveau 1", "Niveau 2" (no suffix)
   if (series === 'Série Parcours des possibles') {
     return `Niveau ${levelNumber}`;
   }
 
-  // Série Audiovisuelle: "Niveau 1: Observable", etc.
   if (series === 'Série Audiovisuelle') {
     switch (levelNumber) {
       case '1':
@@ -63,7 +60,6 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  // Série Parcours professionnel: "Niveau 1: Découverte", etc.
   if (series === 'Série Parcours professionnel') {
     switch (levelNumber) {
       case '1':
@@ -79,12 +75,10 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  // Série Métiers de la mer: "Niveau 1", "Niveau 2" (no suffix)
   if (series === 'Série Métiers de la mer') {
     return `Niveau ${levelNumber}`;
   }
 
-  // Série Compétences à s'orienter - Collège
   if (series === "Série Compétences à s'orienter - Collège") {
     switch (levelNumber) {
       case '1':
@@ -104,7 +98,18 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
 };
 
 /**
- * Soft Skills level labels (Découverte / Appropriation).
+ * Display label for a badge level enum (level_1…) given its series.
+ */
+export const getBadgeLevelDisplayLabel = (
+  series: string | undefined | null,
+  level: string | undefined | null
+): string => {
+  const num = (level || 'level_1').replace(/^level_/, '');
+  return getLevelLabel(series || '', num);
+};
+
+/**
+ * Soft Skills level labels (Découverte / Appropriation) — words only, no « Niveau » prefix (Patrick).
  * L3/L4 labels kept only for legacy display of existing proofs — not offered for new awards.
  */
 const getSoftSkillsLabel = (levelNumber: string): string => {
@@ -113,11 +118,10 @@ const getSoftSkillsLabel = (levelNumber: string): string => {
       return 'Découverte';
     case '2':
       return 'Appropriation';
-    // L3/L4 : affichage legacy uniquement (anciennes preuves), plus jamais attribuables (Patrick 29/09).
     case '3':
-      return 'Niveau 3: Maîtrise';
+      return 'Maîtrise';
     case '4':
-      return 'Niveau 4: Expertise';
+      return 'Expertise';
     default:
       return `Niveau ${levelNumber}`;
   }

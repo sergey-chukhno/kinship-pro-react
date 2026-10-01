@@ -8,8 +8,9 @@ import { displayPersonName } from '../../utils/civilDataErased';
 import BadgeCard from '../Badges/BadgeCard';
 import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
-import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import { isSeriesWithCompetenceProgress, isSoftSkillsSeries } from '../../constants/badgeAxes';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
+import { isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
 import './PublicBadgeCartography.css';
 
 function normalizeLevel(level: string | undefined): string {
@@ -18,6 +19,16 @@ function normalizeLevel(level: string | undefined): string {
   const num = level.replace('level_', '');
   return `Niveau ${num || '1'}`;
 }
+
+const LEVEL_SECTION_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] as const;
+
+const levelNumbersForSeriesSet = (seriesNames: string[]): number[] => {
+  if (seriesNames.length === 0) return [1, 2, 3, 4];
+  const onlyTwoLevel = seriesNames.every(
+    (s) => isSoftSkillsSeries(s) || isCompetencesPsychosocialesSeries(s)
+  );
+  return onlyTwoLevel ? [1, 2] : [1, 2, 3, 4];
+};
 
 const SelectedStudentsBadgeCartography: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -144,26 +155,33 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   }, [rawAttributions]);
 
   const normalBadgesByLevel = React.useMemo(() => {
+    const levelKeys = levelNumbersForSeriesSet(
+      Array.from(new Set(badges.map((b) => b.series).filter(Boolean)))
+    ).map((n) => `Niveau ${n}`);
     const progressKeysByLevel: Record<string, Set<string>> = {};
-    (['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'] as const).forEach((level) => {
+    levelKeys.forEach((level) => {
       const set = new Set<string>();
       (progressItemsByLevel[level] || []).forEach((item) => set.add(`${item.badge.name}|${item.badge.level}`));
       progressKeysByLevel[level] = set;
     });
     const result: Record<string, Badge[]> = {};
-    (['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'] as const).forEach((level) => {
+    levelKeys.forEach((level) => {
       const progressSet = progressKeysByLevel[level];
       result[level] = (badgesByLevel[level] || []).filter((b) => !progressSet.has(`${b.name}|${b.level}`));
     });
     return result;
-  }, [badgesByLevel, progressItemsByLevel]);
+  }, [badges, badgesByLevel, progressItemsByLevel]);
 
-  const sections = [
-    { key: 'Niveau 1', label: 'Niveau 1 - Découverte', color: '#10b981', icon: null },
-    { key: 'Niveau 2', label: 'Niveau 2 - Application', color: '#3b82f6', icon: null },
-    { key: 'Niveau 3', label: 'Niveau 3 - Maîtrise', color: '#f59e0b', icon: null },
-    { key: 'Niveau 4', label: 'Niveau 4 - Expertise', color: '#ef4444', icon: null }
-  ];
+  const sections = React.useMemo(() => {
+    const seriesNames = Array.from(new Set(badges.map((b) => b.series).filter(Boolean)));
+    const labelSeries = seriesNames[0] || '';
+    return levelNumbersForSeriesSet(seriesNames).map((n) => ({
+      key: `Niveau ${n}`,
+      label: labelSeries ? getLevelLabel(labelSeries, String(n)) : `Niveau ${n}`,
+      color: LEVEL_SECTION_COLORS[n - 1],
+      icon: null as null,
+    }));
+  }, [badges]);
 
   if (isLoading) {
     return (
@@ -244,7 +262,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
                     <span>{sectionLabel}</span>
                   </div>
                   <div className="level-count">
-                    {totalCount} badge{totalCount > 1 ? 's' : ''}
+                    {totalCount} compétence{totalCount > 1 ? 's' : ''}
                   </div>
                 </div>
 
