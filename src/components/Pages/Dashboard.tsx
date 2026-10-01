@@ -41,7 +41,7 @@ import { getOrganizationId, validateImageSize } from '../../utils/projectMapper'
 import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/contextUtils';
 import { getTeacherProjects } from '../../api/Projects';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
-import { getBadgeLevelDisplayLabel, getLevelLabelForSeriesSet, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
+import { getBadgeLevelDisplayLabel, getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -239,12 +239,11 @@ type LogoContextHandlers = {
   expectsBlob?: boolean;
 };
 
-// Labels calculés dynamiquement par série présente (getLevelLabelForSeriesSet) — plus de "Niveau N" figé (01/10).
-const BADGE_LEVEL_KEYS: Array<{ key: string; color: string }> = [
-  { key: 'level_1', color: '#10b981' },
-  { key: 'level_2', color: '#3b82f6' },
-  { key: 'level_3', color: '#f59e0b' },
-  { key: 'level_4', color: '#ef4444' },
+const BADGE_LEVEL_META: Array<{ key: string; label: string; color: string }> = [
+  { key: 'level_1', label: 'Niveau 1', color: '#10b981' },
+  { key: 'level_2', label: 'Niveau 2', color: '#3b82f6' },
+  { key: 'level_3', label: 'Niveau 3', color: '#f59e0b' },
+  { key: 'level_4', label: 'Niveau 4', color: '#ef4444' },
 ];
 
 const OTHER_BADGE_LEVEL_META = {
@@ -370,9 +369,9 @@ const mapActivityEntry = (activity: any, index: number): DashboardActivity => {
 };
 
 const initializeBadgeSegments = (): BadgeDistributionSegment[] =>
-  BADGE_LEVEL_KEYS.map((meta) => ({
+  BADGE_LEVEL_META.map((meta) => ({
     level: meta.key,
-    label: `Niveau ${meta.key.replace('level_', '')}`,
+    label: meta.label,
     color: meta.color,
     count: 0,
     percentage: 0,
@@ -387,14 +386,12 @@ const aggregateBadgeDistribution = (
     return acc;
   }, {});
 
-  const seriesPresent = assignments.map((a) => a?.badge?.series).filter(Boolean);
   const total = assignments.length;
-  const segments: BadgeDistributionSegment[] = BADGE_LEVEL_KEYS.map((meta) => {
+  const segments: BadgeDistributionSegment[] = BADGE_LEVEL_META.map((meta) => {
     const count = counts[meta.key] || 0;
-    const levelNumber = meta.key.replace('level_', '');
     return {
       level: meta.key,
-      label: getLevelLabelForSeriesSet(seriesPresent, levelNumber),
+      label: meta.label,
       color: meta.color,
       count,
       percentage: total > 0 ? Math.round((count / total) * 100) : 0,
@@ -402,7 +399,7 @@ const aggregateBadgeDistribution = (
   });
 
   const otherCount = Object.entries(counts).reduce((sum, [levelKey, value]) => {
-    if (BADGE_LEVEL_KEYS.some((meta) => meta.key === levelKey)) {
+    if (BADGE_LEVEL_META.some((meta) => meta.key === levelKey)) {
       return sum;
     }
     return sum + value;
@@ -1502,7 +1499,14 @@ const Dashboard: React.FC = () => {
     const mixedSoftCps =
       seriesList.some((s) => isSoftSkillsSeries(s)) && seriesList.some((s) => isCompetencesPsychosocialesSeries(s));
     const levelNums = allSoft || allCps || mixedSoftCps ? [1, 2] : [1, 2, 3, 4];
-    const labelFor = (n: number): string => getLevelLabelForSeriesSet(seriesList, String(n));
+    const labelFor = (n: number): string => {
+      if (allCps) return getLevelLabel(COMPETENCES_PSYCHOSOCIALES_SERIES, String(n));
+      if (allSoft) return getLevelLabel(SOFT_SKILLS_SERIES_NAME, String(n));
+      if (mixedSoftCps) {
+        return n === 1 ? 'Découverte / Phase 1' : 'Appropriation / Phase 2';
+      }
+      return `Niveau ${n}`;
+    };
 
     const series = levelNums.map((n, idx) => {
       const levelKey = `level_${n}` as 'level_1' | 'level_2' | 'level_3' | 'level_4';

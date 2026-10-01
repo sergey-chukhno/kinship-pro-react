@@ -542,7 +542,7 @@ const ProjectAffichePage: React.FC = () => {
   const filteredBadges = useMemo(() => {
     return badges.filter((b) => {
       const series = String(b.badge?.series || b.series || '');
-      const holder = String(b.receiver?.holder_display ?? displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name || ''));
+      const holder = String(displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name || ''));
       if (proofSeries && series !== proofSeries) return false;
       if (proofHolder.trim() && !holder.toLowerCase().includes(proofHolder.trim().toLowerCase())) return false;
       return true;
@@ -1719,7 +1719,7 @@ const ProjectAffichePage: React.FC = () => {
                         const title = b.badge?.name || b.badge_name || 'Preuve';
                         const series = b.badge?.series || b.series || 'Série';
                         const level = b.badge?.level || b.level || 'Niveau 1';
-                        const holder = b.receiver?.holder_display ?? displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name || '—');
+                        const holder = displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name || '—');
                         const sender = displayPersonName(b.sender?.full_name, b.sender?.first_name, b.sender?.last_name, b.sender_name || '—');
                         const date = b.assigned_at ? formatFrDate(String(b.assigned_at).slice(0, 10)) : '—';
                         return (
@@ -1758,7 +1758,7 @@ const ProjectAffichePage: React.FC = () => {
                             <td><b>{b.badge?.name || b.badge_name}</b></td>
                             <td>{b.badge?.series || b.series}</td>
                             <td>{b.badge?.level || b.level}</td>
-                            <td>{b.receiver?.holder_display ?? displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name)}</td>
+                            <td>{displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name)}</td>
                             <td>{displayPersonName(b.sender?.full_name, b.sender?.first_name, b.sender?.last_name, b.sender_name)}</td>
                             <td>{b.assigned_at ? formatFrDate(String(b.assigned_at).slice(0, 10)) : '—'}</td>
                           </tr>

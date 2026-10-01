@@ -127,7 +127,7 @@ const ChecklistItems: React.FC<{
 
   const renderItem = (c: ChecklistItem) => {
     const on = checkedIds.includes(c.id);
-    const typeClass = c.category === 'domain' ? 'gr' : c.category === 'expertise' ? 'vi' : c.category === 'both' ? 'both' : '';
+    const typeClass = c.category === 'domain' ? 'gr' : c.category === 'expertise' ? 'vi' : '';
     return (
       <button key={c.id} type="button" className={`att-subline ${on ? 'on' : ''}`} onClick={() => onToggle(c.id)}>
         <span className={`att-box ${on ? 'on' : ''} ${typeClass}`} />
