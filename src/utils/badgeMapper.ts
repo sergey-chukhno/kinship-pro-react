@@ -40,6 +40,7 @@ export const mapBackendUserBadgeToBadge = (userBadge: any): Badge => {
     image: imageUrl,
     category: badgeSeriesRaw,
     series: badgeSeries,
+    catalog_key: badge.catalog_key ?? null,
     recipients: 0,
     created: userBadge.assigned_at || userBadge.created_at || new Date().toISOString(),
     domains: badge.domains || [],

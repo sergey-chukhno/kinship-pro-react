@@ -9,6 +9,7 @@ import BadgeCard from '../Badges/BadgeCard';
 import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import { isSeriesWithCompetenceProgress, isSoftSkillsSeries } from '../../constants/badgeAxes';
+import { isCpsCatalog, isSoftSkillsCatalog, resolveCatalogKey } from '../../constants/catalogSeries';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import { isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
 import './PublicBadgeCartography.css';
@@ -22,10 +23,18 @@ function normalizeLevel(level: string | undefined): string {
 
 const LEVEL_SECTION_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] as const;
 
+/** Series identity for carto helpers — prefer catalog_key (R1). */
+const seriesIdentity = (badge?: { catalog_key?: string | null; series?: string | null }): string =>
+  badge?.catalog_key || resolveCatalogKey(badge) || badge?.series || '';
+
 const levelNumbersForSeriesSet = (seriesNames: string[]): number[] => {
   if (seriesNames.length === 0) return [1, 2, 3, 4];
   const onlyTwoLevel = seriesNames.every(
-    (s) => isSoftSkillsSeries(s) || isCompetencesPsychosocialesSeries(s)
+    (s) =>
+      isSoftSkillsCatalog({ catalog_key: s, series: s }) ||
+      isCpsCatalog({ catalog_key: s, series: s }) ||
+      isSoftSkillsSeries(s) ||
+      isCompetencesPsychosocialesSeries(s)
   );
   return onlyTwoLevel ? [1, 2] : [1, 2, 3, 4];
 };
@@ -119,9 +128,10 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   }, [badges]);
 
   const progressItemsByLevel = React.useMemo(() => {
-    const progressRaw = rawAttributions.filter(
-      (item: any) => item?.badge?.series && isSeriesWithCompetenceProgress(item.badge.series)
-    );
+    const progressRaw = rawAttributions.filter((item: any) => {
+      const id = seriesIdentity(item?.badge);
+      return id && isSeriesWithCompetenceProgress(id);
+    });
     if (progressRaw.length === 0) return {} as Record<string, Array<{ badge: Badge; fullExpertiseNames: string[]; receivedExpertiseNames: string[] }>>;
     const groupKey = (item: any) => `${item?.badge?.name ?? ''}|${normalizeLevel(item?.badge?.level)}`;
     const groups = new Map<string, any[]>();
@@ -156,7 +166,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
 
   const normalBadgesByLevel = React.useMemo(() => {
     const levelKeys = levelNumbersForSeriesSet(
-      Array.from(new Set(badges.map((b) => b.series).filter(Boolean)))
+      Array.from(new Set(badges.map((b) => seriesIdentity(b)).filter(Boolean)))
     ).map((n) => `Niveau ${n}`);
     const progressKeysByLevel: Record<string, Set<string>> = {};
     levelKeys.forEach((level) => {
@@ -173,7 +183,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   }, [badges, badgesByLevel, progressItemsByLevel]);
 
   const sections = React.useMemo(() => {
-    const seriesNames = Array.from(new Set(badges.map((b) => b.series).filter(Boolean)));
+    const seriesNames = Array.from(new Set(badges.map((b) => seriesIdentity(b)).filter(Boolean)));
     const labelSeries = seriesNames[0] || '';
     return levelNumbersForSeriesSet(seriesNames).map((n) => ({
       key: `Niveau ${n}`,

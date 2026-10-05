@@ -34,7 +34,7 @@ const CPS_ICON_BY_KEY: Record<CpsCompetenceKey, string> = {
 };
 
 export function isCompetencesPsychosocialesSeries(series?: string | null): boolean {
-  return series === COMPETENCES_PSYCHOSOCIALES_SERIES;
+  return series === COMPETENCES_PSYCHOSOCIALES_SERIES || series === 'competences_psychosociales';
 }
 
 /** Parse SPF code from badge name, e.g. "(C1.5)", "(E.2.2.a)", "(S1.2)" → C1 / E2 / S1 */

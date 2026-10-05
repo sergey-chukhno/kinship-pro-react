@@ -6,8 +6,13 @@ import { getSchoolMembersAccepted } from '../../api/SchoolDashboard/Members';
 import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Members';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { displaySeries } from '../../utils/badgeMapper';
-import { SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
 import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
+import {
+  CATALOG_KEY_SOFT_SKILLS,
+  CatalogSeriesOption,
+  apiSeriesNameForCatalogKey,
+  seriesOptionsFromBadges,
+} from '../../constants/catalogSeries';
 import './Analytics.css';
 
 const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
@@ -58,8 +63,8 @@ const Analytics: React.FC = () => {
 
   const isEduOrPro = state.showingPageType === 'edu' || state.showingPageType === 'pro';
 
-  // Badge series options (same list as "Attribuer un badge" modal)
-  const [badgeSeriesOptions, setBadgeSeriesOptions] = useState<string[]>([]);
+  // Badge series options (catalog_key identity; label = display name)
+  const [badgeSeriesOptions, setBadgeSeriesOptions] = useState<CatalogSeriesOption[]>([]);
   const [projectOptions, setProjectOptions] = useState<Array<{ id: number; title: string }>>([]);
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
@@ -69,20 +74,20 @@ const Analytics: React.FC = () => {
   const [assignedBadgesForSeriesChart, setAssignedBadgesForSeriesChart] = useState<any[]>([]);
   const [loadingSeriesChart, setLoadingSeriesChart] = useState(false);
 
-  // Attributions mensuelles: filters Par série + Par projet
-  const [selectedSeriesMonthlyChart, setSelectedSeriesMonthlyChart] = useState<string>(SOFT_SKILLS_SERIES);
+  // Attributions mensuelles: filters Par série + Par projet (state = catalog_key)
+  const [selectedSeriesMonthlyChart, setSelectedSeriesMonthlyChart] = useState<string>(CATALOG_KEY_SOFT_SKILLS);
   const [selectedProjectIdMonthlyChart, setSelectedProjectIdMonthlyChart] = useState<string>('');
   const [assignedBadgesMonthlyChart, setAssignedBadgesMonthlyChart] = useState<any[]>([]);
   const [loadingMonthlyChart, setLoadingMonthlyChart] = useState(false);
 
   // Tendances d'attribution: filters Par série + Par projet
-  const [selectedSeriesTrendChart, setSelectedSeriesTrendChart] = useState<string>(SOFT_SKILLS_SERIES);
+  const [selectedSeriesTrendChart, setSelectedSeriesTrendChart] = useState<string>(CATALOG_KEY_SOFT_SKILLS);
   const [selectedProjectIdTrendChart, setSelectedProjectIdTrendChart] = useState<string>('');
   const [assignedBadgesTrendChart, setAssignedBadgesTrendChart] = useState<any[]>([]);
   const [loadingTrendChart, setLoadingTrendChart] = useState(false);
 
   // Compétences par niveau: filters Par série + Par projet
-  const [selectedSeries, setSelectedSeries] = useState<string>(SOFT_SKILLS_SERIES);
+  const [selectedSeries, setSelectedSeries] = useState<string>(CATALOG_KEY_SOFT_SKILLS);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [assignedBadgesRaw, setAssignedBadgesRaw] = useState<any[]>([]);
   const [loadingAssignedBadges, setLoadingAssignedBadges] = useState(false);
@@ -99,11 +104,7 @@ const Analytics: React.FC = () => {
       setLoadingSeries(true);
       try {
         const badges = await getBadges();
-        const seriesSet = new Set<string>();
-        (badges || []).forEach((b: any) => {
-          if (b.series) seriesSet.add(b.series);
-        });
-        setBadgeSeriesOptions(Array.from(seriesSet));
+        setBadgeSeriesOptions(seriesOptionsFromBadges(badges || []));
       } catch (e) {
         console.error('Error fetching badge series', e);
       } finally {
@@ -188,9 +189,9 @@ const Analytics: React.FC = () => {
         do {
           let res: any;
           if (state.showingPageType === 'edu') {
-            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart, projectIdParam);
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeriesMonthlyChart) || selectedSeriesMonthlyChart, projectIdParam);
           } else {
-            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart, projectIdParam);
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeriesMonthlyChart) || selectedSeriesMonthlyChart, projectIdParam);
           }
           const data = res.data?.data ?? res.data ?? [];
           const list = Array.isArray(data) ? data : [];
@@ -223,9 +224,9 @@ const Analytics: React.FC = () => {
         do {
           let res: any;
           if (state.showingPageType === 'edu') {
-            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart, projectIdParam);
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeriesTrendChart) || selectedSeriesTrendChart, projectIdParam);
           } else {
-            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart, projectIdParam);
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeriesTrendChart) || selectedSeriesTrendChart, projectIdParam);
           }
           const data = res.data?.data ?? res.data ?? [];
           const list = Array.isArray(data) ? data : [];
@@ -258,9 +259,9 @@ const Analytics: React.FC = () => {
         do {
           let res: any;
           if (state.showingPageType === 'edu') {
-            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries, projectIdParam);
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries, projectIdParam);
           } else {
-            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries, projectIdParam);
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries, projectIdParam);
           }
           const data = res.data?.data ?? res.data ?? [];
           const list = Array.isArray(data) ? data : [];
@@ -1050,8 +1051,8 @@ const Analytics: React.FC = () => {
                         onChange={(e) => setSelectedSeriesMonthlyChart(e.target.value)}
                         disabled={loadingSeries}
                       >
-                        {badgeSeriesOptions.map((s) => (
-                          <option key={s} value={s}>{displaySeries(s)}</option>
+                        {badgeSeriesOptions.map((o) => (
+                          <option key={o.id ?? o.catalog_key ?? o.label} value={o.catalog_key || String(o.id)}>{o.label}</option>
                         ))}
                       </select>
                     </div>
@@ -1096,8 +1097,8 @@ const Analytics: React.FC = () => {
                         onChange={(e) => setSelectedSeriesTrendChart(e.target.value)}
                         disabled={loadingSeries}
                       >
-                        {badgeSeriesOptions.map((s) => (
-                          <option key={s} value={s}>{displaySeries(s)}</option>
+                        {badgeSeriesOptions.map((o) => (
+                          <option key={o.id ?? o.catalog_key ?? o.label} value={o.catalog_key || String(o.id)}>{o.label}</option>
                         ))}
                       </select>
                     </div>
@@ -1142,8 +1143,8 @@ const Analytics: React.FC = () => {
                         onChange={(e) => setSelectedSeries(e.target.value)}
                         disabled={loadingSeries}
                       >
-                        {badgeSeriesOptions.map((s) => (
-                          <option key={s} value={s}>{displaySeries(s)}</option>
+                        {badgeSeriesOptions.map((o) => (
+                          <option key={o.id ?? o.catalog_key ?? o.label} value={o.catalog_key || String(o.id)}>{o.label}</option>
                         ))}
                       </select>
                     </div>

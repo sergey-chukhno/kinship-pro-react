@@ -18,19 +18,29 @@ import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceSta
 import { getSchoolAssignedBadges, getCompanyAssignedBadges, getTeacherAssignedBadges } from '../../api/Dashboard';
 import { getAllUserProjects } from '../../api/Project';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
-import { displaySeries } from '../../utils/badgeMapper';
 import { getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { getOrganizationId } from '../../utils/projectMapper';
-import { isSeriesWithCompetenceProgress, isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
-import { isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
+import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import {
+  CATALOG_KEY_SOFT_SKILLS,
+  CatalogSeriesOption,
+  apiSeriesNameForCatalogKey,
+  isCpsCatalog,
+  isSoftSkillsCatalog,
+  resolveCatalogKey,
+  seriesOptionsFromBadges,
+} from '../../constants/catalogSeries';
 import './Analytics.css';
 import './Badges.css';
 
 const LEVEL_SECTION_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] as const;
 
 /** Soft Skills + CPS only expose levels 1–2 in cartography filters/sections. */
-const cartographyLevelNumbers = (series: string): number[] => {
-  if (isSoftSkillsSeries(series) || isCompetencesPsychosocialesSeries(series)) {
+const cartographyLevelNumbers = (seriesOrKey: string): number[] => {
+  if (
+    isSoftSkillsCatalog({ catalog_key: seriesOrKey, series: seriesOrKey }) ||
+    isCpsCatalog({ catalog_key: seriesOrKey, series: seriesOrKey })
+  ) {
     return [1, 2];
   }
   return [1, 2, 3, 4];
@@ -51,25 +61,26 @@ const Badges: React.FC = () => {
   // Store raw badge data to access badge IDs
   const [rawBadgeData, setRawBadgeData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSeries, setSelectedSeries] = useState(SOFT_SKILLS_SERIES);
+  /** R1 — catalog_key as series identity (defaults / fetch) */
+  const [selectedSeries, setSelectedSeries] = useState(CATALOG_KEY_SOFT_SKILLS);
   const [selectedLevel, setSelectedLevel] = useState('');
   const [activeTab, setActiveTab] = useState<'cartography' | 'explorer'>('cartography');
 
   // Personal user: main tab "Ma cartographie" | "Mes statistiques" (default cartography)
   const [userMainTab, setUserMainTab] = useState<'cartography' | 'statistics'>('cartography');
   const [cartoSubView, setCartoSubView] = useState<'mine' | 'catalogue'>('mine');
-  // Mes statistiques: Compétences par niveau (default = current Soft Skills DB name, not legacy TouKouLeur)
-  const [selectedSeriesStats, setSelectedSeriesStats] = useState<string>(SOFT_SKILLS_SERIES_NAME);
+  // Mes statistiques: identity = catalog_key
+  const [selectedSeriesStats, setSelectedSeriesStats] = useState<string>(CATALOG_KEY_SOFT_SKILLS);
   const [selectedProjectIdStats, setSelectedProjectIdStats] = useState<string>('');
   const [userBadgesForChart, setUserBadgesForChart] = useState<any[]>([]);
   const [loadingUserBadgesForChart, setLoadingUserBadgesForChart] = useState(false);
-  const [badgeSeriesOptionsStats, setBadgeSeriesOptionsStats] = useState<string[]>([]);
+  const [badgeSeriesOptionsStats, setBadgeSeriesOptionsStats] = useState<CatalogSeriesOption[]>([]);
   const [projectOptionsUser, setProjectOptionsUser] = useState<Array<{ id: number; title: string }>>([]);
   const [loadingSeriesStats, setLoadingSeriesStats] = useState(false);
   const [loadingProjectsUser, setLoadingProjectsUser] = useState(false);
 
   // Cartography (org view): series options from API for dynamic dropdown
-  const [cartographySeriesOptions, setCartographySeriesOptions] = useState<string[]>([]);
+  const [cartographySeriesOptions, setCartographySeriesOptions] = useState<CatalogSeriesOption[]>([]);
   const [loadingCartographySeries, setLoadingCartographySeries] = useState(false);
 
   // API data states
@@ -109,10 +120,10 @@ const Badges: React.FC = () => {
       let response;
       
       if (state.showingPageType === 'user') {
-        // Personal user: fetch received badges
-        const filters: any = {};
+        // Personal user: fetch received badges by catalog_key (R1)
+        const filters: { catalog_key?: string; level?: string } = {};
         if (selectedSeries) {
-          filters.series = selectedSeries; // Use exact database series name
+          filters.catalog_key = selectedSeries;
         }
         if (selectedLevel) {
           filters.level = selectedLevel.replace('Niveau ', 'level_');
@@ -138,8 +149,9 @@ const Badges: React.FC = () => {
         const mapped = payload.map(mapBackendUserBadgeToBadge);
         setBadges(mapped);
       } else if (state.showingPageType === 'edu' && organizationId) {
-        // School: fetch assigned badges
-        response = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries || undefined);
+        // School: pont legacy — org API still filters by display name (badge_series=)
+        const legacySeries = apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries;
+        response = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, legacySeries || undefined);
         const payload = response.data?.data ?? response.data ?? [];
         setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
@@ -149,8 +161,9 @@ const Badges: React.FC = () => {
         setTotalPages(meta?.total_pages || 1);
         setTotalBadges(meta?.total_count || mapped.length);
       } else if (state.showingPageType === 'pro' && organizationId) {
-        // Company: fetch assigned badges
-        response = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries || undefined);
+        // Company: pont legacy — org API still filters by display name (badge_series=)
+        const legacySeries = apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries;
+        response = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, legacySeries || undefined);
         const payload = response.data?.data ?? response.data ?? [];
         setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
@@ -197,14 +210,13 @@ const Badges: React.FC = () => {
       setLoadingCartographySeries(true);
       try {
         const list = await getBadges();
-        const seriesSet = new Set<string>();
-        (Array.isArray(list) ? list : []).forEach((b: any) => { if (b.series) seriesSet.add(b.series); });
-        const sorted = Array.from(seriesSet).sort((a, b) => a.localeCompare(b));
-        setCartographySeriesOptions(sorted);
+        const opts = seriesOptionsFromBadges(Array.isArray(list) ? list : []);
+        setCartographySeriesOptions(opts);
         setSelectedSeries((prev) => {
-          if (sorted.length === 0) return prev;
-          if (sorted.includes(prev)) return prev;
-          return sorted.find(isSoftSkillsSeries) ?? sorted[0];
+          if (opts.length === 0) return prev;
+          if (opts.some((o) => o.catalog_key === prev)) return prev;
+          const soft = opts.find((o) => o.catalog_key === CATALOG_KEY_SOFT_SKILLS);
+          return soft?.catalog_key || opts[0].catalog_key || prev;
         });
       } catch (e) {
         console.error('Error fetching cartography series options', e);
@@ -215,16 +227,14 @@ const Badges: React.FC = () => {
     fetchSeries();
   }, [state.showingPageType]);
 
-  // Mes statistiques (personal user): fetch badge series options
+  // Mes statistiques (personal user): fetch badge series options (id + catalog_key)
   useEffect(() => {
     if (state.showingPageType !== 'user') return;
     const fetchSeries = async () => {
       setLoadingSeriesStats(true);
       try {
         const list = await getBadges();
-        const seriesSet = new Set<string>();
-        (Array.isArray(list) ? list : []).forEach((b: any) => { if (b.series) seriesSet.add(b.series); });
-        setBadgeSeriesOptionsStats(Array.from(seriesSet).sort((a, b) => a.localeCompare(b, 'fr')));
+        setBadgeSeriesOptionsStats(seriesOptionsFromBadges(Array.isArray(list) ? list : []));
       } catch (e) {
         console.error('Error fetching badge series', e);
       } finally {
@@ -234,16 +244,13 @@ const Badges: React.FC = () => {
     fetchSeries();
   }, [state.showingPageType]);
 
-  // Keep select value in sync with catalogue options (avoids phantom CPS display while fetching Soft Skills legacy)
+  // Keep select value in sync with catalogue options
   useEffect(() => {
     if (badgeSeriesOptionsStats.length === 0) return;
     setSelectedSeriesStats((prev) => {
-      if (badgeSeriesOptionsStats.includes(prev)) return prev;
-      if (isSoftSkillsSeries(prev)) {
-        const soft = badgeSeriesOptionsStats.find((s) => isSoftSkillsSeries(s));
-        if (soft) return soft;
-      }
-      return badgeSeriesOptionsStats[0];
+      if (badgeSeriesOptionsStats.some((o) => o.catalog_key === prev)) return prev;
+      const soft = badgeSeriesOptionsStats.find((o) => o.catalog_key === CATALOG_KEY_SOFT_SKILLS);
+      return soft?.catalog_key || badgeSeriesOptionsStats[0].catalog_key || prev;
     });
   }, [badgeSeriesOptionsStats]);
 
@@ -273,7 +280,7 @@ const Badges: React.FC = () => {
       setLoadingUserBadgesForChart(true);
       setUserBadgesForChart([]);
       try {
-        const response = await getUserBadges(1, 500, { series: selectedSeriesStats });
+        const response = await getUserBadges(1, 500, { catalog_key: selectedSeriesStats });
         let list = Array.isArray(response.data) ? response.data : [];
         if (selectedProjectIdStats) {
           const projectIdNum = parseInt(selectedProjectIdStats, 10);
@@ -294,10 +301,15 @@ const Badges: React.FC = () => {
                          badge.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          badge.category.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Series filtering - use exact database series name
+    // Series filtering — match by catalog_key (R1) with display-name fallback
     let matchesSeries = true;
     if (selectedSeries) {
-      matchesSeries = badge.series === selectedSeries;
+      const badgeKey = resolveCatalogKey({ series: badge.series });
+      const apiName = apiSeriesNameForCatalogKey(selectedSeries);
+      matchesSeries =
+        badgeKey === selectedSeries ||
+        badge.series === selectedSeries ||
+        (!!apiName && badge.series === apiName);
     }
     
     // Level filtering - works for all series
@@ -401,12 +413,12 @@ const Badges: React.FC = () => {
     }));
   };
 
-  const sections = getSections(selectedSeries || SOFT_SKILLS_SERIES);
+  const sections = getSections(selectedSeries || CATALOG_KEY_SOFT_SKILLS);
 
   // Drop Niveau 3/4 filter when switching to a 2-level series
   useEffect(() => {
     if (!selectedLevel) return;
-    const allowed = new Set(cartographyLevelNumbers(selectedSeries || SOFT_SKILLS_SERIES).map((n) => `Niveau ${n}`));
+    const allowed = new Set(cartographyLevelNumbers(selectedSeries || CATALOG_KEY_SOFT_SKILLS).map((n) => `Niveau ${n}`));
     if (!allowed.has(selectedLevel)) {
       setSelectedLevel('');
     }
@@ -543,10 +555,12 @@ const Badges: React.FC = () => {
                   disabled={loadingSeriesStats}
                 >
                   {badgeSeriesOptionsStats.length === 0 && (
-                    <option value={SOFT_SKILLS_SERIES_NAME}>{SOFT_SKILLS_SERIES_NAME}</option>
+                    <option value={CATALOG_KEY_SOFT_SKILLS}>{SOFT_SKILLS_SERIES_NAME}</option>
                   )}
-                  {badgeSeriesOptionsStats.map((s) => (
-                    <option key={s} value={s}>{displaySeries(s)}</option>
+                  {badgeSeriesOptionsStats.map((o) => (
+                    <option key={o.id ?? o.catalog_key ?? o.label} value={o.catalog_key || String(o.id)}>
+                      {o.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -653,15 +667,12 @@ const Badges: React.FC = () => {
                         <option value={selectedSeries}>Chargement…</option>
                       )}
                       {!loadingCartographySeries && cartographySeriesOptions.length === 0 && (
-                        <>
-                          <option value={SOFT_SKILLS_SERIES}>{SOFT_SKILLS_SERIES_NAME}</option>
-                          <option value="Série Parcours des possibles">Série Parcours des possibles</option>
-                          <option value="Série Audiovisuelle">Série Audiovisuelle</option>
-                          <option value="Série Parcours professionnel">Série Parcours professionnel</option>
-                        </>
+                        <option value={CATALOG_KEY_SOFT_SKILLS}>{SOFT_SKILLS_SERIES_NAME}</option>
                       )}
-                      {!loadingCartographySeries && cartographySeriesOptions.length > 0 && cartographySeriesOptions.map((s) => (
-                        <option key={s} value={s}>{displaySeries(s)}</option>
+                      {!loadingCartographySeries && cartographySeriesOptions.length > 0 && cartographySeriesOptions.map((o) => (
+                        <option key={o.id ?? o.catalog_key ?? o.label} value={o.catalog_key || String(o.id)}>
+                          {o.label}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -672,9 +683,9 @@ const Badges: React.FC = () => {
                       className="filter-select"
                     >
                       <option value="">Tous les niveaux</option>
-                      {cartographyLevelNumbers(selectedSeries || SOFT_SKILLS_SERIES).map((n) => (
+                      {cartographyLevelNumbers(selectedSeries || CATALOG_KEY_SOFT_SKILLS).map((n) => (
                         <option key={n} value={`Niveau ${n}`}>
-                          {getLevelLabel(selectedSeries || SOFT_SKILLS_SERIES, String(n))}
+                          {getLevelLabel(selectedSeries || CATALOG_KEY_SOFT_SKILLS, String(n))}
                         </option>
                       ))}
                     </select>
@@ -855,7 +866,8 @@ const Badges: React.FC = () => {
           badges={filteredBadges}
           rawAttributions={filteredBadges.map((fb) => rawBadgeData.find((r: any) => String(r?.id) === String(fb.id))).filter(Boolean)}
           filters={{
-            series: selectedSeries,
+            // Pont legacy: share/export APIs still use display series name, not catalog_key
+            series: apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries,
             level: selectedLevel,
             searchTerm: searchTerm
           }}

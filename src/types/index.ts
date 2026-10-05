@@ -80,6 +80,8 @@ export interface Badge {
   image: string;
   category: string;
   series: string;
+  /** R1 stable catalogue key when present on API payload */
+  catalog_key?: string | null;
   recipients: number;
   created: string;
   domains: string[];
@@ -502,6 +504,10 @@ export interface BadgeAPI {
   description: string;
   level: 'level_1' | 'level_2' | 'level_3' | 'level_4';
   series: string;
+  /** R1 — stable catalogue key; null for org-only series */
+  catalog_key?: string | null;
+  /** R1 — BadgeSeries id for tree / selects */
+  badge_series_id?: number | null;
   domains: BadgeSkillAPI[];
   expertises: BadgeSkillAPI[];
   image_url?: string; // Optional image URL from backend (if provided)

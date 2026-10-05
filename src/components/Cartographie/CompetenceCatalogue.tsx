@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
-import { CARTOGRAPHIE_V1_1_SERIES, getCartographieAxesForSeries } from '../../constants/badgeAxes';
+import { CARTOGRAPHIE_V1_1_CATALOG_KEYS, getCartographieAxesForSeries } from '../../constants/badgeAxes';
+import { displayLabelForCatalogKey } from '../../constants/catalogSeries';
 import { getAxeColor, displayAxeTitle, displayCompetenceName } from '../../constants/cartographieColors';
-import { displaySeries } from '../../utils/badgeMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import CompetenceRing, { RingNiveau } from './CompetenceRing';
 import CompetenceIcon, { hasCompetenceIcon } from './CompetenceIcon';
@@ -90,10 +90,12 @@ const CompetenceCatalogue: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const results = await Promise.all(CARTOGRAPHIE_V1_1_SERIES.map((s) => getBadges({ series: s })));
+        const results = await Promise.all(
+          CARTOGRAPHIE_V1_1_CATALOG_KEYS.map((k) => getBadges({ catalog_key: k }))
+        );
         if (ignore) return;
         const next: Record<string, BadgeAPI[]> = {};
-        CARTOGRAPHIE_V1_1_SERIES.forEach((s, i) => {
+        CARTOGRAPHIE_V1_1_CATALOG_KEYS.forEach((s, i) => {
           next[s] = Array.isArray(results[i]) ? results[i] : [];
         });
         setBySeries(next);
@@ -111,7 +113,7 @@ const CompetenceCatalogue: React.FC = () => {
   }, []);
 
   const seriesGroups = useMemo(() => {
-    return CARTOGRAPHIE_V1_1_SERIES.map((s) => {
+    return CARTOGRAPHIE_V1_1_CATALOG_KEYS.map((s) => {
       const entries = buildEntries(bySeries[s] || [], s);
       return { series: s, groups: groupByAxe(s, entries), count: entries.length };
     });
@@ -136,7 +138,7 @@ const CompetenceCatalogue: React.FC = () => {
           ({ series, groups, count }) =>
             count > 0 && (
               <div key={series} className="carto-catalogue-serie">
-                <h2 className="carto-catalogue-serie-title">{displaySeries(series)}</h2>
+                <h2 className="carto-catalogue-serie-title">{displayLabelForCatalogKey(series)}</h2>
                 {groups.map((group) => (
                   <div key={group.title ?? 'flat'} className="carto-axe-group">
                     {group.title && (
