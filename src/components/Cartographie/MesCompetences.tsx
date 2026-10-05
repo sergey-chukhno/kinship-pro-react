@@ -2,12 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { getBadges, getUserBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
 import {
-  CARTOGRAPHIE_V1_1_SERIES,
-  COMPETENCES_ORIENTER_COLLEGE_SERIES,
+  CARTOGRAPHIE_V1_1_CATALOG_KEYS,
+  CATALOG_KEY_ORIENTER,
   getCartographieAxesForSeries,
 } from '../../constants/badgeAxes';
+import { displayLabelForCatalogKey } from '../../constants/catalogSeries';
 import { getAxeColor, displayAxeTitle, displayCompetenceName } from '../../constants/cartographieColors';
-import { displaySeries } from '../../utils/badgeMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { RingNiveau } from './CompetenceRing';
 import CompetenceIcon, { hasCompetenceIcon } from './CompetenceIcon';
@@ -36,7 +36,7 @@ const competenceImage = (c: CompetenceEntry): string | undefined => {
  * état vide dédié.
  */
 const MesCompetences: React.FC = () => {
-  const [series, setSeries] = useState<string>(CARTOGRAPHIE_V1_1_SERIES[0]);
+  const [series, setSeries] = useState<string>(CARTOGRAPHIE_V1_1_CATALOG_KEYS[0]);
   const [catalogue, setCatalogue] = useState<BadgeAPI[]>([]);
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,8 +50,8 @@ const MesCompetences: React.FC = () => {
       setError(null);
       try {
         const [cat, mine] = await Promise.all([
-          getBadges({ series }),
-          getUserBadges(1, 500, { series }),
+          getBadges({ catalog_key: series }),
+          getUserBadges(1, 500, { catalog_key: series }),
         ]);
         if (ignore) return;
         setCatalogue(Array.isArray(cat) ? cat : []);
@@ -143,14 +143,14 @@ const MesCompetences: React.FC = () => {
   return (
     <div className="carto-mes-competences">
       <div className="carto-series-tabs">
-        {CARTOGRAPHIE_V1_1_SERIES.map((s) => (
+        {CARTOGRAPHIE_V1_1_CATALOG_KEYS.map((s) => (
           <button
             key={s}
             type="button"
             className={`carto-series-tab ${series === s ? 'active' : ''}`}
             onClick={() => setSeries(s)}
           >
-            {displaySeries(s)}
+            {displayLabelForCatalogKey(s)}
           </button>
         ))}
       </div>
@@ -175,7 +175,7 @@ const MesCompetences: React.FC = () => {
               <h4>Aucune compétence dans cette série pour le moment.</h4>
             </div>
           )}
-          {series === COMPETENCES_ORIENTER_COLLEGE_SERIES && competences.length > 0 && attested.length === 0 && (
+          {series === CATALOG_KEY_ORIENTER && competences.length > 0 && attested.length === 0 && (
             <div className="carto-series-empty">
               <h4>Tu n'as pas encore de preuve dans cette série.</h4>
             </div>

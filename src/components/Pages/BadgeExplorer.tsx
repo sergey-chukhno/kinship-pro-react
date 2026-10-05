@@ -7,6 +7,14 @@ import {
   getAxesForSeries,
   getMetiersMerBadgesWithLevel
 } from '../../constants/badgeAxes';
+import {
+  CATALOG_KEY_AUDIOVISUELLE,
+  CATALOG_KEY_MER,
+  CATALOG_KEY_ORIENTER,
+  CATALOG_KEY_PARCOURS_DES_POSSIBLES,
+  CATALOG_KEY_PARCOURS_PROFESSIONNEL,
+  CATALOG_KEY_SOFT_SKILLS,
+} from '../../constants/catalogSeries';
 import { BadgeAPI, BadgeSkillAPI } from '../../types';
 import { getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
@@ -25,11 +33,14 @@ function renderDescriptionWithBold(text: string): React.ReactNode {
 }
 
 // Series entry: display name, optional DB name (null if à venir), comingSoon flag, description
+// catalogKey: R1 identity for getBadges({ catalog_key }) when fetching from API
 // staticSeriesId: when set, badge list uses local static data (no API)
 // axes: optional list of axes to show on parcours-detail instead of description (exact titles/descriptions)
 interface SeriesEntry {
   displayName: string;
+  /** @deprecated R1 — keep for local image lookup; fetch identity = catalogKey */
   dbName: string | null;
+  catalogKey?: string | null;
   comingSoon: boolean;
   description: string;
   staticSeriesId?: string;
@@ -90,6 +101,7 @@ const PARCOURS: Parcours[] = [
       {
         displayName: SOFT_SKILLS_SERIES_NAME,
         dbName: SOFT_SKILLS_SERIES,
+        catalogKey: CATALOG_KEY_SOFT_SKILLS,
         comingSoon: false,
         description: `Les badges de la série ${SOFT_SKILLS_SERIES_NAME} reconnaissent et valorisent les compétences transversales mobilisées par les jeunes dans le cadre de projets individuels ou collectifs (coopération, communication, créativité, engagement, gestion de projet...)`
       }
@@ -131,12 +143,14 @@ const PARCOURS: Parcours[] = [
       {
         displayName: 'Série Parcours des possibles',
         dbName: 'Série Parcours des possibles',
+        catalogKey: CATALOG_KEY_PARCOURS_DES_POSSIBLES,
         comingSoon: false,
         description: "La série du Centre des possibles permet de valoriser les compétences et talents des jeunes, pour les guider au mieux dans leur choix de développement de soi, de leurs compétences et de leur connaissance des métiers"
       },
       {
         displayName: "Série Compétences à s'orienter - Collège",
         dbName: null,
+        catalogKey: CATALOG_KEY_ORIENTER,
         comingSoon: false,
         description: "Les **compétences à s'orienter** permettent aux élèves de mieux se connaître, de comprendre le monde qui les entoure et de se projeter dans des parcours possibles.\n\nCe parcours s'appuie sur le **référentiel officiel « Compétences à s'orienter »** et valorise les compétences mobilisées dans des situations concrètes tout au long de la scolarité.",
         staticSeriesId: 'competences_orienter_college',
@@ -165,18 +179,21 @@ const PARCOURS: Parcours[] = [
       {
         displayName: 'Série Parcours professionnel',
         dbName: 'Série Parcours professionnel',
+        catalogKey: CATALOG_KEY_PARCOURS_PROFESSIONNEL,
         comingSoon: false,
         description: "Valorise les compétences mobilisées dans des situations professionnelles réelles (stages, jobs, CDD, CDI, alternance...)"
       },
       {
         displayName: 'Série Audiovisuelle & Cinéma',
         dbName: 'Série Audiovisuelle',
+        catalogKey: CATALOG_KEY_AUDIOVISUELLE,
         comingSoon: false,
         description: "Reconnaît les compétences techniques et créatives liées aux métiers de l'audiovisuel."
       },
       {
         displayName: "Série Métiers de la mer",
         dbName: null,
+        catalogKey: CATALOG_KEY_MER,
         comingSoon: false,
         staticSeriesId: 'metiers_mer',
         description: ''
@@ -979,7 +996,11 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedBadges = await getBadges({ series: selectedSeriesDbName });
+        // R1: prefer catalog_key; series= only as temporary fallback
+        const filters = selectedSeries?.catalogKey
+          ? { catalog_key: selectedSeries.catalogKey }
+          : { series: selectedSeriesDbName };
+        const fetchedBadges = await getBadges(filters);
         setBadges(fetchedBadges);
       } catch (err: any) {
         console.error('Error fetching badges:', err);
@@ -990,7 +1011,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       }
     };
     fetchBadges();
-  }, [view, selectedSeriesDbName]);
+  }, [view, selectedSeriesDbName, selectedSeries?.catalogKey]);
 
   // Cards → Parcours detail
   const handleExplorerCeParcours = (parcours: Parcours) => {

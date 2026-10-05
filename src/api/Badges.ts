@@ -2,6 +2,8 @@ import apiClient from './config';
 import { BadgeAPI, BadgeSkillAPI, BadgeAssignmentResponse } from '../types';
 
 export interface BadgeFilters {
+  /** R1 — preferred filter (takes priority over series on BE) */
+  catalog_key?: string;
   series?: string;
   level?: string;
   name?: string;
@@ -19,13 +21,15 @@ export interface AssignBadgeData {
 
 /**
  * Récupère la liste de tous les badges disponibles
- * @param filters - Filtres optionnels (series, level, name)
+ * @param filters - Filtres optionnels (catalog_key, series, level, name)
  * @returns Promise<BadgeAPI[]>
  */
 export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => {
   const params = new URLSearchParams();
-  
-  if (filters?.series) {
+
+  if (filters?.catalog_key) {
+    params.append('catalog_key', filters.catalog_key);
+  } else if (filters?.series) {
     params.append('series', filters.series);
   }
   if (filters?.level) {
@@ -34,10 +38,10 @@ export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => 
   if (filters?.name) {
     params.append('name', filters.name);
   }
-  
+
   const queryString = params.toString();
   const url = `/api/v1/badges${queryString ? `?${queryString}` : ''}`;
-  
+
   const response = await apiClient.get(url);
   return response.data || [];
 };
@@ -96,6 +100,7 @@ export const getUserBadges = async (
   page: number = 1,
   perPage: number = 12,
   filters?: {
+    catalog_key?: string;
     series?: string;
     level?: string;
     organization_type?: string;
@@ -111,7 +116,9 @@ export const getUserBadges = async (
   if (filters?.all_statuses) {
     params.append('all_statuses', 'true');
   }
-  if (filters?.series) {
+  if (filters?.catalog_key) {
+    params.append('catalog_key', filters.catalog_key);
+  } else if (filters?.series) {
     params.append('series', filters.series);
   }
   if (filters?.level) {
@@ -126,7 +133,7 @@ export const getUserBadges = async (
   if (filters?.badge_id) {
     params.append('badge_id', filters.badge_id.toString());
   }
-  
+
   const response = await apiClient.get(`/api/v1/users/me/badges?${params.toString()}`);
   return {
     data: response.data?.data || [],

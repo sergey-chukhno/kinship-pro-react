@@ -31,21 +31,21 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     return getSoftSkillsLabel(levelNumber);
   }
 
-  // Soft Skills: Découverte / Appropriation only (Patrick 29/09)
-  if (isSoftSkillsSeries(series)) {
+  // Accept catalog_key or display name (R1)
+  if (series === 'soft_skills' || isSoftSkillsSeries(series)) {
     return getSoftSkillsLabel(levelNumber);
   }
 
   // Compétences psychosociales: "Phase 1" / "Phase 2" only (Patrick — nothing after)
-  if (series === COMPETENCES_PSYCHOSOCIALES_SERIES) {
+  if (series === 'competences_psychosociales' || series === COMPETENCES_PSYCHOSOCIALES_SERIES) {
     return `Phase ${levelNumber}`;
   }
 
-  if (series === 'Série Parcours des possibles') {
+  if (series === 'parcours_des_possibles' || series === 'Série Parcours des possibles') {
     return `Niveau ${levelNumber}`;
   }
 
-  if (series === 'Série Audiovisuelle') {
+  if (series === 'audiovisuelle' || series === 'Série Audiovisuelle') {
     switch (levelNumber) {
       case '1':
         return 'Niveau 1: Observable';
@@ -60,7 +60,7 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  if (series === 'Série Parcours professionnel') {
+  if (series === 'parcours_professionnel' || series === 'Série Parcours professionnel') {
     switch (levelNumber) {
       case '1':
         return 'Niveau 1: Découverte';
@@ -75,11 +75,11 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  if (series === 'Série Métiers de la mer') {
+  if (series === 'metiers_de_la_mer' || series === 'Série Métiers de la mer') {
     return `Niveau ${levelNumber}`;
   }
 
-  if (series === "Série Compétences à s'orienter - Collège") {
+  if (series === 'competences_orienter_college' || series === "Série Compétences à s'orienter - Collège") {
     switch (levelNumber) {
       case '1':
         return 'Niveau 1 – Aperçu';

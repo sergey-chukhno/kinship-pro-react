@@ -10,7 +10,11 @@ import { useToast } from '../../hooks/useToast';
 import ShareProjectLinkModal from '../Modals/ShareProjectLinkModal';
 import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
-import { isSoftSkillsSeries, SOFT_SKILLS_SERIES } from '../../constants/badgeAxes';
+import { isSoftSkillsSeries } from '../../constants/badgeAxes';
+import {
+  apiSeriesNameForCatalogKey,
+  resolveCatalogKey,
+} from '../../constants/catalogSeries';
 import { SOFT_SKILLS_SERIES_NAME, getLevelLabel } from '../../utils/badgeLevelLabels';
 import { displayPersonName } from '../../utils/civilDataErased';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
@@ -3766,10 +3770,15 @@ const ProjectManagement: React.FC = () => {
     return isSoftSkillsSeries(seriesName) ? SOFT_SKILLS_SERIES_NAME : seriesName;
   };
 
-  // Map frontend series name to backend series name for API calls
+  /**
+   * Pont legacy org/project APIs: project badge list still filters by display name
+   * (series / badge_series), not catalog_key. Map UI selection → API series name only here.
+   */
   const mapSeriesToBackend = (frontendSeries: string): string => {
-    if (isSoftSkillsSeries(frontendSeries)) return SOFT_SKILLS_SERIES;
-    return frontendSeries;
+    const fromKey = apiSeriesNameForCatalogKey(frontendSeries);
+    if (fromKey) return fromKey;
+    const key = resolveCatalogKey({ series: frontendSeries });
+    return apiSeriesNameForCatalogKey(key) || frontendSeries;
   };
 
   const mapBackendBadgeToAttribution = (item: any): any => {

@@ -34,6 +34,12 @@ import {
 import { getUserBadges } from '../../api/Badges';
 import { isSoftSkillsSeries } from '../../constants/badgeAxes';
 import { COMPETENCES_PSYCHOSOCIALES_SERIES, isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
+import {
+  CATALOG_KEY_CPS,
+  CATALOG_KEY_SOFT_SKILLS,
+  isCpsCatalog,
+  isSoftSkillsCatalog,
+} from '../../constants/catalogSeries';
 import axiosClient from '../../api/config';
 import { RadarChartByCompetenceStats } from '../Charts/RadarChartByCompetenceStats';
 import { OrganizationStatsResponse, PageType } from '../../types';
@@ -581,8 +587,8 @@ const Dashboard: React.FC = () => {
     let cancelled = false;
     setUserBadgesForChartLoading(true);
     Promise.all([
-      getUserBadges(1, 500, { series: SOFT_SKILLS_SERIES_NAME }),
-      getUserBadges(1, 500, { series: COMPETENCES_PSYCHOSOCIALES_SERIES }),
+      getUserBadges(1, 500, { catalog_key: CATALOG_KEY_SOFT_SKILLS }),
+      getUserBadges(1, 500, { catalog_key: CATALOG_KEY_CPS }),
     ])
       .then(([softRes, cpsRes]) => {
         if (cancelled) return;
@@ -1494,14 +1500,19 @@ const Dashboard: React.FC = () => {
     if (axes.length === 0) return { axes: [] as string[], series: [] as Array<{ level: string; values: number[]; color: string }> };
 
     const seriesList = Array.from(seriesPresent);
-    const allSoft = seriesList.length > 0 && seriesList.every((s) => isSoftSkillsSeries(s));
-    const allCps = seriesList.length > 0 && seriesList.every((s) => isCompetencesPsychosocialesSeries(s));
+    const allSoft =
+      seriesList.length > 0 &&
+      seriesList.every((s) => isSoftSkillsCatalog({ series: s }) || isSoftSkillsSeries(s));
+    const allCps =
+      seriesList.length > 0 &&
+      seriesList.every((s) => isCpsCatalog({ series: s }) || isCompetencesPsychosocialesSeries(s));
     const mixedSoftCps =
-      seriesList.some((s) => isSoftSkillsSeries(s)) && seriesList.some((s) => isCompetencesPsychosocialesSeries(s));
+      seriesList.some((s) => isSoftSkillsCatalog({ series: s }) || isSoftSkillsSeries(s)) &&
+      seriesList.some((s) => isCpsCatalog({ series: s }) || isCompetencesPsychosocialesSeries(s));
     const levelNums = allSoft || allCps || mixedSoftCps ? [1, 2] : [1, 2, 3, 4];
     const labelFor = (n: number): string => {
-      if (allCps) return getLevelLabel(COMPETENCES_PSYCHOSOCIALES_SERIES, String(n));
-      if (allSoft) return getLevelLabel(SOFT_SKILLS_SERIES_NAME, String(n));
+      if (allCps) return getLevelLabel(CATALOG_KEY_CPS, String(n));
+      if (allSoft) return getLevelLabel(CATALOG_KEY_SOFT_SKILLS, String(n));
       if (mixedSoftCps) {
         return n === 1 ? 'Découverte / Phase 1' : 'Appropriation / Phase 2';
       }

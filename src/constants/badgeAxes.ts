@@ -3,6 +3,17 @@
  * and in the "Attribuer un badge" modal. Single source of truth to avoid duplication and mismatches.
  */
 
+import {
+  CATALOG_KEY_CPS,
+  CATALOG_KEY_MER,
+  CATALOG_KEY_ORIENTER,
+  CATALOG_KEY_SOFT_SKILLS,
+  CARTOGRAPHIE_V1_1_CATALOG_KEYS,
+  apiSeriesNameForCatalogKey,
+  isCpsCatalog,
+  isSoftSkillsCatalog,
+} from './catalogSeries';
+
 export const METIERS_DE_LA_MER_SERIES = "Série Métiers de la mer";
 export const COMPETENCES_ORIENTER_COLLEGE_SERIES = "Série Compétences à s'orienter - Collège";
 /** Nom encore en base (rake de rename pas encore passé côté back). Affichage FE : voir SOFT_SKILLS_SERIES_NAME dans utils/badgeLevelLabels.ts, plus « Soft Skills 4LAB » nulle part (Patrick, 29/09). */
@@ -98,12 +109,18 @@ const COMPETENCES_ORIENTER_AXES: BadgeAxe[] = [
 export const SERIES_WITH_AXES = [METIERS_DE_LA_MER_SERIES, COMPETENCES_ORIENTER_COLLEGE_SERIES] as const;
 
 /** Series that use competence-progress UI in Ma Cartographie (greyed image, progress bar, legend) */
-export const SERIES_WITH_COMPETENCE_PROGRESS = [COMPETENCES_ORIENTER_COLLEGE_SERIES, METIERS_DE_LA_MER_SERIES] as const;
+export const SERIES_WITH_COMPETENCE_PROGRESS = [
+  COMPETENCES_ORIENTER_COLLEGE_SERIES,
+  METIERS_DE_LA_MER_SERIES,
+  CATALOG_KEY_ORIENTER,
+  CATALOG_KEY_MER,
+] as const;
 
 export function isSeriesWithAxes(seriesName: string): boolean {
   return SERIES_WITH_AXES.includes(seriesName as typeof SERIES_WITH_AXES[number]);
 }
 
+/** Accepts catalog_key or display name (R1). */
 export function isSeriesWithCompetenceProgress(seriesName: string): boolean {
   return (SERIES_WITH_COMPETENCE_PROGRESS as readonly string[]).includes(seriesName);
 }
@@ -225,9 +242,12 @@ export const CARTOGRAPHIE_V1_1_SERIES = [
   PSYCHOSOCIALES_SERIES,
 ] as const;
 
+/** Prefer catalog keys for cartographie tabs (R1). */
+export { CARTOGRAPHIE_V1_1_CATALOG_KEYS };
+
 /** Nom du "3e étage" (niveau / CPS spécifique) selon la série — spec §1. */
 export function getNiveauWordForSeries(seriesName: string): string {
-  if (seriesName === PSYCHOSOCIALES_SERIES) return 'CPS spécifique';
+  if (isCpsCatalog({ catalog_key: seriesName, series: seriesName })) return 'CPS spécifique';
   return 'Niveau';
 }
 
@@ -238,7 +258,7 @@ export function getNiveauWordForSeries(seriesName: string): string {
 // déclare ce typage aujourd'hui — ne pas étendre cette liste sans vraies données typées
 // côté back pour la série concernée (category: domain n'y signifie pas forcément "savoir",
 // ex. Soft Skills où domain = "domaine d'engagement", un tout autre concept).
-const SERIES_WITH_TYPED_SAVOIR_ITEMS: string[] = [PSYCHOSOCIALES_SERIES];
+const SERIES_WITH_TYPED_SAVOIR_ITEMS: string[] = [PSYCHOSOCIALES_SERIES, CATALOG_KEY_CPS];
 
 export function hasTypedSavoirSavoirFaireItems(seriesName: string): boolean {
   return SERIES_WITH_TYPED_SAVOIR_ITEMS.includes(seriesName);
@@ -247,10 +267,15 @@ export function hasTypedSavoirSavoirFaireItems(seriesName: string): boolean {
 /**
  * Retourne les axes de la cartographie V1.1 pour une série donnée, y compris TouKouLeur et CPS
  * (contrairement à getAxesForSeries, réservée aux séries de l'ancien flux "Attribuer une preuve").
+ * Accepte catalog_key ou nom affiché (R1).
  * Retourne [] pour une série sans axe (ex. une série non listée ici).
  */
 export function getCartographieAxesForSeries(seriesName: string): BadgeAxe[] {
-  if (isSoftSkillsSeries(seriesName)) return TOUKOULEUR_AXES;
-  if (seriesName === PSYCHOSOCIALES_SERIES) return CPS_AXES;
-  return getAxesForSeries(seriesName);
+  if (isSoftSkillsCatalog({ catalog_key: seriesName, series: seriesName })) return TOUKOULEUR_AXES;
+  if (isCpsCatalog({ catalog_key: seriesName, series: seriesName })) return CPS_AXES;
+  const asName = apiSeriesNameForCatalogKey(seriesName) || seriesName;
+  return getAxesForSeries(asName);
 }
+
+// Re-export keys used by carto consumers
+export { CATALOG_KEY_SOFT_SKILLS, CATALOG_KEY_CPS, CATALOG_KEY_ORIENTER, CATALOG_KEY_MER };
