@@ -9,6 +9,7 @@ import {
 } from '../../constants/badgeAxes';
 import {
   CATALOG_KEY_AUDIOVISUELLE,
+  CATALOG_KEY_CPS,
   CATALOG_KEY_MER,
   CATALOG_KEY_ORIENTER,
   CATALOG_KEY_PARCOURS_DES_POSSIBLES,
@@ -18,6 +19,7 @@ import {
 import { BadgeAPI, BadgeSkillAPI } from '../../types';
 import { getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { COMPETENCES_PSYCHOSOCIALES_SERIES } from '../../utils/cpsSeries';
 import BadgeInfoModal from '../Modals/BadgeInfoModal';
 import { getBadgeDisplayName } from '../Modals/BadgeAssignmentModal';
 import './BadgeExplorer.css';
@@ -81,6 +83,10 @@ export { COMPETENCES_ORIENTER_COLLEGE_SERIES };
 // Representative badge (name, level) per series dbName for series icon on parcours-detail view
 const SERIES_REPRESENTATIVE_BADGE: Record<string, { name: string; level: string }> = {
   [SOFT_SKILLS_SERIES]: { name: 'Adaptabilité', level: '1' },
+  [COMPETENCES_PSYCHOSOCIALES_SERIES]: {
+    name: 'Renforcer sa connaissance de soi (C1.1) et penser de façon critique (C1.2)',
+    level: '1',
+  },
   'Série Parcours des possibles': { name: 'Étape 1 : IMPLICATION INITIALE', level: '1' },
   'Série Parcours professionnel': { name: 'PARCOURS DE DÉCOUVERTE - COLLÈGE', level: '1' },
   'Série Audiovisuelle': { name: 'IMAGE', level: '1' },
@@ -125,12 +131,14 @@ const PARCOURS: Parcours[] = [
     iconType: 'fa',
     series: [
       {
-        displayName: 'Série CPS – Compétences Psychosociales (à venir)',
-        dbName: null,
-        comingSoon: true,
-        description: "Valorise les compétences liées à la gestion des émotions, aux relations sociales et à la prise de décision responsable, en cohérence avec le référentiel de l'Organisation Mondiale de la Santé (OMS)."
-      }
-    ]
+        displayName: 'Compétences psychosociales',
+        dbName: COMPETENCES_PSYCHOSOCIALES_SERIES,
+        catalogKey: CATALOG_KEY_CPS,
+        comingSoon: false,
+        description:
+          "Valorise les compétences liées à la gestion des émotions, aux relations sociales et à la prise de décision responsable, en cohérence avec le référentiel Santé publique France / OMS.",
+      },
+    ],
   },
   {
     id: '3',
@@ -1036,9 +1044,10 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       setView('badge-list');
       return;
     }
-    if (!series.dbName) return;
+    // R1: catalog_key is enough to open; dbName kept for local images / legacy labels
+    if (!series.catalogKey && !series.dbName) return;
     setSelectedSeries(series);
-    setSelectedSeriesDbName(series.dbName);
+    setSelectedSeriesDbName(series.dbName || series.catalogKey || null);
     setBadgeFilter('all');
     setView('badge-list');
   };
