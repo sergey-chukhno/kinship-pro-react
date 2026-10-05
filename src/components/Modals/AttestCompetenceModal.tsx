@@ -2,11 +2,22 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BadgeAttribution, BadgeAPI } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
+import { getBadgeSeriesTreeByKey } from '../../api/BadgeSeries';
 import { isSeriesWithAxes, getAxesForSeries, getBadgeNamesForAxe, isSoftSkillsSeries, hasTypedSavoirSavoirFaireItems } from '../../constants/badgeAxes';
 import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { isSingleSelectCompetenceSeries } from '../../utils/badgeAssignmentCompetenceSelection';
 import { isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
+import { resolveCatalogKeyForSeries } from '../../utils/seriesCatalogKey';
+import {
+  axesAsOptions,
+  badgeNamesForTree,
+  treeHasAxes,
+} from '../../utils/seriesTreeHelpers';
+import { SeriesTree } from '../../types/badgeSeriesTree';
+import { PublicProofPayload } from '../../types/badgeProofApi';
+import { ProofData } from '../../types/proof';
+import { normalizeBadgeProofResponse, mapProofApiToProofData } from '../../utils/pbProofMapper';
 import { useToast } from '../../hooks/useToast';
 import apiClient from '../../api/config';
 import {
@@ -14,8 +25,24 @@ import {
   getBadgeCompetencies,
   getCompetencyDisplayName,
 } from './BadgeAssignmentModal';
+import { ProofCardCompact } from '../Proof/ProofCardCompact';
 import './Modal.css';
 import './BadgeAssignmentModal.css';
+
+function mapAssignProofToProofData(proof: PublicProofPayload): ProofData {
+  const normalized = normalizeBadgeProofResponse(
+    proof as unknown as Record<string, unknown>,
+    ''
+  );
+  const data = mapProofApiToProofData(normalized);
+  // Assign payload has no share_token — clear share affordances
+  return {
+    ...data,
+    shareToken: '',
+    shareUrl: '',
+    showRightsLink: false,
+  };
+}
 
 interface AttestCompetenceModalProps {
   onClose: () => void;
@@ -221,11 +248,18 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   const [loadingBadges, setLoadingBadges] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [successState, setSuccessState] = useState<{ count: number; badgeName: string } | null>(null);
+  const [successState, setSuccessState] = useState<{
+    count: number;
+    badgeName: string;
+    proof: ProofData | null;
+  } | null>(null);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [constatMode, setConstatMode] = useState<'groupe' | 'individuel'>('groupe');
   const [individualDrafts, setIndividualDrafts] = useState<Record<string, ParticipantConstat>>({});
   const [activeParticipantId, setActiveParticipantId] = useState<string | null>(null);
+  /** F2 catalogue tree for Écran 3 (axes → compétences → badges) */
+  const [seriesTree, setSeriesTree] = useState<SeriesTree | null>(null);
+  const [treeLoading, setTreeLoading] = useState(false);
 
   const displaySeries = useCallback((seriesName: string) => {
     return isSoftSkillsSeries(seriesName) ? SOFT_SKILLS_SERIES_NAME : seriesName;
@@ -320,6 +354,62 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   useEffect(() => {
     if (!series && availableSeries.length === 1) setSeries(availableSeries[0]);
   }, [availableSeries, series]);
+
+  // F2 — load catalogue tree when series is selected (Fatima Écran 3)
+  useEffect(() => {
+    if (!series) {
+      setSeriesTree(null);
+      return;
+    }
+    const key = resolveCatalogKeyForSeries(series);
+    if (!key) {
+      setSeriesTree(null);
+      return;
+    }
+    let cancelled = false;
+    setTreeLoading(true);
+    void getBadgeSeriesTreeByKey(key)
+      .then((tree) => {
+        if (!cancelled) setSeriesTree(tree);
+      })
+      .catch(() => {
+        if (!cancelled) setSeriesTree(null);
+      })
+      .finally(() => {
+        if (!cancelled) setTreeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [series]);
+
+  const wizardHasAxeStep = useMemo(() => {
+    if (seriesTree && treeHasAxes(seriesTree)) {
+      const opts = axesAsOptions(seriesTree);
+      if (opts.some((a) => a.badgeNames.length > 0)) return true;
+      // Tree axes exist but no attributable badges under them — skip axe step
+    }
+    // Fallback hardcoded Mer / Orienter when tree missing or empty links
+    if (isSeriesWithAxes(series)) return true;
+    return false;
+  }, [seriesTree, series]);
+
+  const treeAxeOptions = useMemo(() => {
+    if (seriesTree && treeHasAxes(seriesTree)) {
+      const opts = axesAsOptions(seriesTree);
+      if (opts.some((a) => a.badgeNames.length > 0)) return opts;
+    }
+    if (isSeriesWithAxes(series)) {
+      return getAxesForSeries(series).map((a) => ({
+        id: a.id,
+        title: a.title,
+        badgeNames: a.badgeNames,
+      }));
+    }
+    return [];
+  }, [seriesTree, series]);
+
+  const leafLabel = seriesTree?.leaf_label || (isCompetencesPsychosocialesSeries(series) ? 'CPS spécifique' : 'Compétence');
 
   const groupedSeries = useMemo(() => {
     const q = seriesQuery.trim().toLowerCase();
@@ -486,16 +576,17 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     const base: { key: WizardStepKey; label: string }[] = [
       { key: 'serie', label: 'Série' },
       { key: 'axe', label: 'Axe' },
-      { key: 'competence', label: 'Compétence' },
+      { key: 'competence', label: leafLabel },
       { key: 'participants', label: 'Participants' },
       { key: 'constat', label: 'Constat' },
     ];
-    return isIndividual ? base.filter((s) => s.key !== 'participants') : base;
-  }, [isIndividual]);
+    const withAxes = wizardHasAxeStep ? base : base.filter((s) => s.key !== 'axe');
+    return isIndividual ? withAxes.filter((s) => s.key !== 'participants') : withAxes;
+  }, [isIndividual, wizardHasAxeStep, leafLabel]);
 
   // Une seule série disponible : cet écran n'existe pas (V1.1, écran 1).
   const hasSerieScreen = availableSeries.length !== 1;
-  const firstStep: WizardStepKey = hasSerieScreen ? 'serie' : isSeriesWithAxes(series) ? 'axe' : 'competence';
+  const firstStep: WizardStepKey = hasSerieScreen ? 'serie' : wizardHasAxeStep ? 'axe' : 'competence';
 
   const [step, setStep] = useState<WizardStepKey>(firstStep);
   const [selectedAxe, setSelectedAxe] = useState<string | null>(null);
@@ -503,9 +594,17 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
   useEffect(() => {
     if (!hasSerieScreen && series && step === 'serie') {
-      setStep(isSeriesWithAxes(series) ? 'axe' : 'competence');
+      setStep(wizardHasAxeStep ? 'axe' : 'competence');
     }
-  }, [hasSerieScreen, series, step]);
+  }, [hasSerieScreen, series, step, wizardHasAxeStep]);
+
+  // When tree arrives with usable axes and user is still on competence without axe, move to axe
+  useEffect(() => {
+    if (!wizardHasAxeStep) return;
+    if (step === 'competence' && !selectedAxe && Object.keys(drafts).length === 0) {
+      setStep('axe');
+    }
+  }, [wizardHasAxeStep, step, selectedAxe, drafts]);
 
   const currentStepIndex = stepDefs.findIndex((s) => s.key === step);
 
@@ -530,6 +629,8 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     setConstatMode('groupe');
     setIndividualDrafts({});
     setActiveParticipantId(null);
+    setSeriesTree(null);
+    // Provisional step; tree effect may upgrade to axe when axes exist
     setStep(isSeriesWithAxes(s) ? 'axe' : 'competence');
   };
 
@@ -557,7 +658,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
       return;
     }
     if (step === 'competence') {
-      setStep(isSeriesWithAxes(series) ? 'axe' : 'serie');
+      setStep(wizardHasAxeStep ? 'axe' : 'serie');
       return;
     }
     if (step === 'participants') {
@@ -649,7 +750,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     setDrafts({});
     setExpandedCompetence(null);
     resetConstatExtras();
-    setStep(isSeriesWithAxes(series) ? 'axe' : 'competence');
+    setStep(wizardHasAxeStep ? 'axe' : 'competence');
   };
 
   const handleSameCompetenceOtherParticipants = () => {
@@ -662,11 +763,23 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   };
 
   const namesForCompetenceStep = useMemo(() => {
-    if (isSeriesWithAxes(series) && selectedAxe) {
-      return competenceNames.filter((n) => getBadgeNamesForAxe(series, selectedAxe).includes(n) && !frozenNames.has(n));
+    if (wizardHasAxeStep && selectedAxe) {
+      const fromTree = treeAxeOptions.find((a) => a.title === selectedAxe);
+      if (fromTree) {
+        return competenceNames.filter((n) => fromTree.badgeNames.includes(n) && !frozenNames.has(n));
+      }
+      if (isSeriesWithAxes(series)) {
+        return competenceNames.filter((n) => getBadgeNamesForAxe(series, selectedAxe).includes(n) && !frozenNames.has(n));
+      }
+    }
+    if (seriesTree && !treeHasAxes(seriesTree)) {
+      const fromRoot = badgeNamesForTree(seriesTree);
+      if (fromRoot.length > 0) {
+        return competenceNames.filter((n) => fromRoot.includes(n) && !frozenNames.has(n));
+      }
     }
     return visibleNames;
-  }, [series, selectedAxe, competenceNames, frozenNames, visibleNames]);
+  }, [wizardHasAxeStep, selectedAxe, treeAxeOptions, series, competenceNames, frozenNames, visibleNames, seriesTree]);
 
   const handleSubmit = async () => {
     if (selectedDraftList.length === 0) {
@@ -767,6 +880,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     try {
       let assigned = 0;
       let lastBadge: BadgeAPI | null = null;
+      let lastProof: ProofData | null = null;
 
       if (useIndividualConstats) {
         for (const draft of selectedDraftList) {
@@ -791,6 +905,8 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               pd?.file ? [pd.file] : undefined
             );
             assigned += response.assigned_count || 1;
+            const rawProof = response.assignments?.[0]?.proof;
+            if (rawProof) lastProof = mapAssignProofToProofData(rawProof);
           }
         }
       } else {
@@ -814,6 +930,8 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
             file ? [file] : undefined
           );
           assigned += response.assigned_count || recipientIds.length;
+          const rawProof = response.assignments?.[0]?.proof;
+          if (rawProof) lastProof = mapAssignProofToProofData(rawProof);
         }
       }
 
@@ -847,7 +965,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
           dateAttribution: new Date().toISOString(),
         });
       }
-      setSuccessState({ count: assigned, badgeName: lastBadge ? getBadgeDisplayName(lastBadge.name) : 'la compétence' });
+      setSuccessState({
+        count: assigned,
+        badgeName: lastBadge ? getBadgeDisplayName(lastBadge.name) : 'la compétence',
+        proof: lastProof,
+      });
     } catch (error: any) {
       const apiMessage = error.response?.data?.message || error.response?.data?.error;
       showErrorToast(apiMessage || "Erreur lors de l'attestation");
@@ -915,6 +1037,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                   ? `Une par personne, portant les constats cochés pour « ${successState.badgeName} ».`
                   : `Pour « ${successState.badgeName} ».`}
               </p>
+              {successState.proof && (
+                <div className="att-success-proof" style={{ margin: '16px 0', textAlign: 'left' }}>
+                  <ProofCardCompact proof={successState.proof} />
+                </div>
+              )}
               <div className="att-success-actions">
                 {!isIndividual && (
                   <button type="button" className="att-success-btn" onClick={handleSameCompetenceOtherParticipants}>
@@ -960,14 +1087,15 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
             </>
           )}
 
-          {!successState && step === 'axe' && isSeriesWithAxes(series) && (
+          {!successState && step === 'axe' && wizardHasAxeStep && (
             <>
               <div className="att-grp">{displaySeries(series)}</div>
               <div className="att-qline">Dans quel axe ?</div>
               <p className="att-qhelp">Plusieurs axes dans cette série.</p>
-              {getAxesForSeries(series).map((axe) => {
-                const names = competenceNames.filter((n) => getBadgeNamesForAxe(series, axe.title).includes(n) && !frozenNames.has(n));
-                if (names.length === 0) return null;
+              {treeLoading && <p className="att-hint">Chargement de l’arbre…</p>}
+              {treeAxeOptions.map((axe) => {
+                const names = competenceNames.filter((n) => axe.badgeNames.includes(n) && !frozenNames.has(n));
+                if (names.length === 0 && !treeLoading) return null;
                 return (
                   <button
                     key={axe.id}
@@ -975,6 +1103,8 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                     className={`att-srow ${selectedAxe === axe.title ? 'sel' : ''}`}
                     onClick={() => {
                       setSelectedAxe(axe.title);
+                      setDrafts({});
+                      setExpandedCompetence(null);
                       setStep('competence');
                     }}
                   >

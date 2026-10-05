@@ -559,6 +559,8 @@ export interface BadgeAssignmentResponse {
     badge_name: string;
     status: string;
     user_badge_id: number;
+    /** F3 — PublicProofPayload (no share_token) */
+    proof?: import('./badgeProofApi').PublicProofPayload;
   }>;
   errors?: Array<string | EventCompleteAwardError>;
 }
