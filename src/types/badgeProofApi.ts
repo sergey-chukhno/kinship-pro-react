@@ -1,4 +1,26 @@
-/** Réponse GET /api/v1/proofs/pb/:token — champs plats (proof_manifest). */
+/**
+ * F3 — PublicProofPayload (assign_badge.assignments[].proof).
+ * No share_token / show_owner_name (attester ≠ holder).
+ */
+export interface PublicProofPayload {
+  proof_number: string;
+  proof_type: 'PB' | 'PE';
+  proof_manifest?: Partial<BadgeProofApiResponse> | Record<string, unknown> | null;
+  holder_display: string;
+  sender_display?: {
+    name?: string | null;
+    job?: string | null;
+  } | null;
+  sender_comment?: string | null;
+  badge_role?: string | null;
+  attestation_label?: string | null;
+  esco_uri?: string | null;
+  esco_label?: string | null;
+  esco_match?: 'exact' | 'close' | null;
+  verify_service_enabled?: boolean;
+}
+
+/** Réponse GET /api/v1/proofs/pb|pe/:token — F3 core + share fields. */
 export interface BadgeProofApiResponse {
   proof_number: string;
   proof_type: 'PB' | 'PE';
@@ -50,7 +72,7 @@ export interface BadgeProofApiResponse {
   presence_verified?: boolean | null;
   presence_date?: string | null;
   presence_location?: string | null;
-  /** Enveloppe API (optionnelle selon version backend) */
+  /** pb/pe only — absent on assign PublicProofPayload */
   share_token?: string;
   show_owner_name?: boolean;
   /** Bulle présence — afficher tel quel, sans transformation front */

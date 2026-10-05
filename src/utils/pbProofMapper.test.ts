@@ -44,4 +44,26 @@ describe('mapPbProofApiToProofData sender', () => {
     expect(proof.senderName).toBe('Données civiles effacées');
     expect(proof.senderCivilErased).toBe(true);
   });
+
+  it('maps assign PublicProofPayload without share_token (F3 Écran 7)', () => {
+    const api = normalizeBadgeProofResponse(
+      {
+        proof_number: 'PB·2026·FR·ASSIGN01',
+        proof_type: 'PB',
+        holder_display: 'Alice',
+        sender_display: { name: 'Bob', job: 'Mentor' },
+        attestation_label: '✓ Attestée',
+        esco_label: 'Adaptability',
+        esco_uri: 'http://data.europa.eu/esco/skill/x',
+        esco_match: 'exact',
+        verify_service_enabled: false,
+      },
+      ''
+    );
+    const proof = mapPbProofApiToProofData(api);
+    expect(proof.shareToken).toBe('');
+    expect(proof.holderName).toBe('Alice');
+    expect(proof.escoLabel).toBe('Adaptability');
+    expect(proof.verifyServiceEnabled).toBe(false);
+  });
 });

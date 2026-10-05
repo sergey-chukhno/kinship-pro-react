@@ -204,33 +204,35 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
             )}
           </div>
 
-          {/* Zone 6 */}
-          <div className="proof-zone">
-            <div className="proof-zone-label">Partager et exporter</div>
-            <div className="proof-share-row">
-              <div className="proof-share-url">{proof.shareUrl}</div>
-              <button type="button" className="proof-copy-btn" onClick={handleCopyLink}>
-                {copyLabel}
-              </button>
+          {/* Zone 6 — Partager (pb/pe only ; hide when no share_token e.g. post-assign card) */}
+          {proof.shareToken ? (
+            <div className="proof-zone">
+              <div className="proof-zone-label">Partager et exporter</div>
+              <div className="proof-share-row">
+                <div className="proof-share-url">{proof.shareUrl}</div>
+                <button type="button" className="proof-copy-btn" onClick={handleCopyLink}>
+                  {copyLabel}
+                </button>
+              </div>
+              <div className="proof-export-grid">
+                <button type="button" className="proof-export-btn">
+                  <span className="proof-export-icon">📄</span>
+                  <span className="proof-export-label">Télécharger PDF</span>
+                  <span className="proof-export-sub">Avec QR code /verify</span>
+                </button>
+                <button type="button" className="proof-export-btn" disabled>
+                  <span className="proof-export-icon">{'{ }'}</span>
+                  <span className="proof-export-label">Exporter JSON</span>
+                  <span className="proof-export-sub">Bientôt disponible</span>
+                </button>
+                <button type="button" className="proof-export-btn">
+                  <span className="proof-export-icon">🏅</span>
+                  <span className="proof-export-label">Ajouter au profil</span>
+                  <span className="proof-export-sub">LinkedIn · Credly · Badgr</span>
+                </button>
+              </div>
             </div>
-            <div className="proof-export-grid">
-              <button type="button" className="proof-export-btn">
-                <span className="proof-export-icon">📄</span>
-                <span className="proof-export-label">Télécharger PDF</span>
-                <span className="proof-export-sub">Avec QR code /verify</span>
-              </button>
-              <button type="button" className="proof-export-btn" disabled>
-                <span className="proof-export-icon">{'{ }'}</span>
-                <span className="proof-export-label">Exporter JSON</span>
-                <span className="proof-export-sub">Bientôt disponible</span>
-              </button>
-              <button type="button" className="proof-export-btn">
-                <span className="proof-export-icon">🏅</span>
-                <span className="proof-export-label">Ajouter au profil</span>
-                <span className="proof-export-sub">LinkedIn · Credly · Badgr</span>
-              </button>
-            </div>
-          </div>
+          ) : null}
         </>
       )}
 
