@@ -5,17 +5,6 @@ import {
   badgeNamesForTree,
   treeHasAxes,
 } from './seriesTreeHelpers';
-import { resolveCatalogKeyForSeries, CATALOG_KEY_CPS, CATALOG_KEY_SOFT_SKILLS } from './seriesCatalogKey';
-
-describe('seriesCatalogKey', () => {
-  it('resolves Soft Skills and CPS display names to catalog_key', () => {
-    expect(resolveCatalogKeyForSeries('Compétences transversales (soft skills)')).toBe(
-      CATALOG_KEY_SOFT_SKILLS
-    );
-    expect(resolveCatalogKeyForSeries('Série TouKouLeur')).toBe(CATALOG_KEY_SOFT_SKILLS);
-    expect(resolveCatalogKeyForSeries('Compétences psychosociales')).toBe(CATALOG_KEY_CPS);
-  });
-});
 
 describe('seriesTreeHelpers (F2 Écran 3)', () => {
   const tree: SeriesTree = {
