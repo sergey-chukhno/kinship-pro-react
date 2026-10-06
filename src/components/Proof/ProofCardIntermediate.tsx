@@ -53,22 +53,24 @@ export const ProofCardIntermediate: React.FC<ProofCardIntermediateProps> = ({
         <div className="proof-inter-ctx-value">{contextTitle}</div>
         {proof.senderOrg && <div className="proof-inter-ctx-sub">{proof.senderOrg}</div>}
       </div>
-      <div className="proof-inter-skills">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-          <div className="proof-zone-label" style={{ marginBottom: 0 }}>
-            Compétences validées
+      {(proof.presenceVerified || proof.skills.length > 0) && (
+        <div className="proof-inter-skills">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <div className="proof-zone-label" style={{ marginBottom: 0 }}>
+              Compétences
+            </div>
+            {proof.eventLanguage && (
+              <>
+                <span>{proof.eventLanguage.split(' ')[0]}</span>
+                <span style={{ fontSize: 9, color: '#9e9d97' }}>
+                  {proof.eventLanguage.replace(/^[^\s]+\s/, '')}
+                </span>
+              </>
+            )}
           </div>
-          {proof.eventLanguage && (
-            <>
-              <span>{proof.eventLanguage.split(' ')[0]}</span>
-              <span style={{ fontSize: 9, color: '#9e9d97' }}>
-                {proof.eventLanguage.replace(/^[^\s]+\s/, '')}
-              </span>
-            </>
-          )}
+          <ProofSkillsList proof={proof} compact maxItems={3} />
         </div>
-        <ProofSkillsList proof={proof} compact maxItems={3} />
-      </div>
+      )}
       <div className="proof-inter-footer">
         <div className="proof-compact-proof-num" style={{ fontSize: 10 }}>
           {proof.proofNumber}

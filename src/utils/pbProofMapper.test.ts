@@ -67,3 +67,57 @@ describe('mapPbProofApiToProofData sender', () => {
     expect(proof.verifyServiceEnabled).toBe(false);
   });
 });
+
+describe('mapPbProofApiToProofData retention and comment (Patrick public proof)', () => {
+  it('formats retention_expiry_at as a French date', () => {
+    const api = normalizeBadgeProofResponse(
+      {
+        proof_number: 'PB·1',
+        proof_type: 'PB',
+        holder_display: 'Titulaire',
+        retention_expiry_at: '2031-01-25T12:00:00Z',
+        retention_policy: '5_YEARS',
+      },
+      'TOKEN'
+    );
+
+    const proof = mapPbProofApiToProofData(api);
+
+    expect(proof.retentionExpiry).toMatch(/2031/);
+    expect(proof.retentionExpiry).not.toContain('5_YEARS');
+  });
+
+  it('never surfaces raw retention_policy codes when expiry is absent', () => {
+    const api = normalizeBadgeProofResponse(
+      {
+        proof_number: 'PB·1',
+        proof_type: 'PB',
+        holder_display: 'Titulaire',
+        timestamp_utc: '2026-01-25T12:00:00Z',
+        retention_policy: '5_YEARS',
+      },
+      'TOKEN'
+    );
+
+    const proof = mapPbProofApiToProofData(api);
+
+    expect(proof.retentionExpiry).not.toContain('5_YEARS');
+    expect(proof.retentionExpiry).toMatch(/2026/);
+  });
+
+  it('hides CIVIL_DATA_ERASED sender_comment', () => {
+    const api = normalizeBadgeProofResponse(
+      {
+        proof_number: 'PB·1',
+        proof_type: 'PB',
+        holder_display: 'Titulaire',
+        sender_comment: 'CIVIL_DATA_ERASED',
+      },
+      'TOKEN'
+    );
+
+    const proof = mapPbProofApiToProofData(api);
+
+    expect(proof.senderComment).toBeNull();
+  });
+});

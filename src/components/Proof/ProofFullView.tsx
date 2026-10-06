@@ -108,18 +108,20 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
         </div>
       </div>
 
-      {/* Zone 4 — Compétences */}
-      <div className="proof-zone proof-zone-main">
-        <div className="proof-zone-label" style={{ color: style.accentColor }}>
-          Compétences validées
-          {proof.eventLanguage && (
-            <span style={{ fontWeight: 400, marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>
-              {proof.eventLanguage}
-            </span>
-          )}
+      {/* Zone 4 — Compétences (masquée si liste vide et pas de présence vérifiée) */}
+      {(proof.presenceVerified || proof.skills.length > 0) && (
+        <div className="proof-zone proof-zone-main">
+          <div className="proof-zone-label" style={{ color: style.accentColor }}>
+            Compétences
+            {proof.eventLanguage && (
+              <span style={{ fontWeight: 400, marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>
+                {proof.eventLanguage}
+              </span>
+            )}
+          </div>
+          <ProofSkillsList proof={proof} />
         </div>
-        <ProofSkillsList proof={proof} />
-      </div>
+      )}
 
       {/* Bouton Vérifier — gated par verify_service_enabled (contrat Sergey/Patrick 01/10, même flag serveur que GET /api/v1/proofs/verify/*) */}
       {proof.verifyServiceEnabled && (
