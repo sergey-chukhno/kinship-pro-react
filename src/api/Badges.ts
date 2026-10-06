@@ -3,9 +3,9 @@ import { BadgeAPI, BadgeSkillAPI, BadgeAssignmentResponse } from '../types';
 import { appendProjectBadgesSeriesParams } from '../utils/seriesFilterParams';
 
 export interface BadgeFilters {
-  /** R1 — preferred filter (takes priority over series on BE) */
+  /** R1 / Étape 2 — series identity (never display name) */
   catalog_key?: string;
-  series?: string;
+  badge_series_id?: number;
   level?: string;
   name?: string;
 }
@@ -22,7 +22,7 @@ export interface AssignBadgeData {
 
 /**
  * Récupère la liste de tous les badges disponibles
- * @param filters - Filtres optionnels (catalog_key, series, level, name)
+ * @param filters - Filtres optionnels (catalog_key, badge_series_id, level, name)
  * @returns Promise<BadgeAPI[]>
  */
 export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => {
@@ -30,8 +30,8 @@ export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => 
 
   if (filters?.catalog_key) {
     params.append('catalog_key', filters.catalog_key);
-  } else if (filters?.series) {
-    params.append('series', filters.series);
+  } else if (filters?.badge_series_id != null) {
+    params.append('badge_series_id', String(filters.badge_series_id));
   }
   if (filters?.level) {
     params.append('level', filters.level);
@@ -58,8 +58,6 @@ export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => 
 export interface ProjectBadgesFilters {
   catalog_key?: string;
   badge_series_id?: number;
-  /** legacy display name — prefer catalog_key after Étape 2 */
-  series?: string;
   level?: string;
   sender_id?: number;
   receiver_query?: string;
@@ -70,7 +68,7 @@ export interface ProjectBadgesFilters {
  * @param projectId - ID du projet
  * @param page - Numéro de page (défaut: 1)
  * @param perPage - Nombre d'éléments par page (défaut: 12)
- * @param filters - Filtres optionnels (catalog_key, series, level)
+ * @param filters - Filtres optionnels (catalog_key, badge_series_id, level)
  * @returns Promise<{ data: any[], meta: any }>
  */
 export const getProjectBadges = async (
@@ -113,7 +111,7 @@ export const getUserBadges = async (
   perPage: number = 12,
   filters?: {
     catalog_key?: string;
-    series?: string;
+    badge_series_id?: number;
     level?: string;
     organization_type?: string;
     organization_id?: number;
@@ -130,8 +128,8 @@ export const getUserBadges = async (
   }
   if (filters?.catalog_key) {
     params.append('catalog_key', filters.catalog_key);
-  } else if (filters?.series) {
-    params.append('series', filters.series);
+  } else if (filters?.badge_series_id != null) {
+    params.append('badge_series_id', String(filters.badge_series_id));
   }
   if (filters?.level) {
     params.append('level', filters.level);

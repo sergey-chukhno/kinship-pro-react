@@ -1004,11 +1004,13 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       setIsLoading(true);
       setError(null);
       try {
-        // R1: prefer catalog_key; series= only as temporary fallback
-        const filters = selectedSeries?.catalogKey
-          ? { catalog_key: selectedSeries.catalogKey }
-          : { series: selectedSeriesDbName };
-        const fetchedBadges = await getBadges(filters);
+        // Étape 2: catalog_key only — never display name as filter identity
+        if (!selectedSeries?.catalogKey) {
+          setBadges([]);
+          setError(null);
+          return;
+        }
+        const fetchedBadges = await getBadges({ catalog_key: selectedSeries.catalogKey });
         setBadges(fetchedBadges);
       } catch (err: any) {
         console.error('Error fetching badges:', err);

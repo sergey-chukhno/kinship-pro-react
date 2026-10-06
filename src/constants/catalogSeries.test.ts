@@ -70,7 +70,7 @@ describe('catalogSeries (R1 / Étape 2)', () => {
     expect(seriesGroupKey({ series: 'Org Custom Series' })).toBe('name:Org Custom Series');
   });
 
-  it('buildCartographyShareSeriesFilters sends catalog_key, id and display series', () => {
+  it('buildCartographyShareSeriesFilters sends catalog_key and id only (no display series)', () => {
     expect(
       buildCartographyShareSeriesFilters({
         catalog_key: CATALOG_KEY_CPS,
@@ -81,7 +81,6 @@ describe('catalogSeries (R1 / Étape 2)', () => {
     ).toEqual({
       catalog_key: CATALOG_KEY_CPS,
       badge_series_id: 7,
-      series: 'Compétences psychosociales',
       level: 'level_1',
       searchTerm: 'x',
     });

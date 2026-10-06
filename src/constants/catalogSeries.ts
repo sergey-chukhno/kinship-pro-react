@@ -112,7 +112,9 @@ export function seriesGroupKey(badge: {
   return `name:${badge.series || ''}`;
 }
 
-/** Build cartography share/export series filters (Étape 2). */
+/** Build cartography share/export series filters (Étape 2).
+ * Identity only: catalog_key and/or badge_series_id — never display name.
+ */
 export function buildCartographyShareSeriesFilters(input: {
   catalog_key?: string | null;
   badge_series_id?: number | null;
@@ -121,7 +123,6 @@ export function buildCartographyShareSeriesFilters(input: {
 }): {
   catalog_key?: string;
   badge_series_id?: number;
-  series?: string;
   level?: string;
   searchTerm?: string;
 } {
@@ -129,7 +130,6 @@ export function buildCartographyShareSeriesFilters(input: {
   return {
     catalog_key,
     badge_series_id: input.badge_series_id != null ? input.badge_series_id : undefined,
-    series: catalog_key ? displayLabelForCatalogKey(catalog_key) : undefined,
     level: input.level,
     searchTerm: input.searchTerm,
   };
