@@ -1,5 +1,11 @@
 import axiosClient from './config';
 import axios, { AxiosResponse } from 'axios';
+import {
+  applyAssignedBadgesSeriesFilter,
+  AssignedBadgesSeriesFilter,
+} from '../utils/seriesFilterParams';
+
+export type { AssignedBadgesSeriesFilter };
 
 const fetchWithFallback = async (
   primaryEndpoint: string,
@@ -199,7 +205,14 @@ export const getTeacherActivityStats = () => {
   return axiosClient.get('/api/v1/teachers/activity_stats');
 };
 
-export const getSchoolAssignedBadges = (schoolId: number, perPage = 200, badgeId?: number, page?: number, badgeSeries?: string, projectId?: number) => {
+export const getSchoolAssignedBadges = (
+  schoolId: number,
+  perPage = 200,
+  badgeId?: number,
+  page?: number,
+  seriesFilter?: AssignedBadgesSeriesFilter,
+  projectId?: number
+) => {
   const params: any = { per_page: perPage };
   if (badgeId) {
     params.badge_id = badgeId;
@@ -207,9 +220,7 @@ export const getSchoolAssignedBadges = (schoolId: number, perPage = 200, badgeId
   if (page) {
     params.page = page;
   }
-  if (badgeSeries) {
-    params.badge_series = badgeSeries;
-  }
+  applyAssignedBadgesSeriesFilter(params, seriesFilter);
   if (projectId != null && projectId !== undefined) {
     params.project_id = projectId;
   }
@@ -218,7 +229,14 @@ export const getSchoolAssignedBadges = (schoolId: number, perPage = 200, badgeId
   });
 };
 
-export const getCompanyAssignedBadges = (companyId: number, perPage = 200, badgeId?: number, page?: number, badgeSeries?: string, projectId?: number) => {
+export const getCompanyAssignedBadges = (
+  companyId: number,
+  perPage = 200,
+  badgeId?: number,
+  page?: number,
+  seriesFilter?: AssignedBadgesSeriesFilter,
+  projectId?: number
+) => {
   const params: any = { per_page: perPage };
   if (badgeId) {
     params.badge_id = badgeId;
@@ -226,9 +244,7 @@ export const getCompanyAssignedBadges = (companyId: number, perPage = 200, badge
   if (page) {
     params.page = page;
   }
-  if (badgeSeries) {
-    params.badge_series = badgeSeries;
-  }
+  applyAssignedBadgesSeriesFilter(params, seriesFilter);
   if (projectId != null && projectId !== undefined) {
     params.project_id = projectId;
   }
@@ -237,7 +253,12 @@ export const getCompanyAssignedBadges = (companyId: number, perPage = 200, badge
   });
 };
 
-export const getTeacherAssignedBadges = (perPage = 200, badgeId?: number, page?: number) => {
+export const getTeacherAssignedBadges = (
+  perPage = 200,
+  badgeId?: number,
+  page?: number,
+  seriesFilter?: AssignedBadgesSeriesFilter
+) => {
   const params: any = { per_page: perPage };
   if (badgeId) {
     params.badge_id = badgeId;
@@ -245,6 +266,7 @@ export const getTeacherAssignedBadges = (perPage = 200, badgeId?: number, page?:
   if (page) {
     params.page = page;
   }
+  applyAssignedBadgesSeriesFilter(params, seriesFilter);
   return axiosClient.get(`/api/v1/teachers/badges/assigned`, {
     params,
   });

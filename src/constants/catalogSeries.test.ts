@@ -1,20 +1,21 @@
 import {
-  apiSeriesNameForCatalogKey,
   CATALOG_KEY_CPS,
   CATALOG_KEY_SOFT_SKILLS,
+  buildCartographyShareSeriesFilters,
   displayLabelForCatalogKey,
   isCpsCatalog,
   isSoftSkillsCatalog,
   resolveCatalogKey,
+  seriesGroupKey,
   seriesOptionsFromBadges,
 } from './catalogSeries';
 
-describe('catalogSeries (R1)', () => {
-  it('maps catalog_key to legacy API series names (pont org/project)', () => {
-    expect(apiSeriesNameForCatalogKey(CATALOG_KEY_SOFT_SKILLS)).toBe(
+describe('catalogSeries (R1 / Étape 2)', () => {
+  it('maps catalog_key to display labels', () => {
+    expect(displayLabelForCatalogKey(CATALOG_KEY_SOFT_SKILLS)).toBe(
       'Compétences transversales (soft skills)'
     );
-    expect(apiSeriesNameForCatalogKey(CATALOG_KEY_CPS)).toBe('Compétences psychosociales');
+    expect(displayLabelForCatalogKey(CATALOG_KEY_CPS)).toBe('Compétences psychosociales');
   });
 
   it('resolves Soft Skills from legacy display names', () => {
@@ -57,5 +58,32 @@ describe('catalogSeries (R1)', () => {
     expect(options[0].id).toBe(10);
     expect(options[0].catalog_key).toBe(CATALOG_KEY_SOFT_SKILLS);
     expect(options[0].label).toBe(displayLabelForCatalogKey(CATALOG_KEY_SOFT_SKILLS));
+  });
+
+  it('seriesGroupKey prefers badge_series_id then catalog_key then name', () => {
+    expect(
+      seriesGroupKey({ badge_series_id: 7, catalog_key: CATALOG_KEY_CPS, series: 'Compétences psychosociales' })
+    ).toBe('id:7');
+    expect(seriesGroupKey({ catalog_key: CATALOG_KEY_CPS, series: 'Compétences psychosociales' })).toBe(
+      `key:${CATALOG_KEY_CPS}`
+    );
+    expect(seriesGroupKey({ series: 'Org Custom Series' })).toBe('name:Org Custom Series');
+  });
+
+  it('buildCartographyShareSeriesFilters sends catalog_key, id and display series', () => {
+    expect(
+      buildCartographyShareSeriesFilters({
+        catalog_key: CATALOG_KEY_CPS,
+        badge_series_id: 7,
+        level: 'level_1',
+        searchTerm: 'x',
+      })
+    ).toEqual({
+      catalog_key: CATALOG_KEY_CPS,
+      badge_series_id: 7,
+      series: 'Compétences psychosociales',
+      level: 'level_1',
+      searchTerm: 'x',
+    });
   });
 });

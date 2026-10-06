@@ -3,7 +3,13 @@ import {
   isMetiersDeLaMerSeries,
   isSeriesWithAxesCompetenceSelection,
 } from '../../utils/badgeAssignmentCompetenceSelection';
-import { isSoftSkillsSeries, hasTypedSavoirSavoirFaireItems } from '../../constants/badgeAxes';
+import { hasTypedSavoirSavoirFaireItems } from '../../constants/badgeAxes';
+import {
+  CATALOG_KEY_AUDIOVISUELLE,
+  CATALOG_KEY_PARCOURS_DES_POSSIBLES,
+  CATALOG_KEY_PARCOURS_PROFESSIONNEL,
+  isSoftSkillsCatalog,
+} from '../../constants/catalogSeries';
 import { validateAxesSeriesCompetencies } from '../../utils/badgeAssignmentValidation';
 
 // Validation rules for level 1 badges (exported for BadgeExplorer)
@@ -517,7 +523,7 @@ export const getBadgeCompetencies = (badge: BadgeAPI | null): Array<{ id: number
   
   const expertises = badge.expertises || [];
   const domains = badge.domains || [];
-  const mergeDomains = hasTypedSavoirSavoirFaireItems(badge.series) && domains.length > 0;
+  const mergeDomains = hasTypedSavoirSavoirFaireItems(badge.catalog_key || badge.series) && domains.length > 0;
 
   if (mergeDomains || expertises.length > 0) {
     if (!mergeDomains) return expertises;
@@ -557,12 +563,22 @@ const validateCompetencies = (
     return axesValidation;
   }
 
-  const isParcoursProfessionnel = badge.series === 'Série Parcours professionnel';
-  const isTouKouLeurLevel2 = isSoftSkillsSeries(badge.series) && badge.level === 'level_2';
-  const shouldValidate = badge.level === 'level_1' || 
-                         (badge.level === 'level_2' && (badge.series === 'Série Parcours des possibles' || badge.series === 'Série Audiovisuelle')) ||
-                         isParcoursProfessionnel ||
-                         isTouKouLeurLevel2;
+  const isParcoursProfessionnel =
+    badge.catalog_key === CATALOG_KEY_PARCOURS_PROFESSIONNEL ||
+    badge.series === 'Série Parcours professionnel';
+  const isTouKouLeurLevel2 =
+    isSoftSkillsCatalog({ catalog_key: badge.catalog_key, series: badge.series }) &&
+    badge.level === 'level_2';
+  const isParcoursPossibles =
+    badge.catalog_key === CATALOG_KEY_PARCOURS_DES_POSSIBLES ||
+    badge.series === 'Série Parcours des possibles';
+  const isAudiovisuelle =
+    badge.catalog_key === CATALOG_KEY_AUDIOVISUELLE || badge.series === 'Série Audiovisuelle';
+  const shouldValidate =
+    badge.level === 'level_1' ||
+    (badge.level === 'level_2' && (isParcoursPossibles || isAudiovisuelle)) ||
+    isParcoursProfessionnel ||
+    isTouKouLeurLevel2;
   
   if (!shouldValidate) {
     return { isValid: true, errorMessage: null }; // No validation for other badges

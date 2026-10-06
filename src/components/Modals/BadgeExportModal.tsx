@@ -12,7 +12,9 @@ interface BadgeExportModalProps {
   badges: Badge[]; // Filtered badges to export
   rawAttributions?: any[]; // Raw user_badge array for per-attribution PDF (same order as filtered badges)
   filters: {
-    series: string;
+    catalog_key?: string;
+    badge_series_id?: number;
+    series?: string;
     level: string;
     searchTerm: string;
   };

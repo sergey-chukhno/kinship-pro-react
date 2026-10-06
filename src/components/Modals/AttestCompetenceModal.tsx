@@ -4,7 +4,12 @@ import { useAppContext } from '../../context/AppContext';
 import { getBadges, assignBadge, getProjectBadges } from '../../api/Badges';
 import { getBadgeSeriesTreeById, getBadgeSeriesTreeByKey } from '../../api/BadgeSeries';
 import { isSoftSkillsSeries, hasTypedSavoirSavoirFaireItems } from '../../constants/badgeAxes';
-import { CATALOG_KEY_CPS } from '../../constants/catalogSeries';
+import {
+  CATALOG_KEY_AUDIOVISUELLE,
+  CATALOG_KEY_CPS,
+  isSoftSkillsCatalog,
+  seriesGroupKey,
+} from '../../constants/catalogSeries';
 import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { isSingleSelectCompetenceSeries } from '../../utils/badgeAssignmentCompetenceSelection';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
@@ -124,20 +129,36 @@ const joinFr = (names: string[]): string => {
   return `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}`;
 };
 
-const seriesProvenance = (series: string): 'own' | 'catalogue' => {
-  const n = series.toLowerCase();
+const seriesProvenance = (sample?: BadgeAPI | null): 'own' | 'catalogue' => {
+  if (!sample) return 'own';
+  if (sample.catalog_key) return 'catalogue';
+  const n = (sample.series || '').toLowerCase();
   return CATALOGUE_MARKERS.some((m) => n.includes(m)) ? 'catalogue' : 'own';
 };
 
 const commentRequiredFor = (badge: BadgeAPI): boolean => {
-  if (badge.series === 'Série Audiovisuelle' && (badge.level === 'level_3' || badge.level === 'level_4')) return true;
-  if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3') return true;
+  const isAudiovisuelle =
+    badge.catalog_key === CATALOG_KEY_AUDIOVISUELLE || badge.series === 'Série Audiovisuelle';
+  if (isAudiovisuelle && (badge.level === 'level_3' || badge.level === 'level_4')) return true;
+  if (
+    isSoftSkillsCatalog({ catalog_key: badge.catalog_key, series: badge.series }) &&
+    badge.level === 'level_3'
+  ) {
+    return true;
+  }
   return badge.level === 'level_2';
 };
 
 const documentRequiredFor = (badge: BadgeAPI): boolean => {
-  if (badge.series === 'Série Audiovisuelle' && (badge.level === 'level_3' || badge.level === 'level_4')) return true;
-  if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3') return true;
+  const isAudiovisuelle =
+    badge.catalog_key === CATALOG_KEY_AUDIOVISUELLE || badge.series === 'Série Audiovisuelle';
+  if (isAudiovisuelle && (badge.level === 'level_3' || badge.level === 'level_4')) return true;
+  if (
+    isSoftSkillsCatalog({ catalog_key: badge.catalog_key, series: badge.series }) &&
+    badge.level === 'level_3'
+  ) {
+    return true;
+  }
   return false;
 };
 
@@ -349,10 +370,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   }, [organizationsForSelection]);
 
   const badgesBySeries = useMemo(() => {
-    const organized: { [series: string]: BadgeAPI[] } = {};
+    const organized: { [seriesKey: string]: BadgeAPI[] } = {};
     badges.forEach((badge) => {
-      if (!organized[badge.series]) organized[badge.series] = [];
-      organized[badge.series].push(badge);
+      const key = seriesGroupKey(badge);
+      if (!organized[key]) organized[key] = [];
+      organized[key].push(badge);
     });
     return organized;
   }, [badges]);
@@ -411,14 +433,23 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
   const leafLabel = seriesTree?.leaf_label || 'Compétence';
 
+  const seriesLabel = (seriesKey: string): string => {
+    const sample = badgesBySeries[seriesKey]?.[0];
+    if (!sample) return seriesKey;
+    return displaySeries(sample.series);
+  };
+
   const groupedSeries = useMemo(() => {
     const q = seriesQuery.trim().toLowerCase();
-    const list = availableSeries.filter((s) => !q || displaySeries(s).toLowerCase().includes(q) || s.toLowerCase().includes(q));
+    const list = availableSeries.filter((s) => {
+      const label = seriesLabel(s).toLowerCase();
+      return !q || label.includes(q) || s.toLowerCase().includes(q);
+    });
     return {
-      own: list.filter((s) => seriesProvenance(s) === 'own'),
-      catalogue: list.filter((s) => seriesProvenance(s) === 'catalogue'),
+      own: list.filter((s) => seriesProvenance(badgesBySeries[s]?.[0]) === 'own'),
+      catalogue: list.filter((s) => seriesProvenance(badgesBySeries[s]?.[0]) === 'catalogue'),
     };
-  }, [availableSeries, seriesQuery, displaySeries]);
+  }, [availableSeries, seriesQuery, badgesBySeries]);
 
   const seriesBadges = useMemo(() => {
     return (badgesBySeries[series] || []).filter((b) => b.name !== 'Test Badge');
@@ -830,7 +861,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               showWarningToast(`Le commentaire est obligatoire pour ${pLabel}`);
               return;
             }
-            if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3' && text.length < 100) {
+            if (
+              isSoftSkillsCatalog({ catalog_key: badge.catalog_key, series: badge.series }) &&
+              badge.level === 'level_3' &&
+              text.length < 100
+            ) {
               showWarningToast(`Le commentaire doit contenir au moins 100 caractères pour le niveau 3 de la série ${SOFT_SKILLS_SERIES_NAME}`);
               return;
             }
@@ -859,7 +894,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
           showWarningToast(`Le commentaire est obligatoire pour ${getBadgeDisplayName(draft.name)}`);
           return;
         }
-        if (isSoftSkillsSeries(badge.series) && badge.level === 'level_3' && text.length < 100) {
+        if (
+          isSoftSkillsCatalog({ catalog_key: badge.catalog_key, series: badge.series }) &&
+          badge.level === 'level_3' &&
+          text.length < 100
+        ) {
           showWarningToast(`Le commentaire doit contenir au moins 100 caractères pour le niveau 3 de la série ${SOFT_SKILLS_SERIES_NAME}`);
           return;
         }
@@ -1073,14 +1112,14 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               {groupedSeries.own.length > 0 && <div className="att-grp">Vos séries</div>}
               {groupedSeries.own.map((s) => (
                 <button key={s} type="button" className={`att-srow ${s === series ? 'sel' : ''}`} onClick={() => chooseSeries(s)}>
-                  {displaySeries(s)}
+                  {seriesLabel(s)}
                   <span className="ct">{s === series ? '✓ choisie' : `${(badgesBySeries[s] || []).length}`}</span>
                 </button>
               ))}
               {groupedSeries.catalogue.length > 0 && <div className="att-grp">Catalogue Kinship</div>}
               {groupedSeries.catalogue.map((s) => (
                 <button key={s} type="button" className={`att-srow ${s === series ? 'sel' : ''}`} onClick={() => chooseSeries(s)}>
-                  {displaySeries(s)}
+                  {seriesLabel(s)}
                   <span className="ct">{s === series ? '✓ choisie' : `${(badgesBySeries[s] || []).length}`}</span>
                 </button>
               ))}
@@ -1091,7 +1130,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
           {!successState && step === 'axe' && wizardHasAxeStep && (
             <>
-              <div className="att-grp">{displaySeries(series)}</div>
+              <div className="att-grp">{seriesLabel(series)}</div>
               <div className="att-qline">Dans quel axe ?</div>
               <p className="att-qhelp">Plusieurs axes dans cette série.</p>
               {treeLoading && <p className="att-hint">Chargement de l’arbre…</p>}
@@ -1137,7 +1176,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                     <div key={`${f.name}-${f.level}`} className="att-frozen">
                       <span className="att-ok">✓</span>
                       {getBadgeDisplayName(f.name)}
-                      <span className="att-lv">{getLevelLabel(series, f.level)}</span>
+                        <span className="att-lv">{getLevelLabel(badgesBySeries[series]?.[0]?.catalog_key || badgesBySeries[series]?.[0]?.series || series, f.level)}</span>
                       <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8f8d86' }}>
                         {f.date ? `le ${f.date} · ` : ''}sa preuve est née
                       </span>
@@ -1146,7 +1185,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                 </>
               )}
               <div className="att-grp">
-                {displaySeries(series)}
+                {seriesLabel(series)}
                 {selectedAxe ? ` · ${selectedAxe}` : ''}
               </div>
               <div className="att-qline">Qu’avez-vous observé ?</div>
@@ -1204,7 +1243,13 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                             comps={comps}
                             checkedIds={draft?.expertiseIds || []}
                             series={badge!.series}
-                            onToggle={(id) => toggleExpertise(name, id, isSingleSelectCompetenceSeries(badge!.series))}
+                            onToggle={(id) =>
+                              toggleExpertise(
+                                name,
+                                id,
+                                isSingleSelectCompetenceSeries(badge!.series, badge!.catalog_key)
+                              )
+                            }
                             onToggleAll={() => toggleAllExpertise(name, comps.map((c) => c.id), draft?.expertiseIds || [])}
                           />
                         ) : (
@@ -1413,7 +1458,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                                 checkedIds={ad.expertiseIds}
                                 series={pickedBadge!.series}
                                 onToggle={(id) =>
-                                  toggleIndividualExpertise(aid, id, isSingleSelectCompetenceSeries(pickedBadge!.series))
+                                  toggleIndividualExpertise(aid, id, isSingleSelectCompetenceSeries(pickedBadge!.series, pickedBadge!.catalog_key))
                                 }
                                 onToggleAll={() =>
                                   toggleAllIndividualExpertise(aid, pickedComps.map((c) => c.id), ad.expertiseIds)
@@ -1462,7 +1507,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                       comps={pickedComps}
                       checkedIds={pickedDraft.expertiseIds}
                       series={pickedBadge!.series}
-                      onToggle={(id) => toggleExpertise(pickedName, id, isSingleSelectCompetenceSeries(pickedBadge!.series))}
+                      onToggle={(id) => toggleExpertise(pickedName, id, isSingleSelectCompetenceSeries(pickedBadge!.series, pickedBadge!.catalog_key))}
                       onToggleAll={() =>
                         toggleAllExpertise(pickedName, pickedComps.map((c) => c.id), pickedDraft.expertiseIds)
                       }

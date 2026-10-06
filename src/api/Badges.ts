@@ -1,5 +1,6 @@
 import apiClient from './config';
 import { BadgeAPI, BadgeSkillAPI, BadgeAssignmentResponse } from '../types';
+import { appendProjectBadgesSeriesParams } from '../utils/seriesFilterParams';
 
 export interface BadgeFilters {
   /** R1 — preferred filter (takes priority over series on BE) */
@@ -54,24 +55,35 @@ export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => 
  * @param filters - Filtres optionnels (series, level)
  * @returns Promise<{ data: any[], meta: any }>
  */
+export interface ProjectBadgesFilters {
+  catalog_key?: string;
+  badge_series_id?: number;
+  /** legacy display name — prefer catalog_key after Étape 2 */
+  series?: string;
+  level?: string;
+  sender_id?: number;
+  receiver_query?: string;
+}
+
+/**
+ * Récupère la liste des badges attribués dans un projet
+ * @param projectId - ID du projet
+ * @param page - Numéro de page (défaut: 1)
+ * @param perPage - Nombre d'éléments par page (défaut: 12)
+ * @param filters - Filtres optionnels (catalog_key, series, level)
+ * @returns Promise<{ data: any[], meta: any }>
+ */
 export const getProjectBadges = async (
   projectId: number,
   page: number = 1,
   perPage: number = 12,
-  filters?: {
-    series?: string;
-    level?: string;
-    sender_id?: number;
-    receiver_query?: string;
-  }
+  filters?: ProjectBadgesFilters
 ): Promise<{ data: any[]; meta: any }> => {
   const params = new URLSearchParams();
   params.append('page', page.toString());
   params.append('per_page', perPage.toString());
-  
-  if (filters?.series) {
-    params.append('series', filters.series);
-  }
+
+  appendProjectBadgesSeriesParams(params, filters);
   if (filters?.level) {
     params.append('level', filters.level);
   }

@@ -1,17 +1,27 @@
 import axiosClient, { axiosClientWithoutToken } from './config';
 
+export type CartographyShareFilters = {
+  catalog_key?: string;
+  badge_series_id?: number;
+  /** display / legacy dual-read */
+  series?: string;
+  level?: string;
+  searchTerm?: string;
+  student_id?: string;
+  student_ids?: string[];
+};
+
 /**
  * Create a shareable link for badge cartography
  */
-export const createBadgeCartographyShare = async (filters: {
-  series: string;
-  level: string;
-  searchTerm: string;
-}, context: {
-  showingPageType: 'user' | 'pro' | 'edu' | 'teacher' | 'of';
-  organizationId?: number;
-  organizationName?: string;
-}): Promise<{ shareable_url: string; token: string; expires_at: string }> => {
+export const createBadgeCartographyShare = async (
+  filters: CartographyShareFilters,
+  context: {
+    showingPageType: 'user' | 'pro' | 'edu' | 'teacher' | 'of';
+    organizationId?: number;
+    organizationName?: string;
+  }
+): Promise<{ shareable_url: string; token: string; expires_at: string }> => {
   const response = await axiosClient.post('/api/v1/badges/cartography/share', {
     filters,
     context
@@ -94,4 +104,3 @@ export const createSelectedStudentsBadgeCartographyShare = async (
 export const revokeBadgeCartographyShare = async (shareId: number): Promise<void> => {
   await axiosClient.delete(`/api/v1/badges/cartography/shares/${shareId}`);
 };
-

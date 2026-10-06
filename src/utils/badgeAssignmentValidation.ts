@@ -18,7 +18,7 @@ export const validateAxesSeriesCompetencies = (
     return null;
   }
 
-  if (isMetiersDeLaMerSeries(badge.series)) {
+  if (isMetiersDeLaMerSeries(badge.series, badge.catalog_key)) {
     if (selectedExpertiseIds.length < 1) {
       return {
         isValid: false,
@@ -28,7 +28,7 @@ export const validateAxesSeriesCompetencies = (
     return { isValid: true, errorMessage: null };
   }
 
-  if (isCompetencesOrienterCollegeSeries(badge.series)) {
+  if (isCompetencesOrienterCollegeSeries(badge.series, badge.catalog_key)) {
     if (selectedExpertiseIds.length !== 1) {
       return {
         isValid: false,
