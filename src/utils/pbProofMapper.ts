@@ -67,13 +67,18 @@ function formatAwardedDate(timestamp?: string | null): string {
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function formatRetention(policy?: string | null, awardedDate?: string): string {
-  if (!policy) return awardedDate ?? '—';
-  const labels: Record<string, string> = {
-    lifetime: 'Conservation à vie',
-    standard_5y: '5 ans',
-  };
-  return labels[policy] ?? policy;
+/** Prefers retention_expiry_at date; never returns raw policy codes (e.g. 5_YEARS). */
+function formatRetention(
+  expiryAt?: string | null,
+  policy?: string | null,
+  awardedDate?: string
+): string {
+  if (expiryAt) {
+    const formatted = formatAwardedDate(expiryAt);
+    if (formatted !== '—') return formatted;
+  }
+  if (policy === 'lifetime') return 'Conservation à vie';
+  return awardedDate ?? '—';
 }
 
 function resolveTrustLevel(api: BadgeProofApiResponse): TrustLevelKey {
@@ -198,11 +203,12 @@ export function mapProofApiToProofData(
       type: mapEvidenceType(api.evidence_type),
       hash: truncateHash(api.evidence_hash),
     },
-    senderComment: api.sender_comment ?? null,
+    senderComment:
+      api.sender_comment === CIVIL_DATA_ERASED_SENTINEL ? null : api.sender_comment ?? null,
     senderCommentLang: null,
     payloadHash: truncateHash(api.payload_hash) ?? '—',
     hashVersion: api.hash_version ?? 'sha256-v1',
-    retentionExpiry: formatRetention(api.retention_policy, awardedDate),
+    retentionExpiry: formatRetention(api.retention_expiry_at, api.retention_policy, awardedDate),
     ppProofNumber: api.pp_proof_number ?? null,
     shareUrl: shareToken
       ? `mykinship.fr/${proofType.toLowerCase()}/${shareToken}`

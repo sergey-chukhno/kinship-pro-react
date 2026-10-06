@@ -18,6 +18,8 @@ export interface PublicProofPayload {
   esco_label?: string | null;
   esco_match?: 'exact' | 'close' | null;
   verify_service_enabled?: boolean;
+  /** Top-level PublicProofPayload — date de fin de conservation (pas le code retention_policy). */
+  retention_expiry_at?: string | null;
 }
 
 /** Réponse GET /api/v1/proofs/pb|pe/:token — F3 core + share fields. */
@@ -83,6 +85,8 @@ export interface BadgeProofApiResponse {
   esco_label?: string | null;
   esco_match?: 'exact' | 'close' | null;
   verify_service_enabled?: boolean;
+  /** Top-level — date de fin de conservation (Patrick page publique). */
+  retention_expiry_at?: string | null;
 }
 
 export interface UserBadgeProofSummary {
