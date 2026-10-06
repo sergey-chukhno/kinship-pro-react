@@ -20,6 +20,12 @@ const EVIDENCE_ICONS: Record<string, string> = {
   document: '📎',
 };
 
+/** Patrick — hide (do not delete) until re-enabled for production polish. */
+const PROOF_PAGE_VISIBILITY = {
+  integrityHashes: false,
+  exportJson: false,
+} as const;
+
 export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
   const { showSuccess } = useToast();
   const [accordionOpen, setAccordionOpen] = useState(false);
@@ -152,24 +158,22 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
         <>
           {/* Zone 5 */}
           <div className="proof-zone">
-            <div className="proof-zone-label">Justificatif de l&apos;attribution</div>
             {proof.evidence.filename ? (
-              <div className="proof-evidence-block">
-                <div className="proof-evidence-icon">
-                  {EVIDENCE_ICONS[proof.evidence.type ?? 'document'] ?? '📎'}
+              <>
+                <div className="proof-zone-label">Justificatif de l&apos;attribution</div>
+                <div className="proof-evidence-block">
+                  <div className="proof-evidence-icon">
+                    {EVIDENCE_ICONS[proof.evidence.type ?? 'document'] ?? '📎'}
+                  </div>
+                  <div>
+                    <div className="proof-evidence-name">{proof.evidence.filename}</div>
+                    {proof.evidence.hash && (
+                      <div className="proof-evidence-hash">evidence_hash : {proof.evidence.hash}</div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <div className="proof-evidence-name">{proof.evidence.filename}</div>
-                  {proof.evidence.hash && (
-                    <div className="proof-evidence-hash">evidence_hash : {proof.evidence.hash}</div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="proof-evidence-block">
-                <div className="proof-evidence-name">Non renseigné</div>
-              </div>
-            )}
+              </>
+            ) : null}
 
             {proof.senderComment && (
               <div className="proof-comment-block">
@@ -183,27 +187,25 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
               </div>
             )}
 
-            <div style={{ margin: '10px 0 6px' }}>
-              <div className="proof-zone-label" style={{ marginBottom: 6 }}>
-                🔐 Intégrité &amp; vérification
+            {PROOF_PAGE_VISIBILITY.integrityHashes && (
+              <div style={{ margin: '10px 0 6px' }}>
+                <div className="proof-zone-label" style={{ marginBottom: 6 }}>
+                  🔐 Intégrité &amp; vérification
+                </div>
+                <div className="proof-integrity-row">
+                  <span className="proof-integrity-key">payload_hash</span>
+                  <span className="proof-integrity-val">{proof.payloadHash}</span>
+                </div>
+                <div className="proof-integrity-row">
+                  <span className="proof-integrity-key">hash_version</span>
+                  <span className="proof-integrity-val">{proof.hashVersion}</span>
+                </div>
               </div>
-              <div className="proof-integrity-row">
-                <span className="proof-integrity-key">payload_hash</span>
-                <span className="proof-integrity-val">{proof.payloadHash}</span>
-              </div>
-              <div className="proof-integrity-row">
-                <span className="proof-integrity-key">hash_version</span>
-                <span className="proof-integrity-val">{proof.hashVersion}</span>
-              </div>
-            </div>
+            )}
 
             {proof.ppProofNumber ? (
               <div className="proof-pp-link">Voir la Preuve Projet →</div>
-            ) : (
-              <div className="proof-pp-link proof-pp-link-muted">
-                Preuve Projet — non encore générée
-              </div>
-            )}
+            ) : null}
           </div>
 
           {/* Zone 6 — Partager (pb/pe only ; hide when no share_token e.g. post-assign card) */}
@@ -222,11 +224,13 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
                   <span className="proof-export-label">Télécharger PDF</span>
                   <span className="proof-export-sub">Avec QR code /verify</span>
                 </button>
-                <button type="button" className="proof-export-btn" disabled>
-                  <span className="proof-export-icon">{'{ }'}</span>
-                  <span className="proof-export-label">Exporter JSON</span>
-                  <span className="proof-export-sub">Bientôt disponible</span>
-                </button>
+                {PROOF_PAGE_VISIBILITY.exportJson && (
+                  <button type="button" className="proof-export-btn" disabled>
+                    <span className="proof-export-icon">{'{ }'}</span>
+                    <span className="proof-export-label">Exporter JSON</span>
+                    <span className="proof-export-sub">Bientôt disponible</span>
+                  </button>
+                )}
                 <button type="button" className="proof-export-btn">
                   <span className="proof-export-icon">🏅</span>
                   <span className="proof-export-label">Ajouter au profil</span>

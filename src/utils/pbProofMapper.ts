@@ -213,7 +213,7 @@ export function mapProofApiToProofData(
     shareUrl: shareToken
       ? `mykinship.fr/${proofType.toLowerCase()}/${shareToken}`
       : `mykinship.fr/${proofType.toLowerCase()}`,
-    showRightsLink: true,
+    showRightsLink: false,
     // Contrat Sergey/Patrick 01/10 — champs top-level, jamais lus dans proof_manifest.
     escoUri: api.esco_uri?.trim() || null,
     escoLabel: api.esco_label?.trim() || null,

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getBadges, getUserBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
 import {
@@ -36,12 +37,22 @@ const competenceImage = (c: CompetenceEntry): string | undefined => {
  * état vide dédié.
  */
 const MesCompetences: React.FC = () => {
+  const navigate = useNavigate();
   const [series, setSeries] = useState<string>(CARTOGRAPHIE_V1_1_CATALOG_KEYS[0]);
   const [catalogue, setCatalogue] = useState<BadgeAPI[]>([]);
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openCompetence, setOpenCompetence] = useState<CompetenceEntry | null>(null);
+
+  const handleCompetenceCardClick = (c: CompetenceEntry) => {
+    const shareToken = String(c.latestProof?.share_token ?? '').trim();
+    if (shareToken) {
+      navigate(`/pb/${shareToken}`);
+      return;
+    }
+    setOpenCompetence(c);
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -194,7 +205,7 @@ const MesCompetences: React.FC = () => {
                     key={c.name}
                     type="button"
                     className="carto-ring-tile carto-ring-tile-proof"
-                    onClick={() => setOpenCompetence(c)}
+                    onClick={() => handleCompetenceCardClick(c)}
                   >
                     {c.latestProof ? (
                       <ProofCardCarto
