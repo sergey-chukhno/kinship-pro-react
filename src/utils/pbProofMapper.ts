@@ -105,7 +105,8 @@ function resolveBadgeIcon(title?: string | null): string {
 
 function resolveHolderRole(badgeRole?: string | null): string {
   if (badgeRole === 'validation') return 'Validateur';
-  return 'Porteur du badge';
+  // Zone 2 label is already « Titulaire » (12 V1.9.10 §7.2) — no « badge » in visible copy.
+  return '';
 }
 
 function truncateHash(hash?: string | null): string | null {

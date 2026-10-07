@@ -131,7 +131,7 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
     eventTitle: null,
     holderName,
     holderInitials: initialsFromName(holderName),
-    holderRole: 'Porteur du badge',
+    holderRole: '',
     holderMasked: false,
     senderName,
     senderInitials: initialsFromName(senderName),

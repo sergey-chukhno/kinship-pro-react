@@ -19,9 +19,11 @@ export const ProofCardIntermediate: React.FC<ProofCardIntermediateProps> = ({
   const contextTitle = proof.eventTitle ?? proof.projectTitle ?? '—';
   const holderDisplay = proof.holderName;
 
-  const roleShort = proof.holderRole.includes('Co-responsable')
-    ? 'Co-responsable'
-    : proof.holderRole.split(' ')[0];
+  const roleShort = !proof.holderRole
+    ? ''
+    : proof.holderRole.includes('Co-responsable')
+      ? 'Co-responsable'
+      : proof.holderRole.split(' ')[0];
 
   return (
     <ProofCardLink
@@ -41,7 +43,7 @@ export const ProofCardIntermediate: React.FC<ProofCardIntermediateProps> = ({
           </div>
           <div>
             <div className="proof-inter-porteur-name">{holderDisplay}</div>
-            <span className="proof-inter-role-pill">{roleShort}</span>
+            {roleShort ? <span className="proof-inter-role-pill">{roleShort}</span> : null}
           </div>
         </div>
       </div>

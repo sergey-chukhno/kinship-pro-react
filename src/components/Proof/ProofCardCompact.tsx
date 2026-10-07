@@ -26,7 +26,9 @@ export const ProofCardCompact: React.FC<ProofCardCompactProps> = ({ proof }) => 
         {proof.senderOrg && <div className="proof-compact-org">{proof.senderOrg}</div>}
         <div className="proof-compact-meta">
           <div className="proof-compact-date">{proof.awardedDate}</div>
-          <div className="proof-compact-role">{proof.holderRole.split(' ')[0]}</div>
+          {proof.holderRole ? (
+            <div className="proof-compact-role">{proof.holderRole.split(' ')[0]}</div>
+          ) : null}
         </div>
       </div>
       <div className="proof-compact-footer">
