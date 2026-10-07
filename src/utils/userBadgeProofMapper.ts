@@ -1,6 +1,6 @@
 import { ProofData, TrustLevelKey } from '../types/proof';
 import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
-import { displayPersonName } from './civilDataErased';
+import { displayCivilLabel, displayPersonName } from './civilDataErased';
 
 const TRUST_LEVELS: TrustLevelKey[] = [
   'INSTITUTIONAL',
@@ -104,7 +104,15 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
 
   const badgeTitle = String(badge.name ?? 'Badge');
   // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
-  const holderName = String(receiver.holder_display ?? displayPersonName(receiver.full_name as string | undefined, receiver.first_name as string | undefined, receiver.last_name as string | undefined, '—'));
+  const holderName = displayCivilLabel(
+    receiver.holder_display as string | undefined,
+    displayPersonName(
+      receiver.full_name as string | undefined,
+      receiver.first_name as string | undefined,
+      receiver.last_name as string | undefined,
+      '—'
+    )
+  );
   const senderName = displayPersonName(sender.full_name as string | undefined, sender.first_name as string | undefined, sender.last_name as string | undefined, '—');
   const shareTokenRaw = String(userBadge.share_token ?? '').trim();
   const shareToken = shareTokenRaw || String(userBadge.id ?? '');
