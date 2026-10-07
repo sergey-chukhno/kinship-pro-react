@@ -1,10 +1,9 @@
 import axiosClient, { axiosClientWithoutToken } from './config';
+import { sanitizeCartographyShareFilters } from '../utils/cartographyShareFilters';
 
 export type CartographyShareFilters = {
   catalog_key?: string;
   badge_series_id?: number;
-  /** display / legacy dual-read */
-  series?: string;
   level?: string;
   searchTerm?: string;
   student_id?: string;
@@ -22,8 +21,13 @@ export const createBadgeCartographyShare = async (
     organizationName?: string;
   }
 ): Promise<{ shareable_url: string; token: string; expires_at: string }> => {
+  const identity = sanitizeCartographyShareFilters(filters);
   const response = await axiosClient.post('/api/v1/badges/cartography/share', {
-    filters,
+    filters: {
+      ...identity,
+      student_id: filters.student_id,
+      student_ids: filters.student_ids,
+    },
     context
   });
   return response.data;

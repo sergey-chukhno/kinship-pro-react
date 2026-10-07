@@ -25,12 +25,11 @@ import {
   CATALOG_KEY_SOFT_SKILLS,
   CatalogSeriesOption,
   buildCartographyShareSeriesFilters,
-  displayLabelForCatalogKey,
   isCpsCatalog,
   isSoftSkillsCatalog,
-  resolveCatalogKey,
   seriesOptionsFromBadges,
 } from '../../constants/catalogSeries';
+import { badgeMatchesSelectedCatalogKey } from '../../utils/badgeSeriesMatch';
 import './Analytics.css';
 import './Badges.css';
 
@@ -303,15 +302,13 @@ const Badges: React.FC = () => {
                          badge.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          badge.category.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Series filtering — match by catalog_key (R1) with display-name fallback
+    // Series filtering — catalog_key identity (C11/C12); dual-read if key absent on payload
     let matchesSeries = true;
     if (selectedSeries) {
-      const badgeKey = resolveCatalogKey({ series: badge.series });
-      const selectedLabel = displayLabelForCatalogKey(selectedSeries);
-      matchesSeries =
-        badgeKey === selectedSeries ||
-        badge.series === selectedSeries ||
-        badge.series === selectedLabel;
+      matchesSeries = badgeMatchesSelectedCatalogKey(
+        { catalog_key: badge.catalog_key, series: badge.series },
+        selectedSeries
+      );
     }
     
     // Level filtering - works for all series
