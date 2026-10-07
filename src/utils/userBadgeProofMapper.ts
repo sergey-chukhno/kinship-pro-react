@@ -131,7 +131,7 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
     eventTitle: null,
     holderName,
     holderInitials: initialsFromName(holderName),
-    holderRole: 'Porteur du badge',
+    holderRole: '',
     holderMasked: false,
     senderName,
     senderInitials: initialsFromName(senderName),
@@ -167,7 +167,7 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
     retentionExpiry: awardedDate,
     ppProofNumber: null,
     shareUrl: shareToken ? `mykinship.fr/pb/${shareToken}` : 'mykinship.fr/pb',
-    showRightsLink: true,
+    showRightsLink: false,
     // /users/me/badges n'expose pas (encore) le contrat ESCO/verify de proofs_controller.rb (confirmé
     // par Sergey, UserBadgeSerializer) — pas de pastille ESCO ici, bouton Vérifier laissé visible
     // comme avant (comportement existant, non couvert par le flag serveur).

@@ -105,7 +105,8 @@ function resolveBadgeIcon(title?: string | null): string {
 
 function resolveHolderRole(badgeRole?: string | null): string {
   if (badgeRole === 'validation') return 'Validateur';
-  return 'Porteur du badge';
+  // Zone 2 label is already « Titulaire » (12 V1.9.10 §7.2) — no « badge » in visible copy.
+  return '';
 }
 
 function truncateHash(hash?: string | null): string | null {
@@ -213,7 +214,7 @@ export function mapProofApiToProofData(
     shareUrl: shareToken
       ? `mykinship.fr/${proofType.toLowerCase()}/${shareToken}`
       : `mykinship.fr/${proofType.toLowerCase()}`,
-    showRightsLink: true,
+    showRightsLink: false,
     // Contrat Sergey/Patrick 01/10 — champs top-level, jamais lus dans proof_manifest.
     escoUri: api.esco_uri?.trim() || null,
     escoLabel: api.esco_label?.trim() || null,
