@@ -24,7 +24,8 @@ import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 import {
   CATALOG_KEY_SOFT_SKILLS,
   CatalogSeriesOption,
-  apiSeriesNameForCatalogKey,
+  buildCartographyShareSeriesFilters,
+  displayLabelForCatalogKey,
   isCpsCatalog,
   isSoftSkillsCatalog,
   resolveCatalogKey,
@@ -149,9 +150,9 @@ const Badges: React.FC = () => {
         const mapped = payload.map(mapBackendUserBadgeToBadge);
         setBadges(mapped);
       } else if (state.showingPageType === 'edu' && organizationId) {
-        // School: pont legacy — org API still filters by display name (badge_series=)
-        const legacySeries = apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries;
-        response = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, legacySeries || undefined);
+        // School: Étape 2 — filter by catalog_key
+        const seriesFilter = selectedSeries ? { catalog_key: selectedSeries } : undefined;
+        response = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, seriesFilter);
         const payload = response.data?.data ?? response.data ?? [];
         setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
@@ -161,9 +162,9 @@ const Badges: React.FC = () => {
         setTotalPages(meta?.total_pages || 1);
         setTotalBadges(meta?.total_count || mapped.length);
       } else if (state.showingPageType === 'pro' && organizationId) {
-        // Company: pont legacy — org API still filters by display name (badge_series=)
-        const legacySeries = apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries;
-        response = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, legacySeries || undefined);
+        // Company: Étape 2 — filter by catalog_key
+        const seriesFilter = selectedSeries ? { catalog_key: selectedSeries } : undefined;
+        response = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, seriesFilter);
         const payload = response.data?.data ?? response.data ?? [];
         setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
@@ -173,8 +174,9 @@ const Badges: React.FC = () => {
         setTotalPages(meta?.total_pages || 1);
         setTotalBadges(meta?.total_count || mapped.length);
       } else if (state.showingPageType === 'teacher') {
-        // Teacher: fetch assigned badges
-        response = await getTeacherAssignedBadges(perPage);
+        // Teacher: Étape 2 — filter by catalog_key
+        const seriesFilter = selectedSeries ? { catalog_key: selectedSeries } : undefined;
+        response = await getTeacherAssignedBadges(perPage, undefined, page, seriesFilter);
         const payload = response.data?.data ?? response.data ?? [];
         setRawBadgeData(payload); // Store raw data for badge ID lookup
         const mapped = (Array.isArray(payload) ? payload : []).map(mapBackendUserBadgeToBadge);
@@ -305,11 +307,11 @@ const Badges: React.FC = () => {
     let matchesSeries = true;
     if (selectedSeries) {
       const badgeKey = resolveCatalogKey({ series: badge.series });
-      const apiName = apiSeriesNameForCatalogKey(selectedSeries);
+      const selectedLabel = displayLabelForCatalogKey(selectedSeries);
       matchesSeries =
         badgeKey === selectedSeries ||
         badge.series === selectedSeries ||
-        (!!apiName && badge.series === apiName);
+        badge.series === selectedLabel;
     }
     
     // Level filtering - works for all series
@@ -866,10 +868,15 @@ const Badges: React.FC = () => {
           badges={filteredBadges}
           rawAttributions={filteredBadges.map((fb) => rawBadgeData.find((r: any) => String(r?.id) === String(fb.id))).filter(Boolean)}
           filters={{
-            // Pont legacy: share/export APIs still use display series name, not catalog_key
-            series: apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries,
+            ...buildCartographyShareSeriesFilters({
+              catalog_key: selectedSeries || undefined,
+              badge_series_id:
+                cartographySeriesOptions.find((o) => o.catalog_key === selectedSeries)?.id ?? undefined,
+              level: selectedLevel,
+              searchTerm: searchTerm,
+            }),
             level: selectedLevel,
-            searchTerm: searchTerm
+            searchTerm: searchTerm,
           }}
           context={{
             showingPageType: state.showingPageType,

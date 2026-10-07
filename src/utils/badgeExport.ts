@@ -2,11 +2,14 @@ import jsPDF from 'jspdf';
 import { Badge } from '../types';
 import { getLocalBadgeImage } from './badgeImages';
 import { displayPersonName } from './civilDataErased';
+import { displayLabelForCatalogKey } from '../constants/catalogSeries';
 import { isSoftSkillsSeries } from '../constants/badgeAxes';
 import { SOFT_SKILLS_SERIES_NAME } from './badgeLevelLabels';
 
 interface ExportFilters {
-  series: string;
+  catalog_key?: string;
+  badge_series_id?: number;
+  series?: string;
   level: string;
   searchTerm: string;
 }
@@ -156,8 +159,11 @@ export const exportToPDF = async (
         pdf.text(`Organisation: ${context.organizationName}`, margin, yPosition);
         yPosition += metadataLineGap;
       }
-      if (filters.series) {
-        pdf.text(`Série: ${mapSeriesForDisplay(filters.series)}`, margin, yPosition);
+      if (filters.catalog_key || filters.series) {
+        const seriesLabel = filters.catalog_key
+          ? displayLabelForCatalogKey(filters.catalog_key)
+          : mapSeriesForDisplay(filters.series || '');
+        pdf.text(`Série: ${seriesLabel}`, margin, yPosition);
         yPosition += metadataLineGap;
       }
       if (filters.level) {

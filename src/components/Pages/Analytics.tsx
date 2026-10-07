@@ -10,7 +10,6 @@ import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import {
   CATALOG_KEY_SOFT_SKILLS,
   CatalogSeriesOption,
-  apiSeriesNameForCatalogKey,
   seriesOptionsFromBadges,
 } from '../../constants/catalogSeries';
 import './Analytics.css';
@@ -189,9 +188,9 @@ const Analytics: React.FC = () => {
         do {
           let res: any;
           if (state.showingPageType === 'edu') {
-            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeriesMonthlyChart) || selectedSeriesMonthlyChart, projectIdParam);
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart ? { catalog_key: selectedSeriesMonthlyChart } : undefined, projectIdParam);
           } else {
-            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeriesMonthlyChart) || selectedSeriesMonthlyChart, projectIdParam);
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart ? { catalog_key: selectedSeriesMonthlyChart } : undefined, projectIdParam);
           }
           const data = res.data?.data ?? res.data ?? [];
           const list = Array.isArray(data) ? data : [];
@@ -224,9 +223,9 @@ const Analytics: React.FC = () => {
         do {
           let res: any;
           if (state.showingPageType === 'edu') {
-            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeriesTrendChart) || selectedSeriesTrendChart, projectIdParam);
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart ? { catalog_key: selectedSeriesTrendChart } : undefined, projectIdParam);
           } else {
-            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeriesTrendChart) || selectedSeriesTrendChart, projectIdParam);
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart ? { catalog_key: selectedSeriesTrendChart } : undefined, projectIdParam);
           }
           const data = res.data?.data ?? res.data ?? [];
           const list = Array.isArray(data) ? data : [];
@@ -259,9 +258,9 @@ const Analytics: React.FC = () => {
         do {
           let res: any;
           if (state.showingPageType === 'edu') {
-            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries, projectIdParam);
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries ? { catalog_key: selectedSeries } : undefined, projectIdParam);
           } else {
-            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, apiSeriesNameForCatalogKey(selectedSeries) || selectedSeries, projectIdParam);
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries ? { catalog_key: selectedSeries } : undefined, projectIdParam);
           }
           const data = res.data?.data ?? res.data ?? [];
           const list = Array.isArray(data) ? data : [];

@@ -12,7 +12,11 @@ import { BadgeFile, Project } from '../../types';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { isSoftSkillsSeries } from '../../constants/badgeAxes';
 import {
-  apiSeriesNameForCatalogKey,
+  CATALOG_KEY_AUDIOVISUELLE,
+  CATALOG_KEY_PARCOURS_DES_POSSIBLES,
+  CATALOG_KEY_PARCOURS_PROFESSIONNEL,
+  CATALOG_KEY_SOFT_SKILLS,
+  displayLabelForCatalogKey,
   resolveCatalogKey,
 } from '../../constants/catalogSeries';
 import { SOFT_SKILLS_SERIES_NAME, getLevelLabel } from '../../utils/badgeLevelLabels';
@@ -3771,14 +3775,11 @@ const ProjectManagement: React.FC = () => {
   };
 
   /**
-   * Pont legacy org/project APIs: project badge list still filters by display name
-   * (series / badge_series), not catalog_key. Map UI selection → API series name only here.
+   * Étape 2: UI series filter is catalog_key (or legacy display name → resolve to key).
    */
-  const mapSeriesToBackend = (frontendSeries: string): string => {
-    const fromKey = apiSeriesNameForCatalogKey(frontendSeries);
-    if (fromKey) return fromKey;
-    const key = resolveCatalogKey({ series: frontendSeries });
-    return apiSeriesNameForCatalogKey(key) || frontendSeries;
+  const mapSeriesToBackendCatalogKey = (frontendSeries: string): string | undefined => {
+    if (!frontendSeries) return undefined;
+    return resolveCatalogKey({ catalog_key: frontendSeries, series: frontendSeries }) || undefined;
   };
 
   const mapBackendBadgeToAttribution = (item: any): any => {
@@ -3842,8 +3843,18 @@ const ProjectManagement: React.FC = () => {
     setProjectBadgesError(null);
     try {
       const projectId = parseInt(project.id);
-      const filters: { series?: string; level?: string; sender_id?: number; receiver_query?: string } = {};
-      if (badgeSeriesFilter) filters.series = mapSeriesToBackend(badgeSeriesFilter);
+      const filters: {
+        catalog_key?: string;
+        series?: string;
+        level?: string;
+        sender_id?: number;
+        receiver_query?: string;
+      } = {};
+      if (badgeSeriesFilter) {
+        const key = mapSeriesToBackendCatalogKey(badgeSeriesFilter);
+        if (key) filters.catalog_key = key;
+        else filters.series = badgeSeriesFilter;
+      }
       if (badgeLevelFilter) filters.level = `level_${badgeLevelFilter}`;
       if (debouncedBadgeReceiverQuery) filters.receiver_query = debouncedBadgeReceiverQuery;
       // Participant avec droit de preuves : only preuves they attributed
@@ -6763,13 +6774,17 @@ const ProjectManagement: React.FC = () => {
                         }}
                       >
                         <option value="">Toutes les séries</option>
-                        <option value={SOFT_SKILLS_SERIES_NAME}>{SOFT_SKILLS_SERIES_NAME}</option>
-                        <option value="Série Parcours des possibles">Série Parcours des possibles</option>
-                        <option value="Série Audiovisuelle">Série Audiovisuelle</option>
-                        <option value="Série Parcours professionnel">Série Parcours professionnel</option>
+                        <option value={CATALOG_KEY_SOFT_SKILLS}>{displayLabelForCatalogKey(CATALOG_KEY_SOFT_SKILLS)}</option>
+                        <option value={CATALOG_KEY_PARCOURS_DES_POSSIBLES}>{displayLabelForCatalogKey(CATALOG_KEY_PARCOURS_DES_POSSIBLES)}</option>
+                        <option value={CATALOG_KEY_AUDIOVISUELLE}>{displayLabelForCatalogKey(CATALOG_KEY_AUDIOVISUELLE)}</option>
+                        <option value={CATALOG_KEY_PARCOURS_PROFESSIONNEL}>{displayLabelForCatalogKey(CATALOG_KEY_PARCOURS_PROFESSIONNEL)}</option>
                       </select>
                     </div>
-                    {(badgeSeriesFilter === SOFT_SKILLS_SERIES_NAME ||
+                    {(badgeSeriesFilter === CATALOG_KEY_SOFT_SKILLS ||
+                      badgeSeriesFilter === CATALOG_KEY_PARCOURS_DES_POSSIBLES ||
+                      badgeSeriesFilter === CATALOG_KEY_AUDIOVISUELLE ||
+                      badgeSeriesFilter === CATALOG_KEY_PARCOURS_PROFESSIONNEL ||
+                      badgeSeriesFilter === SOFT_SKILLS_SERIES_NAME ||
                       badgeSeriesFilter === 'Série Parcours des possibles' ||
                       badgeSeriesFilter === 'Série Audiovisuelle' ||
                       badgeSeriesFilter === 'Série Parcours professionnel') && (
@@ -7578,14 +7593,18 @@ const ProjectManagement: React.FC = () => {
                         }}
                       >
                         <option value="">Toutes les séries</option>
-                        <option value={SOFT_SKILLS_SERIES_NAME}>{SOFT_SKILLS_SERIES_NAME}</option>
-                        <option value="Série Parcours des possibles">Série Parcours des possibles</option>
-                        <option value="Série Audiovisuelle">Série Audiovisuelle</option>
-                        <option value="Série Parcours professionnel">Série Parcours professionnel</option>
+                        <option value={CATALOG_KEY_SOFT_SKILLS}>{displayLabelForCatalogKey(CATALOG_KEY_SOFT_SKILLS)}</option>
+                        <option value={CATALOG_KEY_PARCOURS_DES_POSSIBLES}>{displayLabelForCatalogKey(CATALOG_KEY_PARCOURS_DES_POSSIBLES)}</option>
+                        <option value={CATALOG_KEY_AUDIOVISUELLE}>{displayLabelForCatalogKey(CATALOG_KEY_AUDIOVISUELLE)}</option>
+                        <option value={CATALOG_KEY_PARCOURS_PROFESSIONNEL}>{displayLabelForCatalogKey(CATALOG_KEY_PARCOURS_PROFESSIONNEL)}</option>
                       </select>
                     </div>
 
-                    {(badgeSeriesFilter === SOFT_SKILLS_SERIES_NAME ||
+                    {(badgeSeriesFilter === CATALOG_KEY_SOFT_SKILLS ||
+                      badgeSeriesFilter === CATALOG_KEY_PARCOURS_DES_POSSIBLES ||
+                      badgeSeriesFilter === CATALOG_KEY_AUDIOVISUELLE ||
+                      badgeSeriesFilter === CATALOG_KEY_PARCOURS_PROFESSIONNEL ||
+                      badgeSeriesFilter === SOFT_SKILLS_SERIES_NAME ||
                       badgeSeriesFilter === 'Série Parcours des possibles' ||
                       badgeSeriesFilter === 'Série Audiovisuelle' ||
                       badgeSeriesFilter === 'Série Parcours professionnel') && (

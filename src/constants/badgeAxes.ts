@@ -9,8 +9,10 @@ import {
   CATALOG_KEY_ORIENTER,
   CATALOG_KEY_SOFT_SKILLS,
   CARTOGRAPHIE_V1_1_CATALOG_KEYS,
-  apiSeriesNameForCatalogKey,
+  displayLabelForCatalogKey,
   isCpsCatalog,
+  isMerCatalog,
+  isOrienterCatalog,
   isSoftSkillsCatalog,
 } from './catalogSeries';
 
@@ -273,7 +275,19 @@ export function hasTypedSavoirSavoirFaireItems(seriesName: string): boolean {
 export function getCartographieAxesForSeries(seriesName: string): BadgeAxe[] {
   if (isSoftSkillsCatalog({ catalog_key: seriesName, series: seriesName })) return TOUKOULEUR_AXES;
   if (isCpsCatalog({ catalog_key: seriesName, series: seriesName })) return CPS_AXES;
-  const asName = apiSeriesNameForCatalogKey(seriesName) || seriesName;
+  if (isMerCatalog({ catalog_key: seriesName, series: seriesName })) {
+    return getAxesForSeries(displayLabelForCatalogKey(CATALOG_KEY_MER));
+  }
+  if (isOrienterCatalog({ catalog_key: seriesName, series: seriesName })) {
+    return getAxesForSeries(displayLabelForCatalogKey(CATALOG_KEY_ORIENTER));
+  }
+  const asName =
+    seriesName === CATALOG_KEY_MER ||
+    seriesName === CATALOG_KEY_ORIENTER ||
+    seriesName === CATALOG_KEY_SOFT_SKILLS ||
+    seriesName === CATALOG_KEY_CPS
+      ? displayLabelForCatalogKey(seriesName)
+      : seriesName;
   return getAxesForSeries(asName);
 }
 

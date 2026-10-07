@@ -26,6 +26,11 @@ import {
   isSoftSkillsSeries,
   SOFT_SKILLS_SERIES_NAME,
 } from '../../utils/badgeLevelLabels';
+import {
+  CATALOG_KEY_PARCOURS_DES_POSSIBLES,
+  isSoftSkillsCatalog,
+  seriesGroupKey,
+} from '../../constants/catalogSeries';
 
 interface EventModalProps {
   event?: Event | null;
@@ -104,21 +109,34 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
 
   const badgesBySeries = useMemo(() => {
     return availableBadges.reduce<Record<string, BadgeAPI[]>>((acc, badge) => {
-      if (!acc[badge.series]) acc[badge.series] = [];
-      acc[badge.series].push(badge);
+      const key = seriesGroupKey(badge);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(badge);
       return acc;
     }, {});
   }, [availableBadges]);
 
   const availableSeries = useMemo(() => Object.keys(badgesBySeries), [badgesBySeries]);
 
+  const seriesOptionLabel = (seriesKey: string): string => {
+    const sample = badgesBySeries[seriesKey]?.[0];
+    if (!sample) return seriesKey;
+    return displaySeries(sample.series);
+  };
+
   const levelsForSeries = useMemo(() => {
     if (!badgeSeriesFilter) return [];
     const allLevels = Array.from(
       new Set((badgesBySeries[badgeSeriesFilter] || []).map((b) => b.level))
     );
+    const sample = badgesBySeries[badgeSeriesFilter]?.[0];
     // Soft Skills / Parcours des possibles: only Découverte + Appropriation (or L1/L2)
-    if (isSoftSkillsSeries(badgeSeriesFilter) || badgeSeriesFilter === 'Série Parcours des possibles') {
+    if (
+      isSoftSkillsCatalog({ catalog_key: sample?.catalog_key, series: sample?.series || badgeSeriesFilter }) ||
+      sample?.catalog_key === CATALOG_KEY_PARCOURS_DES_POSSIBLES ||
+      sample?.series === 'Série Parcours des possibles' ||
+      badgeSeriesFilter === 'Série Parcours des possibles'
+    ) {
       return allLevels.filter(level => level === 'level_1' || level === 'level_2');
     }
     return allLevels;
@@ -126,10 +144,12 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
 
   const filteredBadges = useMemo(() => {
     return availableBadges.filter((badge) => {
-      if (badgeSeriesFilter && badge.series !== badgeSeriesFilter) return false;
+      if (badgeSeriesFilter && seriesGroupKey(badge) !== badgeSeriesFilter) return false;
       if (badgeLevelFilter && badge.level !== badgeLevelFilter) return false;
       if (
-        (isSoftSkillsSeries(badge.series) || badge.series === 'Série Parcours des possibles') &&
+        (isSoftSkillsCatalog({ catalog_key: badge.catalog_key, series: badge.series }) ||
+          badge.catalog_key === CATALOG_KEY_PARCOURS_DES_POSSIBLES ||
+          badge.series === 'Série Parcours des possibles') &&
         (badge.level === 'level_3' || badge.level === 'level_4')
       ) {
         return false;
@@ -1738,7 +1758,7 @@ const EventModal: React.FC<EventModalProps> = ({ event, initialData, onClose, on
                       <option value="">Sélectionner une série</option>
                       {availableSeries.map((series) => (
                         <option key={series} value={series}>
-                          {displaySeries(series)}
+                          {seriesOptionLabel(series)}
                         </option>
                       ))}
                     </select>
