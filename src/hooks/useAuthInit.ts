@@ -100,10 +100,11 @@ export const useAuthInit = () => {
       const token = localStorage.getItem("jwt_token");
       if (!token) {
         setIsAuthChecking(false);
-        // Lien public follow/:token : consultable sans compte. Sinon, page d'auth.
+        // Pages d'auth + follow public : pas de redirect. Sinon → /register.
         if (
           location.pathname !== "/register" &&
           location.pathname !== "/login" &&
+          location.pathname !== "/login/code-eleve" &&
           !location.pathname.startsWith("/register/") &&
           !isPublicFollowPath(location.pathname)
         ) {
@@ -285,7 +286,13 @@ export const useAuthInit = () => {
         localStorage.removeItem('selectedContextId');
         localStorage.removeItem('selectedContextType');
         setCurrentPage("Auth");
-        if (!isPublicFollowPath(location.pathname)) {
+        const stayOnAuthPage =
+          location.pathname === "/register" ||
+          location.pathname === "/login" ||
+          location.pathname === "/login/code-eleve" ||
+          location.pathname.startsWith("/register/") ||
+          isPublicFollowPath(location.pathname);
+        if (!stayOnAuthPage) {
           navigate("/register")
         }
       } finally {
