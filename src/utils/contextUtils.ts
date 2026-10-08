@@ -1,5 +1,8 @@
 import { User, ShowingPageType } from '../types';
 
+/** Mock formation hub cards — shelved; Je finance count comes from API only. */
+const FORMATION_FUNDER_HUB_COUNT = 0;
+
 /**
  * Get the selected organization ID from localStorage
  * Validates that user still has admin/superadmin access
@@ -10,7 +13,7 @@ export const getSelectedOrganizationId = (
   showingPageType: ShowingPageType
 ): number | undefined => {
   const savedContextId = localStorage.getItem('selectedContextId');
-  const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+  const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | 'formation' | null;
   
   // If we have a saved context and it matches the current page type
   if (savedContextId && savedContextType) {
@@ -30,6 +33,11 @@ export const getSelectedOrganizationId = (
           return Number(savedContextId);
         }
       }
+    } else if (savedContextType === 'formation' && showingPageType === 'of') {
+      const ofOrg = user.available_contexts?.formation_organizations?.find(
+        (o: any) => o.id.toString() === savedContextId && (o.role === 'admin' || o.role === 'superadmin')
+      );
+      if (ofOrg) return Number(savedContextId);
     }
   }
   
@@ -41,6 +49,8 @@ export const getSelectedOrganizationId = (
   } else if (showingPageType === 'teacher') {
     // For teachers: return first confirmed school membership (any role)
     return user.available_contexts?.schools?.[0]?.id;
+  } else if (showingPageType === 'of') {
+    return user.available_contexts?.formation_organizations?.[0]?.id;
   }
   
   return undefined;
@@ -97,4 +107,67 @@ export const getSelectedOrganizationRole = (user: User, showingPageType: Showing
   }
   
   return '';
+};
+
+/** Projects this org finances (designation). 0 = the Je finance tab must not exist. */
+export const getFinancedProjectsCount = (
+  user: User,
+  showingPageType: ShowingPageType
+): number => {
+  if (showingPageType !== 'pro') return 0;
+  const orgId = getSelectedOrganizationId(user, showingPageType);
+  const company = user.available_contexts?.companies?.find(
+    (c) => Number(c.id) === Number(orgId)
+  );
+  const apiCount = Number(company?.financed_projects_count || 0);
+  return Math.max(apiCount, FORMATION_FUNDER_HUB_COUNT);
+};
+
+export const jeFinanceLabel = (count: number): string => `Je finance (${count})`;
+
+/** Surfaces where the funder stays in the company (Pro) space — do not steal OF. */
+export const isFunderAppPath = (pathname: string, search = ''): boolean =>
+  pathname.startsWith('/follow/') ||
+  pathname.startsWith('/funded-projects') ||
+  pathname === '/financeur' ||
+  (pathname.startsWith('/projects') && new URLSearchParams(search).get('tab') === 'je-finance');
+
+export const isAuthenticatedSession = (): boolean => Boolean(localStorage.getItem('jwt_token')?.trim());
+
+export const governableCompanies = (user: User) =>
+  (user.available_contexts?.companies || []).filter(
+    (company) => company.role === 'admin' || company.role === 'superadmin'
+  );
+
+export const applyCompanySpaceContext = (companyId: number): void => {
+  localStorage.setItem('selectedPageType', 'pro');
+  localStorage.setItem('selectedContextId', String(companyId));
+  localStorage.setItem('selectedContextType', 'company');
+};
+
+export const isCompanyGovernContext = (user: User, showingPageType: ShowingPageType): boolean => {
+  if (showingPageType !== 'pro') return false;
+  const orgId = getSelectedOrganizationId(user, showingPageType);
+  return Boolean(orgId) && governableCompanies(user).some((company) => Number(company.id) === Number(orgId));
+};
+
+export const currentUserIsDesignatedFunder = (
+  user: User,
+  funder?: {
+    funderEmail?: string | null;
+    funderUserId?: number | null;
+    funderCompanyId?: number | null;
+    viewerIsFunder?: boolean | null;
+  } | null
+): boolean => {
+  if (!funder) return false;
+  if (funder.viewerIsFunder === true) return true;
+  if (funder.viewerIsFunder === false) return false;
+  const email = user.email?.trim().toLowerCase();
+  if (email && funder.funderEmail?.trim().toLowerCase() === email) return true;
+  if (funder.funderUserId != null && String(user.id) === String(funder.funderUserId)) return true;
+  if (funder.funderCompanyId != null) {
+    return governableCompanies(user).some((company) => Number(company.id) === Number(funder.funderCompanyId));
+  }
+  return false;
 };

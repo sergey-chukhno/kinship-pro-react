@@ -5,6 +5,7 @@ import './MemberCard.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
 import MemberCardBadgeProgressModal from '../Modals/MemberCardBadgeProgressModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
@@ -379,7 +380,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
                     cursor: 'pointer',
                     transition: 'transform 0.2s ease',
                   }}
-                  title={`${badge.name} - ${badgeLevel.replace('level_', 'Niveau ')}`}
+                  title={`${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'scale(1.1)';
                     e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
@@ -482,14 +483,14 @@ const MemberCard: React.FC<MemberCardProps> = ({
             if (!badgeCartographyUrl) e.preventDefault();
           }}
           style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-          aria-label={badgeCartographyUrl ? `Voir la cartographie des badges de ${member.firstName} ${member.lastName}` : undefined}
+          aria-label={badgeCartographyUrl ? `Voir la cartographie des preuves de compétences de ${member.firstName} ${member.lastName}` : undefined}
         >
-          <img src="/icons_logo/Icon=Badges.svg" alt="Badge" className="badge-icon" />
+          <img src="/icons_logo/Icon=Badges.svg" alt="Preuve" className="badge-icon" />
           <span>{badgeCount}</span>
         </a>
       ) : (
         <div className="badge-counter">
-          <img src="/icons_logo/Icon=Badges.svg" alt="Badge" className="badge-icon" />
+          <img src="/icons_logo/Icon=Badges.svg" alt="Preuve" className="badge-icon" />
           <span>{badgeCount}</span>
         </div>
       )}

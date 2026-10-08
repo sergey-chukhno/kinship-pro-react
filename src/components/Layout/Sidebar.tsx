@@ -6,8 +6,14 @@ import { PageType } from '../../types';
 import './Sidebar.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
+import { getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
+import { applySpaceTheme } from '../../utils/spaceTheme';
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
+import { MOCK_OF_ORG } from '../../data/mockFormations';
+import { openProjectAffiche } from '../../utils/projectSpaceStore';
+
+type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -23,7 +29,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   // Get currently selected context
   const getCurrentContext = useMemo(() => {
     const savedContextId = localStorage.getItem('selectedContextId');
-    const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+    const savedContextType = localStorage.getItem('selectedContextType') as ContextOrgType | null;
     
     if (savedContextId && savedContextType) {
       return {
@@ -37,6 +43,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       return { id: 'teacher-dashboard', type: 'teacher' as const };
     } else if (state.showingPageType === 'user') {
       return { id: 'user-dashboard', type: 'user' as const };
+    } else if (state.showingPageType === 'of') {
+      return { id: MOCK_OF_ORG.id, type: 'formation' as const };
     }
     
     return null;
@@ -45,72 +53,75 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   // Process organizations from available_contexts
   const organizations = useMemo(() => {
     const contexts = state.user.available_contexts;
-    if (!contexts) return [];
 
     const orgs: Array<{
       id: number | string;
       name: string;
-      type: 'school' | 'company' | 'teacher' | 'user';
+      type: ContextOrgType;
       role?: string;
       isAdmin: boolean;
     }> = [];
 
-    // Add personal dashboard if available (at the top)
-    if (contexts.user_dashboard) {
-      orgs.push({
-        id: 'user-dashboard',
-        name: 'Tableau de bord personnel',
-        type: 'user',
-        isAdmin: false
-      });
-    }
+    if (contexts) {
+      // Add personal dashboard if available (at the top)
+      if (contexts.user_dashboard) {
+        orgs.push({
+          id: 'user-dashboard',
+          name: 'Tableau de bord personnel',
+          type: 'user',
+          isAdmin: false
+        });
+      }
 
-    // Add schools (only if admin or superadmin)
-    if (contexts.schools) {
-      contexts.schools.forEach(school => {
-        if (school.role === 'superadmin' || school.role === 'admin') {
-          orgs.push({
-            id: school.id,
-            name: school.name,
-            type: 'school',
-            role: school.role,
-            isAdmin: true
-          });
-        }
-      });
-    }
+      // Add schools (only if admin or superadmin)
+      if (contexts.schools) {
+        contexts.schools.forEach(school => {
+          if (school.role === 'superadmin' || school.role === 'admin') {
+            orgs.push({
+              id: school.id,
+              name: school.name,
+              type: 'school',
+              role: school.role,
+              isAdmin: true
+            });
+          }
+        });
+      }
 
-    // Add companies (only if admin or superadmin)
-    if (contexts.companies) {
-      contexts.companies.forEach(company => {
-        if (company.role === 'superadmin' || company.role === 'admin') {
-          orgs.push({
-            id: company.id,
-            name: company.name,
-            type: 'company',
-            role: company.role,
-            isAdmin: true
-          });
-        }
-      });
-    }
+      // Add companies (only if admin or superadmin)
+      if (contexts.companies) {
+        contexts.companies.forEach(company => {
+          if (company.role === 'superadmin' || company.role === 'admin') {
+            orgs.push({
+              id: company.id,
+              name: company.name,
+              type: 'company',
+              role: company.role,
+              isAdmin: true
+            });
+          }
+        });
+      }
 
-    // Add teacher dashboard if available
-    if (contexts.teacher_dashboard) {
-      orgs.push({
-        id: 'teacher-dashboard',
-        name: 'Tableau de bord enseignant',
-        type: 'teacher',
-        isAdmin: false
-      });
+      // Formation / OF context temporarily hidden from the switcher
+
+      // Add teacher dashboard if available
+      if (contexts.teacher_dashboard) {
+        orgs.push({
+          id: 'teacher-dashboard',
+          name: 'Tableau de bord enseignant',
+          type: 'teacher',
+          isAdmin: false
+        });
+      }
     }
 
     return orgs;
   }, [state.user.available_contexts]);
 
   // Handle organization switching
-  const handleOrganizationSwitch = (orgId: number | string, orgType: 'school' | 'company' | 'teacher' | 'user') => {
-    let newPageType: 'pro' | 'edu' | 'teacher' | 'user';
+  const handleOrganizationSwitch = (orgId: number | string, orgType: ContextOrgType) => {
+    let newPageType: 'pro' | 'edu' | 'teacher' | 'user' | 'of';
 
     switch (orgType) {
       case 'school':
@@ -125,6 +136,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
       case 'user':
         newPageType = 'user';
         break;
+      case 'formation':
+        newPageType = 'of';
+        break;
       default:
         newPageType = 'user';
     }
@@ -134,8 +148,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     localStorage.setItem('selectedContextId', orgId.toString());
     localStorage.setItem('selectedContextType', orgType);
 
-    // Update the showing page type
     setShowingPageType(newPageType);
+    applySpaceTheme(newPageType);
 
     // Navigate to appropriate page
     if (orgType === 'user') {
@@ -149,13 +163,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
   };
 
-  // Dropdown under "Tableau de bord": five sections only (no dashboard link inside)
+  // Dropdown under "Tableau de bord"
+  const financedCount = getFinancedProjectsCount(state.user, state.showingPageType);
   const dashboardDropdownItems: Array<{ id: PageType; label: string; icon: string }> = [
     { id: 'members', label: state.showingPageType === 'teacher' ? 'Classes' : 'Membres', icon: '/icons_logo/Icon=Membres.svg' },
     { id: 'events', label: 'Événements', icon: '/icons_logo/Icon=Event.svg' },
-    { id: 'projects', label: 'Projets', icon: '/icons_logo/Icon=projet.svg' },
-    { id: 'badges', label: 'Badges', icon: '/icons_logo/Icon=Badges.svg' },
-    { id: 'network', label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' }
+    { id: 'projects', label: state.showingPageType === 'of' ? 'Formations' : 'Projets', icon: '/icons_logo/Icon=projet.svg' },
+    ...(financedCount > 0
+      ? [{ id: 'funded-projects' as PageType, label: jeFinanceLabel(financedCount), icon: '/icons_logo/Icon=projet.svg' }]
+      : []),
+    { id: 'badges', label: 'Preuves', icon: '/icons_logo/Icon=Badges.svg' },
+    { id: 'network', label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' },
   ];
 
   const isDashboardSectionActive = currentPage === 'dashboard';
@@ -168,11 +186,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         {state.showingPageType === "pro" && <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo !w-[200px] !h-[60px]" />}
         {state.showingPageType === "edu" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo !w-[200px] !h-[60px]" />}
         {state.showingPageType === "teacher" && <img src="/icons_logo/Property 1=Logo Kinship teacher.svg" alt="Kinship Teacher" className="sidebar-logo !w-[200px] !h-[60px]" />}
+        {state.showingPageType === "of" && <img src="/icons_logo/Property 1=Logo Kinship Formation1.svg" alt="Kinship Formations" className="sidebar-logo !w-[200px] !h-[60px]" />}
       </div>
 
       <nav className="side-nav">
         {/* Tableau de bord: link (navigates to /dashboard) + chevron (opens dropdown with five sections) */}
-        <div className="dashboard-nav-row">
+        <div className={`dashboard-nav-row ${isDashboardSectionActive ? 'active' : ''}`}>
           <a
             href="/dashboard"
             data-target="dashboard"
@@ -216,6 +235,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                             role="menuitem"
                             className={`sidebar-nav-dropdown-item ${active ? 'active' : ''} ${currentPage === item.id ? 'current' : ''}`}
                             onClick={() => {
+                              if (item.id === 'funded-projects') {
+                                navigate('/projects?tab=je-finance');
+                                onPageChange('projects');
+                                return;
+                              }
                               onPageChange(item.id);
                               navigate(`/${item.id}`);
                             }}
@@ -234,7 +258,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         </div>
 
         {/* Statistiques et KPI (edu/pro only) */}
-        {state.showingPageType !== 'teacher' && (
+        {state.showingPageType !== 'teacher' && state.showingPageType !== 'of' && (
           <a
             href="/analytics"
             data-target="analytics"
@@ -253,85 +277,98 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
 
         <hr className="side-divider" aria-hidden="true" />
 
-        {/* Actions rapides (teacher, edu, pro only) */}
-        {state.showingPageType !== 'user' && (
+        {/* Actions rapides (teacher, edu, pro) */}
+        {state.showingPageType !== 'user' && state.showingPageType !== 'of' && (
           <div className="sidebar-quick-actions">
             <div className="sidebar-quick-actions-title">Actions rapides</div>
             <div className="sidebar-quick-actions-buttons">
-              {/* Créer un projet: dropdown for edu/teacher, single action for pro */}
-              {(state.showingPageType === 'edu' || state.showingPageType === 'teacher') ? (
-                <Menu as="div" className="quick-action-menu">
-                  <Menu.Button className="side-link quick-action-btn">
-                    <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
-                    Créer un projet
-                  </Menu.Button>
-                  <Transition
-                    enter="transition ease-out duration-100"
-                    enterFrom="transform opacity-0 scale-95"
-                    enterTo="transform opacity-100 scale-100"
-                    leave="transition ease-in duration-75"
-                    leaveFrom="transform opacity-100 scale-100"
-                    leaveTo="transform opacity-0 scale-95"
-                  >
-                    <Menu.Items className="sidebar-quick-actions-dropdown" anchor="bottom start">
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            type="button"
-                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                            onClick={() => {
-                              onPageChange('projects');
-                              navigate('/projects?open=create&variant=classic');
-                            }}
-                          >
-                            Projet classique
-                          </button>
-                        )}
-                      </Menu.Item>
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            type="button"
-                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                            onClick={() => {
-                              onPageChange('projects');
-                              navigate('/projects?open=create&variant=mlds');
-                            }}
-                          >
-                            Projet MLDS Volet Persévérance Scolaire
-                          </button>
-                        )}
-                      </Menu.Item>
-                      <Menu.Item>
-                        {({ active }) => (
-                          <button
-                            type="button"
-                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
-                            onClick={() => {
-                              onPageChange('projects');
-                              navigate('/projects?open=create&variant=mlds-remediation');
-                            }}
-                          >
-                            Projet MLDS Volet Remédiation
-                          </button>
-                        )}
-                      </Menu.Item>
-                    </Menu.Items>
-                  </Transition>
-                </Menu>
-              ) : (
-                <button
-                  type="button"
-                  className="side-link quick-action-btn"
-                  onClick={() => {
-                    onPageChange('projects');
-                    navigate('/projects?open=create');
-                  }}
-                >
+              <Menu as="div" className="quick-action-menu">
+                <Menu.Button className={`side-link quick-action-btn ${currentPage === 'create' ? 'active' : ''}`}>
                   <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
-                  Créer un projet
-                </button>
-              )}
+                  Créer
+                </Menu.Button>
+                <Transition
+                  enter="transition ease-out duration-100"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
+                  leave="transition ease-in duration-75"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
+                >
+                  <Menu.Items className="sidebar-quick-actions-dropdown" anchor="bottom start">
+                    <Menu.Item>
+                      {({ active }) => (
+                        <button
+                          type="button"
+                          className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                          onClick={() => {
+                            navigate('/create?type=project');
+                            onPageChange('create');
+                          }}
+                        >
+                          Projet classique
+                        </button>
+                      )}
+                    </Menu.Item>
+                    {state.showingPageType !== 'pro' && (
+                      <>
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              type="button"
+                              className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                              onClick={() => {
+                                onPageChange('projects');
+                                navigate('/projects?open=create&variant=mlds');
+                              }}
+                            >
+                              Projet MLDS Volet Persévérance Scolaire
+                            </button>
+                          )}
+                        </Menu.Item>
+                        <Menu.Item>
+                          {({ active }) => (
+                            <button
+                              type="button"
+                              className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                              onClick={() => {
+                                onPageChange('projects');
+                                navigate('/projects?open=create&variant=mlds-remediation');
+                              }}
+                            >
+                              Projet MLDS Volet Remédiation
+                            </button>
+                          )}
+                        </Menu.Item>
+                      </>
+                    )}
+                    <Menu.Item disabled>
+                      {({ active }) => (
+                        <button
+                          type="button"
+                          disabled
+                          className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
+                        >
+                          Formation
+                          <span className="sidebar-quick-action-soon">Bientôt</span>
+                        </button>
+                      )}
+                    </Menu.Item>
+                    <Menu.Item disabled>
+                      {({ active }) => (
+                        <button
+                          type="button"
+                          disabled
+                          className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
+                        >
+                          Stage
+                          <span className="sidebar-quick-action-soon">Bientôt</span>
+                        </button>
+                      )}
+                    </Menu.Item>
+                  </Menu.Items>
+                </Transition>
+              </Menu>
               <button
                 type="button"
                 className="side-link quick-action-btn"
@@ -362,7 +399,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 onClick={() => setIsSelectProjectForBadgeOpen(true)}
               >
                 <img src="/icons_logo/Icon=Badges.svg" alt="" className="side-icon" />
-                Attribuer un badge
+                Attester une compétence
               </button>
               <button
                 type="button"
@@ -373,6 +410,21 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                 Ajouter un partenaire
               </button>
             </div>
+          </div>
+        )}
+
+        {state.showingPageType === 'of' && (
+          <div className="sidebar-quick-actions">
+            <div className="sidebar-quick-actions-title">Actions rapides</div>
+            <button
+              type="button"
+              className="side-link quick-action-btn"
+              disabled
+              title="Bientôt disponible"
+            >
+              <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
+              Créer une formation
+            </button>
           </div>
         )}
 
@@ -411,8 +463,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
           onClose={() => setIsSelectProjectForBadgeOpen(false)}
           onSelectProject={(project) => {
             setSelectedProject(project);
-            onPageChange('project-management');
-            navigate('/project-management?open=assign-badge');
+            openProjectAffiche(project.id);
+            onPageChange('project-affiche');
+            navigate('/project-affiche?open=attest');
             setIsSelectProjectForBadgeOpen(false);
           }}
         />

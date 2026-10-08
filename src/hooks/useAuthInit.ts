@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import { useAppContext } from "../context/AppContext";
 import { getCurrentUser, refreshToken } from "../api/Authentication"; // adapte le chemin selon ton projet
+import { applySpaceTheme } from "../utils/spaceTheme";
 import { PageType } from "../types";
+import { restoreOfRoleContext } from "../utils/ofActivationStore";
+import { isFunderAppPath } from "../utils/contextUtils";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getSafePostAuthRedirect } from "../utils/authRedirect";
+
+const isPublicFollowPath = (pathname: string) => pathname.startsWith("/follow/");
 
 export const useAuthInit = () => {
   const { setCurrentPage, setShowingPageType, setUser } = useAppContext();
@@ -23,8 +28,13 @@ export const useAuthInit = () => {
 
     // Mapper les routes aux pages
     const validPages: PageType[] = [
-      "dashboard", "members", "events", "projects", "badges",
+      "dashboard", "members", "events", "projects", /* "formations", */ "badges",
       "analytics", "network", "notifications", "settings",
+       /* "pik", */
+      "funder-attachments",
+      /* "presence-session", "formation-detail", "formation-affiche", "preuve-formation", */
+      "create", "project-space", "project-affiche", "funded-projects",
+      /* "of-activation", "admin-of-queue", */
       "personal-settings",
       "membership-requests", "partnership-requests", "project-management",
       "mes-enfants", "mes-parents"
@@ -32,6 +42,48 @@ export const useAuthInit = () => {
 
     if (validPages.includes(path as PageType)) {
       return path as PageType;
+    }
+
+    // // Routes formation (temporairement désactivées)
+    // if (path.startsWith('formation-detail')) {
+    //   return 'formation-detail';
+    // }
+    //
+    // if (path.startsWith('formation-affiche')) {
+    //   return 'formation-affiche';
+    // }
+    //
+    // if (path.startsWith('preuve-formation')) {
+    //   return 'preuve-formation';
+    // }
+
+    if (path.startsWith('project-space')) {
+      return 'project-space';
+    }
+
+    if (path.startsWith('project-affiche')) {
+      return 'project-affiche';
+    }
+
+    if (path.startsWith('funded-projects')) {
+      return 'funded-projects';
+    }
+
+    // // Routes OF / formation (temporairement désactivées)
+    // if (path.startsWith('of-activation')) {
+    //   return 'of-activation';
+    // }
+    //
+    // if (path.startsWith('admin-of-queue')) {
+    //   return 'admin-of-queue';
+    // }
+    //
+    // if (path.startsWith('pik')) {
+    //   return 'pik';
+    // }
+
+    if (path.startsWith('follow/')) {
+      return 'funder-follow';
     }
 
     // Par défaut, retourner dashboard
@@ -43,8 +95,13 @@ export const useAuthInit = () => {
       const token = localStorage.getItem("jwt_token");
       if (!token) {
         setIsAuthChecking(false);
-        // Si pas de token et pas déjà sur une page d'auth, rediriger
-        if (location.pathname !== "/register" && location.pathname !== "/login" && !location.pathname.startsWith("/register/")) {
+        // Lien public follow/:token : consultable sans compte. Sinon, page d'auth.
+        if (
+          location.pathname !== "/register" &&
+          location.pathname !== "/login" &&
+          !location.pathname.startsWith("/register/") &&
+          !isPublicFollowPath(location.pathname)
+        ) {
           navigate("/register")
         }
         return;
@@ -77,10 +134,14 @@ export const useAuthInit = () => {
 
           const isAuthPage = location.pathname === "/register" || location.pathname === "/login" || location.pathname.startsWith("/register/");
 
+          if (!isFunderAppPath(location.pathname, location.search)) {
+            restoreOfRoleContext();
+          }
+
           // Vérifier s'il y a un contexte sauvegardé et valide
-          const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | null;
+          const savedPageType = localStorage.getItem('selectedPageType') as "pro" | "edu" | "teacher" | "user" | "of" | null;
           const savedContextId = localStorage.getItem('selectedContextId');
-          const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+          const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | 'formation' | null;
 
           // Fonction pour vérifier si le contexte sauvegardé est toujours valide
           const isSavedContextValid = (): boolean => {
@@ -101,13 +162,16 @@ export const useAuthInit = () => {
                 return user.available_contexts?.companies?.some(
                   (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
                 ) || false;
+              case 'formation':
+                // Formation / OF context temporarily shelved
+                return false;
               default:
                 return false;
             }
           };
 
           // Déterminer le type de page et la page de destination
-          let pageType: "pro" | "edu" | "teacher" | "user" = "pro";
+          let pageType: "pro" | "edu" | "teacher" | "user" | "of" = "pro";
           let defaultPage: PageType = "dashboard";
 
           // Si le contexte sauvegardé est valide, l'utiliser
@@ -172,21 +236,8 @@ export const useAuthInit = () => {
             }
           }
 
-          // Appliquer les couleurs CSS IMMÉDIATEMENT avant de changer l'état
-          const root = document.documentElement;
-          if (pageType === "pro") {
-            root.style.setProperty("--primary", "#5570F1");
-            root.style.setProperty("--hover-primary", "#4c63d2");
-          } else if (pageType === "edu") {
-            root.style.setProperty("--primary", "#10b981");
-            root.style.setProperty("--hover-primary", "#0f9f6d");
-          } else if (pageType === "teacher") {
-            root.style.setProperty("--primary", "#ffa600ff");
-            root.style.setProperty("--hover-primary", "#e59400ff");
-          } else if (pageType === "user") {
-            root.style.setProperty("--primary", "#db087cff");
-            root.style.setProperty("--hover-primary", "#b20666ff");
-          }
+          // Appliquer la couleur d'espace (--couleur-espace) IMMÉDIATEMENT
+          applySpaceTheme(pageType);
 
           setShowingPageType(pageType);
 
@@ -221,7 +272,9 @@ export const useAuthInit = () => {
         localStorage.removeItem('selectedContextId');
         localStorage.removeItem('selectedContextType');
         setCurrentPage("Auth");
-        navigate("/register")
+        if (!isPublicFollowPath(location.pathname)) {
+          navigate("/register")
+        }
       } finally {
         setIsAuthChecking(false);
       }

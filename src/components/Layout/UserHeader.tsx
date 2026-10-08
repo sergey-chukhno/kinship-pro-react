@@ -8,6 +8,8 @@ import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { isUnder18 } from '../../utils/ageUtils';
 
+type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
+
 const STUDENT_ROLES = new Set(['eleve_primaire', 'collegien', 'lyceen', 'etudiant']);
 
 interface UserHeaderProps {
@@ -23,7 +25,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   // Get currently selected context
   const getCurrentContext = useMemo(() => {
     const savedContextId = localStorage.getItem('selectedContextId');
-    const savedContextType = localStorage.getItem('selectedContextType') as 'school' | 'company' | 'teacher' | 'user' | null;
+    const savedContextType = localStorage.getItem('selectedContextType') as ContextOrgType | null;
     
     if (savedContextId && savedContextType) {
       return {
@@ -45,64 +47,67 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   // Process organizations from available_contexts
   const organizations = useMemo(() => {
     const contexts = state.user.available_contexts;
-    if (!contexts) return [];
 
     const orgs: Array<{
       id: number | string;
       name: string;
-      type: 'school' | 'company' | 'teacher' | 'user';
+      type: ContextOrgType;
       role?: string;
       isAdmin: boolean;
     }> = [];
 
-    // Add personal dashboard if available (at the top)
-    if (contexts.user_dashboard) {
-      orgs.push({
-        id: 'user-dashboard',
-        name: 'Tableau de bord personnel',
-        type: 'user',
-        isAdmin: false
-      });
-    }
+    if (contexts) {
+      // Add personal dashboard if available (at the top)
+      if (contexts.user_dashboard) {
+        orgs.push({
+          id: 'user-dashboard',
+          name: 'Tableau de bord personnel',
+          type: 'user',
+          isAdmin: false
+        });
+      }
 
-    // Add schools (only if admin or superadmin)
-    if (contexts.schools) {
-      contexts.schools.forEach(school => {
-        if (school.role === 'superadmin' || school.role === 'admin') {
-          orgs.push({
-            id: school.id,
-            name: school.name,
-            type: 'school',
-            role: school.role,
-            isAdmin: true
-          });
-        }
-      });
-    }
+      // Add schools (only if admin or superadmin)
+      if (contexts.schools) {
+        contexts.schools.forEach(school => {
+          if (school.role === 'superadmin' || school.role === 'admin') {
+            orgs.push({
+              id: school.id,
+              name: school.name,
+              type: 'school',
+              role: school.role,
+              isAdmin: true
+            });
+          }
+        });
+      }
 
-    // Add companies (only if admin or superadmin)
-    if (contexts.companies) {
-      contexts.companies.forEach(company => {
-        if (company.role === 'superadmin' || company.role === 'admin') {
-          orgs.push({
-            id: company.id,
-            name: company.name,
-            type: 'company',
-            role: company.role,
-            isAdmin: true
-          });
-        }
-      });
-    }
+      // Add companies (only if admin or superadmin)
+      if (contexts.companies) {
+        contexts.companies.forEach(company => {
+          if (company.role === 'superadmin' || company.role === 'admin') {
+            orgs.push({
+              id: company.id,
+              name: company.name,
+              type: 'company',
+              role: company.role,
+              isAdmin: true
+            });
+          }
+        });
+      }
 
-    // Add teacher dashboard if available
-    if (contexts.teacher_dashboard) {
-      orgs.push({
-        id: 'teacher-dashboard',
-        name: 'Tableau de bord Enseignant',
-        type: 'teacher',
-        isAdmin: false
-      });
+      // Formation / OF context temporarily hidden from the switcher
+
+      // Add teacher dashboard if available
+      if (contexts.teacher_dashboard) {
+        orgs.push({
+          id: 'teacher-dashboard',
+          name: 'Tableau de bord Enseignant',
+          type: 'teacher',
+          isAdmin: false
+        });
+      }
     }
 
     return orgs;
@@ -114,8 +119,8 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   };
 
   // Handle organization switching
-  const handleOrganizationSwitch = (orgId: number | string, orgType: 'school' | 'company' | 'teacher' | 'user') => {
-    let newPageType: 'pro' | 'edu' | 'teacher' | 'user';
+  const handleOrganizationSwitch = (orgId: number | string, orgType: ContextOrgType) => {
+    let newPageType: 'pro' | 'edu' | 'teacher' | 'user' | 'of';
 
     switch (orgType) {
       case 'school':
@@ -129,6 +134,9 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         break;
       case 'user':
         newPageType = 'user';
+        break;
+      case 'formation':
+        newPageType = 'of';
         break;
       default:
         newPageType = 'user';
@@ -238,7 +246,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                     className={`${active ? 'active' : ''}`}
                     onClick={() => handlePageChange('badges')}
                   >
-                    Mes badges
+                    Mes preuves
                   </button>
                 )}
               </Menu.Item>
@@ -253,6 +261,19 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                   </button>
                 )}
               </Menu.Item>
+
+              {/* Route pik temporairement désactivée
+              <Menu.Item>
+                {({ active }: { active: boolean }) => (
+                  <button
+                    className={`${active ? 'active' : ''}`}
+                    onClick={() => handlePageChange('pik')}
+                  >
+                    Mon identité Kinship
+                  </button>
+                )}
+              </Menu.Item>
+              */}
 
               {STUDENT_ROLES.has(String(user?.role || '')) && (
                 <Menu.Item>

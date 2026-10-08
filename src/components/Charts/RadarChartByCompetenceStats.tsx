@@ -50,6 +50,8 @@ export const RadarChartByCompetenceStats: React.FC<Props> = ({ axes, series }) =
   if (n === 0) return <div className="radar-chart-empty">Aucune compétence</div>;
   const angleStep = (2 * Math.PI) / n;
   const maxVal = Math.max(1, ...series.flatMap((s) => s.values));
+  const singleAxis = n === 1;
+
   return (
     <div className="radar-chart">
       <svg width="100%" height="100%" className="radar-svg" viewBox="0 0 100 110" preserveAspectRatio="xMidYMid meet">
@@ -66,8 +68,35 @@ export const RadarChartByCompetenceStats: React.FC<Props> = ({ axes, series }) =
           const points = s.values.map((val, i) => {
             const angle = i * angleStep - Math.PI / 2;
             const r = maxVal > 0 ? (val / maxVal) * maxRadius : 0;
-            return { x: centerX + r * Math.cos(angle), y: centerY + r * Math.sin(angle) };
+            return { x: centerX + r * Math.cos(angle), y: centerY + r * Math.sin(angle), val };
           });
+
+          // One competence → polygon is degenerate; draw spoke + dot instead
+          if (singleAxis) {
+            const p = points[0];
+            if (!p || p.val <= 0) return null;
+            return (
+              <g
+                key={s.level}
+                onMouseEnter={(e) => { setHoveredSeries(s); setMousePosition({ x: e.clientX, y: e.clientY }); }}
+                onMouseMove={(e) => setMousePosition({ x: e.clientX, y: e.clientY })}
+                onMouseLeave={() => setHoveredSeries(null)}
+                style={{ cursor: 'pointer' }}
+              >
+                <line
+                  x1={centerX}
+                  y1={centerY}
+                  x2={p.x}
+                  y2={p.y}
+                  stroke={s.color}
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
+                <circle cx={p.x} cy={p.y} r="2.2" fill={s.color} stroke="#fff" strokeWidth="0.5" />
+              </g>
+            );
+          }
+
           const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
           return (
             <g key={s.level}>
@@ -112,7 +141,7 @@ export const RadarChartByCompetenceStats: React.FC<Props> = ({ axes, series }) =
       {hoveredSeries && (
         <div className="chart-tooltip" style={{ left: mousePosition.x + 10, top: mousePosition.y - 10 }}>
         <div className="tooltip-title">{hoveredSeries.level}</div>
-        <div className="tooltip-value">{hoveredSeries.values.reduce((a, b) => a + b, 0)} badges</div>
+        <div className="tooltip-value">{hoveredSeries.values.reduce((a, b) => a + b, 0)} preuves</div>
         </div>
       )}
     </div>

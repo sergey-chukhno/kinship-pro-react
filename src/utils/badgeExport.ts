@@ -1,15 +1,21 @@
 import jsPDF from 'jspdf';
 import { Badge } from '../types';
 import { getLocalBadgeImage } from './badgeImages';
+import { displayCivilLabel, displayPersonName } from './civilDataErased';
+import { displayLabelForCatalogKey } from '../constants/catalogSeries';
+import { isSoftSkillsSeries } from '../constants/badgeAxes';
+import { SOFT_SKILLS_SERIES_NAME } from './badgeLevelLabels';
+import { sanitizeCartographyShareFilters } from './cartographyShareFilters';
 
 interface ExportFilters {
-  series: string;
+  catalog_key?: string;
+  badge_series_id?: number;
   level: string;
   searchTerm: string;
 }
 
 interface ExportContext {
-  showingPageType: 'user' | 'pro' | 'edu' | 'teacher';
+  showingPageType: 'user' | 'pro' | 'edu' | 'teacher' | 'of';
   organizationId?: number;
   organizationName?: string;
 }
@@ -74,15 +80,21 @@ export function mapRawUserBadgeToAttributionForExport(raw: any): AttributionForE
   const receiver = raw?.receiver;
   const badgeImageUrl =
     badge?.image_url ||
-    (typeof getLocalBadgeImage === 'function' ? getLocalBadgeImage(name, level, series) : undefined);
+    (typeof getLocalBadgeImage === 'function'
+      ? getLocalBadgeImage(name, level, series, { allowVectorIcon: false })
+      : undefined);
 
   return {
     badgeImageUrl,
     badgeTitle: name,
     badgeLevel: `Niveau ${levelDisplay}`,
     attributionDate: dateStr || '',
-    attributedByName: sender?.full_name ?? '',
-    attributedToName: receiver?.full_name ?? '',
+    attributedByName: displayPersonName(sender?.full_name, sender?.first_name, sender?.last_name, ''),
+    // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
+    attributedToName: displayCivilLabel(
+      receiver?.holder_display,
+      displayPersonName(receiver?.full_name, receiver?.first_name, receiver?.last_name, '')
+    ),
     domaine: domaineDisplay,
     competencesIndiquees: Array.isArray(skillsIndicated) ? skillsIndicated : [],
     projectTitle: projectTitle ?? undefined,
@@ -121,7 +133,7 @@ export const exportToPDF = async (
       const mapSeriesForDisplay = (series: string): string => {
         if (!series) return '';
         const lower = series.toLowerCase();
-        if (lower.includes('toukouleur') || lower.includes('universelle')) return 'Série Soft Skills 4LAB';
+        if (isSoftSkillsSeries(series) || lower.includes('universelle')) return SOFT_SKILLS_SERIES_NAME;
         return series;
       };
 
@@ -150,8 +162,8 @@ export const exportToPDF = async (
         pdf.text(`Organisation: ${context.organizationName}`, margin, yPosition);
         yPosition += metadataLineGap;
       }
-      if (filters.series) {
-        pdf.text(`Série: ${mapSeriesForDisplay(filters.series)}`, margin, yPosition);
+      if (filters.catalog_key) {
+        pdf.text(`Série: ${displayLabelForCatalogKey(filters.catalog_key)}`, margin, yPosition);
         yPosition += metadataLineGap;
       }
       if (filters.level) {
@@ -292,8 +304,8 @@ export const exportToCSV = (badges: Badge[], filters: ExportFilters): void => {
     
     // Helper function to map series name for display
     const mapSeriesForDisplay = (series: string): string => {
-      if (series.toLowerCase().includes('toukouleur') || series.toLowerCase().includes('universelle')) {
-        return 'Série Soft Skills 4LAB';
+      if (isSoftSkillsSeries(series) || series.toLowerCase().includes('universelle')) {
+        return SOFT_SKILLS_SERIES_NAME;
       }
       return series;
     };
@@ -359,7 +371,7 @@ export const generateShareableLink = async (
 ): Promise<string> => {
   try {
     const { createBadgeCartographyShare } = await import('../api/BadgeCartography');
-    const result = await createBadgeCartographyShare(filters, context);
+    const result = await createBadgeCartographyShare(sanitizeCartographyShareFilters(filters), context);
     return result.shareable_url;
   } catch (error: any) {
     console.error('Error generating shareable link:', error);

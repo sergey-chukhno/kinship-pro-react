@@ -5,6 +5,7 @@ import { getUserBadges } from '../../api/Badges';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { translateRole } from '../../utils/roleTranslations';
+import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './Modal.css';
 import './BadgeAttributionsModal.css';
@@ -31,6 +32,8 @@ interface BadgeAttribution {
   receiver: {
     id: number;
     full_name: string;
+    // Famille A (annexe §8bis) : porteur d'attribution — affichage via holder_display uniquement.
+    holder_display: string;
     email: string;
     role?: string;
     is_deleted?: boolean;
@@ -188,16 +191,28 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
       
       const mapped = (Array.isArray(payload) ? payload : []).map((item: any): BadgeAttribution => {
         // Handle different response formats (user badges vs organization badges)
-        const receiver = item.receiver || { 
-          id: item.receiver_id || 0, 
-          full_name: item.receiver?.full_name || 'Unknown', 
-          email: item.receiver?.email || '' 
+        const receiver = {
+          id: item.receiver?.id || item.receiver_id || 0,
+          full_name: displayPersonName(
+            item.receiver?.full_name,
+            item.receiver?.first_name,
+            item.receiver?.last_name,
+            'Unknown'
+          ),
+          // Famille A : holder_display — jamais le littéral CIVIL_DATA_ERASED
+          holder_display: displayCivilLabel(
+            item.receiver?.holder_display || item.receiver?.full_name,
+            'Unknown'
+          ),
+          email: item.receiver?.email || '',
+          role: item.receiver?.role,
+          is_deleted: item.receiver?.is_deleted || false,
         };
-        
+
         // Always construct sender object to ensure all fields are present (role = system role, job = profession)
         const sender = {
           id: item.sender?.id || item.sender_id || 0,
-          full_name: item.sender?.full_name || 'Unknown',
+          full_name: displayPersonName(item.sender?.full_name, item.sender?.first_name, item.sender?.last_name, 'Unknown'),
           email: item.sender?.email || '',
           role: item.sender?.role || '',
           job: item.sender?.job ?? '',
@@ -341,7 +356,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
       <div className="modal-content badge-attributions-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <h2>Attributions du badge</h2>
+            <h2>Attributions de la preuve de compétences</h2>
             <p className="badge-attributions-subtitle">
               <img 
                 src={badgeImage} 
@@ -368,7 +383,7 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
           {!error && !isLoading && attributions.length === 0 && (
             <div className="badge-attributions-empty">
               <i className="fas fa-inbox"></i>
-              <p>Aucune attribution trouvée pour ce badge</p>
+              <p>Aucune attribution trouvée pour cette preuve de compétences</p>
             </div>
           )}
 
@@ -416,14 +431,14 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
                           {attribution.receiver.is_deleted ? (
                             <DeletedUserDisplay 
                               user={{
-                                full_name: attribution.receiver.full_name,
+                                full_name: attribution.receiver.holder_display,
                                 email: attribution.receiver.email,
                                 is_deleted: true
                               }}
                               showEmail={false}
                             />
                           ) : (
-                            <span className="person-name">{attribution.receiver.full_name}</span>
+                            <span className="person-name">{attribution.receiver.holder_display}</span>
                           )}
                         </div>
                       </td>

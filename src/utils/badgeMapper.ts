@@ -1,11 +1,15 @@
 import { Badge } from '../types';
+import { isSoftSkillsSeries } from '../constants/badgeAxes';
+import { SOFT_SKILLS_SERIES_NAME } from './badgeLevelLabels';
 import { getLocalBadgeImage } from './badgeImages';
+import { getBadgeLevelDisplayLabel } from './badgeLevelLabels';
 
 /**
  * Convertit le nom de série backend en nom d'affichage
  */
 export const displaySeries = (seriesName?: string): string => {
-  return seriesName?.toLowerCase().includes('toukouleur') ? 'Série Soft Skills 4LAB' : seriesName || 'Série Soft Skills 4LAB';
+  if (!seriesName || isSoftSkillsSeries(seriesName)) return SOFT_SKILLS_SERIES_NAME;
+  return seriesName;
 };
 
 /**
@@ -17,26 +21,27 @@ export const mapBackendUserBadgeToBadge = (userBadge: any): Badge => {
   const badge = userBadge?.badge || {};
   const badgeName = badge.name || 'Badge';
   const badgeSeriesRaw = badge.series || '';
-  // Use exact database series name for filtering (not normalized)
-  const badgeSeries = badgeSeriesRaw; // Keep exact database series name
+  const badgeSeries = badgeSeriesRaw;
   const badgeLevel = badge.level ? badge.level.replace('level_', '') : '1';
-  
-  // Déterminer l'image : backend image_url > mapping local > placeholder
+
   const badgeLevelKey = badge.level || 'level_1';
   const imageUrl = badge.image_url || getLocalBadgeImage(badgeName, badgeLevelKey, badgeSeriesRaw) || '/TouKouLeur-Jaune.png';
-  
-  // Construire le format Badge attendu par Badges.tsx
+
   return {
     id: userBadge.id?.toString() || `badge-${Date.now()}-${Math.random()}`,
     name: badgeName,
     description: badge.description || '',
+    // Stable key for cartography grouping/filters ("Niveau 1" … "Niveau 4")
     level: `Niveau ${badgeLevel}`,
+    // Series-specific UI label ("Phase 1", "Niveau 1: Découverte", …)
+    levelLabel: getBadgeLevelDisplayLabel(badgeSeriesRaw, badge.level),
     levelClass: `level-${badgeLevel}`,
     icon: imageUrl,
     image: imageUrl,
-    category: badgeSeriesRaw, // Garder l'original pour l'affichage
-    series: badgeSeries, // Use exact database series name for filtering
-    recipients: 0, // Non utilisé dans la cartographie
+    category: badgeSeriesRaw,
+    series: badgeSeries,
+    catalog_key: badge.catalog_key ?? null,
+    recipients: 0,
     created: userBadge.assigned_at || userBadge.created_at || new Date().toISOString(),
     domains: badge.domains || [],
     expertises: badge.expertises || [],
@@ -50,4 +55,3 @@ export const mapBackendUserBadgeToBadge = (userBadge: any): Badge => {
     skills: badge.expertises?.map((exp: any) => exp.name || exp) || [],
   };
 };
-

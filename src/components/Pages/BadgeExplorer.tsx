@@ -3,12 +3,23 @@ import { getBadges } from '../../api/Badges';
 import {
   COMPETENCES_ORIENTER_COLLEGE_SERIES,
   METIERS_DE_LA_MER_SERIES,
+  SOFT_SKILLS_SERIES,
   getAxesForSeries,
   getMetiersMerBadgesWithLevel
 } from '../../constants/badgeAxes';
+import {
+  CATALOG_KEY_AUDIOVISUELLE,
+  CATALOG_KEY_CPS,
+  CATALOG_KEY_MER,
+  CATALOG_KEY_ORIENTER,
+  CATALOG_KEY_PARCOURS_DES_POSSIBLES,
+  CATALOG_KEY_PARCOURS_PROFESSIONNEL,
+  CATALOG_KEY_SOFT_SKILLS,
+} from '../../constants/catalogSeries';
 import { BadgeAPI, BadgeSkillAPI } from '../../types';
-import { getLevelLabel } from '../../utils/badgeLevelLabels';
+import { getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { COMPETENCES_PSYCHOSOCIALES_SERIES } from '../../utils/cpsSeries';
 import BadgeInfoModal from '../Modals/BadgeInfoModal';
 import { getBadgeDisplayName } from '../Modals/BadgeAssignmentModal';
 import './BadgeExplorer.css';
@@ -24,11 +35,14 @@ function renderDescriptionWithBold(text: string): React.ReactNode {
 }
 
 // Series entry: display name, optional DB name (null if à venir), comingSoon flag, description
+// catalogKey: R1 identity for getBadges({ catalog_key }) when fetching from API
 // staticSeriesId: when set, badge list uses local static data (no API)
 // axes: optional list of axes to show on parcours-detail instead of description (exact titles/descriptions)
 interface SeriesEntry {
   displayName: string;
+  /** @deprecated R1 — keep for local image lookup; fetch identity = catalogKey */
   dbName: string | null;
+  catalogKey?: string | null;
   comingSoon: boolean;
   description: string;
   staticSeriesId?: string;
@@ -68,7 +82,11 @@ export { COMPETENCES_ORIENTER_COLLEGE_SERIES };
 
 // Representative badge (name, level) per series dbName for series icon on parcours-detail view
 const SERIES_REPRESENTATIVE_BADGE: Record<string, { name: string; level: string }> = {
-  'Série TouKouLeur': { name: 'Adaptabilité', level: '1' },
+  [SOFT_SKILLS_SERIES]: { name: 'Adaptabilité', level: '1' },
+  [COMPETENCES_PSYCHOSOCIALES_SERIES]: {
+    name: 'Renforcer sa connaissance de soi (C1.1) et penser de façon critique (C1.2)',
+    level: '1',
+  },
   'Série Parcours des possibles': { name: 'Étape 1 : IMPLICATION INITIALE', level: '1' },
   'Série Parcours professionnel': { name: 'PARCOURS DE DÉCOUVERTE - COLLÈGE', level: '1' },
   'Série Audiovisuelle': { name: 'IMAGE', level: '1' },
@@ -87,10 +105,11 @@ const PARCOURS: Parcours[] = [
     iconType: 'fa',
     series: [
       {
-        displayName: 'Série Soft Skills 4LAB',
-        dbName: 'Série TouKouLeur',
+        displayName: SOFT_SKILLS_SERIES_NAME,
+        dbName: SOFT_SKILLS_SERIES,
+        catalogKey: CATALOG_KEY_SOFT_SKILLS,
         comingSoon: false,
-        description: "Les badges de la série Soft Skills 4LAB reconnaissent et valorisent les compétences transversales mobilisées par les jeunes dans le cadre de projets individuels ou collectifs (coopération, communication, créativité, engagement, gestion de projet...)"
+        description: `Les badges de la série ${SOFT_SKILLS_SERIES_NAME} reconnaissent et valorisent les compétences transversales mobilisées par les jeunes dans le cadre de projets individuels ou collectifs (coopération, communication, créativité, engagement, gestion de projet...)`
       }
     ],
     cadreLegitimite: [
@@ -112,12 +131,14 @@ const PARCOURS: Parcours[] = [
     iconType: 'fa',
     series: [
       {
-        displayName: 'Série CPS – Compétences Psychosociales (à venir)',
-        dbName: null,
-        comingSoon: true,
-        description: "Valorise les compétences liées à la gestion des émotions, aux relations sociales et à la prise de décision responsable, en cohérence avec le référentiel de l'Organisation Mondiale de la Santé (OMS)."
-      }
-    ]
+        displayName: 'Compétences psychosociales',
+        dbName: COMPETENCES_PSYCHOSOCIALES_SERIES,
+        catalogKey: CATALOG_KEY_CPS,
+        comingSoon: false,
+        description:
+          "Valorise les compétences liées à la gestion des émotions, aux relations sociales et à la prise de décision responsable, en cohérence avec le référentiel Santé publique France / OMS.",
+      },
+    ],
   },
   {
     id: '3',
@@ -130,12 +151,14 @@ const PARCOURS: Parcours[] = [
       {
         displayName: 'Série Parcours des possibles',
         dbName: 'Série Parcours des possibles',
+        catalogKey: CATALOG_KEY_PARCOURS_DES_POSSIBLES,
         comingSoon: false,
         description: "La série du Centre des possibles permet de valoriser les compétences et talents des jeunes, pour les guider au mieux dans leur choix de développement de soi, de leurs compétences et de leur connaissance des métiers"
       },
       {
         displayName: "Série Compétences à s'orienter - Collège",
         dbName: null,
+        catalogKey: CATALOG_KEY_ORIENTER,
         comingSoon: false,
         description: "Les **compétences à s'orienter** permettent aux élèves de mieux se connaître, de comprendre le monde qui les entoure et de se projeter dans des parcours possibles.\n\nCe parcours s'appuie sur le **référentiel officiel « Compétences à s'orienter »** et valorise les compétences mobilisées dans des situations concrètes tout au long de la scolarité.",
         staticSeriesId: 'competences_orienter_college',
@@ -164,18 +187,21 @@ const PARCOURS: Parcours[] = [
       {
         displayName: 'Série Parcours professionnel',
         dbName: 'Série Parcours professionnel',
+        catalogKey: CATALOG_KEY_PARCOURS_PROFESSIONNEL,
         comingSoon: false,
         description: "Valorise les compétences mobilisées dans des situations professionnelles réelles (stages, jobs, CDD, CDI, alternance...)"
       },
       {
         displayName: 'Série Audiovisuelle & Cinéma',
         dbName: 'Série Audiovisuelle',
+        catalogKey: CATALOG_KEY_AUDIOVISUELLE,
         comingSoon: false,
         description: "Reconnaît les compétences techniques et créatives liées aux métiers de l'audiovisuel."
       },
       {
         displayName: "Série Métiers de la mer",
         dbName: null,
+        catalogKey: CATALOG_KEY_MER,
         comingSoon: false,
         staticSeriesId: 'metiers_mer',
         description: ''
@@ -925,7 +951,7 @@ function getStaticBadgesByAxis(): AxisSection[] {
   });
 }
 
-const INTRO_MESSAGE = "Explorez les parcours Kinship et les badges associés, qui permettent d'identifier et de valoriser les compétences développées par les jeunes à travers des projets, des expériences et des parcours métiers.";
+const INTRO_MESSAGE = "Explorez les parcours Kinship et les preuves de compétences associées, qui permettent d'identifier et de valoriser les compétences développées par les jeunes à travers des projets, des expériences et des parcours métiers.";
 
 const LEVEL_ORDER = ['level_1', 'level_2', 'level_3', 'level_4'] as const;
 
@@ -978,18 +1004,24 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       setIsLoading(true);
       setError(null);
       try {
-        const fetchedBadges = await getBadges({ series: selectedSeriesDbName });
+        // Étape 2: catalog_key only — never display name as filter identity
+        if (!selectedSeries?.catalogKey) {
+          setBadges([]);
+          setError(null);
+          return;
+        }
+        const fetchedBadges = await getBadges({ catalog_key: selectedSeries.catalogKey });
         setBadges(fetchedBadges);
       } catch (err: any) {
         console.error('Error fetching badges:', err);
-        setError('Erreur lors du chargement des badges');
+        setError('Erreur lors du chargement des preuves de compétences');
         setBadges([]);
       } finally {
         setIsLoading(false);
       }
     };
     fetchBadges();
-  }, [view, selectedSeriesDbName]);
+  }, [view, selectedSeriesDbName, selectedSeries?.catalogKey]);
 
   // Cards → Parcours detail
   const handleExplorerCeParcours = (parcours: Parcours) => {
@@ -1014,9 +1046,10 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
       setView('badge-list');
       return;
     }
-    if (!series.dbName) return;
+    // R1: catalog_key is enough to open; dbName kept for local images / legacy labels
+    if (!series.catalogKey && !series.dbName) return;
     setSelectedSeries(series);
-    setSelectedSeriesDbName(series.dbName);
+    setSelectedSeriesDbName(series.dbName || series.catalogKey || null);
     setBadgeFilter('all');
     setView('badge-list');
   };
@@ -1217,7 +1250,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                         setBadgeInfoModalBadge(levelBadge);
                       }}
                     >
-                      Voir les infos du badge
+                      Voir les infos de la preuve de compétences
                         </button>
                       </div>
                 );
@@ -1385,7 +1418,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                     onClick={() => handleExplorerSeries(series)}
                     disabled={series.comingSoon}
                   >
-                    {series.comingSoon ? 'À venir' : 'Explorer les badges de la série'}
+                    {series.comingSoon ? 'À venir' : 'Explorer les preuves de compétences de la série'}
                         </button>
                       </div>
                     </div>
@@ -1429,14 +1462,14 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
               </div>
             </div>
             <div className="badge-list-filter-wrap">
-              <label htmlFor="badgeFilter" className="badge-list-filter-label">Tous les badges</label>
+              <label htmlFor="badgeFilter" className="badge-list-filter-label">Toutes les preuves de compétences</label>
               <select
                 id="badgeFilter"
                 className="badge-list-filter-select"
                 value={badgeFilter}
                 onChange={(e) => setBadgeFilter(e.target.value)}
               >
-                <option value="all">Tous les badges</option>
+                <option value="all">Toutes les preuves de compétences</option>
                 {contentAxes ? (
                   selectedSeriesDbName === METIERS_DE_LA_MER_SERIES ? (
                     contentAxes.map((axis) => (
@@ -1466,7 +1499,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
         {isLoading ? (
           <div className="loading-container">
             <div className="loading-spinner"></div>
-            <p className="loading-text">Chargement des badges...</p>
+            <p className="loading-text">Chargement des preuves de compétences...</p>
               </div>
         ) : error ? (
           <div className="error-container">
@@ -1542,7 +1575,7 @@ const BadgeExplorer: React.FC<BadgeExplorerProps> = ({ onBack }) => {
                     </div>
         ) : badgesByName.length === 0 ? (
           <div className="empty-level-message">
-            <p>Aucun badge disponible pour cette série</p>
+            <p>Aucune preuve de compétences disponible pour cette série</p>
                   </div>
         ) : (
           <div className="badge-explorer-by-title-list">

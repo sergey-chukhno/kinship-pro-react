@@ -1,0 +1,26 @@
+.verify-page {
+  min-height: 100vh;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #f7f6f3;
+  color: #1a1a1a;
+}
+
+.verify-logo {
+  width: 160px;
+  height: 40px;
+  object-fit: contain;
+  margin-bottom: 1.5rem;
+}
+
+.verify-message {
+  max-width: 560px;
+  margin: 0;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: #1c1b18;
+}

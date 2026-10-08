@@ -1,0 +1,31 @@
+.presence-session-modal {
+  max-width: 520px;
+}
+
+.presence-session-modal .form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.presence-session-modal .form-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.presence-session-modal .form-checkbox input {
+  margin-top: 2px;
+  accent-color: var(--couleur-espace, #115e59);
+}
+
+@media (max-width: 520px) {
+  .presence-session-modal .form-row-2 {
+    grid-template-columns: 1fr;
+  }
+}

@@ -71,12 +71,17 @@ export interface Badge {
   id: string;
   name: string;
   description: string;
+  /** Stable grouping/filter key, e.g. "Niveau 1" */
   level: string;
+  /** Series-specific display label, e.g. "Phase 1" or "Niveau 1: Découverte" */
+  levelLabel?: string;
   levelClass: string;
   icon: string;
   image: string;
   category: string;
   series: string;
+  /** R1 stable catalogue key when present on API payload */
+  catalog_key?: string | null;
   recipients: number;
   created: string;
   domains: string[];
@@ -141,6 +146,7 @@ export interface Project {
   owner: string;
   participants: number;
   badges: number;
+  hasFunders?: boolean;
   pendingRequests?: number; // Number of pending participation requests
   startDate: string;
   endDate: string;
@@ -199,6 +205,18 @@ export interface Project {
     organization: string;
   }>;
   mlds_information?: any; // MLDS project specific information
+  learningOutcomes?: string;
+  participationMode?: 'presentiel' | 'distanciel' | 'hybride';
+  projectKind?: 'standard' | 'stage' | 'formation';
+  isEuMcDeclared?: boolean;
+  workloadHours?: number | string | null;
+  workloadEcts?: number | string | null;
+  eqfLevel?: number | null;
+  eqfFramework?: 'EQF' | 'QF_EHEA' | null;
+  assessmentType?: string | null;
+  teachingLanguages?: string[];
+  entryRequirements?: string | null;
+  validityPeriodMonths?: number | null;
   school_levels?: Array<{
     id: number;
     name: string;
@@ -237,6 +255,7 @@ export interface Event {
   participants: EventParticipant[] | string[]; // Can be array of IDs (string) or full participant objects
   image?: string;
   badges?: string[]; // Array of badge IDs
+  badgeSkills?: Record<string, number[]>; // badgeId -> competence ids
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   projectId: string;
   groupIds?: string[]; // Pro: groups attached to event
@@ -279,8 +298,12 @@ export interface OrganizationContext {
   company_type?: string;
   logo_url?: string | null;
   role: 'superadmin' | 'admin' | 'referent' | 'intervenant' | 'member';
+  trust_level?: string | null;
+  qualiopi?: boolean;
   contract_kind?: string | null; // 'vert_actuel' | 'bleu_standard' | 'bleu_premium'
   allows_minor_members?: boolean; // true when contract is BLEU Premium
+  /** Count of projects where this org is designated funder — 0 means the Je finance tab does not exist */
+  financed_projects_count?: number;
   permissions: {
     superadmin: boolean;
     admin: boolean;
@@ -309,6 +332,7 @@ export interface User {
   available_contexts?: {
     companies?: OrganizationContext[];
     schools?: OrganizationContext[];
+    formation_organizations?: OrganizationContext[];
     teacher_dashboard?: boolean;
     user_dashboard?: boolean;
     independent_teacher?: object | null;
@@ -391,9 +415,39 @@ export interface OrganizationStatsResponse {
   badges_assigned?: BadgesAssignedStats;
 }
 
-export type PageType = 'dashboard' | 'members' | 'events' | 'projects' | 'badges' | 'analytics' | 'network' | 'notifications' | 'settings' | 'personal-settings' | 'membership-requests' | 'partnership-requests' | 'project-management' | 'mes-enfants' | 'mes-parents' | 'Auth';
+export type PageType =
+  | 'dashboard'
+  | 'members'
+  | 'events'
+  | 'projects'
+  | 'formations'
+  | 'badges'
+  | 'analytics'
+  | 'network'
+  | 'notifications'
+  | 'settings'
+  | 'personal-settings'
+  | 'pik'
+  | 'membership-requests'
+  | 'partnership-requests'
+  | 'funder-attachments'
+  | 'project-management'
+  | 'presence-session'
+  | 'formation-detail'
+  | 'formation-affiche'
+  | 'preuve-formation'
+  | 'create'
+  | 'project-space'
+  | 'project-affiche'
+  | 'funded-projects'
+  | 'funder-follow'
+  | 'of-activation'
+  | 'admin-of-queue'
+  | 'mes-enfants'
+  | 'mes-parents'
+  | 'Auth';
 
-export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user';
+export type ShowingPageType = 'pro' | 'edu' | 'teacher' | 'user' | 'of';
 
 export type ClassModalProjectsTab = 'classic-projects' | 'mlds-projects';
 
@@ -450,6 +504,10 @@ export interface BadgeAPI {
   description: string;
   level: 'level_1' | 'level_2' | 'level_3' | 'level_4';
   series: string;
+  /** R1 — stable catalogue key; null for org-only series */
+  catalog_key?: string | null;
+  /** R1 — BadgeSeries id for tree / selects */
+  badge_series_id?: number | null;
   domains: BadgeSkillAPI[];
   expertises: BadgeSkillAPI[];
   image_url?: string; // Optional image URL from backend (if provided)
@@ -458,7 +516,9 @@ export interface BadgeAPI {
 export interface BadgeSkillAPI {
   id: number;
   name: string;
-  category: 'domain' | 'expertise';
+  // 'both' = item savoir ET savoir-faire (CPS S2.1, V1.2) : présent une seule fois,
+  // à la fois dans badge.domains et badge.expertises côté API.
+  category: 'domain' | 'expertise' | 'both';
 }
 
 export interface EventCompleteAwardError {
@@ -499,6 +559,8 @@ export interface BadgeAssignmentResponse {
     badge_name: string;
     status: string;
     user_badge_id: number;
+    /** F3 — PublicProofPayload (no share_token) */
+    proof?: import('./badgeProofApi').PublicProofPayload;
   }>;
   errors?: Array<string | EventCompleteAwardError>;
 }

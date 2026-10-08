@@ -4,7 +4,6 @@ import UserManagement from '../Settings/UserManagement';
 import './Settings.css';
 
 const Settings: React.FC = () => {
-  // const { state } = useAppContext();
   const [activeTab, setActiveTab] = useState<'users' | 'subscription'>('users');
 
   const handleTabChange = (tab: 'users' | 'subscription') => {
@@ -20,13 +19,13 @@ const Settings: React.FC = () => {
         </div>
 
         <div className="settings-tabs">
-          <button 
+          <button
             className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
             onClick={() => handleTabChange('users')}
           >
             <i className="fas fa-users"></i> Utilisateurs
           </button>
-          <button 
+          <button
             className={`tab-button ${activeTab === 'subscription' ? 'active' : ''}`}
             onClick={() => handleTabChange('subscription')}
           >
@@ -38,6 +37,26 @@ const Settings: React.FC = () => {
           {activeTab === 'users' && <UserManagement />}
           {activeTab === 'subscription' && <SubscriptionManagement />}
         </div>
+
+        {/* Route OF / formation temporairement désactivée
+        <div className="settings-internal">
+          <h2>Outil interne Kinship</h2>
+          <p>
+            File Super Admin — dossiers d’activation OF : vérification aux sources officielles, puis
+            décision humaine. Les pièces déposées se téléchargent.
+          </p>
+          <button
+            type="button"
+            className="tab-button"
+            onClick={() => {
+              setCurrentPage('admin-of-queue');
+              navigate('/admin-of-queue');
+            }}
+          >
+            Dossiers d’activation à traiter →
+          </button>
+        </div>
+        */}
       </div>
     </section>
   );

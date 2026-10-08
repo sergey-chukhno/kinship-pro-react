@@ -1,8 +1,11 @@
 import apiClient from './config';
 import { BadgeAPI, BadgeSkillAPI, BadgeAssignmentResponse } from '../types';
+import { appendProjectBadgesSeriesParams } from '../utils/seriesFilterParams';
 
 export interface BadgeFilters {
-  series?: string;
+  /** R1 / Étape 2 — series identity (never display name) */
+  catalog_key?: string;
+  badge_series_id?: number;
   level?: string;
   name?: string;
 }
@@ -14,18 +17,21 @@ export interface AssignBadgeData {
   comment?: string;
   domaine_engagement?: string;
   organization_id?: number;
+  event_id?: number;
 }
 
 /**
  * Récupère la liste de tous les badges disponibles
- * @param filters - Filtres optionnels (series, level, name)
+ * @param filters - Filtres optionnels (catalog_key, badge_series_id, level, name)
  * @returns Promise<BadgeAPI[]>
  */
 export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => {
   const params = new URLSearchParams();
-  
-  if (filters?.series) {
-    params.append('series', filters.series);
+
+  if (filters?.catalog_key) {
+    params.append('catalog_key', filters.catalog_key);
+  } else if (filters?.badge_series_id != null) {
+    params.append('badge_series_id', String(filters.badge_series_id));
   }
   if (filters?.level) {
     params.append('level', filters.level);
@@ -33,10 +39,10 @@ export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => 
   if (filters?.name) {
     params.append('name', filters.name);
   }
-  
+
   const queryString = params.toString();
   const url = `/api/v1/badges${queryString ? `?${queryString}` : ''}`;
-  
+
   const response = await apiClient.get(url);
   return response.data || [];
 };
@@ -49,24 +55,33 @@ export const getBadges = async (filters?: BadgeFilters): Promise<BadgeAPI[]> => 
  * @param filters - Filtres optionnels (series, level)
  * @returns Promise<{ data: any[], meta: any }>
  */
+export interface ProjectBadgesFilters {
+  catalog_key?: string;
+  badge_series_id?: number;
+  level?: string;
+  sender_id?: number;
+  receiver_query?: string;
+}
+
+/**
+ * Récupère la liste des badges attribués dans un projet
+ * @param projectId - ID du projet
+ * @param page - Numéro de page (défaut: 1)
+ * @param perPage - Nombre d'éléments par page (défaut: 12)
+ * @param filters - Filtres optionnels (catalog_key, badge_series_id, level)
+ * @returns Promise<{ data: any[], meta: any }>
+ */
 export const getProjectBadges = async (
   projectId: number,
   page: number = 1,
   perPage: number = 12,
-  filters?: {
-    series?: string;
-    level?: string;
-    sender_id?: number;
-    receiver_query?: string;
-  }
+  filters?: ProjectBadgesFilters
 ): Promise<{ data: any[]; meta: any }> => {
   const params = new URLSearchParams();
   params.append('page', page.toString());
   params.append('per_page', perPage.toString());
-  
-  if (filters?.series) {
-    params.append('series', filters.series);
-  }
+
+  appendProjectBadgesSeriesParams(params, filters);
   if (filters?.level) {
     params.append('level', filters.level);
   }
@@ -95,7 +110,8 @@ export const getUserBadges = async (
   page: number = 1,
   perPage: number = 12,
   filters?: {
-    series?: string;
+    catalog_key?: string;
+    badge_series_id?: number;
     level?: string;
     organization_type?: string;
     organization_id?: number;
@@ -110,8 +126,10 @@ export const getUserBadges = async (
   if (filters?.all_statuses) {
     params.append('all_statuses', 'true');
   }
-  if (filters?.series) {
-    params.append('series', filters.series);
+  if (filters?.catalog_key) {
+    params.append('catalog_key', filters.catalog_key);
+  } else if (filters?.badge_series_id != null) {
+    params.append('badge_series_id', String(filters.badge_series_id));
   }
   if (filters?.level) {
     params.append('level', filters.level);
@@ -125,7 +143,7 @@ export const getUserBadges = async (
   if (filters?.badge_id) {
     params.append('badge_id', filters.badge_id.toString());
   }
-  
+
   const response = await apiClient.get(`/api/v1/users/me/badges?${params.toString()}`);
   return {
     data: response.data?.data || [],
@@ -168,6 +186,9 @@ export const assignBadge = async (
     }
     if (badgeData.organization_id) {
       formData.append('organization_id', badgeData.organization_id.toString());
+    }
+    if (badgeData.event_id) {
+      formData.append('event_id', badgeData.event_id.toString());
     }
     
     // Append files

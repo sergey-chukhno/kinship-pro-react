@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import './DeleteAccountSection.css';
+import { displayPersonName } from '../../utils/civilDataErased';
 
 interface Organization {
   id: number;
@@ -355,11 +356,11 @@ const DeleteAccountSection: React.FC = () => {
                     >
                       <AvatarImage
                         src={user.avatar_url}
-                        alt={user.full_name}
+                        alt={displayPersonName(user.full_name, user.first_name, user.last_name)}
                         className="user-avatar"
                       />
                       <div className="user-info">
-                        <span className="user-name">{user.full_name}</span>
+                        <span className="user-name">{displayPersonName(user.full_name, user.first_name, user.last_name)}</span>
                         <span className="user-email">{user.email}</span>
                         <span className="user-role-badge">
                           {translateRole(user.role_in_school || user.role_in_company || 'member')}
@@ -392,11 +393,11 @@ const DeleteAccountSection: React.FC = () => {
                 <div className="selected-user-info">
                   <AvatarImage
                     src={selectedUser.avatar_url}
-                    alt={selectedUser.full_name}
+                    alt={displayPersonName(selectedUser.full_name, selectedUser.first_name, selectedUser.last_name)}
                     className="selected-user-avatar"
                   />
                   <div>
-                    <strong>{selectedUser.full_name}</strong>
+                    <strong>{displayPersonName(selectedUser.full_name, selectedUser.first_name, selectedUser.last_name)}</strong>
                     <span className="selected-user-email">{selectedUser.email}</span>
                   </div>
                 </div>

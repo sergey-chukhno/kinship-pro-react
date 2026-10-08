@@ -1,12 +1,11 @@
+import { COMPETENCES_PSYCHOSOCIALES_SERIES } from './cpsSeries';
+
 /**
  * Soft Skills series — renamed 28/09/2026 (Patrick).
  * Legacy DB name kept for local/staging until rename is applied everywhere.
  */
 export const SOFT_SKILLS_SERIES_NAME = 'Compétences transversales (soft skills)';
 export const SOFT_SKILLS_SERIES_NAME_LEGACY = 'Série TouKouLeur';
-/** Marketing label shown in the assign-badge modal (4LAB). */
-export const SOFT_SKILLS_SERIES_DISPLAY_NAME = 'Série Soft Skills 4LAB';
-
 export const isSoftSkillsSeries = (seriesName: string | null | undefined): boolean => {
   if (!seriesName) return false;
   const normalized = seriesName.toLowerCase();
@@ -28,23 +27,25 @@ export const isSoftSkillsSeries = (seriesName: string | null | undefined): boole
  * @returns The formatted level label
  */
 export const getLevelLabel = (series: string, levelNumber: string): string => {
-  // Handle empty/null series
   if (!series) {
     return getSoftSkillsLabel(levelNumber);
   }
 
-  // Soft Skills: Découverte / Appropriation only (Patrick 29/09)
-  if (isSoftSkillsSeries(series)) {
+  // Accept catalog_key or display name (R1)
+  if (series === 'soft_skills' || isSoftSkillsSeries(series)) {
     return getSoftSkillsLabel(levelNumber);
   }
 
-  // Série Parcours des possibles: "Niveau 1", "Niveau 2" (no suffix)
-  if (series === 'Série Parcours des possibles') {
+  // Compétences psychosociales: "Phase 1" / "Phase 2" only (Patrick — nothing after)
+  if (series === 'competences_psychosociales' || series === COMPETENCES_PSYCHOSOCIALES_SERIES) {
+    return `Phase ${levelNumber}`;
+  }
+
+  if (series === 'parcours_des_possibles' || series === 'Série Parcours des possibles') {
     return `Niveau ${levelNumber}`;
   }
 
-  // Série Audiovisuelle: "Niveau 1: Observable", etc.
-  if (series === 'Série Audiovisuelle') {
+  if (series === 'audiovisuelle' || series === 'Série Audiovisuelle') {
     switch (levelNumber) {
       case '1':
         return 'Niveau 1: Observable';
@@ -59,8 +60,7 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  // Série Parcours professionnel: "Niveau 1: Découverte", etc.
-  if (series === 'Série Parcours professionnel') {
+  if (series === 'parcours_professionnel' || series === 'Série Parcours professionnel') {
     switch (levelNumber) {
       case '1':
         return 'Niveau 1: Découverte';
@@ -75,13 +75,11 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  // Série Métiers de la mer: "Niveau 1", "Niveau 2" (no suffix)
-  if (series === 'Série Métiers de la mer') {
+  if (series === 'metiers_de_la_mer' || series === 'Série Métiers de la mer') {
     return `Niveau ${levelNumber}`;
   }
 
-  // Série Compétences à s'orienter - Collège
-  if (series === "Série Compétences à s'orienter - Collège") {
+  if (series === 'competences_orienter_college' || series === "Série Compétences à s'orienter - Collège") {
     switch (levelNumber) {
       case '1':
         return 'Niveau 1 – Aperçu';
@@ -100,19 +98,30 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
 };
 
 /**
- * Soft Skills level labels (Découverte / Appropriation).
+ * Display label for a badge level enum (level_1…) given its series.
+ */
+export const getBadgeLevelDisplayLabel = (
+  series: string | undefined | null,
+  level: string | undefined | null
+): string => {
+  const num = (level || 'level_1').replace(/^level_/, '');
+  return getLevelLabel(series || '', num);
+};
+
+/**
+ * Soft Skills level labels (Découverte / Appropriation) — words only, no « Niveau » prefix (Patrick).
  * L3/L4 labels kept only for legacy display of existing proofs — not offered for new awards.
  */
 const getSoftSkillsLabel = (levelNumber: string): string => {
   switch (levelNumber) {
     case '1':
-      return 'Niveau 1: Découverte';
+      return 'Découverte';
     case '2':
-      return 'Niveau 2: Appropriation';
+      return 'Appropriation';
     case '3':
-      return 'Niveau 3: Maîtrise';
+      return 'Maîtrise';
     case '4':
-      return 'Niveau 4: Expertise';
+      return 'Expertise';
     default:
       return `Niveau ${levelNumber}`;
   }

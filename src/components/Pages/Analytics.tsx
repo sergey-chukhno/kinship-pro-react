@@ -6,6 +6,12 @@ import { getSchoolMembersAccepted } from '../../api/SchoolDashboard/Members';
 import { getCompanyMembersAccepted } from '../../api/CompanyDashboard/Members';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { displaySeries } from '../../utils/badgeMapper';
+import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
+import {
+  CATALOG_KEY_SOFT_SKILLS,
+  CatalogSeriesOption,
+  seriesOptionsFromBadges,
+} from '../../constants/catalogSeries';
 import './Analytics.css';
 
 const LEVEL_COLORS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
@@ -56,8 +62,8 @@ const Analytics: React.FC = () => {
 
   const isEduOrPro = state.showingPageType === 'edu' || state.showingPageType === 'pro';
 
-  // Badge series options (same list as "Attribuer un badge" modal)
-  const [badgeSeriesOptions, setBadgeSeriesOptions] = useState<string[]>([]);
+  // Badge series options (catalog_key identity; label = display name)
+  const [badgeSeriesOptions, setBadgeSeriesOptions] = useState<CatalogSeriesOption[]>([]);
   const [projectOptions, setProjectOptions] = useState<Array<{ id: number; title: string }>>([]);
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
@@ -67,20 +73,20 @@ const Analytics: React.FC = () => {
   const [assignedBadgesForSeriesChart, setAssignedBadgesForSeriesChart] = useState<any[]>([]);
   const [loadingSeriesChart, setLoadingSeriesChart] = useState(false);
 
-  // Attributions mensuelles: filters Par série + Par projet
-  const [selectedSeriesMonthlyChart, setSelectedSeriesMonthlyChart] = useState<string>('Série TouKouLeur');
+  // Attributions mensuelles: filters Par série + Par projet (state = catalog_key)
+  const [selectedSeriesMonthlyChart, setSelectedSeriesMonthlyChart] = useState<string>(CATALOG_KEY_SOFT_SKILLS);
   const [selectedProjectIdMonthlyChart, setSelectedProjectIdMonthlyChart] = useState<string>('');
   const [assignedBadgesMonthlyChart, setAssignedBadgesMonthlyChart] = useState<any[]>([]);
   const [loadingMonthlyChart, setLoadingMonthlyChart] = useState(false);
 
   // Tendances d'attribution: filters Par série + Par projet
-  const [selectedSeriesTrendChart, setSelectedSeriesTrendChart] = useState<string>('Série TouKouLeur');
+  const [selectedSeriesTrendChart, setSelectedSeriesTrendChart] = useState<string>(CATALOG_KEY_SOFT_SKILLS);
   const [selectedProjectIdTrendChart, setSelectedProjectIdTrendChart] = useState<string>('');
   const [assignedBadgesTrendChart, setAssignedBadgesTrendChart] = useState<any[]>([]);
   const [loadingTrendChart, setLoadingTrendChart] = useState(false);
 
   // Compétences par niveau: filters Par série + Par projet
-  const [selectedSeries, setSelectedSeries] = useState<string>('Série TouKouLeur');
+  const [selectedSeries, setSelectedSeries] = useState<string>(CATALOG_KEY_SOFT_SKILLS);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [assignedBadgesRaw, setAssignedBadgesRaw] = useState<any[]>([]);
   const [loadingAssignedBadges, setLoadingAssignedBadges] = useState(false);
@@ -97,11 +103,7 @@ const Analytics: React.FC = () => {
       setLoadingSeries(true);
       try {
         const badges = await getBadges();
-        const seriesSet = new Set<string>();
-        (badges || []).forEach((b: any) => {
-          if (b.series) seriesSet.add(b.series);
-        });
-        setBadgeSeriesOptions(Array.from(seriesSet));
+        setBadgeSeriesOptions(seriesOptionsFromBadges(badges || []));
       } catch (e) {
         console.error('Error fetching badge series', e);
       } finally {
@@ -186,9 +188,9 @@ const Analytics: React.FC = () => {
         do {
           let res: any;
           if (state.showingPageType === 'edu') {
-            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart, projectIdParam);
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart ? { catalog_key: selectedSeriesMonthlyChart } : undefined, projectIdParam);
           } else {
-            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart, projectIdParam);
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesMonthlyChart ? { catalog_key: selectedSeriesMonthlyChart } : undefined, projectIdParam);
           }
           const data = res.data?.data ?? res.data ?? [];
           const list = Array.isArray(data) ? data : [];
@@ -221,9 +223,9 @@ const Analytics: React.FC = () => {
         do {
           let res: any;
           if (state.showingPageType === 'edu') {
-            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart, projectIdParam);
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart ? { catalog_key: selectedSeriesTrendChart } : undefined, projectIdParam);
           } else {
-            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart, projectIdParam);
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeriesTrendChart ? { catalog_key: selectedSeriesTrendChart } : undefined, projectIdParam);
           }
           const data = res.data?.data ?? res.data ?? [];
           const list = Array.isArray(data) ? data : [];
@@ -256,9 +258,9 @@ const Analytics: React.FC = () => {
         do {
           let res: any;
           if (state.showingPageType === 'edu') {
-            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries, projectIdParam);
+            res = await getSchoolAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries ? { catalog_key: selectedSeries } : undefined, projectIdParam);
           } else {
-            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries, projectIdParam);
+            res = await getCompanyAssignedBadges(Number(organizationId), perPage, undefined, page, selectedSeries ? { catalog_key: selectedSeries } : undefined, projectIdParam);
           }
           const data = res.data?.data ?? res.data ?? [];
           const list = Array.isArray(data) ? data : [];
@@ -458,7 +460,7 @@ const Analytics: React.FC = () => {
     averagePerMember: 0,
     completionRate: 0,
     seriesDistribution: [
-      { name: 'Soft Skills 4LAB', value: 0, percentage: 0 },
+      { name: SOFT_SKILLS_SERIES_NAME, value: 0, percentage: 0 },
       // { name: 'CPS', value: 0, percentage: 0 },
       // { name: 'Audiovisuelle', value: 0, percentage: 0 }
     ],
@@ -888,7 +890,7 @@ const Analytics: React.FC = () => {
             className={`tab-button ${activeTab === 'badges' ? 'active' : ''}`}
             onClick={() => setActiveTab('badges')}
           >
-            Badges
+            Preuves
           </button>
           <button
             className={`tab-button ${activeTab === 'projects' ? 'active' : ''}`}
@@ -975,7 +977,7 @@ const Analytics: React.FC = () => {
               ) : (
                 <>
               <StatCard
-                title="Badges totaux"
+                title="Preuves de compétences totales"
                     value={totalBadges}
                     subtitle={`${totalBadges} attribués`}
                 icon="/icons_logo/Icon=Badges.svg"
@@ -985,14 +987,14 @@ const Analytics: React.FC = () => {
               <StatCard
                 title="Moyenne par membre"
                     value={averagePerMember}
-                subtitle="Badges par personne"
+                subtitle="Preuves de compétences par personne"
                 icon="fas fa-user-graduate"
                 color="#10B981"
               />
               <StatCard
                 title="Attributions ce mois"
                     value={badgesThisMonth}
-                subtitle="Nouveaux badges"
+                subtitle="Nouvelles preuves de compétences"
                 icon="fas fa-star"
                 color="#EF4444"
               />
@@ -1040,7 +1042,7 @@ const Analytics: React.FC = () => {
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
-                      <label htmlFor="analytics-monthly-series">Par série des badges</label>
+                      <label htmlFor="analytics-monthly-series">Par série des preuves de compétences</label>
                       <select
                         id="analytics-monthly-series"
                         className="analytics-select"
@@ -1048,8 +1050,8 @@ const Analytics: React.FC = () => {
                         onChange={(e) => setSelectedSeriesMonthlyChart(e.target.value)}
                         disabled={loadingSeries}
                       >
-                        {badgeSeriesOptions.map((s) => (
-                          <option key={s} value={s}>{displaySeries(s)}</option>
+                        {badgeSeriesOptions.map((o) => (
+                          <option key={o.id ?? o.catalog_key ?? o.label} value={o.catalog_key || String(o.id)}>{o.label}</option>
                         ))}
                       </select>
                     </div>
@@ -1086,7 +1088,7 @@ const Analytics: React.FC = () => {
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
-                      <label htmlFor="analytics-trend-series">Par série des badges</label>
+                      <label htmlFor="analytics-trend-series">Par série des preuves de compétences</label>
                       <select
                         id="analytics-trend-series"
                         className="analytics-select"
@@ -1094,8 +1096,8 @@ const Analytics: React.FC = () => {
                         onChange={(e) => setSelectedSeriesTrendChart(e.target.value)}
                         disabled={loadingSeries}
                       >
-                        {badgeSeriesOptions.map((s) => (
-                          <option key={s} value={s}>{displaySeries(s)}</option>
+                        {badgeSeriesOptions.map((o) => (
+                          <option key={o.id ?? o.catalog_key ?? o.label} value={o.catalog_key || String(o.id)}>{o.label}</option>
                         ))}
                       </select>
                     </div>
@@ -1132,7 +1134,7 @@ const Analytics: React.FC = () => {
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
-                      <label htmlFor="analytics-badge-series">Par série des badges</label>
+                      <label htmlFor="analytics-badge-series">Par série des preuves de compétences</label>
                       <select
                         id="analytics-badge-series"
                         className="analytics-select"
@@ -1140,8 +1142,8 @@ const Analytics: React.FC = () => {
                         onChange={(e) => setSelectedSeries(e.target.value)}
                         disabled={loadingSeries}
                       >
-                        {badgeSeriesOptions.map((s) => (
-                          <option key={s} value={s}>{displaySeries(s)}</option>
+                        {badgeSeriesOptions.map((o) => (
+                          <option key={o.id ?? o.catalog_key ?? o.label} value={o.catalog_key || String(o.id)}>{o.label}</option>
                         ))}
                       </select>
                     </div>

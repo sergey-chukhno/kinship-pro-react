@@ -12,22 +12,15 @@ interface BadgeCardProps {
 }
 
 const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete, attributionCount = 0, showClickHint = true }) => {
+  const displayLevel = badge.levelLabel || badge.level;
 
   const getLevelColor = (level: string) => {
-    if (level.includes('Niveau 1')) return '#10b981';
-    if (level.includes('Niveau 2')) return '#3b82f6';
+    if (level.includes('Niveau 1') || level.includes('Phase 1')) return '#10b981';
+    if (level.includes('Niveau 2') || level.includes('Phase 2')) return '#3b82f6';
     if (level.includes('Niveau 3')) return '#f59e0b';
     if (level.includes('Niveau 4')) return '#ef4444';
     return '#6b7280';
   };
-
-  // const getLevelIcon = (level: string) => {
-  //   if (level.includes('Niveau 1')) return 'fas fa-seedling';
-  //   if (level.includes('Niveau 2')) return 'fas fa-leaf';
-  //   if (level.includes('Niveau 3')) return 'fas fa-tree';
-  //   if (level.includes('Niveau 4')) return 'fas fa-crown';
-  //   return 'fas fa-award';
-  // };
 
   return (
     <div className="badge-card-vertical" onClick={onClick}>
@@ -41,8 +34,8 @@ const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete,
             </div>
           )}
         </div>
-        <div className="badge-level" style={{ backgroundColor: getLevelColor(badge.level) }}>
-          <span>{badge.level}</span>
+        <div className="badge-level" style={{ backgroundColor: getLevelColor(displayLevel) }}>
+          <span>{displayLevel}</span>
         </div>
       </div>
 
@@ -50,7 +43,7 @@ const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete,
         <h3 className="badge-title">{badge.name}</h3>
         {showClickHint && (
           <div className="badge-click-hint">
-            <span>Cliquer pour voir les attributions du badge</span>
+            <span>Cliquer pour voir les attributions de la preuve de compétences</span>
             <i className="fas fa-chevron-right"></i>
           </div>
         )}
@@ -59,7 +52,7 @@ const BadgeCard: React.FC<BadgeCardProps> = ({ badge, onClick, onEdit, onDelete,
       {/* Green counters positioned like in projects section */}
       <div className="badge-counters">
         <div className="badge-counter">
-          <img src="/icons_logo/Icon=Badges.svg" alt="Badges" className="counter-icon" />
+          <img src="/icons_logo/Icon=Badges.svg" alt="Preuves" className="counter-icon" />
           <span>{attributionCount}</span>
         </div>
       </div>

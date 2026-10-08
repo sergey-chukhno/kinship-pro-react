@@ -3,6 +3,7 @@ import { ClassList, Member } from '../../types';
 import { useToast } from '../../hooks/useToast';
 import { useAppContext } from '../../context/AppContext';
 import { getCurrentUser } from '../../api/Authentication';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { getSelectedSchoolId } from '../../utils/contextUtils';
 import { getSchoolStaff } from '../../api/SchoolDashboard/Members';
 import AvatarImage from '../UI/AvatarImage';
@@ -106,7 +107,7 @@ export default function AddClassModal({ onClose, onAdd, initialData, isEdit = fa
           id: m.id.toString(),
           firstName: m.first_name || '',
           lastName: m.last_name || '',
-          fullName: m.full_name || `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+          fullName: displayPersonName(m.full_name, m.first_name, m.last_name),
           email: m.email || '',
           profession: m.role_in_system || m.role || '',
           roles: [m.role_in_school || m.role || 'member'],

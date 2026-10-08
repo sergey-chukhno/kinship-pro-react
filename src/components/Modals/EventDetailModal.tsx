@@ -15,6 +15,7 @@ import { getBadges } from '../../api/Badges';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { useToast } from '../../hooks/useToast';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import EventCompleteModal from './EventCompleteModal';
@@ -351,7 +352,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
         {/* Badges Section */}
         {eventBadges.length > 0 && (
           <div className="bg-white event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
-            <h3 className="participants-title">Badges de l'événement</h3>
+            <h3 className="participants-title">Preuves de l'événement</h3>
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
@@ -425,7 +426,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
                         fontWeight: 500,
                         textTransform: 'uppercase'
                       }}>
-                        {badge.level.replace('level_', 'Niveau ')}
+                        {getBadgeLevelDisplayLabel(badge.series, badge.level)}
                       </span>
                     )}
                   </div>

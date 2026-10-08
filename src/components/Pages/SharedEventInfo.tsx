@@ -5,6 +5,7 @@ import { getBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
 import { useToast } from '../../hooks/useToast';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import '../Modals/Modal.css';
 import './SharedEventInfo.css';
 
@@ -218,7 +219,7 @@ const SharedEventInfo: React.FC = () => {
 
           {eventBadges.length > 0 && (
             <div className="bg-white event-detail-participants-section" style={{ borderTop: '1px solid #e5e7eb' }}>
-              <h3 className="participants-title">Badges de l&apos;événement</h3>
+              <h3 className="participants-title">Preuves de l&apos;événement</h3>
               <div
                 style={{
                   display: 'grid',
@@ -285,7 +286,7 @@ const SharedEventInfo: React.FC = () => {
                             textTransform: 'uppercase'
                           }}
                         >
-                          {badge.level.replace('level_', 'Niveau ')}
+                          {getBadgeLevelDisplayLabel(badge.series, badge.level)}
                         </span>
                       )}
                     </div>

@@ -1,4 +1,4 @@
-import apiClient from './config';
+import apiClient, { axiosClientWithoutToken } from './config';
 import type { MemberContextPayload } from '../utils/memberContextPayload';
 
 export type { MemberContextPayload } from '../utils/memberContextPayload';
@@ -69,6 +69,7 @@ export interface ProjectMemberAttribute {
 }
 
 export interface LinkAttribute {
+    id?: number;
     name: string;
     url: string;
 }
@@ -233,6 +234,18 @@ export interface CreateProjectPayload {
         participant_ids?: number[];
         participant_contexts?: MemberContextPayload[];
         mlds_information_attributes?: MLDSInformationAttributes;
+        project_kind?: 'standard' | 'stage' | 'formation';
+        is_eu_mc_declared?: boolean;
+        learning_outcomes?: string;
+        participation_mode?: 'on_site' | 'online' | 'blended';
+        workload_hours?: number | string;
+        workload_ects?: number | string;
+        project_eqf_level?: number;
+        project_eqf_framework_type?: 'EQF' | 'QF_EHEA';
+        assessment_type?: string;
+        teaching_languages?: string[];
+        entry_requirements?: string;
+        validity_period_months?: number | null;
     };
 }
 
@@ -938,6 +951,61 @@ export const getTeacherMembers = async (params?: {
     }));
 };
 
+type EuMcProjectFields = {
+    is_eu_mc_declared?: boolean;
+    learning_outcomes?: string;
+    participation_mode?: 'on_site' | 'online' | 'blended';
+    workload_hours?: number | string;
+    workload_ects?: number | string;
+    project_eqf_level?: number;
+    project_eqf_framework_type?: 'EQF' | 'QF_EHEA';
+    assessment_type?: string;
+    teaching_languages?: string[];
+    entry_requirements?: string;
+    validity_period_months?: number | null;
+};
+
+const appendEuMcProjectFieldsToFormData = (formData: FormData, project: EuMcProjectFields): void => {
+    if (project.is_eu_mc_declared !== undefined) {
+        formData.append('project[is_eu_mc_declared]', String(project.is_eu_mc_declared));
+    }
+    if (project.learning_outcomes) {
+        formData.append('project[learning_outcomes]', project.learning_outcomes);
+    }
+    if (project.participation_mode) {
+        formData.append('project[participation_mode]', project.participation_mode);
+    }
+    if (project.workload_hours !== undefined && project.workload_hours !== '') {
+        formData.append('project[workload_hours]', String(project.workload_hours));
+    }
+    if (project.workload_ects !== undefined && project.workload_ects !== '') {
+        formData.append('project[workload_ects]', String(project.workload_ects));
+    }
+    if (project.project_eqf_level != null) {
+        formData.append('project[project_eqf_level]', String(project.project_eqf_level));
+    }
+    if (project.project_eqf_framework_type) {
+        formData.append('project[project_eqf_framework_type]', project.project_eqf_framework_type);
+    }
+    if (project.assessment_type) {
+        formData.append('project[assessment_type]', project.assessment_type);
+    }
+    if (project.entry_requirements) {
+        formData.append('project[entry_requirements]', project.entry_requirements);
+    }
+    if (project.validity_period_months !== undefined) {
+        formData.append(
+            'project[validity_period_months]',
+            project.validity_period_months == null ? '' : String(project.validity_period_months)
+        );
+    }
+    if (project.teaching_languages && project.teaching_languages.length > 0) {
+        project.teaching_languages.forEach((lang) => {
+            formData.append('project[teaching_languages][]', lang);
+        });
+    }
+};
+
 /**
  * Create a new project (JSON format - without images)
  */
@@ -1160,6 +1228,11 @@ export const createProject = async (
     formData.append('project[status]', project.status);
     formData.append('project[private]', project.private.toString());
 
+    if (project.project_kind) {
+        formData.append('project[project_kind]', project.project_kind);
+    }
+    appendEuMcProjectFieldsToFormData(formData, project);
+
     // Add optional fields
     if (project.participants_number !== undefined) {
         formData.append('project[participants_number]', project.participants_number.toString());
@@ -1280,6 +1353,7 @@ export interface ProjectDocument {
     byte_size: number;
     created_at: string;
     url: string;
+    visibility?: 'public' | 'private';
 }
 
 export const getProjectDocuments = async (projectId: number): Promise<{ data: ProjectDocument[] }> => {
@@ -1289,18 +1363,32 @@ export const getProjectDocuments = async (projectId: number): Promise<{ data: Pr
 
 export const addProjectDocuments = async (
     projectId: number,
-    files: File[]
+    files: File[],
+    visibility: 'public' | 'private' = 'private'
 ): Promise<{ data: ProjectDocument[] }> => {
     const formData = new FormData();
     files.forEach(file => {
         formData.append('project[documents][]', file);
     });
+    formData.append('visibility', visibility);
 
     const response = await apiClient.post(`/api/v1/projects/${projectId}/documents`, formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
         },
     });
+    return response.data;
+};
+
+export const updateProjectDocumentVisibility = async (
+    projectId: number,
+    attachmentId: number,
+    visibility: 'public' | 'private'
+): Promise<{ data: ProjectDocument[] }> => {
+    const response = await apiClient.patch(
+        `/api/v1/projects/${projectId}/documents/${attachmentId}`,
+        { visibility }
+    );
     return response.data;
 };
 
@@ -1335,6 +1423,17 @@ export interface UpdateProjectPayload {
         participant_contexts?: MemberContextPayload[];
         partnership_ids?: number[];
         mlds_information_attributes?: MLDSInformationAttributes;
+        learning_outcomes?: string;
+        participation_mode?: 'on_site' | 'online' | 'blended';
+        is_eu_mc_declared?: boolean;
+        workload_hours?: number | string;
+        workload_ects?: number | string;
+        project_eqf_level?: number;
+        project_eqf_framework_type?: 'EQF' | 'QF_EHEA';
+        assessment_type?: string;
+        teaching_languages?: string[];
+        entry_requirements?: string;
+        validity_period_months?: number | null;
     };
 }
 
@@ -1353,6 +1452,8 @@ const appendUpdateProjectFieldsToFormData = (
     if (project.end_date) formData.append('project[end_date]', project.end_date);
     if (project.status) formData.append('project[status]', project.status);
     if (project.private !== undefined) formData.append('project[private]', project.private.toString());
+
+    appendEuMcProjectFieldsToFormData(formData, project);
 
     if (project.participants_number !== undefined) {
         formData.append('project[participants_number]', project.participants_number.toString());
@@ -1544,6 +1645,184 @@ export const closeProject = async (projectId: number): Promise<any> => {
     return response.data;
 };
 
+export interface ProjectFunder {
+    id: number;
+    name: string;
+    email: string;
+    share_mode: 'nominatif' | 'anonyme';
+    initials: string;
+    has_linked_account: boolean;
+    started_notified_at: string | null;
+    closed_notified_at: string | null;
+    confirmation_status?: 'pending' | 'confirmed' | 'declined';
+    designation_kind?: 'email_only' | 'punctual' | 'attached';
+    needs_confirmation?: boolean;
+    company_name?: string | null;
+}
+
+export const getProjectFunders = async (projectId: number): Promise<ProjectFunder[]> => {
+    const response = await apiClient.get(`/api/v1/projects/${projectId}/funders`);
+    return response.data?.data || [];
+};
+
+export const addProjectFunder = async (
+    projectId: number,
+    payload: { name: string; email: string; share_mode: 'nominatif' | 'anonyme' }
+): Promise<ProjectFunder> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/funders`, { funder: payload });
+    return response.data;
+};
+
+export const removeProjectFunder = async (projectId: number, funderId: number): Promise<void> => {
+    await apiClient.delete(`/api/v1/projects/${projectId}/funders/${funderId}`);
+};
+
+export interface ProjectFunderFollow {
+    token: string;
+    kind: 'project';
+    closed: boolean;
+    declined?: boolean;
+    declined_on?: string | null;
+    closed_on?: string | null;
+    title?: string;
+    org?: string | null;
+    org_kind?: string | null;
+    date_range?: string;
+    status_label?: string;
+    description?: string | null;
+    learning_outcomes?: string | null;
+    share_mode?: 'nominatif' | 'anonyme';
+    follow_active: boolean;
+    needs_confirmation?: boolean;
+    designation_kind?: string;
+    confirmation_status?: string;
+    funder_name?: string;
+    funder_email?: string | null;
+    funder_user_id?: number | null;
+    funder_company_id?: number | null;
+    viewer_is_funder?: boolean | null;
+    financement?: string;
+    informed_on?: string | null;
+    report_due?: string | null;
+    week_current?: number;
+    week_total?: number;
+    participants_count?: number;
+    proofs_count?: number;
+    last_activity_days?: number;
+    signals?: Array<{ kind: string; label: string; detail: string }>;
+    partners?: Array<{ name?: string; role?: string }>;
+    designated_on?: string | null;
+    report?: {
+        weeks: number;
+        participants_count: number;
+        proofs_count: number;
+        proof_project: boolean;
+        life: string[];
+        participants: Array<{ name: string; role: string; proofs: number }>;
+        anonymous: boolean;
+        transmitted_on?: string | null;
+    };
+}
+
+export const getProjectFunderFollow = async (token: string): Promise<ProjectFunderFollow> => {
+    const response = await apiClient.get(`/api/v1/projects/funder_follow/${token}`);
+    return response.data;
+};
+
+export const confirmFunderFollowToken = async (token: string): Promise<ProjectFunderFollow> => {
+    const response = await apiClient.post(`/api/v1/projects/funder_follow/${token}/confirm`);
+    return response.data;
+};
+
+export const declineFunderFollowToken = async (token: string): Promise<ProjectFunderFollow> => {
+    const response = await apiClient.post(`/api/v1/projects/funder_follow/${token}/decline`);
+    return response.data;
+};
+
+export interface FundedProjectCard {
+    token: string;
+    title: string;
+    org?: string | null;
+    date_range: string;
+    status: 'coming' | 'in_progress' | 'ended';
+    status_label: string;
+    closed_on?: string | null;
+    report_transmitted: boolean;
+    watch: boolean;
+    watch_label?: string | null;
+    closed_year?: number | null;
+    needs_confirmation?: boolean;
+    designation_kind?: string;
+    confirmation_status?: string;
+    funder_name?: string | null;
+}
+
+export const getFundedProjects = async (organizationId?: number): Promise<FundedProjectCard[]> => {
+    const response = await apiClient.get('/api/v1/funded_projects', {
+        params: organizationId ? { organization_id: organizationId } : undefined,
+    });
+    return response.data?.data || [];
+};
+
+export const confirmFundedProject = async (token: string, organizationId?: number): Promise<FundedProjectCard> => {
+    const response = await apiClient.post(`/api/v1/funded_projects/${token}/confirm`, undefined, {
+        params: organizationId ? { organization_id: organizationId } : undefined,
+    });
+    return response.data?.data;
+};
+
+export const declineFundedProject = async (token: string, organizationId?: number): Promise<void> => {
+    await apiClient.post(`/api/v1/funded_projects/${token}/decline`, undefined, {
+        params: organizationId ? { organization_id: organizationId } : undefined,
+    });
+};
+
+export const proposeFunderAttachment = async (token: string, organizationId?: number): Promise<void> => {
+    await apiClient.post(`/api/v1/funded_projects/${token}/propose_attachment`, undefined, {
+        params: organizationId ? { organization_id: organizationId } : undefined,
+    });
+};
+
+export const lookupFunderOrganization = async (email: string): Promise<{ id: number; type: string; name: string; city?: string; email: string } | null> => {
+    const response = await apiClient.get('/api/v1/funder_lookup', { params: { email } });
+    return response.data?.data || null;
+};
+
+export interface FunderAttachment {
+    id: number;
+    status: 'pending' | 'confirmed' | 'rejected';
+    created_at: string;
+    confirmed_at?: string | null;
+    rejected_at?: string | null;
+    funder_company?: { id: number; type: string; name: string; city?: string };
+    carrier?: { id: number; type: string; name: string; city?: string };
+    project_title?: string | null;
+    direction?: 'sent' | 'received';
+}
+
+export const getFunderAttachments = async (
+    organizationId: number,
+    organizationType: 'company' | 'school' = 'company'
+): Promise<{ sent: FunderAttachment[]; received: FunderAttachment[]; funders_count: number; funded_structures_count: number }> => {
+    const response = await apiClient.get('/api/v1/funder_attachments', {
+        params: { organization_id: organizationId, organization_type: organizationType },
+    });
+    return {
+        sent: response.data?.data?.sent || [],
+        received: response.data?.data?.received || [],
+        funders_count: response.data?.meta?.funders_count || 0,
+        funded_structures_count: response.data?.meta?.funded_structures_count || 0,
+    };
+};
+
+export const confirmFunderAttachment = async (id: number): Promise<void> => {
+    await apiClient.post(`/api/v1/funder_attachments/${id}/confirm`);
+};
+
+export const rejectFunderAttachment = async (id: number): Promise<void> => {
+    await apiClient.post(`/api/v1/funder_attachments/${id}/reject`);
+};
+
 /**
  * Join a project (request to join)
  */
@@ -1612,6 +1891,22 @@ export const addProjectMember = async (
         `/api/v1/projects/${projectId}/members`,
         { user_id: userId }
     );
+    return response.data;
+};
+
+export const preRegisterProjectParticipant = async (
+    projectId: number,
+    payload: {
+        first_name: string;
+        last_name: string;
+        birthday: string;
+        email?: string;
+        user_role?: string;
+        organization_id?: number;
+        organization_type?: 'school' | 'company';
+    }
+): Promise<{ data: any; matched_existing: boolean; message: string }> => {
+    const response = await apiClient.post(`/api/v1/projects/${projectId}/pre_register`, payload);
     return response.data;
 };
 

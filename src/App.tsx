@@ -13,6 +13,11 @@ import NotFoundPage from './components/Pages/NotFoundPage';
 import SharedProjectInfo from './components/Pages/SharedProjectInfo';
 import SharedEventInfo from './components/Pages/SharedEventInfo';
 import SelectedStudentsBadgeCartography from './components/Pages/SelectedStudentsBadgeCartography';
+import Verify from './components/Pages/Verify';
+import FunderHubPage from './components/Pages/FunderHubPage';
+import PublicProofPage from './components/Pages/PublicProofPage';
+import ProofIndex from './components/Pages/ProofIndex';
+// import PikDroits from './components/Pages/PikDroits';
 import FamilleLanding from './components/Pages/FamilleLanding';
 import './App.css';
 
@@ -33,6 +38,12 @@ function App() {
             <Route path="/shared-project/:token" element={<SharedProjectInfo />} />
             <Route path="/shared/:token" element={<SharedProjectInfo />} />
             <Route path="/shared-event/:token" element={<SharedEventInfo />} />
+            <Route path="/verify" element={<Verify />} />
+            <Route path="/financeur" element={<FunderHubPage />} />
+            <Route path="/proof" element={<ProofIndex />} />
+            {/* <Route path="/pik/droits" element={<PikDroits />} /> */}
+            <Route path="/pb/:token" element={<PublicProofPage proofType="PB" />} />
+            <Route path="/pe/:token" element={<PublicProofPage proofType="PE" />} />
             <Route path="/*" element={<MainLayout />} />
           </Routes>
           <ToastContainer

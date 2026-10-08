@@ -8,6 +8,7 @@ import { useToast } from '../../hooks/useToast';
 import { useAppContext } from '../../context/AppContext';
 import { mapApiProjectToFrontendProject } from '../../utils/projectMapper';
 import { getSelectedSchoolId } from '../../utils/contextUtils';
+import { displayPersonName } from '../../utils/civilDataErased';
 import { ClassModalProjectsTab } from '../../types';
 import ClassProjectListItem from './ClassProjectListItem';
 import './Modal.css';
@@ -335,7 +336,7 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
               {teachers.length > 0 && (
                 <p style={{ marginTop: '8px', fontSize: '0.9rem', color: '#6b7280' }}>
                   <strong>Responsable{teachers.length > 1 ? 's' : ''} :</strong>{' '}
-                  {teachers.map((t) => t.full_name).join(', ')}
+                  {teachers.map((t) => displayPersonName(t.full_name)).join(', ')}
                 </p>
               )}
             </div>
@@ -416,11 +417,11 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
                           <div className="user-info class-students-user-info">
                             <AvatarImage
                               src={student.avatar_url}
-                              alt={student.full_name}
+                              alt={displayPersonName(student.full_name, student.first_name, student.last_name)}
                               className="user-avatar class-students-avatar"
                             />
                             <span className="class-students-name">
-                              {student.full_name || `${student.first_name} ${student.last_name}`}
+                              {displayPersonName(student.full_name, student.first_name, student.last_name)}
                             </span>
                             {student.birthday && (
                               <span className="class-students-birthday">
@@ -517,7 +518,7 @@ const ClassStudentsModal: React.FC<ClassStudentsModalProps> = ({
         <QRCodePrintModal
           onClose={() => setQrStudent(null)}
           claimToken={qrStudent.claim_token}
-          studentName={qrStudent.full_name || `${qrStudent.first_name} ${qrStudent.last_name}`}
+          studentName={displayPersonName(qrStudent.full_name, qrStudent.first_name, qrStudent.last_name)}
         />
       )}
     </>

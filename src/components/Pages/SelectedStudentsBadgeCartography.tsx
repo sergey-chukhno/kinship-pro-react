@@ -4,10 +4,12 @@ import { getSelectedStudentsBadgeCartography } from '../../api/BadgeCartography'
 import { Badge } from '../../types';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import { translateRole } from '../../utils/roleTranslations';
+import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import BadgeCard from '../Badges/BadgeCard';
 import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import { isCpsCatalog, isSoftSkillsCatalog } from '../../constants/catalogSeries';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import './PublicBadgeCartography.css';
 
@@ -17,6 +19,26 @@ function normalizeLevel(level: string | undefined): string {
   const num = level.replace('level_', '');
   return `Niveau ${num || '1'}`;
 }
+
+const LEVEL_SECTION_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] as const;
+
+/** Series identity for carto helpers — catalog_key only (C2/C16). */
+const seriesIdentity = (badge?: {
+  catalog_key?: string | null;
+  badge_series_id?: number | null;
+  series?: string | null;
+}): string =>
+  badge?.catalog_key ||
+  (badge?.badge_series_id != null ? String(badge.badge_series_id) : '') ||
+  '';
+
+const levelNumbersForSeriesSet = (seriesKeys: string[]): number[] => {
+  if (seriesKeys.length === 0) return [1, 2, 3, 4];
+  const onlyTwoLevel = seriesKeys.every(
+    (s) => isSoftSkillsCatalog({ catalog_key: s }) || isCpsCatalog({ catalog_key: s })
+  );
+  return onlyTwoLevel ? [1, 2] : [1, 2, 3, 4];
+};
 
 const SelectedStudentsBadgeCartography: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -107,9 +129,10 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   }, [badges]);
 
   const progressItemsByLevel = React.useMemo(() => {
-    const progressRaw = rawAttributions.filter(
-      (item: any) => item?.badge?.series && isSeriesWithCompetenceProgress(item.badge.series)
-    );
+    const progressRaw = rawAttributions.filter((item: any) => {
+      const id = seriesIdentity(item?.badge);
+      return id && isSeriesWithCompetenceProgress(id);
+    });
     if (progressRaw.length === 0) return {} as Record<string, Array<{ badge: Badge; fullExpertiseNames: string[]; receivedExpertiseNames: string[] }>>;
     const groupKey = (item: any) => `${item?.badge?.name ?? ''}|${normalizeLevel(item?.badge?.level)}`;
     const groups = new Map<string, any[]>();
@@ -143,26 +166,33 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   }, [rawAttributions]);
 
   const normalBadgesByLevel = React.useMemo(() => {
+    const levelKeys = levelNumbersForSeriesSet(
+      Array.from(new Set(badges.map((b) => seriesIdentity(b)).filter(Boolean)))
+    ).map((n) => `Niveau ${n}`);
     const progressKeysByLevel: Record<string, Set<string>> = {};
-    (['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'] as const).forEach((level) => {
+    levelKeys.forEach((level) => {
       const set = new Set<string>();
       (progressItemsByLevel[level] || []).forEach((item) => set.add(`${item.badge.name}|${item.badge.level}`));
       progressKeysByLevel[level] = set;
     });
     const result: Record<string, Badge[]> = {};
-    (['Niveau 1', 'Niveau 2', 'Niveau 3', 'Niveau 4'] as const).forEach((level) => {
+    levelKeys.forEach((level) => {
       const progressSet = progressKeysByLevel[level];
       result[level] = (badgesByLevel[level] || []).filter((b) => !progressSet.has(`${b.name}|${b.level}`));
     });
     return result;
-  }, [badgesByLevel, progressItemsByLevel]);
+  }, [badges, badgesByLevel, progressItemsByLevel]);
 
-  const sections = [
-    { key: 'Niveau 1', label: 'Niveau 1 - Découverte', color: '#10b981', icon: null },
-    { key: 'Niveau 2', label: 'Niveau 2 - Application', color: '#3b82f6', icon: null },
-    { key: 'Niveau 3', label: 'Niveau 3 - Maîtrise', color: '#f59e0b', icon: null },
-    { key: 'Niveau 4', label: 'Niveau 4 - Expertise', color: '#ef4444', icon: null }
-  ];
+  const sections = React.useMemo(() => {
+    const seriesNames = Array.from(new Set(badges.map((b) => seriesIdentity(b)).filter(Boolean)));
+    const labelSeries = seriesNames[0] || '';
+    return levelNumbersForSeriesSet(seriesNames).map((n) => ({
+      key: `Niveau ${n}`,
+      label: labelSeries ? getLevelLabel(labelSeries, String(n)) : `Niveau ${n}`,
+      color: LEVEL_SECTION_COLORS[n - 1],
+      icon: null as null,
+    }));
+  }, [badges]);
 
   if (isLoading) {
     return (
@@ -213,15 +243,15 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   return (
     <div className="public-cartography-container">
       <div className="public-cartography-header">
-        <h1>Cartographie des badges - <span className="capitalize">{shareInfo?.context?.student?.full_name}</span></h1>
+        <h1>Cartographie des preuves de compétences - <span className="capitalize">{displayCivilLabel(shareInfo?.context?.student?.holder_display, displayPersonName(shareInfo?.context?.student?.full_name, shareInfo?.context?.student?.first_name, shareInfo?.context?.student?.last_name))}</span></h1>
       </div>
 
       <div className="public-cartography-content">
         {badges.length === 0 ? (
           <div className="public-cartography-empty">
             <i className="fas fa-award"></i>
-            <h4>Aucun badge trouvé</h4>
-            <p>Cette cartographie ne contient aucun badge.</p>
+            <h4>Aucune preuve de compétences trouvée</h4>
+            <p>Cette cartographie ne contient aucune preuve de compétences.</p>
           </div>
         ) : (
           sections.map((section) => {
@@ -243,7 +273,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
                     <span>{sectionLabel}</span>
                   </div>
                   <div className="level-count">
-                    {totalCount} badge{totalCount > 1 ? 's' : ''}
+                    {totalCount} compétence{totalCount > 1 ? 's' : ''}
                   </div>
                 </div>
 
@@ -308,12 +338,17 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
             receiver: {
               id: attr.receiver.id,
               full_name: attr.receiver.full_name,
+              // Famille A (annexe §8bis) : affichage via holder_display uniquement.
+              holder_display: displayCivilLabel(
+                attr.receiver.holder_display,
+                displayPersonName(attr.receiver.full_name, attr.receiver.first_name, attr.receiver.last_name)
+              ),
               email: attr.receiver.email || '',
               is_deleted: attr.receiver.is_deleted || false
             },
             sender: {
               id: attr.sender.id,
-              full_name: attr.sender.full_name,
+              full_name: displayPersonName(attr.sender.full_name, attr.sender.first_name, attr.sender.last_name),
               email: attr.sender.email || '',
               role: translateRole(attr.sender.role) || '',
               is_deleted: attr.sender.is_deleted || false

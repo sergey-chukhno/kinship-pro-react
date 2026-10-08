@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import Analytics from '../Pages/Analytics';
 import AuthPage from '../Pages/AuthPage';
@@ -9,12 +9,14 @@ import Events from '../Pages/Events';
 import Members from '../Pages/Members';
 import MembershipRequests from '../Pages/MembershipRequests';
 import PartnershipRequests from '../Pages/PartnershipRequests';
+import FunderAttachmentRequests from '../Pages/FunderAttachmentRequests';
 import Network from '../Pages/Network';
 import Notifications from '../Pages/Notifications';
 import ProjectManagement from '../Pages/ProjectManagement';
 import Projects from '../Pages/Projects';
 import Settings from '../Pages/Settings';
 import PersonalSettings from '../Pages/PersonalSettings';
+// import Pik from '../Pages/Pik';
 import MesEnfants from '../Pages/MesEnfants';
 import MesParents from '../Pages/MesParents';
 import PrivacyPolicy from '../RegisterForm/PrivacyPolicy';
@@ -22,45 +24,43 @@ import './MainLayout.css';
 import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
 import { useAuthInit } from '../../hooks/useAuthInit';
+import { applySpaceTheme } from '../../utils/spaceTheme';
+// import PresenceSessionPage from '../Pages/PresenceSessionPage';
+import PresenceBanner from '../Presence/PresenceBanner';
+// import FormationDetail from '../Pages/FormationDetail';
+// import FormationAffiche from '../Pages/FormationAffiche';
+// import PreuveFormationPage from '../Pages/PreuveFormationPage';
+// import FormationsHub from '../Pages/FormationsHub';
+import CreateProjectPage from '../Pages/CreateProjectPage';
+import ProjectSpacePage from '../Pages/ProjectSpacePage';
+import ProjectAffichePage from '../Pages/ProjectAffichePage';
+import FundedProjectsPage from '../Pages/FundedProjectsPage';
+import FunderFollowPage from '../Pages/FunderFollowPage';
+// import OfActivationPage from '../Pages/OfActivationPage';
+// import SuperAdminOfQueuePage from '../Pages/SuperAdminOfQueuePage';
 
 const MainLayout: React.FC = () => {
   const { state, setCurrentPage} = useAppContext();
+  const location = useLocation();
+  const isFollowRoute = location.pathname.startsWith('/follow/');
 
   const { isAuthChecking } = useAuthInit();
 
   // Initialiser les couleurs à des valeurs neutres au démarrage
   useEffect(() => {
-    const root = document.documentElement;
-    // Définir des couleurs neutres par défaut pour éviter tout flash
-    root.style.setProperty("--primary", "#6b7280");
-    root.style.setProperty("--hover-primary", "#4b5563");
+    applySpaceTheme(null);
   }, []);
 
-  // Gérer les changements de showingPageType (pour les changements après l'init)
   useEffect(() => {
-    // Ne pas appliquer pendant le chargement initial (géré par useAuthInit)
+    if (isAuthChecking || !isFollowRoute) return;
+    if (state.currentPage !== 'Auth' && state.currentPage !== 'funder-follow') {
+      setCurrentPage('funder-follow');
+    }
+  }, [isAuthChecking, isFollowRoute, state.currentPage, setCurrentPage]);
+  useEffect(() => {
     if (isAuthChecking) return;
-
-    const root = document.documentElement;
-
-    if (state.showingPageType === "pro") {
-      root.style.setProperty("--primary", "#5570F1"); // bleu pour pro
-      root.style.setProperty("--hover-primary", "#4c63d2");
-    }
-    else if (state.showingPageType === "edu") {
-      root.style.setProperty("--primary", "#10b981"); // vert pour edu
-      root.style.setProperty("--hover-primary", "#0f9f6d");
-    }
-    else if (state.showingPageType === "teacher") {
-      root.style.setProperty("--primary", "#ffa600ff"); // jaune pour teacher
-      root.style.setProperty("--hover-primary", "#e59400ff");
-    }
-    else if (state.showingPageType === "user") {
-      root.style.setProperty("--primary", "#db087cff"); // rose pour user
-      root.style.setProperty("--hover-primary", "#b20666ff");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.showingPageType, isAuthChecking]); // Réagir aux changements de showingPageType et isAuthChecking
+    applySpaceTheme(state.showingPageType);
+  }, [state.showingPageType, isAuthChecking]);
 
 
   /*
@@ -97,6 +97,10 @@ const MainLayout: React.FC = () => {
       );
     }
 
+    if (isFollowRoute) {
+      return <FunderFollowPage />;
+    }
+
     switch (state.currentPage) {
       case 'Auth':
         return <AuthPage />;
@@ -108,6 +112,8 @@ const MainLayout: React.FC = () => {
         return <Events />;
       case 'projects':
         return <Projects />;
+      // case 'formations':
+      //   return <FormationsHub />;
       case 'badges':
         return <Badges />;
       case 'analytics':
@@ -120,6 +126,8 @@ const MainLayout: React.FC = () => {
         return <Settings />;
       case 'personal-settings':
         return <PersonalSettings />;
+      // case 'pik':
+      //   return <Pik />;
       case 'mes-enfants':
         return <MesEnfants />;
       case 'mes-parents':
@@ -128,12 +136,41 @@ const MainLayout: React.FC = () => {
         return <MembershipRequests />;
       case 'partnership-requests':
         return <PartnershipRequests />;
+      case 'funder-attachments':
+        return <FunderAttachmentRequests />;
       case 'project-management':
         return <ProjectManagement />;
+      // case 'presence-session':
+      //   return <PresenceSessionPage />;
+      // case 'formation-detail':
+      //   return <FormationDetail />;
+      // case 'formation-affiche':
+      //   return <FormationAffiche />;
+      // case 'preuve-formation':
+      //   return <PreuveFormationPage />;
+      case 'create':
+        return <CreateProjectPage />;
+      case 'project-space':
+        return <ProjectSpacePage />;
+      case 'project-affiche':
+        return <ProjectAffichePage />;
+      case 'funded-projects':
+        return <FundedProjectsPage />;
+      case 'funder-follow':
+        return <FunderFollowPage />;
+      // case 'of-activation':
+      //   return <OfActivationPage />;
+      // case 'admin-of-queue':
+      //   return <SuperAdminOfQueuePage />;
       default:
         return <Dashboard />;
     }
   };
+
+  const showPresenceBanner =
+    !isAuthChecking &&
+    state.showingPageType === 'user' &&
+    state.currentPage !== 'Auth';
 
   return (
     <div className="app-container" data-theme={state.theme}>
@@ -167,6 +204,7 @@ const MainLayout: React.FC = () => {
                 )}
 
                 <main className="dashboard app-layout">
+                  {showPresenceBanner && <PresenceBanner />}
                   {renderCurrentPage()}
                 </main>
               </div>

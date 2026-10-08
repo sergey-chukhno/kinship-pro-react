@@ -44,7 +44,7 @@ const UserPermissions: React.FC<UserPermissionsProps> = ({ user, onClose, onSave
         { key: 'manageMembers', label: 'Gestion des membres', icon: 'fas fa-users' },
         { key: 'manageProjects', label: 'Gestion des projets', icon: 'fas fa-project-diagram' },
         { key: 'manageEvents', label: 'Gestion des événements', icon: 'fas fa-calendar-alt' },
-        { key: 'manageBadges', label: 'Gestion des badges', icon: 'fas fa-award' }
+        { key: 'manageBadges', label: 'Gestion des preuves', icon: 'fas fa-award' }
       ]
     },
     {

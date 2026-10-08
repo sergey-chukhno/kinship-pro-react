@@ -1,5 +1,11 @@
+import { COMPETENCE_ICONS } from '../constants/competenceIcons';
+import { displayCompetenceName } from '../constants/cartographieColors';
+import { isSoftSkillsSeries } from '../constants/badgeAxes';
+
 // Local mapping of badge names and levels to existing static assets.
 // This preserves previous visuals while backend does not yet provide image URLs.
+import { getCpsLocalBadgeImage, isCompetencesPsychosocialesSeries } from './cpsSeries';
+
 const badgeImagesByName: Record<string, string> = {
   // Série TouKouLeur (universelle)
   "Adaptabilité": "/NIV 1/Adaptabilite@2x.png",
@@ -13,17 +19,6 @@ const badgeImagesByName: Record<string, string> = {
   "Information Numérique": "/NIV 1/Inform Numerique@2x.png",
   "Organisation Opérationnelle": "/NIV 1/OrganisationOpe@2x.png",
   "Sociabilité": "/NIV 1/Sociabilite@2x.png",
-
-  // Série CPS (psychosociale)
-  "Avoir conscience de soi": "/badges_psychosociales/Cognitives.jpg",
-  "Capacité de maîtrise de soi": "/badges_psychosociales/Cognitives.jpg",
-  "Prendre des décisions constructives": "/badges_psychosociales/Cognitives.jpg",
-  "Gérer son stress": "/badges_psychosociales/Emotionnelles_final.png",
-  "Réguler ses émotions": "/badges_psychosociales/Emotionnelles_final.png",
-  "Avoir conscience de ses émotions et de son stress": "/badges_psychosociales/Emotionnelles_final.png",
-  "Communiquer de façon constructive": "/badges_psychosociales/Sociales_final.png",
-  "Développer des relations constructives": "/badges_psychosociales/Sociales_final.png",
-  "Résoudre des difficultés": "/badges_psychosociales/Sociales_final.png",
 
   // Série Audiovisuelle - Level 1
   "ORGANISATION-LOGISTIQUE": "/badges_audiovisuels/Badge_Organisation_Logistique_Level1.png",
@@ -242,14 +237,41 @@ const badgeImagesByLevel: Record<string, Record<string, Record<string, string>>>
   },
 };
 
-export const getLocalBadgeImage = (badgeName?: string, badgeLevel?: string, badgeSeries?: string): string | undefined => {
+/**
+ * Icône d'une compétence, partout où elle est demandée dans l'appli.
+ * Priorité à l'icône spécifique de la maquette KIN_UX_CARTOGRAPHIE_V1_1
+ * (competenceIcons.ts, encodée en data URI SVG) ; repli sur les anciens visuels
+ * PNG/JPG ci-dessus si aucune icône n'existe pour ce nom.
+ * @param allowVectorIcon - à false pour forcer un visuel raster (ex. export PDF, qui ne
+ * sait pas afficher du SVG) même quand une icône vectorielle existe.
+ */
+export const getLocalBadgeImage = (
+  badgeName?: string,
+  badgeLevel?: string,
+  badgeSeries?: string,
+  opts?: { allowVectorIcon?: boolean }
+): string | undefined => {
   if (!badgeName) return undefined;
-  
-  // Check level-specific mapping first (for badges with same name at different levels)
-  if (badgeLevel && badgeSeries && badgeImagesByLevel[badgeSeries]?.[badgeName]?.[badgeLevel]) {
-    return badgeImagesByLevel[badgeSeries][badgeName][badgeLevel] as string;
+
+  // Compétences psychosociales: pictogramme de la compétence générale (C1…S2)
+  if (isCompetencesPsychosocialesSeries(badgeSeries)) {
+    return getCpsLocalBadgeImage(badgeName);
   }
-  
+
+  if (opts?.allowVectorIcon ?? true) {
+    const svg = COMPETENCE_ICONS[displayCompetenceName(badgeName)];
+    if (svg) {
+      const fullSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${svg}</svg>`;
+      return `data:image/svg+xml;utf8,${encodeURIComponent(fullSvg)}`;
+    }
+  }
+
+  // Check level-specific mapping first (for badges with same name at different levels)
+  const seriesKey = isSoftSkillsSeries(badgeSeries) ? 'Série TouKouLeur' : badgeSeries;
+  if (badgeLevel && seriesKey && badgeImagesByLevel[seriesKey]?.[badgeName]?.[badgeLevel]) {
+    return badgeImagesByLevel[seriesKey][badgeName][badgeLevel] as string;
+  }
+
   // Fallback to name-only mapping
   return badgeImagesByName[badgeName];
 };

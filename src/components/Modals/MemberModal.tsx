@@ -9,6 +9,7 @@ import AvatarImage from '../UI/AvatarImage';
 import { translateRoles, translateRole, normalizeRoleKey } from '../../utils/roleTranslations';
 import { translateSkill, translateSubSkill, SKILLS_FR, SUB_SKILLS_FR } from '../../translations/skills';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
+import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 import {
@@ -212,7 +213,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
       'Organisation Opérationnelle': 'CAPACITÉ À ORGANISER ET OPTIMISER LES PROCESSUS ET LES RESSOURCES POUR ATTEINDRE DES OBJECTIFS EFFICACEMENT.',
       'Sociabilité': 'CAPACITÉ À ÉTABLIR ET MAINTENIR DES RELATIONS POSITIVES AVEC AUTRUI DANS DIFFÉRENTS CONTEXTES SOCIAUX.'
     };
-    return descriptions[title] || 'BADGE ATTRIBUÉ POUR RECONNAÎTRE LES COMPÉTENCES DÉVELOPPÉES DANS CE DOMAINE.';
+    return descriptions[title] || 'PREUVE ATTRIBUÉE POUR RECONNAÎTRE LES COMPÉTENCES DÉVELOPPÉES DANS CE DOMAINE.';
   };
   // const [showAllBadges, setShowAllBadges] = useState(false);
   const [expandedDescriptions, setExpandedDescriptions] = useState<{ [key: string]: boolean }>({});
@@ -587,7 +588,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                   }}
-                  title="Voir la cartographie des badges"
+                  title="Voir la cartographie des preuves de compétences"
                 >
                   <i className="fas fa-map"></i>
                   Cartographie
@@ -595,7 +596,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
               ) : (
                 <span
                   className="btn btn-outline btn-sm"
-                  title="Voir la cartographie des badges"
+                  title="Voir la cartographie des preuves de compétences"
                   style={{ opacity: 0.8, cursor: 'default' }}
                 >
                   <i className="fas fa-map"></i>
@@ -1062,7 +1063,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
                   if (useStudentFold) {
                     return (
-                      <FoldableSection title="Compétences" isOpen={hasSkills || isEditing}>
+                      <FoldableSection title="Compétences personnelles renseignées" isOpen={hasSkills || isEditing}>
                         {skillsContent}
                       </FoldableSection>
                     );
@@ -1112,7 +1113,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
                   if (useStudentFold) {
                     return (
-                      <FoldableSection title="Disponibilités" isOpen={hasAvailability || isEditing}>
+                      <FoldableSection title="Disponibilités" isOpen={hasAvailability || isEditing} emptySuffix="aucune renseignée">
                         {availabilityContent}
                       </FoldableSection>
                     );
@@ -1188,7 +1189,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                             key={latestBadge.id || `${badge.id}-${badgeLevel}-${index}`}
                             src={badgeImage}
                             alt={badge.name}
-                            title={`${badge.name} - ${badgeLevel.replace('level_', 'Niveau ')}`}
+                            title={`${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`}
                             style={{
                               width: '48px',
                               height: '48px',
@@ -1208,7 +1209,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 {/* Badges reçus section - hidden as not used */}
                 {false && (
                 <div className="info-section">
-                  <h3>Badges reçus</h3>
+                  <h3>Preuves de compétences reçues</h3>
                   <div className="badges-grid">
                     {(() => {
                       // Get attributed badges for this member
@@ -1284,7 +1285,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                       const remainingCount = badgeGroupsArray.length - BADGES_DISPLAY_LIMIT;
 
                       if (badgeGroupsArray.length === 0) {
-                        return <p className="no-badges">Aucun badge attribué</p>;
+                        return <p className="no-badges">Aucune preuve de compétences attribuée</p>;
                       }
 
                       return (
