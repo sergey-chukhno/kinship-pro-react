@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { updateUserPassword } from '../../api/UserDashBoard/Profile';
 import { useToast } from '../../hooks/useToast';
+import { useStudentCodeReadOnly } from '../../hooks/useStudentCodeReadOnly';
 import './SecuritySection.css';
 
 interface PasswordCriteria {
@@ -13,6 +14,7 @@ interface PasswordCriteria {
 
 const SecuritySection: React.FC = () => {
   const { showSuccess, showError } = useToast();
+  const { guardWrite } = useStudentCodeReadOnly();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
@@ -44,6 +46,7 @@ const SecuritySection: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!guardWrite()) return;
 
     if (!currentPassword) {
       showError('Veuillez entrer votre mot de passe actuel');

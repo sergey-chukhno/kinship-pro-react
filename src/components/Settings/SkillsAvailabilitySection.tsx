@@ -5,6 +5,7 @@ import { getCurrentUser } from '../../api/Authentication';
 import { updateUserSkills, updateUserAvailability } from '../../api/UserDashBoard/Skills';
 import { translateSkill, translateSubSkill } from '../../translations/skills';
 import { useToast } from '../../hooks/useToast';
+import { useStudentCodeReadOnly } from '../../hooks/useStudentCodeReadOnly';
 import './SkillsAvailabilitySection.css';
 
 interface Availability {
@@ -19,6 +20,7 @@ interface Availability {
 const SkillsAvailabilitySection: React.FC = () => {
   const { state } = useAppContext();
   const { showSuccess, showError } = useToast();
+  const { guardWrite } = useStudentCodeReadOnly();
 
   const [skillList, setSkillList] = useState<Array<{ id: number; name: string; displayName: string }>>([]);
   const [skillSubList, setSkillSubList] = useState<Array<{ id: number; name: string; displayName: string; parent_skill_id: number }>>([]);
@@ -160,6 +162,7 @@ const SkillsAvailabilitySection: React.FC = () => {
   };
 
   const handleSaveSkills = async () => {
+    if (!guardWrite()) return;
     setIsSavingSkills(true);
     try {
       await updateUserSkills(selectedSkills, selectedSubSkills);
@@ -173,6 +176,7 @@ const SkillsAvailabilitySection: React.FC = () => {
   };
 
   const handleSaveAvailability = async () => {
+    if (!guardWrite()) return;
     setIsSavingAvailability(true);
     try {
       await updateUserAvailability(availability);

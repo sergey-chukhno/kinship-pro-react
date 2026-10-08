@@ -3,11 +3,13 @@ import { useAppContext } from '../../context/AppContext';
 import { getCurrentUser } from '../../api/Authentication';
 import { updateUserProfile } from '../../api/UserDashBoard/Profile';
 import { useToast } from '../../hooks/useToast';
+import { useStudentCodeReadOnly } from '../../hooks/useStudentCodeReadOnly';
 import './ProfileSection.css';
 
 const ProfessionSection: React.FC = () => {
   const { state, setUser } = useAppContext();
   const { showSuccess, showError } = useToast();
+  const { guardWrite } = useStudentCodeReadOnly();
   
   const [job, setJob] = useState('');
   const [proposeWorkshop, setProposeWorkshop] = useState(false);
@@ -42,6 +44,7 @@ const ProfessionSection: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!guardWrite()) return;
     setIsSaving(true);
 
     try {
