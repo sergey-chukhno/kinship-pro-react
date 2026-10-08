@@ -14,7 +14,6 @@ interface BadgeExportModalProps {
   filters: {
     catalog_key?: string;
     badge_series_id?: number;
-    series?: string;
     level: string;
     searchTerm: string;
   };

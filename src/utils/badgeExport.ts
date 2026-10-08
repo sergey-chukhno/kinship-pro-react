@@ -5,11 +5,11 @@ import { displayCivilLabel, displayPersonName } from './civilDataErased';
 import { displayLabelForCatalogKey } from '../constants/catalogSeries';
 import { isSoftSkillsSeries } from '../constants/badgeAxes';
 import { SOFT_SKILLS_SERIES_NAME } from './badgeLevelLabels';
+import { sanitizeCartographyShareFilters } from './cartographyShareFilters';
 
 interface ExportFilters {
   catalog_key?: string;
   badge_series_id?: number;
-  series?: string;
   level: string;
   searchTerm: string;
 }
@@ -162,11 +162,8 @@ export const exportToPDF = async (
         pdf.text(`Organisation: ${context.organizationName}`, margin, yPosition);
         yPosition += metadataLineGap;
       }
-      if (filters.catalog_key || filters.series) {
-        const seriesLabel = filters.catalog_key
-          ? displayLabelForCatalogKey(filters.catalog_key)
-          : mapSeriesForDisplay(filters.series || '');
-        pdf.text(`Série: ${seriesLabel}`, margin, yPosition);
+      if (filters.catalog_key) {
+        pdf.text(`Série: ${displayLabelForCatalogKey(filters.catalog_key)}`, margin, yPosition);
         yPosition += metadataLineGap;
       }
       if (filters.level) {
@@ -374,7 +371,7 @@ export const generateShareableLink = async (
 ): Promise<string> => {
   try {
     const { createBadgeCartographyShare } = await import('../api/BadgeCartography');
-    const result = await createBadgeCartographyShare(filters, context);
+    const result = await createBadgeCartographyShare(sanitizeCartographyShareFilters(filters), context);
     return result.shareable_url;
   } catch (error: any) {
     console.error('Error generating shareable link:', error);

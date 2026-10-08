@@ -17,9 +17,12 @@ import {
   CATALOG_KEY_PARCOURS_PROFESSIONNEL,
   CATALOG_KEY_SOFT_SKILLS,
   displayLabelForCatalogKey,
-  resolveCatalogKey,
 } from '../../constants/catalogSeries';
 import { SOFT_SKILLS_SERIES_NAME, getLevelLabel } from '../../utils/badgeLevelLabels';
+import {
+  buildProjectBadgesSeriesIdentity,
+  showProjectBadgesLevelFilter,
+} from '../../utils/projectBadgesSeriesFilter';
 import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
@@ -3774,14 +3777,6 @@ const ProjectManagement: React.FC = () => {
     return isSoftSkillsSeries(seriesName) ? SOFT_SKILLS_SERIES_NAME : seriesName;
   };
 
-  /**
-   * Étape 2: UI series filter is catalog_key (or legacy display name → resolve to key).
-   */
-  const mapSeriesToBackendCatalogKey = (frontendSeries: string): string | undefined => {
-    if (!frontendSeries) return undefined;
-    return resolveCatalogKey({ catalog_key: frontendSeries, series: frontendSeries }) || undefined;
-  };
-
   const mapBackendBadgeToAttribution = (item: any): any => {
     const badge = item?.badge || {};
     const receiver = item?.receiver || {};
@@ -3849,16 +3844,12 @@ const ProjectManagement: React.FC = () => {
       const projectId = parseInt(project.id);
       const filters: {
         catalog_key?: string;
-        series?: string;
         level?: string;
         sender_id?: number;
         receiver_query?: string;
-      } = {};
-      if (badgeSeriesFilter) {
-        const key = mapSeriesToBackendCatalogKey(badgeSeriesFilter);
-        if (key) filters.catalog_key = key;
-        else filters.series = badgeSeriesFilter;
-      }
+      } = {
+        ...buildProjectBadgesSeriesIdentity(badgeSeriesFilter),
+      };
       if (badgeLevelFilter) filters.level = `level_${badgeLevelFilter}`;
       if (debouncedBadgeReceiverQuery) filters.receiver_query = debouncedBadgeReceiverQuery;
       // Participant avec droit de preuves : only preuves they attributed
@@ -6784,14 +6775,7 @@ const ProjectManagement: React.FC = () => {
                         <option value={CATALOG_KEY_PARCOURS_PROFESSIONNEL}>{displayLabelForCatalogKey(CATALOG_KEY_PARCOURS_PROFESSIONNEL)}</option>
                       </select>
                     </div>
-                    {(badgeSeriesFilter === CATALOG_KEY_SOFT_SKILLS ||
-                      badgeSeriesFilter === CATALOG_KEY_PARCOURS_DES_POSSIBLES ||
-                      badgeSeriesFilter === CATALOG_KEY_AUDIOVISUELLE ||
-                      badgeSeriesFilter === CATALOG_KEY_PARCOURS_PROFESSIONNEL ||
-                      badgeSeriesFilter === SOFT_SKILLS_SERIES_NAME ||
-                      badgeSeriesFilter === 'Série Parcours des possibles' ||
-                      badgeSeriesFilter === 'Série Audiovisuelle' ||
-                      badgeSeriesFilter === 'Série Parcours professionnel') && (
+                    {showProjectBadgesLevelFilter(badgeSeriesFilter) && (
                         <div className="filter-group">
                           <label>Par niveau</label>
                           <select
@@ -7604,14 +7588,7 @@ const ProjectManagement: React.FC = () => {
                       </select>
                     </div>
 
-                    {(badgeSeriesFilter === CATALOG_KEY_SOFT_SKILLS ||
-                      badgeSeriesFilter === CATALOG_KEY_PARCOURS_DES_POSSIBLES ||
-                      badgeSeriesFilter === CATALOG_KEY_AUDIOVISUELLE ||
-                      badgeSeriesFilter === CATALOG_KEY_PARCOURS_PROFESSIONNEL ||
-                      badgeSeriesFilter === SOFT_SKILLS_SERIES_NAME ||
-                      badgeSeriesFilter === 'Série Parcours des possibles' ||
-                      badgeSeriesFilter === 'Série Audiovisuelle' ||
-                      badgeSeriesFilter === 'Série Parcours professionnel') && (
+                    {showProjectBadgesLevelFilter(badgeSeriesFilter) && (
                         <div className="filter-group">
                           <label>Par niveau</label>
                           <select
