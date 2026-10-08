@@ -4,7 +4,7 @@ import { getSelectedStudentsBadgeCartography } from '../../api/BadgeCartography'
 import { Badge } from '../../types';
 import { mapBackendUserBadgeToBadge } from '../../utils/badgeMapper';
 import { translateRole } from '../../utils/roleTranslations';
-import { displayPersonName } from '../../utils/civilDataErased';
+import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import BadgeCard from '../Badges/BadgeCard';
 import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
@@ -242,7 +242,7 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
   return (
     <div className="public-cartography-container">
       <div className="public-cartography-header">
-        <h1>Cartographie des preuves de compétences - <span className="capitalize">{shareInfo?.context?.student?.holder_display ?? displayPersonName(shareInfo?.context?.student?.full_name, shareInfo?.context?.student?.first_name, shareInfo?.context?.student?.last_name)}</span></h1>
+        <h1>Cartographie des preuves de compétences - <span className="capitalize">{displayCivilLabel(shareInfo?.context?.student?.holder_display, displayPersonName(shareInfo?.context?.student?.full_name, shareInfo?.context?.student?.first_name, shareInfo?.context?.student?.last_name))}</span></h1>
       </div>
 
       <div className="public-cartography-content">
@@ -338,7 +338,10 @@ const SelectedStudentsBadgeCartography: React.FC = () => {
               id: attr.receiver.id,
               full_name: attr.receiver.full_name,
               // Famille A (annexe §8bis) : affichage via holder_display uniquement.
-              holder_display: attr.receiver.holder_display ?? displayPersonName(attr.receiver.full_name, attr.receiver.first_name, attr.receiver.last_name),
+              holder_display: displayCivilLabel(
+                attr.receiver.holder_display,
+                displayPersonName(attr.receiver.full_name, attr.receiver.first_name, attr.receiver.last_name)
+              ),
               email: attr.receiver.email || '',
               is_deleted: attr.receiver.is_deleted || false
             },

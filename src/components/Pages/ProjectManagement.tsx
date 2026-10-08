@@ -20,7 +20,7 @@ import {
   resolveCatalogKey,
 } from '../../constants/catalogSeries';
 import { SOFT_SKILLS_SERIES_NAME, getLevelLabel } from '../../utils/badgeLevelLabels';
-import { displayPersonName } from '../../utils/civilDataErased';
+import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import { canUserAssignBadges } from '../../utils/badgePermissions';
 import { base64ToFile, getUserProjectRole, mapApiProjectToFrontendProject, mapEditFormToBackend, validateImageFormat, validateImageSize, getOrganizationId, getOrganizationType } from '../../utils/projectMapper';
 import { buildMldsCoResponsibleContexts, buildSchoolParticipantContexts } from '../../utils/memberContextPayload';
@@ -3816,7 +3816,11 @@ const ProjectManagement: React.FC = () => {
       badgeImage: imageUrl,
       participantId: receiver.id?.toString() || '',
       // Famille A (annexe §8bis) : porteur d'attribution — holder_display, jamais full_name/first+last.
-      participantName: receiver.holder_display || displayPersonName(receiver.full_name, receiver.first_name, receiver.last_name, receiver.name || 'Inconnu'),
+      // displayCivilLabel : jamais le littéral CIVIL_DATA_ERASED (cartes Preuves de compétences).
+      participantName: displayCivilLabel(
+        receiver.holder_display,
+        displayPersonName(receiver.full_name, receiver.first_name, receiver.last_name, receiver.name || 'Inconnu')
+      ),
       participantAvatar: receiver.avatar_url || DEFAULT_AVATAR_SRC,
       participantOrganization: receiver.organization || organization.name || 'Non spécifiée',
       participantIsDeleted: receiver.is_deleted || false,

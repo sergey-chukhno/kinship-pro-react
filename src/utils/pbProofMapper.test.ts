@@ -28,6 +28,24 @@ describe('mapPbProofApiToProofData sender', () => {
     expect(proof.senderOrg).toBe('Ecole maternelle Jules Ferry');
   });
 
+  it('translates CIVIL_DATA_ERASED holder_display to French label', () => {
+    const api = normalizeBadgeProofResponse(
+      {
+        proof_number: 'PB·1',
+        proof_type: 'PB',
+        holder_display: 'CIVIL_DATA_ERASED',
+        sender_display: { name: 'Bob', job: 'Mentor' },
+      },
+      'TOKEN'
+    );
+
+    const proof = mapPbProofApiToProofData(api);
+
+    expect(api.holder_display).toBe('Données civiles effacées');
+    expect(proof.holderName).toBe('Données civiles effacées');
+    expect(proof.holderMasked).toBe(true);
+  });
+
   it('treats CIVIL_DATA_ERASED on sender_display.name as erased civil data', () => {
     const api = normalizeBadgeProofResponse(
       {

@@ -1,12 +1,25 @@
 /**
- * RGPD anonymisation (CAS B/C/D/E/F, back : lib/civil_data_erased.rb) : une fois les données
- * civiles effacées, le back renvoie volontairement le littéral technique "CIVIL_DATA_ERASED"
- * dans full_name / first_name / last_name (UserSerializer), hors du mécanisme holder_display
- * (réservé aux attributions de badge). Sans traduction FE, ce code technique s'affiche en dur
- * partout où un nom de membre/participant est lu directement (Patrick, 01/10).
+ * RGPD anonymisation (CAS B/C/D/E/F, back : lib/civil_data_erased.rb).
+ * Le back stocke le littéral technique "CIVIL_DATA_ERASED" (CivilDataErased::LABEL).
+ * Sur les surfaces Famille A, ProofGenerator.holder_display est censé servir déjà
+ * « Données civiles effacées » — mais toute lecture FE d’un nom / holder_display doit
+ * aussi traduire le littéral (défense en profondeur ; jamais d’affichage brut — Patrick).
  */
 export const CIVIL_DATA_ERASED_SENTINEL = 'CIVIL_DATA_ERASED';
 export const CIVIL_DATA_ERASED_LABEL = 'Données civiles effacées';
+
+/**
+ * Traduit un libellé d’affichage (holder_display, name, etc.) : jamais le littéral technique.
+ */
+export function displayCivilLabel(
+  value?: string | null,
+  fallback: string = '—'
+): string {
+  if (value === CIVIL_DATA_ERASED_SENTINEL) return CIVIL_DATA_ERASED_LABEL;
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (trimmed) return trimmed;
+  return fallback === CIVIL_DATA_ERASED_SENTINEL ? CIVIL_DATA_ERASED_LABEL : fallback;
+}
 
 /**
  * Résout le nom affichable d'une personne à partir de full_name / first_name / last_name,
@@ -26,5 +39,7 @@ export function displayPersonName(
   ) {
     return CIVIL_DATA_ERASED_LABEL;
   }
-  return fullName || `${firstName || ''} ${lastName || ''}`.trim() || fallback;
+  const composed = fullName || `${firstName || ''} ${lastName || ''}`.trim();
+  if (composed) return composed;
+  return fallback === CIVIL_DATA_ERASED_SENTINEL ? CIVIL_DATA_ERASED_LABEL : fallback;
 }

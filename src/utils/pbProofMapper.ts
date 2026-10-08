@@ -1,6 +1,10 @@
 import { BadgeProofApiResponse } from '../types/badgeProofApi';
 import { ProofData, TrustLevelKey } from '../types/proof';
-import { CIVIL_DATA_ERASED_LABEL, CIVIL_DATA_ERASED_SENTINEL } from './civilDataErased';
+import {
+  CIVIL_DATA_ERASED_LABEL,
+  CIVIL_DATA_ERASED_SENTINEL,
+  displayCivilLabel,
+} from './civilDataErased';
 import { resolveQualityFrameworkLabel } from './qualityFrameworkLabel';
 import { getLevelLabel } from './badgeLevelLabels';
 
@@ -36,7 +40,9 @@ export function normalizeBadgeProofResponse(
     ...(merged as unknown as BadgeProofApiResponse),
     proof_number: String(merged.proof_number ?? manifest.proof_number ?? ''),
     proof_type: (merged.proof_type ?? manifest.proof_type ?? 'PB') as 'PB' | 'PE',
-    holder_display: String(merged.holder_display ?? manifest.holder_display ?? '—'),
+    holder_display: displayCivilLabel(
+      String(merged.holder_display ?? manifest.holder_display ?? '')
+    ),
     share_token: String(merged.share_token ?? requestToken),
     skills_indicated: Array.isArray(merged.skills_indicated)
       ? (merged.skills_indicated as string[])
@@ -138,7 +144,7 @@ export function mapProofApiToProofData(
 ): ProofData {
   const proofType: 'PB' | 'PE' =
     forcedType ?? (api.proof_type === 'PE' ? 'PE' : 'PB');
-  const holderDisplay = api.holder_display ?? '—';
+  const holderDisplay = displayCivilLabel(api.holder_display, '—');
   // Flags UI uniquement (avatar) — le libellé affiché reste toujours holder_display
   const holderMasked = holderDisplay === IDENTITY_MASKED;
   const holderCivilErased = holderDisplay === CIVIL_ERASED;

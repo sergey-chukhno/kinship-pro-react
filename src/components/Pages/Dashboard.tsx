@@ -52,7 +52,7 @@ import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { isUnder15 } from '../../utils/ageUtils';
-import { displayPersonName } from '../../utils/civilDataErased';
+import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
@@ -308,10 +308,14 @@ const getActorAvatar = (activity: any) => {
 const getReceiverName = (activity: any) => {
   // Famille A (annexe §8bis) : porteur d'attribution — holder_display d'abord, jamais de
   // recomposition first_name/last_name pour ce type d'activité (badge_awarded).
+  // displayCivilLabel : jamais le littéral CIVIL_DATA_ERASED.
+  const fromHolder = activity?.receiver?.holder_display
+    ? displayCivilLabel(activity.receiver.holder_display)
+    : undefined;
   return (
-    activity?.receiver?.holder_display ||
+    fromHolder ||
     formatPersonName(activity?.receiver) ||
-    activity?.receiver_name ||
+    (activity?.receiver_name ? displayCivilLabel(activity.receiver_name) : undefined) ||
     activity?.member_name ||
     activity?.user_name ||
     undefined

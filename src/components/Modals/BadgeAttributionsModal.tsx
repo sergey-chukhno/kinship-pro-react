@@ -5,7 +5,7 @@ import { getUserBadges } from '../../api/Badges';
 import { getOrganizationId } from '../../utils/projectMapper';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { translateRole } from '../../utils/roleTranslations';
-import { displayPersonName } from '../../utils/civilDataErased';
+import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import DeletedUserDisplay from '../Common/DeletedUserDisplay';
 import './Modal.css';
 import './BadgeAttributionsModal.css';
@@ -191,13 +191,24 @@ const BadgeAttributionsModal: React.FC<BadgeAttributionsModalProps> = ({
       
       const mapped = (Array.isArray(payload) ? payload : []).map((item: any): BadgeAttribution => {
         // Handle different response formats (user badges vs organization badges)
-        const receiver = item.receiver || { 
-          id: item.receiver_id || 0, 
-          full_name: item.receiver?.full_name || 'Unknown', 
-          holder_display: item.receiver?.holder_display || item.receiver?.full_name || 'Unknown',
-          email: item.receiver?.email || '' 
+        const receiver = {
+          id: item.receiver?.id || item.receiver_id || 0,
+          full_name: displayPersonName(
+            item.receiver?.full_name,
+            item.receiver?.first_name,
+            item.receiver?.last_name,
+            'Unknown'
+          ),
+          // Famille A : holder_display — jamais le littéral CIVIL_DATA_ERASED
+          holder_display: displayCivilLabel(
+            item.receiver?.holder_display || item.receiver?.full_name,
+            'Unknown'
+          ),
+          email: item.receiver?.email || '',
+          role: item.receiver?.role,
+          is_deleted: item.receiver?.is_deleted || false,
         };
-        
+
         // Always construct sender object to ensure all fields are present (role = system role, job = profession)
         const sender = {
           id: item.sender?.id || item.sender_id || 0,
