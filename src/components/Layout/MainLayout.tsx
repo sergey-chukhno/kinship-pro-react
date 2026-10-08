@@ -3,6 +3,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import Analytics from '../Pages/Analytics';
 import AuthPage from '../Pages/AuthPage';
+import StudentCodeLogin from '../Pages/StudentCodeLogin';
 import Badges from '../Pages/Badges';
 import Dashboard from '../Pages/Dashboard';
 import Events from '../Pages/Events';
@@ -177,6 +178,7 @@ const MainLayout: React.FC = () => {
       <Routes>
         {/* Routes d'authentification */}
         <Route path="/login" element={<AuthPage />} />
+        <Route path="/login/code-eleve" element={<StudentCodeLogin />} />
         <Route path="/register" element={<AuthPage />} />
         <Route path="/register/:registerType" element={<AuthPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
