@@ -49,6 +49,18 @@ import {
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
 import { translateRole } from '../../utils/roleTranslations';
 import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
+import { parseLearningOutcomes } from '../../data/euMcCatalog';
+import {
+  DocVisibility,
+  getProjectSpaceExtras,
+  openProjectSpace,
+  ProjectPersonRole,
+  resolveProjectSpaceId,
+  setProjectSpaceExtras,
+} from '../../utils/projectSpaceStore';
+import EuMcGoldSummary from './EuMcGoldSummary';
+import AttestCompetenceModal from '../Modals/AttestCompetenceModal';
+import './ProjectAffichePage.css';
 
 /** Famille A — porteur: holder_display first; never show CIVIL_DATA_ERASED literal. */
 function displayProofHolder(b: any, fallback: string = '—'): string {
@@ -75,18 +87,6 @@ function displayProofSender(b: any, fallback: string = '—'): string {
     )
   );
 }
-import { parseLearningOutcomes } from '../../data/euMcCatalog';
-import {
-  DocVisibility,
-  getProjectSpaceExtras,
-  openProjectSpace,
-  ProjectPersonRole,
-  resolveProjectSpaceId,
-  setProjectSpaceExtras,
-} from '../../utils/projectSpaceStore';
-import EuMcGoldSummary from './EuMcGoldSummary';
-import AttestCompetenceModal from '../Modals/AttestCompetenceModal';
-import './ProjectAffichePage.css';
 
 type AfficheTab = 'overview' | 'requests' | 'participants' | 'teams' | 'proofs' | 'documents';
 type AddPanel = 'person' | 'partner' | 'funder' | 'document' | 'link' | 'team' | null;
