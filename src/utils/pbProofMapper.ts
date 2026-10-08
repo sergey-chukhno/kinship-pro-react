@@ -181,6 +181,8 @@ export function mapProofApiToProofData(
     // Jamais le mot "EQF" sur la page de preuve publique (Patrick 01/10) — cf. userBadgeProofMapper.ts, même convention.
     eqfPill: null,
     seriesPill: api.series_name ?? 'Référentiel Kinship',
+    catalogKey: api.catalog_key ?? null,
+    badgeSeriesId: api.badge_series_id ?? api.series_id ?? null,
     statusBubble: attestationLabel,
     awardedDate,
     projectTitle: api.project_title ?? null,

@@ -39,6 +39,9 @@ export interface ProofData {
   badgeLevel: string;
   eqfPill: string | null;
   seriesPill: string;
+  /** C16 identity — display stays seriesPill; identity never derived from the name. */
+  catalogKey?: string | null;
+  badgeSeriesId?: number | null;
   /** Libellé bulle Zone 1 — servi tel quel (ex. « ✓ Attestée », « ✓ Vérifiée ») */
   statusBubble: string;
   awardedDate: string;

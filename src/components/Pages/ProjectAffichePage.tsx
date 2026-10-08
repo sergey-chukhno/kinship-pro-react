@@ -49,6 +49,11 @@ import {
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
 import { translateRole } from '../../utils/roleTranslations';
 import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
+import { displayLabelForCatalogKey } from '../../constants/catalogSeries';
+import {
+  badgeMatchesSeriesIdentity,
+  seriesIdentityValue,
+} from '../../utils/badgeSeriesMatch';
 import { parseLearningOutcomes } from '../../data/euMcCatalog';
 import {
   DocVisibility,
@@ -556,20 +561,42 @@ const ProjectAffichePage: React.FC = () => {
     return ranked.filter((p) => partnershipLabel(p, project?.organization).toLowerCase().includes(q)).slice(0, 8);
   }, [partnerships, partnerQuery, project?.organization]);
 
+  /** Affiche C2/C16 — options identity = catalog_key | badge_series_id; label = FR name. */
   const seriesOptions = useMemo(() => {
-    const set = new Set<string>();
+    const byValue = new Map<string, string>();
     badges.forEach((b) => {
-      const series = b.badge?.series || b.series;
-      if (series) set.add(String(series));
+      const badge = b.badge || b;
+      const value = seriesIdentityValue({
+        catalog_key: badge.catalog_key,
+        badge_series_id: badge.badge_series_id,
+      });
+      if (!value || byValue.has(value)) return;
+      const label =
+        (badge.catalog_key && displayLabelForCatalogKey(badge.catalog_key)) ||
+        badge.series ||
+        value;
+      byValue.set(value, String(label));
     });
-    return Array.from(set);
+    return Array.from(byValue.entries()).map(([value, label]) => ({ value, label }));
   }, [badges]);
 
   const filteredBadges = useMemo(() => {
     return badges.filter((b) => {
-      const series = String(b.badge?.series || b.series || '');
+      const badge = b.badge || b;
       const holder = String(displayProofHolder(b, ''));
-      if (proofSeries && series !== proofSeries) return false;
+      if (
+        proofSeries &&
+        !badgeMatchesSeriesIdentity(
+          {
+            catalog_key: badge.catalog_key,
+            badge_series_id: badge.badge_series_id,
+            series: badge.series,
+          },
+          proofSeries
+        )
+      ) {
+        return false;
+      }
       if (proofHolder.trim() && !holder.toLowerCase().includes(proofHolder.trim().toLowerCase())) return false;
       return true;
     });
@@ -1724,7 +1751,9 @@ const ProjectAffichePage: React.FC = () => {
                       <b>Par série</b>
                       <select className="pa-fin" value={proofSeries} onChange={(e) => setProofSeries(e.target.value)}>
                         <option value="">Toutes les séries</option>
-                        {seriesOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                        {seriesOptions.map((s) => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="pa-fbox">
