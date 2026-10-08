@@ -137,26 +137,18 @@ const seriesProvenance = (sample?: BadgeAPI | null): 'own' | 'catalogue' => {
 };
 
 const commentRequiredFor = (badge: BadgeAPI): boolean => {
-  const isAudiovisuelle =
-    badge.catalog_key === CATALOG_KEY_AUDIOVISUELLE || badge.series === 'Série Audiovisuelle';
+  const isAudiovisuelle = badge.catalog_key === CATALOG_KEY_AUDIOVISUELLE;
   if (isAudiovisuelle && (badge.level === 'level_3' || badge.level === 'level_4')) return true;
-  if (
-    isSoftSkillsCatalog({ catalog_key: badge.catalog_key, series: badge.series }) &&
-    badge.level === 'level_3'
-  ) {
+  if (isSoftSkillsCatalog({ catalog_key: badge.catalog_key }) && badge.level === 'level_3') {
     return true;
   }
   return badge.level === 'level_2';
 };
 
 const documentRequiredFor = (badge: BadgeAPI): boolean => {
-  const isAudiovisuelle =
-    badge.catalog_key === CATALOG_KEY_AUDIOVISUELLE || badge.series === 'Série Audiovisuelle';
+  const isAudiovisuelle = badge.catalog_key === CATALOG_KEY_AUDIOVISUELLE;
   if (isAudiovisuelle && (badge.level === 'level_3' || badge.level === 'level_4')) return true;
-  if (
-    isSoftSkillsCatalog({ catalog_key: badge.catalog_key, series: badge.series }) &&
-    badge.level === 'level_3'
-  ) {
+  if (isSoftSkillsCatalog({ catalog_key: badge.catalog_key }) && badge.level === 'level_3') {
     return true;
   }
   return false;

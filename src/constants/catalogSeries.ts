@@ -1,14 +1,12 @@
 /**
- * Catalogue series identity — R1 / Étape 2 FE Rimma.
- * Defaults / fetch identity = catalog_key; user selects = badge_series_id; display = series name only.
- * Org/project/share filters use catalog_key (BE Étape 1 dual filter).
+ * Catalogue series identity — C2/C16: catalog_key / badge_series_id only.
+ * Display = series name (C14). No name→key dual-read.
  */
 
 import { BadgeAPI } from '../types';
 import {
   SOFT_SKILLS_SERIES_NAME,
   SOFT_SKILLS_SERIES_NAME_LEGACY,
-  isSoftSkillsSeries as isSoftSkillsSeriesByName,
 } from '../utils/badgeLevelLabels';
 
 export const CATALOG_KEY_SOFT_SKILLS = 'soft_skills';
@@ -49,51 +47,40 @@ export interface CatalogSeriesOption {
   apiSeriesName: string;
 }
 
-/** Resolve catalog_key from key, badge payload, or legacy display name. */
+/** Identity only — returns catalog_key when present; never maps display names. */
 export function resolveCatalogKey(input?: {
   catalog_key?: string | null;
   series?: string | null;
 }): string | null {
-  if (input?.catalog_key) return input.catalog_key;
-  const series = input?.series;
-  if (!series) return null;
-  if (isSoftSkillsSeriesByName(series) || series === 'Série TouKouLeur') {
-    return CATALOG_KEY_SOFT_SKILLS;
-  }
-  const entry = Object.entries(CATALOG_KEY_API_SERIES_NAME).find(([, name]) => name === series);
-  return entry ? entry[0] : null;
+  return input?.catalog_key || null;
 }
 
 export function isSoftSkillsCatalog(input?: {
   catalog_key?: string | null;
   series?: string | null;
 }): boolean {
-  if (input?.catalog_key === CATALOG_KEY_SOFT_SKILLS) return true;
-  return isSoftSkillsSeriesByName(input?.series) || input?.series === 'Série TouKouLeur';
+  return input?.catalog_key === CATALOG_KEY_SOFT_SKILLS;
 }
 
 export function isCpsCatalog(input?: {
   catalog_key?: string | null;
   series?: string | null;
 }): boolean {
-  if (input?.catalog_key === CATALOG_KEY_CPS) return true;
-  return input?.series === 'Compétences psychosociales';
+  return input?.catalog_key === CATALOG_KEY_CPS;
 }
 
 export function isOrienterCatalog(input?: {
   catalog_key?: string | null;
   series?: string | null;
 }): boolean {
-  if (input?.catalog_key === CATALOG_KEY_ORIENTER) return true;
-  return input?.series === CATALOG_KEY_API_SERIES_NAME[CATALOG_KEY_ORIENTER];
+  return input?.catalog_key === CATALOG_KEY_ORIENTER;
 }
 
 export function isMerCatalog(input?: {
   catalog_key?: string | null;
   series?: string | null;
 }): boolean {
-  if (input?.catalog_key === CATALOG_KEY_MER) return true;
-  return input?.series === CATALOG_KEY_API_SERIES_NAME[CATALOG_KEY_MER];
+  return input?.catalog_key === CATALOG_KEY_MER;
 }
 
 export function displayLabelForCatalogKey(catalogKey: string): string {
@@ -135,13 +122,14 @@ export function buildCartographyShareSeriesFilters(input: {
   };
 }
 
-/** Unique series options from catalogue badges — select value = badge_series_id when present. */
+/** Unique series options from catalogue badges — identity = catalog_key / badge_series_id only. */
 export function seriesOptionsFromBadges(badges: BadgeAPI[]): CatalogSeriesOption[] {
   const byId = new Map<string, CatalogSeriesOption>();
   for (const b of badges) {
-    const key = b.catalog_key ?? resolveCatalogKey({ series: b.series });
+    const key = b.catalog_key || null;
     const id = b.badge_series_id ?? null;
-    const mapKey = id != null ? `id:${id}` : `key:${key || b.series}`;
+    if (!key && id == null) continue;
+    const mapKey = id != null ? `id:${id}` : `key:${key}`;
     if (byId.has(mapKey)) continue;
     const apiSeriesName =
       (key && CATALOG_KEY_API_SERIES_NAME[key]) ||
@@ -150,7 +138,7 @@ export function seriesOptionsFromBadges(badges: BadgeAPI[]): CatalogSeriesOption
     const label =
       key === CATALOG_KEY_SOFT_SKILLS
         ? SOFT_SKILLS_SERIES_NAME
-        : apiSeriesName || SOFT_SKILLS_SERIES_NAME;
+        : apiSeriesName || (key ? displayLabelForCatalogKey(key) : String(id));
     byId.set(mapKey, {
       id,
       catalog_key: key,
@@ -161,7 +149,7 @@ export function seriesOptionsFromBadges(badges: BadgeAPI[]): CatalogSeriesOption
   return Array.from(byId.values()).sort((a, b) => a.label.localeCompare(b.label, 'fr'));
 }
 
-/** Soft Skills legacy names still accepted by dual-read BE / old rows. */
+/** Soft Skills legacy display names (display/PDF only — not filter identity). */
 export const SOFT_SKILLS_LEGACY_API_NAMES = [
   SOFT_SKILLS_SERIES_NAME,
   SOFT_SKILLS_SERIES_NAME_LEGACY,

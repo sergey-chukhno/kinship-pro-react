@@ -302,7 +302,7 @@ const Badges: React.FC = () => {
                          badge.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          badge.category.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Series filtering — catalog_key identity (C11/C12); dual-read if key absent on payload
+    // Series filtering — catalog_key identity only (C2/C16)
     let matchesSeries = true;
     if (selectedSeries) {
       matchesSeries = badgeMatchesSelectedCatalogKey(

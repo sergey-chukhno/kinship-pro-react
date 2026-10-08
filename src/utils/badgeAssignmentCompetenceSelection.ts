@@ -4,26 +4,22 @@ import {
   isMerCatalog,
   isOrienterCatalog,
 } from '../constants/catalogSeries';
-import {
-  COMPETENCES_ORIENTER_COLLEGE_SERIES,
-  METIERS_DE_LA_MER_SERIES,
-} from '../constants/badgeAxes';
 
 export const isCompetencesOrienterCollegeSeries = (
   seriesOrKey?: string | null,
   catalogKey?: string | null
-): boolean =>
-  isOrienterCatalog({ catalog_key: catalogKey || seriesOrKey, series: seriesOrKey }) ||
-  seriesOrKey === COMPETENCES_ORIENTER_COLLEGE_SERIES ||
-  seriesOrKey === CATALOG_KEY_ORIENTER;
+): boolean => {
+  const key = catalogKey || (seriesOrKey === CATALOG_KEY_ORIENTER ? seriesOrKey : null);
+  return isOrienterCatalog({ catalog_key: key });
+};
 
 export const isMetiersDeLaMerSeries = (
   seriesOrKey?: string | null,
   catalogKey?: string | null
-): boolean =>
-  isMerCatalog({ catalog_key: catalogKey || seriesOrKey, series: seriesOrKey }) ||
-  seriesOrKey === METIERS_DE_LA_MER_SERIES ||
-  seriesOrKey === CATALOG_KEY_MER;
+): boolean => {
+  const key = catalogKey || (seriesOrKey === CATALOG_KEY_MER ? seriesOrKey : null);
+  return isMerCatalog({ catalog_key: key });
+};
 
 /** Only Compétences à s'orienter - Collège uses single-select; Métiers de la mer allows multiple. */
 export const isSingleSelectCompetenceSeries = (

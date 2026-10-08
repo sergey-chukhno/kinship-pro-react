@@ -1,8 +1,4 @@
 import { BadgeAPI, BadgeSkillAPI } from '../../types';
-import {
-  isMetiersDeLaMerSeries,
-  isSeriesWithAxesCompetenceSelection,
-} from '../../utils/badgeAssignmentCompetenceSelection';
 import { hasTypedSavoirSavoirFaireItems } from '../../constants/badgeAxes';
 import {
   CATALOG_KEY_AUDIOVISUELLE,
@@ -523,7 +519,10 @@ export const getBadgeCompetencies = (badge: BadgeAPI | null): Array<{ id: number
   
   const expertises = badge.expertises || [];
   const domains = badge.domains || [];
-  const mergeDomains = hasTypedSavoirSavoirFaireItems(badge.catalog_key || badge.series) && domains.length > 0;
+  const mergeDomains =
+    !!badge.catalog_key &&
+    hasTypedSavoirSavoirFaireItems(badge.catalog_key) &&
+    domains.length > 0;
 
   if (mergeDomains || expertises.length > 0) {
     if (!mergeDomains) return expertises;
@@ -563,17 +562,11 @@ const validateCompetencies = (
     return axesValidation;
   }
 
-  const isParcoursProfessionnel =
-    badge.catalog_key === CATALOG_KEY_PARCOURS_PROFESSIONNEL ||
-    badge.series === 'Série Parcours professionnel';
+  const isParcoursProfessionnel = badge.catalog_key === CATALOG_KEY_PARCOURS_PROFESSIONNEL;
   const isTouKouLeurLevel2 =
-    isSoftSkillsCatalog({ catalog_key: badge.catalog_key, series: badge.series }) &&
-    badge.level === 'level_2';
-  const isParcoursPossibles =
-    badge.catalog_key === CATALOG_KEY_PARCOURS_DES_POSSIBLES ||
-    badge.series === 'Série Parcours des possibles';
-  const isAudiovisuelle =
-    badge.catalog_key === CATALOG_KEY_AUDIOVISUELLE || badge.series === 'Série Audiovisuelle';
+    isSoftSkillsCatalog({ catalog_key: badge.catalog_key }) && badge.level === 'level_2';
+  const isParcoursPossibles = badge.catalog_key === CATALOG_KEY_PARCOURS_DES_POSSIBLES;
+  const isAudiovisuelle = badge.catalog_key === CATALOG_KEY_AUDIOVISUELLE;
   const shouldValidate =
     badge.level === 'level_1' ||
     (badge.level === 'level_2' && (isParcoursPossibles || isAudiovisuelle)) ||

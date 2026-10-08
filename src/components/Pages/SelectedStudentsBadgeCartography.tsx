@@ -8,10 +8,9 @@ import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErase
 import BadgeCard from '../Badges/BadgeCard';
 import CompetencesOrienterProgressCard from '../Badges/CompetencesOrienterProgressCard';
 import BadgeAttributionsModal from '../Modals/BadgeAttributionsModal';
-import { isSeriesWithCompetenceProgress, isSoftSkillsSeries } from '../../constants/badgeAxes';
-import { isCpsCatalog, isSoftSkillsCatalog, resolveCatalogKey } from '../../constants/catalogSeries';
+import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import { isCpsCatalog, isSoftSkillsCatalog } from '../../constants/catalogSeries';
 import { getLevelLabel } from '../../utils/badgeLevelLabels';
-import { isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
 import './PublicBadgeCartography.css';
 
 function normalizeLevel(level: string | undefined): string {
@@ -23,18 +22,20 @@ function normalizeLevel(level: string | undefined): string {
 
 const LEVEL_SECTION_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'] as const;
 
-/** Series identity for carto helpers — prefer catalog_key (R1). */
-const seriesIdentity = (badge?: { catalog_key?: string | null; series?: string | null }): string =>
-  badge?.catalog_key || resolveCatalogKey(badge) || badge?.series || '';
+/** Series identity for carto helpers — catalog_key only (C2/C16). */
+const seriesIdentity = (badge?: {
+  catalog_key?: string | null;
+  badge_series_id?: number | null;
+  series?: string | null;
+}): string =>
+  badge?.catalog_key ||
+  (badge?.badge_series_id != null ? String(badge.badge_series_id) : '') ||
+  '';
 
-const levelNumbersForSeriesSet = (seriesNames: string[]): number[] => {
-  if (seriesNames.length === 0) return [1, 2, 3, 4];
-  const onlyTwoLevel = seriesNames.every(
-    (s) =>
-      isSoftSkillsCatalog({ catalog_key: s, series: s }) ||
-      isCpsCatalog({ catalog_key: s, series: s }) ||
-      isSoftSkillsSeries(s) ||
-      isCompetencesPsychosocialesSeries(s)
+const levelNumbersForSeriesSet = (seriesKeys: string[]): number[] => {
+  if (seriesKeys.length === 0) return [1, 2, 3, 4];
+  const onlyTwoLevel = seriesKeys.every(
+    (s) => isSoftSkillsCatalog({ catalog_key: s }) || isCpsCatalog({ catalog_key: s })
   );
   return onlyTwoLevel ? [1, 2] : [1, 2, 3, 4];
 };

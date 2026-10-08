@@ -133,6 +133,11 @@ export function mapUserBadgeToProofData(userBadge: Record<string, unknown>): Pro
     badgeLevel: formatBadgeLevel(badge.level as string | undefined),
     eqfPill: null,
     seriesPill: String(badge.series ?? 'Référentiel Kinship'),
+    catalogKey: (badge.catalog_key as string | null | undefined) ?? null,
+    badgeSeriesId:
+      (badge.badge_series_id as number | null | undefined) ??
+      (badge.series_id as number | null | undefined) ??
+      null,
     statusBubble: '✓ Attestée',
     awardedDate,
     projectTitle: project.title ? String(project.title) : null,

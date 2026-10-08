@@ -32,8 +32,6 @@ import {
   getUserDashboardStats
 } from '../../api/Dashboard';
 import { getUserBadges } from '../../api/Badges';
-import { isSoftSkillsSeries } from '../../constants/badgeAxes';
-import { COMPETENCES_PSYCHOSOCIALES_SERIES, isCompetencesPsychosocialesSeries } from '../../utils/cpsSeries';
 import {
   CATALOG_KEY_CPS,
   CATALOG_KEY_SOFT_SKILLS,
@@ -1489,12 +1487,12 @@ const Dashboard: React.FC = () => {
   const LEVEL_COLORS_STATS = ['#5570F1', '#10B981', '#F59E0B', '#EC4899'];
   const userRadarCompetenceData = useMemo(() => {
     const byCompetenceAndLevel: Record<string, Record<string, number>> = {};
-    const seriesPresent = new Set<string>();
+    const seriesKeysPresent = new Set<string>();
     userBadgesForChart.forEach((ub: any) => {
       const name = ub.badge?.name;
       const level = ub.badge?.level;
-      const seriesName = ub.badge?.series;
-      if (seriesName) seriesPresent.add(seriesName);
+      const catalogKey = ub.badge?.catalog_key;
+      if (catalogKey) seriesKeysPresent.add(String(catalogKey));
       if (!name || level == null || level === '') return;
       if (!byCompetenceAndLevel[name]) byCompetenceAndLevel[name] = { level_1: 0, level_2: 0, level_3: 0, level_4: 0 };
       const key = String(level) as 'level_1' | 'level_2' | 'level_3' | 'level_4';
@@ -1503,16 +1501,14 @@ const Dashboard: React.FC = () => {
     const axes = Object.keys(byCompetenceAndLevel).sort();
     if (axes.length === 0) return { axes: [] as string[], series: [] as Array<{ level: string; values: number[]; color: string }> };
 
-    const seriesList = Array.from(seriesPresent);
+    const seriesList = Array.from(seriesKeysPresent);
     const allSoft =
-      seriesList.length > 0 &&
-      seriesList.every((s) => isSoftSkillsCatalog({ series: s }) || isSoftSkillsSeries(s));
+      seriesList.length > 0 && seriesList.every((s) => isSoftSkillsCatalog({ catalog_key: s }));
     const allCps =
-      seriesList.length > 0 &&
-      seriesList.every((s) => isCpsCatalog({ series: s }) || isCompetencesPsychosocialesSeries(s));
+      seriesList.length > 0 && seriesList.every((s) => isCpsCatalog({ catalog_key: s }));
     const mixedSoftCps =
-      seriesList.some((s) => isSoftSkillsCatalog({ series: s }) || isSoftSkillsSeries(s)) &&
-      seriesList.some((s) => isCpsCatalog({ series: s }) || isCompetencesPsychosocialesSeries(s));
+      seriesList.some((s) => isSoftSkillsCatalog({ catalog_key: s })) &&
+      seriesList.some((s) => isCpsCatalog({ catalog_key: s }));
     const levelNums = allSoft || allCps || mixedSoftCps ? [1, 2] : [1, 2, 3, 4];
     const labelFor = (n: number): string => {
       if (allCps) return getLevelLabel(CATALOG_KEY_CPS, String(n));

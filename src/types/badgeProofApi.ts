@@ -32,6 +32,9 @@ export interface BadgeProofApiResponse {
   badge_eqf_level?: string | null;
   badge_eqf_framework?: string | null;
   series_id?: number | null;
+  /** Stable series identity (C16) — prefer over series_name for matching/filters. */
+  catalog_key?: string | null;
+  badge_series_id?: number | null;
   series_name?: string | null;
   series_scope?: string | null;
   series_owner?: string | null;
