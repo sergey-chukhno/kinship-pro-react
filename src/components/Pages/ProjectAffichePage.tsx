@@ -48,7 +48,33 @@ import {
 } from '../../utils/projectPermissions';
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
 import { translateRole } from '../../utils/roleTranslations';
-import { displayPersonName } from '../../utils/civilDataErased';
+import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
+
+/** Famille A — porteur: holder_display first; never show CIVIL_DATA_ERASED literal. */
+function displayProofHolder(b: any, fallback: string = '—'): string {
+  return displayCivilLabel(
+    b?.receiver?.holder_display,
+    displayPersonName(
+      b?.receiver?.full_name,
+      b?.receiver?.first_name,
+      b?.receiver?.last_name,
+      b?.receiver_name || fallback
+    )
+  );
+}
+
+/** Sender snapshot may be CIVIL_DATA_ERASED (no ProofGenerator translate). */
+function displayProofSender(b: any, fallback: string = '—'): string {
+  return displayCivilLabel(
+    b?.sender?.full_name,
+    displayPersonName(
+      b?.sender?.full_name,
+      b?.sender?.first_name,
+      b?.sender?.last_name,
+      b?.sender_name || fallback
+    )
+  );
+}
 import { parseLearningOutcomes } from '../../data/euMcCatalog';
 import {
   DocVisibility,
@@ -542,7 +568,7 @@ const ProjectAffichePage: React.FC = () => {
   const filteredBadges = useMemo(() => {
     return badges.filter((b) => {
       const series = String(b.badge?.series || b.series || '');
-      const holder = String(displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name || ''));
+      const holder = String(displayProofHolder(b, ''));
       if (proofSeries && series !== proofSeries) return false;
       if (proofHolder.trim() && !holder.toLowerCase().includes(proofHolder.trim().toLowerCase())) return false;
       return true;
@@ -1719,8 +1745,8 @@ const ProjectAffichePage: React.FC = () => {
                         const title = b.badge?.name || b.badge_name || 'Preuve';
                         const series = b.badge?.series || b.series || 'Série';
                         const level = b.badge?.level || b.level || 'Niveau 1';
-                        const holder = displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name || '—');
-                        const sender = displayPersonName(b.sender?.full_name, b.sender?.first_name, b.sender?.last_name, b.sender_name || '—');
+                        const holder = displayProofHolder(b);
+                        const sender = displayProofSender(b);
                         const date = b.assigned_at ? formatFrDate(String(b.assigned_at).slice(0, 10)) : '—';
                         return (
                           <button key={b.id} type="button" className="pa-pbcard" onClick={() => openProof(b)}>
@@ -1758,8 +1784,8 @@ const ProjectAffichePage: React.FC = () => {
                             <td><b>{b.badge?.name || b.badge_name}</b></td>
                             <td>{b.badge?.series || b.series}</td>
                             <td>{b.badge?.level || b.level}</td>
-                            <td>{displayPersonName(b.receiver?.full_name, b.receiver?.first_name, b.receiver?.last_name, b.receiver_name)}</td>
-                            <td>{displayPersonName(b.sender?.full_name, b.sender?.first_name, b.sender?.last_name, b.sender_name)}</td>
+                            <td>{displayProofHolder(b)}</td>
+                            <td>{displayProofSender(b)}</td>
                             <td>{b.assigned_at ? formatFrDate(String(b.assigned_at).slice(0, 10)) : '—'}</td>
                           </tr>
                         ))}
