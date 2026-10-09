@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Badge } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
+import { useStudentCodeReadOnly } from '../../hooks/useStudentCodeReadOnly';
 import { exportToPDF, exportToCSV, generateShareableLink, mapRawUserBadgeToAttributionForExport } from '../../utils/badgeExport';
 import './Modal.css';
 import './BadgeExportModal.css';
@@ -34,6 +35,7 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
 }) => {
   const { state } = useAppContext();
   const { showSuccess, showError } = useToast();
+  const { guardWrite, readOnly, needVerifiedEmailMessage } = useStudentCodeReadOnly();
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isGeneratingCSV, setIsGeneratingCSV] = useState(false);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
@@ -74,6 +76,7 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
   };
 
   const handleGenerateLink = async () => {
+    if (!guardWrite()) return;
     setIsGeneratingLink(true);
     try {
       const link = await generateShareableLink(filters, context);
@@ -81,7 +84,9 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
       showSuccess('Lien partageable généré avec succès');
     } catch (error: any) {
       console.error('Error generating shareable link:', error);
-      showError('Erreur lors de la génération du lien');
+      showError(
+        error?.response?.data?.message || 'Erreur lors de la génération du lien'
+      );
     } finally {
       setIsGeneratingLink(false);
     }
@@ -191,11 +196,17 @@ const BadgeExportModal: React.FC<BadgeExportModalProps> = ({
                   <p>Générer un lien sécurisé pour partager la cartographie (expire dans 90 jours)</p>
                 </div>
               </div>
+              {readOnly ? (
+                <p className="badge-export-readonly-hint" style={{ margin: 0, fontSize: '0.9rem', color: '#6b7280' }}>
+                  {needVerifiedEmailMessage}
+                </p>
+              ) : null}
               {!shareableLink ? (
                 <button
                   className="btn btn-primary"
                   onClick={handleGenerateLink}
-                  disabled={isGeneratingLink || badges.length === 0}
+                  disabled={isGeneratingLink || badges.length === 0 || readOnly}
+                  title={readOnly ? needVerifiedEmailMessage : undefined}
                 >
                   {isGeneratingLink ? (
                     <>

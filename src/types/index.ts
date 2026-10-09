@@ -329,6 +329,11 @@ export interface User {
   take_trainee?: boolean;
   show_my_skills?: boolean;
   birthday?: string; // YYYY-MM-DD, used for under-15 checks (e.g. minor personal user)
+  /** Ticket 57 Phase 1a — claimed via student code, no verified email yet */
+  read_only_until_email?: boolean;
+  account_activated?: boolean;
+  has_temporary_email?: boolean;
+  is_claimed?: boolean;
   available_contexts?: {
     companies?: OrganizationContext[];
     schools?: OrganizationContext[];

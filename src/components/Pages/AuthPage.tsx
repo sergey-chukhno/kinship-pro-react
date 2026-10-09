@@ -43,6 +43,10 @@ const mapApiUserToAppUser = (apiUser: any) => {
       "",
     available_contexts: apiUser.available_contexts,
     birthday: apiUser.birthday,
+    read_only_until_email: Boolean(apiUser.read_only_until_email),
+    account_activated: Boolean(apiUser.account_activated),
+    has_temporary_email: Boolean(apiUser.has_temporary_email),
+    is_claimed: Boolean(apiUser.is_claimed),
   }
 }
 
@@ -342,6 +346,17 @@ const AuthPage: React.FC = () => {
         <button type="submit" className="submit-button">
           Se connecter
         </button>
+
+        <div className="student-code-door">
+          <p className="student-code-door-title">Mon école m&apos;a donné un code</p>
+          <button
+            type="button"
+            className="student-code-door-button"
+            onClick={() => navigate("/login/code-eleve")}
+          >
+            Je me connecte avec mon code →
+          </button>
+        </div>
 
         <button
           type="button"

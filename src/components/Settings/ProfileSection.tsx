@@ -3,6 +3,7 @@ import { useAppContext } from '../../context/AppContext';
 import { updateUserProfile, uploadAvatar, deleteAvatar } from '../../api/UserDashBoard/Profile';
 import { updateUserEmail } from '../../api/UserDashBoard/Profile';
 import { useToast } from '../../hooks/useToast';
+import { useStudentCodeReadOnly } from '../../hooks/useStudentCodeReadOnly';
 import { isUnder18 } from '../../utils/ageUtils';
 import AvatarImage from '../UI/AvatarImage';
 import './ProfileSection.css';
@@ -10,6 +11,7 @@ import './ProfileSection.css';
 const ProfileSection: React.FC = () => {
   const { state, setUser } = useAppContext();
   const { showSuccess, showError } = useToast();
+  const { guardWrite } = useStudentCodeReadOnly();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Parse name from user.name (format: "First Last") or use empty strings
@@ -47,6 +49,10 @@ const ProfileSection: React.FC = () => {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!guardWrite()) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -83,6 +89,7 @@ const ProfileSection: React.FC = () => {
   };
 
   const handleDeleteAvatar = async () => {
+    if (!guardWrite()) return;
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer votre photo de profil ?')) {
       return;
     }
@@ -99,6 +106,7 @@ const ProfileSection: React.FC = () => {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!guardWrite()) return;
     setIsUpdatingProfile(true);
 
     try {
@@ -131,6 +139,7 @@ const ProfileSection: React.FC = () => {
 
   const handleUpdateEmail = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!guardWrite()) return;
 
     if (!currentPassword) {
       showError('Veuillez entrer votre mot de passe actuel');

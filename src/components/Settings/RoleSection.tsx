@@ -3,6 +3,7 @@ import { useAppContext } from '../../context/AppContext';
 import { getPersonalUserRoles } from '../../api/RegistrationRessource';
 import { updateUserRole } from '../../api/UserDashBoard/Profile';
 import { useToast } from '../../hooks/useToast';
+import { useStudentCodeReadOnly } from '../../hooks/useStudentCodeReadOnly';
 import { translateRole } from '../../utils/roleTranslations';
 import './RoleSection.css';
 
@@ -23,6 +24,7 @@ const SCHOOL_PUPIL_ROLES = ['eleve_primaire', 'collegien', 'lyceen'];
 const RoleSection: React.FC = () => {
   const { state, setUser } = useAppContext();
   const { showSuccess, showError } = useToast();
+  const { guardWrite } = useStudentCodeReadOnly();
   const [availableRoles, setAvailableRoles] = useState<Array<{ value: string; label: string }>>([]);
   const [selectedRole, setSelectedRole] = useState(state.user.role || '');
   const [isLoading, setIsLoading] = useState(true);
@@ -76,6 +78,7 @@ const RoleSection: React.FC = () => {
 
   const handleUpdateRole = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!guardWrite()) return;
 
     if (selectedRole === state.user.role) {
       showError('Veuillez sélectionner un rôle différent');

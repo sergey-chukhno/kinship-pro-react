@@ -49,6 +49,16 @@ export function login(email: string, password: string) {
     return axiosClient.post("/api/v1/auth/login", { email, password });
 }
 
+/** Ticket 57 Phase 1a — connexion élève par code (pas d'email / mot de passe). */
+export function loginWithStudentCode(payload: {
+    first_name: string;
+    last_name: string;
+    birthday: string;
+    code: string;
+}) {
+    return axiosClient.post("/api/v1/auth/login_with_student_code", payload);
+}
+
 export function confirmAccount(confirmationToken: string) {
     return axiosClient.get('/api/v1/auth/confirmation', {
         params: { confirmation_token: confirmationToken },
