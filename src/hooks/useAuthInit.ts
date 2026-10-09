@@ -22,7 +22,12 @@ export const useAuthInit = () => {
     let path = pathname.substring(1).replace(/\/$/, '');
 
     // Si c'est une page d'auth
-    if (pathname === "/register" || pathname === "/login" || pathname.startsWith("/register/")) {
+    if (
+      pathname === "/register" ||
+      pathname === "/login" ||
+      pathname === "/login/code-eleve" ||
+      pathname.startsWith("/register/")
+    ) {
       return "Auth";
     }
 
@@ -95,10 +100,11 @@ export const useAuthInit = () => {
       const token = localStorage.getItem("jwt_token");
       if (!token) {
         setIsAuthChecking(false);
-        // Lien public follow/:token : consultable sans compte. Sinon, page d'auth.
+        // Pages d'auth + follow public : pas de redirect. Sinon → /register.
         if (
           location.pathname !== "/register" &&
           location.pathname !== "/login" &&
+          location.pathname !== "/login/code-eleve" &&
           !location.pathname.startsWith("/register/") &&
           !isPublicFollowPath(location.pathname)
         ) {
@@ -129,10 +135,18 @@ export const useAuthInit = () => {
             organization: user.available_contexts?.companies?.[0]?.name ||
               user.available_contexts?.schools?.[0]?.name || '',
             available_contexts: user.available_contexts,
-            birthday: user.birthday
+            birthday: user.birthday,
+            read_only_until_email: Boolean(user.read_only_until_email),
+            account_activated: Boolean(user.account_activated),
+            has_temporary_email: Boolean(user.has_temporary_email),
+            is_claimed: Boolean(user.is_claimed),
           });
 
-          const isAuthPage = location.pathname === "/register" || location.pathname === "/login" || location.pathname.startsWith("/register/");
+          const isAuthPage =
+            location.pathname === "/register" ||
+            location.pathname === "/login" ||
+            location.pathname === "/login/code-eleve" ||
+            location.pathname.startsWith("/register/");
 
           if (!isFunderAppPath(location.pathname, location.search)) {
             restoreOfRoleContext();
@@ -272,7 +286,13 @@ export const useAuthInit = () => {
         localStorage.removeItem('selectedContextId');
         localStorage.removeItem('selectedContextType');
         setCurrentPage("Auth");
-        if (!isPublicFollowPath(location.pathname)) {
+        const stayOnAuthPage =
+          location.pathname === "/register" ||
+          location.pathname === "/login" ||
+          location.pathname === "/login/code-eleve" ||
+          location.pathname.startsWith("/register/") ||
+          isPublicFollowPath(location.pathname);
+        if (!stayOnAuthPage) {
           navigate("/register")
         }
       } finally {

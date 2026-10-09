@@ -452,3 +452,73 @@
   width: 80;
   height: 40px;
 }
+
+/* Ticket 57 Phase 1a — porte « code élève » (KIN_UX) */
+.student-code-door {
+  margin: 1.25rem 0 0.5rem;
+  padding: 1rem 1.1rem;
+  border: 2px dashed #5b7cff;
+  border-radius: 12px;
+  background: #f5f8ff;
+  text-align: left;
+}
+
+.student-code-door-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.student-code-door-button {
+  display: inline-flex;
+  align-items: center;
+  background: #5b7cff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.student-code-door-button:hover {
+  background: #4a6aef;
+}
+
+.student-code-intro {
+  color: #4b5563;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  margin: 0 0 1.25rem;
+}
+
+.student-code-hint {
+  margin: 0.75rem 0 0.5rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.student-code-error {
+  color: #b91c1c;
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+
+.student-code-lost {
+  background: none;
+  border: none;
+  color: #5b7cff;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 0.9rem;
+  padding: 0;
+}
+
+.student-code-lost-hint {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.4;
+}

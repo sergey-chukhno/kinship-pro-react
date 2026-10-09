@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getPersonalUserOrganizations } from '../../api/Projects';
 import { transferSuperadminRole, deleteAccount, getEligibleSchoolAdmins, getEligibleCompanyAdmins } from '../../api/UserDashBoard/Profile';
 import { useToast } from '../../hooks/useToast';
+import { useStudentCodeReadOnly } from '../../hooks/useStudentCodeReadOnly';
 import { useNavigate } from 'react-router-dom';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
@@ -28,6 +29,7 @@ interface EligibleUser {
 
 const DeleteAccountSection: React.FC = () => {
   const { showSuccess, showError } = useToast();
+  const { guardWrite } = useStudentCodeReadOnly();
   const navigate = useNavigate();
   
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -210,6 +212,7 @@ const DeleteAccountSection: React.FC = () => {
   };
 
   const handleDeleteAccount = async () => {
+    if (!guardWrite()) return;
     if (confirmationText !== 'SUPPRIMER') {
       showError('Veuillez taper "SUPPRIMER" pour confirmer');
       return;

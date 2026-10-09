@@ -19,6 +19,11 @@ import {
   SchoolParentLinkCode,
 } from '../../api/SchoolParentLinkCodes';
 import {
+  listSchoolStudentLoginCodes,
+  regenerateSchoolStudentLoginCode,
+  SchoolStudentLoginCode,
+} from '../../api/SchoolStudentLoginCodes';
+import {
   sendStudentGuardianInvitation,
   updateStudentGuardianEmail,
 } from '../../api/SchoolStudentGuardian';
@@ -136,6 +141,11 @@ const MemberModal: React.FC<MemberModalProps> = ({
   const [parentCodesLoading, setParentCodesLoading] = useState(false);
   const [parentCodesError, setParentCodesError] = useState('');
   const [regeneratingCode, setRegeneratingCode] = useState(false);
+  const [studentLoginCodes, setStudentLoginCodes] = useState<SchoolStudentLoginCode[]>([]);
+  const [studentLoginCodesLoading, setStudentLoginCodesLoading] = useState(false);
+  const [studentLoginCodesError, setStudentLoginCodesError] = useState('');
+  const [regeneratingStudentCode, setRegeneratingStudentCode] = useState(false);
+  const [revealedStudentCode, setRevealedStudentCode] = useState<string | null>(null);
   const [guardianEmailDraft, setGuardianEmailDraft] = useState(member.guardianEmail || '');
   const [guardianSaving, setGuardianSaving] = useState(false);
   const [guardianInviting, setGuardianInviting] = useState(false);
@@ -318,9 +328,32 @@ const MemberModal: React.FC<MemberModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId, member.id]);
 
+  const loadStudentLoginCodes = useCallback(async () => {
+    if (!schoolId || !isStudent()) return;
+    setStudentLoginCodesLoading(true);
+    setStudentLoginCodesError('');
+    try {
+      const res = await listSchoolStudentLoginCodes(schoolId, member.id);
+      setStudentLoginCodes(res.data.data?.codes || []);
+    } catch (err: any) {
+      setStudentLoginCodesError(
+        err?.response?.data?.message || err.message || 'Impossible de charger les codes élève'
+      );
+      setStudentLoginCodes([]);
+    } finally {
+      setStudentLoginCodesLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId, member.id]);
+
   useEffect(() => {
     void loadParentLinkCodes();
   }, [loadParentLinkCodes]);
+
+  useEffect(() => {
+    void loadStudentLoginCodes();
+    setRevealedStudentCode(null);
+  }, [loadStudentLoginCodes]);
 
   useEffect(() => {
     void loadPersonalKeyStatus();
@@ -447,6 +480,24 @@ const MemberModal: React.FC<MemberModalProps> = ({
       setParentCodesError(err?.message || 'Régénération impossible');
     } finally {
       setRegeneratingCode(false);
+    }
+  };
+
+  const handleRegenerateStudentLoginCode = async () => {
+    if (!schoolId) return;
+    setRegeneratingStudentCode(true);
+    setStudentLoginCodesError('');
+    setRevealedStudentCode(null);
+    try {
+      const { code } = await regenerateSchoolStudentLoginCode(schoolId, member.id);
+      setRevealedStudentCode(code);
+      await loadStudentLoginCodes();
+    } catch (err: any) {
+      setStudentLoginCodesError(
+        err?.response?.data?.message || err?.message || 'Régénération impossible'
+      );
+    } finally {
+      setRegeneratingStudentCode(false);
     }
   };
 
@@ -961,6 +1012,69 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     </>
                   )}
                 </FoldableSection>
+                )}
+
+                {schoolId && isStudent() && (
+                  <FoldableSection title="Code élève" isOpen>
+                    {studentLoginCodesLoading ? (
+                      <p className="w-full text-center no-badges">Chargement…</p>
+                    ) : (
+                      <>
+                        {studentLoginCodesError ? (
+                          <p style={{ color: '#c0392b', fontSize: '0.9rem' }}>{studentLoginCodesError}</p>
+                        ) : null}
+                        {revealedStudentCode ? (
+                          <p
+                            style={{
+                              background: '#ecfdf5',
+                              border: '1px solid #a7f3d0',
+                              borderRadius: 8,
+                              padding: '10px 12px',
+                              fontSize: 14,
+                              marginBottom: 12,
+                            }}
+                          >
+                            Nouveau code (affiché une seule fois) :{' '}
+                            <strong style={{ letterSpacing: '0.08em' }}>{revealedStudentCode}</strong>
+                          </p>
+                        ) : null}
+                        {(() => {
+                          const hasActiveStudentCode = studentLoginCodes.some(
+                            (c) => c.status === 'active'
+                          );
+                          return (
+                            <>
+                              {hasActiveStudentCode ? (
+                                <p className="no-badges" style={{ marginBottom: 12 }}>
+                                  Un code actif est en place. Régénérer invalide l’ancien immédiatement.
+                                </p>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                disabled={regeneratingStudentCode}
+                                onClick={() => void handleRegenerateStudentLoginCode()}
+                                title={
+                                  hasActiveStudentCode
+                                    ? 'Invalide le code actif et affiche le nouveau une fois'
+                                    : 'Génère un code élève et l’affiche une seule fois'
+                                }
+                              >
+                                <i className="fas fa-redo"></i>
+                                {regeneratingStudentCode
+                                  ? hasActiveStudentCode
+                                    ? 'Régénération…'
+                                    : 'Génération…'
+                                  : hasActiveStudentCode
+                                    ? 'Régénérer le code élève'
+                                    : 'Générer le code élève'}
+                              </button>
+                            </>
+                          );
+                        })()}
+                      </>
+                    )}
+                  </FoldableSection>
                 )}
 
                 {FEATURE_PIK_REMISE && schoolId && isStudent() && (

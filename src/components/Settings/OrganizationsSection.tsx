@@ -3,6 +3,7 @@ import { getPersonalUserOrganizations, joinSchool, joinCompany, getJoinableCompa
 import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
 import { useSchoolSearch } from '../../hooks/useSchoolSearch';
 import { useToast } from '../../hooks/useToast';
+import { useStudentCodeReadOnly } from '../../hooks/useStudentCodeReadOnly';
 import { getCompanies } from '../../api/RegistrationRessource';
 import { useAppContext } from '../../context/AppContext';
 import { isStudentRole } from '../../utils/roleUtils';
@@ -21,6 +22,7 @@ interface Organization {
 const OrganizationsSection: React.FC = () => {
   const { state } = useAppContext();
   const { showSuccess, showError } = useToast();
+  const { guardWrite } = useStudentCodeReadOnly();
   const [schools, setSchools] = useState<Organization[]>([]);
   const [companies, setCompanies] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -109,6 +111,7 @@ const OrganizationsSection: React.FC = () => {
   }, [loadOrganizations]);
 
   const handleJoinSchool = async (schoolId: number) => {
+    if (!guardWrite()) return;
     try {
       await joinSchool(schoolId);
       showSuccess('Demande d\'adhésion envoyée avec succès');
@@ -121,6 +124,7 @@ const OrganizationsSection: React.FC = () => {
   };
 
   const handleJoinCompany = async (companyId: number) => {
+    if (!guardWrite()) return;
     try {
       await joinCompany(companyId);
       showSuccess('Demande d\'adhésion envoyée avec succès');
@@ -133,6 +137,7 @@ const OrganizationsSection: React.FC = () => {
   };
 
   const handleRemoveSchool = async (schoolId: number) => {
+    if (!guardWrite()) return;
     if (!window.confirm('Êtes-vous sûr de vouloir quitter cette école ?')) {
       return;
     }
@@ -151,6 +156,7 @@ const OrganizationsSection: React.FC = () => {
   };
 
   const handleRemoveCompany = async (companyId: number) => {
+    if (!guardWrite()) return;
     if (!window.confirm('Êtes-vous sûr de vouloir quitter cette entreprise ?')) {
       return;
     }
