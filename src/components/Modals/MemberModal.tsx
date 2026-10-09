@@ -1038,21 +1038,40 @@ const MemberModal: React.FC<MemberModalProps> = ({
                             <strong style={{ letterSpacing: '0.08em' }}>{revealedStudentCode}</strong>
                           </p>
                         ) : null}
-                        <p className="no-badges" style={{ marginBottom: 12 }}>
-                          {studentLoginCodes.some((c) => c.status === 'active')
-                            ? 'Un code actif est en place. Régénérer invalide l’ancien immédiatement.'
-                            : 'Aucun code élève actif — régénérer en crée un.'}
-                        </p>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          disabled={regeneratingStudentCode}
-                          onClick={() => void handleRegenerateStudentLoginCode()}
-                          title="Invalide le code actif et affiche le nouveau une fois"
-                        >
-                          <i className="fas fa-redo"></i>
-                          {regeneratingStudentCode ? 'Régénération…' : 'Régénérer le code élève'}
-                        </button>
+                        {(() => {
+                          const hasActiveStudentCode = studentLoginCodes.some(
+                            (c) => c.status === 'active'
+                          );
+                          return (
+                            <>
+                              {hasActiveStudentCode ? (
+                                <p className="no-badges" style={{ marginBottom: 12 }}>
+                                  Un code actif est en place. Régénérer invalide l’ancien immédiatement.
+                                </p>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                disabled={regeneratingStudentCode}
+                                onClick={() => void handleRegenerateStudentLoginCode()}
+                                title={
+                                  hasActiveStudentCode
+                                    ? 'Invalide le code actif et affiche le nouveau une fois'
+                                    : 'Génère un code élève et l’affiche une seule fois'
+                                }
+                              >
+                                <i className="fas fa-redo"></i>
+                                {regeneratingStudentCode
+                                  ? hasActiveStudentCode
+                                    ? 'Régénération…'
+                                    : 'Génération…'
+                                  : hasActiveStudentCode
+                                    ? 'Régénérer le code élève'
+                                    : 'Générer le code élève'}
+                              </button>
+                            </>
+                          );
+                        })()}
                       </>
                     )}
                   </FoldableSection>
