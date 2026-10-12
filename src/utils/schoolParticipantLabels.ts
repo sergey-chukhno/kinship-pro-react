@@ -22,6 +22,29 @@ export function schoolOrgRoleLabel(role: string | undefined | null): string {
   return map[key] || key.replace(/_/g, ' ');
 }
 
+/**
+ * Libellé d’un membre école / enseignant pour la liste d’ajout projet.
+ * Préfère le rôle système (role_in_system) — l’API école expose role_in_school
+ * (= souvent "member") sans champ `role`, ce qui affichait à tort « membre ».
+ */
+export function memberSchoolOrgRoleLabel(member: {
+  role?: string | null;
+  role_in_system?: string | null;
+  organization_role?: string | null;
+  member_type?: string | null;
+  user?: { role?: string | null } | null;
+} | null | undefined): string {
+  if (member?.member_type === 'student') {
+    return schoolOrgRoleLabel('eleve');
+  }
+  const role =
+    member?.role_in_system ||
+    member?.user?.role ||
+    member?.role ||
+    member?.organization_role;
+  return schoolOrgRoleLabel(role);
+}
+
 /** Nombre de cochés qui ne sont pas déjà participants (pour CTA « Ajouter N élèves »). */
 export function countSelectableChosen(
   selected: Iterable<string>,

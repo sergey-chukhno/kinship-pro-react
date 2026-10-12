@@ -38,7 +38,7 @@ import { sortTeacherVisibleClasses } from '../../utils/teacherVisibleClasses';
 import {
   addChosenStudentsCtaLabel,
   countSelectableChosen,
-  schoolOrgRoleLabel,
+  memberSchoolOrgRoleLabel,
 } from '../../utils/schoolParticipantLabels';
 import AddEntireClassPanel, { EntireClassStudent } from '../Project/AddEntireClassPanel';
 import { useAppContext } from '../../context/AppContext';
@@ -136,8 +136,7 @@ function memberId(member: any): string {
 }
 
 function orgRoleLabel(member: any): string {
-  const role = member?.role || member?.organization_role || member?.user?.role;
-  return schoolOrgRoleLabel(role);
+  return memberSchoolOrgRoleLabel(member);
 }
 
 const ProjectSpacePage: React.FC = () => {
