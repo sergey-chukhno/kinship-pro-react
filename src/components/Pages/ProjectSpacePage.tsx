@@ -35,6 +35,11 @@ import {
 } from '../../api/Dashboard';
 import { getLevelStudents, getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { sortTeacherVisibleClasses } from '../../utils/teacherVisibleClasses';
+import {
+  addChosenStudentsCtaLabel,
+  countSelectableChosen,
+  schoolOrgRoleLabel,
+} from '../../utils/schoolParticipantLabels';
 import AddEntireClassPanel, { EntireClassStudent } from '../Project/AddEntireClassPanel';
 import { useAppContext } from '../../context/AppContext';
 import { Project } from '../../types';
@@ -131,19 +136,8 @@ function memberId(member: any): string {
 }
 
 function orgRoleLabel(member: any): string {
-  const role = member?.role || member?.organization_role || member?.user?.role || 'membre';
-  const map: Record<string, string> = {
-    superadmin: 'super admin',
-    admin: 'admin',
-    referent: 'référent',
-    intervenant: 'intervenant',
-    member: 'membre',
-    eleve_primaire: 'élève',
-    collegien: 'collégien',
-    lyceen: 'lycéen',
-    etudiant: 'étudiant',
-  };
-  return map[role] || String(role).replace(/_/g, ' ');
+  const role = member?.role || member?.organization_role || member?.user?.role;
+  return schoolOrgRoleLabel(role);
 }
 
 const ProjectSpacePage: React.FC = () => {
@@ -1433,9 +1427,34 @@ const ProjectSpacePage: React.FC = () => {
                       />
                     )}
 
-                    {chooseClass && (
+                    {chooseClass && (() => {
+                      const addableCount = countSelectableChosen(
+                        chooseClass.selected,
+                        existingMemberIds
+                      );
+                      const ctaLabel = addChosenStudentsCtaLabel(addableCount);
+                      return (
                       <div style={{ marginBottom: 16 }}>
                         <div className="ps-plabel">{chooseClass.className} — choisir les élèves</div>
+                        <div style={{ marginBottom: 8 }}>
+                          <button
+                            type="button"
+                            className="ps-btn ghost"
+                            style={{ padding: '4px 0', fontSize: '0.85rem' }}
+                            onClick={() => {
+                              setChooseClass((prev) => {
+                                if (!prev) return prev;
+                                const next = new Set(prev.selected);
+                                prev.studentIds.forEach((id) => {
+                                  if (!existingMemberIds.includes(id)) next.delete(id);
+                                });
+                                return { ...prev, selected: next };
+                              });
+                            }}
+                          >
+                            Tout décocher
+                          </button>
+                        </div>
                         <div style={{ maxHeight: 240, overflowY: 'auto', marginBottom: 8 }}>
                           {chooseClass.studentIds.map((id) => {
                             const already = existingMemberIds.includes(id);
@@ -1481,12 +1500,18 @@ const ProjectSpacePage: React.FC = () => {
                           <button type="button" className="ps-btn ghost" onClick={() => setChooseClass(null)}>
                             Retour
                           </button>
-                          <button type="button" className="ps-btn primary" onClick={() => void confirmChooseClass()}>
-                            Ajouter la sélection
+                          <button
+                            type="button"
+                            className="ps-btn primary"
+                            disabled={addableCount === 0}
+                            onClick={() => void confirmChooseClass()}
+                          >
+                            {ctaLabel}
                           </button>
                         </div>
                       </div>
-                    )}
+                      );
+                    })()}
 
                     {!chooseClass && (
                       <>

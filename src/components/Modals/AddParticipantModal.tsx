@@ -3,6 +3,10 @@ import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 import AddEntireClassPanel, { EntireClassStudent } from '../Project/AddEntireClassPanel';
 import { TeacherVisibleClass } from '../../utils/teacherVisibleClasses';
+import {
+  addChosenStudentsCtaLabel,
+  countSelectableChosen,
+} from '../../utils/schoolParticipantLabels';
 
 interface AddParticipantModalProps {
   onClose: () => void;
@@ -141,9 +145,29 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
             />
           )}
 
-          {chooseClass && (
+          {chooseClass && (() => {
+            const addableCount = countSelectableChosen(chooseClass.selected, existingMemberIds);
+            const ctaLabel = addChosenStudentsCtaLabel(addableCount);
+            return (
             <div className="form-group">
               <label>Choisir les élèves</label>
+              <button
+                type="button"
+                className="btn btn-link"
+                style={{ padding: '4px 0', fontSize: '0.85rem', marginBottom: 8 }}
+                onClick={() => {
+                  setChooseClass(prev => {
+                    if (!prev) return prev;
+                    const next = new Set(prev.selected);
+                    prev.studentIds.forEach(id => {
+                      if (!existingMemberIds.includes(id)) next.delete(id);
+                    });
+                    return { ...prev, selected: next };
+                  });
+                }}
+              >
+                Tout décocher
+              </button>
               <div className="member-selection-list" style={{ maxHeight: 280 }}>
                 {chooseClass.studentIds.map(id => {
                   const already = existingMemberIds.includes(id);
@@ -180,12 +204,18 @@ const AddParticipantModal: React.FC<AddParticipantModalProps> = ({
                 <button type="button" className="btn btn-outline" onClick={() => setChooseClass(null)}>
                   Retour
                 </button>
-                <button type="button" className="btn btn-primary" onClick={handleChooseConfirm}>
-                  Ajouter la sélection
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={addableCount === 0}
+                  onClick={handleChooseConfirm}
+                >
+                  {ctaLabel}
                 </button>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {!chooseClass && (
             <>
