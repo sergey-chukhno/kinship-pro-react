@@ -1,5 +1,6 @@
 import {
   schoolOrgRoleLabel,
+  memberSchoolOrgRoleLabel,
   countSelectableChosen,
   addChosenStudentsCtaLabel,
 } from './schoolParticipantLabels';
@@ -16,6 +17,43 @@ describe('schoolParticipantLabels', () => {
     it('keeps staff labels', () => {
       expect(schoolOrgRoleLabel('intervenant')).toBe('intervenant');
       expect(schoolOrgRoleLabel('admin')).toBe('admin');
+    });
+  });
+
+  describe('memberSchoolOrgRoleLabel', () => {
+    it('prefers role_in_system over school membership role member', () => {
+      // School API: role_in_system = élève, membership often "member" (not used for label)
+      expect(
+        memberSchoolOrgRoleLabel({
+          role_in_system: 'collegien',
+          role: 'member',
+        })
+      ).toBe('élève');
+      expect(
+        memberSchoolOrgRoleLabel({
+          role_in_system: 'lyceen',
+          organization_role: 'member',
+        })
+      ).toBe('élève');
+    });
+
+    it('uses teacher members payload role (system role on role field)', () => {
+      expect(memberSchoolOrgRoleLabel({ role: 'etudiant' })).toBe('élève');
+    });
+
+    it('uses member_type student when system role missing', () => {
+      expect(memberSchoolOrgRoleLabel({ member_type: 'student', role: 'member' })).toBe(
+        'élève'
+      );
+    });
+
+    it('does not show membre when only membership role would win without system role fallback chain', () => {
+      // School API shape: no `role`, only role_in_system + role_in_school
+      expect(
+        memberSchoolOrgRoleLabel({
+          role_in_system: 'eleve_primaire',
+        })
+      ).toBe('élève');
     });
   });
 
