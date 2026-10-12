@@ -32,6 +32,21 @@
   margin: 0;
 }
 
+.class-card-referent-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
 .class-card-body p {
   margin: 4px 0;
   font-size: 0.9rem;

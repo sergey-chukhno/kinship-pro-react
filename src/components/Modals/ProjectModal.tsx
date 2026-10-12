@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { getTags, fetchAllConfirmedPartnerships, fetchAllTeacherSchoolPartnerships, getTeacherSchoolMembers, getOrganizationMembers, getTeacherMembers, createProject } from '../../api/Projects';
-import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
+import { getTeacherAllStudents, getTeacherClasses, getTeacherSchoolClasses, getTeacherClass } from '../../api/Dashboard';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import {
@@ -16,6 +16,8 @@ import {
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { translateRole } from '../../utils/roleTranslations';
 import { displayPersonName } from '../../utils/civilDataErased';
+import { sortTeacherVisibleClasses } from '../../utils/teacherVisibleClasses';
+import AddEntireClassPanel from '../Project/AddEntireClassPanel';
 import './Modal.css';
 import AvatarImage from '../UI/AvatarImage';
 
@@ -116,6 +118,12 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
   const [classSelectionMode, setClassSelectionMode] = useState<Record<string, 'manual' | 'all'>>({});
   const [classManualParticipantIds, setClassManualParticipantIds] = useState<Record<string, string[]>>({});
   const [classDetailPopup, setClassDetailPopup] = useState<{ classId: string; className: string; mode: 'choice' | 'view' | 'manual' } | null>(null);
+  // Patrick « Une classe entière » : recherche établissement + toast
+  const [entireClassSearch, setEntireClassSearch] = useState('');
+  const [entireClassSearchResults, setEntireClassSearchResults] = useState<any[]>([]);
+  const [isSearchingEntireClass, setIsSearchingEntireClass] = useState(false);
+  const [entireClassToast, setEntireClassToast] = useState<string | null>(null);
+  const [extraSchoolLevels, setExtraSchoolLevels] = useState<any[]>([]);
   // Co-responsables par classe : après sélection d'une classe, popup pour choisir les co-responsables liés à cette classe
   const [classCoResponsiblesPopup, setClassCoResponsiblesPopup] = useState<{ classId: string; className: string } | null>(null);
   const [classCoResponsibles, setClassCoResponsibles] = useState<Record<string, string[]>>({});
@@ -503,11 +511,7 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
         const filtered = teacherClassesAll.filter(
           (c: any) => String(c.school_id ?? c.school?.id) === schoolIdStr
         );
-        const sorted = [...filtered].sort((a: any, b: any) => {
-          const nameA = (a.name || '').localeCompare(b.name || '');
-          if (nameA !== 0) return nameA;
-          return (a.level || '').localeCompare(b.level || '');
-        });
+        const sorted = sortTeacherVisibleClasses(filtered);
         setAvailableSchoolLevels(sorted);
       } else {
         setAvailableSchoolLevels([]);
@@ -538,6 +542,38 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
       });
     return () => { cancelled = true; };
   }, [state.showingPageType, state.user, teacherProjectContext, selectedSchoolId, teacherClassesAll]);
+
+  // Recherche classes établissement (Patrick)
+  useEffect(() => {
+    if (
+      state.showingPageType !== 'teacher' ||
+      teacherProjectContext !== 'school' ||
+      !selectedSchoolId ||
+      !entireClassSearch.trim()
+    ) {
+      setEntireClassSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      setIsSearchingEntireClass(true);
+      getTeacherSchoolClasses(selectedSchoolId, { search: entireClassSearch.trim(), per_page: 30 })
+        .then(res => {
+          const list = res.data?.data ?? res.data;
+          if (!cancelled) setEntireClassSearchResults(Array.isArray(list) ? list : []);
+        })
+        .catch(() => {
+          if (!cancelled) setEntireClassSearchResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setIsSearchingEntireClass(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [state.showingPageType, teacherProjectContext, selectedSchoolId, entireClassSearch]);
 
   // Fetch members and partnerships when modal opens
   useEffect(() => {
@@ -944,6 +980,68 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
     } else {
       setClassManualParticipantIds(prev => ({ ...prev, [classId]: [] }));
     }
+  };
+
+  /** Sync students or fetch class details (for classes trouvées par recherche établissement). */
+  const getStudentsForEntireClassPanel = async (schoolLevelId: string): Promise<any[]> => {
+    const fromMembers = getStudentsInClass(schoolLevelId);
+    if (fromMembers.length > 0) return fromMembers;
+    try {
+      const res = await getTeacherClass(Number(schoolLevelId));
+      const data = res.data?.data ?? res.data;
+      const students = data?.students || [];
+      if (data && !availableSchoolLevels.some((l: any) => l.id?.toString() === schoolLevelId)) {
+        setExtraSchoolLevels(prev =>
+          prev.some((l: any) => l.id?.toString() === schoolLevelId) ? prev : [...prev, data]
+        );
+      }
+      return Array.isArray(students) ? students : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const ensureClassInForm = (classId: string, classMeta?: any) => {
+    if (classMeta) {
+      setExtraSchoolLevels(prev =>
+        prev.some((l: any) => l.id?.toString() === classId) ? prev : [...prev, classMeta]
+      );
+    }
+    setFormData(prev =>
+      prev.schoolLevelIds.includes(classId)
+        ? prev
+        : { ...prev, schoolLevelIds: [...prev.schoolLevelIds, classId] }
+    );
+  };
+
+  const handleEntireClassAddAll = (classId: string, studentIds: string[]) => {
+    const meta =
+      availableSchoolLevels.find((l: any) => l.id?.toString() === classId) ||
+      entireClassSearchResults.find((l: any) => l.id?.toString() === classId) ||
+      extraSchoolLevels.find((l: any) => l.id?.toString() === classId);
+    ensureClassInForm(classId, meta);
+    setClassMode(classId, 'all');
+    const name = meta?.name || `classe ${classId}`;
+    const n = studentIds.length;
+    setEntireClassToast(
+      n > 0
+        ? `✓ ${n} élève${n > 1 ? 's' : ''} de la ${name} ajouté${n > 1 ? 's' : ''} au projet.`
+        : `✓ Classe ${name} ajoutée au projet.`
+    );
+  };
+
+  const handleEntireClassChoose = (classId: string, _studentIds: string[], preselectedIds: string[]) => {
+    const meta =
+      availableSchoolLevels.find((l: any) => l.id?.toString() === classId) ||
+      entireClassSearchResults.find((l: any) => l.id?.toString() === classId) ||
+      extraSchoolLevels.find((l: any) => l.id?.toString() === classId);
+    ensureClassInForm(classId, meta);
+    setClassMode(classId, 'manual');
+    setClassManualParticipantIds(prev => ({ ...prev, [classId]: preselectedIds }));
+    const className = meta
+      ? `${meta.name}${meta.level ? ` - ${meta.level}` : ''}`
+      : classId;
+    setClassDetailPopup({ classId, className, mode: 'manual' });
   };
 
   const toggleClassManualParticipant = (classId: string, memberId: string) => {
@@ -1912,8 +2010,33 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
               )}
             </div>
 
-            {/* Organisation porteuse / Classes */}
-            {availableSchoolLevels.length > 0 && (
+            {/* Teacher + école : panneau Patrick « Une classe entière » */}
+            {state.showingPageType === 'teacher' && teacherProjectContext === 'school' && selectedSchoolId && (
+              <div className="form-group">
+                {isLoadingSchoolLevels ? (
+                  <div className="loading-message" style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>
+                    <i className="fas fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                    <span>Chargement des classes...</span>
+                  </div>
+                ) : (
+                  <AddEntireClassPanel
+                    myClasses={availableSchoolLevels}
+                    searchResults={entireClassSearchResults}
+                    searchValue={entireClassSearch}
+                    onSearchChange={setEntireClassSearch}
+                    isSearching={isSearchingEntireClass}
+                    existingParticipantIds={formData.participants}
+                    getStudentsForClass={getStudentsForEntireClassPanel}
+                    onAddAll={handleEntireClassAddAll}
+                    onChoose={handleEntireClassChoose}
+                    lastToast={entireClassToast}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Edu / autres : checkboxes classes */}
+            {state.showingPageType !== 'teacher' && availableSchoolLevels.length > 0 && (
               <div className="form-group">
                 <div className="form-label">Ajouter une/des classe(s) au projet</div>
                 {isLoadingSchoolLevels ? (
@@ -1941,7 +2064,6 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
                         </label>
                       ))}
                     </div>
-                    {/* Pour chaque classe cochée : choix manuel / tout, puis liste ou label */}
                     {formData.schoolLevelIds.map(classId => {
                       const classItem = availableSchoolLevels.find((l: any) => l.id?.toString() === classId);
                       const className = classItem ? `${classItem.name}${classItem.level ? ` - ${classItem.level}` : ''}` : classId;
@@ -2683,13 +2805,22 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
             {/* Participants */}
             <div className="form-group">
               <label htmlFor="projectParticipants">Participants</label>
+              {state.showingPageType === 'teacher' && (
+                <p style={{ margin: '0 0 8px', fontSize: '0.9rem', color: '#6b7280' }}>
+                  Les élèves et les enseignants qui prennent part au projet.
+                </p>
+              )}
               <div className="compact-selection">
                 <div className="search-input-container">
                   <i className="fas fa-search search-icon"></i>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Rechercher des participants..."
+                    placeholder={
+                      state.showingPageType === 'teacher'
+                        ? 'Rechercher un élève ou un enseignant…'
+                        : 'Rechercher des participants...'
+                    }
                     value={searchTerms.participants}
                     onChange={(e) => handleSearchChange('participants', e.target.value)}
                     disabled={state.showingPageType === 'teacher' ? (teacherProjectContext === 'school' && selectedSchoolId ? isLoadingMembers : isLoadingParticipants) : isLoadingMembers}
@@ -3005,6 +3136,11 @@ const ProjectModal: React.FC<ProjectModalProps> = ({ project, duplicateFromProje
           </div>
         )}
 
+        {!project && state.showingPageType === 'teacher' && (
+          <p style={{ margin: '0 1rem 0.5rem', fontSize: '0.9rem', color: '#6b7280' }}>
+            Ensuite : ajoutez vos élèves, puis créez le projet.
+          </p>
+        )}
         <div className="modal-footer">
           <button type="button" className="btn btn-outline" onClick={onClose} disabled={isSubmitting}>Annuler</button>
           <button

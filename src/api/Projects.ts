@@ -1894,6 +1894,22 @@ export const addProjectMember = async (
     return response.data;
 };
 
+/** Bulk-add members (Patrick « Ajouter les N »). */
+export const addProjectMembersBulk = async (
+    projectId: number,
+    userIds: number[],
+    role: 'member' | 'co_responsible' | 'admin' = 'member'
+): Promise<{
+    message: string;
+    data: { added: any[]; skipped: any[]; errors: any[] };
+}> => {
+    const response = await apiClient.post(
+        `/api/v1/projects/${projectId}/members/bulk`,
+        { user_ids: userIds, role }
+    );
+    return response.data;
+};
+
 export const preRegisterProjectParticipant = async (
     projectId: number,
     payload: {

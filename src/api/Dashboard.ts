@@ -46,6 +46,21 @@ export const getTeacherClasses = (page: number = 1, per_page: number = 12) => {
   });
 };
 
+/** All classes of an establishment (confirmed school member) — Patrick « Rechercher une autre classe ». */
+export const getTeacherSchoolClasses = (
+  schoolId: number,
+  params?: { search?: string; level?: string; page?: number; per_page?: number }
+) => {
+  return axiosClient.get(`/api/v1/teachers/schools/${schoolId}/classes`, {
+    params: {
+      page: params?.page ?? 1,
+      per_page: params?.per_page ?? 50,
+      search: params?.search || undefined,
+      level: params?.level || undefined
+    }
+  });
+};
+
 export const createTeacherClass = (classData: { class: { name: string; level: string | number; school_id: number | null; teacher_ids?: number[] } }) => {
   return axiosClient.post('/api/v1/teachers/classes', classData);
 };
