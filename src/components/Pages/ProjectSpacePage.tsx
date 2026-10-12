@@ -33,6 +33,7 @@ import {
   getTeacherClasses,
   getTeacherSchoolClasses,
 } from '../../api/Dashboard';
+import { getLevelStudents, getSchoolLevels } from '../../api/SchoolDashboard/Levels';
 import { sortTeacherVisibleClasses } from '../../utils/teacherVisibleClasses';
 import AddEntireClassPanel, { EntireClassStudent } from '../Project/AddEntireClassPanel';
 import { useAppContext } from '../../context/AppContext';
@@ -218,8 +219,8 @@ const ProjectSpacePage: React.FC = () => {
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeSubmitting, setCloseSubmitting] = useState(false);
   const [bornProof, setBornProof] = useState(false);
-  // Patrick « Une classe entière » (teacher only)
-  const [teacherClasses, setTeacherClasses] = useState<any[]>([]);
+  // Patrick « Une classe entière » (teacher + école)
+  const [entireClasses, setEntireClasses] = useState<any[]>([]);
   const [entireClassSearch, setEntireClassSearch] = useState('');
   const [entireClassSearchResults, setEntireClassSearchResults] = useState<any[]>([]);
   const [isSearchingEntireClass, setIsSearchingEntireClass] = useState(false);
@@ -346,43 +347,66 @@ const ProjectSpacePage: React.FC = () => {
     void loadPeople();
   }, [orgId, orgType, state.showingPageType]);
 
+  const isTeacherContext = state.showingPageType === 'teacher';
+  const isSchoolContext = state.showingPageType === 'edu';
+  const canUseEntireClassPanel = isTeacherContext || isSchoolContext;
+
   const projectSchoolId = useMemo(() => {
     if (apiProject?.primary_organization_type === 'School' && apiProject?.primary_organization_id) {
       return Number(apiProject.primary_organization_id);
     }
     const fromSchools = apiProject?.schools?.[0]?.id ?? apiProject?.school_ids?.[0];
     if (fromSchools) return Number(fromSchools);
-    if (state.showingPageType === 'teacher' && orgId) return Number(orgId);
+    if ((isTeacherContext || isSchoolContext) && orgId) return Number(orgId);
     return null;
-  }, [apiProject, orgId, state.showingPageType]);
+  }, [apiProject, orgId, isTeacherContext, isSchoolContext]);
 
   useEffect(() => {
-    if (state.showingPageType !== 'teacher') {
-      setTeacherClasses([]);
+    if (!canUseEntireClassPanel) {
+      setEntireClasses([]);
       return;
     }
     let cancelled = false;
-    getTeacherClasses(1, 1000)
-      .then((res) => {
-        const data = res.data?.data ?? res.data;
-        const list = Array.isArray(data) ? data : [];
-        const filtered = projectSchoolId
-          ? list.filter(
-              (c: any) => String(c.school_id ?? c.school?.id) === String(projectSchoolId)
-            )
-          : list;
-        if (!cancelled) setTeacherClasses(sortTeacherVisibleClasses(filtered));
-      })
-      .catch(() => {
-        if (!cancelled) setTeacherClasses([]);
-      });
+
+    const load = async () => {
+      try {
+        if (isTeacherContext) {
+          const res = await getTeacherClasses(1, 1000);
+          const data = res.data?.data ?? res.data;
+          const list = Array.isArray(data) ? data : [];
+          const filtered = projectSchoolId
+            ? list.filter(
+                (c: any) => String(c.school_id ?? c.school?.id) === String(projectSchoolId)
+              )
+            : list;
+          if (!cancelled) setEntireClasses(sortTeacherVisibleClasses(filtered));
+          return;
+        }
+        // Contexte école : toutes les classes de l'établissement
+        const schoolId = projectSchoolId || orgId;
+        if (!schoolId) {
+          if (!cancelled) setEntireClasses([]);
+          return;
+        }
+        const res = await getSchoolLevels(Number(schoolId), 1, 1000);
+        const list = res.data?.data ?? res.data;
+        if (!cancelled) {
+          setEntireClasses(sortTeacherVisibleClasses(Array.isArray(list) ? list : []));
+        }
+      } catch {
+        if (!cancelled) setEntireClasses([]);
+      }
+    };
+
+    void load();
     return () => {
       cancelled = true;
     };
-  }, [state.showingPageType, projectSchoolId]);
+  }, [canUseEntireClassPanel, isTeacherContext, projectSchoolId, orgId]);
 
   useEffect(() => {
-    if (state.showingPageType !== 'teacher' || !projectSchoolId || !entireClassSearch.trim()) {
+    // Recherche API « autre classe » uniquement enseignant ; école filtre côté myClasses
+    if (!isTeacherContext || !projectSchoolId || !entireClassSearch.trim()) {
       setEntireClassSearchResults([]);
       return;
     }
@@ -408,7 +432,16 @@ const ProjectSpacePage: React.FC = () => {
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [state.showingPageType, projectSchoolId, entireClassSearch]);
+  }, [isTeacherContext, projectSchoolId, entireClassSearch]);
+
+  const panelMyClasses = useMemo(() => {
+    if (isTeacherContext) return entireClasses;
+    const q = entireClassSearch.trim().toLowerCase();
+    if (!q) return entireClasses;
+    return entireClasses.filter((c: any) =>
+      String(c.name || '').toLowerCase().includes(q)
+    );
+  }, [isTeacherContext, entireClasses, entireClassSearch]);
 
   useEffect(() => {
     const loadPartners = async () => {
@@ -675,14 +708,30 @@ const ProjectSpacePage: React.FC = () => {
       }));
     }
     try {
-      const res = await getTeacherClass(Number(classId));
+      if (isTeacherContext) {
+        const res = await getTeacherClass(Number(classId));
+        const data = res.data?.data ?? res.data;
+        const students = Array.isArray(data?.students) ? data.students : [];
+        return students.map((s: any) => ({
+          id: s.id,
+          full_name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+          first_name: s.first_name,
+          last_name: s.last_name,
+        }));
+      }
+      const schoolId = projectSchoolId || orgId;
+      if (!schoolId) return [];
+      const res = await getLevelStudents(Number(schoolId), Number(classId), 1, 500);
       const data = res.data?.data ?? res.data;
-      const students = Array.isArray(data?.students) ? data.students : [];
+      const students = Array.isArray(data) ? data : [];
       return students.map((s: any) => ({
-        id: s.id,
-        full_name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
-        first_name: s.first_name,
-        last_name: s.last_name,
+        id: s.id ?? s.user?.id,
+        full_name:
+          s.full_name ||
+          s.user?.full_name ||
+          `${s.first_name || s.user?.first_name || ''} ${s.last_name || s.user?.last_name || ''}`.trim(),
+        first_name: s.first_name || s.user?.first_name,
+        last_name: s.last_name || s.user?.last_name,
       }));
     } catch {
       return [];
@@ -711,7 +760,7 @@ const ProjectSpacePage: React.FC = () => {
       .map((id) => Number(id))
       .filter((id) => !Number.isNaN(id) && !existing.has(String(id)));
     const meta =
-      teacherClasses.find((c: any) => c.id?.toString() === classId) ||
+      entireClasses.find((c: any) => c.id?.toString() === classId) ||
       entireClassSearchResults.find((c: any) => c.id?.toString() === classId);
     const name = meta?.name || `classe ${classId}`;
 
@@ -747,7 +796,7 @@ const ProjectSpacePage: React.FC = () => {
     preselectedIds: string[]
   ) => {
     const meta =
-      teacherClasses.find((c: any) => c.id?.toString() === classId) ||
+      entireClasses.find((c: any) => c.id?.toString() === classId) ||
       entireClassSearchResults.find((c: any) => c.id?.toString() === classId);
     const students = await getStudentsForEntireClass(classId);
     const studentsById: Record<string, { id: string; name: string }> = {};
@@ -1356,17 +1405,21 @@ const ProjectSpacePage: React.FC = () => {
                 </div>
                 {addPanel === 'person' && (
                   <div className="ps-panel">
-                    <div className="ps-plabel">Le panneau se déplie ici — il se replie après l’ajout</div>
                     <p className="ps-sub" style={{ marginTop: 0 }}>
                       Les élèves et les enseignants qui prennent part au projet.
                     </p>
 
-                    {state.showingPageType === 'teacher' && !chooseClass && (
+                    {canUseEntireClassPanel && !chooseClass && (
                       <AddEntireClassPanel
-                        myClasses={teacherClasses}
-                        searchResults={entireClassSearchResults}
+                        myClasses={panelMyClasses}
+                        searchResults={isTeacherContext ? entireClassSearchResults : []}
                         searchValue={entireClassSearch}
                         onSearchChange={setEntireClassSearch}
+                        searchPlaceholder={
+                          isTeacherContext
+                            ? "Rechercher une autre classe de l'établissement…"
+                            : 'Rechercher une classe…'
+                        }
                         isSearching={isSearchingEntireClass}
                         existingParticipantIds={existingMemberIds}
                         getStudentsForClass={getStudentsForEntireClass}
@@ -1442,7 +1495,7 @@ const ProjectSpacePage: React.FC = () => {
                           value={personQuery}
                           onChange={(e) => setPersonQuery(e.target.value)}
                           placeholder={
-                            state.showingPageType === 'teacher'
+                            canUseEntireClassPanel
                               ? 'Rechercher un élève ou un enseignant…'
                               : 'Rechercher — prénom, nom…'
                           }
