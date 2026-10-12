@@ -583,6 +583,11 @@ export interface ClassList {
   pedagogical_team_count?: number;
   school_id?: number | null;
   school?: { id: number; name: string };
+  /** Responsable de classe (BE is_creator / is_referent) — pastille Référent */
+  is_referent?: boolean;
+  is_creator?: boolean;
+  /** Membre équipe pédagogique sans être responsable */
+  is_pedagogical_team?: boolean;
 }
 
 export interface Tag {

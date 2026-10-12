@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { getProjectBadges } from '../../api/Badges';
 import apiClient from '../../api/config';
 import { getProjectById } from '../../api/Project';
-import { addProjectDocuments, addProjectMember, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, fetchAllConfirmedPartnerships, getTags, getOrCreateProjectShareLink, getMldsAutresFinancementsFromMldsInfo, getMldsBilanHseLines, getMldsBilanHvLines, getMldsBilanRecord, getMldsHseLinesFromMldsInfo, getMldsHvLinesFromMldsInfo, getMldsOperatingLinesFromMldsInfo, getMldsServiceLinesFromMldsInfo, getMldsTransportLinesFromMldsInfo, hasMldsBilanData, mergeMldsLineLabel, normalizeMldsLineCollection, sumMldsFinancialCreditsEuro, sumMldsHvCreditsEuro } from '../../api/Projects';
+import { addProjectDocuments, addProjectMember, addProjectMembersBulk, closeProject, createProjectTeam, deleteProjectDocument, deleteProjectTeam, getProjectDocuments, getProjectMembers, getProjectPendingMembers, getProjectStats, getProjectTeams, joinProject, postMldsBilan, ProjectStats, removeProjectMember, updateProject, updateProjectMember, updateProjectTeam, getOrganizationMembers, getTeacherMembers, getTeacherSchoolMembers, fetchAllConfirmedPartnerships, getTags, getOrCreateProjectShareLink, getMldsAutresFinancementsFromMldsInfo, getMldsBilanHseLines, getMldsBilanHvLines, getMldsBilanRecord, getMldsHseLinesFromMldsInfo, getMldsHvLinesFromMldsInfo, getMldsOperatingLinesFromMldsInfo, getMldsServiceLinesFromMldsInfo, getMldsTransportLinesFromMldsInfo, hasMldsBilanData, mergeMldsLineLabel, normalizeMldsLineCollection, sumMldsFinancialCreditsEuro, sumMldsHvCreditsEuro } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { mockProjects } from '../../data/mockData';
 import { useToast } from '../../hooks/useToast';
@@ -43,7 +43,8 @@ import { isUserAdminOfProjectOrg, isUserAdminOrReferentOfProjectOrg, isUserProje
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { jsPDF } from 'jspdf';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
-import { getTeacherAllStudents, getTeacherClasses } from '../../api/Dashboard';
+import { getTeacherAllStudents, getTeacherClasses, getTeacherClass, getTeacherSchoolClasses } from '../../api/Dashboard';
+import { sortTeacherVisibleClasses } from '../../utils/teacherVisibleClasses';
 import { getCompanyGroups, getCompanyGroup } from '../../api/CompanyDashboard/Groups';
 import { translateRole } from '../../utils/roleTranslations';
 import {
@@ -353,6 +354,11 @@ const ProjectManagement: React.FC = () => {
   const [editPartnershipCoResponsibles, setEditPartnershipCoResponsibles] = useState<Record<string, string[]>>({});
   const [editPartnershipCoResponsiblesSearchTerm, setEditPartnershipCoResponsiblesSearchTerm] = useState<string>('');
   const [isAddParticipantModalOpen, setIsAddParticipantModalOpen] = useState(false);
+  const [teacherEntireClasses, setTeacherEntireClasses] = useState<any[]>([]);
+  const [teacherEntireClassSearch, setTeacherEntireClassSearch] = useState('');
+  const [teacherEntireClassSearchResults, setTeacherEntireClassSearchResults] = useState<any[]>([]);
+  const [isSearchingTeacherEntireClass, setIsSearchingTeacherEntireClass] = useState(false);
+  const [teacherEntireClassToast, setTeacherEntireClassToast] = useState<string | null>(null);
   const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
   const [selectedParticipantForBadge, setSelectedParticipantForBadge] = useState<string | null>(null);
   const [collapsedComments, setCollapsedComments] = useState<Set<string>>(new Set());
@@ -4341,12 +4347,107 @@ const ProjectManagement: React.FC = () => {
     try {
       const members = await fetchAvailableMembers();
       setAvailableMembers(members);
+
+      if (state.showingPageType === 'teacher') {
+        const schoolId = resolveProjectSchoolIdFromApi();
+        try {
+          const res = await getTeacherClasses(1, 1000);
+          const data = res.data?.data ?? res.data;
+          const list = Array.isArray(data) ? data : [];
+          const filtered = schoolId
+            ? list.filter((c: any) => String(c.school_id ?? c.school?.id) === String(schoolId))
+            : list;
+          setTeacherEntireClasses(sortTeacherVisibleClasses(filtered));
+        } catch {
+          setTeacherEntireClasses([]);
+        }
+        setTeacherEntireClassSearch('');
+        setTeacherEntireClassSearchResults([]);
+        setTeacherEntireClassToast(null);
+      }
+
       setIsAddParticipantModalOpen(true);
     } catch (error) {
       console.error('Error loading available members:', error);
       showError('Erreur lors du chargement des membres disponibles');
     } finally {
       setIsLoadingAvailableMembers(false);
+    }
+  };
+
+  const handleTeacherEntireClassSearch = (value: string) => {
+    setTeacherEntireClassSearch(value);
+    const schoolId = resolveProjectSchoolIdFromApi();
+    if (!schoolId || !value.trim()) {
+      setTeacherEntireClassSearchResults([]);
+      return;
+    }
+    setIsSearchingTeacherEntireClass(true);
+    getTeacherSchoolClasses(schoolId, { search: value.trim(), per_page: 30 })
+      .then(res => {
+        const list = res.data?.data ?? res.data;
+        setTeacherEntireClassSearchResults(Array.isArray(list) ? list : []);
+      })
+      .catch(() => setTeacherEntireClassSearchResults([]))
+      .finally(() => setIsSearchingTeacherEntireClass(false));
+  };
+
+  const getStudentsForTeacherEntireClass = async (classId: string) => {
+    const fromMembers = availableMembers.filter((m: any) => {
+      const classes = m.classes || [];
+      return classes.some((c: any) => c?.id?.toString() === classId);
+    });
+    if (fromMembers.length > 0) {
+      return fromMembers.map((m: any) => ({ id: m.memberId || m.id, full_name: m.name }));
+    }
+    try {
+      const res = await getTeacherClass(Number(classId));
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data?.students) ? data.students : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const handleTeacherEntireClassAddAll = async (classId: string, studentIds: string[]) => {
+    if (!project?.id) return;
+    const projectId = parseInt(project.id, 10);
+    const existing = new Set(participants.map(p => p.memberId?.toString()));
+    const toAdd = studentIds.map(id => parseInt(id, 10)).filter(id => !Number.isNaN(id) && !existing.has(String(id)));
+    if (toAdd.length === 0) {
+      setTeacherEntireClassToast('Tous les élèves sont déjà dans le projet.');
+      return;
+    }
+    try {
+      const result = await addProjectMembersBulk(projectId, toAdd);
+      const addedCount = result?.data?.added?.length ?? toAdd.length;
+      const meta =
+        teacherEntireClasses.find((c: any) => c.id?.toString() === classId) ||
+        teacherEntireClassSearchResults.find((c: any) => c.id?.toString() === classId);
+      const name = meta?.name || `classe ${classId}`;
+      setTeacherEntireClassToast(`✓ ${addedCount} élève${addedCount > 1 ? 's' : ''} de la ${name} ajouté${addedCount > 1 ? 's' : ''} au projet.`);
+      showSuccess(`${addedCount} participant(s) ajouté(s)`);
+      lastLoadedProjectIdRef.current = null;
+      previousIdsRef.current = { projectId: null, apiProjectId: null };
+      const members = await fetchAllProjectMembers();
+      setParticipants(members);
+      const stats = await getProjectStats(projectId);
+      setProjectStats(stats);
+      try {
+        const currentLevelIds = (apiProjectData?.school_levels || []).map((l: any) => l.id);
+        if (!currentLevelIds.map(String).includes(classId)) {
+          await updateProject(projectId, {
+            project: {
+              school_level_ids: [...currentLevelIds, parseInt(classId, 10)]
+            }
+          } as any);
+        }
+      } catch (e) {
+        console.warn('Could not attach school_level_ids after bulk add', e);
+      }
+    } catch (error: any) {
+      console.error('Bulk add members failed', error);
+      showError(error.response?.data?.message || 'Erreur lors de l\'ajout des élèves');
     }
   };
 
@@ -5982,6 +6083,11 @@ const ProjectManagement: React.FC = () => {
             </button>
           )}
         </div>
+        {state.showingPageType === 'teacher' && (
+          <p style={{ margin: '0 0 12px', fontSize: '0.9rem', color: '#6b7280' }}>
+            Les élèves et les enseignants qui prennent part au projet.
+          </p>
+        )}
 
         <div className="view-toggle participants-view-toggle">
           <button
@@ -10935,6 +11041,23 @@ développées par les participants"
           onAdd={handleAddParticipantSubmit}
           existingParticipants={participants}
           availableMembers={availableMembers}
+          entireClassPanel={
+            state.showingPageType === 'teacher'
+              ? {
+                  myClasses: teacherEntireClasses,
+                  searchResults: teacherEntireClassSearchResults,
+                  searchValue: teacherEntireClassSearch,
+                  onSearchChange: handleTeacherEntireClassSearch,
+                  isSearching: isSearchingTeacherEntireClass,
+                  getStudentsForClass: getStudentsForTeacherEntireClass,
+                  onAddAll: handleTeacherEntireClassAddAll,
+                  onChoose: () => {
+                    /* choose handled inside AddParticipantModal via onAddAll after selection */
+                  },
+                  lastToast: teacherEntireClassToast
+                }
+              : undefined
+          }
         />
       )}
 

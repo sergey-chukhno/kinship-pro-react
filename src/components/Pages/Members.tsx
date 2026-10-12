@@ -2257,6 +2257,7 @@ const Members: React.FC = () => {
                 level={classItem?.level || ''}
                 schoolName={classItem?.school?.name || null}
                 showSchoolName={isTeacherContext}
+                isReferent={Boolean(classItem?.is_referent || classItem?.is_creator)}
                 teachers={classItem?.teachers}
                 pedagogical_team_members={classItem?.pedagogical_team_members}
                 onClick={() => handleClassClick(classItem)}
