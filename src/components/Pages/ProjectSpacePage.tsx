@@ -6,6 +6,7 @@ import {
   addProjectDocuments,
   addProjectFunder,
   addProjectMember,
+  addProjectMembersBulk,
   preRegisterProjectParticipant,
   closeProject,
   fetchAllConfirmedPartnerships,
@@ -27,6 +28,19 @@ import {
   updateProjectDocumentVisibility,
   updateProjectMember,
 } from '../../api/Projects';
+import {
+  getTeacherClass,
+  getTeacherClasses,
+  getTeacherSchoolClasses,
+} from '../../api/Dashboard';
+import { getLevelStudents, getSchoolLevels } from '../../api/SchoolDashboard/Levels';
+import { sortTeacherVisibleClasses } from '../../utils/teacherVisibleClasses';
+import {
+  addChosenStudentsCtaLabel,
+  countSelectableChosen,
+  memberSchoolOrgRoleLabel,
+} from '../../utils/schoolParticipantLabels';
+import AddEntireClassPanel, { EntireClassStudent } from '../Project/AddEntireClassPanel';
 import { useAppContext } from '../../context/AppContext';
 import { Project } from '../../types';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
@@ -122,19 +136,7 @@ function memberId(member: any): string {
 }
 
 function orgRoleLabel(member: any): string {
-  const role = member?.role || member?.organization_role || member?.user?.role || 'membre';
-  const map: Record<string, string> = {
-    superadmin: 'super admin',
-    admin: 'admin',
-    referent: 'référent',
-    intervenant: 'intervenant',
-    member: 'membre',
-    eleve_primaire: 'élève',
-    collegien: 'collégien',
-    lyceen: 'lycéen',
-    etudiant: 'étudiant',
-  };
-  return map[role] || String(role).replace(/_/g, ' ');
+  return memberSchoolOrgRoleLabel(member);
 }
 
 const ProjectSpacePage: React.FC = () => {
@@ -210,6 +212,19 @@ const ProjectSpacePage: React.FC = () => {
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeSubmitting, setCloseSubmitting] = useState(false);
   const [bornProof, setBornProof] = useState(false);
+  // Patrick « Une classe entière » (teacher + école)
+  const [entireClasses, setEntireClasses] = useState<any[]>([]);
+  const [entireClassSearch, setEntireClassSearch] = useState('');
+  const [entireClassSearchResults, setEntireClassSearchResults] = useState<any[]>([]);
+  const [isSearchingEntireClass, setIsSearchingEntireClass] = useState(false);
+  const [entireClassToast, setEntireClassToast] = useState<string | null>(null);
+  const [chooseClass, setChooseClass] = useState<{
+    classId: string;
+    className: string;
+    studentIds: string[];
+    selected: Set<string>;
+    studentsById: Record<string, { id: string; name: string }>;
+  } | null>(null);
 
   const isDraft = project?.status === 'draft';
   const isCreated = Boolean(project && project.status !== 'draft');
@@ -324,6 +339,102 @@ const ProjectSpacePage: React.FC = () => {
     };
     void loadPeople();
   }, [orgId, orgType, state.showingPageType]);
+
+  const isTeacherContext = state.showingPageType === 'teacher';
+  const isSchoolContext = state.showingPageType === 'edu';
+  const canUseEntireClassPanel = isTeacherContext || isSchoolContext;
+
+  const projectSchoolId = useMemo(() => {
+    if (apiProject?.primary_organization_type === 'School' && apiProject?.primary_organization_id) {
+      return Number(apiProject.primary_organization_id);
+    }
+    const fromSchools = apiProject?.schools?.[0]?.id ?? apiProject?.school_ids?.[0];
+    if (fromSchools) return Number(fromSchools);
+    if ((isTeacherContext || isSchoolContext) && orgId) return Number(orgId);
+    return null;
+  }, [apiProject, orgId, isTeacherContext, isSchoolContext]);
+
+  useEffect(() => {
+    if (!canUseEntireClassPanel) {
+      setEntireClasses([]);
+      return;
+    }
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        if (isTeacherContext) {
+          const res = await getTeacherClasses(1, 1000);
+          const data = res.data?.data ?? res.data;
+          const list = Array.isArray(data) ? data : [];
+          const filtered = projectSchoolId
+            ? list.filter(
+                (c: any) => String(c.school_id ?? c.school?.id) === String(projectSchoolId)
+              )
+            : list;
+          if (!cancelled) setEntireClasses(sortTeacherVisibleClasses(filtered));
+          return;
+        }
+        // Contexte école : toutes les classes de l'établissement
+        const schoolId = projectSchoolId || orgId;
+        if (!schoolId) {
+          if (!cancelled) setEntireClasses([]);
+          return;
+        }
+        const res = await getSchoolLevels(Number(schoolId), 1, 1000);
+        const list = res.data?.data ?? res.data;
+        if (!cancelled) {
+          setEntireClasses(sortTeacherVisibleClasses(Array.isArray(list) ? list : []));
+        }
+      } catch {
+        if (!cancelled) setEntireClasses([]);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [canUseEntireClassPanel, isTeacherContext, projectSchoolId, orgId]);
+
+  useEffect(() => {
+    // Recherche API « autre classe » uniquement enseignant ; école filtre côté myClasses
+    if (!isTeacherContext || !projectSchoolId || !entireClassSearch.trim()) {
+      setEntireClassSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      setIsSearchingEntireClass(true);
+      getTeacherSchoolClasses(projectSchoolId, {
+        search: entireClassSearch.trim(),
+        per_page: 30,
+      })
+        .then((res) => {
+          const list = res.data?.data ?? res.data;
+          if (!cancelled) setEntireClassSearchResults(Array.isArray(list) ? list : []);
+        })
+        .catch(() => {
+          if (!cancelled) setEntireClassSearchResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setIsSearchingEntireClass(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [isTeacherContext, projectSchoolId, entireClassSearch]);
+
+  const panelMyClasses = useMemo(() => {
+    if (isTeacherContext) return entireClasses;
+    const q = entireClassSearch.trim().toLowerCase();
+    if (!q) return entireClasses;
+    return entireClasses.filter((c: any) =>
+      String(c.name || '').toLowerCase().includes(q)
+    );
+  }, [isTeacherContext, entireClasses, entireClassSearch]);
 
   useEffect(() => {
     const loadPartners = async () => {
@@ -569,6 +680,141 @@ const ProjectSpacePage: React.FC = () => {
     } catch (e: any) {
       showError(e?.response?.data?.message || 'Impossible d’ajouter cette personne.');
     }
+  };
+
+  const existingMemberIds = useMemo(
+    () => members.map((m) => memberId(m)).filter(Boolean),
+    [members]
+  );
+
+  const getStudentsForEntireClass = async (classId: string) => {
+    const fromOrg = orgPeople.filter((p: any) => {
+      const classes = p.classes || p.level_school || [];
+      return Array.isArray(classes) && classes.some((c: any) => c?.id?.toString() === classId);
+    });
+    if (fromOrg.length > 0) {
+      return fromOrg.map((p: any) => ({
+        id: memberId(p),
+        full_name: memberName(p),
+        first_name: p.first_name || p.user?.first_name,
+        last_name: p.last_name || p.user?.last_name,
+      }));
+    }
+    try {
+      if (isTeacherContext) {
+        const res = await getTeacherClass(Number(classId));
+        const data = res.data?.data ?? res.data;
+        const students = Array.isArray(data?.students) ? data.students : [];
+        return students.map((s: any) => ({
+          id: s.id,
+          full_name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim(),
+          first_name: s.first_name,
+          last_name: s.last_name,
+        }));
+      }
+      const schoolId = projectSchoolId || orgId;
+      if (!schoolId) return [];
+      const res = await getLevelStudents(Number(schoolId), Number(classId), 1, 500);
+      const data = res.data?.data ?? res.data;
+      const students = Array.isArray(data) ? data : [];
+      return students.map((s: any) => ({
+        id: s.id ?? s.user?.id,
+        full_name:
+          s.full_name ||
+          s.user?.full_name ||
+          `${s.first_name || s.user?.first_name || ''} ${s.last_name || s.user?.last_name || ''}`.trim(),
+        first_name: s.first_name || s.user?.first_name,
+        last_name: s.last_name || s.user?.last_name,
+      }));
+    } catch {
+      return [];
+    }
+  };
+
+  const attachSchoolLevelIfNeeded = async (classId: string) => {
+    if (!projectId) return;
+    const currentIds = (apiProject?.school_levels || []).map((l: any) => Number(l.id));
+    if (currentIds.map(String).includes(classId)) return;
+    try {
+      await updateProject(Number(projectId), {
+        project: {
+          school_level_ids: [...currentIds, Number(classId)],
+        },
+      } as any);
+    } catch (e) {
+      console.warn('Could not attach school_level_ids', e);
+    }
+  };
+
+  const handleEntireClassAddAll = async (classId: string, studentIds: string[]) => {
+    if (!projectId) return;
+    const existing = new Set(existingMemberIds);
+    const toAdd = studentIds
+      .map((id) => Number(id))
+      .filter((id) => !Number.isNaN(id) && !existing.has(String(id)));
+    const meta =
+      entireClasses.find((c: any) => c.id?.toString() === classId) ||
+      entireClassSearchResults.find((c: any) => c.id?.toString() === classId);
+    const name = meta?.name || `classe ${classId}`;
+
+    if (toAdd.length === 0) {
+      setEntireClassToast('Tous les élèves sont déjà dans le projet.');
+      await attachSchoolLevelIfNeeded(classId);
+      return;
+    }
+    try {
+      const result = await addProjectMembersBulk(Number(projectId), toAdd);
+      const addedCount = result?.data?.added?.length ?? toAdd.length;
+      await attachSchoolLevelIfNeeded(classId);
+      const mem = await getProjectMembers(Number(projectId));
+      setMembers(Array.isArray(mem) ? mem : []);
+      await loadProject({ silent: true });
+      setEntireClassToast(
+        `✓ ${addedCount} élève${addedCount > 1 ? 's' : ''} de la ${name} ajouté${addedCount > 1 ? 's' : ''} au projet.`
+      );
+      showSuccess(
+        `${addedCount} élève${addedCount > 1 ? 's' : ''} ajouté${addedCount > 1 ? 's' : ''}${
+          isDraft ? ' — préparés, invisibles avant la création' : ''
+        }.`
+      );
+      setChooseClass(null);
+    } catch (e: any) {
+      showError(e?.response?.data?.message || 'Impossible d’ajouter la classe.');
+    }
+  };
+
+  const handleEntireClassChoose = async (
+    classId: string,
+    studentIds: string[],
+    preselectedIds: string[]
+  ) => {
+    const meta =
+      entireClasses.find((c: any) => c.id?.toString() === classId) ||
+      entireClassSearchResults.find((c: any) => c.id?.toString() === classId);
+    const students = await getStudentsForEntireClass(classId);
+    const studentsById: Record<string, { id: string; name: string }> = {};
+    students.forEach((s: EntireClassStudent) => {
+      const id = String(s.id);
+      studentsById[id] = {
+        id,
+        name: s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || id,
+      };
+    });
+    setChooseClass({
+      classId,
+      className: meta?.name || `Classe ${classId}`,
+      studentIds: studentIds.length ? studentIds : Object.keys(studentsById),
+      selected: new Set(preselectedIds.length ? preselectedIds : studentIds),
+      studentsById,
+    });
+  };
+
+  const confirmChooseClass = async () => {
+    if (!chooseClass) return;
+    const toAdd = Array.from(chooseClass.selected).filter(
+      (id) => !existingMemberIds.includes(id)
+    );
+    await handleEntireClassAddAll(chooseClass.classId, toAdd);
   };
 
   const submitPrepared = async () => {
@@ -1152,47 +1398,173 @@ const ProjectSpacePage: React.FC = () => {
                 </div>
                 {addPanel === 'person' && (
                   <div className="ps-panel">
-                    <div className="ps-plabel">Le panneau se déplie ici — il se replie après l’ajout</div>
-                    <input className="ps-in" value={personQuery} onChange={(e) => setPersonQuery(e.target.value)} placeholder="Rechercher — prénom, nom…" />
-                    {filteredPeople.map((p) => {
-                      const id = memberId(p);
-                      const role = personRoles[id] || 'Participant';
-                      return (
-                        <div key={id} className="ps-row">
-                          <div className="ps-av">{initialsOf(memberName(p))}</div>
-                          <div>
-                            <span className="ps-nm">{memberName(p)}</span> <small>· {orgRoleLabel(p)}</small>
-                          </div>
-                          <div className="ps-seg">
-                            {(['Admin', 'Encadrant', 'Participant'] as const).map((r) => (
-                              <button key={r} type="button" className={role === r ? 'on' : ''} onClick={() => setPersonRoles((prev) => ({ ...prev, [id]: r }))}>
-                                {r}
-                              </button>
-                            ))}
-                          </div>
-                          <button type="button" className="ps-mini" onClick={() => void addPerson(p, role)}>Ajouter</button>
-                        </div>
-                      );
-                    })}
-                    {personQuery.trim() && filteredPeople.length === 0 && (
-                      <p className="ps-sub">Personne introuvable dans votre organisation — utilisez la pré-inscription.</p>
+                    <p className="ps-sub" style={{ marginTop: 0 }}>
+                      Les élèves et les enseignants qui prennent part au projet.
+                    </p>
+
+                    {canUseEntireClassPanel && !chooseClass && (
+                      <AddEntireClassPanel
+                        myClasses={panelMyClasses}
+                        searchResults={isTeacherContext ? entireClassSearchResults : []}
+                        searchValue={entireClassSearch}
+                        onSearchChange={setEntireClassSearch}
+                        searchPlaceholder={
+                          isTeacherContext
+                            ? "Rechercher une autre classe de l'établissement…"
+                            : 'Rechercher une classe…'
+                        }
+                        isSearching={isSearchingEntireClass}
+                        existingParticipantIds={existingMemberIds}
+                        getStudentsForClass={getStudentsForEntireClass}
+                        onAddAll={(classId, studentIds) => {
+                          void handleEntireClassAddAll(classId, studentIds);
+                        }}
+                        onChoose={(classId, studentIds, preselectedIds) => {
+                          void handleEntireClassChoose(classId, studentIds, preselectedIds);
+                        }}
+                        lastToast={entireClassToast}
+                      />
                     )}
-                    <p className="ps-hint">Encadrant : formateur, intervenant extérieur ou interne, animateur… — atteste des compétences</p>
-                    <div className="ps-plabel">Ajouter une pré-inscription</div>
-                    <div className="ps-two">
-                      <input className="ps-in" placeholder="Prénom ✱" value={prepFirst} onChange={(e) => setPrepFirst(e.target.value)} />
-                      <input className="ps-in" placeholder="Nom ✱" value={prepLast} onChange={(e) => setPrepLast(e.target.value)} />
-                    </div>
-                    <div className="ps-two">
-                      <input className="ps-in" type="date" value={prepBirth} onChange={(e) => setPrepBirth(e.target.value)} />
-                      <input className="ps-in" placeholder="Email (optionnel)" value={prepEmail} onChange={(e) => setPrepEmail(e.target.value)} />
-                    </div>
-                    <div className="ps-foot" style={{ border: 0, paddingTop: 0 }}>
-                      <button type="button" className="ps-btn ghost" onClick={() => setAddPanel(null)}>Annuler</button>
-                      <button type="button" className="ps-btn primary" onClick={() => void submitPrepared()}>Pré-inscrire</button>
-                    </div>
-                    <p className="ps-sub">Si la personne est déjà sur Kinship, son compte sera retrouvé automatiquement.</p>
-                    <p className="ps-sub">Pour faire co-attester le projet par une personne ou un partenaire sans compte : ne la pré-inscrivez pas — cela se fera à la clôture du projet.</p>
+
+                    {chooseClass && (() => {
+                      const addableCount = countSelectableChosen(
+                        chooseClass.selected,
+                        existingMemberIds
+                      );
+                      const ctaLabel = addChosenStudentsCtaLabel(addableCount);
+                      return (
+                      <div style={{ marginBottom: 16 }}>
+                        <div className="ps-plabel">{chooseClass.className} — choisir les élèves</div>
+                        <div style={{ marginBottom: 8 }}>
+                          <button
+                            type="button"
+                            className="ps-btn ghost"
+                            style={{ padding: '4px 0', fontSize: '0.85rem' }}
+                            onClick={() => {
+                              setChooseClass((prev) => {
+                                if (!prev) return prev;
+                                const next = new Set(prev.selected);
+                                prev.studentIds.forEach((id) => {
+                                  if (!existingMemberIds.includes(id)) next.delete(id);
+                                });
+                                return { ...prev, selected: next };
+                              });
+                            }}
+                          >
+                            Tout décocher
+                          </button>
+                        </div>
+                        <div style={{ maxHeight: 240, overflowY: 'auto', marginBottom: 8 }}>
+                          {chooseClass.studentIds.map((id) => {
+                            const already = existingMemberIds.includes(id);
+                            const checked = chooseClass.selected.has(id);
+                            const label = chooseClass.studentsById[id]?.name || `Élève ${id}`;
+                            return (
+                              <label
+                                key={id}
+                                className="ps-row"
+                                style={{
+                                  opacity: already ? 0.55 : 1,
+                                  cursor: already ? 'default' : 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  padding: '6px 0',
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={already}
+                                  onChange={() => {
+                                    if (already) return;
+                                    setChooseClass((prev) => {
+                                      if (!prev) return prev;
+                                      const next = new Set(prev.selected);
+                                      if (next.has(id)) next.delete(id);
+                                      else next.add(id);
+                                      return { ...prev, selected: next };
+                                    });
+                                  }}
+                                />
+                                <span>
+                                  {label}
+                                  {already ? ' (déjà dans le projet)' : ''}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <div className="ps-foot" style={{ border: 0, paddingTop: 0 }}>
+                          <button type="button" className="ps-btn ghost" onClick={() => setChooseClass(null)}>
+                            Retour
+                          </button>
+                          <button
+                            type="button"
+                            className="ps-btn primary"
+                            disabled={addableCount === 0}
+                            onClick={() => void confirmChooseClass()}
+                          >
+                            {ctaLabel}
+                          </button>
+                        </div>
+                      </div>
+                      );
+                    })()}
+
+                    {!chooseClass && (
+                      <>
+                        <input
+                          className="ps-in"
+                          value={personQuery}
+                          onChange={(e) => setPersonQuery(e.target.value)}
+                          placeholder={
+                            canUseEntireClassPanel
+                              ? 'Rechercher un élève ou un enseignant…'
+                              : 'Rechercher — prénom, nom…'
+                          }
+                        />
+                        {filteredPeople.map((p) => {
+                          const id = memberId(p);
+                          const role = personRoles[id] || 'Participant';
+                          return (
+                            <div key={id} className="ps-row">
+                              <div className="ps-av">{initialsOf(memberName(p))}</div>
+                              <div>
+                                <span className="ps-nm">{memberName(p)}</span> <small>· {orgRoleLabel(p)}</small>
+                              </div>
+                              <div className="ps-seg">
+                                {(['Admin', 'Encadrant', 'Participant'] as const).map((r) => (
+                                  <button key={r} type="button" className={role === r ? 'on' : ''} onClick={() => setPersonRoles((prev) => ({ ...prev, [id]: r }))}>
+                                    {r}
+                                  </button>
+                                ))}
+                              </div>
+                              <button type="button" className="ps-mini" onClick={() => void addPerson(p, role)}>Ajouter</button>
+                            </div>
+                          );
+                        })}
+                        {personQuery.trim() && filteredPeople.length === 0 && (
+                          <p className="ps-sub">Personne introuvable dans votre organisation — utilisez la pré-inscription.</p>
+                        )}
+                        <p className="ps-hint">Encadrant : formateur, intervenant extérieur ou interne, animateur… — atteste des compétences</p>
+                        <div className="ps-plabel">Ajouter une pré-inscription</div>
+                        <div className="ps-two">
+                          <input className="ps-in" placeholder="Prénom ✱" value={prepFirst} onChange={(e) => setPrepFirst(e.target.value)} />
+                          <input className="ps-in" placeholder="Nom ✱" value={prepLast} onChange={(e) => setPrepLast(e.target.value)} />
+                        </div>
+                        <div className="ps-two">
+                          <input className="ps-in" type="date" value={prepBirth} onChange={(e) => setPrepBirth(e.target.value)} />
+                          <input className="ps-in" placeholder="Email (optionnel)" value={prepEmail} onChange={(e) => setPrepEmail(e.target.value)} />
+                        </div>
+                        <div className="ps-foot" style={{ border: 0, paddingTop: 0 }}>
+                          <button type="button" className="ps-btn ghost" onClick={() => setAddPanel(null)}>Annuler</button>
+                          <button type="button" className="ps-btn primary" onClick={() => void submitPrepared()}>Pré-inscrire</button>
+                        </div>
+                        <p className="ps-sub">Si la personne est déjà sur Kinship, son compte sera retrouvé automatiquement.</p>
+                        <p className="ps-sub">Pour faire co-attester le projet par une personne ou un partenaire sans compte : ne la pré-inscrivez pas — cela se fera à la clôture du projet.</p>
+                      </>
+                    )}
                   </div>
                 )}
                 <p className="ps-sub">

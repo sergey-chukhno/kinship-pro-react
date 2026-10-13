@@ -31,6 +31,8 @@ interface ClassCardProps {
   level?: string;
   schoolName?: string | null;
   showSchoolName?: boolean;
+  /** Pastille Référent (responsable de classe) */
+  isReferent?: boolean;
   teachers?: Array<{ id: number; full_name: string; email: string; is_creator: boolean }>;
   pedagogical_team_members?: Array<{ id: number; full_name: string; email: string }>;
   onClick?: () => void;
@@ -38,7 +40,7 @@ interface ClassCardProps {
   onEdit?: (e: React.MouseEvent) => void;
 }
 
-const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, level, schoolName, showSchoolName = false, teachers, pedagogical_team_members, onClick, onDelete, onEdit }) => {
+const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, level, schoolName, showSchoolName = false, isReferent = false, teachers, pedagogical_team_members, onClick, onDelete, onEdit }) => {
   const levelDisplay = level && LEVEL_LABEL_MAP[level.toLowerCase().trim()]
     ? LEVEL_LABEL_MAP[level.toLowerCase().trim()]
     : (level || '');
@@ -57,6 +59,9 @@ const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, leve
         {/* <img src="/icons_logo/Icon=Class.svg" alt="Classe" className="class-icon" /> */}
         <i className="fas fa-school"></i>
         <h4>{name}</h4>
+        {isReferent && (
+          <span className="class-card-referent-badge" title="Responsable de classe">Référent</span>
+        )}
         {(onEdit || onDelete) && (
         <div style={{
           // position: 'absolute',
@@ -140,7 +145,7 @@ const ClassCard: React.FC<ClassCardProps> = ({ name, teacher, studentCount, leve
             </span>
           </p>
         )}
-        <p><strong>Étudiants :</strong> {studentCount}</p>
+        <p><strong>Élèves :</strong> {studentCount}</p>
       </div>
     </div>
   );
