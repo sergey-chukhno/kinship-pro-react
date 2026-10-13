@@ -1,0 +1,1220 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  getCatalogue,
+  getCatalogueFlags,
+  getCatalogueFiche,
+  saveCatalogueFiche,
+} from '../../api/FormationCatalogue';
+import { useAppContext } from '../../context/AppContext';
+import {
+  CatalogueServerFlags,
+  FinancementType,
+  FormationFiche,
+  IdentityAtAssessment,
+  ParticipationMode,
+  ProgrammeLine,
+} from '../../types/formationCatalogue';
+import { getEuMcGateCheckboxLabel } from '../../utils/euMcGateCopy';
+import './FormationFicheWizard.css';
+
+const DRAFT_KEY = 'kinship.ficheDraft';
+
+function ficheIdFromPath(pathname: string): string | undefined {
+  const m = pathname.match(/^\/formation-fiche\/([^/]+)\/?$/);
+  return m?.[1];
+}
+
+const ASSESS_SUGGESTIONS = [
+  'QCM',
+  'mise en situation évaluée',
+  'projet évalué',
+  'oral',
+  'portfolio',
+];
+const FINANCEMENTS: FinancementType[] = [
+  'CPF',
+  'OPCO',
+  'Entreprise',
+  'Association',
+  'Institution',
+  'Autre',
+];
+const MODALITIES: { id: ParticipationMode; label: string }[] = [
+  { id: 'presentiel', label: 'Présentiel' },
+  { id: 'distanciel', label: 'Distanciel' },
+  { id: 'hybride', label: 'Hybride' },
+];
+const IDENTITY_OPTS: { id: IdentityAtAssessment; label: string }[] = [
+  { id: 'unsupervised', label: 'Non supervisée, sans vérification d’identité' },
+  { id: 'supervised_no_id', label: 'Supervisée, sans vérification d’identité' },
+  { id: 'supervised_online', label: 'Supervisée en ligne' },
+  { id: 'onsite_id', label: 'Sur place, avec vérification d’identité' },
+];
+
+/** Mock registre — P4.3 zoom certification (flag on). */
+const MOCK_REGISTRY: Record<
+  string,
+  { label: string; level: string; certificateur: string; blocks: number }
+> = {
+  RNCP40281: {
+    label: 'Journaliste',
+    level: '6',
+    certificateur: 'CFPJ',
+    blocks: 4,
+  },
+};
+
+type FicheDraftLock = {
+  orgKey: string;
+  orgName: string;
+  orgInitials: string;
+  orgCertified: boolean;
+  euMc: boolean;
+};
+
+function emptyFiche(lock: FicheDraftLock): FormationFiche {
+  const now = new Date().toISOString();
+  return {
+    id: `fiche-${Date.now()}`,
+    status: 'draft',
+    orgKey: lock.orgKey,
+    orgName: lock.orgName,
+    orgInitials: lock.orgInitials,
+    orgCertified: lock.orgCertified,
+    euMc: lock.euMc,
+    title: '',
+    description: '',
+    programmeMode: lock.euMc ? 'series' : 'none',
+    programmeLines: [],
+    durationHours: '',
+    modality: '',
+    financement: '',
+    prerequisites: '',
+    languages: ['Français'],
+    practicalInfo: '',
+    assessmentType: '',
+    jury: null,
+    categoryBand: 'Certificat de l’organisme',
+    schoolLabel: lock.orgName.split('—')[0]?.trim() || lock.orgName,
+    eqfLevelDisplay: lock.euMc ? 'non applicable' : undefined,
+    workloadEcts: '',
+    validityUnlimited: true,
+    validityMonths: '',
+    identityAtAssessment: '',
+    certificationTarget: 'title',
+    certificationRegistry: null,
+    certificationLookupError: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function readLock(): FicheDraftLock | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as FicheDraftLock;
+  } catch {
+    return null;
+  }
+}
+
+function modalityLabel(m: ParticipationMode | ''): string {
+  if (m === 'presentiel') return 'Présentiel';
+  if (m === 'distanciel') return 'Distanciel';
+  if (m === 'hybride') return 'Hybride';
+  return '';
+}
+
+function missingCatalogFields(f: FormationFiche): string[] {
+  const missing: string[] = [];
+  if (!f.title.trim()) missing.push('le titre');
+  if (!f.description.trim()) missing.push('la description');
+  if (f.euMc) {
+    if (f.programmeMode !== 'series' || !f.programmeSeries) missing.push('le programme');
+    if (!f.assessmentType.trim()) missing.push('le type d’évaluation');
+  } else {
+    const hasProg =
+      (f.programmeMode === 'free_lines' && f.programmeLines.some((l) => l.text.trim())) ||
+      (f.programmeMode === 'series' && f.programmeSeries);
+    if (!hasProg) missing.push('le programme');
+  }
+  if (!f.durationHours.trim()) missing.push('la durée en heures');
+  if (!f.modality) missing.push('la modalité');
+  if (!f.financement) missing.push('le financement');
+  return missing;
+}
+
+const FormationFicheWizard: React.FC = () => {
+  const location = useLocation();
+  const id = ficheIdFromPath(location.pathname);
+  const navigate = useNavigate();
+  const { setCurrentPage } = useAppContext();
+  const lock = useMemo(() => readLock(), []);
+  const imgRef = useRef<HTMLInputElement>(null);
+
+  const [step, setStep] = useState<1 | 2 | 3>(lock || id ? 2 : 1);
+  const [flags, setFlags] = useState<CatalogueServerFlags | null>(null);
+  const [fiche, setFiche] = useState<FormationFiche | null>(null);
+  const [euMcChoice, setEuMcChoice] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [langInput, setLangInput] = useState('');
+  const [titleClash, setTitleClash] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [step3Missing, setStep3Missing] = useState<string[]>([]);
+  const [existingTitles, setExistingTitles] = useState<string[]>([]);
+
+  useEffect(() => {
+    getCatalogueFlags().then(setFlags);
+    getCatalogue().then((list) =>
+      setExistingTitles(list.filter((f) => !id || f.id !== id).map((f) => f.title.trim().toLowerCase()))
+    );
+  }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (id) {
+        const existing = await getCatalogueFiche(id);
+        if (!cancelled && existing) {
+          setFiche(existing);
+          setEuMcChoice(existing.euMc);
+          setStep(2);
+        }
+        return;
+      }
+      if (lock) {
+        setFiche(emptyFiche(lock));
+        setEuMcChoice(lock.euMc);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, lock]);
+
+  const gateLabel = flags ? getEuMcGateCheckboxLabel(flags.eu_mc_gate) : null;
+  const euMc = fiche?.euMc ?? euMcChoice;
+
+  const goldCount = useMemo(() => {
+    if (!euMc || !fiche) return 0;
+    const ready =
+      Boolean(fiche.title.trim()) &&
+      fiche.programmeMode === 'series' &&
+      Boolean(fiche.programmeSeries) &&
+      Boolean(fiche.durationHours.trim()) &&
+      Boolean(fiche.modality) &&
+      Boolean(fiche.assessmentType.trim());
+    return ready ? 9 : 4;
+  }, [euMc, fiche]);
+
+  const goCatalogue = () => {
+    setCurrentPage('catalogue-formations');
+    navigate('/catalogue-formations');
+  };
+
+  const ensureFicheFromStep1 = () => {
+    if (fiche) return fiche;
+    const base: FicheDraftLock = lock || {
+      orgKey: 'of-local',
+      orgName: 'Organisme de formation',
+      orgInitials: 'OF',
+      orgCertified: true,
+      euMc: euMcChoice && Boolean(flags?.eu_mc_gate.allowed),
+    };
+    const next = emptyFiche({
+      ...base,
+      euMc: euMcChoice && Boolean(flags?.eu_mc_gate.allowed),
+    });
+    setFiche(next);
+    sessionStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({
+        orgKey: next.orgKey,
+        orgName: next.orgName,
+        orgInitials: next.orgInitials,
+        orgCertified: next.orgCertified,
+        euMc: next.euMc,
+      })
+    );
+    return next;
+  };
+
+  const update = (patch: Partial<FormationFiche>) => {
+    setFiche((prev) => (prev ? { ...prev, ...patch } : prev));
+  };
+
+  const checkTitleClash = (title: string) => {
+    const t = title.trim().toLowerCase();
+    if (t && existingTitles.includes(t)) {
+      setTitleClash(title.trim());
+    } else {
+      setTitleClash(null);
+    }
+  };
+
+  const addLine = () => {
+    if (!fiche || fiche.euMc) return;
+    const line: ProgrammeLine = { id: `l-${Date.now()}`, text: '' };
+    update({
+      programmeMode: 'free_lines',
+      programmeSeries: undefined,
+      programmeLines: [...fiche.programmeLines, line],
+    });
+  };
+
+  const chooseSeries = () => {
+    if (!fiche) return;
+    update({
+      programmeMode: 'series',
+      programmeLines: [],
+      programmeSeries: {
+        id: 'digcomp-demo',
+        label: euMc
+          ? '📚 DigComp 2.2 — Domaine 1 · Information et données · Niveau 2 · DigComp'
+          : '📚 DigComp 2.2 — Domaine 1 · Information et données',
+        competenceIds: ['c1', 'c2', 'c3'],
+        competenceLabels: [
+          'Naviguer, rechercher et filtrer l’information',
+          'Évaluer l’information et son contenu',
+          'Gérer les données et les contenus numériques',
+        ],
+      },
+      eqfLevelDisplay: euMc ? 'non applicable' : fiche.eqfLevelDisplay,
+    });
+  };
+
+  const lookupCertification = (codeRaw: string) => {
+    const code = codeRaw.trim().toUpperCase();
+    if (!code) {
+      update({
+        certificationCode: '',
+        certificationRegistry: null,
+        certificationLookupError: null,
+        certificationLabel: undefined,
+        categoryBand: 'Certificat de l’organisme',
+      });
+      return;
+    }
+    if (code === 'RNCP40282') {
+      update({
+        certificationCode: codeRaw,
+        certificationRegistry: null,
+        certificationLookupError: `Le code ${code} n’existe pas au registre. Vérifiez-le.`,
+      });
+      return;
+    }
+    if (code.endsWith('BC05')) {
+      update({
+        certificationCode: codeRaw,
+        certificationRegistry: null,
+        certificationLookupError: `Le bloc ${code} n’est pas dans cette fiche. Choisissez un bloc de la liste.`,
+      });
+      return;
+    }
+    const hit = MOCK_REGISTRY[code];
+    if (!hit) {
+      update({
+        certificationCode: codeRaw,
+        certificationRegistry: null,
+        certificationLookupError: 'Le registre ne répond pas. Réessayez dans un moment.',
+      });
+      return;
+    }
+    update({
+      certificationCode: codeRaw,
+      certificationRegistry: hit,
+      certificationLookupError: null,
+      certificationLabel: hit.label,
+      categoryBand: `Titre RNCP · niveau ${hit.level}`,
+      title: fiche?.title?.trim() ? fiche.title : hit.label,
+      eqfLevelDisplay: fiche?.euMc ? hit.level : fiche?.eqfLevelDisplay,
+    });
+  };
+
+  const onImage = (file: File | null) => {
+    if (!file) {
+      update({ imageDataUrl: undefined });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') update({ imageDataUrl: reader.result });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const goStep3 = () => {
+    if (!fiche) return;
+    setError(null);
+    if (titleClash) {
+      setError(
+        `Ce titre est déjà celui d’une fiche de votre organisme : ${titleClash}. Reprenez-la, ou changez le titre.`
+      );
+      return;
+    }
+    setStep3Missing([]);
+    setConfirmOpen(false);
+    setStep(3);
+  };
+
+  const saveDraft = async () => {
+    if (!fiche) return;
+    setError(null);
+    await saveCatalogueFiche({ ...fiche, status: 'draft' });
+    sessionStorage.removeItem(DRAFT_KEY);
+    goCatalogue();
+  };
+
+  const requestAddToCatalog = () => {
+    if (!fiche) return;
+    const missing = missingCatalogFields(fiche);
+    if (missing.length) {
+      setStep3Missing(missing);
+      setConfirmOpen(false);
+      return;
+    }
+    if (titleClash) {
+      setStep3Missing([]);
+      setError(
+        `Ce titre est déjà celui d’une fiche de votre organisme : ${titleClash}. Reprenez-la, ou changez le titre.`
+      );
+      return;
+    }
+    setStep3Missing([]);
+    setConfirmOpen(true);
+  };
+
+  const confirmAddToCatalog = async () => {
+    if (!fiche) return;
+    const saved = await saveCatalogueFiche({ ...fiche, status: 'catalog' });
+    setFiche(saved);
+    sessionStorage.removeItem(DRAFT_KEY);
+    setConfirmOpen(false);
+    goCatalogue();
+  };
+
+  const progCount = fiche
+    ? fiche.programmeSeries
+      ? fiche.programmeSeries.competenceLabels.length
+      : fiche.programmeLines.filter((l) => l.text.trim()).length
+    : 0;
+
+  if (!flags) {
+    return (
+      <div className="ffw">
+        <p className="ffw-sub">Chargement…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ffw">
+      <div className="ffw-shell">
+        <div className="ffw-bar">
+          <span>
+            {step === 1
+              ? 'Écran 1 — Créer'
+              : step === 2
+                ? euMc
+                  ? 'Écran 2 — La fiche de la formation · cadre européen'
+                  : 'Écran 2 — La fiche de la formation'
+                : euMc
+                  ? 'Écran 3 — Ajouter au catalogue · la carte or'
+                  : 'Écran 3 — Ajouter au catalogue'}
+          </span>
+          <span>{fiche?.orgName || 'Catalogue de formations'}</span>
+        </div>
+        <div className="ffw-inner">
+          <div className="ffw-steps">
+            <span className={step === 1 ? 'on' : 'done'}>1 · Créer</span>
+            <span className={step === 2 ? 'on' : step === 3 ? 'done' : ''}>2 · La fiche</span>
+            <span className={step === 3 ? 'on' : ''}>3 · Catalogue</span>
+          </div>
+
+          {error && <div className="ffw-err">{error}</div>}
+
+          {step === 1 && (
+            <>
+              <h1 className="ffw-title">Que voulez-vous créer&nbsp;?</h1>
+              <div className="ffw-blk">
+                <h4>Organisation porteuse</h4>
+                <div className="ffw-org">
+                  <div className="ffw-dot">{lock?.orgInitials || 'OF'}</div>
+                  <div>
+                    <div className="ffw-orgname">{lock?.orgName || 'Organisme de formation'}</div>
+                    <div className="ffw-orgsub">
+                      Organisme de formation
+                      {(lock?.orgCertified ?? true) && (
+                        <span className="ffw-cert">✓ Organisme de formation certifié</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="ffw-lock">définitive</div>
+                </div>
+              </div>
+              <div className="ffw-blk">
+                <h4>Le type</h4>
+                <p className="ffw-hint2">FORMATION sélectionnée — programme, sessions, participants</p>
+              </div>
+              <div className="ffw-blk">
+                <h4>Le cadre</h4>
+                <label className={`ffw-mc ${!gateLabel?.disabled ? 'gold' : 'off'}`}>
+                  <input
+                    type="checkbox"
+                    checked={euMcChoice}
+                    disabled={gateLabel?.disabled}
+                    onChange={(e) => setEuMcChoice(e.target.checked)}
+                  />
+                  <div>
+                    <b>Microcertification européenne</b> — {gateLabel?.body}
+                  </div>
+                </label>
+              </div>
+              {euMcChoice && flags.eu_mc_gate.allowed && (
+                <div className="ffw-orbar">
+                  <div className="cnt">4/11</div>
+                  <div className="lbl">
+                    <b>Le compteur européen s’allume.</b> Pays, organisme, assurance qualité et niveau
+                    sont déjà renseignés. La fiche complète le cadre.
+                  </div>
+                </div>
+              )}
+              <div className="ffw-warn">
+                ⚠
+                <div>
+                  <b>Ces trois choix seront définitifs au premier enregistrement</b> — brouillon
+                  compris.
+                </div>
+              </div>
+              <div className="ffw-foot">
+                <button type="button" className="ffw-btn g" onClick={goCatalogue}>
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  className="ffw-btn p"
+                  onClick={() => {
+                    ensureFicheFromStep1();
+                    setStep(2);
+                  }}
+                >
+                  Continuer →
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === 2 && fiche && (
+            <>
+              {euMc && (
+                <div className={`ffw-orbar ${goldCount < 9 ? 'low' : ''}`}>
+                  <div className="cnt">{goldCount}/11</div>
+                  <div className="lbl">
+                    {goldCount >= 9 ? (
+                      <>
+                        <b>Cadre européen complet.</b> Les inscrits de la session porteront le
+                        compteur à 10 ; la clôture écrira le onzième.
+                      </>
+                    ) : (
+                      <>
+                        <b>Le cadre européen avance.</b> Complétez la fiche pour atteindre 9/11.
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+              <h1 className="ffw-title">La fiche de la formation</h1>
+              <p className="ffw-sub">Elle entre à votre catalogue ; chaque session la reprend.</p>
+
+              {flags.certification_links_enabled && (
+                <div className="ffw-gold petrol">
+                  <label>
+                    Code RNCP ou RS{' '}
+                    <span className="hint">— si la formation prépare une certification enregistrée</span>
+                  </label>
+                  <input
+                    className="ffw-in"
+                    style={{ maxWidth: 220 }}
+                    value={fiche.certificationCode || ''}
+                    onChange={(e) => lookupCertification(e.target.value)}
+                    placeholder="RNCP40281"
+                  />
+                  {fiche.certificationLookupError && (
+                    <div className="ffw-err" style={{ marginTop: 8 }}>
+                      {fiche.certificationLookupError}
+                    </div>
+                  )}
+                  {fiche.certificationRegistry && (
+                    <>
+                      <div className="ffw-recap" style={{ marginTop: 8 }}>
+                        <div className="lab">Lu au registre</div>
+                        <div className="r">
+                          <span className="k">Intitulé exact</span>
+                          <span>
+                            <b>{fiche.certificationRegistry.label}</b>
+                          </span>
+                        </div>
+                        <div className="r">
+                          <span className="k">Niveau</span>
+                          <span>{fiche.certificationRegistry.level}</span>
+                        </div>
+                        <div className="r">
+                          <span className="k">Certificateur</span>
+                          <span>{fiche.certificationRegistry.certificateur}</span>
+                        </div>
+                        <div className="r">
+                          <span className="k">Blocs</span>
+                          <span>{fiche.certificationRegistry.blocks}</span>
+                        </div>
+                      </div>
+                      <div className="ffw-hint2" style={{ marginTop: 9 }}>
+                        Cette fiche vise
+                      </div>
+                      <div className="ffw-radio">
+                        <button
+                          type="button"
+                          className={`ffw-ropt ${fiche.certificationTarget !== 'block' ? 'sel' : ''}`}
+                          onClick={() => update({ certificationTarget: 'title' })}
+                        >
+                          Le titre entier
+                        </button>
+                        <button
+                          type="button"
+                          className={`ffw-ropt ${fiche.certificationTarget === 'block' ? 'sel' : ''}`}
+                          onClick={() => update({ certificationTarget: 'block' })}
+                        >
+                          Un bloc ▾
+                        </button>
+                      </div>
+                      <p className="ffw-hint2">
+                        Une fiche vise le titre entier ou un bloc ; pour un autre bloc, une autre
+                        fiche.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="ffw-field">
+                <label>
+                  Titre de la formation <span className="ob">✱</span>
+                  {euMc && <span className="ffw-ortag">cadre européen — intitulé exact</span>}
+                </label>
+                <input
+                  className="ffw-in"
+                  value={fiche.title}
+                  onChange={(e) => {
+                    update({ title: e.target.value });
+                    checkTitleClash(e.target.value);
+                  }}
+                  onBlur={() => checkTitleClash(fiche.title)}
+                />
+                {titleClash && (
+                  <div className="ffw-err" style={{ marginTop: 6 }}>
+                    Ce titre est déjà celui d’une fiche de votre organisme : <b>{titleClash}</b>.
+                    Reprenez-la, ou changez le titre.
+                  </div>
+                )}
+              </div>
+              <div className="ffw-field">
+                <label>
+                  Description <span className="ob">✱</span>
+                </label>
+                <textarea
+                  className="ffw-ta"
+                  value={fiche.description}
+                  onChange={(e) => update({ description: e.target.value })}
+                />
+              </div>
+
+              <div className={`ffw-gold ${euMc ? '' : 'petrol'}`}>
+                <label>
+                  Programme — les compétences visées <span className="ob">✱</span>
+                  {euMc && <span className="ffw-ortag">cadre européen</span>}
+                </label>
+                {!euMc && (
+                  <p className="ffw-hint2">Vos propres lignes, ou une série — jamais les deux.</p>
+                )}
+                {fiche.programmeMode === 'series' && fiche.programmeSeries ? (
+                  <>
+                    <div className="ffw-line">
+                      <span className="ffw-ser">{fiche.programmeSeries.label}</span>
+                      <button
+                        type="button"
+                        className="ffw-add"
+                        onClick={() =>
+                          update({ programmeSeries: undefined, programmeMode: 'none' })
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {fiche.programmeSeries.competenceLabels.map((c) => (
+                      <div key={c} className="ffw-line">
+                        <span>☑</span>
+                        <span style={{ flex: 1 }}>{c}</span>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  fiche.programmeLines.map((line) => (
+                    <div key={line.id} className="ffw-line">
+                      <span>⠿</span>
+                      <input
+                        value={line.text}
+                        onChange={(e) =>
+                          update({
+                            programmeLines: fiche.programmeLines.map((l) =>
+                              l.id === line.id ? { ...l, text: e.target.value } : l
+                            ),
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="ffw-add"
+                        onClick={() =>
+                          update({
+                            programmeLines: fiche.programmeLines.filter((l) => l.id !== line.id),
+                          })
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+                <div style={{ marginTop: 8 }}>
+                  {!euMc && (
+                    <button type="button" className="ffw-add" onClick={addLine}>
+                      + Ajouter une ligne
+                    </button>
+                  )}
+                  <button type="button" className="ffw-add" onClick={chooseSeries}>
+                    📚 Choisir une série ▾
+                  </button>
+                </div>
+                {euMc && (
+                  <p className="ffw-hint2" style={{ color: '#8a6d1a' }}>
+                    Une série, ses compétences cochées.
+                  </p>
+                )}
+              </div>
+
+              <div className="ffw-two">
+                <div className={euMc ? 'ffw-gold' : 'ffw-field'}>
+                  <label>
+                    Durée en heures <span className="ob">✱</span>
+                    {euMc && <span className="ffw-ortag">cadre européen</span>}
+                  </label>
+                  <input
+                    className="ffw-in"
+                    style={{ maxWidth: 140 }}
+                    value={fiche.durationHours}
+                    onChange={(e) => update({ durationHours: e.target.value })}
+                  />
+                </div>
+                <div className={euMc ? 'ffw-gold' : 'ffw-field'}>
+                  <label>
+                    Modalité <span className="ob">✱</span>
+                    {euMc && <span className="ffw-ortag">cadre européen</span>}
+                  </label>
+                  <div className="ffw-radio">
+                    {MODALITIES.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`ffw-ropt ${fiche.modality === m.id ? 'sel' : ''}`}
+                        onClick={() => update({ modality: m.id })}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="ffw-field">
+                <label>
+                  Financement <span className="ob">✱</span>
+                </label>
+                <div className="ffw-radio">
+                  {FINANCEMENTS.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`ffw-ropt ${fiche.financement === f ? 'sel' : ''}`}
+                      onClick={() => update({ financement: f })}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ffw-field">
+                <label>Prérequis</label>
+                <textarea
+                  className="ffw-ta"
+                  placeholder="Ce qu’il faut savoir ou avoir avant d’entrer"
+                  value={fiche.prerequisites}
+                  onChange={(e) => update({ prerequisites: e.target.value })}
+                />
+              </div>
+
+              <div className="ffw-field">
+                <label>Langue de la formation</label>
+                {fiche.languages.map((lang) => (
+                  <span key={lang} className="ffw-chip">
+                    {lang}
+                    <button
+                      type="button"
+                      className="ffw-add"
+                      onClick={() =>
+                        update({ languages: fiche.languages.filter((l) => l !== lang) })
+                      }
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+                <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
+                  <input
+                    className="ffw-in"
+                    style={{ maxWidth: 160 }}
+                    placeholder="Ajouter"
+                    value={langInput}
+                    onChange={(e) => setLangInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="ffw-add"
+                    onClick={() => {
+                      if (!langInput.trim()) return;
+                      update({ languages: [...fiche.languages, langInput.trim()] });
+                      setLangInput('');
+                    }}
+                  >
+                    + Ajouter une langue
+                  </button>
+                </div>
+              </div>
+
+              <div className="ffw-field">
+                <label>Informations pratiques</label>
+                <textarea
+                  className="ffw-ta"
+                  placeholder="Le lieu, les horaires, le matériel"
+                  value={fiche.practicalInfo}
+                  onChange={(e) => update({ practicalInfo: e.target.value })}
+                />
+              </div>
+
+              <div className={`ffw-gold ${euMc ? '' : 'petrol'}`}>
+                <label>
+                  Évaluation {euMc && <span className="ffw-ortag">cadre européen</span>}
+                </label>
+                <div className="ffw-hint2">
+                  Type d’évaluation {euMc && <span className="ob">✱</span>}
+                </div>
+                <input
+                  className="ffw-in"
+                  value={fiche.assessmentType}
+                  onChange={(e) => update({ assessmentType: e.target.value })}
+                />
+                <div className="ffw-sug">
+                  {ASSESS_SUGGESTIONS.map((s) => (
+                    <button key={s} type="button" onClick={() => update({ assessmentType: s })}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <div className="ffw-hint2" style={{ marginTop: 9 }}>
+                  Jury
+                </div>
+                <div className="ffw-radio">
+                  <button
+                    type="button"
+                    className={`ffw-ropt ${fiche.jury === true ? 'sel' : ''}`}
+                    onClick={() => update({ jury: true })}
+                  >
+                    Oui
+                  </button>
+                  <button
+                    type="button"
+                    className={`ffw-ropt ${fiche.jury === false ? 'sel' : ''}`}
+                    onClick={() => update({ jury: false })}
+                  >
+                    Non
+                  </button>
+                </div>
+              </div>
+
+              {euMc && (
+                <div className="ffw-gold">
+                  <label>
+                    Cadre européen <span className="ffw-ortag">cadre européen</span>
+                  </label>
+                  <div className="ffw-two" style={{ marginTop: 4 }}>
+                    <div>
+                      <div className="ffw-hint2">Niveau et cadre</div>
+                      <div className="ffw-in" style={{ background: '#fbfaf8', color: '#6d6b64' }}>
+                        {fiche.eqfLevelDisplay || 'non applicable'}
+                      </div>
+                      <p className="ffw-hint2" style={{ color: '#8a6d1a' }}>
+                        Calculé automatiquement ; avec une certification visée, c’est le niveau du
+                        registre.
+                      </p>
+                    </div>
+                    <div>
+                      <div className="ffw-hint2">Crédits ECTS — si applicable</div>
+                      <input
+                        className="ffw-in"
+                        style={{ maxWidth: 90 }}
+                        value={fiche.workloadEcts || ''}
+                        onChange={(e) => update({ workloadEcts: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="ffw-hint2" style={{ marginTop: 9 }}>
+                    Validité — si applicable
+                  </div>
+                  <div className="ffw-radio">
+                    <button
+                      type="button"
+                      className={`ffw-ropt ${fiche.validityUnlimited !== false ? 'sel' : ''}`}
+                      onClick={() => update({ validityUnlimited: true })}
+                    >
+                      ● Sans limite
+                    </button>
+                    <button
+                      type="button"
+                      className={`ffw-ropt ${fiche.validityUnlimited === false ? 'sel' : ''}`}
+                      onClick={() => update({ validityUnlimited: false })}
+                    >
+                      ○ [N] mois
+                    </button>
+                  </div>
+                  {fiche.validityUnlimited === false && (
+                    <input
+                      className="ffw-in"
+                      style={{ maxWidth: 90, marginTop: 6 }}
+                      placeholder="mois"
+                      value={fiche.validityMonths || ''}
+                      onChange={(e) => update({ validityMonths: e.target.value })}
+                    />
+                  )}
+                  <div className="ffw-hint2" style={{ marginTop: 11 }}>
+                    L’identité à l’évaluation — si vous le savez
+                  </div>
+                  <div className="ffw-radio">
+                    {IDENTITY_OPTS.map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        className={`ffw-ropt ${fiche.identityAtAssessment === o.id ? 'sel' : ''}`}
+                        onClick={() => update({ identityAtAssessment: o.id })}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className={`ffw-field ${euMc ? 'ffw-gold' : ''}`}>
+                <div className="ffw-deliv">
+                  Délivre{' '}
+                  <span className={`tag ${euMc ? 'gold' : ''}`}>
+                    {euMc ? 'Microcertification européenne' : 'Preuve de formation'}
+                  </span>
+                  {fiche.certificationRegistry && !euMc && (
+                    <span className="tag">Preuve certification</span>
+                  )}
+                  {fiche.certificationRegistry && euMc && (
+                    <span className="tag">Preuve certification</span>
+                  )}
+                </div>
+                {euMc && (
+                  <p className="ffw-hint2" style={{ color: '#8a6d1a' }}>
+                    Avec une certification visée : la Preuve certification en plus.
+                  </p>
+                )}
+              </div>
+
+              <div className="ffw-field">
+                <label>
+                  Image de la formation <span className="hint">— optionnelle</span>
+                </label>
+                <div className="ffw-imgzone">
+                  <div
+                    className="ffw-imgprev"
+                    style={
+                      fiche.imageDataUrl
+                        ? {
+                            backgroundImage: `url(${fiche.imageDataUrl})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                          }
+                        : undefined
+                    }
+                  >
+                    {!fiche.imageDataUrl &&
+                      (fiche.title
+                        ? fiche.title.toUpperCase().slice(0, 40)
+                        : 'TITRE SUR LA COULEUR')}
+                  </div>
+                  <div className="ffw-imgnote">
+                    Sans image, la carte porte le titre sur la couleur de votre organisation.
+                    <button
+                      type="button"
+                      className="ffw-add"
+                      style={{ display: 'block', marginTop: 6 }}
+                      onClick={() => imgRef.current?.click()}
+                    >
+                      {fiche.imageDataUrl ? 'Changer l’image →' : 'Ajouter une image →'}
+                    </button>
+                    {fiche.imageDataUrl && (
+                      <button
+                        type="button"
+                        className="ffw-add"
+                        style={{ marginTop: 4 }}
+                        onClick={() => update({ imageDataUrl: undefined })}
+                      >
+                        Retirer
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    ref={imgRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => onImage(e.target.files?.[0] || null)}
+                  />
+                </div>
+              </div>
+
+              <div className="ffw-rule">
+                Chaque session reprend la fiche telle qu’elle est à son ouverture.
+              </div>
+
+              <div className="ffw-foot">
+                <button type="button" className="ffw-btn g" onClick={goCatalogue}>
+                  Annuler
+                </button>
+                <div className="ffw-fcol">
+                  <button type="button" className="ffw-btn s" onClick={saveDraft}>
+                    Enregistrer en brouillon
+                  </button>
+                  {euMc && goldCount < 9 && (
+                    <div className="ffw-mc9">Le compteur attendra.</div>
+                  )}
+                </div>
+                <button type="button" className="ffw-btn p" onClick={goStep3}>
+                  Continuer →
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === 3 && fiche && (
+            <>
+              <h1 className="ffw-title">Ajouter la formation à votre catalogue</h1>
+              <p className="ffw-sub">
+                Voici sa carte. Vous ouvrirez ses sessions depuis le catalogue.
+              </p>
+
+              {step3Missing.length > 0 && (
+                <>
+                  {euMc && (
+                    <div className="ffw-orbar low">
+                      <div className="cnt">{goldCount}/11</div>
+                      <div className="lbl">
+                        <b>Le cadre européen n’est pas complet.</b>
+                      </div>
+                    </div>
+                  )}
+                  <div className="ffw-warn">
+                    ⚠
+                    <div>
+                      <b>Il manque : {step3Missing.join(', ')}.</b> Complétez la fiche, ou
+                      enregistrez-la en brouillon.
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="ffw-cardrow">
+                <div className={`ffw-card ${fiche.euMc ? 'mcue' : ''}`}>
+                  <div className="hd">
+                    <span>{fiche.schoolLabel || fiche.orgName}</span>
+                    <span className="cd">{fiche.certificationCode || ''}</span>
+                  </div>
+                  <div className="band">{fiche.categoryBand || 'Certificat de l’organisme'}</div>
+                  <div className="ti">{fiche.title || 'Sans titre'}</div>
+                  {fiche.assessmentType && <div className="sub">{fiche.assessmentType}</div>}
+                  <div className="pills">
+                    {fiche.durationHours && <span className="pp h">{fiche.durationHours} h</span>}
+                    {fiche.jury && <span className="pp">Jury</span>}
+                  </div>
+                  {(fiche.modality || fiche.financement) && (
+                    <div className="sub" style={{ paddingTop: 0 }}>
+                      {[modalityLabel(fiche.modality), fiche.financement].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
+                  <div className="prod">
+                    <span className="pl">Délivre</span>
+                    {fiche.euMc ? (
+                      <span className="pp or">MC UE</span>
+                    ) : (
+                      <span className="pp">PF</span>
+                    )}
+                    {fiche.certificationRegistry && <span className="pp">PC</span>}
+                  </div>
+                </div>
+                <div className="ffw-recap">
+                  <div className="lab">
+                    {fiche.euMc ? `Cadre européen — ${goldCount}/11` : 'La fiche'}
+                  </div>
+                  {fiche.euMc ? (
+                    <>
+                      <div className="r">
+                        <span className="k">Intitulé exact</span>
+                        <span>{fiche.title.trim() ? '✓' : '—'}</span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Programme</span>
+                        <span>
+                          {progCount} compétence{progCount > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Durée</span>
+                        <span>
+                          {fiche.durationHours || '—'}
+                          {fiche.workloadEcts ? ` h · ${fiche.workloadEcts} ECTS` : fiche.durationHours ? ' h' : ''}
+                        </span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Niveau</span>
+                        <span>{fiche.eqfLevelDisplay || 'non applicable'}</span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Évaluation</span>
+                        <span>{fiche.assessmentType || '—'}</span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Modalité</span>
+                        <span>{modalityLabel(fiche.modality) || '—'}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="r">
+                        <span className="k">Programme</span>
+                        <span>
+                          {progCount} compétence{progCount > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Durée</span>
+                        <span>{fiche.durationHours ? `${fiche.durationHours} heures` : '—'}</span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Modalité</span>
+                        <span>{modalityLabel(fiche.modality) || '—'}</span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Financement</span>
+                        <span>{fiche.financement || '—'}</span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Évaluation</span>
+                        <span>{fiche.assessmentType || '—'}</span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Décision</span>
+                        <span>
+                          {fiche.jury === true ? 'Le jury' : fiche.jury === false ? 'Sans jury' : '—'}
+                        </span>
+                      </div>
+                      <div className="r">
+                        <span className="k">Délivre</span>
+                        <span>Preuve de formation</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="ffw-foot">
+                <button type="button" className="ffw-btn g" onClick={() => setStep(2)}>
+                  Retour
+                </button>
+                <button type="button" className="ffw-btn s" onClick={saveDraft}>
+                  Enregistrer en brouillon
+                </button>
+                <button
+                  type="button"
+                  className="ffw-btn am"
+                  disabled={step3Missing.length > 0}
+                  onClick={requestAddToCatalog}
+                >
+                  Ajouter au catalogue
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {confirmOpen && fiche && (
+        <div className="ffw-modalwrap" role="dialog" aria-modal="true">
+          <div className="ffw-modal">
+            <h5>Ajouter la formation à votre catalogue&nbsp;?</h5>
+            <p>
+              <b>{fiche.title}</b> — {fiche.durationHours || '?'} heures
+              {fiche.modality ? `, ${modalityLabel(fiche.modality).toLowerCase()}` : ''}
+              {fiche.financement ? `, ${fiche.financement}` : ''}
+              {fiche.assessmentType ? `, ${fiche.assessmentType}` : ''}
+              {fiche.jury === true ? ', décision du jury' : ''}
+              {progCount ? ` ; programme de ${progCount} compétences` : ''}.
+            </p>
+            {fiche.euMc && (
+              <div className="ffw-figeor">
+                <b>Cadre européen — {goldCount}/11 :</b> le titre, le programme, la durée, le niveau,
+                le type d’évaluation, la modalité — avec le pays, l’organisme et l’assurance qualité
+                de votre vérification. Les inscrits de chaque session feront le dixième, sa clôture
+                le onzième.
+              </div>
+            )}
+            <p>
+              Elle délivre{' '}
+              {fiche.euMc
+                ? 'une microcertification européenne'
+                : 'une preuve de formation'}
+              .
+            </p>
+            <div className="ffw-porte">
+              Vous ouvrirez sa première session depuis sa carte : dates, formateur responsable,
+              participants.
+            </div>
+            <div className="ffw-btnrow">
+              <button type="button" className="ffw-btn g" onClick={() => setConfirmOpen(false)}>
+                Annuler
+              </button>
+              <button type="button" className="ffw-btn am" onClick={confirmAddToCatalog}>
+                Ajouter au catalogue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default FormationFicheWizard;

@@ -23,6 +23,9 @@ import {
   validateImages,
 } from '../../utils/projectMapper';
 import EuMcSeriesPicker from './EuMcSeriesPicker';
+import { getCatalogueFlags } from '../../api/FormationCatalogue';
+import { CatalogueServerFlags } from '../../types/formationCatalogue';
+import { getEuMcGateCheckboxLabel } from '../../utils/euMcGateCopy';
 import './CreateProjectPage.css';
 
 type CreateKind = 'project' | 'stage' | 'formation';
@@ -100,8 +103,13 @@ const CreateProjectPage: React.FC = () => {
     }
   }, [typeFromUrl, navigate, setCurrentPage]);
   const [euMc, setEuMc] = useState(false);
+  const [catalogueFlags, setCatalogueFlags] = useState<CatalogueServerFlags | null>(null);
   const [selectedOrgKey, setSelectedOrgKey] = useState<string>('');
   const ofReady = canCreateFormation();
+
+  useEffect(() => {
+    getCatalogueFlags().then(setCatalogueFlags);
+  }, []);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -517,29 +525,44 @@ const CreateProjectPage: React.FC = () => {
                   onClick={() => setKind('project')}
                 >
                   Projet
-                  <small>il raconte ce qui s’est fait</small>
+                  <small>Participants, étapes, compétences attestées</small>
                 </button>
                 <div className="cp-card off">
                   Stage
-                  <small>en milieu professionnel — bientôt disponible</small>
+                  <small>Période en milieu professionnel — bientôt disponible</small>
                 </div>
-                <div className="cp-card off">
+                <button
+                  type="button"
+                  className={`cp-card ${kind === 'formation' ? 'sel' : ''}`}
+                  onClick={() => setKind('formation')}
+                >
                   Formation
-                  <small>bientôt disponible</small>
-                </div>
+                  <small>Programme, sessions, participants</small>
+                </button>
               </div>
             </section>
 
             <section className="cp-blk">
               <h2>
-                Le cadre <sup>2</sup>
+                Le cadre <sup>3</sup>
               </h2>
-              <div className="cp-mc">
-                <input type="checkbox" checked={false} disabled />
-                <div>
-                  <b>Microcertification européenne</b> — bientôt disponible
-                </div>
-              </div>
+              {(() => {
+                const gate = catalogueFlags?.eu_mc_gate || { allowed: false, reason: 'setting' as const };
+                const label = getEuMcGateCheckboxLabel(gate);
+                return (
+                  <label className="cp-mc" style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                    <input
+                      type="checkbox"
+                      checked={euMc}
+                      disabled={label.disabled || kind !== 'formation'}
+                      onChange={(e) => setEuMc(e.target.checked)}
+                    />
+                    <div>
+                      <b>Microcertification européenne</b> — {label.body}
+                    </div>
+                  </label>
+                );
+              })()}
             </section>
 
             {euMc && (
@@ -570,7 +593,24 @@ const CreateProjectPage: React.FC = () => {
                 type="button"
                 className="cp-btn primary"
                 disabled={!canContinueStep1}
-                onClick={() => setStep(2)}
+                onClick={() => {
+                  if (kind === 'formation' && selectedOrg) {
+                    sessionStorage.setItem(
+                      'kinship.ficheDraft',
+                      JSON.stringify({
+                        orgKey: selectedOrg.key,
+                        orgName: selectedOrg.name,
+                        orgInitials: selectedOrg.initials,
+                        orgCertified: Boolean(showQualiopi),
+                        euMc: euMc && Boolean(catalogueFlags?.eu_mc_gate.allowed),
+                      })
+                    );
+                    setCurrentPage('formation-fiche');
+                    navigate('/formation-fiche');
+                    return;
+                  }
+                  setStep(2);
+                }}
               >
                 Continuer →
               </button>

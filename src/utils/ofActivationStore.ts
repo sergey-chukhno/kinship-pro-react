@@ -178,8 +178,8 @@ export function canBrowseFormationsReadOnly(): boolean {
 }
 
 export function canCreateFormation(): boolean {
-  // Formation creation temporarily disabled (demo shelved).
-  return false;
+  // FE-62 smoke : dé-shelvé temporairement — dossier OF activé (mock local).
+  return isOfActivated();
 }
 
 export function saveMyOfDraft(patch: Partial<OfActivationDossier>): OfActivationDossier {

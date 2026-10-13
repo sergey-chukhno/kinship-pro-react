@@ -51,6 +51,7 @@ import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { isUnder15 } from '../../utils/ageUtils';
 import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
+import FormationsActivationTile from '../Dashboard/FormationsActivationTile';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
@@ -1545,10 +1546,36 @@ const Dashboard: React.FC = () => {
     return `Il y a ${years} an${years > 1 ? 's' : ''}`;
   };
 
-  // Espace OF / formations temporairement désactivé
-  // if (state.showingPageType === 'of') {
-  //   return <FormationsHub />;
-  // }
+  if (state.showingPageType === 'of') {
+    return (
+      <section className="dashboard-main-layout active">
+        <div className="dashboard-header">
+          <div className="welcome-header">
+            <div className="section-title">
+              <h1 className="welcome-title">Bonjour {state.user.name.split(' ')[0]} !</h1>
+              <div className="flex gap-2 items-center">
+                <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+                <span>Espace organisme de formation</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="dashboard-main-content">
+          <div className="dashboard-left-column">
+            <div className="dashboard-stats">
+              <div className="stats-grid">
+                <FormationsActivationTile />
+              </div>
+              <p style={{ marginTop: 16, fontSize: 14, color: '#5a6a7a', maxWidth: 520 }}>
+                Le <strong>catalogue</strong> regroupe les fiches (programme, évaluation). Les{' '}
+                <strong>sessions</strong> sont distinctes — hub Formations (ticket 16).
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (state.showingPageType === 'user') {
     const s = userDashboardStats;

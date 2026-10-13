@@ -11,6 +11,7 @@ import { applySpaceTheme } from '../../utils/spaceTheme';
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
 import { MOCK_OF_ORG } from '../../data/mockFormations';
+import { canCreateFormation } from '../../utils/ofActivationStore';
 import { openProjectAffiche } from '../../utils/projectSpaceStore';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
@@ -103,7 +104,26 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         });
       }
 
-      // Formation / OF context temporarily hidden from the switcher
+      // FE-62 smoke : OF mock toujours proposé dans le switcher (re-shelver avant merge staging)
+      const ofFromApi = contexts.formation_organizations || [];
+      if (ofFromApi.length > 0) {
+        ofFromApi.forEach((org: { id: number | string; name: string; role?: string }) => {
+          orgs.push({
+            id: org.id,
+            name: org.name,
+            type: 'formation' as const,
+            role: org.role,
+            isAdmin: true,
+          });
+        });
+      } else {
+        orgs.push({
+          id: MOCK_OF_ORG.id,
+          name: MOCK_OF_ORG.name,
+          type: 'formation' as const,
+          isAdmin: true,
+        });
+      }
 
       // Add teacher dashboard if available
       if (contexts.teacher_dashboard) {
@@ -342,18 +362,35 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                         </Menu.Item>
                       </>
                     )}
-                    <Menu.Item disabled>
-                      {({ active }) => (
-                        <button
-                          type="button"
-                          disabled
-                          className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
-                        >
-                          Formation
-                          <span className="sidebar-quick-action-soon">Bientôt</span>
-                        </button>
-                      )}
-                    </Menu.Item>
+                    {canCreateFormation() ? (
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            type="button"
+                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                            onClick={() => {
+                              navigate('/create?type=formation');
+                              onPageChange('create');
+                            }}
+                          >
+                            Formation
+                          </button>
+                        )}
+                      </Menu.Item>
+                    ) : (
+                      <Menu.Item disabled>
+                        {({ active }) => (
+                          <button
+                            type="button"
+                            disabled
+                            className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
+                          >
+                            Formation
+                            <span className="sidebar-quick-action-soon">Bientôt</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                    )}
                     <Menu.Item disabled>
                       {({ active }) => (
                         <button
@@ -419,8 +456,21 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
             <button
               type="button"
               className="side-link quick-action-btn"
-              disabled
-              title="Bientôt disponible"
+              onClick={() => {
+                onPageChange('catalogue-formations');
+                navigate('/catalogue-formations');
+              }}
+            >
+              <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
+              Catalogue de formations
+            </button>
+            <button
+              type="button"
+              className="side-link quick-action-btn"
+              onClick={() => {
+                onPageChange('create');
+                navigate('/create?type=formation');
+              }}
             >
               <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
               Créer une formation

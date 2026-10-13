@@ -37,7 +37,10 @@ import ProjectSpacePage from '../Pages/ProjectSpacePage';
 import ProjectAffichePage from '../Pages/ProjectAffichePage';
 import FundedProjectsPage from '../Pages/FundedProjectsPage';
 import FunderFollowPage from '../Pages/FunderFollowPage';
-// import OfActivationPage from '../Pages/OfActivationPage';
+import CatalogueFormationsPage from '../Pages/CatalogueFormationsPage';
+import FormationFicheWizard from '../Pages/FormationFicheWizard';
+import CatalogueImportPage from '../Pages/CatalogueImportPage';
+import OfActivationPage from '../Pages/OfActivationPage';
 // import SuperAdminOfQueuePage from '../Pages/SuperAdminOfQueuePage';
 
 const MainLayout: React.FC = () => {
@@ -151,6 +154,12 @@ const MainLayout: React.FC = () => {
       //   return <PreuveFormationPage />;
       case 'create':
         return <CreateProjectPage />;
+      case 'catalogue-formations':
+        return <CatalogueFormationsPage />;
+      case 'formation-fiche':
+        return <FormationFicheWizard />;
+      case 'catalogue-import':
+        return <CatalogueImportPage />;
       case 'project-space':
         return <ProjectSpacePage />;
       case 'project-affiche':
@@ -159,8 +168,8 @@ const MainLayout: React.FC = () => {
         return <FundedProjectsPage />;
       case 'funder-follow':
         return <FunderFollowPage />;
-      // case 'of-activation':
-      //   return <OfActivationPage />;
+      case 'of-activation':
+        return <OfActivationPage />;
       // case 'admin-of-queue':
       //   return <SuperAdminOfQueuePage />;
       default:

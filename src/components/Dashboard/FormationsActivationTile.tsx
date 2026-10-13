@@ -32,22 +32,49 @@ const FormationsActivationTile: React.FC = () => {
     navigate('/formations');
   };
 
+  const goCatalogue = () => {
+    if (status === 'activated') {
+      localStorage.setItem('selectedPageType', 'of');
+      localStorage.setItem('selectedContextType', 'formation');
+      localStorage.setItem('selectedContextId', 'of-demo');
+      setShowingPageType('of');
+    }
+    setCurrentPage('catalogue-formations');
+    navigate('/catalogue-formations');
+  };
+
   if (status === 'activated') {
     return (
-      <button
-        type="button"
-        className="stat-card2 stat-card-clickable"
-        onClick={goFormations}
-        title="Voir Formations"
-      >
-        <div className="stat-icon">
-          <img src="/icons_logo/Icon=Projet grand.svg" alt="Formations" />
-        </div>
-        <div className="stat-content">
-          <div className="stat-value">{count}</div>
-          <div className="stat-label2">Formations</div>
-        </div>
-      </button>
+      <div className="fat-activated-row" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="stat-card2 stat-card-clickable"
+          onClick={goCatalogue}
+          title="Catalogue de formations"
+        >
+          <div className="stat-icon">
+            <img src="/icons_logo/Icon=Projet grand.svg" alt="Catalogue" />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">📚</div>
+            <div className="stat-label2">Catalogue</div>
+          </div>
+        </button>
+        <button
+          type="button"
+          className="stat-card2 stat-card-clickable"
+          onClick={goFormations}
+          title="Sessions (hub Formations)"
+        >
+          <div className="stat-icon">
+            <img src="/icons_logo/Icon=Projet grand.svg" alt="Sessions" />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">{count}</div>
+            <div className="stat-label2">Sessions</div>
+          </div>
+        </button>
+      </div>
     );
   }
 
