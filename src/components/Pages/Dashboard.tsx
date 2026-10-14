@@ -1568,7 +1568,7 @@ const Dashboard: React.FC = () => {
               </div>
               <p style={{ marginTop: 16, fontSize: 14, color: '#5a6a7a', maxWidth: 520 }}>
                 Le <strong>catalogue</strong> regroupe les fiches (programme, évaluation). Les{' '}
-                <strong>sessions</strong> sont distinctes — hub Formations (ticket 16).
+                <strong>sessions</strong> sont distinctes.
               </p>
             </div>
           </div>

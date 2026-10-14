@@ -3,6 +3,7 @@ import {
   CATALOGUE_CSV_TEMPLATE,
   commitCatalogueImport,
   parseCatalogueCsv,
+  previewCatalogueUpload,
 } from './FormationCatalogue';
 import { replaceAllFiches } from '../utils/formationCatalogueStore';
 
@@ -46,6 +47,25 @@ A;d;p;1;Présentiel;CPF;RNCP1
 
   it('throws when Titre column is missing', () => {
     expect(() => parseCatalogueCsv('Foo;Bar\n1;2', 'bad.csv')).toThrow(/Titre/);
+  });
+});
+
+describe('previewCatalogueUpload', () => {
+  it('parses CSV via File without conversion', async () => {
+    const file = new File([CATALOGUE_CSV_TEMPLATE], 'modele.csv', { type: 'text/csv' });
+    const preview = await previewCatalogueUpload(file);
+    expect(preview.counts.catalog).toBe(2);
+  });
+
+  it('accepts .xlsx as opaque upload (mock server preview)', async () => {
+    const file = new File([new Uint8Array([0x50, 0x4b])], 'fe62-test6-catalogue.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const preview = await previewCatalogueUpload(file);
+    expect(preview.fileName).toMatch(/\.xlsx$/);
+    expect(preview.counts.read).toBe(2);
+    expect(preview.counts.catalog).toBe(1);
+    expect(preview.counts.draft).toBe(1);
   });
 });
 

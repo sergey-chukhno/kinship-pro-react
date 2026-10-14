@@ -19,7 +19,6 @@ const CatalogueFormationsPage: React.FC = () => {
   const [fiches, setFiches] = useState<FormationFiche[]>([]);
   const [search, setSearch] = useState('');
   const [school, setSchool] = useState('all');
-  const [toast, setToast] = useState<string | null>(null);
 
   const refresh = () => {
     getCatalogue().then(setFiches);
@@ -50,11 +49,8 @@ const CatalogueFormationsPage: React.FC = () => {
     navigate(`/formation-fiche/${f.id}`);
   };
 
-  const openSessionStub = (f: FormationFiche) => {
-    setToast(
-      `« Ouvrir une session » pour « ${f.title} » — disponible avec le ticket 16 (P4.2 écran 2).`
-    );
-    window.setTimeout(() => setToast(null), 4000);
+  const openSessionStub = (_f: FormationFiche) => {
+    /* Ticket 16 : ouverture de session depuis la fiche. Pas d’annonce d’absence. */
   };
 
   const createFiche = () => {
@@ -155,15 +151,7 @@ const CatalogueFormationsPage: React.FC = () => {
               </button>
             )}
             <div className="catf-sess">
-              {f.status === 'catalog' ? (
-                <>
-                  <span className="catf-st venir">Sessions</span>
-                  <span>aucun programme encore · ticket 16</span>
-                  <button type="button" className="catf-sess-link" onClick={() => openSessionStub(f)}>
-                    Voir →
-                  </button>
-                </>
-              ) : f.status === 'draft' ? (
+              {f.status === 'catalog' ? null : f.status === 'draft' ? (
                 <>
                   <span className="catf-st brouillon">Brouillon</span>
                   <span>à compléter</span>
@@ -201,14 +189,6 @@ const CatalogueFormationsPage: React.FC = () => {
           <b>Créer une formation →</b>
         </button>
       </div>
-      <p className="catf-legend">
-        Contour or : la formation donne une microcertification européenne. « Délivre » : selon la
-        formation elle-même. Sur chaque carte, ses sessions programmées (stub ticket 16). Un
-        brouillon et une fiche retirée restent visibles avec leur état ; « Ouvrir une session → »
-        n’apparaît que sur une fiche au catalogue.
-      </p>
-
-      {toast && <div className="catf-toast">{toast}</div>}
     </div>
   );
 };

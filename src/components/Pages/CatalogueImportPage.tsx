@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   CATALOGUE_CSV_TEMPLATE,
   commitCatalogueImport,
-  parseCatalogueCsv,
+  previewCatalogueUpload,
 } from '../../api/FormationCatalogue';
 import { useAppContext } from '../../context/AppContext';
 import { CatalogueImportPreview } from '../../types/formationCatalogue';
@@ -15,8 +15,7 @@ const CatalogueImportPage: React.FC = () => {
   const navigate = useNavigate();
   const { setCurrentPage, state } = useAppContext();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [fileText, setFileText] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<CatalogueImportPreview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,48 +72,33 @@ const CatalogueImportPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const onFile = (file: File | null) => {
+  const onFile = (next: File | null) => {
     setError(null);
     setPreview(null);
-    if (!file) {
-      setFileName(null);
-      setFileText(null);
-      return;
-    }
-    if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
-      setError(
-        'Excel (.xlsx) : convertissez en CSV pour ce mock, ou téléchargez le modèle CSV. (Excel natif = ticket API.)'
+    setFile(next);
+    if (next) {
+      sessionStorage.setItem(
+        PENDING_KEY,
+        JSON.stringify({ at: new Date().toISOString(), fileName: next.name })
       );
-      setFileName(file.name);
-      setFileText(null);
-      return;
     }
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setFileText(reader.result);
-        sessionStorage.setItem(
-          PENDING_KEY,
-          JSON.stringify({ at: new Date().toISOString(), fileName: file.name })
-        );
-      }
-    };
-    reader.readAsText(file);
   };
 
-  const verify = () => {
+  const verify = async () => {
     setError(null);
-    if (!fileText || !fileName) {
-      setError('Choisissez un fichier CSV (ou convertissez votre Excel).');
+    if (!file) {
+      setError('Choisissez un fichier Excel ou CSV.');
       return;
     }
+    setBusy(true);
     try {
-      const result = parseCatalogueCsv(fileText, fileName);
+      const result = await previewCatalogueUpload(file);
       setPreview(result);
     } catch (e: any) {
       setError(e?.message || 'Fichier illisible.');
       setPreview(null);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -136,12 +120,21 @@ const CatalogueImportPage: React.FC = () => {
 
   const showRows = preview?.rows.slice(0, 6) || [];
 
+  const formatDuration = (raw: string) => {
+    const t = (raw || '').trim();
+    if (!t) return '';
+    if (/\bh\b/i.test(t) || /heure/i.test(t)) return t;
+    return `${t} h`;
+  };
+
+  const openFilePicker = () => inputRef.current?.click();
+
   return (
     <div className="cimp">
       <div className="cimp-shell">
         <div className="cimp-bar">
-          <span>{preview ? 'Écran 2 — Le contrôle' : 'Écran 1 — Le chargement'}</span>
-          <span>depuis le catalogue · Charger un tableau</span>
+          <span>Charger un tableau</span>
+          <span />
         </div>
         <div className="cimp-inner">
           {!preview ? (
@@ -155,7 +148,7 @@ const CatalogueImportPage: React.FC = () => {
               </button>
               <div className="cimp-hint" style={{ marginBottom: 10 }}>
                 Colonnes obligatoires : titre, description, programme, durée en heures, modalité,
-                financement · mock actuel = CSV (Excel à convertir)
+                financement
               </div>
               {pendingWarn && (
                 <div className="cimp-warn" style={{ marginBottom: 10 }}>
@@ -171,23 +164,36 @@ const CatalogueImportPage: React.FC = () => {
                   Si votre tableau a une colonne « Organisation », elle l’emporte, ligne par ligne.
                 </div>
               </div>
-              <div className="cimp-drop">
+              <button
+                type="button"
+                className={`cimp-drop ${file ? 'has-file' : ''}`}
+                onClick={openFilePicker}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onFile(e.dataTransfer.files?.[0] || null);
+                }}
+              >
                 📄
                 <div>
-                  <b>{fileName || 'Aucun fichier'}</b>
+                  <b>{file ? file.name : 'Excel ou CSV'}</b>
                   <div style={{ fontSize: 9.5, color: '#6d6b64' }}>
-                    {fileText
-                      ? 'Fichier CSV lu en local (mock)'
-                      : 'CSV recommandé · Excel (convertir en CSV pour ce mock)'}
+                    Une ligne par formation — cliquez ou déposez
                   </div>
                 </div>
-                {fileText && <span className="cimp-ok">✓ Fichier lu</span>}
-              </div>
+                {file && <span className="cimp-ok">✓</span>}
+              </button>
               <input
                 ref={inputRef}
                 type="file"
                 accept=".csv,.xlsx,.xls,text/csv"
-                style={{ marginBottom: 12 }}
+                className="cimp-file-native"
+                tabIndex={-1}
+                aria-hidden
                 onChange={(e) => onFile(e.target.files?.[0] || null)}
               />
               {error && (
@@ -199,7 +205,12 @@ const CatalogueImportPage: React.FC = () => {
                 <button type="button" className="cimp-btn g" onClick={goCatalogue}>
                   Annuler
                 </button>
-                <button type="button" className="cimp-btn p" onClick={verify} disabled={!fileText}>
+                <button
+                  type="button"
+                  className="cimp-btn p"
+                  onClick={verify}
+                  disabled={!file || busy}
+                >
                   Vérifier le tableau →
                 </button>
               </div>
@@ -220,7 +231,7 @@ const CatalogueImportPage: React.FC = () => {
                   <>
                     <br />
                     <span style={{ color: '#8f8d86' }}>
-                      Colonne « Code RNCP/RS » : non lue pour le moment (registre fermé).
+                      Colonne « Code RNCP/RS » : non lue (registre fermé).
                     </span>
                   </>
                 )}
@@ -256,7 +267,7 @@ const CatalogueImportPage: React.FC = () => {
                   {showRows.map((r) => (
                     <tr key={r.line}>
                       <td>{r.title}</td>
-                      <td>{r.durationHours}</td>
+                      <td>{formatDuration(r.durationHours)}</td>
                       <td>
                         {r.modality} · {r.financement}
                         {r.orgName ? (
@@ -292,7 +303,7 @@ const CatalogueImportPage: React.FC = () => {
               </table>
               <div className="cimp-hint" style={{ marginBottom: 10 }}>
                 Les brouillons se complètent ensuite, fiche par fiche. Une ligne non créée se corrige
-                dans le tableau, ou à la main. Aucune fiche MC UE via le tableau.
+                dans le tableau, ou à la main.
               </div>
               <div className="cimp-foot">
                 <button

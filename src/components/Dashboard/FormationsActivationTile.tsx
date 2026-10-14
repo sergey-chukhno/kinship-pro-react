@@ -64,7 +64,7 @@ const FormationsActivationTile: React.FC = () => {
           type="button"
           className="stat-card2 stat-card-clickable"
           onClick={goFormations}
-          title="Sessions (hub Formations)"
+          title="Sessions"
         >
           <div className="stat-icon">
             <img src="/icons_logo/Icon=Projet grand.svg" alt="Sessions" />

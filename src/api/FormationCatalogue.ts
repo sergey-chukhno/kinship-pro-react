@@ -231,3 +231,75 @@ export const CATALOGUE_CSV_TEMPLATE = `Titre;Description;Programme;Durée en heu
 Devenir journaliste;Titre Journaliste;4 blocs RNCP;513,5;Présentiel;CPF
 Assertivité;Communication;Savoir oser;14;Présentiel;OPCO
 `;
+
+async function readFileAsText(file: File): Promise<string> {
+  if (typeof file.text === 'function') {
+    return file.text();
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error || new Error('Lecture fichier impossible'));
+    reader.readAsText(file);
+  });
+}
+
+/**
+ * Aperçu import — le front envoie le fichier tel quel (CSV ou .xlsx).
+ * Mock : CSV parsé localement ; .xlsx = réponse serveur fictive (même forme que l’API Sergey).
+ * Quand l’API sera branchée : FormData POST, sans conversion côté FE.
+ */
+export async function previewCatalogueUpload(file: File): Promise<CatalogueImportPreview> {
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) {
+    return mockServerExcelPreview(file.name);
+  }
+  const text = await readFileAsText(file);
+  return parseCatalogueCsv(text, file.name);
+}
+
+/** Simule le parse Excel côté serveur (ticket 62 §6) — sans refus ni conversion FE. */
+function mockServerExcelPreview(fileName: string): CatalogueImportPreview {
+  const rows: CatalogueImportRowResult[] = [
+    {
+      line: 2,
+      title: 'Import Excel Complet',
+      durationHours: '21',
+      modality: 'Présentiel',
+      financement: 'CPF',
+      orgName: 'Atelier Numérique Formation',
+      state: 'catalog',
+    },
+    {
+      line: 3,
+      title: 'Import Excel Draft',
+      durationHours: '',
+      modality: 'Hybride',
+      financement: 'OPCO',
+      orgName: 'Atelier Numérique Formation',
+      state: 'draft',
+      detail: 'la description manque · le programme manque · la durée manque',
+    },
+  ];
+  return {
+    fileName,
+    columnsFound: [
+      'Titre',
+      'Description',
+      'Programme',
+      'Durée en heures',
+      'Modalité',
+      'Financement',
+      'Organisation',
+    ],
+    columnsIgnored: [],
+    rncpColumnIgnored: false,
+    rows,
+    counts: {
+      read: rows.length,
+      catalog: rows.filter((r) => r.state === 'catalog').length,
+      draft: rows.filter((r) => r.state === 'draft').length,
+      rejected: 0,
+    },
+  };
+}

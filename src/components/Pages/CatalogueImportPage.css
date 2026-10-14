@@ -99,10 +99,35 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+
+.cimp-drop:hover,
+.cimp-drop.has-file {
+  border-color: var(--cimp-petrol);
+  background: #f4faf9;
 }
 
 .cimp-drop b {
   color: var(--cimp-petrol);
+}
+
+/* Maquette : pas de bouton natif « Aucun fichier choisi » — zone seule. */
+.cimp-file-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .cimp-ok {

@@ -472,9 +472,6 @@ const CreateProjectPage: React.FC = () => {
         {step === 1 ? (
           <div className="cp-inner">
             <h1 className="cp-title">Que voulez-vous créer&nbsp;?</h1>
-            <p className="cp-sub">
-              Trois choix pour commencer — ils deviendront définitifs au premier enregistrement.
-            </p>
 
             <section className="cp-blk">
               <h2>
@@ -490,7 +487,7 @@ const CreateProjectPage: React.FC = () => {
                     <div className="cp-orgsub">{selectedOrg.subtitle}</div>
                   </div>
                   {showQualiopi && (
-                    <span className="cp-cart">◆ Reconnu et certifié par Qualiopi</span>
+                    <span className="cp-cart">✓ Organisme de formation certifié</span>
                   )}
                   <div className="cp-lock">définitive</div>
                 </div>
@@ -529,7 +526,7 @@ const CreateProjectPage: React.FC = () => {
                 </button>
                 <div className="cp-card off">
                   Stage
-                  <small>Période en milieu professionnel — bientôt disponible</small>
+                  <small>Période en milieu professionnel</small>
                 </div>
                 <button
                   type="button"
@@ -565,12 +562,12 @@ const CreateProjectPage: React.FC = () => {
               })()}
             </section>
 
-            {euMc && (
+            {euMc && kind === 'formation' && (
               <div className="cp-orbar">
-                <div className="cp-orcnt">3/11</div>
+                <div className="cp-orcnt">4/11</div>
                 <div className="cp-orlbl">
-                  <b>Le compteur européen s’allume.</b> Pays, organisme et assurance qualité sont déjà
-                  garantis — le formulaire conquiert le reste.
+                  <b>Le compteur européen s’allume.</b> Pays, organisme, assurance qualité et niveau
+                  sont déjà renseignés. La fiche complète le cadre.
                 </div>
               </div>
             )}
@@ -579,9 +576,6 @@ const CreateProjectPage: React.FC = () => {
               ⚠
               <div>
                 <b>Ces trois choix seront définitifs au premier enregistrement</b> — brouillon compris.
-                {euMc
-                  ? ' Décocher la case avant lui videra le cadre européen saisi.'
-                  : ' Avant lui, vous pouvez revenir en arrière librement.'}
               </div>
             </div>
 
@@ -624,13 +618,11 @@ const CreateProjectPage: React.FC = () => {
                 <div className="cp-orlbl">
                   {euGoldCount >= 9 ? (
                     <>
-                      <b>Cadre européen complet.</b> Vos inscrits porteront le compteur à 10 — la
-                      clôture écrira le onzième.
+                      <b>Cadre européen complet.</b> Les inscrits de la session porteront le
+                      compteur à 10 ; la clôture écrira le onzième.
                     </>
                   ) : (
-                    <>
-                      <b>Le cadre européen avance.</b> La création exigera le compteur à 9/11.
-                    </>
+                    <b>Le cadre européen n’est pas complet.</b>
                   )}
                 </div>
               </div>

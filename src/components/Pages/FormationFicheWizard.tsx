@@ -94,7 +94,7 @@ function emptyFiche(lock: FicheDraftLock): FormationFiche {
     languages: ['Français'],
     practicalInfo: '',
     assessmentType: '',
-    jury: null,
+    jury: false,
     categoryBand: 'Certificat de l’organisme',
     schoolLabel: lock.orgName.split('—')[0]?.trim() || lock.orgName,
     eqfLevelDisplay: lock.euMc ? 'non applicable' : undefined,
@@ -197,16 +197,16 @@ const FormationFicheWizard: React.FC = () => {
   const gateLabel = flags ? getEuMcGateCheckboxLabel(flags.eu_mc_gate) : null;
   const euMc = fiche?.euMc ?? euMcChoice;
 
+  /** Base 4 (pays, org, AQ, niveau) + 5 champs fiche → 9 max. Patrick : titre+durée+éval+modalité sans programme = 8/11. */
   const goldCount = useMemo(() => {
     if (!euMc || !fiche) return 0;
-    const ready =
-      Boolean(fiche.title.trim()) &&
-      fiche.programmeMode === 'series' &&
-      Boolean(fiche.programmeSeries) &&
-      Boolean(fiche.durationHours.trim()) &&
-      Boolean(fiche.modality) &&
-      Boolean(fiche.assessmentType.trim());
-    return ready ? 9 : 4;
+    let n = 4;
+    if (fiche.title.trim()) n += 1;
+    if (fiche.programmeMode === 'series' && fiche.programmeSeries) n += 1;
+    if (fiche.durationHours.trim()) n += 1;
+    if (fiche.assessmentType.trim()) n += 1;
+    if (fiche.modality) n += 1;
+    return Math.min(n, 9);
   }, [euMc, fiche]);
 
   const goCatalogue = () => {
@@ -414,17 +414,9 @@ const FormationFicheWizard: React.FC = () => {
       <div className="ffw-shell">
         <div className="ffw-bar">
           <span>
-            {step === 1
-              ? 'Écran 1 — Créer'
-              : step === 2
-                ? euMc
-                  ? 'Écran 2 — La fiche de la formation · cadre européen'
-                  : 'Écran 2 — La fiche de la formation'
-                : euMc
-                  ? 'Écran 3 — Ajouter au catalogue · la carte or'
-                  : 'Écran 3 — Ajouter au catalogue'}
+            Formation · {fiche?.orgName || lock?.orgName || 'Organisme de formation'}
           </span>
-          <span>{fiche?.orgName || 'Catalogue de formations'}</span>
+          <span />
         </div>
         <div className="ffw-inner">
           <div className="ffw-steps">
@@ -518,9 +510,7 @@ const FormationFicheWizard: React.FC = () => {
                         compteur à 10 ; la clôture écrira le onzième.
                       </>
                     ) : (
-                      <>
-                        <b>Le cadre européen avance.</b> Complétez la fiche pour atteindre 9/11.
-                      </>
+                      <b>Le cadre européen n’est pas complet.</b>
                     )}
                   </div>
                 </div>
