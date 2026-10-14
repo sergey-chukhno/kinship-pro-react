@@ -44,11 +44,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     } else if (state.showingPageType === 'user') {
       return { id: 'user-dashboard', type: 'user' as const };
     } else if (state.showingPageType === 'of') {
-      return { id: MOCK_OF_ORG.id, type: 'formation' as const };
+      const savedId = localStorage.getItem('selectedContextId');
+      const fromApi = state.user?.available_contexts?.formation_organizations?.[0]?.id;
+      return {
+        id: savedId || fromApi || 'formation',
+        type: 'formation' as const,
+      };
     }
     
     return null;
-  }, [state.showingPageType]);
+  }, [state.showingPageType, state.user?.available_contexts?.formation_organizations]);
 
   // Process organizations from available_contexts
   const organizations = useMemo(() => {
