@@ -1,32 +1,40 @@
-# CR Patrick — Ticket 62 · Branchement API staging
+# CR Patrick — Ticket 62 · Branchement API staging (complété)
 
 **Branche FE :** `feat/fe-62-formation-catalogue`  
-**BE :** staging `aca75e8` (PR #388 Sergey) — **aucune modif BE de notre côté**
+**BE :** staging PR #388 — **aucune modif BE**
 
-## Fait
+## Fait (intégration)
 
-1. UI V0.4 + retouches (compteur incrémental / `21 h` / zone fichier) — smoke OK.
-2. **Branchement API** : façade `FormationCatalogue.ts` → endpoints `formation_catalog_entries` + imports (FormData CSV/xlsx tel quel).
-3. Mapping FE↔BE (`listed`↔`catalog`, modalités, financement, `compliance` serveur).
-4. Org porteuse = **School | Company** du contexte courant (mock `of-demo` **re-shelvé**).
-5. Tests unitaires mapper + façade axios.
+- Façade API : index / show / create / update / list / withdraw / delete / imports / template  
+- Org = **School | Company** (`of-demo` re-shelvé)  
+- Compteur MC depuis `compliance` serveur  
+- **Série programme** : arbres F2 (`badge_series/by_key/:catalog_key/tree`) — plus de DigComp mock  
+- **Image** : `main_picture` via PATCH multipart  
+- **Retirer** / **supprimer brouillon** sur le catalogue  
+- Store localStorage catalogue **purgé**  
+- Tests unitaires façade + mapper élargis  
 
-## Questions produit (pour toi)
+## Lookup RNCP / RS — signalement
 
-1. **`formation_organizations` dans `available_contexts`**  
-   Absent côté BE aujourd’hui. Le FE utilise School/Company.  
-   Faut-il une **liste OF dédiée** dans le payload user (switcher « espace organisme de formation »), ou School/Company suffisent ?
+Le FE **n’a pas** de client registre France Compétences dédié.
 
-2. **`eu_mc_gate`**  
-   Le FE envoie **toujours** `organization_type` + `organization_id` sur le GET index pour lire `meta.eu_mc_gate`.  
-   Un **endpoint flags dédié** te semble utile, ou le meta index suffit ?
+Comportement actuel : au blur du champ code, le FE envoie un **PATCH** fiche avec `targeted_certification_code` ; le BE (`FormationCatalog::CertificationApplier` + `RegistryLookup`) applique le snapshot.
 
-## Smoke à rejouer (API)
+**Question :** ce flux PATCH suffit-il pour l’UX (lecture registre à la saisie), ou veux-tu un **endpoint GET preview** dédié (lookup sans enregistrer) avant le blur/save ?
 
-Voir `docs/fe-62-smoke-guide.md` — compte admin School/Company + BE staging.
+Si le flag `certification_links_enabled` est off, le champ reste masqué (meta index).
 
-## Suite
+## Autres questions produit (inchangées)
 
-- Ton GO avant merge staging FE  
-- Ticket 16 (session) hors scope  
-- Gaps techniques BE éventuels → message séparé à Sergey (aucun patch BE de notre part)
+1. Faut-il une liste **`formation_organizations`** dédiée dans le payload user, ou School/Company suffisent ?  
+2. `eu_mc_gate` via meta index (org toujours envoyée) vs **endpoint flags** dédié ?
+
+## Smoke
+
+Voir `docs/fe-62-smoke-guide.md` (School/Company + BE staging).  
+Ajouts à vérifier : choisir une série F2, image, retirer / supprimer brouillon, code RNCP si flag on.
+
+## Hors scope
+
+- Ticket 16 (session)  
+- Merge staging FE sans ton GO  

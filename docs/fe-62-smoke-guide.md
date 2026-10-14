@@ -19,10 +19,13 @@ Maquettes : P4.3 / P4.3 bis V0.4
 | 2 | Créer formation (sans MC) → fiche → brouillon / catalogue | `POST` draft puis `POST .../list` si complet |
 | 3 | Case MC UE | Gate depuis `meta.eu_mc_gate` (setting / plan / trust / allowed) |
 | 4 | MC UE compteur | `compliance.count` serveur sur la fiche (ex. 8/11) |
-| 5 | Titre déjà pris | 422 validation / message clash |
-| 6 | Charger un tableau | Zone fichier seule ; analyze `POST .../imports` ; durée `N h` ; confirm |
-| 7 | Modèle | Téléchargement `import_template?format=csv` (ou xlsx) |
-| 8 | Ouvrir une session | CTA présent, pas de toast ticket 16 |
+| 5 | Choisir une série | Liste F2 réelle (soft_skills, CPS, …) ; badges numériques |
+| 6 | Titre déjà pris | 422 validation / message clash |
+| 7 | Image | Ajouter une image → visible après brouillon / catalogue |
+| 8 | Charger un tableau | Zone fichier seule ; analyze ; durée `N h` ; confirm |
+| 9 | Retirer / supprimer | Carte catalogue → Retirer ; brouillon → Supprimer |
+| 10 | RNCP (si flag on) | Blur code → snapshot serveur (sinon erreur) — voir CR Patrick |
+| 11 | Ouvrir une session | CTA présent, pas de toast ticket 16 |
 
 ## Hors scope
 

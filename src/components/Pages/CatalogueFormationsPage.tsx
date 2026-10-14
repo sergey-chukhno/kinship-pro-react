@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCatalogue } from '../../api/FormationCatalogue';
+import {
+  deleteCatalogueFiche,
+  getCatalogue,
+  withdrawCatalogueFiche,
+} from '../../api/FormationCatalogue';
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import { FormationFiche } from '../../types/formationCatalogue';
@@ -68,6 +72,24 @@ const CatalogueFormationsPage: React.FC = () => {
 
   const openSessionStub = (_f: FormationFiche) => {
     /* Ticket 16 */
+  };
+
+  const withdraw = async (f: FormationFiche) => {
+    try {
+      await withdrawCatalogueFiche(f.id);
+      refresh();
+    } catch (e: any) {
+      setError(e?.message || 'Retrait impossible.');
+    }
+  };
+
+  const removeDraft = async (f: FormationFiche) => {
+    try {
+      await deleteCatalogueFiche(f.id);
+      refresh();
+    } catch (e: any) {
+      setError(e?.message || 'Suppression impossible.');
+    }
   };
 
   const createFiche = () => {
@@ -173,10 +195,19 @@ const CatalogueFormationsPage: React.FC = () => {
             </div>
             <div className="catf-act">
               {f.status === 'catalog' ? (
-                <button type="button" className="catf-btn p" onClick={() => openSessionStub(f)}>
-                  Ouvrir une session →
+                <>
+                  <button type="button" className="catf-btn p" onClick={() => openSessionStub(f)}>
+                    Ouvrir une session →
+                  </button>
+                  <button type="button" className="catf-btn s" onClick={() => withdraw(f)}>
+                    Retirer du catalogue
+                  </button>
+                </>
+              ) : f.status === 'draft' ? (
+                <button type="button" className="catf-btn s" onClick={() => removeDraft(f)}>
+                  Supprimer le brouillon
                 </button>
-              ) : f.status === 'draft' ? null : (
+              ) : (
                 <button type="button" className="catf-btn s" onClick={() => openFiche(f)}>
                   La fiche →
                 </button>

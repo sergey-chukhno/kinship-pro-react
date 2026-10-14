@@ -142,7 +142,7 @@ export function entryToFiche(entry: BeCatalogEntry, orgHint?: CatalogueOrgRef | 
     jury: entry.has_jury == null ? false : Boolean(entry.has_jury),
     certificationCode: entry.targeted_certification_code || undefined,
     certificationTarget: entry.integration_option === 'integrated' ? 'block' : 'title',
-    certificationRegistry: entry.targeted_certification_snapshot || null,
+    certificationRegistry: mapCertificationSnapshot(entry.targeted_certification_snapshot),
     imageDataUrl: entry.main_picture_url || undefined,
     schoolLabel: orgName,
     categoryBand: entry.targeted_certification_code
@@ -231,6 +231,19 @@ export function ficheToPayload(fiche: FormationFiche, org: CatalogueOrgRef): Rec
   }
 
   return payload;
+}
+
+function mapCertificationSnapshot(
+  snap: Record<string, any> | null | undefined
+): FormationFiche['certificationRegistry'] {
+  if (!snap || typeof snap !== 'object') return null;
+  const label =
+    snap.label || snap.intitule || snap.title || snap.official_title || snap.name || '';
+  const level = String(snap.eqf_level || snap.level || snap.niveau || '');
+  const certificateur = snap.certificateur || snap.certificate_authority || snap.organism || '';
+  const blocks = Array.isArray(snap.blocks) ? snap.blocks.length : Number(snap.blocks) || 0;
+  if (!label && !level) return null;
+  return { label: String(label), level, certificateur: String(certificateur), blocks };
 }
 
 function parseHours(raw: string): number | null {

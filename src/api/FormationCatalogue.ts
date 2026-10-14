@@ -28,6 +28,9 @@ function apiErrorMessage(err: any, fallback: string): string {
     if (data.error === 'validation_failed' && data.details?.title) {
       return 'Ce titre est déjà celui d’une fiche de votre organisme.';
     }
+    if (typeof data.error === 'string' && data.error.startsWith('CERTIFICATION_')) {
+      return data.message || data.error;
+    }
     if (data.error === 'live_batch_exists') {
       return data.message || 'Un lot non validé existe déjà.';
     }
@@ -77,30 +80,80 @@ export async function getCatalogueFiche(id: string): Promise<FormationFiche | nu
 
 export async function saveCatalogueFiche(
   fiche: FormationFiche,
-  org?: CatalogueOrgRef | null
+  org?: CatalogueOrgRef | null,
+  options?: { imageFile?: File | null; clearImage?: boolean }
 ): Promise<FormationFiche> {
   const resolved = org || resolveCatalogueOrg(null);
   if (!resolved) throw new Error('Organisation School ou Company requise.');
 
-  const body = { formation_catalog_entry: ficheToPayload(fiche, resolved) };
+  const payload = ficheToPayload(fiche, resolved);
   const isNew = !fiche.id || fiche.id.startsWith('fiche-') || fiche.id.startsWith('local-');
 
   try {
     if (isNew) {
-      const res = await apiClient.post(BASE, body);
+      const res = await apiClient.post(BASE, { formation_catalog_entry: payload });
       return entryToFiche(res.data?.data || res.data, resolved);
     }
     const { primary_organization_type, primary_organization_id, is_eu_mc_declared, ...updatable } =
-      body.formation_catalog_entry;
+      payload;
     void primary_organization_type;
     void primary_organization_id;
     void is_eu_mc_declared;
+
+    if (options?.imageFile) {
+      const form = new FormData();
+      Object.entries(updatable).forEach(([key, value]) => {
+        if (value == null) return;
+        if (Array.isArray(value)) {
+          value.forEach((v) => form.append(`formation_catalog_entry[${key}][]`, String(v)));
+        } else if (typeof value === 'boolean' || typeof value === 'number') {
+          form.append(`formation_catalog_entry[${key}]`, String(value));
+        } else if (typeof value === 'object') {
+          form.append(`formation_catalog_entry[${key}]`, JSON.stringify(value));
+        } else {
+          form.append(`formation_catalog_entry[${key}]`, String(value));
+        }
+      });
+      form.append('formation_catalog_entry[main_picture]', options.imageFile);
+      const res = await apiClient.patch(`${BASE}/${fiche.id}`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return entryToFiche(res.data?.data || res.data, resolved);
+    }
+
     const res = await apiClient.patch(`${BASE}/${fiche.id}`, {
       formation_catalog_entry: updatable,
     });
     return entryToFiche(res.data?.data || res.data, resolved);
   } catch (err: any) {
     throw new Error(apiErrorMessage(err, 'Enregistrement impossible.'));
+  }
+}
+
+/** Applique un code RNCP/RS via le serveur (CertificationApplier) — pas de client registre FE. */
+export async function applyCertificationCode(
+  ficheId: string,
+  code: string,
+  org?: CatalogueOrgRef | null
+): Promise<FormationFiche> {
+  const resolved = org || resolveCatalogueOrg(null);
+  try {
+    const trimmed = code.trim().toUpperCase();
+    const res = await apiClient.patch(`${BASE}/${ficheId}`, {
+      formation_catalog_entry: trimmed
+        ? {
+            targeted_certification_code: trimmed,
+            integration_option: 'standalone',
+          }
+        : {
+            targeted_certification_code: '',
+            integration_option: null,
+            targeted_block_code: null,
+          },
+    });
+    return entryToFiche(res.data?.data || res.data, resolved);
+  } catch (err: any) {
+    throw new Error(apiErrorMessage(err, 'Code certification illisible.'));
   }
 }
 
@@ -142,8 +195,20 @@ export async function listCatalogueFiche(
 }
 
 export async function withdrawCatalogueFiche(id: string): Promise<FormationFiche> {
-  const res = await apiClient.post(`${BASE}/${id}/withdraw`);
-  return entryToFiche(res.data?.data || res.data);
+  try {
+    const res = await apiClient.post(`${BASE}/${id}/withdraw`);
+    return entryToFiche(res.data?.data || res.data);
+  } catch (err: any) {
+    throw new Error(apiErrorMessage(err, 'Retrait du catalogue impossible.'));
+  }
+}
+
+export async function deleteCatalogueFiche(id: string): Promise<void> {
+  try {
+    await apiClient.delete(`${BASE}/${id}`);
+  } catch (err: any) {
+    throw new Error(apiErrorMessage(err, 'Suppression du brouillon impossible.'));
+  }
 }
 
 export async function previewCatalogueUpload(

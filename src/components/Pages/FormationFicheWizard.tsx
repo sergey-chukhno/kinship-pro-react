@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  applyCertificationCode,
   createCatalogueDraft,
   getCatalogue,
   getCatalogueFlags,
@@ -9,6 +10,10 @@ import {
   saveCatalogueFiche,
 } from '../../api/FormationCatalogue';
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
+import {
+  loadProgrammeSeriesOptions,
+  ProgrammeSeriesOption,
+} from '../../api/formationCatalogSeries';
 import { useAppContext } from '../../context/AppContext';
 import {
   CatalogueServerFlags,
@@ -54,19 +59,6 @@ const IDENTITY_OPTS: { id: IdentityAtAssessment; label: string }[] = [
   { id: 'supervised_online', label: 'Supervisée en ligne' },
   { id: 'onsite_id', label: 'Sur place, avec vérification d’identité' },
 ];
-
-/** Mock registre — P4.3 zoom certification (flag on). */
-const MOCK_REGISTRY: Record<
-  string,
-  { label: string; level: string; certificateur: string; blocks: number }
-> = {
-  RNCP40281: {
-    label: 'Journaliste',
-    level: '6',
-    certificateur: 'CFPJ',
-    blocks: 4,
-  },
-};
 
 type FicheDraftLock = {
   orgKey: string;
@@ -172,6 +164,10 @@ const FormationFicheWizard: React.FC = () => {
   const [step3Missing, setStep3Missing] = useState<string[]>([]);
   const [existingTitles, setExistingTitles] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [seriesOptions, setSeriesOptions] = useState<ProgrammeSeriesOption[]>([]);
+  const [seriesOpen, setSeriesOpen] = useState(false);
+  const [seriesLoading, setSeriesLoading] = useState(false);
 
   useEffect(() => {
     if (!org) return;
@@ -304,76 +300,57 @@ const FormationFicheWizard: React.FC = () => {
     });
   };
 
-  const chooseSeries = () => {
+  const openSeriesPicker = async () => {
     if (!fiche) return;
+    setSeriesOpen(true);
+    if (seriesOptions.length) return;
+    setSeriesLoading(true);
+    try {
+      const opts = await loadProgrammeSeriesOptions();
+      setSeriesOptions(opts);
+      if (!opts.length) setError('Aucune série catalogue disponible (F2).');
+    } catch (e: any) {
+      setError(e?.message || 'Séries indisponibles.');
+    } finally {
+      setSeriesLoading(false);
+    }
+  };
+
+  const pickSeries = (opt: ProgrammeSeriesOption) => {
     update({
       programmeMode: 'series',
       programmeLines: [],
-      programmeSeries: {
-        id: 'digcomp-demo',
-        label: euMc
-          ? '📚 DigComp 2.2 — Domaine 1 · Information et données · Niveau 2 · DigComp'
-          : '📚 DigComp 2.2 — Domaine 1 · Information et données',
-        competenceIds: ['c1', 'c2', 'c3'],
-        competenceLabels: [
-          'Naviguer, rechercher et filtrer l’information',
-          'Évaluer l’information et son contenu',
-          'Gérer les données et les contenus numériques',
-        ],
-      },
-      eqfLevelDisplay: euMc ? 'non applicable' : fiche.eqfLevelDisplay,
+      programmeSeries: opt.programme,
+      eqfLevelDisplay: euMc ? 'non applicable' : fiche?.eqfLevelDisplay,
     });
+    setSeriesOpen(false);
   };
 
-  const lookupCertification = (codeRaw: string) => {
-    const code = codeRaw.trim().toUpperCase();
-    if (!code) {
-      update({
-        certificationCode: '',
-        certificationRegistry: null,
-        certificationLookupError: null,
-        certificationLabel: undefined,
-        categoryBand: 'Certificat de l’organisme',
-      });
+  const lookupCertification = async (codeRaw: string) => {
+    if (!fiche || !org) return;
+    const code = codeRaw.trim();
+    if (!fiche.id || fiche.id.startsWith('local-') || fiche.id.startsWith('fiche-')) {
+      setError('Enregistrez d’abord la fiche avant le code RNCP/RS.');
       return;
     }
-    if (code === 'RNCP40282') {
-      update({
-        certificationCode: codeRaw,
-        certificationRegistry: null,
-        certificationLookupError: `Le code ${code} n’existe pas au registre. Vérifiez-le.`,
-      });
-      return;
-    }
-    if (code.endsWith('BC05')) {
+    setBusy(true);
+    try {
+      const updated = await applyCertificationCode(fiche.id, code, org);
+      setFiche(updated);
+      setError(null);
+    } catch (e: any) {
       update({
         certificationCode: codeRaw,
         certificationRegistry: null,
-        certificationLookupError: `Le bloc ${code} n’est pas dans cette fiche. Choisissez un bloc de la liste.`,
+        certificationLookupError: e?.message || 'Registre indisponible.',
       });
-      return;
+    } finally {
+      setBusy(false);
     }
-    const hit = MOCK_REGISTRY[code];
-    if (!hit) {
-      update({
-        certificationCode: codeRaw,
-        certificationRegistry: null,
-        certificationLookupError: 'Le registre ne répond pas. Réessayez dans un moment.',
-      });
-      return;
-    }
-    update({
-      certificationCode: codeRaw,
-      certificationRegistry: hit,
-      certificationLookupError: null,
-      certificationLabel: hit.label,
-      categoryBand: `Titre RNCP · niveau ${hit.level}`,
-      title: fiche?.title?.trim() ? fiche.title : hit.label,
-      eqfLevelDisplay: fiche?.euMc ? hit.level : fiche?.eqfLevelDisplay,
-    });
   };
 
   const onImage = (file: File | null) => {
+    setImageFile(file);
     if (!file) {
       update({ imageDataUrl: undefined });
       return;
@@ -404,7 +381,10 @@ const FormationFicheWizard: React.FC = () => {
     setError(null);
     setBusy(true);
     try {
-      await saveCatalogueFiche({ ...fiche, status: 'draft' }, org);
+      await saveCatalogueFiche({ ...fiche, status: 'draft' }, org, {
+        imageFile: imageFile || undefined,
+      });
+      setImageFile(null);
       sessionStorage.removeItem(DRAFT_KEY);
       goCatalogue();
     } catch (e: any) {
@@ -438,7 +418,10 @@ const FormationFicheWizard: React.FC = () => {
     setBusy(true);
     setError(null);
     try {
-      const saved = await saveCatalogueFiche({ ...fiche, status: 'draft' }, org);
+      const saved = await saveCatalogueFiche({ ...fiche, status: 'draft' }, org, {
+        imageFile: imageFile || undefined,
+      });
+      setImageFile(null);
       const listed = await listCatalogueFiche(saved.id, org);
       setFiche(listed);
       sessionStorage.removeItem(DRAFT_KEY);
@@ -586,7 +569,13 @@ const FormationFicheWizard: React.FC = () => {
                     className="ffw-in"
                     style={{ maxWidth: 220 }}
                     value={fiche.certificationCode || ''}
-                    onChange={(e) => lookupCertification(e.target.value)}
+                    onChange={(e) =>
+                      update({
+                        certificationCode: e.target.value,
+                        certificationLookupError: null,
+                      })
+                    }
+                    onBlur={(e) => lookupCertification(e.target.value)}
                     placeholder="RNCP40281"
                   />
                   {fiche.certificationLookupError && (
@@ -740,10 +729,33 @@ const FormationFicheWizard: React.FC = () => {
                       + Ajouter une ligne
                     </button>
                   )}
-                  <button type="button" className="ffw-add" onClick={chooseSeries}>
+                  <button type="button" className="ffw-add" onClick={openSeriesPicker}>
                     📚 Choisir une série ▾
                   </button>
                 </div>
+                {seriesOpen && (
+                  <div className="ffw-series-pick">
+                    {seriesLoading && <div className="ffw-hint2">Chargement des séries F2…</div>}
+                    {!seriesLoading &&
+                      seriesOptions.map((opt) => (
+                        <button
+                          key={opt.catalogKey}
+                          type="button"
+                          className="ffw-series-opt"
+                          onClick={() => pickSeries(opt)}
+                        >
+                          {opt.label}
+                          <span>
+                            {opt.programme.competenceLabels.length} compétence
+                            {opt.programme.competenceLabels.length > 1 ? 's' : ''}
+                          </span>
+                        </button>
+                      ))}
+                    <button type="button" className="ffw-add" onClick={() => setSeriesOpen(false)}>
+                      Fermer
+                    </button>
+                  </div>
+                )}
                 {euMc && (
                   <p className="ffw-hint2" style={{ color: '#8a6d1a' }}>
                     Une série, ses compétences cochées.
