@@ -1,305 +1,212 @@
+import apiClient from './config';
 import {
   CatalogueImportPreview,
-  CatalogueImportRowResult,
   CatalogueServerFlags,
   FormationFiche,
 } from '../types/formationCatalogue';
 import {
-  getFiche as storeGet,
-  listFiches,
-  upsertFiche,
-} from '../utils/formationCatalogueStore';
+  analysisToPreview,
+  entryToFiche,
+  ficheToPayload,
+  flagsFromMeta,
+} from './formationCatalogMapper';
+import { CatalogueOrgRef, resolveCatalogueOrg } from './formationCatalogOrg';
 
-/** Mock flags — FE n’écrit jamais ces valeurs ; le serveur fera foi. */
-let mockFlags: CatalogueServerFlags = {
-  eu_mc_gate: { allowed: true },
-  certification_links_enabled: false,
-};
+const BASE = '/api/v1/formation_catalog_entries';
 
-/** Tests / smoke : basculer le gate sans toucher l’UI. */
-export function __setMockCatalogueFlags(flags: Partial<CatalogueServerFlags>) {
-  mockFlags = {
-    ...mockFlags,
-    ...flags,
-    eu_mc_gate: { ...mockFlags.eu_mc_gate, ...(flags.eu_mc_gate || {}) },
-  };
+function apiErrorMessage(err: any, fallback: string): string {
+  const data = err?.response?.data;
+  if (!data) return err?.message || fallback;
+  if (typeof data.message === 'string') return data.message;
+  if (typeof data.error === 'string') {
+    if (data.error === 'eu_mc_gate_closed') return data.message || 'Microcertification européenne indisponible pour cet organisme.';
+    if (data.error === 'immutable_create_choice') return 'Ces trois choix sont définitifs.';
+    if (data.error === 'incomplete' || data.error === 'incomplete_listed_entry') {
+      const missing = Array.isArray(data.missing) ? data.missing.join(', ') : '';
+      return missing ? `Fiche incomplète : ${missing}` : 'Fiche incomplète.';
+    }
+    if (data.error === 'validation_failed' && data.details?.title) {
+      return 'Ce titre est déjà celui d’une fiche de votre organisme.';
+    }
+    if (data.error === 'live_batch_exists') {
+      return data.message || 'Un lot non validé existe déjà.';
+    }
+    return data.error;
+  }
+  return fallback;
 }
 
-export function __getMockCatalogueFlags(): CatalogueServerFlags {
-  return mockFlags;
+export async function getCatalogueFlags(org?: CatalogueOrgRef | null): Promise<CatalogueServerFlags> {
+  const resolved = org || resolveCatalogueOrg(null);
+  if (!resolved) {
+    return { eu_mc_gate: { allowed: false, reason: 'setting' }, certification_links_enabled: false };
+  }
+  const res = await apiClient.get(BASE, {
+    params: {
+      organization_type: resolved.type,
+      organization_id: resolved.id,
+      per_page: 1,
+    },
+  });
+  return flagsFromMeta(res.data?.meta);
 }
 
-export async function getCatalogueFlags(): Promise<CatalogueServerFlags> {
-  return { ...mockFlags, eu_mc_gate: { ...mockFlags.eu_mc_gate } };
-}
-
-export async function getCatalogue(): Promise<FormationFiche[]> {
-  return listFiches();
+export async function getCatalogue(org?: CatalogueOrgRef | null): Promise<FormationFiche[]> {
+  const resolved = org || resolveCatalogueOrg(null);
+  if (!resolved) return [];
+  const res = await apiClient.get(BASE, {
+    params: {
+      organization_type: resolved.type,
+      organization_id: resolved.id,
+      per_page: 100,
+    },
+  });
+  const rows = Array.isArray(res.data?.data) ? res.data.data : [];
+  return rows.map((e: any) => entryToFiche(e, resolved));
 }
 
 export async function getCatalogueFiche(id: string): Promise<FormationFiche | null> {
-  return storeGet(id) || null;
-}
-
-export async function saveCatalogueFiche(fiche: FormationFiche): Promise<FormationFiche> {
-  return upsertFiche(fiche);
-}
-
-const REQUIRED = ['titre', 'description', 'programme', 'durée', 'duree', 'modalité', 'modalite', 'financement'] as const;
-
-function normalizeHeader(h: string): string {
-  return h
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
-function findCol(headers: string[], ...aliases: string[]): number {
-  const norm = headers.map(normalizeHeader);
-  for (const a of aliases) {
-    const i = norm.indexOf(normalizeHeader(a));
-    if (i >= 0) return i;
+  try {
+    const res = await apiClient.get(`${BASE}/${id}`);
+    return entryToFiche(res.data?.data || res.data);
+  } catch (err: any) {
+    if (err?.response?.status === 404) return null;
+    throw err;
   }
-  return -1;
 }
 
-/** Parse CSV simple (virgule) — mock P4.11. */
-export function parseCatalogueCsv(text: string, fileName: string): CatalogueImportPreview {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (lines.length === 0) {
-    return {
-      fileName,
-      columnsFound: [],
-      columnsIgnored: [],
-      rncpColumnIgnored: false,
-      rows: [],
-      counts: { read: 0, catalog: 0, draft: 0, rejected: 0 },
-    };
-  }
+export async function saveCatalogueFiche(
+  fiche: FormationFiche,
+  org?: CatalogueOrgRef | null
+): Promise<FormationFiche> {
+  const resolved = org || resolveCatalogueOrg(null);
+  if (!resolved) throw new Error('Organisation School ou Company requise.');
 
-  const headers = lines[0].split(';').length > 1 ? lines[0].split(';') : lines[0].split(',');
-  const titleIdx = findCol(headers, 'Titre', 'title');
-  if (titleIdx < 0) {
-    throw new Error('Le fichier n’a pas de colonne « Titre ». Ajoutez-la, ou partez du modèle.');
-  }
+  const body = { formation_catalog_entry: ficheToPayload(fiche, resolved) };
+  const isNew = !fiche.id || fiche.id.startsWith('fiche-') || fiche.id.startsWith('local-');
 
-  const descIdx = findCol(headers, 'Description');
-  const progIdx = findCol(headers, 'Programme');
-  const durIdx = findCol(headers, 'Durée en heures', 'Duree en heures', 'Durée', 'Duree');
-  const modIdx = findCol(headers, 'Modalité', 'Modalite');
-  const finIdx = findCol(headers, 'Financement');
-  const orgIdx = findCol(headers, 'Organisation', 'Organization');
-  const rncpIdx = findCol(headers, 'Code RNCP/RS', 'RNCP', 'Code RNCP');
-
-  const knownIdx = [titleIdx, descIdx, progIdx, durIdx, modIdx, finIdx, orgIdx].filter((i) => i >= 0);
-  const known = new Set(knownIdx.map((i) => headers[i]));
-  const columnsIgnored = headers.filter((h, i) => !known.has(h) && i !== rncpIdx);
-  const rncpColumnIgnored = rncpIdx >= 0 && !mockFlags.certification_links_enabled;
-
-  const seenTitles = new Set<string>();
-  const rows: CatalogueImportRowResult[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const sep = lines[i].includes(';') ? ';' : ',';
-    const cells = lines[i].split(sep).map((c) => c.trim());
-    const title = cells[titleIdx] || '';
-    const durationHours = durIdx >= 0 ? cells[durIdx] || '' : '';
-    const modality = modIdx >= 0 ? cells[modIdx] || '' : '';
-    const financement = finIdx >= 0 ? cells[finIdx] || '' : '';
-    const description = descIdx >= 0 ? cells[descIdx] || '' : '';
-    const programme = progIdx >= 0 ? cells[progIdx] || '' : '';
-    const orgName = orgIdx >= 0 ? cells[orgIdx] || '' : '';
-
-    const modalityOk = ['Présentiel', 'Presentiel', 'Distanciel', 'Hybride'].some(
-      (m) => normalizeHeader(m) === normalizeHeader(modality)
-    );
-
-    let state: CatalogueImportRowResult['state'] = 'catalog';
-    let detail: string | undefined;
-
-    if (!title) {
-      state = 'rejected';
-      detail = 'pas de titre';
-    } else if (seenTitles.has(normalizeHeader(title))) {
-      state = 'rejected';
-      detail = 'même titre qu’une ligne précédente';
-    } else if (!description || !programme || !durationHours || !modality || !financement || !modalityOk) {
-      state = 'draft';
-      const missing: string[] = [];
-      if (!description) missing.push('la description manque');
-      if (!programme) missing.push('le programme manque');
-      if (!durationHours) missing.push('la durée manque');
-      if (!modality) missing.push('la modalité manque');
-      else if (!modalityOk) missing.push(`modalité « ${modality} » non reconnue`);
-      if (!financement) missing.push('le financement manque');
-      detail = missing.join(' · ');
+  try {
+    if (isNew) {
+      const res = await apiClient.post(BASE, body);
+      return entryToFiche(res.data?.data || res.data, resolved);
     }
-
-    if (title) seenTitles.add(normalizeHeader(title));
-
-    rows.push({
-      line: i + 1,
-      title: title || '(sans titre)',
-      durationHours,
-      modality,
-      financement,
-      orgName: orgName || undefined,
-      state,
-      detail,
+    const { primary_organization_type, primary_organization_id, is_eu_mc_declared, ...updatable } =
+      body.formation_catalog_entry;
+    void primary_organization_type;
+    void primary_organization_id;
+    void is_eu_mc_declared;
+    const res = await apiClient.patch(`${BASE}/${fiche.id}`, {
+      formation_catalog_entry: updatable,
     });
+    return entryToFiche(res.data?.data || res.data, resolved);
+  } catch (err: any) {
+    throw new Error(apiErrorMessage(err, 'Enregistrement impossible.'));
   }
+}
 
-  const counts = {
-    read: rows.length,
-    catalog: rows.filter((r) => r.state === 'catalog').length,
-    draft: rows.filter((r) => r.state === 'draft').length,
-    rejected: rows.filter((r) => r.state === 'rejected').length,
-  };
-
-  const columnsFound = headers.filter((_, i) => knownIdx.includes(i));
-  if (rncpIdx >= 0 && !rncpColumnIgnored) {
-    columnsFound.push(headers[rncpIdx]);
+export async function createCatalogueDraft(
+  lock: {
+    euMc: boolean;
+    orgCertified?: boolean;
+  },
+  org?: CatalogueOrgRef | null
+): Promise<FormationFiche> {
+  const resolved = org || resolveCatalogueOrg(null);
+  if (!resolved) throw new Error('Organisation School ou Company requise.');
+  try {
+    const res = await apiClient.post(BASE, {
+      formation_catalog_entry: {
+        primary_organization_type: resolved.type,
+        primary_organization_id: resolved.id,
+        is_eu_mc_declared: Boolean(lock.euMc),
+        has_jury: false,
+      },
+    });
+    const fiche = entryToFiche(res.data?.data || res.data, resolved);
+    return { ...fiche, orgCertified: lock.orgCertified ?? true };
+  } catch (err: any) {
+    throw new Error(apiErrorMessage(err, 'Création de la fiche impossible.'));
   }
+}
 
-  return {
-    fileName,
-    columnsFound,
-    columnsIgnored: [
-      ...columnsIgnored,
-      ...(rncpColumnIgnored && rncpIdx >= 0 ? [headers[rncpIdx]] : []),
-    ],
-    rncpColumnIgnored,
-    rows,
-    counts,
-  };
+export async function listCatalogueFiche(
+  id: string,
+  org?: CatalogueOrgRef | null
+): Promise<FormationFiche> {
+  try {
+    const res = await apiClient.post(`${BASE}/${id}/list`);
+    return entryToFiche(res.data?.data || res.data, org || null);
+  } catch (err: any) {
+    throw new Error(apiErrorMessage(err, 'Ajout au catalogue impossible.'));
+  }
+}
+
+export async function withdrawCatalogueFiche(id: string): Promise<FormationFiche> {
+  const res = await apiClient.post(`${BASE}/${id}/withdraw`);
+  return entryToFiche(res.data?.data || res.data);
+}
+
+export async function previewCatalogueUpload(
+  file: File,
+  org?: CatalogueOrgRef | null,
+  replace = false
+): Promise<CatalogueImportPreview> {
+  const resolved = org || resolveCatalogueOrg(null);
+  if (!resolved) throw new Error('Organisation School ou Company requise.');
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('organization_type', resolved.type);
+  form.append('organization_id', String(resolved.id));
+  if (replace) form.append('replace', 'true');
+
+  try {
+    const res = await apiClient.post(`${BASE}/imports`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return analysisToPreview(file.name, res.data?.analysis || {}, res.data?.import_id);
+  } catch (err: any) {
+    if (err?.response?.status === 409 && err?.response?.data?.error === 'live_batch_exists' && !replace) {
+      return previewCatalogueUpload(file, resolved, true);
+    }
+    throw new Error(apiErrorMessage(err, 'Analyse du tableau impossible.'));
+  }
 }
 
 export async function commitCatalogueImport(
-  preview: CatalogueImportPreview,
-  org: { key: string; name: string; initials: string }
-): Promise<FormationFiche[]> {
-  const now = new Date().toISOString();
-  const created: FormationFiche[] = [];
-  for (const row of preview.rows) {
-    if (row.state === 'rejected') continue;
-    const modalityNorm = normalizeHeader(row.modality);
-    const modality =
-      modalityNorm.startsWith('dist')
-        ? 'distanciel'
-        : modalityNorm.startsWith('hybr')
-          ? 'hybride'
-          : modalityNorm
-            ? 'presentiel'
-            : '';
-    const rowOrg = row.orgName?.trim() || org.name;
-    const fiche: FormationFiche = {
-      id: `fiche-import-${Date.now()}-${row.line}`,
-      status: row.state === 'catalog' ? 'catalog' : 'draft',
-      orgKey: org.key,
-      orgName: rowOrg,
-      orgInitials: org.initials,
-      orgCertified: true,
-      euMc: false,
-      title: row.title,
-      description: row.state === 'catalog' ? 'Importée depuis le tableau.' : '',
-      programmeMode: row.state === 'catalog' ? 'free_lines' : 'none',
-      programmeLines:
-        row.state === 'catalog' ? [{ id: 'p1', text: 'Programme importé' }] : [],
-      durationHours: row.durationHours,
-      modality: modality as FormationFiche['modality'],
-      financement: (row.financement as FormationFiche['financement']) || '',
-      prerequisites: '',
-      languages: ['Français'],
-      practicalInfo: '',
-      assessmentType: '',
-      jury: false,
-      schoolLabel: rowOrg.split('—')[0]?.trim() || rowOrg,
-      categoryBand: 'Certificat de l’organisme',
-      createdAt: now,
-      updatedAt: now,
-    };
-    created.push(upsertFiche(fiche));
+  preview: CatalogueImportPreview
+): Promise<{ createdCount: number }> {
+  if (!preview.importId) throw new Error('Lot d’import manquant.');
+  try {
+    const res = await apiClient.post(`${BASE}/imports/${preview.importId}/confirm`);
+    return { createdCount: Number(res.data?.data?.created_count) || 0 };
+  } catch (err: any) {
+    throw new Error(apiErrorMessage(err, 'Validation du tableau impossible.'));
   }
-  return created;
 }
 
+export async function downloadImportTemplate(format: 'csv' | 'xlsx' = 'csv'): Promise<void> {
+  const res = await apiClient.get(`${BASE}/import_template`, {
+    params: { format },
+    responseType: 'blob',
+  });
+  const blob = new Blob([res.data], {
+    type:
+      format === 'xlsx'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'text/csv;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download =
+    format === 'xlsx' ? 'modele_catalogue_formations.xlsx' : 'modele_catalogue_formations.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** @deprecated template local — préférer downloadImportTemplate */
 export const CATALOGUE_CSV_TEMPLATE = `Titre;Description;Programme;Durée en heures;Modalité;Financement
 Devenir journaliste;Titre Journaliste;4 blocs RNCP;513,5;Présentiel;CPF
 Assertivité;Communication;Savoir oser;14;Présentiel;OPCO
 `;
-
-async function readFileAsText(file: File): Promise<string> {
-  if (typeof file.text === 'function') {
-    return file.text();
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error || new Error('Lecture fichier impossible'));
-    reader.readAsText(file);
-  });
-}
-
-/**
- * Aperçu import — le front envoie le fichier tel quel (CSV ou .xlsx).
- * Mock : CSV parsé localement ; .xlsx = réponse serveur fictive (même forme que l’API Sergey).
- * Quand l’API sera branchée : FormData POST, sans conversion côté FE.
- */
-export async function previewCatalogueUpload(file: File): Promise<CatalogueImportPreview> {
-  const lower = file.name.toLowerCase();
-  if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) {
-    return mockServerExcelPreview(file.name);
-  }
-  const text = await readFileAsText(file);
-  return parseCatalogueCsv(text, file.name);
-}
-
-/** Simule le parse Excel côté serveur (ticket 62 §6) — sans refus ni conversion FE. */
-function mockServerExcelPreview(fileName: string): CatalogueImportPreview {
-  const rows: CatalogueImportRowResult[] = [
-    {
-      line: 2,
-      title: 'Import Excel Complet',
-      durationHours: '21',
-      modality: 'Présentiel',
-      financement: 'CPF',
-      orgName: 'Atelier Numérique Formation',
-      state: 'catalog',
-    },
-    {
-      line: 3,
-      title: 'Import Excel Draft',
-      durationHours: '',
-      modality: 'Hybride',
-      financement: 'OPCO',
-      orgName: 'Atelier Numérique Formation',
-      state: 'draft',
-      detail: 'la description manque · le programme manque · la durée manque',
-    },
-  ];
-  return {
-    fileName,
-    columnsFound: [
-      'Titre',
-      'Description',
-      'Programme',
-      'Durée en heures',
-      'Modalité',
-      'Financement',
-      'Organisation',
-    ],
-    columnsIgnored: [],
-    rncpColumnIgnored: false,
-    rows,
-    counts: {
-      read: rows.length,
-      catalog: rows.filter((r) => r.state === 'catalog').length,
-      draft: rows.filter((r) => r.state === 'draft').length,
-      rejected: 0,
-    },
-  };
-}

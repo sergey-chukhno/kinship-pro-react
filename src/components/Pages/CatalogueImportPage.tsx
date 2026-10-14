@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CATALOGUE_CSV_TEMPLATE,
   commitCatalogueImport,
+  downloadImportTemplate,
   previewCatalogueUpload,
 } from '../../api/FormationCatalogue';
+import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import { CatalogueImportPreview } from '../../types/formationCatalogue';
 import './CatalogueImportPage.css';
@@ -21,16 +22,8 @@ const CatalogueImportPage: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [pendingWarn, setPendingWarn] = useState<string | null>(null);
 
-  const orgName =
-    state.user?.available_contexts?.formation_organizations?.[0]?.name ||
-    'Skolae — CFPJ';
-  const orgInitials = orgName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
+  const org = resolveCatalogueOrg(state.user, state.showingPageType);
+  const orgName = org?.name || 'Organisation';
 
   useEffect(() => {
     try {
@@ -62,14 +55,12 @@ const CatalogueImportPage: React.FC = () => {
     navigate('/catalogue-formations');
   };
 
-  const downloadTemplate = () => {
-    const blob = new Blob([CATALOGUE_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'modele_catalogue_formations.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadTemplate = async () => {
+    try {
+      await downloadImportTemplate('csv');
+    } catch (e: any) {
+      setError(e?.message || 'Modèle indisponible.');
+    }
   };
 
   const onFile = (next: File | null) => {
@@ -86,13 +77,17 @@ const CatalogueImportPage: React.FC = () => {
 
   const verify = async () => {
     setError(null);
+    if (!org) {
+      setError('Choisissez une école ou une entreprise.');
+      return;
+    }
     if (!file) {
       setError('Choisissez un fichier Excel ou CSV.');
       return;
     }
     setBusy(true);
     try {
-      const result = await previewCatalogueUpload(file);
+      const result = await previewCatalogueUpload(file, org);
       setPreview(result);
     } catch (e: any) {
       setError(e?.message || 'Fichier illisible.');
@@ -106,13 +101,11 @@ const CatalogueImportPage: React.FC = () => {
     if (!preview) return;
     setBusy(true);
     try {
-      await commitCatalogueImport(preview, {
-        key: 'of-import',
-        name: orgName,
-        initials: orgInitials || 'OF',
-      });
+      await commitCatalogueImport(preview);
       sessionStorage.removeItem(PENDING_KEY);
       goCatalogue();
+    } catch (e: any) {
+      setError(e?.message || 'Validation impossible.');
     } finally {
       setBusy(false);
     }

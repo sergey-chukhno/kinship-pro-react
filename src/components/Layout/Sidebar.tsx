@@ -10,7 +10,6 @@ import { getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUti
 import { applySpaceTheme } from '../../utils/spaceTheme';
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
-import { MOCK_OF_ORG } from '../../data/mockFormations';
 import { canCreateFormation } from '../../utils/ofActivationStore';
 import { openProjectAffiche } from '../../utils/projectSpaceStore';
 
@@ -104,26 +103,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         });
       }
 
-      // FE-62 smoke : OF mock toujours proposé dans le switcher (re-shelver avant merge staging)
+      // formation_organizations : si le BE l’expose un jour (question Patrick). Pas de mock of-demo.
       const ofFromApi = contexts.formation_organizations || [];
-      if (ofFromApi.length > 0) {
-        ofFromApi.forEach((org: { id: number | string; name: string; role?: string }) => {
-          orgs.push({
-            id: org.id,
-            name: org.name,
-            type: 'formation' as const,
-            role: org.role,
-            isAdmin: true,
-          });
-        });
-      } else {
+      ofFromApi.forEach((org: { id: number | string; name: string; role?: string }) => {
         orgs.push({
-          id: MOCK_OF_ORG.id,
-          name: MOCK_OF_ORG.name,
+          id: org.id,
+          name: org.name,
           type: 'formation' as const,
+          role: org.role,
           isAdmin: true,
         });
-      }
+      });
 
       // Add teacher dashboard if available
       if (contexts.teacher_dashboard) {

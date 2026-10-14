@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCatalogue } from '../../api/FormationCatalogue';
+import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import { FormationFiche } from '../../types/formationCatalogue';
-import { subscribeCatalogue } from '../../utils/formationCatalogueStore';
 import './CatalogueFormationsPage.css';
 
 function modalityLabel(m: FormationFiche['modality']): string {
@@ -15,19 +15,36 @@ function modalityLabel(m: FormationFiche['modality']): string {
 
 const CatalogueFormationsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setCurrentPage } = useAppContext();
+  const { setCurrentPage, state } = useAppContext();
   const [fiches, setFiches] = useState<FormationFiche[]>([]);
   const [search, setSearch] = useState('');
   const [school, setSchool] = useState('all');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const refresh = () => {
-    getCatalogue().then(setFiches);
-  };
+  const org = useMemo(
+    () => resolveCatalogueOrg(state.user, state.showingPageType),
+    [state.user, state.showingPageType]
+  );
+
+  const refresh = useCallback(() => {
+    if (!org) {
+      setFiches([]);
+      setLoading(false);
+      setError('Choisissez une école ou une entreprise (contexte School / Company).');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    getCatalogue(org)
+      .then(setFiches)
+      .catch((e) => setError(e?.message || 'Catalogue indisponible.'))
+      .finally(() => setLoading(false));
+  }, [org]);
 
   useEffect(() => {
     refresh();
-    return subscribeCatalogue(refresh);
-  }, []);
+  }, [refresh]);
 
   const schools = useMemo(() => {
     const set = new Set(fiches.map((f) => f.schoolLabel || f.orgName));
@@ -50,7 +67,7 @@ const CatalogueFormationsPage: React.FC = () => {
   };
 
   const openSessionStub = (_f: FormationFiche) => {
-    /* Ticket 16 : ouverture de session depuis la fiche. Pas d’annonce d’absence. */
+    /* Ticket 16 */
   };
 
   const createFiche = () => {
@@ -66,36 +83,32 @@ const CatalogueFormationsPage: React.FC = () => {
   return (
     <div className="catf">
       <div className="catf-crumb">
-        <button
-          type="button"
-          onClick={() => {
-            setCurrentPage('dashboard');
-            navigate('/dashboard');
-          }}
-        >
-          ← Tableau de bord
+        <button type="button" onClick={() => { setCurrentPage('dashboard'); navigate('/dashboard'); }}>
+          Tableau de bord
         </button>
-        &nbsp;›&nbsp; Catalogue de formations
+        <span>›</span>
+        <span>Catalogue de formations</span>
       </div>
-      <h1>Catalogue de formations</h1>
-      <p className="catf-who">
-        Sélectionnez une formation pour ouvrir une session : programme, modalités d’évaluation et
-        jury sont déjà renseignés.
-      </p>
-
-      <div className="catf-toolbar">
+      <div className="catf-head">
+        <div>
+          <h1>Catalogue de formations</h1>
+          <p>
+            Choisissez une formation pour ouvrir une session : programmes et modalités d’évaluation déjà
+            renseignés.
+          </p>
+        </div>
+        <button type="button" className="catf-btn p" onClick={openImport}>
+          Charger un tableau
+        </button>
+      </div>
+      <div className="catf-filters">
         <input
-          className="catf-search"
-          placeholder="🔍 Rechercher par intitulé ou code RNCP / RS"
+          type="search"
+          placeholder="Rechercher par intitulé ou code RNCP / RS"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <span style={{ fontSize: 12, fontWeight: 700 }}>École</span>
-        <select
-          className="catf-filter"
-          value={school}
-          onChange={(e) => setSchool(e.target.value)}
-        >
+        <select value={school} onChange={(e) => setSchool(e.target.value)}>
           <option value="all">Toutes les écoles</option>
           {schools.map((s) => (
             <option key={s} value={s}>
@@ -103,46 +116,36 @@ const CatalogueFormationsPage: React.FC = () => {
             </option>
           ))}
         </select>
-        <span className="catf-count">
-          {filtered.length} formation{filtered.length > 1 ? 's' : ''}
-        </span>
-        <div className="catf-actions">
-          <button type="button" className="catf-btn s" onClick={openImport}>
-            Charger un tableau
-          </button>
-        </div>
+        <span className="catf-count">{filtered.length} formation{filtered.length > 1 ? 's' : ''}</span>
       </div>
+
+      {error && <div className="catf-err">{error}</div>}
+      {loading && <p className="catf-sub">Chargement…</p>}
 
       <div className="catf-grid">
         {filtered.map((f) => (
           <article key={f.id} className={`catf-card ${f.euMc ? 'mcue' : ''}`}>
-            <div className="hd">
-              <span>{f.schoolLabel || f.orgName}</span>
-              <span className="cd">{f.certificationCode || ''}</span>
+            <div className="catf-top">
+              <span>{f.orgName}</span>
+              {f.certificationCode && <span>{f.certificationCode}</span>}
             </div>
-            {(f.categoryBand || f.status !== 'catalog') && (
-              <div className={`band ${!f.categoryBand || f.status !== 'catalog' ? 'muted' : ''}`}>
-                {f.categoryBand || 'Certificat de l’organisme'}
-              </div>
-            )}
-            <div className="ti">{f.title || 'Sans titre'}</div>
-            {f.assessmentType && <div className="sub">{f.assessmentType}</div>}
-            <div className="pills">
+            <div className="catf-band">
+              {f.categoryBand || 'Certificat de l’organisme'}
+            </div>
+            <h2 className="catf-title">{f.title || 'Sans titre'}</h2>
+            {f.description && <p className="catf-desc">{f.description.slice(0, 80)}</p>}
+            <div className="catf-pills">
               {f.durationHours && <span className="catf-pp h">{f.durationHours} h</span>}
               {f.jury && <span className="catf-pp">Jury</span>}
             </div>
             {(f.modality || f.financement) && (
-              <div className="sub" style={{ paddingTop: 0 }}>
+              <div className="catf-meta">
                 {[modalityLabel(f.modality), f.financement].filter(Boolean).join(' · ')}
               </div>
             )}
             <div className="catf-prod">
               <span className="pl">Délivre</span>
-              {f.euMc ? (
-                <span className="catf-pp or">MC UE</span>
-              ) : (
-                <span className="catf-pp">PF</span>
-              )}
+              {f.euMc ? <span className="catf-pp or">MC UE</span> : <span className="catf-pp">PF</span>}
               {f.certificationCode && <span className="catf-pp">PC</span>}
             </div>
             {f.status === 'catalog' && (

@@ -7,7 +7,6 @@ import './UserHeader.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { isUnder18 } from '../../utils/ageUtils';
-import { MOCK_OF_ORG } from '../../data/mockFormations';
 import { applySpaceTheme } from '../../utils/spaceTheme';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
@@ -99,26 +98,16 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         });
       }
 
-      // FE-62 smoke : OF mock dans le switcher (re-shelver avant merge staging)
       const ofFromApi = contexts.formation_organizations || [];
-      if (ofFromApi.length > 0) {
-        ofFromApi.forEach((org) => {
-          orgs.push({
-            id: org.id,
-            name: org.name,
-            type: 'formation' as const,
-            role: org.role,
-            isAdmin: true,
-          });
-        });
-      } else {
+      ofFromApi.forEach((org) => {
         orgs.push({
-          id: MOCK_OF_ORG.id,
-          name: MOCK_OF_ORG.name,
+          id: org.id,
+          name: org.name,
           type: 'formation' as const,
+          role: org.role,
           isAdmin: true,
         });
-      }
+      });
 
       // Add teacher dashboard if available
       if (contexts.teacher_dashboard) {

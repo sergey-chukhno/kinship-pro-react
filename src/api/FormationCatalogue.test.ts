@@ -1,98 +1,117 @@
+const mockGet = jest.fn();
+const mockPost = jest.fn();
+
+jest.mock('./config', () => ({
+  __esModule: true,
+  default: {
+    get: (...args: unknown[]) => mockGet(...args),
+    post: (...args: unknown[]) => mockPost(...args),
+    patch: jest.fn(),
+  },
+  axiosClientWithoutToken: {},
+}));
+
 import {
-  __setMockCatalogueFlags,
-  CATALOGUE_CSV_TEMPLATE,
-  commitCatalogueImport,
-  parseCatalogueCsv,
+  getCatalogue,
+  getCatalogueFlags,
   previewCatalogueUpload,
 } from './FormationCatalogue';
-import { replaceAllFiches } from '../utils/formationCatalogueStore';
+import { CatalogueOrgRef } from './formationCatalogOrg';
 
-describe('parseCatalogueCsv', () => {
+const org: CatalogueOrgRef = {
+  type: 'Company',
+  id: 7,
+  name: 'Test Co',
+  initials: 'TC',
+  key: 'company-7',
+};
+
+describe('FormationCatalogue API facade', () => {
   beforeEach(() => {
-    __setMockCatalogueFlags({
-      eu_mc_gate: { allowed: true },
-      certification_links_enabled: false,
+    mockGet.mockReset();
+    mockPost.mockReset();
+  });
+
+  it('getCatalogueFlags reads meta from index', async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        data: [],
+        meta: {
+          eu_mc_gate: { allowed: true, reason: null },
+          certification_links_enabled: false,
+        },
+      },
     });
+
+    const flags = await getCatalogueFlags(org);
+    expect(flags.eu_mc_gate.allowed).toBe(true);
+    expect(flags.certification_links_enabled).toBe(false);
+    expect(mockGet).toHaveBeenCalledWith(
+      '/api/v1/formation_catalog_entries',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          organization_type: 'Company',
+          organization_id: 7,
+        }),
+      })
+    );
   });
 
-  it('parses the template: catalog + draft rows', () => {
-    const preview = parseCatalogueCsv(CATALOGUE_CSV_TEMPLATE, 'modele.csv');
-    expect(preview.counts.read).toBe(2);
-    expect(preview.counts.catalog).toBe(2);
-    expect(preview.counts.rejected).toBe(0);
-    expect(preview.rncpColumnIgnored).toBe(false);
+  it('getCatalogue maps listed rows', async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        data: [
+          {
+            id: 'a',
+            status: 'listed',
+            title: 'T',
+            is_eu_mc_declared: false,
+            participation_mode: 'online',
+            financement_type: 'opco',
+          },
+        ],
+        meta: {},
+      },
+    });
+
+    const list = await getCatalogue(org);
+    expect(list).toHaveLength(1);
+    expect(list[0].status).toBe('catalog');
+    expect(list[0].modality).toBe('distanciel');
   });
 
-  it('marks incomplete rows as draft and duplicates as rejected', () => {
-    const csv = `Titre;Description;Programme;Durée en heures;Modalité;Financement
-Complete;Desc;Prog;10;Présentiel;CPF
-Incomplete;;;;Présentiel;
-Complete;Desc;Prog;10;Présentiel;CPF
-`;
-    const preview = parseCatalogueCsv(csv, 't.csv');
-    expect(preview.rows[0].state).toBe('catalog');
-    expect(preview.rows[1].state).toBe('draft');
-    expect(preview.rows[1].title).toBe('Incomplete');
-    expect(preview.rows[2].state).toBe('rejected');
-    expect(preview.rows[2].detail).toMatch(/même titre/);
-  });
+  it('previewCatalogueUpload posts FormData and maps analysis', async () => {
+    mockPost.mockResolvedValue({
+      data: {
+        import_id: 'imp-1',
+        analysis: {
+          recognized_headers: ['Titre'],
+          unknown_headers: [],
+          counts: { read: 1, listed: 1, draft: 0, skipped: 0 },
+          lines: [
+            {
+              line_number: 2,
+              outcome: 'listed',
+              attributes: {
+                title: 'Import Excel Complet',
+                workload_hours: 21,
+                participation_mode: 'on_site',
+                financement_type: 'cpf',
+              },
+              issues: [],
+            },
+          ],
+        },
+      },
+    });
 
-  it('ignores RNCP column when certification_links_enabled is false', () => {
-    const csv = `Titre;Description;Programme;Durée en heures;Modalité;Financement;Code RNCP/RS
-A;d;p;1;Présentiel;CPF;RNCP1
-`;
-    const preview = parseCatalogueCsv(csv, 'rncp.csv');
-    expect(preview.rncpColumnIgnored).toBe(true);
-  });
-
-  it('throws when Titre column is missing', () => {
-    expect(() => parseCatalogueCsv('Foo;Bar\n1;2', 'bad.csv')).toThrow(/Titre/);
-  });
-});
-
-describe('previewCatalogueUpload', () => {
-  it('parses CSV via File without conversion', async () => {
-    const file = new File([CATALOGUE_CSV_TEMPLATE], 'modele.csv', { type: 'text/csv' });
-    const preview = await previewCatalogueUpload(file);
-    expect(preview.counts.catalog).toBe(2);
-  });
-
-  it('accepts .xlsx as opaque upload (mock server preview)', async () => {
-    const file = new File([new Uint8Array([0x50, 0x4b])], 'fe62-test6-catalogue.xlsx', {
+    const file = new File(['x'], 'fe62.xlsx', {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
-    const preview = await previewCatalogueUpload(file);
-    expect(preview.fileName).toMatch(/\.xlsx$/);
-    expect(preview.counts.read).toBe(2);
+    const preview = await previewCatalogueUpload(file, org);
+    expect(preview.importId).toBe('imp-1');
     expect(preview.counts.catalog).toBe(1);
-    expect(preview.counts.draft).toBe(1);
-  });
-});
-
-describe('commitCatalogueImport', () => {
-  beforeEach(() => {
-    replaceAllFiches([]);
-  });
-
-  it('creates catalog and draft fiches, skips rejected', async () => {
-    const preview = parseCatalogueCsv(
-      `Titre;Description;Programme;Durée en heures;Modalité;Financement
-Ok;d;p;8;Présentiel;OPCO
-Draft;;;
-Dup;d;p;8;Présentiel;OPCO
-Dup;d;p;8;Présentiel;OPCO
-`,
-      'x.csv'
-    );
-    const created = await commitCatalogueImport(preview, {
-      key: 'of-test',
-      name: 'OF Test',
-      initials: 'OT',
-    });
-    // Ok + Draft + first Dup ; second Dup rejected
-    expect(created).toHaveLength(3);
-    expect(created.filter((f) => f.status === 'catalog')).toHaveLength(2);
-    expect(created.filter((f) => f.status === 'draft')).toHaveLength(1);
-    expect(preview.counts.rejected).toBe(1);
+    expect(preview.rows[0].title).toBe('Import Excel Complet');
+    expect(mockPost).toHaveBeenCalled();
   });
 });

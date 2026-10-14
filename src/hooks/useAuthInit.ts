@@ -189,13 +189,8 @@ export const useAuthInit = () => {
                   (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
                 ) || false;
               case 'formation':
-                // FE-62 smoke : contexte OF mock (of-demo) accepté même sans API formation_organizations
-                return (
-                  savedContextId === 'of-demo' ||
-                  !!user.available_contexts?.formation_organizations?.some(
-                    (o: { id?: string | number }) =>
-                      o.id?.toString() === savedContextId
-                  )
+                return !!user.available_contexts?.formation_organizations?.some(
+                  (o: { id?: string | number }) => o.id?.toString() === savedContextId
                 );
               default:
                 return false;

@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  createCatalogueDraft,
   getCatalogue,
   getCatalogueFlags,
   getCatalogueFiche,
+  listCatalogueFiche,
   saveCatalogueFiche,
 } from '../../api/FormationCatalogue';
+import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import {
   CatalogueServerFlags,
@@ -150,7 +153,11 @@ const FormationFicheWizard: React.FC = () => {
   const location = useLocation();
   const id = ficheIdFromPath(location.pathname);
   const navigate = useNavigate();
-  const { setCurrentPage } = useAppContext();
+  const { setCurrentPage, state } = useAppContext();
+  const org = useMemo(
+    () => resolveCatalogueOrg(state.user, state.showingPageType),
+    [state.user, state.showingPageType]
+  );
   const lock = useMemo(() => readLock(), []);
   const imgRef = useRef<HTMLInputElement>(null);
 
@@ -164,42 +171,63 @@ const FormationFicheWizard: React.FC = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [step3Missing, setStep3Missing] = useState<string[]>([]);
   const [existingTitles, setExistingTitles] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    getCatalogueFlags().then(setFlags);
-    getCatalogue().then((list) =>
-      setExistingTitles(list.filter((f) => !id || f.id !== id).map((f) => f.title.trim().toLowerCase()))
-    );
-  }, [id]);
+    if (!org) return;
+    getCatalogueFlags(org).then(setFlags).catch(() => setFlags(null));
+    getCatalogue(org)
+      .then((list) =>
+        setExistingTitles(
+          list.filter((f) => !id || f.id !== id).map((f) => f.title.trim().toLowerCase())
+        )
+      )
+      .catch(() => setExistingTitles([]));
+  }, [id, org]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (id) {
-        const existing = await getCatalogueFiche(id);
-        if (!cancelled && existing) {
-          setFiche(existing);
-          setEuMcChoice(existing.euMc);
-          setStep(2);
+        try {
+          const existing = await getCatalogueFiche(id);
+          if (!cancelled && existing) {
+            setFiche(existing);
+            setEuMcChoice(existing.euMc);
+            setStep(2);
+          }
+        } catch (e: any) {
+          if (!cancelled) setError(e?.message || 'Fiche introuvable.');
         }
         return;
       }
-      if (lock) {
-        setFiche(emptyFiche(lock));
+      if (lock && org) {
         setEuMcChoice(lock.euMc);
+        setFiche(
+          emptyFiche({
+            orgKey: org.key,
+            orgName: org.name,
+            orgInitials: org.initials,
+            orgCertified: lock.orgCertified,
+            euMc: lock.euMc,
+          })
+        );
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [id, lock]);
+  }, [id, lock, org]);
 
   const gateLabel = flags ? getEuMcGateCheckboxLabel(flags.eu_mc_gate) : null;
   const euMc = fiche?.euMc ?? euMcChoice;
 
-  /** Base 4 (pays, org, AQ, niveau) + 5 champs fiche → 9 max. Patrick : titre+durée+éval+modalité sans programme = 8/11. */
+  /** Serveur compliance si présent ; sinon estimation locale (base 4 + champs). */
   const goldCount = useMemo(() => {
     if (!euMc || !fiche) return 0;
+    if (fiche.compliance && typeof fiche.compliance.count === 'number') {
+      return Math.min(fiche.compliance.count, 9);
+    }
     let n = 4;
     if (fiche.title.trim()) n += 1;
     if (fiche.programmeMode === 'series' && fiche.programmeSeries) n += 1;
@@ -214,31 +242,43 @@ const FormationFicheWizard: React.FC = () => {
     navigate('/catalogue-formations');
   };
 
-  const ensureFicheFromStep1 = () => {
-    if (fiche) return fiche;
-    const base: FicheDraftLock = lock || {
-      orgKey: 'of-local',
-      orgName: 'Organisme de formation',
-      orgInitials: 'OF',
-      orgCertified: true,
-      euMc: euMcChoice && Boolean(flags?.eu_mc_gate.allowed),
-    };
-    const next = emptyFiche({
-      ...base,
-      euMc: euMcChoice && Boolean(flags?.eu_mc_gate.allowed),
-    });
-    setFiche(next);
-    sessionStorage.setItem(
-      DRAFT_KEY,
-      JSON.stringify({
-        orgKey: next.orgKey,
-        orgName: next.orgName,
-        orgInitials: next.orgInitials,
-        orgCertified: next.orgCertified,
-        euMc: next.euMc,
-      })
-    );
-    return next;
+  const ensureFicheFromStep1 = async () => {
+    if (fiche?.id && !fiche.id.startsWith('local-') && !fiche.id.startsWith('fiche-')) {
+      return fiche;
+    }
+    if (!org) {
+      setError('Choisissez une école ou une entreprise.');
+      return null;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const created = await createCatalogueDraft(
+        {
+          euMc: euMcChoice && Boolean(flags?.eu_mc_gate.allowed),
+          orgCertified: lock?.orgCertified ?? true,
+        },
+        org
+      );
+      setFiche(created);
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          orgKey: org.key,
+          orgName: org.name,
+          orgInitials: org.initials,
+          orgCertified: created.orgCertified,
+          euMc: created.euMc,
+        })
+      );
+      navigate(`/formation-fiche/${created.id}`, { replace: true });
+      return created;
+    } catch (e: any) {
+      setError(e?.message || 'Création impossible.');
+      return null;
+    } finally {
+      setBusy(false);
+    }
   };
 
   const update = (patch: Partial<FormationFiche>) => {
@@ -360,11 +400,18 @@ const FormationFicheWizard: React.FC = () => {
   };
 
   const saveDraft = async () => {
-    if (!fiche) return;
+    if (!fiche || !org) return;
     setError(null);
-    await saveCatalogueFiche({ ...fiche, status: 'draft' });
-    sessionStorage.removeItem(DRAFT_KEY);
-    goCatalogue();
+    setBusy(true);
+    try {
+      await saveCatalogueFiche({ ...fiche, status: 'draft' }, org);
+      sessionStorage.removeItem(DRAFT_KEY);
+      goCatalogue();
+    } catch (e: any) {
+      setError(e?.message || 'Enregistrement impossible.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const requestAddToCatalog = () => {
@@ -387,12 +434,22 @@ const FormationFicheWizard: React.FC = () => {
   };
 
   const confirmAddToCatalog = async () => {
-    if (!fiche) return;
-    const saved = await saveCatalogueFiche({ ...fiche, status: 'catalog' });
-    setFiche(saved);
-    sessionStorage.removeItem(DRAFT_KEY);
-    setConfirmOpen(false);
-    goCatalogue();
+    if (!fiche || !org) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await saveCatalogueFiche({ ...fiche, status: 'draft' }, org);
+      const listed = await listCatalogueFiche(saved.id, org);
+      setFiche(listed);
+      sessionStorage.removeItem(DRAFT_KEY);
+      setConfirmOpen(false);
+      goCatalogue();
+    } catch (e: any) {
+      setError(e?.message || 'Ajout au catalogue impossible.');
+      setConfirmOpen(false);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const progCount = fiche
@@ -488,8 +545,9 @@ const FormationFicheWizard: React.FC = () => {
                   type="button"
                   className="ffw-btn p"
                   onClick={() => {
-                    ensureFicheFromStep1();
-                    setStep(2);
+                    ensureFicheFromStep1().then((created) => {
+                      if (created) setStep(2);
+                    });
                   }}
                 >
                   Continuer →

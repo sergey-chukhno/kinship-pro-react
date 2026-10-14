@@ -340,3 +340,6 @@
     padding: 14px;
   }
 }
+
+.catf-err { margin: 10px 0; padding: 10px 12px; background: #fdeeec; color: #7a2a20; border-radius: 8px; font-size: 13px; }
+.catf-sub { color: #6f7c94; font-size: 13px; }

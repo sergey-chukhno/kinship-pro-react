@@ -9,7 +9,7 @@ import {
 import './FormationsActivationTile.css';
 
 const FormationsActivationTile: React.FC = () => {
-  const { setCurrentPage, setShowingPageType } = useAppContext();
+  const { setCurrentPage } = useAppContext();
   const navigate = useNavigate();
   const [status, setStatus] = useState(() => getOfActivationStatus());
   const count = getFormations().filter((f) => f.status !== 'archived').length;
@@ -22,23 +22,11 @@ const FormationsActivationTile: React.FC = () => {
   };
 
   const goFormations = () => {
-    if (status === 'activated') {
-      localStorage.setItem('selectedPageType', 'of');
-      localStorage.setItem('selectedContextType', 'formation');
-      localStorage.setItem('selectedContextId', 'of-demo');
-      setShowingPageType('of');
-    }
     setCurrentPage('formations');
     navigate('/formations');
   };
 
   const goCatalogue = () => {
-    if (status === 'activated') {
-      localStorage.setItem('selectedPageType', 'of');
-      localStorage.setItem('selectedContextType', 'formation');
-      localStorage.setItem('selectedContextId', 'of-demo');
-      setShowingPageType('of');
-    }
     setCurrentPage('catalogue-formations');
     navigate('/catalogue-formations');
   };

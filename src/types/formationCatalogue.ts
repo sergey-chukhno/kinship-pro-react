@@ -79,6 +79,12 @@ export interface FormationFiche {
   validityUnlimited?: boolean;
   validityMonths?: string;
   identityAtAssessment?: IdentityAtAssessment;
+  /** Compteur MC UE serveur (compliance) — source de vérité. */
+  compliance?: {
+    count: number;
+    missingElements: string[];
+    displayedLevel?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -96,6 +102,8 @@ export interface CatalogueImportRowResult {
 
 export interface CatalogueImportPreview {
   fileName: string;
+  /** Token lot serveur (confirm). */
+  importId?: string;
   columnsFound: string[];
   columnsIgnored: string[];
   rncpColumnIgnored: boolean;

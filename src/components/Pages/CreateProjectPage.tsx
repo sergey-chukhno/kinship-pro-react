@@ -10,7 +10,7 @@ import {
   newLearningOutcome,
   serializeLearningOutcomes,
 } from '../../data/euMcCatalog';
-import { LearningOutcome, MOCK_OF_ORG, FinancementType, FINANCEMENT_OPTIONS } from '../../data/mockFormations';
+import { LearningOutcome, FinancementType, FINANCEMENT_OPTIONS } from '../../data/mockFormations';
 import { BadgeAPI, OrganizationContext } from '../../types';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { openProjectSpace } from '../../utils/projectSpaceStore';
@@ -24,6 +24,7 @@ import {
 } from '../../utils/projectMapper';
 import EuMcSeriesPicker from './EuMcSeriesPicker';
 import { getCatalogueFlags } from '../../api/FormationCatalogue';
+import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { CatalogueServerFlags } from '../../types/formationCatalogue';
 import { getEuMcGateCheckboxLabel } from '../../utils/euMcGateCopy';
 import './CreateProjectPage.css';
@@ -108,8 +109,13 @@ const CreateProjectPage: React.FC = () => {
   const ofReady = canCreateFormation();
 
   useEffect(() => {
-    getCatalogueFlags().then(setCatalogueFlags);
-  }, []);
+    const org = resolveCatalogueOrg(state.user, state.showingPageType);
+    if (!org) {
+      setCatalogueFlags({ eu_mc_gate: { allowed: false, reason: 'setting' }, certification_links_enabled: false });
+      return;
+    }
+    getCatalogueFlags(org).then(setCatalogueFlags).catch(() => setCatalogueFlags(null));
+  }, [state.user, state.showingPageType]);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -186,21 +192,22 @@ const CreateProjectPage: React.FC = () => {
     }
 
     if (pageType === 'of') {
-      const selectedId = getSelectedOrganizationId(state.user, pageType);
       const ofOrgs = (contexts as { formation_organizations?: OrganizationContext[] } | undefined)
         ?.formation_organizations || [];
-      const current = ofOrgs.find((c) => c.id === selectedId) || ofOrgs[0];
-      if (current) return [fromOrg(current, 'Organisme de formation')];
-      return [
-        {
-          key: MOCK_OF_ORG.id,
-          name: MOCK_OF_ORG.name,
-          subtitle: MOCK_OF_ORG.kind,
-          initials: MOCK_OF_ORG.initials,
-          qualiopi: true,
-          trustLevel: 'STRATEGIC_PARTNER',
-        },
-      ];
+      if (ofOrgs.length) return ofOrgs.map((c) => fromOrg(c, 'Organisme de formation'));
+      const catalogueOrg = resolveCatalogueOrg(state.user, state.showingPageType);
+      if (catalogueOrg) {
+        return [
+          {
+            key: catalogueOrg.key,
+            name: catalogueOrg.name,
+            subtitle: catalogueOrg.type === 'School' ? 'Établissement scolaire' : 'Entreprise',
+            initials: catalogueOrg.initials,
+            organizationId: catalogueOrg.id,
+          },
+        ];
+      }
+      return [];
     }
 
     return [];
