@@ -38,8 +38,8 @@ export const useAuthInit = () => {
        /* "pik", */
       "funder-attachments",
       /* "presence-session", "formation-detail", "formation-affiche", "preuve-formation", */
-      "create", "project-space", "project-affiche", "funded-projects",
-      /* "of-activation", "admin-of-queue", */
+      "create", "catalogue-formations", "catalogue-import", "project-space", "project-affiche", "funded-projects",
+      "of-activation", /* "admin-of-queue", */
       "personal-settings",
       "membership-requests", "partnership-requests", "project-management",
       "mes-enfants", "mes-parents"
@@ -49,7 +49,19 @@ export const useAuthInit = () => {
       return path as PageType;
     }
 
-    // // Routes formation (temporairement désactivées)
+    if (path.startsWith('formation-fiche')) {
+      return 'formation-fiche';
+    }
+
+    if (path.startsWith('catalogue-import')) {
+      return 'catalogue-import';
+    }
+
+    if (path.startsWith('catalogue-formations')) {
+      return 'catalogue-formations';
+    }
+
+    // // Routes formation sessions (temporairement désactivées)
     // if (path.startsWith('formation-detail')) {
     //   return 'formation-detail';
     // }
@@ -74,11 +86,11 @@ export const useAuthInit = () => {
       return 'funded-projects';
     }
 
+    if (path.startsWith('of-activation')) {
+      return 'of-activation';
+    }
+
     // // Routes OF / formation (temporairement désactivées)
-    // if (path.startsWith('of-activation')) {
-    //   return 'of-activation';
-    // }
-    //
     // if (path.startsWith('admin-of-queue')) {
     //   return 'admin-of-queue';
     // }
@@ -177,8 +189,9 @@ export const useAuthInit = () => {
                   (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
                 ) || false;
               case 'formation':
-                // Formation / OF context temporarily shelved
-                return false;
+                return !!user.available_contexts?.formation_organizations?.some(
+                  (o: { id?: string | number }) => o.id?.toString() === savedContextId
+                );
               default:
                 return false;
             }

@@ -1,0 +1,383 @@
+.catf {
+  --catf-petrol: #115e59;
+  --catf-gold: #d4960a;
+  --catf-ink: #16255a;
+  --catf-muted: #6f7c94;
+  --catf-border: #dde3ee;
+  min-height: 100%;
+  background: #f3f6f5;
+  padding: 20px 26px 40px;
+  color: var(--catf-ink);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.catf-crumb {
+  font-size: 12px;
+  color: var(--catf-muted);
+  margin-bottom: 10px;
+}
+
+.catf-crumb button {
+  border: none;
+  background: none;
+  color: var(--catf-petrol);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.catf h1 {
+  font-size: 22px;
+  margin: 0 0 4px;
+  color: var(--catf-ink);
+}
+
+.catf-who {
+  font-size: 12.5px;
+  color: var(--catf-muted);
+  margin-bottom: 14px;
+  max-width: 820px;
+}
+
+.catf-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.catf-head p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--catf-muted);
+  max-width: 820px;
+}
+
+.catf-toolbar,
+.catf-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.catf-search,
+.catf-filters input[type="search"] {
+  flex: 1;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid var(--catf-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.catf-filter,
+.catf-filters select {
+  font-size: 12.5px;
+  font-weight: 600;
+  background: #fff;
+  border: 1px solid var(--catf-border);
+  border-radius: 9px;
+  padding: 6px 12px;
+  font-family: inherit;
+}
+
+.catf-count {
+  font-size: 12px;
+  color: var(--catf-muted);
+  white-space: nowrap;
+}
+
+.catf-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.catf-btn {
+  border: none;
+  border-radius: 9px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.catf-btn.p {
+  background: var(--catf-petrol);
+  color: #fff;
+}
+
+.catf-btn.s {
+  background: #fff;
+  color: var(--catf-petrol);
+  border: 1.5px solid var(--catf-petrol);
+}
+
+.catf-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.catf-card {
+  background: #fff;
+  border: 1.5px solid var(--catf-border);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.catf-card.mcue {
+  border: 2px solid var(--catf-gold);
+  box-shadow: 0 0 0 3px rgba(212, 150, 10, 0.12);
+}
+
+.catf-card .hd,
+.catf-top {
+  background: var(--catf-petrol);
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.catf-card .band,
+.catf-band {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  background: #eef5f4;
+  color: var(--catf-petrol);
+  border-bottom: 1px solid #d9e8e6;
+}
+
+.catf-card .band.muted,
+.catf-band.muted {
+  background: #f4f2ec;
+  color: #5b5953;
+}
+
+.catf-card .ti,
+.catf-title {
+  font-size: 17px;
+  font-weight: 800;
+  text-align: center;
+  padding: 18px 12px 4px;
+  margin: 0;
+}
+
+.catf-card .sub,
+.catf-desc {
+  font-size: 11.5px;
+  color: var(--catf-muted);
+  text-align: center;
+  padding: 0 12px 10px;
+  margin: 0;
+}
+
+.catf-card .pills,
+.catf-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  padding: 0 10px 12px;
+}
+
+.catf-meta {
+  font-size: 11.5px;
+  color: var(--catf-muted);
+  text-align: center;
+  padding: 0 12px 10px;
+}
+
+.catf-pp {
+  font-size: 10.5px;
+  font-weight: 800;
+  border-radius: 8px;
+  padding: 2px 8px;
+  background: #f1efe9;
+  border: 1px solid #e0ddd4;
+}
+
+.catf-pp.h {
+  background: #eef5f4;
+  border-color: #bcd6d3;
+  color: var(--catf-petrol);
+}
+
+.catf-pp.or {
+  background: #fdf6e3;
+  border-color: #e0cf9a;
+  color: #8a6d1a;
+}
+
+.catf-card .hd .cd,
+.catf-top span:last-child {
+  font-weight: 700;
+  opacity: 0.92;
+  margin-left: auto;
+}
+
+.catf-prod {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  align-items: center;
+  padding: 0 10px 12px;
+}
+
+.catf-prod .pl {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--catf-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-right: 2px;
+}
+
+.catf-sess {
+  margin: auto 12px 0;
+  border-top: 1px solid var(--catf-border);
+  padding: 10px 0 8px;
+  font-size: 11.5px;
+  color: var(--catf-muted);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.catf-sess-link {
+  margin-left: auto;
+  color: var(--catf-petrol);
+  font-weight: 700;
+  font-size: 11px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.catf-st.venir {
+  color: #1f6fa3;
+  background: #e6f2fb;
+}
+
+.catf-legend {
+  font-size: 11px;
+  color: var(--catf-muted);
+  margin-top: 10px;
+  max-width: 920px;
+}
+
+.catf-st {
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+
+.catf-st.brouillon {
+  color: #8a5a00;
+  background: #fff4e0;
+}
+
+.catf-st.catalog {
+  color: #177245;
+  background: #eafaf1;
+}
+
+.catf-st.retiree {
+  color: #6f7c94;
+  background: #eef1f6;
+}
+
+.catf-fl {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  color: var(--catf-petrol);
+  font-weight: 700;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 0 8px;
+  font-family: inherit;
+}
+
+.catf-act {
+  padding: 4px 12px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.catf-act .catf-btn {
+  flex: 1;
+  font-size: 12.5px;
+}
+
+.catf-more {
+  margin-top: 18px;
+  border: 1.5px dashed #bcd6d3;
+  background: #fff;
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.catf-more button {
+  border: none;
+  background: none;
+  color: var(--catf-petrol);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.catf-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #16255a;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  z-index: 50;
+  max-width: 320px;
+}
+
+@media (max-width: 900px) {
+  .catf-grid {
+    grid-template-columns: 1fr;
+  }
+  .catf {
+    padding: 14px;
+  }
+}
+
+.catf-err { margin: 10px 0; padding: 10px 12px; background: #fdeeec; color: #7a2a20; border-radius: 8px; font-size: 13px; }
+.catf-sub { color: #6f7c94; font-size: 13px; }

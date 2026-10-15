@@ -7,6 +7,7 @@ import './UserHeader.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { isUnder18 } from '../../utils/ageUtils';
+import { applySpaceTheme } from '../../utils/spaceTheme';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
@@ -97,7 +98,16 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         });
       }
 
-      // Formation / OF context temporarily hidden from the switcher
+      const ofFromApi = contexts.formation_organizations || [];
+      ofFromApi.forEach((org) => {
+        orgs.push({
+          id: org.id,
+          name: org.name,
+          type: 'formation' as const,
+          role: org.role,
+          isAdmin: true,
+        });
+      });
 
       // Add teacher dashboard if available
       if (contexts.teacher_dashboard) {
@@ -147,8 +157,8 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
     localStorage.setItem('selectedContextId', orgId.toString());
     localStorage.setItem('selectedContextType', orgType);
 
-    // Update the showing page type
     setShowingPageType(newPageType);
+    applySpaceTheme(newPageType);
 
     // Navigate to appropriate page
     if (orgType === 'user') {

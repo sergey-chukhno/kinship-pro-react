@@ -288,6 +288,25 @@
   background: rgba(85, 112, 241, 0.08);
 }
 
+/* Must beat .quick-action-btn { background: none } — else white text on white */
+.side-link.quick-action-btn.active,
+.side-link.quick-action-btn[aria-current="page"] {
+  background: var(--primary, #5570F1);
+  color: #fff;
+  font-weight: 600;
+}
+
+.side-link.quick-action-btn.active:hover,
+.side-link.quick-action-btn[aria-current="page"]:hover {
+  background: var(--primary, #5570F1);
+}
+
+.side-link.quick-action-btn.active img.side-icon,
+.side-link.quick-action-btn[aria-current="page"] img.side-icon {
+  filter: brightness(0) invert(1);
+  opacity: 1;
+}
+
 .quick-action-menu {
   position: relative;
   width: 100%;

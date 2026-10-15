@@ -10,7 +10,7 @@ import { getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUti
 import { applySpaceTheme } from '../../utils/spaceTheme';
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
-import { MOCK_OF_ORG } from '../../data/mockFormations';
+import { canCreateFormation } from '../../utils/ofActivationStore';
 import { openProjectAffiche } from '../../utils/projectSpaceStore';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
@@ -44,11 +44,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     } else if (state.showingPageType === 'user') {
       return { id: 'user-dashboard', type: 'user' as const };
     } else if (state.showingPageType === 'of') {
-      return { id: MOCK_OF_ORG.id, type: 'formation' as const };
+      const savedId = localStorage.getItem('selectedContextId');
+      const fromApi = state.user?.available_contexts?.formation_organizations?.[0]?.id;
+      return {
+        id: savedId || fromApi || 'formation',
+        type: 'formation' as const,
+      };
     }
     
     return null;
-  }, [state.showingPageType]);
+  }, [state.showingPageType, state.user?.available_contexts?.formation_organizations]);
 
   // Process organizations from available_contexts
   const organizations = useMemo(() => {
@@ -103,7 +108,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
         });
       }
 
-      // Formation / OF context temporarily hidden from the switcher
+      // formation_organizations : si le BE l’expose un jour (question Patrick). Pas de mock of-demo.
+      const ofFromApi = contexts.formation_organizations || [];
+      ofFromApi.forEach((org: { id: number | string; name: string; role?: string }) => {
+        orgs.push({
+          id: org.id,
+          name: org.name,
+          type: 'formation' as const,
+          role: org.role,
+          isAdmin: true,
+        });
+      });
 
       // Add teacher dashboard if available
       if (contexts.teacher_dashboard) {
@@ -342,18 +357,35 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                         </Menu.Item>
                       </>
                     )}
-                    <Menu.Item disabled>
-                      {({ active }) => (
-                        <button
-                          type="button"
-                          disabled
-                          className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
-                        >
-                          Formation
-                          <span className="sidebar-quick-action-soon">Bientôt</span>
-                        </button>
-                      )}
-                    </Menu.Item>
+                    {canCreateFormation() ? (
+                      <Menu.Item>
+                        {({ active }) => (
+                          <button
+                            type="button"
+                            className={`sidebar-quick-action-item ${active ? 'active' : ''}`}
+                            onClick={() => {
+                              navigate('/create?type=formation');
+                              onPageChange('create');
+                            }}
+                          >
+                            Formation
+                          </button>
+                        )}
+                      </Menu.Item>
+                    ) : (
+                      <Menu.Item disabled>
+                        {({ active }) => (
+                          <button
+                            type="button"
+                            disabled
+                            className={`sidebar-quick-action-item is-disabled ${active ? 'active' : ''}`}
+                          >
+                            Formation
+                            <span className="sidebar-quick-action-soon">Bientôt</span>
+                          </button>
+                        )}
+                      </Menu.Item>
+                    )}
                     <Menu.Item disabled>
                       {({ active }) => (
                         <button
@@ -369,6 +401,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                   </Menu.Items>
                 </Transition>
               </Menu>
+              {canCreateFormation() && (
+                <button
+                  type="button"
+                  className={`side-link quick-action-btn ${currentPage === 'catalogue-formations' ? 'active' : ''}`}
+                  onClick={() => {
+                    onPageChange('catalogue-formations');
+                    navigate('/catalogue-formations');
+                  }}
+                >
+                  <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
+                  Catalogue de formations
+                </button>
+              )}
               <button
                 type="button"
                 className="side-link quick-action-btn"
@@ -419,8 +464,21 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
             <button
               type="button"
               className="side-link quick-action-btn"
-              disabled
-              title="Bientôt disponible"
+              onClick={() => {
+                onPageChange('catalogue-formations');
+                navigate('/catalogue-formations');
+              }}
+            >
+              <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
+              Catalogue de formations
+            </button>
+            <button
+              type="button"
+              className="side-link quick-action-btn"
+              onClick={() => {
+                onPageChange('create');
+                navigate('/create?type=formation');
+              }}
             >
               <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
               Créer une formation
