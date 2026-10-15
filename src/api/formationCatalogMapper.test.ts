@@ -5,6 +5,7 @@ import {
   flagsFromMeta,
   formatWorkloadHoursDisplay,
   humanizeImportIssues,
+  resolveMediaUrl,
 } from './formationCatalogMapper';
 import { CatalogueOrgRef } from './formationCatalogOrg';
 import { FormationFiche } from '../types/formationCatalogue';
@@ -44,6 +45,7 @@ describe('formationCatalogMapper', () => {
         assessment_type: 'QCM',
         has_jury: false,
         teaching_languages: ['fr'],
+        main_picture_url: '/rails/active_storage/blobs/redirect/pic.jpg',
         compliance: { count: 8, missing_elements: ['learning_outcomes'], displayed_level: 'NOT_APPLICABLE' },
         created_at: '2026-01-01',
         updated_at: '2026-01-02',
@@ -56,6 +58,22 @@ describe('formationCatalogMapper', () => {
     expect(fiche.financement).toBe('CPF');
     expect(fiche.compliance?.count).toBe(8);
     expect(fiche.durationHours).toBe('48');
+    const prev = process.env.REACT_APP_DB_BASE_URL;
+    process.env.REACT_APP_DB_BASE_URL = 'https://api.example.test';
+    const withPic = entryToFiche(
+      {
+        id: 'uuid-2',
+        status: 'listed',
+        is_eu_mc_declared: false,
+        title: 'T',
+        main_picture_url: '/rails/active_storage/blobs/redirect/pic.jpg',
+      },
+      org
+    );
+    expect(withPic.imageDataUrl).toBe(
+      'https://api.example.test/rails/active_storage/blobs/redirect/pic.jpg'
+    );
+    process.env.REACT_APP_DB_BASE_URL = prev;
   });
 
   it('formats workload hours per P4.11', () => {
@@ -63,6 +81,17 @@ describe('formationCatalogMapper', () => {
     expect(formatWorkloadHoursDisplay(21)).toBe('21');
     expect(formatWorkloadHoursDisplay('513.5')).toBe('513,5');
     expect(formatWorkloadHoursDisplay('513,5')).toBe('513,5');
+  });
+
+  it('resolves relative ActiveStorage urls against the API base', () => {
+    const prev = process.env.REACT_APP_DB_BASE_URL;
+    process.env.REACT_APP_DB_BASE_URL = 'https://api.example.test';
+    expect(resolveMediaUrl('/rails/active_storage/blobs/redirect/x.jpg')).toBe(
+      'https://api.example.test/rails/active_storage/blobs/redirect/x.jpg'
+    );
+    expect(resolveMediaUrl('https://cdn.example/a.jpg')).toBe('https://cdn.example/a.jpg');
+    expect(resolveMediaUrl('data:image/png;base64,xx')).toBe('data:image/png;base64,xx');
+    process.env.REACT_APP_DB_BASE_URL = prev;
   });
 
   it('humanizes import issue codes', () => {
