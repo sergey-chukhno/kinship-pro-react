@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import {
   FINANCEMENT_LABEL,
@@ -15,6 +15,7 @@ import {
   getFormationPeople,
   getFormationSlots,
   getSelectedFormationId,
+  setSelectedFormationId,
   slotStatusLabel,
   subscribeFormationSlots,
   subscribeFormations,
@@ -23,6 +24,13 @@ import {
   updateFormation,
   verifyFormationIdentity,
 } from '../../utils/formationStore';
+import {
+  declareSessionStart,
+  getSelectedSessionId,
+  getSessionById,
+  openSessionAffiche,
+  setSelectedSessionId,
+} from '../../utils/formationSessionStore';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
 import { useToast } from '../../hooks/useToast';
 import FunderFollowView from '../FunderView/FunderFollowView';
@@ -40,11 +48,16 @@ type AfficheTab =
   | 'preuves'
   | 'documents';
 
-const TABS: { id: AfficheTab; label: string }[] = [
+const TABS_LAUNCH: { id: AfficheTab; label: string }[] = [
   { id: 'overview', label: "Vue d'ensemble" },
   { id: 'seances', label: 'Séances' },
   { id: 'participants', label: 'Participants' },
-  { id: 'equipes', label: 'Équipes' },
+  { id: 'equipes', label: 'Équipe' },
+  { id: 'documents', label: 'Documents' },
+];
+
+const TABS: { id: AfficheTab; label: string }[] = [
+  ...TABS_LAUNCH.slice(0, 4),
   { id: 'preuves', label: 'Preuves de compétences' },
   { id: 'documents', label: 'Documents' },
 ];
@@ -103,11 +116,33 @@ function formatFr(iso?: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function afficheIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/formation-affiche\/([^/]+)\/?$/);
+  return m?.[1] ?? null;
+}
+
 const FormationAffiche: React.FC = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { setCurrentPage } = useAppContext();
   const { showSuccess, showError } = useToast();
-  const formationId = getSelectedFormationId() || '';
+  const pathId = afficheIdFromPath(pathname);
+  useEffect(() => {
+    if (!pathId) return;
+    if (getSessionById(pathId)) {
+      openSessionAffiche(pathId);
+      return;
+    }
+    setSelectedFormationId(pathId);
+    setSelectedSessionId(null);
+  }, [pathId]);
+  const formationId = pathId || getSelectedFormationId() || '';
+  const linkedSessionId = getSelectedSessionId();
+  const linkedSession = linkedSessionId ? getSessionById(linkedSessionId) : undefined;
+  const isSessionFlow = Boolean(
+    (linkedSession && linkedSession.id === formationId) ||
+      (pathId && getSessionById(pathId))
+  );
   const [formation, setFormation] = useState(() => getFormationById(formationId) ?? null);
   const [slots, setSlots] = useState(() => getFormationSlots(formationId));
   const [people, setPeople] = useState(() => getFormationPeople(formationId));
@@ -133,6 +168,13 @@ const FormationAffiche: React.FC = () => {
   const [docs, setDocs] = useState(DOC_SEED);
   const [mcueWall, setMcueWall] = useState(false);
   const [certTab, setCertTab] = useState<'preuves' | 'certificats'>('preuves');
+  const [sessionStartTick, setSessionStartTick] = useState(0);
+
+  useEffect(() => {
+    setFormation(getFormationById(formationId) ?? null);
+    setSlots(getFormationSlots(formationId));
+    setPeople(getFormationPeople(formationId));
+  }, [formationId]);
 
   useEffect(() => subscribeFormations(() => setFormation(getFormationById(formationId) ?? null)), [formationId]);
   useEffect(
@@ -147,10 +189,28 @@ const FormationAffiche: React.FC = () => {
     [formationId]
   );
 
+  useEffect(() => {
+    if (tab === 'preuves' && isSessionFlow) setTab('seances');
+  }, [tab, isSessionFlow]);
+
   const back = () => {
-    setCurrentPage('formation-detail');
-    navigate('/formation-detail');
+    if (isSessionFlow && linkedSessionId) {
+      setCurrentPage('formation-session-space');
+      navigate(`/formation-session-space/${linkedSessionId}`);
+      return;
+    }
+    setCurrentPage('catalogue-formations');
+    navigate('/catalogue-formations');
   };
+
+  const onDeclareSessionStart = () => {
+    if (!linkedSessionId) return;
+    declareSessionStart(linkedSessionId);
+    setSessionStartTick((n) => n + 1);
+    showSuccess('Début de session déclaré');
+  };
+
+  void sessionStartTick;
 
   const pending = people.participants.filter((p) => p.pendingActivation);
   const closeSlot = slots.find((s) => s.id === closeSlotId);
@@ -253,7 +313,14 @@ const FormationAffiche: React.FC = () => {
   const nextSlot = slots.find((s) => s.status === 'planned');
   const held = slots.filter((s) => s.status === 'closed').length;
   const openSlot = slots.find((s) => s.status === 'open');
-  const visibleTabs = view === 'participant' ? PARTICIPANT_TABS : TABS;
+  const liveSession =
+    isSessionFlow && linkedSessionId ? getSessionById(linkedSessionId) : linkedSession;
+  const visibleTabs =
+    view === 'participant'
+      ? PARTICIPANT_TABS.filter((t) => !(isSessionFlow && t.id === 'preuves'))
+      : isSessionFlow
+        ? TABS_LAUNCH
+        : TABS;
   const canClose =
     view === 'porteur' &&
     (formation?.status === 'in_progress' || formation?.status === 'coming');
@@ -314,6 +381,11 @@ const FormationAffiche: React.FC = () => {
         </button>
         <h1>La formation</h1>
         <div className="fa-actions">
+          {isSessionFlow && liveSession && !liveSession.startDeclared && (
+            <button type="button" className="fa-btn primary" onClick={onDeclareSessionStart}>
+              Déclarer le début
+            </button>
+          )}
           {canClose && (
             <button type="button" className="fa-btn ghost" onClick={tryCloseFormation}>
               ✓ Clôturer la formation

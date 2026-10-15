@@ -29,7 +29,7 @@ import { applySpaceTheme } from '../../utils/spaceTheme';
 // import PresenceSessionPage from '../Pages/PresenceSessionPage';
 import PresenceBanner from '../Presence/PresenceBanner';
 // import FormationDetail from '../Pages/FormationDetail';
-// import FormationAffiche from '../Pages/FormationAffiche';
+import FormationAffiche from '../Pages/FormationAffiche';
 // import PreuveFormationPage from '../Pages/PreuveFormationPage';
 // import FormationsHub from '../Pages/FormationsHub';
 import CreateProjectPage from '../Pages/CreateProjectPage';
@@ -40,6 +40,8 @@ import FunderFollowPage from '../Pages/FunderFollowPage';
 import CatalogueFormationsPage from '../Pages/CatalogueFormationsPage';
 import FormationFicheWizard from '../Pages/FormationFicheWizard';
 import CatalogueImportPage from '../Pages/CatalogueImportPage';
+import FormationSessionCreatePage from '../Pages/FormationSessionCreatePage';
+import FormationSessionSpacePage from '../Pages/FormationSessionSpacePage';
 import OfActivationPage from '../Pages/OfActivationPage';
 // import SuperAdminOfQueuePage from '../Pages/SuperAdminOfQueuePage';
 
@@ -148,8 +150,8 @@ const MainLayout: React.FC = () => {
       //   return <PresenceSessionPage />;
       // case 'formation-detail':
       //   return <FormationDetail />;
-      // case 'formation-affiche':
-      //   return <FormationAffiche />;
+      case 'formation-affiche':
+        return <FormationAffiche />;
       // case 'preuve-formation':
       //   return <PreuveFormationPage />;
       case 'create':
@@ -160,6 +162,10 @@ const MainLayout: React.FC = () => {
         return <FormationFicheWizard />;
       case 'catalogue-import':
         return <CatalogueImportPage />;
+      case 'formation-session-new':
+        return <FormationSessionCreatePage />;
+      case 'formation-session-space':
+        return <FormationSessionSpacePage />;
       case 'project-space':
         return <ProjectSpacePage />;
       case 'project-affiche':

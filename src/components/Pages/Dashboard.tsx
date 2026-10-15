@@ -52,6 +52,8 @@ import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { isUnder15 } from '../../utils/ageUtils';
 import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import FormationsActivationTile from '../Dashboard/FormationsActivationTile';
+import CatalogueSessionTodoTile from '../Dashboard/CatalogueSessionTodoTile';
+import FormateurSessionTodoTile from '../Dashboard/FormateurSessionTodoTile';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
@@ -1846,6 +1848,12 @@ const Dashboard: React.FC = () => {
 
 {/* --- COLONNE DE GAUCHE (Stats + Nouvel Aperçu Membres + Projets + Charts) --- */}
         <div className="dashboard-left-column">
+          {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
+            <>
+              <CatalogueSessionTodoTile />
+              <FormateurSessionTodoTile />
+            </>
+          )}
           {/* Statistics Cards */}
           <div className="dashboard-stats">
             <div className="stats-grid">
