@@ -53,4 +53,21 @@ describe('formationSessionStore', () => {
     expect(getSessionById(session.id)?.startDeclared).toBe(true);
     expect(getSessionsNeedingStartDeclaration().some((s) => s.id === session.id)).toBe(false);
   });
+
+  it('exposes next date in catalogue summary and seeds a first séance', () => {
+    createFormationSession({
+      catalogEntryId: 'cat-3',
+      title: 'Bureautique',
+      modality: 'presentiel',
+      financement: 'Entreprise',
+      euMc: false,
+      orgName: 'School Demo',
+      startDate: '2027-02-01',
+      endDate: '2027-03-01',
+      formateur: { source: 'structure', name: 'Marc Lefèvre', memberId: 'm1' },
+    });
+    const summary = catalogSessionSummary('cat-3');
+    expect(summary.count).toBe(1);
+    expect(summary.nextDate).toBe('2027-02-01');
+  });
 });

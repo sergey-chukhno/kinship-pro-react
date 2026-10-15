@@ -1002,3 +1002,75 @@
   flex-wrap: wrap;
   margin-left: auto;
 }
+
+/* FE-16 session flow — P4.5 accents */
+.fa-btn.amber {
+  background: #ffb557;
+  border-color: #ffb557;
+  color: #1c1b18;
+}
+.fa-session .fa-hero-session {
+  display: block;
+  background: #115e59;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+}
+.fa-session .fa-hero-session .fa-hbody { color: #fff; }
+.fa-session .fa-hero-session .fa-title { color: #fff; text-transform: uppercase; font-size: 15.5px; font-weight: 800; }
+.fa-session .fa-hero-session .fa-meta,
+.fa-session .fa-hero-session .fa-desc { color: rgba(255,255,255,.88); }
+.fa-session .fa-hero-session .fa-chip.date {
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.45);
+  color: #fff;
+}
+.fa-session .fa-hero-session .fa-chip.run {
+  background: #eafaf1;
+  color: #177245;
+}
+.fa-session .fa-hero-session .fa-chip.come {
+  background: #e6f2fb;
+  color: #1f6fa3;
+}
+.fa-chip.come {
+  background: #e6f2fb;
+  color: #1f6fa3;
+}
+.fa-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(233, 230, 223, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  padding: 16px;
+}
+.fa-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  max-width: 420px;
+  width: 100%;
+  border: 1px solid #cfccc2;
+}
+.fa-modal h2 { margin: 0 0 10px; font-size: 13px; }
+.fa-modal p { margin: 0 0 10px; font-size: 12px; line-height: 1.45; }
+.fa-fige {
+  background: #efe9f8;
+  border: 1px solid #d9ccf0;
+  border-left: 4px solid #5b3f8f;
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 11px;
+  color: #3d2a63;
+  margin: 10px 0;
+  line-height: 1.4;
+}
+.fa-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}

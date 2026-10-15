@@ -169,6 +169,7 @@ const FormationAffiche: React.FC = () => {
   const [mcueWall, setMcueWall] = useState(false);
   const [certTab, setCertTab] = useState<'preuves' | 'certificats'>('preuves');
   const [sessionStartTick, setSessionStartTick] = useState(0);
+  const [declareStartOpen, setDeclareStartOpen] = useState(false);
 
   useEffect(() => {
     setFormation(getFormationById(formationId) ?? null);
@@ -207,6 +208,7 @@ const FormationAffiche: React.FC = () => {
     if (!linkedSessionId) return;
     declareSessionStart(linkedSessionId);
     setSessionStartTick((n) => n + 1);
+    setDeclareStartOpen(false);
     showSuccess('Début de session déclaré');
   };
 
@@ -374,19 +376,22 @@ const FormationAffiche: React.FC = () => {
         : 'TERMINÉ';
 
   return (
-    <section className="fa-page" aria-label="Affiche formation">
+    <section
+      className={`fa-page ${isSessionFlow ? 'fa-session' : ''}`}
+      aria-label="Affiche formation"
+    >
       <div className="fa-head">
         <button type="button" className="fa-back" onClick={back} aria-label="Retour">
           ←
         </button>
-        <h1>La formation</h1>
+        <h1>{isSessionFlow ? 'Affiche de la session' : 'La formation'}</h1>
         <div className="fa-actions">
           {isSessionFlow && liveSession && !liveSession.startDeclared && (
-            <button type="button" className="fa-btn primary" onClick={onDeclareSessionStart}>
-              Déclarer le début
+            <button type="button" className="fa-btn amber" onClick={() => setDeclareStartOpen(true)}>
+              Déclarer le début de la session
             </button>
           )}
-          {canClose && (
+          {canClose && !isSessionFlow && (
             <button type="button" className="fa-btn ghost" onClick={tryCloseFormation}>
               ✓ Clôturer la formation
             </button>
@@ -394,45 +399,75 @@ const FormationAffiche: React.FC = () => {
           {view === 'porteur' && formation.status !== 'ended' && formation.status !== 'archived' && (
             <>
               <button type="button" className="fa-btn ghost" onClick={() => setCreateOpen(true)}>
-                📅 Créer une séance
+                {isSessionFlow ? '+ Créer une séance' : '📅 Créer une séance'}
               </button>
-              <button
-                type="button"
-                className="fa-btn primary"
-                onClick={() => {
-                  setAttestPerson(null);
-                  setAttestOpen(true);
-                }}
-              >
-                🏅 Attester une compétence
-              </button>
+              {!isSessionFlow && (
+                <button
+                  type="button"
+                  className="fa-btn primary"
+                  onClick={() => {
+                    setAttestPerson(null);
+                    setAttestOpen(true);
+                  }}
+                >
+                  🏅 Attester une compétence
+                </button>
+              )}
             </>
           )}
-          <button
-            type="button"
-            className="fa-btn ghost"
-            onClick={() =>
-              setView((v) => {
-                const next = v === 'porteur' ? 'participant' : 'porteur';
-                if (next === 'participant' && (tab === 'participants' || tab === 'equipes')) {
-                  setTab('overview');
-                }
-                return next;
-              })
-            }
-          >
-            {view === 'porteur' ? 'Vue participante' : 'Vue porteur'}
-          </button>
+          {!isSessionFlow && (
+            <button
+              type="button"
+              className="fa-btn ghost"
+              onClick={() =>
+                setView((v) => {
+                  const next = v === 'porteur' ? 'participant' : 'porteur';
+                  if (next === 'participant' && (tab === 'participants' || tab === 'equipes')) {
+                    setTab('overview');
+                  }
+                  return next;
+                })
+              }
+            >
+              {view === 'porteur' ? 'Vue participante' : 'Vue porteur'}
+            </button>
+          )}
         </div>
       </div>
 
-      <header className="fa-hero">
-        <div className="fa-cover">
-          <span>{formation.imageName || 'Débuter dans le numérique'}</span>
+      {declareStartOpen && liveSession && (
+        <div className="fa-modal-backdrop" role="presentation" onClick={() => setDeclareStartOpen(false)}>
+          <div className="fa-modal" role="dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>Déclarer le début de la session ?</h2>
+            <p>
+              {formation.title} — {people.participants.length || 0} participants · du{' '}
+              {formatFr(formation.startDate)} au {formatFr(formation.endDate)}.
+            </p>
+            <div className="fa-fige">
+              Les participants sont informés. Le financeur associé est informé du début. Les dates ne
+              se modifient plus.
+            </div>
+            <div className="fa-modal-actions">
+              <button type="button" className="fa-btn ghost" onClick={() => setDeclareStartOpen(false)}>
+                Annuler
+              </button>
+              <button type="button" className="fa-btn amber" onClick={onDeclareSessionStart}>
+                Déclarer le début
+              </button>
+            </div>
+          </div>
         </div>
+      )}
+
+      <header className={`fa-hero ${isSessionFlow ? 'fa-hero-session' : ''}`}>
+        {!isSessionFlow && (
+          <div className="fa-cover">
+            <span>{formation.imageName || 'Débuter dans le numérique'}</span>
+          </div>
+        )}
         <div className="fa-hbody">
           <div className="fa-staterow">
-            <span className="fa-chip run">{statusChip}</span>
+            <span className={`fa-chip ${statusChip === 'EN COURS' ? 'run' : 'come'}`}>{statusChip}</span>
             <span className="fa-chip date">
               {formatFr(formation.startDate)} → {formatFr(formation.endDate)}
             </span>
