@@ -3,6 +3,8 @@ import {
   entryToFiche,
   ficheToPayload,
   flagsFromMeta,
+  formatWorkloadHoursDisplay,
+  humanizeImportIssues,
 } from './formationCatalogMapper';
 import { CatalogueOrgRef } from './formationCatalogOrg';
 import { FormationFiche } from '../types/formationCatalogue';
@@ -53,6 +55,24 @@ describe('formationCatalogMapper', () => {
     expect(fiche.modality).toBe('presentiel');
     expect(fiche.financement).toBe('CPF');
     expect(fiche.compliance?.count).toBe(8);
+    expect(fiche.durationHours).toBe('48');
+  });
+
+  it('formats workload hours per P4.11', () => {
+    expect(formatWorkloadHoursDisplay('21.0')).toBe('21');
+    expect(formatWorkloadHoursDisplay(21)).toBe('21');
+    expect(formatWorkloadHoursDisplay('513.5')).toBe('513,5');
+    expect(formatWorkloadHoursDisplay('513,5')).toBe('513,5');
+  });
+
+  it('humanizes import issue codes', () => {
+    expect(
+      humanizeImportIssues([
+        'invalid_or_missing_description',
+        'invalid_or_missing_program_lines',
+        'missing_title',
+      ])
+    ).toBe('la description manque · le programme manque · pas de titre');
   });
 
   it('maps fiche payload enums to BE', () => {
@@ -105,7 +125,7 @@ describe('formationCatalogMapper', () => {
             line_number: 3,
             outcome: 'draft',
             attributes: { title: 'B' },
-            issues: ['missing_description'],
+            issues: ['invalid_or_missing_description'],
           },
           {
             line_number: 4,
@@ -121,5 +141,7 @@ describe('formationCatalogMapper', () => {
     expect(preview.counts).toEqual({ read: 3, catalog: 1, draft: 1, rejected: 1 });
     expect(preview.rows[0].durationHours).toBe('21');
     expect(preview.rows[0].state).toBe('catalog');
+    expect(preview.rows[1].detail).toBe('la description manque');
+    expect(preview.rows[2].detail).toBe('titre en double');
   });
 });

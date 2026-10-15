@@ -127,10 +127,7 @@ export function entryToFiche(entry: BeCatalogEntry, orgHint?: CatalogueOrgRef | 
           competenceLabels: badgeIds.map((id: number) => `Badge #${id}`),
         }
       : undefined,
-    durationHours:
-      entry.workload_hours != null && entry.workload_hours !== ''
-        ? String(entry.workload_hours).replace('.', ',')
-        : '',
+    durationHours: formatWorkloadHoursDisplay(entry.workload_hours),
     modality: MODALITY_FROM_BE[entry.participation_mode] || '',
     financement: FINANCE_FROM_BE[entry.financement_type] || '',
     prerequisites: entry.entry_requirements || '',
@@ -253,6 +250,46 @@ function parseHours(raw: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** P4.11 — afficher « 21 » / « 513,5 » (pas « 21.0 » / « 21,0 »). L’unité « h » est ajoutée à l’UI. */
+export function formatWorkloadHoursDisplay(raw: unknown): string {
+  if (raw == null || raw === '') return '';
+  let s = String(raw).trim();
+  s = s.replace(/\s*h(eures?)?\s*$/i, '').trim().replace(',', '.');
+  const n = Number(s);
+  if (!Number.isFinite(n)) return String(raw).trim();
+  if (Math.abs(n - Math.round(n)) < 1e-9) return String(Math.round(n));
+  // Trim trailing zeros after decimal (513.50 → 513,5)
+  const trimmed = String(n).replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+  return trimmed.replace('.', ',');
+}
+
+/** P4.11 — contrôle du tableau : mots, jamais les codes serveur. */
+const IMPORT_ISSUE_COPY: Record<string, string> = {
+  missing_title: 'pas de titre',
+  invalid_or_missing_title: 'pas de titre',
+  invalid_or_missing_description: 'la description manque',
+  invalid_or_missing_program_lines: 'le programme manque',
+  invalid_or_missing_workload_hours: 'la durée manque',
+  invalid_or_missing_participation_mode: 'la modalité manque',
+  invalid_or_missing_financement_type: 'le financement manque',
+  invalid_workload_hours: 'durée invalide',
+  invalid_participation_mode: 'modalité invalide',
+  invalid_financement_type: 'financement invalide',
+  title_taken: 'ce titre existe déjà',
+  title_duplicate_in_file: 'titre en double dans le tableau',
+  duplicate_title: 'titre en double',
+  certification_links_disabled: 'code RNCP/RS non lu (registre fermé)',
+  certification_code_unknown: 'code certification inconnu',
+  certification_registry_unavailable: 'registre indisponible',
+};
+
+export function humanizeImportIssues(issues: string[]): string {
+  return issues
+    .map((code) => IMPORT_ISSUE_COPY[code] || code.replace(/_/g, ' '))
+    .filter(Boolean)
+    .join(' · ');
+}
+
 export function analysisToPreview(
   fileName: string,
   analysis: Record<string, any>,
@@ -264,11 +301,12 @@ export function analysisToPreview(
     const outcome = line.outcome;
     const state: CatalogueImportRowResult['state'] =
       outcome === 'listed' ? 'catalog' : outcome === 'draft' ? 'draft' : 'rejected';
-    const issues = Array.isArray(line.issues) ? line.issues : [];
+    const issues = Array.isArray(line.issues) ? line.issues.map(String) : [];
+    const detail = humanizeImportIssues(issues);
     return {
       line: line.line_number || 0,
       title: attrs.title || '(sans titre)',
-      durationHours: attrs.workload_hours != null ? String(attrs.workload_hours) : '',
+      durationHours: formatWorkloadHoursDisplay(attrs.workload_hours),
       modality: attrs.participation_mode
         ? MODALITY_FROM_BE[attrs.participation_mode] || attrs.participation_mode
         : '',
@@ -276,7 +314,7 @@ export function analysisToPreview(
         ? FINANCE_FROM_BE[attrs.financement_type] || attrs.financement_type
         : '',
       state,
-      detail: issues.length ? issues.join(' · ') : undefined,
+      detail: detail || undefined,
     };
   });
 

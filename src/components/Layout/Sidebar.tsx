@@ -401,6 +401,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
                   </Menu.Items>
                 </Transition>
               </Menu>
+              {canCreateFormation() && (
+                <button
+                  type="button"
+                  className={`side-link quick-action-btn ${currentPage === 'catalogue-formations' ? 'active' : ''}`}
+                  onClick={() => {
+                    onPageChange('catalogue-formations');
+                    navigate('/catalogue-formations');
+                  }}
+                >
+                  <img src="/icons_logo/Icon=projet.svg" alt="" className="side-icon" />
+                  Catalogue de formations
+                </button>
+              )}
               <button
                 type="button"
                 className="side-link quick-action-btn"

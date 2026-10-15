@@ -5,6 +5,7 @@ import {
   downloadImportTemplate,
   previewCatalogueUpload,
 } from '../../api/FormationCatalogue';
+import { formatWorkloadHoursDisplay } from '../../api/formationCatalogMapper';
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import { CatalogueImportPreview } from '../../types/formationCatalogue';
@@ -114,10 +115,8 @@ const CatalogueImportPage: React.FC = () => {
   const showRows = preview?.rows.slice(0, 6) || [];
 
   const formatDuration = (raw: string) => {
-    const t = (raw || '').trim();
-    if (!t) return '';
-    if (/\bh\b/i.test(t) || /heure/i.test(t)) return t;
-    return `${t} h`;
+    const core = formatWorkloadHoursDisplay(raw);
+    return core ? `${core} h` : '';
   };
 
   const openFilePicker = () => inputRef.current?.click();
