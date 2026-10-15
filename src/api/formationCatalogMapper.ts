@@ -140,7 +140,7 @@ export function entryToFiche(entry: BeCatalogEntry, orgHint?: CatalogueOrgRef | 
     certificationCode: entry.targeted_certification_code || undefined,
     certificationTarget: entry.integration_option === 'integrated' ? 'block' : 'title',
     certificationRegistry: mapCertificationSnapshot(entry.targeted_certification_snapshot),
-    imageDataUrl: entry.main_picture_url || undefined,
+    imageDataUrl: resolveMediaUrl(entry.main_picture_url),
     schoolLabel: orgName,
     categoryBand: entry.targeted_certification_code
       ? `Titre · ${entry.targeted_certification_code}`
@@ -248,6 +248,17 @@ function parseHours(raw: string): number | null {
   if (!t) return null;
   const n = Number(t);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** ActiveStorage renvoie souvent un path relatif — préfixer avec l’API FE. */
+export function resolveMediaUrl(url?: string | null): string | undefined {
+  if (url == null) return undefined;
+  const t = String(url).trim();
+  if (!t) return undefined;
+  if (t.startsWith('data:') || /^https?:\/\//i.test(t)) return t;
+  const base = (process.env.REACT_APP_DB_BASE_URL || '').replace(/\/$/, '');
+  if (t.startsWith('/') && base) return `${base}${t}`;
+  return t;
 }
 
 /** P4.11 — afficher « 21 » / « 513,5 » (pas « 21.0 » / « 21,0 »). L’unité « h » est ajoutée à l’UI. */

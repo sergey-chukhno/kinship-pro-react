@@ -154,6 +154,11 @@ const CatalogueFormationsPage: React.FC = () => {
             <div className="catf-band">
               {f.categoryBand || 'Certificat de l’organisme'}
             </div>
+            {f.imageDataUrl ? (
+              <div className="catf-media">
+                <img src={f.imageDataUrl} alt="" />
+              </div>
+            ) : null}
             <h2 className="catf-title">{f.title || 'Sans titre'}</h2>
             {f.description && <p className="catf-desc">{f.description.slice(0, 80)}</p>}
             <div className="catf-pills">
