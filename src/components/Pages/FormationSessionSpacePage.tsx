@@ -17,8 +17,8 @@ type SpaceTab = 'informations' | 'gestion';
 type Visibility = 'structure' | 'financeur';
 
 function sessionIdFromPath(pathname: string): string | null {
-  const m = pathname.match(/^\/formation-session-space\/([^/]+)\/?$/);
-  return m?.[1] ?? getSelectedSessionId();
+  const from = (p: string) => p.match(/^\/formation-session-space\/([^/]+)\/?$/)?.[1] ?? null;
+  return from(pathname) || from(window.location.pathname) || getSelectedSessionId();
 }
 
 const FormationSessionSpacePage: React.FC = () => {

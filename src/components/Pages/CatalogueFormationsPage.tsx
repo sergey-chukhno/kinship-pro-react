@@ -79,8 +79,9 @@ const CatalogueFormationsPage: React.FC = () => {
   };
 
   const openSession = (f: FormationFiche) => {
-    setCurrentPage('formation-session-new');
+    // navigate first so Create page can read the catalog id from the URL on mount
     navigate(`/formation-session-new/${f.id}`);
+    setCurrentPage('formation-session-new');
   };
 
   const withdraw = async (f: FormationFiche) => {

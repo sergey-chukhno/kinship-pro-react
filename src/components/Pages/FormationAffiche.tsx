@@ -196,12 +196,12 @@ const FormationAffiche: React.FC = () => {
 
   const back = () => {
     if (isSessionFlow && linkedSessionId) {
-      setCurrentPage('formation-session-space');
       navigate(`/formation-session-space/${linkedSessionId}`);
+      setCurrentPage('formation-session-space');
       return;
     }
-    setCurrentPage('catalogue-formations');
     navigate('/catalogue-formations');
+    setCurrentPage('catalogue-formations');
   };
 
   const onDeclareSessionStart = () => {

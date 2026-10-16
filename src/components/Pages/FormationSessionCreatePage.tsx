@@ -45,9 +45,14 @@ function catalogIdFromPath(pathname: string): string | null {
   return m?.[1] ?? null;
 }
 
+/** Prefer router pathname; fall back to window (setCurrentPage can mount before navigate). */
+function resolveCatalogId(pathname: string): string | null {
+  return catalogIdFromPath(pathname) || catalogIdFromPath(window.location.pathname);
+}
+
 const FormationSessionCreatePage: React.FC = () => {
   const { pathname } = useLocation();
-  const catalogId = catalogIdFromPath(pathname);
+  const catalogId = resolveCatalogId(pathname);
   const navigate = useNavigate();
   const { setCurrentPage } = useAppContext();
   const { showSuccess, showError } = useToast();
@@ -75,27 +80,44 @@ const FormationSessionCreatePage: React.FC = () => {
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>();
 
   useEffect(() => {
-    if (!catalogId) {
+    const id = resolveCatalogId(pathname);
+    if (!id) {
+      setFiche(null);
       setError('Formation catalogue manquante.');
       setLoading(false);
       return;
     }
+    let cancelled = false;
+    setError(null);
     setLoading(true);
-    getCatalogueFiche(catalogId)
+    getCatalogueFiche(id)
       .then((f) => {
+        if (cancelled) return;
         if (!f) {
+          setFiche(null);
           setError('Fiche introuvable.');
           return;
         }
+        setError(null);
         setFiche(f);
         setPracticalInfo(f.practicalInfo || '');
         setImageDataUrl(f.imageDataUrl);
         setModality(f.modality || '');
         setFinancement(f.financement || '');
       })
-      .catch((e) => setError(e?.message || 'Chargement impossible.'))
-      .finally(() => setLoading(false));
-  }, [catalogId]);
+      .catch((e) => {
+        if (!cancelled) {
+          setFiche(null);
+          setError(e?.message || 'Chargement impossible.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   const selectedMember = MOCK_STRUCTURE_MEMBERS.find((m) => m.id === memberId);
 
@@ -180,8 +202,8 @@ const FormationSessionCreatePage: React.FC = () => {
   const goSpace = () => {
     if (!createdId) return;
     openSessionSpace(createdId);
-    setCurrentPage('formation-session-space');
     navigate(`/formation-session-space/${createdId}`);
+    setCurrentPage('formation-session-space');
   };
 
   if (loading) {
