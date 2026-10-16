@@ -437,8 +437,14 @@ const FormationAffiche: React.FC = () => {
 
       {declareStartOpen && liveSession && (
         <div className="fa-modal-backdrop" role="presentation" onClick={() => setDeclareStartOpen(false)}>
-          <div className="fa-modal" role="dialog" onClick={(e) => e.stopPropagation()}>
-            <h2>Déclarer le début de la session ?</h2>
+          <div
+            className="fa-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="fa-declare-start-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="fa-declare-start-title">Déclarer le début de la session ?</h2>
             <p>
               {formation.title} — {people.participants.length || 0} participants · du{' '}
               {formatFr(formation.startDate)} au {formatFr(formation.endDate)}.
@@ -447,7 +453,7 @@ const FormationAffiche: React.FC = () => {
               Les participants sont informés. Le financeur associé est informé du début. Les dates ne
               se modifient plus.
             </div>
-            <div className="fa-modal-actions">
+            <div className="fa-dialog-actions">
               <button type="button" className="fa-btn ghost" onClick={() => setDeclareStartOpen(false)}>
                 Annuler
               </button>

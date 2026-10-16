@@ -1037,6 +1037,7 @@
   background: #e6f2fb;
   color: #1f6fa3;
 }
+/* Above sidebar (z-index 1000); distinct from legacy .fa-modal overlay */
 .fa-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1044,19 +1045,30 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 90;
+  z-index: 2000;
   padding: 16px;
 }
-.fa-modal {
+.fa-dialog {
   background: #fff;
   border-radius: 12px;
   padding: 18px 20px;
   max-width: 420px;
   width: 100%;
   border: 1px solid #cfccc2;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
 }
-.fa-modal h2 { margin: 0 0 10px; font-size: 13px; }
-.fa-modal p { margin: 0 0 10px; font-size: 12px; line-height: 1.45; }
+.fa-dialog h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #1a1a1a;
+}
+.fa-dialog p {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #1a1a1a;
+}
 .fa-fige {
   background: #efe9f8;
   border: 1px solid #d9ccf0;
@@ -1068,7 +1080,7 @@
   margin: 10px 0;
   line-height: 1.4;
 }
-.fa-modal-actions {
+.fa-dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
