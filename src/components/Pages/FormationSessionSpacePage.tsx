@@ -62,8 +62,8 @@ const FormationSessionSpacePage: React.FC = () => {
   const goAffiche = () => {
     if (!session) return;
     openSessionAffiche(session.id);
-    setCurrentPage('formation-affiche');
     navigate(`/formation-affiche/${session.id}`);
+    setCurrentPage('formation-affiche');
   };
 
   const toggleAttendance = (on: boolean) => {
