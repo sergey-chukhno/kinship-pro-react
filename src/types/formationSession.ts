@@ -11,6 +11,8 @@ export interface FormationSessionFormateur {
   name: string;
   email?: string;
   memberId?: string;
+  /** User id API (responsible_trainer_id) — required for declare_start. */
+  userId?: number;
 }
 
 export interface FormationSessionPerson {

@@ -4,6 +4,8 @@ import {
   declareSessionStart,
   getSessionById,
   getSessionsNeedingStartDeclaration,
+  participantCountLabel,
+  sessionHeroStatus,
 } from './formationSessionStore';
 
 function clearStorage() {
@@ -69,5 +71,30 @@ describe('formationSessionStore', () => {
     const summary = catalogSessionSummary('cat-3');
     expect(summary.count).toBe(1);
     expect(summary.nextDate).toBe('2027-02-01');
+  });
+
+  it('keeps hero status À VENIR until start is declared even if start date passed', () => {
+    const session = createFormationSession({
+      catalogEntryId: 'cat-4',
+      title: 'Statut',
+      modality: 'presentiel',
+      financement: 'OPCO',
+      euMc: false,
+      orgName: 'School Demo',
+      startDate: '2020-01-01',
+      endDate: '2099-12-01',
+      formateur: { source: 'structure', name: 'Camille', memberId: 'm1' },
+    });
+    expect(sessionHeroStatus(session)).toBe('coming');
+    expect(session.status).toBe('coming');
+    declareSessionStart(session.id);
+    const after = getSessionById(session.id)!;
+    expect(sessionHeroStatus(after)).toBe('in_progress');
+  });
+
+  it('labels participant counts in French singular/plural', () => {
+    expect(participantCountLabel(0)).toBe('0 participants');
+    expect(participantCountLabel(1)).toBe('1 participant');
+    expect(participantCountLabel(3)).toBe('3 participants');
   });
 });

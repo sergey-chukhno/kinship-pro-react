@@ -1,12 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getFormationSession, rescheduleFormationSession } from '../../api/FormationSessions';
+import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import { FormationSessionPerson } from '../../types/formationSession';
 import {
+  cacheFormationSession,
   formatSessionDateFr,
   getSelectedSessionId,
   getSessionById,
+  getSessionSpaceTab,
   openSessionAffiche,
+  sessionHeroStatus,
+  setSessionSpaceTab,
   subscribeFormationSessions,
   updateFormationSession,
 } from '../../utils/formationSessionStore';
@@ -25,10 +31,15 @@ const FormationSessionSpacePage: React.FC = () => {
   const { pathname } = useLocation();
   const sessionId = sessionIdFromPath(pathname);
   const navigate = useNavigate();
-  const { setCurrentPage } = useAppContext();
-  const { showSuccess } = useToast();
+  const { state, setCurrentPage } = useAppContext();
+  const { showSuccess, showError } = useToast();
+  const org = useMemo(
+    () => resolveCatalogueOrg(state.user, state.showingPageType),
+    [state.user, state.showingPageType]
+  );
   const [tick, setTick] = useState(0);
-  const [tab, setTab] = useState<SpaceTab>('gestion');
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<SpaceTab>(() => getSessionSpaceTab());
   const [visibility, setVisibility] = useState<Visibility>('structure');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteMode, setInviteMode] = useState<'structure' | 'email'>('structure');
@@ -37,8 +48,41 @@ const FormationSessionSpacePage: React.FC = () => {
   const [inviteRole, setInviteRole] = useState<'formateur' | 'intervenant'>('intervenant');
   const [juryName, setJuryName] = useState('');
   const [juryFunction, setJuryFunction] = useState('');
+  const [datesEditOpen, setDatesEditOpen] = useState(false);
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [savingDates, setSavingDates] = useState(false);
 
   useEffect(() => subscribeFormationSessions(() => setTick((n) => n + 1)), []);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    getFormationSession(sessionId, org?.name || '')
+      .then((s) => {
+        if (cancelled || !s) return;
+        cacheFormationSession({
+          ...s,
+          attendanceSurveyOptIn:
+            getSessionById(s.id)?.attendanceSurveyOptIn ?? s.attendanceSurveyOptIn,
+        });
+        setTick((n) => n + 1);
+      })
+      .catch((e) => {
+        if (!cancelled) showError(e?.message || 'Chargement impossible.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, org?.name]);
 
   const session = useMemo(
     () => (sessionId ? getSessionById(sessionId) : undefined),
@@ -54,6 +98,11 @@ const FormationSessionSpacePage: React.FC = () => {
     }
   }, [session?.id]);
 
+  const selectTab = (next: SpaceTab) => {
+    setTab(next);
+    setSessionSpaceTab(next);
+  };
+
   const goCatalogue = () => {
     setCurrentPage('catalogue-formations');
     navigate('/catalogue-formations');
@@ -61,7 +110,7 @@ const FormationSessionSpacePage: React.FC = () => {
 
   const goAffiche = () => {
     if (!session) return;
-    openSessionAffiche(session.id);
+    openSessionAffiche(session.id, 'structure');
     navigate(`/formation-affiche/${session.id}`);
     setCurrentPage('formation-affiche');
   };
@@ -69,7 +118,7 @@ const FormationSessionSpacePage: React.FC = () => {
   const toggleAttendance = (on: boolean) => {
     if (!session) return;
     updateFormationSession(session.id, { attendanceSurveyOptIn: on });
-    showSuccess('✓ Enregistré');
+    showSuccess('Enregistré');
   };
 
   const saveJury = () => {
@@ -86,7 +135,7 @@ const FormationSessionSpacePage: React.FC = () => {
         },
       ],
     });
-    showSuccess('✓ Enregistré');
+    showSuccess('Enregistré');
   };
 
   const addPerson = () => {
@@ -102,8 +151,62 @@ const FormationSessionSpacePage: React.FC = () => {
     setInviteName('');
     setInviteEmail('');
     setInviteOpen(false);
-    showSuccess('✓ Enregistré');
+    showSuccess('Enregistré');
   };
+
+  const openDatesEdit = () => {
+    if (!session) return;
+    setEditStart(session.startDate);
+    setEditEnd(session.endDate);
+    setEditReason('');
+    setDatesEditOpen(true);
+  };
+
+  const saveDates = async () => {
+    if (!session) return;
+    if (!editStart || !editEnd) {
+      showError('Renseignez les deux dates.');
+      return;
+    }
+    if (editEnd < editStart) {
+      showError('La fin doit être après le début.');
+      return;
+    }
+    if (!editReason.trim()) {
+      showError('Le motif du report est obligatoire.');
+      return;
+    }
+    setSavingDates(true);
+    try {
+      const updated = await rescheduleFormationSession(
+        session.id,
+        editStart,
+        editEnd,
+        editReason
+      );
+      cacheFormationSession({
+        ...updated,
+        attendanceSurveyOptIn: session.attendanceSurveyOptIn,
+        people: session.people,
+        seances: session.seances,
+      });
+      setDatesEditOpen(false);
+      showSuccess('Dates mises à jour');
+      setTick((n) => n + 1);
+    } catch (e: any) {
+      showError(e?.message || 'Modification impossible.');
+    } finally {
+      setSavingDates(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="fss">
+        <p className="fss-sub">Chargement…</p>
+      </div>
+    );
+  }
 
   if (!session) {
     return (
@@ -118,14 +221,15 @@ const FormationSessionSpacePage: React.FC = () => {
 
   const participants = session.people.filter((p) => p.role === 'participant');
   const team = session.people.filter((p) => p.role === 'formateur' || p.role === 'intervenant');
-  const statusChip = session.status === 'in_progress' || session.startDeclared ? 'cours' : 'venir';
+  const hero = sessionHeroStatus(session);
+  const statusChip = hero === 'in_progress' ? 'cours' : hero === 'ended' ? 'cours' : 'venir';
   const statusText =
-    session.status === 'in_progress' || session.startDeclared ? 'EN COURS' : 'À VENIR';
+    hero === 'in_progress' ? 'EN COURS' : hero === 'ended' ? 'TERMINÉE' : 'À VENIR';
 
   let hnote = `Début de la session : à déclarer par ${session.formateur.name}, formateur responsable.`;
   if (session.startDeclared) {
     hnote = `La session a commencé le ${formatSessionDateFr(session.startDate)} — déclaré par ${session.formateur.name}, formateur responsable.`;
-  } else if (session.status === 'in_progress' || new Date(`${session.startDate}T00:00:00`) < new Date()) {
+  } else if (new Date(`${session.startDate}T00:00:00`) < new Date()) {
     hnote = `La date de début est passée : le début reste à déclarer par ${session.formateur.name}, formateur responsable. Les inscriptions restent ouvertes.`;
   }
 
@@ -136,7 +240,12 @@ const FormationSessionSpacePage: React.FC = () => {
         ? 'Distanciel'
         : session.modality === 'hybride'
           ? 'Hybride'
-          : session.modality || '—';
+          : session.modality || '';
+
+  const canEditDates = !session.startDeclared;
+  const orgLabel = session.orgName || org?.name || '';
+
+  const displayOrEmpty = (v?: string | null) => (v && String(v).trim() ? v : null);
 
   return (
     <div className="fss">
@@ -155,19 +264,23 @@ const FormationSessionSpacePage: React.FC = () => {
             <span className="fss-hchip">
               {formatSessionDateFr(session.startDate)} → {formatSessionDateFr(session.endDate)}
             </span>
-            <span className="fss-hchip">
-              {modalityLabel}
-              {session.financement ? ` · ${session.financement}` : ''}
-            </span>
+            {(modalityLabel || session.financement) && (
+              <span className="fss-hchip">
+                {[modalityLabel, session.financement].filter(Boolean).join(' · ')}
+              </span>
+            )}
           </div>
           <h1>{session.title}</h1>
           <div className="fss-drow">
             <span>
               Session · formateur responsable <strong>{session.formateur.name}</strong>
             </span>
-            <span>·</span>
-            <span>{session.orgName}</span>
-            <span className="fss-hcert">✓ Organisme de formation certifié</span>
+            {orgLabel ? (
+              <>
+                <span>·</span>
+                <span>{orgLabel}</span>
+              </>
+            ) : null}
             <button type="button" className="fss-seeaff" onClick={goAffiche}>
               Voir l&apos;affiche →
             </button>
@@ -179,14 +292,14 @@ const FormationSessionSpacePage: React.FC = () => {
           <button
             type="button"
             className={tab === 'informations' ? 'on' : ''}
-            onClick={() => setTab('informations')}
+            onClick={() => selectTab('informations')}
           >
             Informations
           </button>
           <button
             type="button"
             className={tab === 'gestion' ? 'on' : ''}
-            onClick={() => setTab('gestion')}
+            onClick={() => selectTab('gestion')}
           >
             Gestion
           </button>
@@ -199,12 +312,16 @@ const FormationSessionSpacePage: React.FC = () => {
                 <div className="fss-recap-label">La fiche de la formation — en consultation</div>
                 <div className="fss-row">
                   <span className="k">Certification visée</span>
-                  <span className="v">{session.euMc ? 'Microcertification européenne' : "Certificat de l'organisme"}</span>
+                  <span className="v">
+                    {session.euMc ? 'Microcertification européenne' : "Certificat de l'organisme"}
+                  </span>
                 </div>
-                <div className="fss-row">
-                  <span className="k">Durée</span>
-                  <span className="v">{session.durationHours ? `${session.durationHours} heures` : '—'}</span>
-                </div>
+                {session.durationHours ? (
+                  <div className="fss-row">
+                    <span className="k">Durée</span>
+                    <span className="v">{session.durationHours} heures</span>
+                  </div>
+                ) : null}
                 <div className="fss-row">
                   <span className="k">Délivre</span>
                   <span className="v">Preuve de formation</span>
@@ -215,27 +332,46 @@ const FormationSessionSpacePage: React.FC = () => {
                 <div className="fss-row">
                   <span className="k">Dates</span>
                   <span className="v">
-                    {formatSessionDateFr(session.startDate)} → {formatSessionDateFr(session.endDate)}
+                    {formatSessionDateFr(session.startDate)} →{' '}
+                    {formatSessionDateFr(session.endDate)}
+                    {canEditDates && (
+                      <>
+                        {' '}
+                        <button type="button" className="fss-link" onClick={openDatesEdit}>
+                          Modifier les dates →
+                        </button>
+                      </>
+                    )}
                   </span>
                 </div>
                 <div className="fss-row">
                   <span className="k">Formateur responsable</span>
                   <span className="v">{session.formateur.name}</span>
                 </div>
-                <div className="fss-row">
-                  <span className="k">Modalité</span>
-                  <span className="v">{modalityLabel}</span>
-                </div>
-                <div className="fss-row">
-                  <span className="k">Financement</span>
-                  <span className="v">{session.financement || '—'}</span>
-                </div>
-                <div className="fss-row">
-                  <span className="k">Informations pratiques</span>
-                  <span className="v">{session.practicalInfo || '—'}</span>
-                </div>
+                {modalityLabel ? (
+                  <div className="fss-row">
+                    <span className="k">Modalité</span>
+                    <span className="v">{modalityLabel}</span>
+                  </div>
+                ) : null}
+                {session.financement ? (
+                  <div className="fss-row">
+                    <span className="k">Financement</span>
+                    <span className="v">{session.financement}</span>
+                  </div>
+                ) : null}
+                {displayOrEmpty(session.practicalInfo) ? (
+                  <div className="fss-row">
+                    <span className="k">Informations pratiques</span>
+                    <span className="v">{session.practicalInfo}</span>
+                  </div>
+                ) : null}
               </div>
-              <p className="fss-hint">Les dates se modifient tant que la session n&apos;a pas commencé.</p>
+              <p className="fss-hint">
+                {canEditDates
+                  ? "Les dates se modifient tant que la session n'a pas commencé."
+                  : 'Les dates ne se modifient plus : le début de la session a été déclaré.'}
+              </p>
             </>
           )}
 
@@ -286,9 +422,7 @@ const FormationSessionSpacePage: React.FC = () => {
                     </span>
                   )}
                 </h4>
-                {participants.length === 0 ? (
-                  <p className="fss-sub">Aucun participant pour l&apos;instant (import hors scope UI mock).</p>
-                ) : (
+                {participants.length > 0 && (
                   <ul className="fss-list">
                     {participants.map((p) => (
                       <li key={p.id}>
@@ -296,12 +430,13 @@ const FormationSessionSpacePage: React.FC = () => {
                           <strong>{p.name}</strong>
                           {p.email ? <div className="fss-sub">{p.email}</div> : null}
                         </span>
-                        <span className="st">{p.pending ? "en attente d'activation" : 'inscrit'}</span>
+                        <span className="st">
+                          {p.pending ? "en attente d'activation" : 'inscrit'}
+                        </span>
                       </li>
                     ))}
                   </ul>
                 )}
-                <p className="fss-sub">Inscrits à l&apos;import ; chacun a reçu sa confirmation par e-mail.</p>
               </div>
 
               <div className="fss-sec">
@@ -336,8 +471,8 @@ const FormationSessionSpacePage: React.FC = () => {
                   📅 Planifier les séances →
                 </button>
                 <p className="fss-sub">
-                  Les séances se créent et se tiennent sur l&apos;affiche de la session (onglet Séances) ;
-                  le jour J, la présence se constate par le code de la séance.
+                  Les séances se créent et se tiennent sur l&apos;affiche de la session (onglet
+                  Séances) ; le jour J, la présence se constate par le code de la séance.
                 </p>
               </div>
 
@@ -364,8 +499,8 @@ const FormationSessionSpacePage: React.FC = () => {
                   </div>
                 </div>
                 <p className="fss-lockl">
-                  🔒 Avec l&apos;option <strong>Conformité financeur</strong> : vérification d&apos;identité,
-                  blocage CPF, sondage d&apos;assiduité.{' '}
+                  🔒 Avec l&apos;option <strong>Conformité financeur</strong> : vérification
+                  d&apos;identité, blocage CPF, sondage d&apos;assiduité.{' '}
                   <button type="button" className="fss-link">
                     En savoir plus →
                   </button>
@@ -404,8 +539,8 @@ const FormationSessionSpacePage: React.FC = () => {
                   )}
                 </h4>
                 <p className="fss-sub">
-                  Un financeur n&apos;est pas un partenaire : il a son bloc. Le partenaire co-attestant,
-                  sans choix de type.
+                  Un financeur n&apos;est pas un partenaire : il a son bloc. Le partenaire
+                  co-attestant, sans choix de type.
                 </p>
               </div>
 
@@ -434,8 +569,8 @@ const FormationSessionSpacePage: React.FC = () => {
                   )}
                 </h4>
                 <p className="fss-sub">
-                  La visibilité se choisit à l&apos;ajout, document par document : Équipe · Participants ·
-                  Ma structure.
+                  La visibilité se choisit à l&apos;ajout, document par document : Équipe ·
+                  Participants · Ma structure.
                 </p>
               </div>
 
@@ -448,6 +583,56 @@ const FormationSessionSpacePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {datesEditOpen && (
+        <div
+          className="fss-modal-backdrop"
+          onClick={() => setDatesEditOpen(false)}
+          role="presentation"
+        >
+          <div className="fss-modal" onClick={(e) => e.stopPropagation()} role="dialog">
+            <h2>Modifier les dates</h2>
+            <div className="fss-sub" style={{ marginBottom: 10 }}>
+              Dates actuelles : {formatSessionDateFr(session.startDate)} →{' '}
+              {formatSessionDateFr(session.endDate)}
+            </div>
+            <label>
+              Début
+              <input
+                type="date"
+                value={editStart}
+                onChange={(e) => setEditStart(e.target.value)}
+              />
+            </label>
+            <label>
+              Fin
+              <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
+            </label>
+            <label>
+              Motif du report <span style={{ color: '#c0392b' }}>✱</span>
+              <input
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                placeholder="Motif"
+              />
+            </label>
+            <p className="fss-sub">Chaque participant sera prévenu par e-mail.</p>
+            <div className="fss-actions">
+              <button type="button" className="fss-btn g" onClick={() => setDatesEditOpen(false)}>
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="fss-btn p"
+                disabled={savingDates || !editReason.trim()}
+                onClick={() => void saveDates()}
+              >
+                {savingDates ? 'Enregistrement…' : 'Modifier les dates'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {inviteOpen && (
         <div className="fss-modal-backdrop" onClick={() => setInviteOpen(false)} role="presentation">
@@ -499,10 +684,6 @@ const FormationSessionSpacePage: React.FC = () => {
                 Intervenant
               </button>
             </div>
-            <p className="fss-sub">
-              « Par e-mail » : nom, prénom, e-mail — il reçoit une invitation et rejoint votre
-              structure.
-            </p>
             <div className="fss-actions">
               <button type="button" className="fss-btn g" onClick={() => setInviteOpen(false)}>
                 Annuler

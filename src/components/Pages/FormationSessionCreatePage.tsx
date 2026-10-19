@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getCatalogueFiche } from '../../api/FormationCatalogue';
+import { openCatalogSession } from '../../api/FormationSessions';
+import { getOrganizationMembers, OrganizationMember } from '../../api/Projects';
+import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import {
   FinancementType,
@@ -8,21 +11,9 @@ import {
   ParticipationMode,
 } from '../../types/formationCatalogue';
 import { FormateurSource } from '../../types/formationSession';
-import {
-  createFormationSession,
-  formatSessionDateFr,
-  openSessionSpace,
-} from '../../utils/formationSessionStore';
+import { formatSessionDateFr, openSessionSpace, cacheFormationSession } from '../../utils/formationSessionStore';
 import { useToast } from '../../hooks/useToast';
 import './FormationSessionCreatePage.css';
-
-type Step = 'form' | 'confirmed';
-
-const MOCK_STRUCTURE_MEMBERS = [
-  { id: 'm1', name: 'Antoine Morel', email: 'a.morel@exemple.fr', initials: 'AM' },
-  { id: 'm2', name: 'Camille Dupont', email: 'c.dupont@exemple.fr', initials: 'CD' },
-  { id: 'm3', name: 'Samira Benali', email: 's.benali@exemple.fr', initials: 'SB' },
-];
 
 const MODALITIES: ParticipationMode[] = ['presentiel', 'distanciel', 'hybride'];
 const FINANCEMENTS: FinancementType[] = [
@@ -45,31 +36,43 @@ function catalogIdFromPath(pathname: string): string | null {
   return m?.[1] ?? null;
 }
 
-/** Prefer router pathname; fall back to window (setCurrentPage can mount before navigate). */
 function resolveCatalogId(pathname: string): string | null {
   return catalogIdFromPath(pathname) || catalogIdFromPath(window.location.pathname);
 }
 
+function memberInitials(m: OrganizationMember): string {
+  const from = (m.full_name || `${m.first_name} ${m.last_name}`).trim();
+  return from
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase() || '?';
+}
+
 const FormationSessionCreatePage: React.FC = () => {
   const { pathname } = useLocation();
-  const catalogId = resolveCatalogId(pathname);
   const navigate = useNavigate();
-  const { setCurrentPage } = useAppContext();
+  const { state, setCurrentPage } = useAppContext();
   const { showSuccess, showError } = useToast();
+  const org = useMemo(
+    () => resolveCatalogueOrg(state.user, state.showingPageType),
+    [state.user, state.showingPageType]
+  );
 
   const [fiche, setFiche] = useState<FormationFiche | null>(null);
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<Step>('form');
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [createdId, setCreatedId] = useState<string | null>(null);
-  const [mcGateOff, setMcGateOff] = useState(false);
   const [refus, setRefus] = useState<string | null>(null);
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [formateurSource, setFormateurSource] = useState<FormateurSource>('structure');
-  const [memberId, setMemberId] = useState(MOCK_STRUCTURE_MEMBERS[0].id);
+  const [memberId, setMemberId] = useState<string>('');
   const [memberCleared, setMemberCleared] = useState(false);
   const [lastName, setLastName] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -90,8 +93,15 @@ const FormationSessionCreatePage: React.FC = () => {
     let cancelled = false;
     setError(null);
     setLoading(true);
-    getCatalogueFiche(id)
-      .then((f) => {
+    Promise.all([
+      getCatalogueFiche(id, org),
+      org
+        ? getOrganizationMembers(org.id, org.type.toLowerCase() as 'school' | 'company').catch(
+            () => [] as OrganizationMember[]
+          )
+        : Promise.resolve([] as OrganizationMember[]),
+    ])
+      .then(([f, mems]) => {
         if (cancelled) return;
         if (!f) {
           setFiche(null);
@@ -104,6 +114,8 @@ const FormationSessionCreatePage: React.FC = () => {
         setImageDataUrl(f.imageDataUrl);
         setModality(f.modality || '');
         setFinancement(f.financement || '');
+        setMembers(mems);
+        if (mems.length && !memberId) setMemberId(String(mems[0].id));
       })
       .catch((e) => {
         if (!cancelled) {
@@ -117,14 +129,14 @@ const FormationSessionCreatePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [pathname]);
+  }, [pathname, org?.key]);
 
-  const selectedMember = MOCK_STRUCTURE_MEMBERS.find((m) => m.id === memberId);
+  const selectedMember = members.find((m) => String(m.id) === memberId);
 
   const formateurName = useMemo(() => {
     if (formateurSource === 'structure') {
       if (memberCleared) return '';
-      return selectedMember?.name || '';
+      return selectedMember?.full_name || `${selectedMember?.first_name || ''} ${selectedMember?.last_name || ''}`.trim();
     }
     return [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
   }, [formateurSource, memberCleared, selectedMember, firstName, lastName]);
@@ -132,9 +144,11 @@ const FormationSessionCreatePage: React.FC = () => {
   const datesOk = Boolean(startDate && endDate);
   const formateurOk =
     formateurSource === 'structure'
-      ? Boolean(formateurName)
+      ? Boolean(formateurName && memberId)
       : Boolean(lastName.trim() && firstName.trim() && email.trim());
-  const canSubmit = Boolean(fiche && datesOk && formateurOk);
+  const canSubmit = Boolean(fiche && datesOk && formateurOk && !submitting);
+
+  const orgDisplayName = fiche?.orgName || org?.name || '';
 
   const goCatalogue = () => {
     setCurrentPage('catalogue-formations');
@@ -154,9 +168,8 @@ const FormationSessionCreatePage: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const submitCreate = () => {
+  const submitCreate = async () => {
     if (!fiche || !canSubmit) return;
-    // Mock hard refus (démo) : activer via ?refus=1
     const params = new URLSearchParams(window.location.search);
     if (params.get('refus') === '1') {
       setConfirmOpen(false);
@@ -165,16 +178,17 @@ const FormationSessionCreatePage: React.FC = () => {
       );
       return;
     }
+    setSubmitting(true);
     try {
-      const session = createFormationSession({
+      const session = await openCatalogSession(fiche.id, {
         catalogEntryId: fiche.id,
         title: fiche.title,
         description: fiche.description,
         durationHours: fiche.durationHours,
         modality: modality || fiche.modality,
         financement: financement || fiche.financement,
-        euMc: fiche.euMc && params.get('mcgate') !== '1',
-        orgName: fiche.orgName,
+        euMc: fiche.euMc,
+        orgName: orgDisplayName,
         startDate,
         endDate,
         formateur: {
@@ -185,25 +199,25 @@ const FormationSessionCreatePage: React.FC = () => {
               ? email.trim()
               : selectedMember?.email,
           memberId: formateurSource === 'structure' ? memberId : undefined,
+          userId:
+            formateurSource === 'structure' && memberId
+              ? Number(memberId)
+              : undefined,
         },
         practicalInfo,
         imageDataUrl,
       });
-      setCreatedId(session.id);
-      setMcGateOff(Boolean(fiche.euMc && params.get('mcgate') === '1'));
+      cacheFormationSession(session);
       setConfirmOpen(false);
-      setStep('confirmed');
       showSuccess('Session créée');
+      openSessionSpace(session.id, 'gestion');
+      navigate(`/formation-session-space/${session.id}`);
+      setCurrentPage('formation-session-space');
     } catch (e: any) {
       showError(e?.message || 'Création impossible.');
+    } finally {
+      setSubmitting(false);
     }
-  };
-
-  const goSpace = () => {
-    if (!createdId) return;
-    openSessionSpace(createdId);
-    navigate(`/formation-session-space/${createdId}`);
-    setCurrentPage('formation-session-space');
   };
 
   if (loading) {
@@ -221,48 +235,6 @@ const FormationSessionCreatePage: React.FC = () => {
         <button type="button" className="fsc-btn g" onClick={goCatalogue}>
           Retour au catalogue
         </button>
-      </div>
-    );
-  }
-
-  if (step === 'confirmed') {
-    return (
-      <div className="fsc">
-        <div className="fsc-crumb">
-          <button type="button" onClick={goCatalogue}>
-            Catalogue
-          </button>
-          <span>›</span>
-          <span>Session créée</span>
-        </div>
-        <div className="fsc-confirm-card">
-          <div className="fsc-steps">
-            <span className="done">1 · Catalogue</span>
-            <span className="done">2 · Session</span>
-            <span className="on">3 · Participants</span>
-          </div>
-          <h1>Session créée</h1>
-          <p>
-            <strong>{fiche.title}</strong>
-            <br />
-            Du {formatSessionDateFr(startDate)} au {formatSessionDateFr(endDate)}
-            <br />
-            Formateur responsable : {formateurName}
-          </p>
-          {mcGateOff && (
-            <div className="fsc-gold off">
-              ✦ Microcertification européenne — votre organisme n&apos;y est pas éligible
-              aujourd&apos;hui.
-            </div>
-          )}
-          <p className="fsc-ssub">
-            Stub UI : l&apos;import participants (écran 3) sera branché après arbitrage Patrick.
-            En attendant, continuez vers l&apos;espace session.
-          </p>
-          <button type="button" className="fsc-btn am" onClick={goSpace}>
-            Continuer vers l&apos;espace →
-          </button>
-        </div>
       </div>
     );
   }
@@ -286,12 +258,19 @@ const FormationSessionCreatePage: React.FC = () => {
 
         <h1 className="fsc-stitle">Nouvelle session</h1>
         <p className="fsc-ssub">
+          {orgDisplayName ? (
+            <>
+              <strong>{orgDisplayName}</strong>
+              {' — '}
+            </>
+          ) : null}
           Choisissez les dates et le formateur responsable ; le reste vient de la fiche.
         </p>
 
         {refus && (
           <div className="fsc-refus" role="alert">
-            <strong>La session n&apos;a pas été créée :</strong> {refus.replace(/^La session n'a pas été créée :\s*/, '')}
+            <strong>La session n&apos;a pas été créée :</strong>{' '}
+            {refus.replace(/^La session n'a pas été créée :\s*/, '')}
             <div className="fsc-btnrow" style={{ marginTop: 10 }}>
               <button type="button" className="fsc-btn g" onClick={() => setRefus(null)}>
                 Fermer
@@ -340,7 +319,7 @@ const FormationSessionCreatePage: React.FC = () => {
                   aria-label="Date de fin"
                 />
               </td>
-              <td className="dur">{fiche.durationHours ? `${fiche.durationHours} h` : '—'}</td>
+              <td className="dur">{fiche.durationHours ? `${fiche.durationHours} h` : ''}</td>
             </tr>
           </tbody>
         </table>
@@ -378,12 +357,20 @@ const FormationSessionCreatePage: React.FC = () => {
             <>
               {!memberCleared && selectedMember ? (
                 <div className="fsc-fchip">
-                  <span className="dot">{selectedMember.initials}</span>
+                  <span className="dot">{memberInitials(selectedMember)}</span>
                   <span>
-                    <div className="nm">{selectedMember.name}</div>
+                    <div className="nm">
+                      {selectedMember.full_name ||
+                        `${selectedMember.first_name} ${selectedMember.last_name}`}
+                    </div>
                     <div className="em">{selectedMember.email}</div>
                   </span>
-                  <button type="button" className="x" onClick={() => setMemberCleared(true)} aria-label="Retirer">
+                  <button
+                    type="button"
+                    className="x"
+                    onClick={() => setMemberCleared(true)}
+                    aria-label="Retirer"
+                  >
                     ✕
                   </button>
                 </div>
@@ -396,9 +383,10 @@ const FormationSessionCreatePage: React.FC = () => {
                     setMemberCleared(false);
                   }}
                 >
-                  {MOCK_STRUCTURE_MEMBERS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
+                  {members.length === 0 && <option value="">Aucun membre</option>}
+                  {members.map((m) => (
+                    <option key={m.id} value={String(m.id)}>
+                      {m.full_name || `${m.first_name} ${m.last_name}`}
                     </option>
                   ))}
                 </select>
@@ -490,7 +478,11 @@ const FormationSessionCreatePage: React.FC = () => {
         <div className="fsc-field">
           <span className="fsc-label">Image</span>
           <div className="fsc-imgrow">
-            {imageDataUrl ? <img src={imageDataUrl} alt="" /> : <div style={{ width: 72, height: 48, background: '#ebe8e0', borderRadius: 8 }} />}
+            {imageDataUrl ? (
+              <img src={imageDataUrl} alt="" />
+            ) : (
+              <div style={{ width: 72, height: 48, background: '#ebe8e0', borderRadius: 8 }} />
+            )}
             <label className="fsc-link">
               Changer l&apos;image →
               <input
@@ -503,9 +495,7 @@ const FormationSessionCreatePage: React.FC = () => {
           </div>
         </div>
 
-        {fiche.euMc && (
-          <div className="fsc-gold">✦ Microcertification européenne</div>
-        )}
+        {fiche.euMc && <div className="fsc-gold">✦ Microcertification européenne</div>}
 
         <div className="fsc-foot">
           <button type="button" className="fsc-btn g" onClick={goCatalogue}>
@@ -551,8 +541,13 @@ const FormationSessionCreatePage: React.FC = () => {
               <button type="button" className="fsc-btn g" onClick={() => setConfirmOpen(false)}>
                 Annuler
               </button>
-              <button type="button" className="fsc-btn am" onClick={submitCreate}>
-                Confirmer
+              <button
+                type="button"
+                className="fsc-btn am"
+                disabled={submitting}
+                onClick={() => void submitCreate()}
+              >
+                {submitting ? 'Création…' : 'Confirmer'}
               </button>
             </div>
           </div>

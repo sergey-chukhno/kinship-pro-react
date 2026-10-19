@@ -68,10 +68,14 @@ export async function getCatalogue(org?: CatalogueOrgRef | null): Promise<Format
   return rows.map((e: any) => entryToFiche(e, resolved));
 }
 
-export async function getCatalogueFiche(id: string): Promise<FormationFiche | null> {
+export async function getCatalogueFiche(
+  id: string,
+  org?: CatalogueOrgRef | null
+): Promise<FormationFiche | null> {
+  const resolved = org || resolveCatalogueOrg(null);
   try {
     const res = await apiClient.get(`${BASE}/${id}`);
-    return entryToFiche(res.data?.data || res.data);
+    return entryToFiche(res.data?.data || res.data, resolved);
   } catch (err: any) {
     if (err?.response?.status === 404) return null;
     throw err;

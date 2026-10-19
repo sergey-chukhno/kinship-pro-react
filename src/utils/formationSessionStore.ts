@@ -12,7 +12,12 @@ import {
 
 const STORAGE_KEY = 'kinship_formation_sessions_fe16';
 const SELECTED_KEY = 'kinship_selected_session_id';
+const SPACE_TAB_KEY = 'kinship_session_space_tab';
+const VIEWER_ROLE_KEY = 'kinship_session_viewer_role';
 const EVENT = 'kinship-formation-sessions';
+
+export type SessionSpaceTab = 'informations' | 'gestion';
+export type SessionViewerRole = 'structure' | 'formateur';
 
 function emit() {
   window.dispatchEvent(new CustomEvent(EVENT));
@@ -45,6 +50,18 @@ export function getSessionById(id: string): FormationSession | undefined {
   return read().find((s) => s.id === id);
 }
 
+/** Upsert API-backed session into local cache (TB + navigation). */
+export function cacheFormationSession(session: FormationSession): FormationSession {
+  const list = read();
+  const idx = list.findIndex((s) => s.id === session.id);
+  if (idx >= 0) list[idx] = session;
+  else list.unshift(session);
+  write(list);
+  setSelectedSessionId(session.id);
+  syncSessionToFormationStore(session);
+  return session;
+}
+
 export function getSelectedSessionId(): string | null {
   return sessionStorage.getItem(SELECTED_KEY);
 }
@@ -54,34 +71,65 @@ export function setSelectedSessionId(id: string | null) {
   else sessionStorage.removeItem(SELECTED_KEY);
 }
 
-export function openSessionSpace(id: string) {
-  setSelectedSessionId(id);
+export function getSessionSpaceTab(): SessionSpaceTab {
+  const t = sessionStorage.getItem(SPACE_TAB_KEY);
+  return t === 'informations' ? 'informations' : 'gestion';
 }
 
-export function openSessionAffiche(id: string) {
+export function setSessionSpaceTab(tab: SessionSpaceTab) {
+  sessionStorage.setItem(SPACE_TAB_KEY, tab);
+}
+
+export function openSessionSpace(id: string, tab: SessionSpaceTab = 'gestion') {
   setSelectedSessionId(id);
+  setSessionSpaceTab(tab);
+  setSessionViewerRole('structure');
+}
+
+export function getSessionViewerRole(): SessionViewerRole {
+  return sessionStorage.getItem(VIEWER_ROLE_KEY) === 'formateur' ? 'formateur' : 'structure';
+}
+
+export function setSessionViewerRole(role: SessionViewerRole) {
+  sessionStorage.setItem(VIEWER_ROLE_KEY, role);
+}
+
+export function openSessionAffiche(id: string, role: SessionViewerRole = 'structure') {
+  setSelectedSessionId(id);
+  setSessionViewerRole(role);
   const session = getSessionById(id);
   if (session) syncSessionToFormationStore(session);
   setSelectedFormationId(id);
 }
 
-function deriveStatus(startDate: string, endDate: string): FormationSession['status'] {
+/** Chip / hero: À VENIR until formateur declares start — never EN COURS from date alone. */
+export function sessionHeroStatus(
+  session: Pick<FormationSession, 'startDeclared' | 'startDate' | 'endDate' | 'status'>
+): 'coming' | 'in_progress' | 'ended' {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T23:59:59`);
-  if (today > end) return 'ended';
-  if (today >= start) return 'in_progress';
+  const end = new Date(`${session.endDate}T23:59:59`);
+  if (session.startDeclared && today > end) return 'ended';
+  if (session.startDeclared) return 'in_progress';
   return 'coming';
+}
+
+function deriveStoredStatus(
+  startDate: string,
+  endDate: string,
+  startDeclared: boolean
+): FormationSession['status'] {
+  return sessionHeroStatus({ startDeclared, startDate, endDate, status: 'coming' });
 }
 
 function syncSessionToFormationStore(session: FormationSession) {
   const hours = session.durationHours ? Number(String(session.durationHours).replace(',', '.')) : undefined;
+  const hero = sessionHeroStatus(session);
   const card: FormationCard = {
     id: session.id,
     title: session.title,
     description: session.description,
-    status: session.status === 'coming' ? 'coming' : session.status === 'ended' ? 'ended' : 'in_progress',
+    status: hero === 'coming' ? 'coming' : hero === 'ended' ? 'ended' : 'in_progress',
     financement: session.financement || undefined,
     isEuMcDeclared: session.euMc,
     startDate: session.startDate,
@@ -98,7 +146,6 @@ function syncSessionToFormationStore(session: FormationSession) {
 
 export function createFormationSession(input: CreateSessionInput): FormationSession {
   const now = new Date().toISOString();
-  const status = deriveStatus(input.startDate, input.endDate);
   const session: FormationSession = {
     id: `sess-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     catalogEntryId: input.catalogEntryId,
@@ -114,7 +161,7 @@ export function createFormationSession(input: CreateSessionInput): FormationSess
     formateur: input.formateur,
     practicalInfo: input.practicalInfo,
     imageDataUrl: input.imageDataUrl,
-    status,
+    status: 'coming',
     startDeclared: false,
     attendanceSurveyOptIn: false,
     people: [
@@ -132,7 +179,6 @@ export function createFormationSession(input: CreateSessionInput): FormationSess
         dateIso: input.startDate,
         timeRange: '09h00 — 12h30',
         status: 'planned',
-        place: 'À préciser',
       },
     ],
     createdAt: now,
@@ -165,9 +211,7 @@ export function updateFormationSession(
   const idx = list.findIndex((s) => s.id === id);
   if (idx < 0) return null;
   const next = { ...list[idx], ...patch, updatedAt: new Date().toISOString() };
-  if (patch.startDate || patch.endDate) {
-    next.status = deriveStatus(next.startDate, next.endDate);
-  }
+  next.status = deriveStoredStatus(next.startDate, next.endDate, next.startDeclared);
   list[idx] = next;
   write(list);
   syncSessionToFormationStore(next);
@@ -176,6 +220,34 @@ export function updateFormationSession(
 
 export function declareSessionStart(id: string): FormationSession | null {
   return updateFormationSession(id, { startDeclared: true, status: 'in_progress' });
+}
+
+export function addSessionSeance(
+  id: string,
+  partial?: Partial<FormationSession['seances'][0]>
+): FormationSession | null {
+  const session = getSessionById(id);
+  if (!session) return null;
+  const n = session.seances.length + 1;
+  const seance = {
+    id: `seance-${Date.now()}`,
+    label: partial?.label || `Séance ${n}`,
+    dateIso: partial?.dateIso || session.startDate,
+    timeRange: partial?.timeRange || '09h00 — 12h30',
+    status: (partial?.status || 'planned') as FormationSession['seances'][0]['status'],
+    place: partial?.place,
+  };
+  addFormationSlot(id, {
+    id: seance.id,
+    label: seance.label,
+    dateLabel: formatSlotDateLabel(new Date(`${seance.dateIso}T12:00:00`)),
+    dateIso: seance.dateIso,
+    timeRange: seance.timeRange,
+    participantsCount: session.people.filter((p) => p.role === 'participant').length,
+    place: seance.place,
+    status: 'planned',
+  });
+  return updateFormationSession(id, { seances: [...session.seances, seance] });
 }
 
 /** Sessions dont le début est passé et non déclaré (TB formateur P4.9). */
@@ -193,7 +265,9 @@ export function catalogSessionSummary(catalogEntryId: string): {
   count: number;
   nextDate?: string;
 } {
-  const sessions = getSessionsForCatalogEntry(catalogEntryId).filter((s) => s.status !== 'ended');
+  const sessions = getSessionsForCatalogEntry(catalogEntryId).filter(
+    (s) => sessionHeroStatus(s) !== 'ended'
+  );
   if (!sessions.length) return { count: 0 };
   const sorted = [...sessions].sort((a, b) => a.startDate.localeCompare(b.startDate));
   return { count: sessions.length, nextDate: sorted[0]?.startDate };
@@ -204,6 +278,10 @@ export function formatSessionDateFr(iso?: string): string {
   const [y, m, d] = iso.split('-');
   if (!y || !m || !d) return iso;
   return `${d}/${m}/${y}`;
+}
+
+export function participantCountLabel(count: number): string {
+  return count === 1 ? '1 participant' : `${count} participants`;
 }
 
 export function sessionStatusLabel(status: FormationSession['status']): string {
