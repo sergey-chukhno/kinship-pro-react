@@ -37,8 +37,10 @@ export const useAuthInit = () => {
       "analytics", "network", "notifications", "settings",
        /* "pik", */
       "funder-attachments",
-      /* "presence-session", "formation-detail", "formation-affiche", "preuve-formation", */
-      "create", "catalogue-formations", "catalogue-import", "project-space", "project-affiche", "funded-projects",
+      /* "presence-session", "formation-detail", "preuve-formation", */
+      "create", "catalogue-formations", "catalogue-import",
+      "formation-session-new", "formation-session-space", "formation-affiche",
+      "project-space", "project-affiche", "funded-projects",
       "of-activation", /* "admin-of-queue", */
       "personal-settings",
       "membership-requests", "partnership-requests", "project-management",
@@ -61,13 +63,21 @@ export const useAuthInit = () => {
       return 'catalogue-formations';
     }
 
+    if (path.startsWith('formation-session-new')) {
+      return 'formation-session-new';
+    }
+
+    if (path.startsWith('formation-session-space')) {
+      return 'formation-session-space';
+    }
+
+    if (path.startsWith('formation-affiche')) {
+      return 'formation-affiche';
+    }
+
     // // Routes formation sessions (temporairement désactivées)
     // if (path.startsWith('formation-detail')) {
     //   return 'formation-detail';
-    // }
-    //
-    // if (path.startsWith('formation-affiche')) {
-    //   return 'formation-affiche';
     // }
     //
     // if (path.startsWith('preuve-formation')) {

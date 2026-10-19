@@ -429,6 +429,8 @@ export type PageType =
   | 'catalogue-formations'
   | 'formation-fiche'
   | 'catalogue-import'
+  | 'formation-session-new'
+  | 'formation-session-space'
   | 'badges'
   | 'analytics'
   | 'network'

@@ -8,6 +8,11 @@ import {
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import { FormationFiche } from '../../types/formationCatalogue';
+import {
+  catalogSessionSummary,
+  formatSessionDateFr,
+  subscribeFormationSessions,
+} from '../../utils/formationSessionStore';
 import './CatalogueFormationsPage.css';
 
 function modalityLabel(m: FormationFiche['modality']): string {
@@ -25,6 +30,9 @@ const CatalogueFormationsPage: React.FC = () => {
   const [school, setSchool] = useState('all');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionTick, setSessionTick] = useState(0);
+
+  useEffect(() => subscribeFormationSessions(() => setSessionTick((n) => n + 1)), []);
 
   const org = useMemo(
     () => resolveCatalogueOrg(state.user, state.showingPageType),
@@ -70,8 +78,10 @@ const CatalogueFormationsPage: React.FC = () => {
     navigate(`/formation-fiche/${f.id}`);
   };
 
-  const openSessionStub = (_f: FormationFiche) => {
-    /* Ticket 16 */
+  const openSession = (f: FormationFiche) => {
+    // navigate first so Create page can read the catalog id from the URL on mount
+    navigate(`/formation-session-new/${f.id}`);
+    setCurrentPage('formation-session-new');
   };
 
   const withdraw = async (f: FormationFiche) => {
@@ -181,7 +191,25 @@ const CatalogueFormationsPage: React.FC = () => {
               </button>
             )}
             <div className="catf-sess">
-              {f.status === 'catalog' ? null : f.status === 'draft' ? (
+              {f.status === 'catalog' ? (
+                (() => {
+                  void sessionTick;
+                  const summary = catalogSessionSummary(f.id);
+                  if (!summary.count) {
+                    return <span className="catf-muted-sess">Aucune session ouverte</span>;
+                  }
+                  return (
+                    <>
+                      <span className="catf-st">
+                        {summary.count} session{summary.count > 1 ? 's' : ''}
+                      </span>
+                      {summary.nextDate ? (
+                        <span>prochaine le {formatSessionDateFr(summary.nextDate)}</span>
+                      ) : null}
+                    </>
+                  );
+                })()
+              ) : f.status === 'draft' ? (
                 <>
                   <span className="catf-st brouillon">Brouillon</span>
                   <span>à compléter</span>
@@ -201,7 +229,7 @@ const CatalogueFormationsPage: React.FC = () => {
             <div className="catf-act">
               {f.status === 'catalog' ? (
                 <>
-                  <button type="button" className="catf-btn p" onClick={() => openSessionStub(f)}>
+                  <button type="button" className="catf-btn p" onClick={() => openSession(f)}>
                     Ouvrir une session →
                   </button>
                   <button type="button" className="catf-btn s" onClick={() => withdraw(f)}>

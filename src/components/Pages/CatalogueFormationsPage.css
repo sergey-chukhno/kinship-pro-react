@@ -288,6 +288,11 @@
   padding: 0;
 }
 
+.catf-muted-sess {
+  color: var(--catf-muted);
+  font-size: 11.5px;
+}
+
 .catf-st.venir {
   color: #1f6fa3;
   background: #e6f2fb;

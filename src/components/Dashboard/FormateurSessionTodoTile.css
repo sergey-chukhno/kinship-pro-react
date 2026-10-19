@@ -1,0 +1,50 @@
+.fst-section {
+  margin: 0 0 18px;
+}
+
+.fst-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 1100px) {
+  .fst-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fst-quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.fst-quick-label {
+  width: 100%;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6f7c94;
+  margin-bottom: 2px;
+}
+
+.fst-btn {
+  border: 1px solid #dde3ee;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #16255a;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.fst-btn:hover {
+  border-color: #9bc9c3;
+  color: #115e59;
+}
