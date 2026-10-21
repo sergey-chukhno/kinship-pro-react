@@ -251,6 +251,71 @@
   width: 100%;
 }
 
+/*
+ * Neutralize legacy main.css .stat-card compact rules (84px / 1.3rem / grid)
+ * so white .stat-card numbers match colored .stat-card2 (like Mon réseau).
+ */
+.dashboard-stats .stats-grid {
+  display: flex;
+  grid-template-columns: none;
+  grid-template-rows: none;
+}
+
+.dashboard-stats .stats-grid .stat-card,
+.dashboard-stats .stats-grid .stat-card2,
+.dashboard-stats .stats-grid .stat-card:nth-child(n) {
+  grid-row: auto !important;
+  grid-column: auto !important;
+  height: auto !important;
+  align-self: auto;
+  width: auto;
+  flex: 0 0 calc(33.333% - 13.333px);
+  min-width: 250px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-stats .stats-grid .stat-card .stat-icon,
+.dashboard-stats .stats-grid .stat-card2 .stat-icon {
+  grid-row: auto;
+  grid-column: auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  margin: 0;
+}
+
+.dashboard-stats .stats-grid .stat-card .stat-value,
+.dashboard-stats .stats-grid .stat-card2 .stat-value2 {
+  grid-column: auto;
+  grid-row: auto;
+  font-size: 2rem !important;
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.dashboard-stats .stats-grid .stat-card .stat-label,
+.dashboard-stats .stats-grid .stat-card2 .stat-label2 {
+  grid-column: auto;
+  grid-row: auto;
+  font-size: 0.9rem !important;
+  font-weight: 500;
+  letter-spacing: normal;
+  line-height: 1.25;
+  opacity: 1;
+  margin-bottom: 0;
+}
+
+.dashboard-stats .stats-grid .stat-card:not(.stat-card-gradient) .stat-label {
+  color: var(--text-secondary, #6b7280);
+}
+
 .stats-error-text {
   width: 100%;
   margin-top: 0.5rem;
@@ -274,7 +339,6 @@
 }
 
 .stat-card2 {
-  /* Match white .stat-card width so green tiles don’t look “bigger” */
   flex: 0 0 calc(33.333% - 13.333px);
   min-width: 250px;
   background: var(--primary, #ffffff);
@@ -335,24 +399,20 @@ button.stat-card-clickable {
   margin-bottom: 8px;
 }
 
-/* White-on-primary: slightly lighter weight / tighter tracking vs dark-on-white bloom */
+/* Same size/weight as .stat-value; white for contrast on --primary tiles */
 .stat-value2 {
   font-size: 2rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 700;
   color: #ffffff;
   line-height: 1;
   margin-bottom: 4px;
-  -webkit-font-smoothing: antialiased;
 }
 
 .stat-label2 {
   font-size: 0.9rem;
   font-weight: 500;
-  letter-spacing: -0.01em;
   color: #ffffff;
   margin-bottom: 8px;
-  -webkit-font-smoothing: antialiased;
 }
 
 .stat-change {
