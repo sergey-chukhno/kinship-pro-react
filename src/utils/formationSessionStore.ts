@@ -2,13 +2,22 @@
  * Store démo sessions formation (ticket 16) — School/Company, sans API.
  */
 import type { FormationCard } from '../data/mockFormations';
-import type { CreateSessionInput, FormationSession } from '../types/formationSession';
+import type {
+  CreateSessionInput,
+  FormationSession,
+  FormationSessionOrgType,
+} from '../types/formationSession';
 import {
   addFormationSlot,
   formatSlotDateLabel,
   setSelectedFormationId,
   upsertFormation,
 } from './formationStore';
+
+export type FormationSessionOrgRef = {
+  id: number;
+  type: FormationSessionOrgType;
+};
 
 const STORAGE_KEY = 'kinship_formation_sessions_fe16';
 const SELECTED_KEY = 'kinship_selected_session_id';
@@ -40,6 +49,23 @@ function write(list: FormationSession[]) {
 
 export function getFormationSessions(): FormationSession[] {
   return read();
+}
+
+/** Strict org match — sessions without stamp are excluded (legacy cache). */
+export function sessionBelongsToOrg(
+  session: FormationSession,
+  org: FormationSessionOrgRef
+): boolean {
+  return (
+    session.organizationId != null &&
+    session.organizationType != null &&
+    Number(session.organizationId) === Number(org.id) &&
+    session.organizationType === org.type
+  );
+}
+
+export function getFormationSessionsForOrg(org: FormationSessionOrgRef): FormationSession[] {
+  return read().filter((s) => sessionBelongsToOrg(s, org));
 }
 
 export function getSessionsForCatalogEntry(catalogEntryId: string): FormationSession[] {
@@ -156,6 +182,8 @@ export function createFormationSession(input: CreateSessionInput): FormationSess
     financement: input.financement,
     euMc: input.euMc,
     orgName: input.orgName,
+    organizationId: input.organizationId,
+    organizationType: input.organizationType,
     startDate: input.startDate,
     endDate: input.endDate,
     formateur: input.formateur,
@@ -259,6 +287,12 @@ export function getSessionsNeedingStartDeclaration(): FormationSession[] {
     const start = new Date(`${s.startDate}T00:00:00`);
     return start <= today;
   });
+}
+
+export function getSessionsNeedingStartDeclarationForOrg(
+  org: FormationSessionOrgRef
+): FormationSession[] {
+  return getSessionsNeedingStartDeclaration().filter((s) => sessionBelongsToOrg(s, org));
 }
 
 export function catalogSessionSummary(catalogEntryId: string): {

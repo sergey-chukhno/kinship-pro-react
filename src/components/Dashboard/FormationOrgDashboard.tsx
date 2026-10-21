@@ -6,15 +6,14 @@ import { useAppContext } from '../../context/AppContext';
 import type { FormationSession } from '../../types/formationSession';
 import {
   formatSessionDateFr,
-  getFormationSessions,
-  getSessionsNeedingStartDeclaration,
+  getFormationSessionsForOrg,
+  getSessionsNeedingStartDeclarationForOrg,
   openSessionAffiche,
   participantCountLabel,
   sessionHeroStatus,
   subscribeFormationSessions,
 } from '../../utils/formationSessionStore';
 import {
-  frenchCountLabel,
   getSelectedOrganizationContext,
   initialsFromOrgName,
 } from '../../utils/qualiopiOrg';
@@ -29,9 +28,14 @@ function statusChip(session: FormationSession): { label: string; cls: string } {
   return { label: 'À VENIR', cls: 'come' };
 }
 
+/** P4.0 KPI label: number is separate; label has no repeated count. */
+function kpiNoun(n: number, singular: string, plural: string): string {
+  return n <= 1 ? singular : plural;
+}
+
 /**
  * P4.0 — TB organisme de formation (admins Qualiopi School/Company).
- * Données réelles ; sections vides masquées.
+ * Données réelles ; sections vides masquées ; sessions filtrées par org.
  */
 const FormationOrgDashboard: React.FC = () => {
   const { state, setCurrentPage } = useAppContext();
@@ -76,13 +80,15 @@ const FormationOrgDashboard: React.FC = () => {
 
   const sessions = useMemo(() => {
     void tick;
-    return getFormationSessions().filter((s) => sessionHeroStatus(s) !== 'ended');
-  }, [tick]);
+    if (!org) return [];
+    return getFormationSessionsForOrg(org).filter((s) => sessionHeroStatus(s) !== 'ended');
+  }, [tick, org]);
 
   const needingStart = useMemo(() => {
     void tick;
-    return getSessionsNeedingStartDeclaration();
-  }, [tick]);
+    if (!org) return [];
+    return getSessionsNeedingStartDeclarationForOrg(org);
+  }, [tick, org]);
 
   const inProgress = sessions.filter((s) => sessionHeroStatus(s) === 'in_progress');
   const coming = sessions.filter((s) => sessionHeroStatus(s) === 'coming');
@@ -107,6 +113,10 @@ const FormationOrgDashboard: React.FC = () => {
   const orgName = orgCtx?.name || org?.name || 'Organisme';
   const initials = initialsFromOrgName(orgName);
   const firstName = state.user.name.split(' ')[0] || '';
+  const qualiopiValidUntil =
+    orgCtx && typeof (orgCtx as { qualiopi_valid_until?: string }).qualiopi_valid_until === 'string'
+      ? (orgCtx as { qualiopi_valid_until?: string }).qualiopi_valid_until
+      : undefined;
 
   const openSession = (id: string) => {
     openSessionAffiche(id, 'structure');
@@ -118,31 +128,41 @@ const FormationOrgDashboard: React.FC = () => {
   if (inProgress.length > 0) {
     kpis.push({
       value: inProgress.length,
-      label: frenchCountLabel(inProgress.length, 'session en cours', 'sessions en cours'),
+      label: kpiNoun(inProgress.length, 'session en cours', 'sessions en cours'),
       color: '#115E59',
     });
   }
   if (coming.length > 0) {
     kpis.push({
       value: coming.length,
-      label: frenchCountLabel(coming.length, 'session à venir', 'sessions à venir'),
+      label: kpiNoun(coming.length, 'session à venir', 'sessions à venir'),
       color: '#1F6FA3',
     });
   }
   if (participantTotal > 0) {
     kpis.push({
       value: participantTotal,
-      label: frenchCountLabel(participantTotal, 'participant en formation', 'participants en formation'),
+      label: kpiNoun(
+        participantTotal,
+        'participant en formation',
+        'participants en formation'
+      ),
       color: '#5B6FE9',
     });
   }
   if (trainerCount > 0) {
     kpis.push({
       value: trainerCount,
-      label: frenchCountLabel(trainerCount, 'formateur', 'formateurs'),
+      label: kpiNoun(trainerCount, 'formateur', 'formateurs'),
       color: '#5B6FE9',
     });
   }
+
+  const certiLine = qualiopiValidUntil
+    ? `Organisme de formation certifié · Qualiopi valide jusqu’au ${formatSessionDateFr(
+        qualiopiValidUntil.slice(0, 10)
+      )}`
+    : 'Organisme de formation certifié';
 
   return (
     <section className="fod dashboard-main-layout active" aria-label="Tableau de bord formation">
@@ -154,9 +174,7 @@ const FormationOrgDashboard: React.FC = () => {
           <h1 className="fod-hello">Bonjour {firstName} !</h1>
           <div className="fod-who">
             Tableau de bord de {orgName}
-            {orgCtx?.qualiopi ? (
-              <span className="fod-trust">✓ Organisme de formation certifié</span>
-            ) : null}
+            {orgCtx?.qualiopi ? <span className="fod-trust">{certiLine}</span> : null}
           </div>
         </div>
       </div>

@@ -1267,19 +1267,22 @@ button.stat-card-clickable {
   border-bottom: none;
 }
 
-.member-avatar {
+/* Scope under Membres récents — beat global main.css .member-avatar rules. */
+.recent-members-container .member-avatar {
   width: 48px;
   height: 48px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 2px solid var(--border, #ddd); 
+  border: 2px solid var(--border, #ddd);
+  margin-right: 0;
 }
 
-.member-avatar img {
+.recent-members-container .member-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 }
 
 .member-name {

@@ -7,6 +7,7 @@ import {
   financementToBe,
   modalityToBe,
   projectToFormationSession,
+  type FormationSessionOrgStamp,
 } from '../utils/formationSessionApiMapper';
 import { cacheFormationSession, getSessionById } from '../utils/formationSessionStore';
 
@@ -41,6 +42,8 @@ function mergeLocalFlags(session: FormationSession): FormationSession {
   if (!prev) return session;
   return {
     ...session,
+    organizationId: session.organizationId ?? prev.organizationId,
+    organizationType: session.organizationType ?? prev.organizationType,
     attendanceSurveyOptIn: prev.attendanceSurveyOptIn,
     seances: prev.seances?.length ? prev.seances : session.seances,
     people:
@@ -48,6 +51,19 @@ function mergeLocalFlags(session: FormationSession): FormationSession {
         ? prev.people
         : session.people,
   };
+}
+
+function orgStampFromInput(input: CreateSessionInput): FormationSessionOrgStamp | null {
+  if (input.organizationId == null || !input.organizationType) return null;
+  return {
+    id: Number(input.organizationId),
+    type: input.organizationType,
+    name: input.orgName,
+  };
+}
+
+function orgStampFromRef(org: CatalogueOrgRef): FormationSessionOrgStamp {
+  return { id: org.id, type: org.type, name: org.name };
 }
 
 /** Enrich project payload with members so responsible trainer has a real name. */
@@ -65,8 +81,12 @@ async function enrichProjectWithMembers(project: any): Promise<any> {
   }
 }
 
-function mapAndCache(project: any, orgNameFallback = ''): FormationSession {
-  const session = mergeLocalFlags(projectToFormationSession(project, orgNameFallback));
+function mapAndCache(
+  project: any,
+  orgNameFallback = '',
+  org?: FormationSessionOrgStamp | null
+): FormationSession {
+  const session = mergeLocalFlags(projectToFormationSession(project, orgNameFallback, org));
   cacheFormationSession(session);
   return session;
 }
@@ -120,7 +140,7 @@ export async function openCatalogSession(
       };
     }
     project = await enrichProjectWithMembers(project);
-    return mapAndCache(project, input.orgName);
+    return mapAndCache(project, input.orgName, orgStampFromInput(input));
   } catch (err: any) {
     throw new Error(apiErrorMessage(err, 'Création de session impossible.'));
   }
@@ -128,14 +148,15 @@ export async function openCatalogSession(
 
 export async function getFormationSession(
   projectId: string | number,
-  orgNameFallback = ''
+  orgNameFallback = '',
+  org?: FormationSessionOrgStamp | null
 ): Promise<FormationSession | null> {
   try {
     const res = await apiClient.get(`/api/v1/projects/${projectId}`);
     let project = res.data?.data || res.data;
     if (!project?.id) return null;
     project = await enrichProjectWithMembers(project);
-    return mapAndCache(project, orgNameFallback);
+    return mapAndCache(project, orgNameFallback, org);
   } catch (err: any) {
     if (err?.response?.status === 404) return null;
     throw new Error(apiErrorMessage(err, 'Chargement de la session impossible.'));
@@ -146,6 +167,7 @@ export async function getFormationSession(
 export async function syncOrgFormationSessions(
   org: CatalogueOrgRef
 ): Promise<FormationSession[]> {
+  const stamp = orgStampFromRef(org);
   const res =
     org.type === 'School'
       ? await getSchoolProjects(org.id, { per_page: 50, page: 1, sort_by: 'created_at', sort_direction: 'desc' })
@@ -155,7 +177,7 @@ export async function syncOrgFormationSessions(
   const sessions: FormationSession[] = [];
   for (const p of catalog) {
     const enriched = await enrichProjectWithMembers(p);
-    sessions.push(mapAndCache(enriched, org.name));
+    sessions.push(mapAndCache(enriched, org.name, stamp));
   }
   return sessions;
 }
