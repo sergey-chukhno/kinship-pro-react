@@ -723,11 +723,33 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  width: 100%;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
   color: #333;
   cursor: pointer;
   transition: background 0.15s ease;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.org-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .org-item:hover,
@@ -757,6 +779,8 @@
   font-size: 0.7rem;
   padding: 0.1rem 0.4rem;
   border-radius: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Dark theme support */

@@ -4,18 +4,19 @@
   max-width: 720px;
 }
 
+/* Avoid class names starting with fa- (Font Awesome may inject ::before → □). */
 .fsa-meta-line {
   margin: 8px 0 0;
   font-size: 12px;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.92);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-  align-items: baseline;
+  line-height: 1.4;
 }
 
-.fsa-meta-line span {
-  font-weight: 600;
+.fsa-meta-line::before,
+.fsa-meta-line::after {
+  content: none !important;
+  display: none !important;
 }
 
 .fsa-note {

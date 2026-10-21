@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { syncOrgFormationSessions } from '../../api/FormationSessions';
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
@@ -36,16 +36,20 @@ function statusChip(session: FormationSession): { label: string; cls: string } {
 const FormationOrgDashboard: React.FC = () => {
   const { state, setCurrentPage } = useAppContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const [tick, setTick] = useState(0);
   const [loading, setLoading] = useState(true);
+  const contextKey =
+    location.search ||
+    `${localStorage.getItem('selectedContextType')}-${localStorage.getItem('selectedContextId')}`;
 
   const org = useMemo(
     () => resolveCatalogueOrg(state.user, state.showingPageType),
-    [state.user, state.showingPageType]
+    [state.user, state.showingPageType, contextKey]
   );
   const orgCtx = useMemo(
     () => getSelectedOrganizationContext(state.user, state.showingPageType),
-    [state.user, state.showingPageType]
+    [state.user, state.showingPageType, contextKey]
   );
 
   useEffect(() => subscribeFormationSessions(() => setTick((n) => n + 1)), []);

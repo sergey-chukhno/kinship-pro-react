@@ -163,14 +163,8 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
       formationBrand: isQualiopiOrg(state.user, newPageType),
     });
 
-    // Navigate to appropriate page
-    if (orgType === 'user') {
-      onPageChange('dashboard');
-      navigate('/dashboard');
-    } else {
-      onPageChange('dashboard');
-      navigate('/dashboard');
-    }
+    onPageChange('dashboard');
+    navigate(`/dashboard?ctx=${orgType}-${orgId}`, { replace: true });
 
     console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
   };
@@ -326,16 +320,17 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                     return (
                       <Menu.Item key={`${org.type}-${org.id}`}>
                         {({ active }: { active: boolean }) => (
-                          <div
+                          <button
+                            type="button"
                             className={`org-item ${active ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
                             onClick={() => handleOrganizationSwitch(org.id, org.type)}
                           >
-                            <span>{org.name}</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className="org-item-name">{org.name}</span>
+                            <span className="org-item-meta">
                               {isSelected && <span className="selected-indicator">●</span>}
                               {org.isAdmin && <span className="admin-tag">Admin</span>}
-                            </div>
-                          </div>
+                            </span>
+                          </button>
                         )}
                       </Menu.Item>
                     );
