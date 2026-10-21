@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import {
@@ -481,6 +481,10 @@ type UserDashboardStats = {
 const Dashboard: React.FC = () => {
   const { state, setCurrentPage } = useAppContext();
   const navigate = useNavigate();
+  const location = useLocation();
+  const orgContextKey =
+    location.search ||
+    `${localStorage.getItem('selectedContextType')}-${localStorage.getItem('selectedContextId')}`;
   const [statsData, setStatsData] = useState<OrganizationStatsResponse | null>(null);
   const [userDashboardStats, setUserDashboardStats] = useState<UserDashboardStats | null>(null);
   const [userDashboardStatsLoading, setUserDashboardStatsLoading] = useState(false);
@@ -1757,7 +1761,7 @@ const Dashboard: React.FC = () => {
   }
 
   if (isQualiopiFormationAdmin(state.user, state.showingPageType)) {
-    return <FormationOrgDashboard />;
+    return <FormationOrgDashboard key={orgContextKey} />;
   }
 
   return (

@@ -274,7 +274,8 @@
 }
 
 .stat-card2 {
-  flex: 0 0 calc(50% - 10px);
+  /* Match white .stat-card width so green tiles don’t look “bigger” */
+  flex: 0 0 calc(33.333% - 13.333px);
   min-width: 250px;
   background: var(--primary, #ffffff);
   border: 1px solid var(--border, #e5e7eb);
@@ -334,19 +335,24 @@ button.stat-card-clickable {
   margin-bottom: 8px;
 }
 
-/* Ces classes semblent inutilisées dans le JSX fourni, mais je les garde */
+/* White-on-primary: slightly lighter weight / tighter tracking vs dark-on-white bloom */
 .stat-value2 {
   font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary, #ffffff);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #ffffff;
   line-height: 1;
   margin-bottom: 4px;
+  -webkit-font-smoothing: antialiased;
 }
 
 .stat-label2 {
   font-size: 0.9rem;
-  color: var(--text-secondary, #ffffff); /* J'ai mis en blanc pour le contraste si le fond est coloré */
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #ffffff;
   margin-bottom: 8px;
+  -webkit-font-smoothing: antialiased;
 }
 
 .stat-change {

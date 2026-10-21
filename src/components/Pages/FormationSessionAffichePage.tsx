@@ -242,14 +242,8 @@ const FormationSessionAffichePage: React.FC = () => {
             </p>
           )}
           {session.description ? <p className="fa-desc">{session.description}</p> : null}
-          <p className="fa-meta fsa-meta-line">
-            <span>Formateur responsable {session.formateur.name}</span>
-            <span aria-hidden="true"> · </span>
-            <span>{participantCountLabel(participants.length)}</span>
-            <span aria-hidden="true"> · </span>
-            <span>
-              {session.seances.length} séance{session.seances.length > 1 ? 's' : ''}
-            </span>
+          <p className="fsa-meta-line">
+            {`Formateur responsable ${session.formateur.name} · ${participantCountLabel(participants.length)} · ${session.seances.length} séance${session.seances.length > 1 ? 's' : ''}`}
           </p>
         </div>
       </header>
