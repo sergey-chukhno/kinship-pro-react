@@ -281,7 +281,7 @@ export function formatSessionDateFr(iso?: string): string {
 }
 
 export function participantCountLabel(count: number): string {
-  return count === 1 ? '1 participant' : `${count} participants`;
+  return count <= 1 ? `${count} participant` : `${count} participants`;
 }
 
 export function sessionStatusLabel(status: FormationSession['status']): string {

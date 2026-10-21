@@ -299,7 +299,7 @@
 
 .ffw-line {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 7px;
   background: #fff;
   border: 1px solid #d7d4cb;
@@ -315,6 +315,10 @@
   outline: none;
   font: inherit;
   background: transparent;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  min-height: 2.7em;
 }
 
 .ffw-add {

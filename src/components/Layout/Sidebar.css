@@ -95,6 +95,59 @@
   z-index: 10;
 }
 
+/* Tableau de bord + rubriques toujours visibles */
+.dashboard-nav-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboard-nav-sub {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-nav-sub-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 40px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary, #374151);
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar-nav-sub-item:hover {
+  background: rgba(85, 112, 241, 0.08);
+}
+
+.sidebar-nav-sub-item.current {
+  background: color-mix(in srgb, var(--primary, #5570F1) 14%, #fff);
+  color: var(--primary, #5570F1);
+  font-weight: 600;
+}
+
+.sidebar-nav-sub-item img.side-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.7;
+}
+
+.sidebar-nav-sub-item.current img.side-icon {
+  opacity: 1;
+}
+
 /* Dashboard row: link (Tableau de bord) + chevron — même pastille active que les autres side-links */
 .dashboard-nav-row {
   display: flex;

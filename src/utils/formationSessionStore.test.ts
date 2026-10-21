@@ -93,7 +93,7 @@ describe('formationSessionStore', () => {
   });
 
   it('labels participant counts in French singular/plural', () => {
-    expect(participantCountLabel(0)).toBe('0 participants');
+    expect(participantCountLabel(0)).toBe('0 participant');
     expect(participantCountLabel(1)).toBe('1 participant');
     expect(participantCountLabel(3)).toBe('3 participants');
   });

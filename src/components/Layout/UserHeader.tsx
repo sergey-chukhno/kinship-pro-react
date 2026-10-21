@@ -8,6 +8,7 @@ import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { isUnder18 } from '../../utils/ageUtils';
 import { applySpaceTheme } from '../../utils/spaceTheme';
+import { isQualiopiOrg } from '../../utils/qualiopiOrg';
 
 type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
@@ -158,7 +159,9 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
     localStorage.setItem('selectedContextType', orgType);
 
     setShowingPageType(newPageType);
-    applySpaceTheme(newPageType);
+    applySpaceTheme(newPageType, {
+      formationBrand: isQualiopiOrg(state.user, newPageType),
+    });
 
     // Navigate to appropriate page
     if (orgType === 'user') {
