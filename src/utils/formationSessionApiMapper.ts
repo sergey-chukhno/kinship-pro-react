@@ -4,6 +4,7 @@ import type {
   FormationSessionFormateur,
   FormationSessionStatus,
 } from '../types/formationSession';
+import { formatWorkloadHoursDisplay } from '../api/formationCatalogMapper';
 
 const MODE_TO_BE: Record<ParticipationMode, string> = {
   presentiel: 'on_site',
@@ -115,7 +116,10 @@ export function projectToFormationSession(p: any, orgNameFallback = ''): Formati
     catalogEntryId: p.formation_catalog_entry_id ? String(p.formation_catalog_entry_id) : '',
     title: p.title || '',
     description: p.description || undefined,
-    durationHours: p.workload_hours != null ? String(p.workload_hours) : undefined,
+    durationHours: (() => {
+      const h = formatWorkloadHoursDisplay(p.workload_hours);
+      return h || undefined;
+    })(),
     modality: modalityFromBe(p.participation_mode),
     financement: financementFromBe(p.financement_type),
     euMc: Boolean(p.is_eu_mc_declared),

@@ -1019,7 +1019,9 @@
 .fa-session .fa-hero-session .fa-hbody { color: #fff; }
 .fa-session .fa-hero-session .fa-title { color: #fff; text-transform: uppercase; font-size: 15.5px; font-weight: 800; }
 .fa-session .fa-hero-session .fa-meta,
-.fa-session .fa-hero-session .fa-desc { color: rgba(255,255,255,.88); }
+.fa-session .fa-hero-session .fa-desc,
+.fa-session .fa-hero-session .fa-org { color: rgba(255,255,255,.92); }
+.fa-session .fa-hero-session .fa-org { opacity: 0.95; }
 .fa-session .fa-hero-session .fa-chip.date {
   background: rgba(255,255,255,.18);
   border: 1px solid rgba(255,255,255,.45);

@@ -1,10 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  deleteCatalogueFiche,
-  getCatalogue,
-  withdrawCatalogueFiche,
-} from '../../api/FormationCatalogue';
+import { getCatalogue } from '../../api/FormationCatalogue';
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
 import { FormationFiche } from '../../types/formationCatalogue';
@@ -84,24 +80,6 @@ const CatalogueFormationsPage: React.FC = () => {
     setCurrentPage('formation-session-new');
   };
 
-  const withdraw = async (f: FormationFiche) => {
-    try {
-      await withdrawCatalogueFiche(f.id);
-      refresh();
-    } catch (e: any) {
-      setError(e?.message || 'Retrait impossible.');
-    }
-  };
-
-  const removeDraft = async (f: FormationFiche) => {
-    try {
-      await deleteCatalogueFiche(f.id);
-      refresh();
-    } catch (e: any) {
-      setError(e?.message || 'Suppression impossible.');
-    }
-  };
-
   const createFiche = () => {
     setCurrentPage('create');
     navigate('/create?type=formation');
@@ -116,17 +94,17 @@ const CatalogueFormationsPage: React.FC = () => {
     <div className="catf">
       <div className="catf-crumb">
         <button type="button" onClick={() => { setCurrentPage('dashboard'); navigate('/dashboard'); }}>
-          Tableau de bord
+          ← Tableau de bord
         </button>
-        <span>›</span>
+        <span> › </span>
         <span>Catalogue de formations</span>
       </div>
       <div className="catf-head">
         <div>
           <h1>Catalogue de formations</h1>
           <p>
-            Choisissez une formation pour ouvrir une session : programmes et modalités d’évaluation déjà
-            renseignés.
+            Sélectionnez une formation pour ouvrir une session : programme, modalités d&apos;évaluation et
+            jury sont déjà renseignés.
           </p>
         </div>
         <button type="button" className="catf-btn p" onClick={openImport}>
@@ -170,9 +148,16 @@ const CatalogueFormationsPage: React.FC = () => {
               </div>
             ) : null}
             <h2 className="catf-title">{f.title || 'Sans titre'}</h2>
-            {f.description && <p className="catf-desc">{f.description.slice(0, 80)}</p>}
+            {f.description && <p className="catf-desc">{f.description}</p>}
             <div className="catf-pills">
               {f.durationHours && <span className="catf-pp h">{f.durationHours} h</span>}
+              {f.certificationTarget === 'title' &&
+                (f.certificationRegistry?.blocks ?? 0) > 0 && (
+                  <span className="catf-pp">
+                    {f.certificationRegistry!.blocks} bloc
+                    {f.certificationRegistry!.blocks > 1 ? 's' : ''}
+                  </span>
+                )}
               {f.jury && <span className="catf-pp">Jury</span>}
             </div>
             {(f.modality || f.financement) && (
@@ -195,9 +180,7 @@ const CatalogueFormationsPage: React.FC = () => {
                 (() => {
                   void sessionTick;
                   const summary = catalogSessionSummary(f.id);
-                  if (!summary.count) {
-                    return <span className="catf-muted-sess">Aucune session ouverte</span>;
-                  }
+                  if (!summary.count) return null;
                   return (
                     <>
                       <span className="catf-st">
@@ -213,32 +196,24 @@ const CatalogueFormationsPage: React.FC = () => {
                 <>
                   <span className="catf-st brouillon">Brouillon</span>
                   <span>à compléter</span>
-                  <button type="button" className="catf-sess-link" onClick={() => openFiche(f)}>
-                    Reprendre la fiche →
-                  </button>
                 </>
               ) : (
-                <>
-                  <span className="catf-st retiree">Retirée du catalogue</span>
-                  <button type="button" className="catf-sess-link" onClick={() => openFiche(f)}>
-                    La fiche →
-                  </button>
-                </>
+                <span className="catf-st retiree">Retirée du catalogue</span>
               )}
             </div>
             <div className="catf-act">
               {f.status === 'catalog' ? (
                 <>
+                  <button type="button" className="catf-btn s" onClick={() => openFiche(f)}>
+                    La fiche →
+                  </button>
                   <button type="button" className="catf-btn p" onClick={() => openSession(f)}>
                     Ouvrir une session →
                   </button>
-                  <button type="button" className="catf-btn s" onClick={() => withdraw(f)}>
-                    Retirer du catalogue
-                  </button>
                 </>
               ) : f.status === 'draft' ? (
-                <button type="button" className="catf-btn s" onClick={() => removeDraft(f)}>
-                  Supprimer le brouillon
+                <button type="button" className="catf-btn p" onClick={() => openFiche(f)}>
+                  Reprendre la fiche →
                 </button>
               ) : (
                 <button type="button" className="catf-btn s" onClick={() => openFiche(f)}>

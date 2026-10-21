@@ -88,7 +88,11 @@ export function flagsFromMeta(meta: Record<string, any> | undefined): CatalogueS
 export function entryToFiche(entry: BeCatalogEntry, orgHint?: CatalogueOrgRef | null): FormationFiche {
   const orgType = entry.primary_organization_type || orgHint?.type || 'Company';
   const orgId = entry.primary_organization_id || orgHint?.id;
-  const orgName = orgHint?.name || `${orgType} #${orgId}`;
+  const orgName =
+    orgHint?.name ||
+    entry.primary_organization_name ||
+    entry.organization_name ||
+    `${orgType} #${orgId}`;
   const linesRaw = entry.program_lines;
   const programmeLines =
     typeof linesRaw === 'string' && linesRaw.trim()

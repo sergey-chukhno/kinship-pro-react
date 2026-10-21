@@ -3,11 +3,13 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   applyCertificationCode,
   createCatalogueDraft,
+  deleteCatalogueFiche,
   getCatalogue,
   getCatalogueFlags,
   getCatalogueFiche,
   listCatalogueFiche,
   saveCatalogueFiche,
+  withdrawCatalogueFiche,
 } from '../../api/FormationCatalogue';
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import {
@@ -238,6 +240,34 @@ const FormationFicheWizard: React.FC = () => {
     navigate('/catalogue-formations');
   };
 
+  const withdrawListed = async () => {
+    if (!fiche || fiche.status !== 'catalog') return;
+    setBusy(true);
+    setError(null);
+    try {
+      await withdrawCatalogueFiche(fiche.id);
+      goCatalogue();
+    } catch (e: any) {
+      setError(e?.message || 'Retrait impossible.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeDraftFiche = async () => {
+    if (!fiche || fiche.status !== 'draft') return;
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteCatalogueFiche(fiche.id);
+      goCatalogue();
+    } catch (e: any) {
+      setError(e?.message || 'Suppression impossible.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const ensureFicheFromStep1 = async () => {
     if (fiche?.id && !fiche.id.startsWith('local-') && !fiche.id.startsWith('fiche-')) {
       return fiche;
@@ -454,7 +484,11 @@ const FormationFicheWizard: React.FC = () => {
       <div className="ffw-shell">
         <div className="ffw-bar">
           <span>
-            Formation · {fiche?.orgName || lock?.orgName || 'Organisme de formation'}
+            Formation ·{' '}
+            {org?.name ||
+              fiche?.orgName ||
+              lock?.orgName ||
+              'Organisme de formation'}
           </span>
           <span />
         </div>
@@ -1065,14 +1099,26 @@ const FormationFicheWizard: React.FC = () => {
                 <button type="button" className="ffw-btn g" onClick={goCatalogue}>
                   Annuler
                 </button>
-                <div className="ffw-fcol">
-                  <button type="button" className="ffw-btn s" onClick={saveDraft}>
-                    Enregistrer en brouillon
+                {fiche.status !== 'catalog' && (
+                  <div className="ffw-fcol">
+                    <button type="button" className="ffw-btn s" onClick={saveDraft}>
+                      Enregistrer en brouillon
+                    </button>
+                    {euMc && goldCount < 9 && (
+                      <div className="ffw-mc9">Le compteur attendra.</div>
+                    )}
+                  </div>
+                )}
+                {fiche.status === 'draft' && (
+                  <button type="button" className="ffw-btn s" onClick={removeDraftFiche} disabled={busy}>
+                    Supprimer le brouillon
                   </button>
-                  {euMc && goldCount < 9 && (
-                    <div className="ffw-mc9">Le compteur attendra.</div>
-                  )}
-                </div>
+                )}
+                {fiche.status === 'catalog' && (
+                  <button type="button" className="ffw-btn s" onClick={withdrawListed} disabled={busy}>
+                    Retirer du catalogue
+                  </button>
+                )}
                 <button type="button" className="ffw-btn p" onClick={goStep3}>
                   Continuer →
                 </button>
@@ -1214,17 +1260,30 @@ const FormationFicheWizard: React.FC = () => {
                 <button type="button" className="ffw-btn g" onClick={() => setStep(2)}>
                   Retour
                 </button>
-                <button type="button" className="ffw-btn s" onClick={saveDraft}>
-                  Enregistrer en brouillon
-                </button>
-                <button
-                  type="button"
-                  className="ffw-btn am"
-                  disabled={step3Missing.length > 0}
-                  onClick={requestAddToCatalog}
-                >
-                  Ajouter au catalogue
-                </button>
+                {fiche.status !== 'catalog' && (
+                  <button type="button" className="ffw-btn s" onClick={saveDraft}>
+                    Enregistrer en brouillon
+                  </button>
+                )}
+                {fiche.status === 'draft' && (
+                  <button type="button" className="ffw-btn s" onClick={removeDraftFiche} disabled={busy}>
+                    Supprimer le brouillon
+                  </button>
+                )}
+                {fiche.status === 'catalog' ? (
+                  <button type="button" className="ffw-btn s" onClick={withdrawListed} disabled={busy}>
+                    Retirer du catalogue
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="ffw-btn am"
+                    disabled={step3Missing.length > 0}
+                    onClick={requestAddToCatalog}
+                  >
+                    Ajouter au catalogue
+                  </button>
+                )}
               </div>
             </>
           )}

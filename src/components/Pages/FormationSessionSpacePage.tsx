@@ -115,12 +115,6 @@ const FormationSessionSpacePage: React.FC = () => {
     setCurrentPage('formation-affiche');
   };
 
-  const toggleAttendance = (on: boolean) => {
-    if (!session) return;
-    updateFormationSession(session.id, { attendanceSurveyOptIn: on });
-    showSuccess('Enregistré');
-  };
-
   const saveJury = () => {
     if (!session || !juryName.trim()) return;
     const others = session.people.filter((p) => p.role !== 'jury');
@@ -477,34 +471,6 @@ const FormationSessionSpacePage: React.FC = () => {
               </div>
 
               <div className="fss-sec">
-                <div className="fss-viewrow" style={{ marginBottom: 8 }}>
-                  <span>Présences suivies à chaque séance</span>
-                  <div className="fss-ropts">
-                    <button
-                      type="button"
-                      className={`fss-ropt ${session.attendanceSurveyOptIn ? 'sel' : ''}`}
-                      onClick={() => toggleAttendance(true)}
-                      disabled={visibility === 'financeur'}
-                    >
-                      Oui
-                    </button>
-                    <button
-                      type="button"
-                      className={`fss-ropt ${!session.attendanceSurveyOptIn ? 'sel' : ''}`}
-                      onClick={() => toggleAttendance(false)}
-                      disabled={visibility === 'financeur'}
-                    >
-                      Non
-                    </button>
-                  </div>
-                </div>
-                <p className="fss-lockl">
-                  🔒 Avec l&apos;option <strong>Conformité financeur</strong> : vérification
-                  d&apos;identité, blocage CPF, sondage d&apos;assiduité.{' '}
-                  <button type="button" className="fss-link">
-                    En savoir plus →
-                  </button>
-                </p>
                 <div className="fss-viewrow" style={{ marginTop: 10 }}>
                   <span>
                     Jury <span style={{ color: '#8f8d86' }}>— facultatif</span>

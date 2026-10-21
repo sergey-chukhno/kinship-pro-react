@@ -203,8 +203,6 @@ const FormationSessionAffichePage: React.FC = () => {
           }
         : null;
 
-  const metaLine = `Formateur responsable ${session.formateur.name} · ${participantCountLabel(participants.length)} · ${session.seances.length} séance${session.seances.length > 1 ? 's' : ''}`;
-
   return (
     <section className="fa-page fa-session fsa-page" aria-label="Affiche de la session">
       <div className="fa-head">
@@ -244,7 +242,15 @@ const FormationSessionAffichePage: React.FC = () => {
             </p>
           )}
           {session.description ? <p className="fa-desc">{session.description}</p> : null}
-          <p className="fa-meta fsa-meta-line">{metaLine}</p>
+          <p className="fa-meta fsa-meta-line">
+            <span>Formateur responsable {session.formateur.name}</span>
+            <span aria-hidden="true"> · </span>
+            <span>{participantCountLabel(participants.length)}</span>
+            <span aria-hidden="true"> · </span>
+            <span>
+              {session.seances.length} séance{session.seances.length > 1 ? 's' : ''}
+            </span>
+          </p>
         </div>
       </header>
 

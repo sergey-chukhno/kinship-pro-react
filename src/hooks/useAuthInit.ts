@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAppContext } from "../context/AppContext";
 import { getCurrentUser, refreshToken } from "../api/Authentication"; // adapte le chemin selon ton projet
 import { applySpaceTheme } from "../utils/spaceTheme";
+import { isQualiopiOrg } from "../utils/qualiopiOrg";
 import { PageType } from "../types";
 import { restoreOfRoleContext } from "../utils/ofActivationStore";
 import { isFunderAppPath } from "../utils/contextUtils";
@@ -274,7 +275,9 @@ export const useAuthInit = () => {
           }
 
           // Appliquer la couleur d'espace (--couleur-espace) IMMÉDIATEMENT
-          applySpaceTheme(pageType);
+          applySpaceTheme(pageType, {
+            formationBrand: isQualiopiOrg(user, pageType),
+          });
 
           setShowingPageType(pageType);
 

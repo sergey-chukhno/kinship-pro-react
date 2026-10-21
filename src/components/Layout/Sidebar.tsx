@@ -8,6 +8,7 @@ import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
 import { applySpaceTheme } from '../../utils/spaceTheme';
+import { isQualiopiOrg } from '../../utils/qualiopiOrg';
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
 import { canCreateFormation } from '../../utils/ofActivationStore';
@@ -164,7 +165,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     localStorage.setItem('selectedContextType', orgType);
 
     setShowingPageType(newPageType);
-    applySpaceTheme(newPageType);
+    applySpaceTheme(newPageType, {
+      formationBrand: isQualiopiOrg(state.user, newPageType),
+    });
 
     // Navigate to appropriate page
     if (orgType === 'user') {
@@ -191,26 +194,73 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
     { id: 'network', label: 'Mon réseau Kinship', icon: '/icons_logo/Icon=Reseau.svg' },
   ];
 
-  const isDashboardSectionActive = currentPage === 'dashboard';
+  const isDashboardSectionActive =
+    currentPage === 'dashboard' ||
+    dashboardDropdownItems.some((item) => item.id === currentPage);
+  const formationBrand = isQualiopiOrg(state.user, state.showingPageType);
 
   const unreadNotifications = 0; //state.notifications.filter(n => !n.isRead).length;
+
+  const goDashboardItem = (item: { id: PageType }) => {
+    if (item.id === 'funded-projects') {
+      navigate('/projects?tab=je-finance');
+      onPageChange('projects');
+      return;
+    }
+    onPageChange(item.id);
+    navigate(`/${item.id}`);
+  };
 
   return (
     <aside className="sidebar" role="navigation" aria-label="Sidebar">
       <div className="sidebar-header">
-        {state.showingPageType === "pro" && <img src="/icons_logo/Property 1=Logo Kinship Pro.svg" alt="Kinship Pro" className="sidebar-logo !w-[200px] !h-[60px]" />}
-        {state.showingPageType === "edu" && <img src="/icons_logo/Property 1=Logo Kinship edu.svg" alt="Kinship edu" className="sidebar-logo !w-[200px] !h-[60px]" />}
-        {state.showingPageType === "teacher" && <img src="/icons_logo/Property 1=Logo Kinship teacher.svg" alt="Kinship Teacher" className="sidebar-logo !w-[200px] !h-[60px]" />}
-        {state.showingPageType === "of" && <img src="/icons_logo/Property 1=Logo Kinship Formation1.svg" alt="Kinship Formations" className="sidebar-logo !w-[200px] !h-[60px]" />}
+        {formationBrand ? (
+          <img
+            src="/icons_logo/Property 1=Logo Kinship Formation1.svg"
+            alt="Kinship Formation"
+            className="sidebar-logo !w-[200px] !h-[60px]"
+          />
+        ) : (
+          <>
+            {state.showingPageType === 'pro' && (
+              <img
+                src="/icons_logo/Property 1=Logo Kinship Pro.svg"
+                alt="Kinship Pro"
+                className="sidebar-logo !w-[200px] !h-[60px]"
+              />
+            )}
+            {state.showingPageType === 'edu' && (
+              <img
+                src="/icons_logo/Property 1=Logo Kinship edu.svg"
+                alt="Kinship edu"
+                className="sidebar-logo !w-[200px] !h-[60px]"
+              />
+            )}
+            {state.showingPageType === 'teacher' && (
+              <img
+                src="/icons_logo/Property 1=Logo Kinship teacher.svg"
+                alt="Kinship Teacher"
+                className="sidebar-logo !w-[200px] !h-[60px]"
+              />
+            )}
+            {state.showingPageType === 'of' && (
+              <img
+                src="/icons_logo/Property 1=Logo Kinship Formation1.svg"
+                alt="Kinship Formations"
+                className="sidebar-logo !w-[200px] !h-[60px]"
+              />
+            )}
+          </>
+        )}
       </div>
 
       <nav className="side-nav">
-        {/* Tableau de bord: link (navigates to /dashboard) + chevron (opens dropdown with five sections) */}
-        <div className={`dashboard-nav-row ${isDashboardSectionActive ? 'active' : ''}`}>
+        {/* Tableau de bord + rubriques toujours visibles (Patrick point 2) */}
+        <div className={`dashboard-nav-block ${isDashboardSectionActive ? 'active' : ''}`}>
           <a
             href="/dashboard"
             data-target="dashboard"
-            className={`side-link dashboard-link ${isDashboardSectionActive ? 'active' : ''}`}
+            className={`side-link dashboard-link ${currentPage === 'dashboard' ? 'active' : ''}`}
             aria-current={currentPage === 'dashboard' ? 'page' : undefined}
             onClick={(e) => {
               e.preventDefault();
@@ -221,55 +271,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
             <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="side-icon" />
             Tableau de bord
           </a>
-          <Menu as="div" className="dashboard-nav-dropdown">
-            {({ open }: { open: boolean }) => (
-              <>
-                <Menu.Button
-                  className={`dashboard-chevron-btn ${open ? 'open' : ''}`}
-                  aria-label="Ouvrir le menu des sections"
-                  aria-haspopup="menu"
-                  aria-expanded={open}
-                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          <ul className="dashboard-nav-sub" aria-label="Rubriques du tableau de bord">
+            {dashboardDropdownItems.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={`sidebar-nav-sub-item ${currentPage === item.id ? 'current' : ''}`}
+                  onClick={() => goDashboardItem(item)}
                 >
-                  <img src="/icons_logo/Icon=Chevron droit.svg" alt="" className="chevron-icon" />
-                </Menu.Button>
-                <Transition
-                  enter="transition ease-out duration-100"
-                  enterFrom="transform opacity-0 scale-95"
-                  enterTo="transform opacity-100 scale-100"
-                  leave="transition ease-in duration-75"
-                  leaveFrom="transform opacity-100 scale-100"
-                  leaveTo="transform opacity-0 scale-95"
-                >
-                  <Menu.Items className="sidebar-nav-dropdown-menu" anchor="bottom start">
-                    {dashboardDropdownItems.map((item) => (
-                      <Menu.Item key={item.id}>
-                        {({ active }: { active: boolean }) => (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className={`sidebar-nav-dropdown-item ${active ? 'active' : ''} ${currentPage === item.id ? 'current' : ''}`}
-                            onClick={() => {
-                              if (item.id === 'funded-projects') {
-                                navigate('/projects?tab=je-finance');
-                                onPageChange('projects');
-                                return;
-                              }
-                              onPageChange(item.id);
-                              navigate(`/${item.id}`);
-                            }}
-                          >
-                            <img src={item.icon} alt="" className="side-icon" />
-                            {item.label}
-                          </button>
-                        )}
-                      </Menu.Item>
-                    ))}
-                  </Menu.Items>
-                </Transition>
-              </>
-            )}
-          </Menu>
+                  <img src={item.icon} alt="" className="side-icon" />
+                  {item.label}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
 
         {/* Statistiques et KPI (edu/pro only) */}

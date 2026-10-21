@@ -26,6 +26,7 @@ import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
 import { useAuthInit } from '../../hooks/useAuthInit';
 import { applySpaceTheme } from '../../utils/spaceTheme';
+import { isQualiopiOrg } from '../../utils/qualiopiOrg';
 // import PresenceSessionPage from '../Pages/PresenceSessionPage';
 import PresenceBanner from '../Presence/PresenceBanner';
 // import FormationDetail from '../Pages/FormationDetail';
@@ -67,8 +68,10 @@ const MainLayout: React.FC = () => {
   }, [isAuthChecking, isFollowRoute, state.currentPage, setCurrentPage]);
   useEffect(() => {
     if (isAuthChecking) return;
-    applySpaceTheme(state.showingPageType);
-  }, [state.showingPageType, isAuthChecking]);
+    applySpaceTheme(state.showingPageType, {
+      formationBrand: isQualiopiOrg(state.user, state.showingPageType),
+    });
+  }, [state.showingPageType, state.user, isAuthChecking]);
 
 
   /*
