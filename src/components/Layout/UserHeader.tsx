@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
@@ -9,8 +9,7 @@ import { translateRole } from '../../utils/roleTranslations';
 import { isUnder18 } from '../../utils/ageUtils';
 import { applySpaceTheme } from '../../utils/spaceTheme';
 import { isQualiopiOrg } from '../../utils/qualiopiOrg';
-
-type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
+import { ContextOrgType, resolveSwitcherContext } from '../../utils/contextUtils';
 
 const STUDENT_ROLES = new Set(['eleve_primaire', 'collegien', 'lyceen', 'etudiant']);
 
@@ -23,28 +22,16 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   const { state, setShowingPageType } = useAppContext();
   const user = state.user;
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Get currently selected context
-  const getCurrentContext = useMemo(() => {
-    const savedContextId = localStorage.getItem('selectedContextId');
-    const savedContextType = localStorage.getItem('selectedContextType') as ContextOrgType | null;
-    
-    if (savedContextId && savedContextType) {
-      return {
-        id: savedContextId,
-        type: savedContextType
-      };
-    }
-    
-    // Fallback: determine from showingPageType
-    if (state.showingPageType === 'teacher') {
-      return { id: 'teacher-dashboard', type: 'teacher' as const };
-    } else if (state.showingPageType === 'user') {
-      return { id: 'user-dashboard', type: 'user' as const };
-    }
-    
-    return null;
-  }, [state.showingPageType]);
+  const getCurrentContext = useMemo(
+    () =>
+      resolveSwitcherContext({
+        search: location.search,
+        showingPageType: state.showingPageType,
+      }),
+    [location.search, state.showingPageType]
+  );
 
   // Process organizations from available_contexts
   const organizations = useMemo(() => {
