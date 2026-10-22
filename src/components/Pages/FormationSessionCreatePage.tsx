@@ -189,6 +189,8 @@ const FormationSessionCreatePage: React.FC = () => {
         financement: financement || fiche.financement,
         euMc: fiche.euMc,
         orgName: orgDisplayName,
+        organizationId: org?.id,
+        organizationType: org?.type,
         startDate,
         endDate,
         formateur: {

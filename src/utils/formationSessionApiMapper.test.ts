@@ -33,11 +33,14 @@ describe('formationSessionApiMapper', () => {
         primary_organization_name: 'École primaire Victor Hugo',
         co_owners: [{ id: 7, first_name: 'Antoine', last_name: 'Morel', full_name: 'Antoine Morel' }],
       },
-      'Fallback'
+      'Fallback',
+      { id: 99, type: 'School', name: 'École primaire Victor Hugo' }
     );
 
     expect(session.id).toBe('42');
     expect(session.orgName).toBe('École primaire Victor Hugo');
+    expect(session.organizationId).toBe(99);
+    expect(session.organizationType).toBe('School');
     expect(session.startDeclared).toBe(false);
     expect(session.status).toBe('coming');
     expect(session.formateur.name).toBe('Antoine Morel');

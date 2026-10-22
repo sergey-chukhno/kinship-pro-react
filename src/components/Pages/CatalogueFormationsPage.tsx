@@ -170,11 +170,6 @@ const CatalogueFormationsPage: React.FC = () => {
               {f.euMc ? <span className="catf-pp or">MC UE</span> : <span className="catf-pp">PF</span>}
               {f.certificationCode && <span className="catf-pp">PC</span>}
             </div>
-            {f.status === 'catalog' && (
-              <button type="button" className="catf-fl" onClick={() => openFiche(f)}>
-                La fiche →
-              </button>
-            )}
             <div className="catf-sess">
               {f.status === 'catalog' ? (
                 (() => {

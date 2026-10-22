@@ -2,8 +2,10 @@ import {
   catalogSessionSummary,
   createFormationSession,
   declareSessionStart,
+  getFormationSessionsForOrg,
   getSessionById,
   getSessionsNeedingStartDeclaration,
+  getSessionsNeedingStartDeclarationForOrg,
   participantCountLabel,
   sessionHeroStatus,
 } from './formationSessionStore';
@@ -96,5 +98,41 @@ describe('formationSessionStore', () => {
     expect(participantCountLabel(0)).toBe('0 participant');
     expect(participantCountLabel(1)).toBe('1 participant');
     expect(participantCountLabel(3)).toBe('3 participants');
+  });
+
+  it('filters TB sessions by organization stamp', () => {
+    createFormationSession({
+      catalogEntryId: 'cat-cfpj',
+      title: 'Session CFPJ',
+      modality: 'presentiel',
+      financement: 'OPCO',
+      euMc: false,
+      orgName: 'CFPJ',
+      organizationId: 10,
+      organizationType: 'Company',
+      startDate: '2020-01-01',
+      endDate: '2099-01-01',
+      formateur: { source: 'structure', name: 'A', memberId: '1' },
+    });
+    createFormationSession({
+      catalogEntryId: 'cat-college',
+      title: 'Session Collège',
+      modality: 'presentiel',
+      financement: 'OPCO',
+      euMc: false,
+      orgName: 'Collège Antoine Risso',
+      organizationId: 20,
+      organizationType: 'School',
+      startDate: '2020-01-01',
+      endDate: '2099-01-01',
+      formateur: { source: 'structure', name: 'B', memberId: '2' },
+    });
+
+    const cfpj = getFormationSessionsForOrg({ id: 10, type: 'Company' });
+    expect(cfpj).toHaveLength(1);
+    expect(cfpj[0].title).toBe('Session CFPJ');
+    expect(getSessionsNeedingStartDeclarationForOrg({ id: 10, type: 'Company' })).toHaveLength(1);
+    expect(getSessionsNeedingStartDeclarationForOrg({ id: 20, type: 'School' })).toHaveLength(1);
+    expect(getFormationSessionsForOrg({ id: 99, type: 'Company' })).toHaveLength(0);
   });
 });

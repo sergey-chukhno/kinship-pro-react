@@ -33,6 +33,8 @@ export interface FormationSessionSeance {
   place?: string;
 }
 
+export type FormationSessionOrgType = 'School' | 'Company';
+
 export interface FormationSession {
   id: string;
   catalogEntryId: string;
@@ -43,6 +45,9 @@ export interface FormationSession {
   financement: FinancementType | '';
   euMc: boolean;
   orgName: string;
+  /** Porteuse School/Company — required for TB org filter. */
+  organizationId?: number;
+  organizationType?: FormationSessionOrgType;
   startDate: string;
   endDate: string;
   formateur: FormationSessionFormateur;
@@ -67,6 +72,8 @@ export interface CreateSessionInput {
   financement: FinancementType | '';
   euMc: boolean;
   orgName: string;
+  organizationId?: number;
+  organizationType?: FormationSessionOrgType;
   startDate: string;
   endDate: string;
   formateur: FormationSessionFormateur;

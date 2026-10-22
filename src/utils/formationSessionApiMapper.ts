@@ -2,9 +2,16 @@ import type { FinancementType, ParticipationMode } from '../types/formationCatal
 import type {
   FormationSession,
   FormationSessionFormateur,
+  FormationSessionOrgType,
   FormationSessionStatus,
 } from '../types/formationSession';
 import { formatWorkloadHoursDisplay } from '../api/formationCatalogMapper';
+
+export type FormationSessionOrgStamp = {
+  id: number;
+  type: FormationSessionOrgType;
+  name?: string;
+};
 
 const MODE_TO_BE: Record<ParticipationMode, string> = {
   presentiel: 'on_site',
@@ -99,7 +106,11 @@ function trainerFromProject(p: any): FormationSessionFormateur {
 }
 
 /** Map BE Project (catalog session) → FE FormationSession. */
-export function projectToFormationSession(p: any, orgNameFallback = ''): FormationSession {
+export function projectToFormationSession(
+  p: any,
+  orgNameFallback = '',
+  org?: FormationSessionOrgStamp | null
+): FormationSession {
   const startDeclared = Boolean(p.start_declared_at);
   const formateur = trainerFromProject(p);
   const people = [
@@ -123,7 +134,9 @@ export function projectToFormationSession(p: any, orgNameFallback = ''): Formati
     modality: modalityFromBe(p.participation_mode),
     financement: financementFromBe(p.financement_type),
     euMc: Boolean(p.is_eu_mc_declared),
-    orgName: p.primary_organization_name || orgNameFallback || '',
+    orgName: p.primary_organization_name || org?.name || orgNameFallback || '',
+    organizationId: org?.id,
+    organizationType: org?.type,
     startDate,
     endDate: isoDateOnly(p.end_date),
     formateur,
