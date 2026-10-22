@@ -433,6 +433,7 @@ export type PageType =
   | 'catalogue-import'
   | 'formation-session-new'
   | 'formation-session-space'
+  | 'formation-session-import'
   | 'badges'
   | 'analytics'
   | 'network'

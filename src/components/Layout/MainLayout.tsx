@@ -44,6 +44,7 @@ import FormationFicheWizard from '../Pages/FormationFicheWizard';
 import CatalogueImportPage from '../Pages/CatalogueImportPage';
 import FormationSessionCreatePage from '../Pages/FormationSessionCreatePage';
 import FormationSessionSpacePage from '../Pages/FormationSessionSpacePage';
+import FormationSessionParticipantsImportPage from '../Pages/FormationSessionParticipantsImportPage';
 import OfActivationPage from '../Pages/OfActivationPage';
 import { getSessionById } from '../../utils/formationSessionStore';
 // import SuperAdminOfQueuePage from '../Pages/SuperAdminOfQueuePage';
@@ -177,6 +178,8 @@ const MainLayout: React.FC = () => {
         return <FormationSessionCreatePage />;
       case 'formation-session-space':
         return <FormationSessionSpacePage />;
+      case 'formation-session-import':
+        return <FormationSessionParticipantsImportPage />;
       case 'project-space':
         return <ProjectSpacePage />;
       case 'project-affiche':

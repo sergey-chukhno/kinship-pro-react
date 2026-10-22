@@ -80,3 +80,42 @@ export interface CreateSessionInput {
   practicalInfo?: string;
   imageDataUrl?: string;
 }
+
+/** P4.2 session participants import — BE contract (Sergey). */
+export type SessionImportRejectReasonCode =
+  | 'missing_required'
+  | 'unreadable_date'
+  | 'under_15'
+  | 'already_enrolled'
+  | 'validation_failed'
+  | string;
+
+export interface SessionImportReject {
+  line: number;
+  reason_code: SessionImportRejectReasonCode;
+  message: string;
+}
+
+export interface SessionImportPreviewRow {
+  line: number;
+  first_name: string;
+  last_name: string;
+  birthday: string; // ISO YYYY-MM-DD
+  email: string;
+}
+
+export interface SessionImportAnalyzeResponse {
+  detected_count: number;
+  importable_count: number;
+  preview_rows: SessionImportPreviewRow[];
+  reject_preview: SessionImportReject[];
+  limits: {
+    max_rows: number;
+    max_bytes: number;
+  };
+}
+
+export interface SessionImportResponse {
+  inscribed_count: number;
+  rejected: SessionImportReject[];
+}

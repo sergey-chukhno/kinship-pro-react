@@ -410,7 +410,15 @@ const FormationSessionSpacePage: React.FC = () => {
                       <button type="button" className="fss-add" disabled>
                         + Ajouter un participant
                       </button>{' '}
-                      <button type="button" className="fss-add" disabled>
+                      <button
+                        type="button"
+                        className="fss-add"
+                        onClick={() => {
+                          if (!session) return;
+                          setCurrentPage('formation-session-import');
+                          navigate(`/formation-session-import/${session.id}`);
+                        }}
+                      >
                         Importer une liste
                       </button>
                     </span>
