@@ -40,7 +40,8 @@ export const useAuthInit = () => {
       "funder-attachments",
       /* "presence-session", "formation-detail", "preuve-formation", */
       "create", "catalogue-formations", "catalogue-import",
-      "formation-session-new", "formation-session-space", "formation-affiche",
+      "formation-session-new", "formation-session-space", "formation-session-import",
+      "formation-affiche",
       "project-space", "project-affiche", "funded-projects",
       "of-activation", /* "admin-of-queue", */
       "personal-settings",
@@ -70,6 +71,10 @@ export const useAuthInit = () => {
 
     if (path.startsWith('formation-session-space')) {
       return 'formation-session-space';
+    }
+
+    if (path.startsWith('formation-session-import')) {
+      return 'formation-session-import';
     }
 
     if (path.startsWith('formation-affiche')) {
