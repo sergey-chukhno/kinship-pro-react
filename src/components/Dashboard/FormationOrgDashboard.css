@@ -2,6 +2,17 @@
   padding: 0;
 }
 
+/* Neutralise dashboard-main-layout stretch (100vh + align-content) which
+   left a large gap between header and « À faire » when KPI/sessions are empty.
+   !important where needed to beat main.css responsive rules on .dashboard-main-layout. */
+.fod.dashboard-main-layout {
+  align-content: start;
+  min-height: auto !important;
+  grid-template-columns: 1fr !important;
+  grid-template-rows: none !important;
+  grid-template-areas: none !important;
+}
+
 .fod-head {
   display: flex;
   align-items: flex-start;
