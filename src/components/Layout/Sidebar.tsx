@@ -1,20 +1,23 @@
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
 import './Sidebar.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
-import { getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
+import {
+  ContextOrgType,
+  getFinancedProjectsCount,
+  jeFinanceLabel,
+  resolveSwitcherContext,
+} from '../../utils/contextUtils';
 import { applySpaceTheme } from '../../utils/spaceTheme';
 import { isQualiopiOrg } from '../../utils/qualiopiOrg';
 import SelectProjectForBadgeModal from '../Modals/SelectProjectForBadgeModal';
 import SelectPartnerModal from '../Modals/SelectPartnerModal';
 import { canCreateFormation } from '../../utils/ofActivationStore';
 import { openProjectAffiche } from '../../utils/projectSpaceStore';
-
-type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -24,37 +27,24 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) => {
   const { state, setShowingPageType, setSelectedProject } = useAppContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSelectProjectForBadgeOpen, setIsSelectProjectForBadgeOpen] = useState(false);
   const [isSelectPartnerModalOpen, setIsSelectPartnerModalOpen] = useState(false);
 
-  // Get currently selected context
-  const getCurrentContext = useMemo(() => {
-    const savedContextId = localStorage.getItem('selectedContextId');
-    const savedContextType = localStorage.getItem('selectedContextType') as ContextOrgType | null;
-    
-    if (savedContextId && savedContextType) {
-      return {
-        id: savedContextId,
-        type: savedContextType
-      };
-    }
-    
-    // Fallback: determine from showingPageType
-    if (state.showingPageType === 'teacher') {
-      return { id: 'teacher-dashboard', type: 'teacher' as const };
-    } else if (state.showingPageType === 'user') {
-      return { id: 'user-dashboard', type: 'user' as const };
-    } else if (state.showingPageType === 'of') {
-      const savedId = localStorage.getItem('selectedContextId');
-      const fromApi = state.user?.available_contexts?.formation_organizations?.[0]?.id;
-      return {
-        id: savedId || fromApi || 'formation',
-        type: 'formation' as const,
-      };
-    }
-    
-    return null;
-  }, [state.showingPageType, state.user?.available_contexts?.formation_organizations]);
+  const getCurrentContext = useMemo(
+    () =>
+      resolveSwitcherContext({
+        search: location.search,
+        showingPageType: state.showingPageType,
+        formationOrgFallbackId:
+          state.user?.available_contexts?.formation_organizations?.[0]?.id,
+      }),
+    [
+      location.search,
+      state.showingPageType,
+      state.user?.available_contexts?.formation_organizations,
+    ]
+  );
 
   // Process organizations from available_contexts
   const organizations = useMemo(() => {
