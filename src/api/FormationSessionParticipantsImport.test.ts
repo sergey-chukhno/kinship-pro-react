@@ -115,10 +115,12 @@ describe('FormationSessionParticipantsImport API', () => {
     mockGet.mockResolvedValue({ data: new Blob(['Nom;Prénom'], { type: 'text/csv' }) });
     const createObjectURL = jest.fn(() => 'blob:mock');
     const revokeObjectURL = jest.fn();
-    // @ts-expect-error test stub
-    global.URL.createObjectURL = createObjectURL;
-    // @ts-expect-error test stub
-    global.URL.revokeObjectURL = revokeObjectURL;
+    const urlProto = URL as unknown as {
+      createObjectURL: typeof createObjectURL;
+      revokeObjectURL: typeof revokeObjectURL;
+    };
+    urlProto.createObjectURL = createObjectURL;
+    urlProto.revokeObjectURL = revokeObjectURL;
     const click = jest.fn();
     const originalCreate = document.createElement.bind(document);
     jest.spyOn(document, 'createElement').mockImplementation((tag: string) => {
