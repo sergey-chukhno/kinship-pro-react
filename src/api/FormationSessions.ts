@@ -46,8 +46,10 @@ function mergeLocalFlags(session: FormationSession): FormationSession {
     organizationType: session.organizationType ?? prev.organizationType,
     attendanceSurveyOptIn: prev.attendanceSurveyOptIn,
     seances: prev.seances?.length ? prev.seances : session.seances,
-    people:
-      prev.people?.length && prev.people.some((x) => x.role === 'participant')
+    // Prefer API people when it includes participants (post-import refresh).
+    people: session.people.some((x) => x.role === 'participant')
+      ? session.people
+      : prev.people?.length && prev.people.some((x) => x.role === 'participant')
         ? prev.people
         : session.people,
   };
@@ -66,13 +68,15 @@ function orgStampFromRef(org: CatalogueOrgRef): FormationSessionOrgStamp {
   return { id: org.id, type: org.type, name: org.name };
 }
 
-/** Enrich project payload with members so responsible trainer has a real name. */
+/**
+ * Ensure project_members are present (trainer name + imported participants).
+ * Skip fetch when the payload already includes members.
+ */
 async function enrichProjectWithMembers(project: any): Promise<any> {
-  if (!project?.id || !project.responsible_trainer_id) return project;
-  const trainerId = Number(project.responsible_trainer_id);
-  const coOwners = Array.isArray(project.co_owners) ? project.co_owners : [];
-  const known = coOwners.find((c: any) => Number(c.id) === trainerId);
-  if (known?.full_name || (known?.first_name && known?.last_name)) return project;
+  if (!project?.id) return project;
+  if (Array.isArray(project.project_members) && project.project_members.length > 0) {
+    return project;
+  }
   try {
     const members = await getProjectMembers(Number(project.id));
     return { ...project, project_members: members };
