@@ -3,6 +3,7 @@ import type {
   FormationSession,
   FormationSessionFormateur,
   FormationSessionOrgType,
+  FormationSessionPerson,
   FormationSessionStatus,
 } from '../types/formationSession';
 import { formatWorkloadHoursDisplay } from '../api/formationCatalogMapper';
@@ -105,6 +106,33 @@ function trainerFromProject(p: any): FormationSessionFormateur {
   };
 }
 
+/** BE role `member` = session participant (import / pre-inscription). */
+function participantsFromProject(
+  p: any,
+  trainerId?: number | null
+): FormationSessionPerson[] {
+  const members = Array.isArray(p.project_members) ? p.project_members : [];
+  const out: FormationSessionPerson[] = [];
+  const seen = new Set<string>();
+  for (const m of members) {
+    if (String(m.role || '') !== 'member') continue;
+    const user = m.user || m;
+    const uid = m.user_id ?? user?.id ?? m.id;
+    if (uid != null && trainerId != null && Number(uid) === Number(trainerId)) continue;
+    const id = String(uid ?? `participant-${out.length + 1}`);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: personName(user) || `Participant #${id}`,
+      email: user?.email || undefined,
+      role: 'participant',
+      pending: String(m.status || '') === 'pending',
+    });
+  }
+  return out;
+}
+
 /** Map BE Project (catalog session) → FE FormationSession. */
 export function projectToFormationSession(
   p: any,
@@ -113,13 +141,14 @@ export function projectToFormationSession(
 ): FormationSession {
   const startDeclared = Boolean(p.start_declared_at);
   const formateur = trainerFromProject(p);
-  const people = [
+  const people: FormationSessionPerson[] = [
     {
       id: formateur.memberId || 'formateur-1',
       name: formateur.name,
       email: formateur.email,
-      role: 'formateur' as const,
+      role: 'formateur',
     },
+    ...participantsFromProject(p, formateur.userId),
   ];
   const startDate = isoDateOnly(p.start_date);
   return {

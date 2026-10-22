@@ -64,4 +64,60 @@ describe('formationSessionApiMapper', () => {
     expect(session.startDeclared).toBe(true);
     expect(session.status).toBe('in_progress');
   });
+
+  it('maps project_members role member as participants', () => {
+    const session = projectToFormationSession({
+      id: 72,
+      title: 'Journaliste',
+      status: 'coming',
+      start_date: '2026-10-22',
+      end_date: '2026-10-25',
+      formation_catalog_entry_id: 'e1',
+      responsible_trainer_id: 7,
+      start_declared_at: null,
+      co_owners: [{ id: 7, full_name: 'Antoine Morel' }],
+      project_members: [
+        {
+          id: 1,
+          role: 'co_owner',
+          status: 'confirmed',
+          user: { id: 7, full_name: 'Antoine Morel', email: 'a@x.fr' },
+        },
+        {
+          id: 2,
+          role: 'member',
+          status: 'confirmed',
+          user_id: 101,
+          user: {
+            id: 101,
+            first_name: 'Zoé',
+            last_name: 'Aubert',
+            full_name: 'Zoé Aubert',
+            email: 'zoe.aubert@example.org',
+          },
+        },
+        {
+          id: 3,
+          role: 'member',
+          status: 'pending',
+          user: { id: 102, full_name: 'Yanis Blanc', email: 'yanis@example.org' },
+        },
+      ],
+    });
+
+    const participants = session.people.filter((p) => p.role === 'participant');
+    expect(participants).toHaveLength(2);
+    expect(participants[0]).toMatchObject({
+      id: '101',
+      name: 'Zoé Aubert',
+      email: 'zoe.aubert@example.org',
+      pending: false,
+    });
+    expect(participants[1]).toMatchObject({
+      id: '102',
+      name: 'Yanis Blanc',
+      pending: true,
+    });
+    expect(session.people.filter((p) => p.role === 'formateur')).toHaveLength(1);
+  });
 });
