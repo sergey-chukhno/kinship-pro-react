@@ -113,10 +113,10 @@ const FormationOrgDashboard: React.FC = () => {
   const orgName = orgCtx?.name || org?.name || 'Organisme';
   const initials = initialsFromOrgName(orgName);
   const firstName = state.user.name.split(' ')[0] || '';
-  const qualiopiValidUntil =
-    orgCtx && typeof (orgCtx as { qualiopi_valid_until?: string }).qualiopi_valid_until === 'string'
-      ? (orgCtx as { qualiopi_valid_until?: string }).qualiopi_valid_until
-      : undefined;
+  const qualiopiExpiresAt =
+    orgCtx?.qualiopi && orgCtx.qualiopi_expires_at
+      ? String(orgCtx.qualiopi_expires_at).slice(0, 10)
+      : null;
 
   const openSession = (id: string) => {
     openSessionAffiche(id, 'structure');
@@ -158,11 +158,12 @@ const FormationOrgDashboard: React.FC = () => {
     });
   }
 
-  const certiLine = qualiopiValidUntil
+  // Patrick: if qualiopi_expires_at is null, show nothing (no dash, no « non renseigné »).
+  const certiLine = qualiopiExpiresAt
     ? `Organisme de formation certifié · Qualiopi valide jusqu’au ${formatSessionDateFr(
-        qualiopiValidUntil.slice(0, 10)
+        qualiopiExpiresAt
       )}`
-    : 'Organisme de formation certifié';
+    : null;
 
   return (
     <section className="fod dashboard-main-layout active" aria-label="Tableau de bord formation">
@@ -174,7 +175,7 @@ const FormationOrgDashboard: React.FC = () => {
           <h1 className="fod-hello">Bonjour {firstName} !</h1>
           <div className="fod-who">
             Tableau de bord de {orgName}
-            {orgCtx?.qualiopi ? <span className="fod-trust">{certiLine}</span> : null}
+            {certiLine ? <span className="fod-trust">{certiLine}</span> : null}
           </div>
         </div>
       </div>
