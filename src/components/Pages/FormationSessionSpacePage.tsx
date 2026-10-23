@@ -17,6 +17,7 @@ import {
   updateFormationSession,
 } from '../../utils/formationSessionStore';
 import { useToast } from '../../hooks/useToast';
+import AddSessionParticipantModal from './AddSessionParticipantModal';
 import './FormationSessionSpacePage.css';
 
 type SpaceTab = 'informations' | 'gestion';
@@ -46,6 +47,7 @@ const FormationSessionSpacePage: React.FC = () => {
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'formateur' | 'intervenant'>('intervenant');
+  const [addParticipantOpen, setAddParticipantOpen] = useState(false);
   const [juryName, setJuryName] = useState('');
   const [juryFunction, setJuryFunction] = useState('');
   const [datesEditOpen, setDatesEditOpen] = useState(false);
@@ -146,6 +148,12 @@ const FormationSessionSpacePage: React.FC = () => {
     setInviteEmail('');
     setInviteOpen(false);
     showSuccess('Enregistré');
+  };
+
+  const addParticipant = (person: FormationSessionPerson) => {
+    if (!session) return;
+    // Local only (P4.4 écran) — API Sergey à brancher plus tard.
+    updateFormationSession(session.id, { people: [...session.people, person] });
   };
 
   const openDatesEdit = () => {
@@ -407,7 +415,11 @@ const FormationSessionSpacePage: React.FC = () => {
                   <span>Participants ({participants.length})</span>
                   {visibility === 'structure' && (
                     <span>
-                      <button type="button" className="fss-add" disabled>
+                      <button
+                        type="button"
+                        className="fss-add"
+                        onClick={() => setAddParticipantOpen(true)}
+                      >
                         + Ajouter un participant
                       </button>{' '}
                       <button
@@ -607,6 +619,12 @@ const FormationSessionSpacePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <AddSessionParticipantModal
+        open={addParticipantOpen}
+        onClose={() => setAddParticipantOpen(false)}
+        onAdd={addParticipant}
+      />
 
       {inviteOpen && (
         <div className="fss-modal-backdrop" onClick={() => setInviteOpen(false)} role="presentation">
