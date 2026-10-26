@@ -153,6 +153,18 @@
   vertical-align: middle;
 }
 
+.spi-warn {
+  margin-top: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #8a5a00;
+  background: #fff6e5;
+  border: 1px solid #f1d49a;
+  border-radius: 6px;
+  padding: 4px 7px;
+  line-height: 1.35;
+}
+
 .spi-table tr:last-child td {
   border-bottom: none;
 }

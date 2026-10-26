@@ -276,14 +276,26 @@ const FormationSessionParticipantsImportPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {analyze.preview_rows.map((row) => (
-                        <tr key={`${row.line}-${row.email}`}>
-                          <td>{row.last_name}</td>
-                          <td>{row.first_name}</td>
-                          <td>{formatBirthdayFr(row.birthday)}</td>
-                          <td>{row.email}</td>
-                        </tr>
-                      ))}
+                      {analyze.preview_rows.map((row) => {
+                        const rowWarnings = (analyze.warnings || []).filter(
+                          (w) => w.line === row.line
+                        );
+                        return (
+                          <tr key={`${row.line}-${row.email}`}>
+                            <td>{row.last_name}</td>
+                            <td>{row.first_name}</td>
+                            <td>
+                              {formatBirthdayFr(row.birthday)}
+                              {rowWarnings.map((w) => (
+                                <div key={`${w.line}-${w.code}`} className="spi-warn">
+                                  {w.message}
+                                </div>
+                              ))}
+                            </td>
+                            <td>{row.email}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                   {remainingPreview > 0 && (

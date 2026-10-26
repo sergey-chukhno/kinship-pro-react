@@ -57,3 +57,14 @@
   line-height: 1.45;
   font-weight: 500;
 }
+
+.asp-err {
+  font-size: 10.5px;
+  color: #7a2a20;
+  background: #fdeeec;
+  border-left: 3px solid #c0392b;
+  border-radius: 8px;
+  padding: 8px 11px;
+  margin: 8px 0 4px;
+  font-weight: 600;
+}

@@ -1,14 +1,15 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import AddSessionParticipantModal from './AddSessionParticipantModal';
 
 describe('AddSessionParticipantModal', () => {
   const onClose = jest.fn();
-  const onAdd = jest.fn();
+  const onSubmit = jest.fn();
 
   beforeEach(() => {
     onClose.mockReset();
-    onAdd.mockReset();
+    onSubmit.mockReset();
+    onSubmit.mockResolvedValue(undefined);
   });
 
   function fillValidAdult() {
@@ -24,13 +25,13 @@ describe('AddSessionParticipantModal', () => {
 
   it('renders nothing when closed', () => {
     const { container } = render(
-      <AddSessionParticipantModal open={false} onClose={onClose} onAdd={onAdd} />
+      <AddSessionParticipantModal open={false} onClose={onClose} onSubmit={onSubmit} />
     );
     expect(container).toBeEmptyDOMElement();
   });
 
   it('shows under-15 warning without disabling Ajouter', () => {
-    render(<AddSessionParticipantModal open onClose={onClose} onAdd={onAdd} />);
+    render(<AddSessionParticipantModal open onClose={onClose} onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText(/^Nom/), { target: { value: 'Benali' } });
     fireEvent.change(screen.getByLabelText(/^Prénom/), { target: { value: 'Nadia' } });
@@ -50,31 +51,45 @@ describe('AddSessionParticipantModal', () => {
   });
 
   it('does not warn when birthdate is 15+', () => {
-    render(<AddSessionParticipantModal open onClose={onClose} onAdd={onAdd} />);
+    render(<AddSessionParticipantModal open onClose={onClose} onSubmit={onSubmit} />);
     fillValidAdult();
     expect(
       screen.queryByText(/Date de naissance : moins de 15 ans\./i)
     ).not.toBeInTheDocument();
   });
 
-  it('submits an inscrit participant (pending false)', () => {
-    render(<AddSessionParticipantModal open onClose={onClose} onAdd={onAdd} />);
+  it('submits pre_register payload and closes on success', async () => {
+    render(<AddSessionParticipantModal open onClose={onClose} onSubmit={onSubmit} />);
     fillValidAdult();
 
     fireEvent.click(screen.getByRole('button', { name: /^Ajouter$/i }));
 
-    expect(onAdd).toHaveBeenCalledTimes(1);
-    expect(onAdd.mock.calls[0][0]).toMatchObject({
-      name: 'Nadia Benali',
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      first_name: 'Nadia',
+      last_name: 'Benali',
+      birthday: '1996-06-14',
       email: 'n.benali@exemple.fr',
-      role: 'participant',
-      pending: false,
     });
-    expect(onClose).toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('keeps modal open and shows error when submit fails', async () => {
+    onSubmit.mockRejectedValue(new Error('Déjà inscrit à la session.'));
+    render(<AddSessionParticipantModal open onClose={onClose} onSubmit={onSubmit} />);
+    fillValidAdult();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Ajouter$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Déjà inscrit à la session\./i)).toBeInTheDocument()
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: /Ajouter un participant/i })).toBeInTheDocument();
   });
 
   it('keeps Ajouter disabled until required fields are filled', () => {
-    render(<AddSessionParticipantModal open onClose={onClose} onAdd={onAdd} />);
+    render(<AddSessionParticipantModal open onClose={onClose} onSubmit={onSubmit} />);
     expect(screen.getByRole('button', { name: /^Ajouter$/i })).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText(/^Nom/), { target: { value: 'Benali' } });

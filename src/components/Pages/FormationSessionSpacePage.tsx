@@ -1,9 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getFormationSession, rescheduleFormationSession } from '../../api/FormationSessions';
+import { preRegisterSessionParticipant } from '../../api/FormationSessionPreRegister';
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
-import { FormationSessionPerson } from '../../types/formationSession';
+import {
+  FormationSessionPerson,
+  SessionPreRegisterPayload,
+} from '../../types/formationSession';
 import {
   cacheFormationSession,
   formatSessionDateFr,
@@ -150,10 +154,25 @@ const FormationSessionSpacePage: React.FC = () => {
     showSuccess('Enregistré');
   };
 
-  const addParticipant = (person: FormationSessionPerson) => {
-    if (!session) return;
-    // Local only (P4.4 écran) — API Sergey à brancher plus tard.
-    updateFormationSession(session.id, { people: [...session.people, person] });
+  const addParticipant = async (payload: SessionPreRegisterPayload) => {
+    if (!session) throw new Error('Session introuvable.');
+    if (!org) throw new Error('Organisation manquante.');
+    const result = await preRegisterSessionParticipant(session.id, payload, org);
+    try {
+      const refreshed = await getFormationSession(session.id, org.name || '', org);
+      if (refreshed) {
+        cacheFormationSession({
+          ...refreshed,
+          attendanceSurveyOptIn:
+            getSessionById(refreshed.id)?.attendanceSurveyOptIn ??
+            refreshed.attendanceSurveyOptIn,
+        });
+        setTick((n) => n + 1);
+      }
+    } catch {
+      /* list may lag; inscription BE already done */
+    }
+    showSuccess(result.message || 'Participant inscrit');
   };
 
   const openDatesEdit = () => {
@@ -623,7 +642,7 @@ const FormationSessionSpacePage: React.FC = () => {
       <AddSessionParticipantModal
         open={addParticipantOpen}
         onClose={() => setAddParticipantOpen(false)}
-        onAdd={addParticipant}
+        onSubmit={addParticipant}
       />
 
       {inviteOpen && (

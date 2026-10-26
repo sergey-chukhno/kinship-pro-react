@@ -4,6 +4,7 @@ import type {
   SessionImportAnalyzeResponse,
   SessionImportReject,
   SessionImportResponse,
+  SessionImportWarning,
 } from '../types/formationSession';
 
 function apiErrorMessage(err: any, fallback: string): string {
@@ -26,6 +27,19 @@ function normalizeReject(row: any): SessionImportReject {
     reason_code: String(row?.reason_code || 'validation_failed'),
     message: String(row?.message || 'Ligne écartée.'),
   };
+}
+
+function normalizeWarning(row: any): SessionImportWarning {
+  return {
+    line: Number(row?.line) || 0,
+    code: String(row?.code || ''),
+    message: String(row?.message || ''),
+  };
+}
+
+/** under_15 is a soft warning (V1.3), not a reject — drop if BE still sends it in reject_preview. */
+function isSoftAgeReject(r: SessionImportReject): boolean {
+  return r.reason_code === 'under_15';
 }
 
 function buildFormData(file: File, org?: CatalogueOrgRef | null): FormData {
@@ -73,6 +87,9 @@ export async function analyzeSessionParticipantsImport(
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     const data = res.data?.data || res.data || {};
+    const reject_preview = Array.isArray(data.reject_preview)
+      ? data.reject_preview.map(normalizeReject).filter((r: SessionImportReject) => !isSoftAgeReject(r))
+      : [];
     return {
       detected_count: Number(data.detected_count) || 0,
       importable_count: Number(data.importable_count) || 0,
@@ -85,9 +102,8 @@ export async function analyzeSessionParticipantsImport(
             email: String(r.email || ''),
           }))
         : [],
-      reject_preview: Array.isArray(data.reject_preview)
-        ? data.reject_preview.map(normalizeReject)
-        : [],
+      reject_preview,
+      warnings: Array.isArray(data.warnings) ? data.warnings.map(normalizeWarning) : [],
       limits: {
         max_rows: Number(data.limits?.max_rows) || 5000,
         max_bytes: Number(data.limits?.max_bytes) || 20971520,
