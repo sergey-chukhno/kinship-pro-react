@@ -34,6 +34,11 @@
   border-color: #c98a1b;
 }
 
+/* Keep « Nom ✱ » on one line (flex column + narrow .asp-row was wrapping ✱). */
+.asp-lab {
+  white-space: nowrap;
+}
+
 .asp-req {
   color: #c0392b;
   font-weight: 800;

@@ -91,7 +91,9 @@ const AddSessionParticipantModal: React.FC<Props> = ({ open, onClose, onSubmit }
 
         <div className="asp-row">
           <label className="asp-field">
-            Nom <span className="asp-req">✱</span>
+            <span className="asp-lab">
+              Nom <span className="asp-req">✱</span>
+            </span>
             <input
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -100,7 +102,9 @@ const AddSessionParticipantModal: React.FC<Props> = ({ open, onClose, onSubmit }
             />
           </label>
           <label className="asp-field">
-            Prénom <span className="asp-req">✱</span>
+            <span className="asp-lab">
+              Prénom <span className="asp-req">✱</span>
+            </span>
             <input
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
@@ -111,7 +115,9 @@ const AddSessionParticipantModal: React.FC<Props> = ({ open, onClose, onSubmit }
         </div>
 
         <label className={`asp-field ${under15 ? 'asp-field-warn' : ''}`}>
-          Date de naissance <span className="asp-req">✱</span>
+          <span className="asp-lab">
+            Date de naissance <span className="asp-req">✱</span>
+          </span>
           <input
             type="date"
             value={birthdate}
@@ -126,7 +132,9 @@ const AddSessionParticipantModal: React.FC<Props> = ({ open, onClose, onSubmit }
         )}
 
         <label className="asp-field">
-          E-mail <span className="asp-req">✱</span>
+          <span className="asp-lab">
+            E-mail <span className="asp-req">✱</span>
+          </span>
           <input
             type="email"
             value={email}

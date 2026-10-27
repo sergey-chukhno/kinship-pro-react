@@ -3,7 +3,7 @@
 **Branche :** `feat/fe-session-participants-import`  
 **Contrat :** KINSHIP Contrat API — 49 V1.3 §11 (participants session OF)  
 **BE local :** `staging` @ `82d4333` (PR #395)  
-**Maquette panneau :** P4.4 (Patrick validé)  
+**Maquette panneau :** P4.4 (validé)  
 **Date smokes :** 2026-10-26  
 **Compte smoke :** Alicia Cordial · session BE **Formation Google Test** (id numérique)
 
