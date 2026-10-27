@@ -1035,9 +1035,17 @@
   background: #e6f2fb;
   color: #1f6fa3;
 }
+.fa-session .fa-hero-session .fa-chip.done {
+  background: #f1efe9;
+  color: #5b5953;
+}
 .fa-chip.come {
   background: #e6f2fb;
   color: #1f6fa3;
+}
+.fa-chip.done {
+  background: #f1efe9;
+  color: #5b5953;
 }
 /* Above sidebar (z-index 1000); distinct from legacy .fa-modal overlay */
 .fa-modal-backdrop {

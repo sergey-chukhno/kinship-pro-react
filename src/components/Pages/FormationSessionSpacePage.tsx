@@ -22,7 +22,13 @@ import {
 } from '../../utils/formationSessionStore';
 import { useToast } from '../../hooks/useToast';
 import AddSessionParticipantModal from './AddSessionParticipantModal';
+import AddSessionPartnerModal from './AddSessionPartnerModal';
+import {
+  getSessionCloseMock,
+  subscribeSessionCloseMock,
+} from '../../utils/sessionCloseMock';
 import './FormationSessionSpacePage.css';
+import '../../styles/formation-tokens.css';
 
 type SpaceTab = 'informations' | 'gestion';
 type Visibility = 'structure' | 'financeur';
@@ -52,6 +58,8 @@ const FormationSessionSpacePage: React.FC = () => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'formateur' | 'intervenant'>('intervenant');
   const [addParticipantOpen, setAddParticipantOpen] = useState(false);
+  const [addPartnerOpen, setAddPartnerOpen] = useState(false);
+  const [closeTick, setCloseTick] = useState(0);
   const [juryName, setJuryName] = useState('');
   const [juryFunction, setJuryFunction] = useState('');
   const [datesEditOpen, setDatesEditOpen] = useState(false);
@@ -61,6 +69,7 @@ const FormationSessionSpacePage: React.FC = () => {
   const [savingDates, setSavingDates] = useState(false);
 
   useEffect(() => subscribeFormationSessions(() => setTick((n) => n + 1)), []);
+  useEffect(() => subscribeSessionCloseMock(() => setCloseTick((n) => n + 1)), []);
 
   useEffect(() => {
     if (!sessionId) {
@@ -94,6 +103,11 @@ const FormationSessionSpacePage: React.FC = () => {
     () => (sessionId ? getSessionById(sessionId) : undefined),
     [sessionId, tick]
   );
+  const closeMock = useMemo(
+    () => (sessionId ? getSessionCloseMock(sessionId) : null),
+    [sessionId, closeTick]
+  );
+  const partners = closeMock?.partners || [];
 
   useEffect(() => {
     if (!session) return;
@@ -536,17 +550,49 @@ const FormationSessionSpacePage: React.FC = () => {
 
               <div className="fss-sec">
                 <h4>
-                  <span>Partenaires (0)</span>
-                  {visibility === 'structure' && (
-                    <button type="button" className="fss-add" disabled>
+                  <span>Partenaires ({partners.length})</span>
+                  {visibility === 'structure' && !closeMock?.closed && (
+                    <button
+                      type="button"
+                      className="fss-add"
+                      onClick={() => setAddPartnerOpen(true)}
+                    >
                       + Ajouter un partenaire
                     </button>
                   )}
                 </h4>
                 <p className="fss-sub">
-                  Un financeur n&apos;est pas un partenaire : il a son bloc. Le partenaire
-                  co-attestant, sans choix de type.
+                  Le partenaire co-attestant est invité dès son ajout ; son lien vaut jusqu&apos;à
+                  la clôture, pour une seule co-attestation. Un financeur n&apos;est pas un
+                  partenaire : il a son bloc.
                 </p>
+                {partners.length > 0 && (
+                  <ul style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}>
+                    {partners.map((p) => (
+                      <li
+                        key={p.id}
+                        style={{
+                          background: 'var(--fs-card, #fff)',
+                          border: '1px solid var(--fs-line, #ddd9cf)',
+                          borderRadius: 8,
+                          padding: '8px 10px',
+                          marginBottom: 6,
+                          fontSize: 12,
+                        }}
+                      >
+                        <strong>
+                          {p.name} · {p.organization}
+                        </strong>
+                        <div className="fss-sub" style={{ margin: 0 }}>
+                          {p.functionLabel} · {p.email}
+                          {p.coAttestedAt
+                            ? ` · co-attesté le ${p.coAttestedAt}`
+                            : ' · invitation envoyée'}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="fss-sec">
@@ -644,6 +690,18 @@ const FormationSessionSpacePage: React.FC = () => {
         onClose={() => setAddParticipantOpen(false)}
         onSubmit={addParticipant}
       />
+
+      {sessionId && (
+        <AddSessionPartnerModal
+          open={addPartnerOpen}
+          sessionId={sessionId}
+          onClose={() => setAddPartnerOpen(false)}
+          onAdded={(link) => {
+            setCloseTick((n) => n + 1);
+            showSuccess(`Partenaire invité — lien : ${link}`);
+          }}
+        />
+      )}
 
       {inviteOpen && (
         <div className="fss-modal-backdrop" onClick={() => setInviteOpen(false)} role="presentation">
