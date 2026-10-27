@@ -3,6 +3,65 @@ import { User, ShowingPageType } from '../types';
 /** Mock formation hub cards — shelved; Je finance count comes from API only. */
 const FORMATION_FUNDER_HUB_COUNT = 0;
 
+export type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
+
+const CONTEXT_ORG_TYPES: ReadonlySet<string> = new Set([
+  'school',
+  'company',
+  'teacher',
+  'user',
+  'formation',
+]);
+
+/** Parse dashboard `?ctx=company-20` (type + id; id may contain dashes). */
+export function parseCtxParam(
+  ctx: string | null | undefined
+): { id: string; type: ContextOrgType } | null {
+  if (!ctx) return null;
+  const dash = ctx.indexOf('-');
+  if (dash <= 0) return null;
+  const type = ctx.slice(0, dash);
+  const id = ctx.slice(dash + 1);
+  if (!id || !CONTEXT_ORG_TYPES.has(type)) return null;
+  return { id, type: type as ContextOrgType };
+}
+
+/**
+ * Org highlighted in the switcher: prefer `?ctx=` (updates on same-type switches),
+ * then localStorage, then page-type defaults.
+ */
+export function resolveSwitcherContext(options: {
+  search: string;
+  showingPageType: ShowingPageType;
+  formationOrgFallbackId?: string | number | null;
+}): { id: string; type: ContextOrgType } | null {
+  const fromCtx = parseCtxParam(new URLSearchParams(options.search).get('ctx'));
+  if (fromCtx) return fromCtx;
+
+  const savedContextId = localStorage.getItem('selectedContextId');
+  const savedContextType = localStorage.getItem('selectedContextType') as ContextOrgType | null;
+  if (savedContextId && savedContextType) {
+    return { id: savedContextId, type: savedContextType };
+  }
+
+  if (options.showingPageType === 'teacher') {
+    return { id: 'teacher-dashboard', type: 'teacher' };
+  }
+  if (options.showingPageType === 'user') {
+    return { id: 'user-dashboard', type: 'user' };
+  }
+  if (options.showingPageType === 'of') {
+    const savedId = localStorage.getItem('selectedContextId');
+    const fallback = options.formationOrgFallbackId;
+    return {
+      id: String(savedId || fallback || 'formation'),
+      type: 'formation',
+    };
+  }
+
+  return null;
+}
+
 /**
  * Get the selected organization ID from localStorage
  * Validates that user still has admin/superadmin access

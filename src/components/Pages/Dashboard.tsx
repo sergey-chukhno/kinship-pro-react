@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../hooks/useToast';
 import {
@@ -51,6 +51,14 @@ import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { isUnder15 } from '../../utils/ageUtils';
 import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
+import FormationsActivationTile from '../Dashboard/FormationsActivationTile';
+import FormateurSessionTodoTile from '../Dashboard/FormateurSessionTodoTile';
+import FormationOrgDashboard from '../Dashboard/FormationOrgDashboard';
+import {
+  frenchCountLabel,
+  initialsFromOrgName,
+  isQualiopiFormationAdmin,
+} from '../../utils/qualiopiOrg';
 
 const numberFormatter = new Intl.NumberFormat('fr-FR');
 
@@ -158,8 +166,14 @@ const CHART_BAR_COLORS = [
 
 const DEFAULT_ACTIVITY_LABELS: Record<ActivityPeriodKey, string[]> = {
   '1w': ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
-  '1m': ['S1', 'S2', 'S3', 'S4'],
+  '1m': ['Semaine 1', 'Semaine 2', 'Semaine 3', 'Semaine 4'],
   '6m': ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+};
+
+const ACTIVITY_PERIOD_LABELS: Record<ActivityPeriodKey, string> = {
+  '1w': '1 semaine',
+  '1m': '1 mois',
+  '6m': '6 mois',
 };
 
 // Normalize week labels to always start with Monday
@@ -467,6 +481,10 @@ type UserDashboardStats = {
 const Dashboard: React.FC = () => {
   const { state, setCurrentPage } = useAppContext();
   const navigate = useNavigate();
+  const location = useLocation();
+  const orgContextKey =
+    location.search ||
+    `${localStorage.getItem('selectedContextType')}-${localStorage.getItem('selectedContextId')}`;
   const [statsData, setStatsData] = useState<OrganizationStatsResponse | null>(null);
   const [userDashboardStats, setUserDashboardStats] = useState<UserDashboardStats | null>(null);
   const [userDashboardStatsLoading, setUserDashboardStatsLoading] = useState(false);
@@ -1296,7 +1314,17 @@ const Dashboard: React.FC = () => {
   const teacherStatCards = state.showingPageType === 'teacher' ? [
     { key: 'total_levels', label: 'Classes', icon: '/icons_logo/Icon=Badges.svg', value: overview?.total_classes, variant: 'stat-card' as const },
     { key: 'total_students', label: 'Élèves', icon: '/icons_logo/Icon=Reseau.svg', value: overview?.total_students, variant: 'stat-card' as const },
-    { key: 'network_count', label: 'Membres de mon réseau', icon: '/icons_logo/Icon=Membres.svg', value: overview?.network_count, variant: 'stat-card' as const },
+    {
+      key: 'network_count',
+      label: frenchCountLabel(
+        Number(overview?.network_count ?? 0),
+        'membre de mon réseau',
+        'membres de mon réseau'
+      ).replace(/^\d+\s/, ''),
+      icon: '/icons_logo/Icon=Membres.svg',
+      value: overview?.network_count,
+      variant: 'stat-card' as const,
+    },
     { key: 'total_projects', label: 'Projets', icon: '/icons_logo/Icon=Projet grand.svg', value: overview?.total_projects, variant: 'stat-card2' as const },
     { key: 'events_count', label: 'Événements', icon: '/icons_logo/Icon=Event grand.svg', value: overview?.events_count, variant: 'stat-card2' as const },
     { key: 'badges_assigned', label: 'Preuves', icon: '/icons_logo/Icon=Badges.svg', value: overview?.badges_assigned ?? badgesAssigned?.total, variant: 'stat-card2' as const },
@@ -1319,7 +1347,11 @@ const Dashboard: React.FC = () => {
     },
     {
       key: 'network_count',
-      label: 'Membres de mon réseau',
+      label: frenchCountLabel(
+        Number(overview?.network_count ?? 0),
+        'membre de mon réseau',
+        'membres de mon réseau'
+      ).replace(/^\d+\s/, ''),
       icon: '/icons_logo/Icon=Membres.svg',
       value: overview?.network_count,
       variant: 'stat-card',
@@ -1545,10 +1577,36 @@ const Dashboard: React.FC = () => {
     return `Il y a ${years} an${years > 1 ? 's' : ''}`;
   };
 
-  // Espace OF / formations temporairement désactivé
-  // if (state.showingPageType === 'of') {
-  //   return <FormationsHub />;
-  // }
+  if (state.showingPageType === 'of') {
+    return (
+      <section className="dashboard-main-layout active">
+        <div className="dashboard-header">
+          <div className="welcome-header">
+            <div className="section-title">
+              <h1 className="welcome-title">Bonjour {state.user.name.split(' ')[0]} !</h1>
+              <div className="flex gap-2 items-center">
+                <img src="/icons_logo/Icon=Tableau de bord.svg" alt="Tableau de bord" className="section-icon" />
+                <span>Espace organisme de formation</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="dashboard-main-content">
+          <div className="dashboard-left-column">
+            <div className="dashboard-stats">
+              <div className="stats-grid">
+                <FormationsActivationTile />
+              </div>
+              <p style={{ marginTop: 16, fontSize: 14, color: '#5a6a7a', maxWidth: 520 }}>
+                Le <strong>catalogue</strong> regroupe les fiches (programme, évaluation). Les{' '}
+                <strong>sessions</strong> sont distinctes.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (state.showingPageType === 'user') {
     const s = userDashboardStats;
@@ -1702,6 +1760,10 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  if (isQualiopiFormationAdmin(state.user, state.showingPageType)) {
+    return <FormationOrgDashboard key={orgContextKey} />;
+  }
+
   return (
     <section className="dashboard-main-layout active">
       {/* Welcome Message and Section Title */}
@@ -1732,7 +1794,7 @@ const Dashboard: React.FC = () => {
                 />
               ) : (
                 <div className="organization-logo-empty">
-                  <span>Aucun logo</span>
+                  <span>{initialsFromOrgName(organizationDisplayName)}</span>
                   {canUploadLogo && <small>Cliquez pour ajouter</small>}
                 </div>
               )}
@@ -1819,6 +1881,9 @@ const Dashboard: React.FC = () => {
 
 {/* --- COLONNE DE GAUCHE (Stats + Nouvel Aperçu Membres + Projets + Charts) --- */}
         <div className="dashboard-left-column">
+          {(state.showingPageType === 'pro' || state.showingPageType === 'edu') && (
+            <FormateurSessionTodoTile />
+          )}
           {/* Statistics Cards */}
           <div className="dashboard-stats">
             <div className="stats-grid">
@@ -1831,7 +1896,9 @@ const Dashboard: React.FC = () => {
                       <img src={card.icon} alt={card.label} />
                     </div>
                     <div className="stat-content">
-                      <div className="stat-value">{formatStatValue(card.value)}</div>
+                      <div className={card.variant === 'stat-card2' ? 'stat-value2' : 'stat-value'}>
+                        {formatStatValue(card.value)}
+                      </div>
                       <div className={labelClass}>{card.label}</div>
                     </div>
                   </>
@@ -1867,6 +1934,7 @@ const Dashboard: React.FC = () => {
 
         {/* --- COLONNE DE DROITE (Recent Activity) --- */}
         <div className="dashboard-right-column">
+          {(activitiesLoading || activitiesError || activities.length > 0) && (
           <div className="recent-activity">
             <div className="activity-header">
               <h3>Activités récentes</h3>
@@ -1878,10 +1946,6 @@ const Dashboard: React.FC = () => {
 
               {!activitiesLoading && activitiesError && (
                 <p className="activity-feedback-text error">{activitiesError}</p>
-              )}
-
-              {!activitiesLoading && !activitiesError && activities.length === 0 && (
-                <p className="activity-feedback-text">Aucune activité récente à afficher.</p>
               )}
 
               {!activitiesLoading &&
@@ -1913,6 +1977,7 @@ const Dashboard: React.FC = () => {
                 ))}
             </div>
           </div>
+          )}
         </div>
       </div>
       {/* --- FIN DE dashboard-main-content --- */}
@@ -1920,6 +1985,7 @@ const Dashboard: React.FC = () => {
       {/* Full-width section: Projets en cours + Membres récents spanning both columns */}
       <div className="members-overview-section members-overview-section-full-width projects-members-section">
         <div className="projects-members-row">
+          {(projectsLoading || projectsError || recentProjects.length > 0) && (
           <div className="projects-in-progress-container">
             <div className="projects-header">
               <div className="projects-title-group">
@@ -1936,10 +2002,6 @@ const Dashboard: React.FC = () => {
 
               {!projectsLoading && projectsError && (
                 <p className="project-feedback-text error">{projectsError}</p>
-              )}
-
-              {!projectsLoading && !projectsError && recentProjects.length === 0 && (
-                <p className="project-feedback-text">Aucun projet à afficher pour le moment.</p>
               )}
 
               {!projectsLoading && !projectsError && recentProjects.map((project) => {
@@ -1970,8 +2032,10 @@ const Dashboard: React.FC = () => {
               <a href="/projects" className="btn btn-text">Voir tous les projets →</a>
             </div>
           </div>
+          )}
 
           {/* Membres récents */}
+          {(recentMembersLoading || recentMembersError || recentMembers.length > 0) && (
           <div className="recent-members-container">
             <div className="recent-members-header">
               <img src="/icons_logo/Icon=Membres.svg" alt="Membres" className="members-icon" />
@@ -1985,10 +2049,6 @@ const Dashboard: React.FC = () => {
 
               {!recentMembersLoading && recentMembersError && (
                 <p className="member-feedback-text error">{recentMembersError}</p>
-              )}
-
-              {!recentMembersLoading && !recentMembersError && recentMembers.length === 0 && (
-                <p className="member-feedback-text">Aucun membre récent à afficher.</p>
               )}
 
               {!recentMembersLoading &&
@@ -2021,6 +2081,7 @@ const Dashboard: React.FC = () => {
               <a href="/members" className="btn btn-text">Voir tous les membres →</a>
             </div>
           </div>
+          )}
         </div>
       </div>
 
@@ -2060,7 +2121,7 @@ const Dashboard: React.FC = () => {
                         ))}
                       </div>
                     ) : (
-                      <p className="chart-feedback-text">Aucune preuve attribuée pour le moment.</p>
+                      <p className="chart-feedback-text">Aucune preuve attestée pour le moment.</p>
                     )}
                   </div>
                 )}
@@ -2084,7 +2145,7 @@ const Dashboard: React.FC = () => {
                     className={`activity-tab ${selectedActivity === 'badges' ? 'activity-tab-active' : ''}`}
                     onClick={() => setSelectedActivity('badges')}
                   >
-                    Attribution des preuves
+                    Attestation des preuves
                   </button>
                 </div>
               </div>
@@ -2096,19 +2157,19 @@ const Dashboard: React.FC = () => {
                     className={`px-2 py-1 rounded-md text-sm ${selectedPeriod === '1w' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => setSelectedPeriod('1w')}
                   >
-                    1s
+                    {ACTIVITY_PERIOD_LABELS['1w']}
                   </button>
                   <button
                     className={`px-2 py-1 rounded-md text-sm ${selectedPeriod === '1m' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => setSelectedPeriod('1m')}
                   >
-                    1m
+                    {ACTIVITY_PERIOD_LABELS['1m']}
                   </button>
                   <button
                     className={`px-2 py-1 rounded-md text-sm ${selectedPeriod === '6m' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => setSelectedPeriod('6m')}
                   >
-                    6m
+                    {ACTIVITY_PERIOD_LABELS['6m']}
                   </button>
                 </div>
               
@@ -2123,7 +2184,7 @@ const Dashboard: React.FC = () => {
                     !activityStatsError &&
                     !chartHasValues && (
                       <p className="chart-feedback-text">
-                        Aucune donnée disponible pour cette période.
+                        Aucune donnée pour les critères sélectionnés.
                       </p>
                     )}
                   {!activityStatsLoading &&
