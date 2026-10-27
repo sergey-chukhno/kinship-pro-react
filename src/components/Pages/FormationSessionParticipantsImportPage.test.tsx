@@ -100,16 +100,23 @@ describe('FormationSessionParticipantsImportPage', () => {
           line: 2,
           first_name: 'Alice',
           last_name: 'Dupont',
-          birthday: '1998-03-15',
+          birthday: '2015-03-14',
           email: 'alice@example.org',
         },
       ],
-      reject_preview: [{ line: 5, reason_code: 'under_15', message: 'Moins de 15 ans' }],
+      warnings: [
+        {
+          line: 2,
+          code: 'under_15',
+          message: 'date de naissance : moins de 15 ans',
+        },
+      ],
+      reject_preview: [{ line: 5, reason_code: 'unreadable_date', message: 'Date illisible' }],
       limits: { max_rows: 5000, max_bytes: 20971520 },
     });
     mockImport.mockResolvedValue({
       inscribed_count: 18,
-      rejected: [{ line: 5, reason_code: 'under_15', message: 'Moins de 15 ans' }],
+      rejected: [{ line: 5, reason_code: 'unreadable_date', message: 'Date illisible' }],
     });
 
     const { container } = render(<FormationSessionParticipantsImportPage />);
@@ -121,7 +128,8 @@ describe('FormationSessionParticipantsImportPage', () => {
       expect(screen.getByText(/20 participants détectés/i)).toBeInTheDocument();
     });
     expect(screen.getByText('Dupont')).toBeInTheDocument();
-    expect(screen.getByText(/Ligne 5 — Moins de 15 ans/i)).toBeInTheDocument();
+    expect(screen.getByText(/date de naissance : moins de 15 ans/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ligne 5 — Date illisible/i)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Importer les 18 participants/i })
     ).toBeInTheDocument();

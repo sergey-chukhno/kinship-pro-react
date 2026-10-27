@@ -1,9 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getFormationSession, rescheduleFormationSession } from '../../api/FormationSessions';
+import { preRegisterSessionParticipant } from '../../api/FormationSessionPreRegister';
 import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
 import { useAppContext } from '../../context/AppContext';
-import { FormationSessionPerson } from '../../types/formationSession';
+import {
+  FormationSessionPerson,
+  SessionPreRegisterPayload,
+} from '../../types/formationSession';
 import {
   cacheFormationSession,
   formatSessionDateFr,
@@ -17,6 +21,7 @@ import {
   updateFormationSession,
 } from '../../utils/formationSessionStore';
 import { useToast } from '../../hooks/useToast';
+import AddSessionParticipantModal from './AddSessionParticipantModal';
 import './FormationSessionSpacePage.css';
 
 type SpaceTab = 'informations' | 'gestion';
@@ -46,6 +51,7 @@ const FormationSessionSpacePage: React.FC = () => {
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'formateur' | 'intervenant'>('intervenant');
+  const [addParticipantOpen, setAddParticipantOpen] = useState(false);
   const [juryName, setJuryName] = useState('');
   const [juryFunction, setJuryFunction] = useState('');
   const [datesEditOpen, setDatesEditOpen] = useState(false);
@@ -146,6 +152,27 @@ const FormationSessionSpacePage: React.FC = () => {
     setInviteEmail('');
     setInviteOpen(false);
     showSuccess('Enregistré');
+  };
+
+  const addParticipant = async (payload: SessionPreRegisterPayload) => {
+    if (!session) throw new Error('Session introuvable.');
+    if (!org) throw new Error('Organisation manquante.');
+    const result = await preRegisterSessionParticipant(session.id, payload, org);
+    try {
+      const refreshed = await getFormationSession(session.id, org.name || '', org);
+      if (refreshed) {
+        cacheFormationSession({
+          ...refreshed,
+          attendanceSurveyOptIn:
+            getSessionById(refreshed.id)?.attendanceSurveyOptIn ??
+            refreshed.attendanceSurveyOptIn,
+        });
+        setTick((n) => n + 1);
+      }
+    } catch {
+      /* list may lag; inscription BE already done */
+    }
+    showSuccess(result.message || 'Participant inscrit');
   };
 
   const openDatesEdit = () => {
@@ -407,7 +434,11 @@ const FormationSessionSpacePage: React.FC = () => {
                   <span>Participants ({participants.length})</span>
                   {visibility === 'structure' && (
                     <span>
-                      <button type="button" className="fss-add" disabled>
+                      <button
+                        type="button"
+                        className="fss-add"
+                        onClick={() => setAddParticipantOpen(true)}
+                      >
                         + Ajouter un participant
                       </button>{' '}
                       <button
@@ -607,6 +638,12 @@ const FormationSessionSpacePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <AddSessionParticipantModal
+        open={addParticipantOpen}
+        onClose={() => setAddParticipantOpen(false)}
+        onSubmit={addParticipant}
+      />
 
       {inviteOpen && (
         <div className="fss-modal-backdrop" onClick={() => setInviteOpen(false)} role="presentation">

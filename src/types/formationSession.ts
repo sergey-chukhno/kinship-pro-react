@@ -104,11 +104,19 @@ export interface SessionImportPreviewRow {
   email: string;
 }
 
+/** V1.3 §11 A — soft signals (line stays importable). */
+export interface SessionImportWarning {
+  line: number;
+  code: string;
+  message: string;
+}
+
 export interface SessionImportAnalyzeResponse {
   detected_count: number;
   importable_count: number;
   preview_rows: SessionImportPreviewRow[];
   reject_preview: SessionImportReject[];
+  warnings: SessionImportWarning[];
   limits: {
     max_rows: number;
     max_bytes: number;
@@ -118,4 +126,24 @@ export interface SessionImportAnalyzeResponse {
 export interface SessionImportResponse {
   inscribed_count: number;
   rejected: SessionImportReject[];
+}
+
+/** V1.3 §11 B — POST /projects/:id/pre_register */
+export interface SessionPreRegisterPayload {
+  first_name: string;
+  last_name: string;
+  birthday: string; // YYYY-MM-DD
+  email: string;
+  phone?: string;
+}
+
+export interface SessionPreRegisterWarning {
+  code: string;
+  message: string;
+}
+
+export interface SessionPreRegisterResponse {
+  message: string;
+  warnings: SessionPreRegisterWarning[];
+  data?: unknown;
 }

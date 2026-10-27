@@ -31,7 +31,7 @@ describe('FormationSessionParticipantsImport API', () => {
     mockPost.mockReset();
   });
 
-  it('analyze maps preview and reject_preview without created/matched keys', async () => {
+  it('analyze maps preview, warnings, and hard rejects (under_15 is soft)', async () => {
     mockPost.mockResolvedValue({
       data: {
         detected_count: 20,
@@ -41,11 +41,21 @@ describe('FormationSessionParticipantsImport API', () => {
             line: 2,
             first_name: 'Alice',
             last_name: 'Dupont',
-            birthday: '1998-03-15',
+            birthday: '2015-03-14',
             email: 'alice@example.org',
           },
         ],
-        reject_preview: [{ line: 5, reason_code: 'under_15', message: 'Moins de 15 ans' }],
+        warnings: [
+          {
+            line: 2,
+            code: 'under_15',
+            message: 'date de naissance : moins de 15 ans',
+          },
+        ],
+        reject_preview: [
+          { line: 5, reason_code: 'unreadable_date', message: 'Date illisible' },
+          { line: 6, reason_code: 'under_15', message: 'Moins de 15 ans' },
+        ],
         limits: { max_rows: 5000, max_bytes: 20971520 },
       },
     });
@@ -56,7 +66,10 @@ describe('FormationSessionParticipantsImport API', () => {
     expect(result.detected_count).toBe(20);
     expect(result.importable_count).toBe(18);
     expect(result.preview_rows[0].first_name).toBe('Alice');
-    expect(result.reject_preview[0].reason_code).toBe('under_15');
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0].code).toBe('under_15');
+    expect(result.reject_preview).toHaveLength(1);
+    expect(result.reject_preview[0].reason_code).toBe('unreadable_date');
     expect(result).not.toHaveProperty('created');
     expect(result).not.toHaveProperty('matched');
 
