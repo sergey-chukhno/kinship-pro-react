@@ -26,12 +26,10 @@ import Sidebar from './Sidebar';
 import UserHeader from './UserHeader';
 import { useAuthInit } from '../../hooks/useAuthInit';
 import { applySpaceTheme } from '../../utils/spaceTheme';
-import { isQualiopiOrg } from '../../utils/qualiopiOrg';
 // import PresenceSessionPage from '../Pages/PresenceSessionPage';
 import PresenceBanner from '../Presence/PresenceBanner';
 // import FormationDetail from '../Pages/FormationDetail';
-import FormationAffiche from '../Pages/FormationAffiche';
-import FormationSessionAffichePage from '../Pages/FormationSessionAffichePage';
+// import FormationAffiche from '../Pages/FormationAffiche';
 // import PreuveFormationPage from '../Pages/PreuveFormationPage';
 // import FormationsHub from '../Pages/FormationsHub';
 import CreateProjectPage from '../Pages/CreateProjectPage';
@@ -39,14 +37,7 @@ import ProjectSpacePage from '../Pages/ProjectSpacePage';
 import ProjectAffichePage from '../Pages/ProjectAffichePage';
 import FundedProjectsPage from '../Pages/FundedProjectsPage';
 import FunderFollowPage from '../Pages/FunderFollowPage';
-import CatalogueFormationsPage from '../Pages/CatalogueFormationsPage';
-import FormationFicheWizard from '../Pages/FormationFicheWizard';
-import CatalogueImportPage from '../Pages/CatalogueImportPage';
-import FormationSessionCreatePage from '../Pages/FormationSessionCreatePage';
-import FormationSessionSpacePage from '../Pages/FormationSessionSpacePage';
-import FormationSessionParticipantsImportPage from '../Pages/FormationSessionParticipantsImportPage';
-import OfActivationPage from '../Pages/OfActivationPage';
-import { getSessionById } from '../../utils/formationSessionStore';
+// import OfActivationPage from '../Pages/OfActivationPage';
 // import SuperAdminOfQueuePage from '../Pages/SuperAdminOfQueuePage';
 
 const MainLayout: React.FC = () => {
@@ -69,10 +60,8 @@ const MainLayout: React.FC = () => {
   }, [isAuthChecking, isFollowRoute, state.currentPage, setCurrentPage]);
   useEffect(() => {
     if (isAuthChecking) return;
-    applySpaceTheme(state.showingPageType, {
-      formationBrand: isQualiopiOrg(state.user, state.showingPageType),
-    });
-  }, [state.showingPageType, state.user, isAuthChecking]);
+    applySpaceTheme(state.showingPageType);
+  }, [state.showingPageType, isAuthChecking]);
 
 
   /*
@@ -156,30 +145,12 @@ const MainLayout: React.FC = () => {
       //   return <PresenceSessionPage />;
       // case 'formation-detail':
       //   return <FormationDetail />;
-      case 'formation-affiche': {
-        const afficheId =
-          location.pathname.match(/^\/formation-affiche\/([^/]+)\/?$/)?.[1] ?? null;
-        if (afficheId && getSessionById(afficheId)) {
-          return <FormationSessionAffichePage />;
-        }
-        return <FormationAffiche />;
-      }
+      // case 'formation-affiche':
+      //   return <FormationAffiche />;
       // case 'preuve-formation':
       //   return <PreuveFormationPage />;
       case 'create':
         return <CreateProjectPage />;
-      case 'catalogue-formations':
-        return <CatalogueFormationsPage />;
-      case 'formation-fiche':
-        return <FormationFicheWizard />;
-      case 'catalogue-import':
-        return <CatalogueImportPage />;
-      case 'formation-session-new':
-        return <FormationSessionCreatePage />;
-      case 'formation-session-space':
-        return <FormationSessionSpacePage />;
-      case 'formation-session-import':
-        return <FormationSessionParticipantsImportPage />;
       case 'project-space':
         return <ProjectSpacePage />;
       case 'project-affiche':
@@ -188,8 +159,8 @@ const MainLayout: React.FC = () => {
         return <FundedProjectsPage />;
       case 'funder-follow':
         return <FunderFollowPage />;
-      case 'of-activation':
-        return <OfActivationPage />;
+      // case 'of-activation':
+      //   return <OfActivationPage />;
       // case 'admin-of-queue':
       //   return <SuperAdminOfQueuePage />;
       default:

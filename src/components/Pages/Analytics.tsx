@@ -979,7 +979,7 @@ const Analytics: React.FC = () => {
               <StatCard
                 title="Preuves de compétences totales"
                     value={totalBadges}
-                    subtitle={`${totalBadges} attestée${totalBadges > 1 ? 's' : ''}`}
+                    subtitle={`${totalBadges} attribués`}
                 icon="/icons_logo/Icon=Badges.svg"
                 color="#5570F1"
                 iconType="image"
@@ -992,7 +992,7 @@ const Analytics: React.FC = () => {
                 color="#10B981"
               />
               <StatCard
-                title="Attestations ce mois"
+                title="Attributions ce mois"
                     value={badgesThisMonth}
                 subtitle="Nouvelles preuves de compétences"
                 icon="fas fa-star"
@@ -1038,7 +1038,7 @@ const Analytics: React.FC = () => {
                 )}
               </ChartCard>
 
-              <ChartCard title="Attestations mensuelles">
+              <ChartCard title="Attributions mensuelles">
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">
@@ -1084,7 +1084,7 @@ const Analytics: React.FC = () => {
                 )}
               </ChartCard>
 
-              <ChartCard title="Tendances des attestations">
+              <ChartCard title="Tendances d'attribution">
                 {isEduOrPro && organizationId && (
                   <div className="analytics-chart-filters">
                     <div className="analytics-filter-group">

@@ -300,8 +300,6 @@ export interface OrganizationContext {
   role: 'superadmin' | 'admin' | 'referent' | 'intervenant' | 'member';
   trust_level?: string | null;
   qualiopi?: boolean;
-  /** ISO "YYYY-MM-DD" ; null if not Qualiopi or no date — hide certi header when null. */
-  qualiopi_expires_at?: string | null;
   contract_kind?: string | null; // 'vert_actuel' | 'bleu_standard' | 'bleu_premium'
   allows_minor_members?: boolean; // true when contract is BLEU Premium
   /** Count of projects where this org is designated funder — 0 means the Je finance tab does not exist */
@@ -428,12 +426,6 @@ export type PageType =
   | 'events'
   | 'projects'
   | 'formations'
-  | 'catalogue-formations'
-  | 'formation-fiche'
-  | 'catalogue-import'
-  | 'formation-session-new'
-  | 'formation-session-space'
-  | 'formation-session-import'
   | 'badges'
   | 'analytics'
   | 'network'

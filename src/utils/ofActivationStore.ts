@@ -178,9 +178,8 @@ export function canBrowseFormationsReadOnly(): boolean {
 }
 
 export function canCreateFormation(): boolean {
-  // Mock OF re-shelvé. Création fiche 62 via School/Company (API Sergey).
-  const t = typeof localStorage !== 'undefined' ? localStorage.getItem('selectedContextType') : null;
-  return t === 'school' || t === 'company';
+  // Formation creation temporarily disabled (demo shelved).
+  return false;
 }
 
 export function saveMyOfDraft(patch: Partial<OfActivationDossier>): OfActivationDossier {

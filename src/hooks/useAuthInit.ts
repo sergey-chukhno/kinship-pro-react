@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useAppContext } from "../context/AppContext";
 import { getCurrentUser, refreshToken } from "../api/Authentication"; // adapte le chemin selon ton projet
 import { applySpaceTheme } from "../utils/spaceTheme";
-import { isQualiopiOrg } from "../utils/qualiopiOrg";
 import { PageType } from "../types";
 import { restoreOfRoleContext } from "../utils/ofActivationStore";
 import { isFunderAppPath } from "../utils/contextUtils";
@@ -38,12 +37,9 @@ export const useAuthInit = () => {
       "analytics", "network", "notifications", "settings",
        /* "pik", */
       "funder-attachments",
-      /* "presence-session", "formation-detail", "preuve-formation", */
-      "create", "catalogue-formations", "catalogue-import",
-      "formation-session-new", "formation-session-space", "formation-session-import",
-      "formation-affiche",
-      "project-space", "project-affiche", "funded-projects",
-      "of-activation", /* "admin-of-queue", */
+      /* "presence-session", "formation-detail", "formation-affiche", "preuve-formation", */
+      "create", "project-space", "project-affiche", "funded-projects",
+      /* "of-activation", "admin-of-queue", */
       "personal-settings",
       "membership-requests", "partnership-requests", "project-management",
       "mes-enfants", "mes-parents"
@@ -53,37 +49,13 @@ export const useAuthInit = () => {
       return path as PageType;
     }
 
-    if (path.startsWith('formation-fiche')) {
-      return 'formation-fiche';
-    }
-
-    if (path.startsWith('catalogue-import')) {
-      return 'catalogue-import';
-    }
-
-    if (path.startsWith('catalogue-formations')) {
-      return 'catalogue-formations';
-    }
-
-    if (path.startsWith('formation-session-new')) {
-      return 'formation-session-new';
-    }
-
-    if (path.startsWith('formation-session-space')) {
-      return 'formation-session-space';
-    }
-
-    if (path.startsWith('formation-session-import')) {
-      return 'formation-session-import';
-    }
-
-    if (path.startsWith('formation-affiche')) {
-      return 'formation-affiche';
-    }
-
-    // // Routes formation sessions (temporairement désactivées)
+    // // Routes formation (temporairement désactivées)
     // if (path.startsWith('formation-detail')) {
     //   return 'formation-detail';
+    // }
+    //
+    // if (path.startsWith('formation-affiche')) {
+    //   return 'formation-affiche';
     // }
     //
     // if (path.startsWith('preuve-formation')) {
@@ -102,11 +74,11 @@ export const useAuthInit = () => {
       return 'funded-projects';
     }
 
-    if (path.startsWith('of-activation')) {
-      return 'of-activation';
-    }
-
     // // Routes OF / formation (temporairement désactivées)
+    // if (path.startsWith('of-activation')) {
+    //   return 'of-activation';
+    // }
+    //
     // if (path.startsWith('admin-of-queue')) {
     //   return 'admin-of-queue';
     // }
@@ -205,9 +177,8 @@ export const useAuthInit = () => {
                   (c: any) => c.id.toString() === savedContextId && (c.role === 'admin' || c.role === 'superadmin')
                 ) || false;
               case 'formation':
-                return !!user.available_contexts?.formation_organizations?.some(
-                  (o: { id?: string | number }) => o.id?.toString() === savedContextId
-                );
+                // Formation / OF context temporarily shelved
+                return false;
               default:
                 return false;
             }
@@ -280,9 +251,7 @@ export const useAuthInit = () => {
           }
 
           // Appliquer la couleur d'espace (--couleur-espace) IMMÉDIATEMENT
-          applySpaceTheme(pageType, {
-            formationBrand: isQualiopiOrg(user, pageType),
-          });
+          applySpaceTheme(pageType);
 
           setShowingPageType(pageType);
 

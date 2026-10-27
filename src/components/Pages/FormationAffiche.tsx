@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import {
   FINANCEMENT_LABEL,
@@ -15,7 +15,6 @@ import {
   getFormationPeople,
   getFormationSlots,
   getSelectedFormationId,
-  setSelectedFormationId,
   slotStatusLabel,
   subscribeFormationSlots,
   subscribeFormations,
@@ -24,13 +23,6 @@ import {
   updateFormation,
   verifyFormationIdentity,
 } from '../../utils/formationStore';
-import {
-  declareSessionStart,
-  getSelectedSessionId,
-  getSessionById,
-  openSessionAffiche,
-  setSelectedSessionId,
-} from '../../utils/formationSessionStore';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
 import { useToast } from '../../hooks/useToast';
 import FunderFollowView from '../FunderView/FunderFollowView';
@@ -48,16 +40,11 @@ type AfficheTab =
   | 'preuves'
   | 'documents';
 
-const TABS_LAUNCH: { id: AfficheTab; label: string }[] = [
+const TABS: { id: AfficheTab; label: string }[] = [
   { id: 'overview', label: "Vue d'ensemble" },
   { id: 'seances', label: 'Séances' },
   { id: 'participants', label: 'Participants' },
-  { id: 'equipes', label: 'Équipe' },
-  { id: 'documents', label: 'Documents' },
-];
-
-const TABS: { id: AfficheTab; label: string }[] = [
-  ...TABS_LAUNCH.slice(0, 4),
+  { id: 'equipes', label: 'Équipes' },
   { id: 'preuves', label: 'Preuves de compétences' },
   { id: 'documents', label: 'Documents' },
 ];
@@ -116,33 +103,11 @@ function formatFr(iso?: string): string {
   return `${d}/${m}/${y}`;
 }
 
-function afficheIdFromPath(pathname: string): string | null {
-  const m = pathname.match(/^\/formation-affiche\/([^/]+)\/?$/);
-  return m?.[1] ?? null;
-}
-
 const FormationAffiche: React.FC = () => {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
   const { setCurrentPage } = useAppContext();
   const { showSuccess, showError } = useToast();
-  const pathId = afficheIdFromPath(pathname);
-  useEffect(() => {
-    if (!pathId) return;
-    if (getSessionById(pathId)) {
-      openSessionAffiche(pathId);
-      return;
-    }
-    setSelectedFormationId(pathId);
-    setSelectedSessionId(null);
-  }, [pathId]);
-  const formationId = pathId || getSelectedFormationId() || '';
-  const linkedSessionId = getSelectedSessionId();
-  const linkedSession = linkedSessionId ? getSessionById(linkedSessionId) : undefined;
-  const isSessionFlow = Boolean(
-    (linkedSession && linkedSession.id === formationId) ||
-      (pathId && getSessionById(pathId))
-  );
+  const formationId = getSelectedFormationId() || '';
   const [formation, setFormation] = useState(() => getFormationById(formationId) ?? null);
   const [slots, setSlots] = useState(() => getFormationSlots(formationId));
   const [people, setPeople] = useState(() => getFormationPeople(formationId));
@@ -168,14 +133,6 @@ const FormationAffiche: React.FC = () => {
   const [docs, setDocs] = useState(DOC_SEED);
   const [mcueWall, setMcueWall] = useState(false);
   const [certTab, setCertTab] = useState<'preuves' | 'certificats'>('preuves');
-  const [sessionStartTick, setSessionStartTick] = useState(0);
-  const [declareStartOpen, setDeclareStartOpen] = useState(false);
-
-  useEffect(() => {
-    setFormation(getFormationById(formationId) ?? null);
-    setSlots(getFormationSlots(formationId));
-    setPeople(getFormationPeople(formationId));
-  }, [formationId]);
 
   useEffect(() => subscribeFormations(() => setFormation(getFormationById(formationId) ?? null)), [formationId]);
   useEffect(
@@ -190,29 +147,10 @@ const FormationAffiche: React.FC = () => {
     [formationId]
   );
 
-  useEffect(() => {
-    if (tab === 'preuves' && isSessionFlow) setTab('seances');
-  }, [tab, isSessionFlow]);
-
   const back = () => {
-    if (isSessionFlow && linkedSessionId) {
-      navigate(`/formation-session-space/${linkedSessionId}`);
-      setCurrentPage('formation-session-space');
-      return;
-    }
-    navigate('/catalogue-formations');
-    setCurrentPage('catalogue-formations');
+    setCurrentPage('formation-detail');
+    navigate('/formation-detail');
   };
-
-  const onDeclareSessionStart = () => {
-    if (!linkedSessionId) return;
-    declareSessionStart(linkedSessionId);
-    setSessionStartTick((n) => n + 1);
-    setDeclareStartOpen(false);
-    showSuccess('Début de session déclaré');
-  };
-
-  void sessionStartTick;
 
   const pending = people.participants.filter((p) => p.pendingActivation);
   const closeSlot = slots.find((s) => s.id === closeSlotId);
@@ -315,14 +253,7 @@ const FormationAffiche: React.FC = () => {
   const nextSlot = slots.find((s) => s.status === 'planned');
   const held = slots.filter((s) => s.status === 'closed').length;
   const openSlot = slots.find((s) => s.status === 'open');
-  const liveSession =
-    isSessionFlow && linkedSessionId ? getSessionById(linkedSessionId) : linkedSession;
-  const visibleTabs =
-    view === 'participant'
-      ? PARTICIPANT_TABS.filter((t) => !(isSessionFlow && t.id === 'preuves'))
-      : isSessionFlow
-        ? TABS_LAUNCH
-        : TABS;
+  const visibleTabs = view === 'participant' ? PARTICIPANT_TABS : TABS;
   const canClose =
     view === 'porteur' &&
     (formation?.status === 'in_progress' || formation?.status === 'coming');
@@ -376,22 +307,14 @@ const FormationAffiche: React.FC = () => {
         : 'TERMINÉ';
 
   return (
-    <section
-      className={`fa-page ${isSessionFlow ? 'fa-session' : ''}`}
-      aria-label="Affiche formation"
-    >
+    <section className="fa-page" aria-label="Affiche formation">
       <div className="fa-head">
         <button type="button" className="fa-back" onClick={back} aria-label="Retour">
           ←
         </button>
-        <h1>{isSessionFlow ? 'Affiche de la session' : 'La formation'}</h1>
+        <h1>La formation</h1>
         <div className="fa-actions">
-          {isSessionFlow && liveSession && !liveSession.startDeclared && (
-            <button type="button" className="fa-btn amber" onClick={() => setDeclareStartOpen(true)}>
-              Déclarer le début de la session
-            </button>
-          )}
-          {canClose && !isSessionFlow && (
+          {canClose && (
             <button type="button" className="fa-btn ghost" onClick={tryCloseFormation}>
               ✓ Clôturer la formation
             </button>
@@ -399,81 +322,45 @@ const FormationAffiche: React.FC = () => {
           {view === 'porteur' && formation.status !== 'ended' && formation.status !== 'archived' && (
             <>
               <button type="button" className="fa-btn ghost" onClick={() => setCreateOpen(true)}>
-                {isSessionFlow ? '+ Créer une séance' : '📅 Créer une séance'}
+                📅 Créer une séance
               </button>
-              {!isSessionFlow && (
-                <button
-                  type="button"
-                  className="fa-btn primary"
-                  onClick={() => {
-                    setAttestPerson(null);
-                    setAttestOpen(true);
-                  }}
-                >
-                  🏅 Attester une compétence
-                </button>
-              )}
+              <button
+                type="button"
+                className="fa-btn primary"
+                onClick={() => {
+                  setAttestPerson(null);
+                  setAttestOpen(true);
+                }}
+              >
+                🏅 Attester une compétence
+              </button>
             </>
           )}
-          {!isSessionFlow && (
-            <button
-              type="button"
-              className="fa-btn ghost"
-              onClick={() =>
-                setView((v) => {
-                  const next = v === 'porteur' ? 'participant' : 'porteur';
-                  if (next === 'participant' && (tab === 'participants' || tab === 'equipes')) {
-                    setTab('overview');
-                  }
-                  return next;
-                })
-              }
-            >
-              {view === 'porteur' ? 'Vue participante' : 'Vue porteur'}
-            </button>
-          )}
+          <button
+            type="button"
+            className="fa-btn ghost"
+            onClick={() =>
+              setView((v) => {
+                const next = v === 'porteur' ? 'participant' : 'porteur';
+                if (next === 'participant' && (tab === 'participants' || tab === 'equipes')) {
+                  setTab('overview');
+                }
+                return next;
+              })
+            }
+          >
+            {view === 'porteur' ? 'Vue participante' : 'Vue porteur'}
+          </button>
         </div>
       </div>
 
-      {declareStartOpen && liveSession && (
-        <div className="fa-modal-backdrop" role="presentation" onClick={() => setDeclareStartOpen(false)}>
-          <div
-            className="fa-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="fa-declare-start-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="fa-declare-start-title">Déclarer le début de la session ?</h2>
-            <p>
-              {formation.title} — {people.participants.length || 0} participants · du{' '}
-              {formatFr(formation.startDate)} au {formatFr(formation.endDate)}.
-            </p>
-            <div className="fa-fige">
-              Les participants sont informés. Le financeur associé est informé du début. Les dates ne
-              se modifient plus.
-            </div>
-            <div className="fa-dialog-actions">
-              <button type="button" className="fa-btn ghost" onClick={() => setDeclareStartOpen(false)}>
-                Annuler
-              </button>
-              <button type="button" className="fa-btn amber" onClick={onDeclareSessionStart}>
-                Déclarer le début
-              </button>
-            </div>
-          </div>
+      <header className="fa-hero">
+        <div className="fa-cover">
+          <span>{formation.imageName || 'Débuter dans le numérique'}</span>
         </div>
-      )}
-
-      <header className={`fa-hero ${isSessionFlow ? 'fa-hero-session' : ''}`}>
-        {!isSessionFlow && (
-          <div className="fa-cover">
-            <span>{formation.imageName || 'Débuter dans le numérique'}</span>
-          </div>
-        )}
         <div className="fa-hbody">
           <div className="fa-staterow">
-            <span className={`fa-chip ${statusChip === 'EN COURS' ? 'run' : 'come'}`}>{statusChip}</span>
+            <span className="fa-chip run">{statusChip}</span>
             <span className="fa-chip date">
               {formatFr(formation.startDate)} → {formatFr(formation.endDate)}
             </span>

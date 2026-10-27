@@ -46,25 +46,10 @@ export const NEUTRAL_SPACE = {
   hover: '#4b5563',
 };
 
-export type SpaceThemeOptions = {
-  /** Qualiopi-recognized OF: Formation green instead of Pro/Edu blue/green. */
-  formationBrand?: boolean;
-};
-
 /** Applique --couleur-espace (+ --primary synchronisé) sur :root */
-export function applySpaceTheme(
-  showingPageType: ShowingPageType | null | undefined,
-  options?: SpaceThemeOptions
-): void {
+export function applySpaceTheme(showingPageType: ShowingPageType | null | undefined): void {
   const root = document.documentElement;
-  const useFormation =
-    Boolean(options?.formationBrand) &&
-    (showingPageType === 'pro' || showingPageType === 'edu');
-  const theme = useFormation
-    ? SPACE_COLORS.of
-    : showingPageType
-      ? SPACE_COLORS[showingPageType]
-      : null;
+  const theme = showingPageType ? SPACE_COLORS[showingPageType] : null;
 
   if (!theme) {
     root.style.setProperty('--couleur-espace', NEUTRAL_SPACE.couleurEspace);

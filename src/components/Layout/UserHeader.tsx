@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { useAppContext } from '../../context/AppContext';
 import { PageType } from '../../types';
@@ -7,9 +7,8 @@ import './UserHeader.css';
 import AvatarImage from '../UI/AvatarImage';
 import { translateRole } from '../../utils/roleTranslations';
 import { isUnder18 } from '../../utils/ageUtils';
-import { applySpaceTheme } from '../../utils/spaceTheme';
-import { isQualiopiOrg } from '../../utils/qualiopiOrg';
-import { ContextOrgType, resolveSwitcherContext } from '../../utils/contextUtils';
+
+type ContextOrgType = 'school' | 'company' | 'teacher' | 'user' | 'formation';
 
 const STUDENT_ROLES = new Set(['eleve_primaire', 'collegien', 'lyceen', 'etudiant']);
 
@@ -22,16 +21,28 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
   const { state, setShowingPageType } = useAppContext();
   const user = state.user;
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const getCurrentContext = useMemo(
-    () =>
-      resolveSwitcherContext({
-        search: location.search,
-        showingPageType: state.showingPageType,
-      }),
-    [location.search, state.showingPageType]
-  );
+  // Get currently selected context
+  const getCurrentContext = useMemo(() => {
+    const savedContextId = localStorage.getItem('selectedContextId');
+    const savedContextType = localStorage.getItem('selectedContextType') as ContextOrgType | null;
+    
+    if (savedContextId && savedContextType) {
+      return {
+        id: savedContextId,
+        type: savedContextType
+      };
+    }
+    
+    // Fallback: determine from showingPageType
+    if (state.showingPageType === 'teacher') {
+      return { id: 'teacher-dashboard', type: 'teacher' as const };
+    } else if (state.showingPageType === 'user') {
+      return { id: 'user-dashboard', type: 'user' as const };
+    }
+    
+    return null;
+  }, [state.showingPageType]);
 
   // Process organizations from available_contexts
   const organizations = useMemo(() => {
@@ -86,16 +97,7 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
         });
       }
 
-      const ofFromApi = contexts.formation_organizations || [];
-      ofFromApi.forEach((org) => {
-        orgs.push({
-          id: org.id,
-          name: org.name,
-          type: 'formation' as const,
-          role: org.role,
-          isAdmin: true,
-        });
-      });
+      // Formation / OF context temporarily hidden from the switcher
 
       // Add teacher dashboard if available
       if (contexts.teacher_dashboard) {
@@ -145,13 +147,17 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
     localStorage.setItem('selectedContextId', orgId.toString());
     localStorage.setItem('selectedContextType', orgType);
 
+    // Update the showing page type
     setShowingPageType(newPageType);
-    applySpaceTheme(newPageType, {
-      formationBrand: isQualiopiOrg(state.user, newPageType),
-    });
 
-    onPageChange('dashboard');
-    navigate(`/dashboard?ctx=${orgType}-${orgId}`, { replace: true });
+    // Navigate to appropriate page
+    if (orgType === 'user') {
+      onPageChange('dashboard');
+      navigate('/dashboard');
+    } else {
+      onPageChange('dashboard');
+      navigate('/dashboard');
+    }
 
     console.log(`Switched to ${orgType} ${orgId}, pageType: ${newPageType}`);
   };
@@ -307,17 +313,16 @@ const UserHeader: React.FC<UserHeaderProps> = ({ currentPage, onPageChange }) =>
                     return (
                       <Menu.Item key={`${org.type}-${org.id}`}>
                         {({ active }: { active: boolean }) => (
-                          <button
-                            type="button"
+                          <div
                             className={`org-item ${active ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
                             onClick={() => handleOrganizationSwitch(org.id, org.type)}
                           >
-                            <span className="org-item-name">{org.name}</span>
-                            <span className="org-item-meta">
+                            <span>{org.name}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               {isSelected && <span className="selected-indicator">●</span>}
                               {org.isAdmin && <span className="admin-tag">Admin</span>}
-                            </span>
-                          </button>
+                            </div>
+                          </div>
                         )}
                       </Menu.Item>
                     );
