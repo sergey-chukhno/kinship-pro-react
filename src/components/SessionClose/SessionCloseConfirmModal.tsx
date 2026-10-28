@@ -6,6 +6,7 @@ import {
   validInvalidCounts,
   type SessionCloseMock,
 } from '../../utils/sessionCloseMock';
+import { invalidParticipantSentence, proofLabel } from '../../utils/sessionCloseCopy';
 import './SessionClose.css';
 
 type Props = {
@@ -34,22 +35,14 @@ const SessionCloseConfirmModal: React.FC<Props> = ({
   return (
     <div className="sc-overlay" role="dialog" aria-modal="true" aria-labelledby="sc-confirm-title">
       <div className="sc-modal">
-        <h2 id="sc-confirm-title">
-          Délivrer {valid} {mc ? 'microcertifications' : 'preuves de formation'}&nbsp;?
-        </h2>
+        <h2 id="sc-confirm-title">Délivrer {proofLabel(valid, mc)}&nbsp;?</h2>
         <p>
           La session sera clôturée.
           {mc
             ? ` Chaque microcertification portera la mention « Délivrée par ${session.orgName} ».`
             : ' Chaque participant validé recevra sa preuve de formation, exportable vers Europass ; chaque participant recevra son certificat de réalisation.'}
         </p>
-        {invalid > 0 && (
-          <p>
-            {invalid} participant{invalid > 1 ? 's' : ''} non validé
-            {invalid > 1 ? 's' : ''} ne recevront pas de{' '}
-            {mc ? 'microcertification' : 'preuve de formation'} : {invalidNames.join(', ')}.
-          </p>
-        )}
+        {invalid > 0 && <p>{invalidParticipantSentence(invalid, invalidNames, mc)}</p>}
         <p>
           <b>Cette action est irréversible.</b>
         </p>

@@ -1,6 +1,11 @@
 import React from 'react';
 import type { FormationSession } from '../../types/formationSession';
 import type { SessionCloseMock } from '../../utils/sessionCloseMock';
+import {
+  formatDateShortFr,
+  formatDurationHoursLabel,
+  formatProofCodeDisplay,
+} from '../../utils/sessionCloseCopy';
 import './SessionClose.css';
 
 type Props = {
@@ -15,6 +20,7 @@ const SessionProofBirthOverlay: React.FC<Props> = ({ session, mock, open, onCont
 
   const partner = mock.partners.find((p) => p.coAttestedAt);
   const jury = session.people.find((p) => p.role === 'jury');
+  const hours = formatDurationHoursLabel(session.durationHours);
 
   return (
     <div className="sc-overlay" role="dialog" aria-modal="true" aria-labelledby="sc-birth-title">
@@ -24,17 +30,19 @@ const SessionProofBirthOverlay: React.FC<Props> = ({ session, mock, open, onCont
           <div className="sc-big" id="sc-birth-title">
             Votre Preuve Formation est née.
           </div>
-          <p className="sc-sub">Authentique et vérifiable — elle rejoint les preuves de votre structure.</p>
+          <p className="sc-sub">
+            Authentique et vérifiable — elle rejoint les preuves de votre structure.
+          </p>
           <div className="sc-pf">
             <div className="sc-pf-h">
               <span>KINSHIP · PREUVE FORMATION</span>
-              <span>{mock.proofCode || 'PF·····'}</span>
+              <span>{formatProofCodeDisplay(mock.proofCode)}</span>
             </div>
             <div className="sc-pf-b">
               <div className="sc-pf-1">{session.title}</div>
               <div className="sc-pf-2">
-                {session.startDate} → {session.endDate}
-                {session.durationHours ? ` · ${session.durationHours}` : ''}
+                {formatDateShortFr(session.startDate)} → {formatDateShortFr(session.endDate)}
+                {hours ? ` · ${hours}` : ''}
                 <br />
                 {session.orgName} · ◆ Organisme de formation certifié
               </div>
@@ -48,8 +56,9 @@ const SessionProofBirthOverlay: React.FC<Props> = ({ session, mock, open, onCont
                 )}
                 {partner && (
                   <>
-                    ✓ Co-attestée par {partner.name}, {partner.functionLabel},{' '}
-                    {partner.organization}
+                    ✓ Co-attestée par {partner.name}
+                    {partner.functionLabel ? `, ${partner.functionLabel}` : ''}
+                    {partner.organization ? `, ${partner.organization}` : ''}
                   </>
                 )}
               </div>

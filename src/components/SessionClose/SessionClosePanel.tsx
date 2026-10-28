@@ -9,6 +9,8 @@ import {
   validInvalidCounts,
   type SessionCloseMock,
 } from '../../utils/sessionCloseMock';
+import { formatDateShortFr, formatDurationHoursLabel } from '../../utils/sessionCloseCopy';
+import { participantCountLabel } from '../../utils/formationSessionStore';
 import './SessionClose.css';
 
 type Props = {
@@ -36,7 +38,7 @@ const SessionClosePanel: React.FC<Props> = ({
   const { valid, invalid } = validInvalidCounts(mock);
   const shown = participants.slice(0, 4);
   const more = Math.max(0, participants.length - shown.length);
-  const jury = session.people.find((p) => p.role === 'jury');
+  const hoursLabel = formatDurationHoursLabel(session.durationHours);
 
   const refresh = () => onMockChange();
 
@@ -50,10 +52,9 @@ const SessionClosePanel: React.FC<Props> = ({
           </h2>
           <p className="sc-sub">
             Fin de session déclarée
-            {mock.endDeclaredAt ? ` le ${mock.endDeclaredAt}` : ''} par{' '}
+            {mock.endDeclaredAt ? ` le ${formatDateShortFr(mock.endDeclaredAt)}` : ''} par{' '}
             {session.formateur.name}, formateur responsable
-            {session.durationHours ? ` · ${session.durationHours}` : ''} · {participants.length}{' '}
-            participants
+            {hoursLabel ? ` · ${hoursLabel}` : ''} · {participantCountLabel(participants.length)}
           </p>
 
           {mock.endMessage && (
@@ -62,9 +63,7 @@ const SessionClosePanel: React.FC<Props> = ({
             </div>
           )}
 
-          <div className="sc-sech">
-            {jury ? 'Décision du jury' : "Décision de l'organisme"}
-          </div>
+          <div className="sc-sech">Décision du jury</div>
           <p className="sc-sub">
             Tous les participants sont validés par défaut. Pour ceux que le jury n&apos;a pas
             validés, choisissez « Ne pas valider ».
@@ -183,8 +182,9 @@ const SessionClosePanel: React.FC<Props> = ({
                 sa <b>preuve de formation</b>, exportable vers Europass
               </>
             )}
-            , et à chaque participant son <b>certificat de réalisation</b>. On ne rouvre pas une
-            session close.
+            , et à chaque participant son <b>certificat de réalisation</b>. Le participant non
+            validé reste inscrit à la session : il garde son certificat et ses preuves de présence.
+            On ne rouvre pas une session close.
           </p>
 
           <div className="sc-foot">

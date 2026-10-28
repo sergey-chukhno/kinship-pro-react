@@ -20,6 +20,14 @@ import {
   subscribeSessionCloseMock,
   validInvalidCounts,
 } from '../../utils/sessionCloseMock';
+import {
+  formatDateShortFr,
+  formatDurationHoursLabel,
+  formatProofCodeDisplay,
+  nominativeAccessUntil,
+  printCertificatesLabel,
+  proofLabel,
+} from '../../utils/sessionCloseCopy';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
 import { useToast } from '../../hooks/useToast';
 import DeclareSessionEndModal from '../SessionClose/DeclareSessionEndModal';
@@ -289,7 +297,9 @@ const FormationSessionAffichePage: React.FC = () => {
               {statusChip}
             </span>
             {closeMock.closed && closeMock.closedAt ? (
-              <span className="fa-chip date">clôturée le {closeMock.closedAt}</span>
+              <span className="fa-chip date">
+                clôturée le {formatDateShortFr(closeMock.closedAt)}
+              </span>
             ) : (
               <span className="fa-chip date">
                 {formatSessionDateFr(session.startDate)} → {formatSessionDateFr(session.endDate)}
@@ -324,7 +334,8 @@ const FormationSessionAffichePage: React.FC = () => {
 
       {closeMock.endDeclared && !closeMock.closed && viewerRole === 'structure' && (
         <div className="fsa-note">
-          Fin déclarée{closeMock.endDeclaredAt ? ` le ${closeMock.endDeclaredAt}` : ''} par{' '}
+          Fin déclarée
+          {closeMock.endDeclaredAt ? ` le ${formatDateShortFr(closeMock.endDeclaredAt)}` : ''} par{' '}
           {session.formateur.name}. Enregistrez la décision du jury, puis clôturez.
         </div>
       )}
@@ -334,28 +345,60 @@ const FormationSessionAffichePage: React.FC = () => {
           <div className="sc-blk">
             <h4>
               Preuve Formation — générée
-              {closeMock.proofCode ? ` · ${closeMock.proofCode}` : ''}
+              {closeMock.proofCode
+                ? ` · ${formatProofCodeDisplay(closeMock.proofCode)}`
+                : ''}
             </h4>
             <div className="n">
-              {valid} preuves de formation délivrées · {closeMock.certificates.length} certificats
-              de réalisation
-              {partners.some((p) => p.coAttestedAt)
-                ? ` · co-attestée`
-                : ''}
+              {proofLabel(valid, false)} délivrée{valid > 1 ? 's' : ''} ·{' '}
+              {closeMock.certificates.length} certificat
+              {closeMock.certificates.length > 1 ? 's' : ''} de réalisation
+              {partners.some((p) => p.coAttestedAt) ? ' · co-attestée' : ''}
+            </div>
+            <div className="n" style={{ marginTop: 6 }}>
+              {[
+                formatDurationHoursLabel(session.durationHours),
+                `${session.seances.length || 1} séance${(session.seances.length || 1) > 1 ? 's' : ''} tenue${(session.seances.length || 1) > 1 ? 's' : ''}`,
+                'présences restituées par séance',
+                `accès nominatif jusqu'au ${nominativeAccessUntil(closeMock.closedAt)}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </div>
             <div className="sc-btns">
               <button type="button" className="sc-btn s sm">
                 Exporter PDF
               </button>
               <button type="button" className="sc-btn s sm">
+                Partager avec DGEFP / Qualiopi
+              </button>
+              <button type="button" className="sc-btn s sm">
                 Vérification publique
               </button>
             </div>
+            <div className="n" style={{ marginTop: 6 }}>
+              Le rapport de la session : envoyé au financeur
+              {closeMock.closedAt ? ` le ${formatDateShortFr(closeMock.closedAt)}` : ''}.
+            </div>
+            <div className="sc-btns">
+              <button type="button" className="sc-btn p sm">
+                Le rapport →
+              </button>
+            </div>
+            <div className="n" style={{ marginTop: 6, color: 'var(--fs-faint)' }}>
+              Le PDF porte le QR et le lien de la version en ligne — la version qui fait foi est la
+              consultation en ligne.
+            </div>
           </div>
           <div className="sc-blk">
-            <h4>Certificats de réalisation — {closeMock.certificates.length} générés</h4>
+            <h4>
+              Certificats de réalisation — {closeMock.certificates.length} généré
+              {closeMock.certificates.length > 1 ? 's' : ''}
+            </h4>
             <div className="n">
-              {closeMock.certificates.filter((c) => c.status === 'sent').length} envoyés par e-mail
+              {closeMock.certificates.filter((c) => c.status === 'sent').length} envoyé
+              {closeMock.certificates.filter((c) => c.status === 'sent').length > 1 ? 's' : ''} par
+              e-mail
               {failedCerts > 0
                 ? ` · ${failedCerts} à imprimer (e-mail en échec)`
                 : ''}
@@ -366,7 +409,7 @@ const FormationSessionAffichePage: React.FC = () => {
               </button>
               {failedCerts > 0 && (
                 <button type="button" className="sc-btn am sm" onClick={() => setCertOpen(true)}>
-                  Imprimer les {failedCerts} certificats
+                  {printCertificatesLabel(failedCerts)}
                 </button>
               )}
             </div>

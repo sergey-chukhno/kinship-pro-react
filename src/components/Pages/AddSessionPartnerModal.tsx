@@ -11,15 +11,14 @@ type Props = {
 };
 
 const AddSessionPartnerModal: React.FC<Props> = ({ open, sessionId, onClose, onAdded }) => {
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [organization, setOrganization] = useState('');
+  const [name, setName] = useState('');
   const [functionLabel, setFunctionLabel] = useState('');
+  const [organization, setOrganization] = useState('');
 
   if (!open) return null;
 
-  const canSubmit =
-    name.trim() && email.trim() && organization.trim() && functionLabel.trim();
+  const canSubmit = Boolean(email.trim());
 
   return (
     <div
@@ -30,17 +29,11 @@ const AddSessionPartnerModal: React.FC<Props> = ({ open, sessionId, onClose, onA
     >
       <div className="fss-modal asp-modal">
         <h2 id="asp-partner-title">Ajouter un partenaire</h2>
-        <p className="asp-partner-hint">
+        <p className="asp-hint">
           Le partenaire co-attestant est <b>invité dès son ajout</b>. Son lien vaut{' '}
-          <b>jusqu&apos;à la clôture</b>, pour <b>une seule</b> co-attestation. Il voit la synthèse
-          de la session, jamais la liste des participants.
+          <b>jusqu&apos;à la clôture</b>, pour <b>une seule</b> co-attestation. Seul l&apos;e-mail
+          est requis ici ; le nom, la fonction et l&apos;organisation sont donnés sur sa page.
         </p>
-        <label className="asp-field">
-          <span className="asp-lab">
-            Nom <span className="asp-req">✱</span>
-          </span>
-          <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-        </label>
         <label className="asp-field">
           <span className="asp-lab">
             E-mail <span className="asp-req">✱</span>
@@ -50,19 +43,33 @@ const AddSessionPartnerModal: React.FC<Props> = ({ open, sessionId, onClose, onA
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
+            autoFocus
           />
         </label>
         <label className="asp-field">
-          <span className="asp-lab">
-            Fonction <span className="asp-req">✱</span>
-          </span>
-          <input value={functionLabel} onChange={(e) => setFunctionLabel(e.target.value)} />
+          <span className="asp-lab">Nom</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+            placeholder="Facultatif"
+          />
         </label>
         <label className="asp-field">
-          <span className="asp-lab">
-            Organisation <span className="asp-req">✱</span>
-          </span>
-          <input value={organization} onChange={(e) => setOrganization(e.target.value)} />
+          <span className="asp-lab">Fonction</span>
+          <input
+            value={functionLabel}
+            onChange={(e) => setFunctionLabel(e.target.value)}
+            placeholder="Facultatif"
+          />
+        </label>
+        <label className="asp-field">
+          <span className="asp-lab">Organisation</span>
+          <input
+            value={organization}
+            onChange={(e) => setOrganization(e.target.value)}
+            placeholder="Facultatif"
+          />
         </label>
         <div className="fss-actions">
           <button type="button" className="fss-btn g" onClick={onClose}>
@@ -74,10 +81,10 @@ const AddSessionPartnerModal: React.FC<Props> = ({ open, sessionId, onClose, onA
             disabled={!canSubmit}
             onClick={() => {
               const mock = addSessionPartnerMock(sessionId, {
-                name,
+                name: name.trim() || email.trim().split('@')[0] || 'Partenaire',
                 email,
-                organization,
-                functionLabel,
+                organization: organization.trim(),
+                functionLabel: functionLabel.trim(),
               });
               const partner = mock.partners[mock.partners.length - 1];
               onAdded(coAttestLinkFor(partner));

@@ -6,6 +6,10 @@ import {
   findPartnerByToken,
   subscribeSessionCloseMock,
 } from '../../utils/sessionCloseMock';
+import {
+  formatDateShortFr,
+  formatDurationHoursLabel,
+} from '../../utils/sessionCloseCopy';
 import '../SessionClose/SessionClose.css';
 
 const SessionCoAttestPage: React.FC = () => {
@@ -60,9 +64,11 @@ const SessionCoAttestPage: React.FC = () => {
             <br />
             {session.orgName} · ◆ Organisme de formation certifié
             <br />
-            {session.startDate} → {session.endDate}
-            {session.durationHours ? ` · ${session.durationHours}` : ''} ·{' '}
-            {session.people.filter((p) => p.role === 'participant').length} participants
+            {formatDateShortFr(session.startDate)} → {formatDateShortFr(session.endDate)}
+            {formatDurationHoursLabel(session.durationHours)
+              ? ` · ${formatDurationHoursLabel(session.durationHours)}`
+              : ''}{' '}
+            · {session.people.filter((p) => p.role === 'participant').length} participants
           </div>
 
           {closed && !done && (
@@ -79,7 +85,9 @@ const SessionCoAttestPage: React.FC = () => {
               >
                 ✓ Co-attestée par {hit.partner.name}, {hit.partner.functionLabel},{' '}
                 {hit.partner.organization}
-                {hit.partner.coAttestedAt ? ` — le ${hit.partner.coAttestedAt}` : ''}
+                {hit.partner.coAttestedAt
+                  ? ` — le ${formatDateShortFr(hit.partner.coAttestedAt)}`
+                  : ''}
               </div>
               <p className="sc-hint">
                 Créez votre espace gratuit — vos co-attestations vous suivront.

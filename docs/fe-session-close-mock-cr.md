@@ -3,54 +3,68 @@
 **Branche :** `feat/fe-session-participants-import`  
 **Nature :** écrans seuls, données fictives — **aucun** branchement API clôture  
 **Maquette :** P4.6 V0.4 · P4.2 V0.15 (écrans 4–5) · P4.8 V0.3 (org) · copy partenaire P4.4/P4.5  
-**Date smokes :** 2026-10-27  
-**Compte smoke :** Alicia Cordial · TB école · sessions locales **Import Excel Complet** + **Formation Google Test** (id `4`)  
-**Tests auto :** `sessionCloseMock.test.ts` — **PASS** (3)
+**Compte smoke :** Alicia Cordial · TB école · sessions locales  
+**Tests auto :** `sessionCloseCopy.test.ts` + `sessionCloseMock.test.ts` — **PASS** (7)
 
 ---
 
-## Livré
+## Livré (Lot 1 + 5 corrections Patrick)
 
-| Point | Statut |
-| ----- | ------ |
-| Tokens CSS (`formation-tokens.css`) pétrole / ambre / fonts | **OK** |
-| Affiche : CTA « Déclarer la fin » (formateur / À faire) | **OK** |
-| Affiche : CTA « Clôturer la session → » (structure, après fin) | **OK** |
-| Parcours cliquable : fin → clôture → confirm → naissance → TERMINÉE | **OK** |
-| Pastilles Validée / Non validé (P4.6) | **OK** |
-| Confirmation ambre « Confirmer la délivrance » | **OK** |
-| Naissance Preuve Formation (carte compacte + code PF·…) | **OK** |
-| Vue TERMINÉE + tuiles preuve / certificats | **OK** |
-| Certificats org P4.8 (envoyé / échec e-mail + encarts assiduité) | **OK** |
-| Partenaire : invitation dès ajout ; lien jusqu’à clôture ; 1 usage | **OK** |
-| Route publique `/session-co-attest/:token` | **OK** |
-| Masquage « + Ajouter un partenaire » après clôture mock | **OK** (voulu) |
-| À faire TB formateur / OF | **OK** |
+| Point                                                                                              | Statut |
+| -------------------------------------------------------------------------------------------------- | ------ |
+| Tokens CSS (`formation-tokens.css`) pétrole / ambre / fonts                                        | **OK** |
+| Parcours : fin → clôture → confirm → naissance → TERMINÉE                                          | **OK** |
+| Titre toujours **« Décision du jury »** + phrase non validé (certificat + présences)               | **OK** |
+| Certificat org P4.8 modèle officiel (modèle, signataire, cases, 10 ans, QR…)                       | **OK** |
+| Vue TERMINÉE : heures·séances·présences·accès · DGEFP · rapport · note PDF                         | **OK** |
+| Partenaire : e-mail seul obligatoire ; nom / fonction / org facultatifs                            | **OK** |
+| Écriture FR : dates `jj/mm/aaaa` / longues sur certificat · « X heures » · accords singulier · PF· | **OK** |
+| Route `/session-co-attest/:token` · masquage partenaire après clôture                              | **OK** |
 
 ### Hors Lot 1 (Patrick — reporté)
 
 - P4.8 écran 3 « Mes certificats »
 - P4.6 écran 5 preuve participante (« Mes preuves »)
 - API clôture / Postmark / registre Sergey
-- Mur MC UE (variante) — non smokeé cette passe
+- Mur MC UE (variante) — non smokeé
+- Actions mock sans handler : Imprimer / Renvoyer e-mail / DGEFP / Exporter PDF (voulu)
 
 ---
 
-## Smokes locaux (2026-10-27) — tous PASS
+## Smokes locaux (2026-10-28) — 5 corrections — tous PASS
 
-| # | Parcours | Résultat | Détail observé |
-| - | -------- | -------- | -------------- |
-| **S1** | Déclarer la fin (P4.2-4) | **PASS** | TB Alicia → carte « Fin de session » · **Import Excel Complet** → modal → toast « Fin de session déclarée » · CTA fin retiré |
-| **S2** | Clôturer → délivrer → naissance → TERMINÉE | **PASS** | Rôle structure · Léa Validée / Nadia Non validé · confirm « Délivrer 1 preuves… » · overlay naissance `PF·2026·FR·659643QM` · chip **clôturée le 2026-10-27** · 1 preuve · 2 certificats |
-| **S3** | Certificats org (P4.8 1 / 1bis / 2) | **PASS** | Vue organisme · Léa « Envoyé par e-mail » · 1 à imprimer (échec) · encarts assiduité |
-| **S4** | Partenaire + co-attest | **PASS** | Session **Formation Google Test** (id 4, non close) · panneau + copy · toast `/session-co-attest/coattest-4-mvr97oan` · page synthèse sans noms · ✓ Co-attestée par AppleInc, Co-attestant, Company — le 2026-10-27 |
+Sessions : **Formation Google Test** (id `4`, clôture) · nouvelle session **Import Excel Complet** (id `5`, partenaire).
+
+| #      | Parcours                                   | Résultat | Détail observé                                                                                                                                                                                        |
+| ------ | ------------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S1** | Déclarer la fin                            | **PASS** | TB → Fin de session → modal → toast « Fin de session déclarée » · dates FR dans la modal                                                                                                              |
+| **S2** | Clôturer → délivrer → naissance → TERMINÉE | **PASS** | Rôle structure · **Décision du jury** · Leo Non validé · confirm « Délivrer 4 preuves… » / « 1 participant non validé ne recevra pas… » · naissance · chip **clôturée le 28/10/2026** · **30 heures** |
+| **S3** | Vue TERMINÉE (P4.6-4)                      | **PASS** | `30 heures · 1 séance tenue · présences… · accès nominatif jusqu’au 28/10/2032` · DGEFP / Qualiopi · rapport + **Le rapport →** · **Imprimer le certificat** (1 échec)                                |
+| **S4** | Certificats org (P4.8)                     | **PASS** | Modèle ministère · signataire / fonction / Fait à · cases · dates longues · 10 ans · signature / cachet / QR · encarts assiduité · « Imprimer » sans effet (**mock**, OK)                             |
+| **S5** | Ajouter un partenaire                      | **PASS** | Session ouverte id `5` · e-mail seul ✱ · toast `/session-co-attest/coattest-5-…` · PARTENAIRES (1) invitation envoyée                                                                                 |
 
 ### Notes smoke
 
-- `/formation-affiche/76` (staging Claire) non utilisé : smokes sur sessions locales Alicia.
-- Chip **TERMINÉE** peut déjà s’afficher avant clôture mock (statut / dates session) — la clôture mock ajoute **clôturée le …** + tuiles preuve/certificats.
-- **S4** d’abord KO sur session déjà close (bouton partenaire masqué) → rejoué sur session ouverte : **PASS**.
-- Accords FR cosmétiques à polish plus tard : « 1 preuves » / « ne recevront » dans la modale de confirmation.
+- TB école Alicia : pas de carte « Clôturer la session → » (réservée TB OF Qualiopi) — clôture via affiche en rôle **structure** (`sessionStorage` / Espace → Voir l’affiche).
+- Partenaire : rejouer sur session **non** close (masqué après clôture mock — voulu).
+- Dates FR partout côté mock (modal déclarer + bandeau « Fin déclarée le »). Patrick GO Lot 1 (28/10) : branchement API plus tard avec contrat Sergey.
+
+### Captures pour Patrick (C1–C6)
+
+| #   | Écran                                                  |
+| --- | ------------------------------------------------------ |
+| C1  | Panneau clôture — Décision du jury + phrase non validé |
+| C2  | Confirm — accords singulier                            |
+| C3  | Naissance Preuve Formation                             |
+| C4  | Vue TERMINÉE (DGEFP / rapport / méta)                  |
+| C5  | Certificat org modèle officiel                         |
+| C6  | Ajouter un partenaire — e-mail seul obligatoire        |
+
+---
+
+## Smokes Lot 1 initiaux (2026-10-27) — PASS (référence)
+
+S1–S4 initiaux documentés avant les 5 corrections ; remplacés pour le GO par la passe du **2026-10-28**.
 
 ---
 
@@ -58,6 +72,7 @@
 
 - `src/styles/formation-tokens.css`
 - `src/utils/sessionCloseMock.ts` (+ test)
+- `src/utils/sessionCloseCopy.ts` (+ test) — dates FR, heures, accords, PF·
 - `src/components/SessionClose/*`
 - `src/components/Pages/FormationSessionAffichePage.tsx`
 - `src/components/Pages/FormationSessionSpacePage.tsx`
@@ -71,5 +86,4 @@
 
 ## Suite
 
-**Lot 2** — Attester une compétence P2.13 V1.4.1 (après GO écrit Lot 1).  
-Questions Sergey (Patrick en copie) : dernière série · phase compétence · groupe « Distribuées par vos autorités » — voir `docs/fe-attest-sergey-questions.md`.
+**GO ** sur Lot 1 (corrections smokées)→ puis **Lot 2** Attester P2.13 V1.4.1

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { FormationSession } from '../../types/formationSession';
 import { declareSessionEndMock, deliversMicrocert } from '../../utils/sessionCloseMock';
+import { formatDateShortFr } from '../../utils/sessionCloseCopy';
 import './SessionClose.css';
 
 type Props = {
@@ -23,7 +24,7 @@ const DeclareSessionEndModal: React.FC<Props> = ({ session, open, onClose, onDec
         <h2 id="sc-declare-title">Déclarer la fin de la session ?</h2>
         <p>
           <b>{session.title}</b> — {pCount} participant{pCount > 1 ? 's' : ''} · du{' '}
-          {session.startDate} au {session.endDate}.
+          {formatDateShortFr(session.startDate)} au {formatDateShortFr(session.endDate)}.
         </p>
         <div className="sc-field">
           <label>Message à l&apos;organisme (facultatif)</label>

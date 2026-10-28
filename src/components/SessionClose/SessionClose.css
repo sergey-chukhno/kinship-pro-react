@@ -515,6 +515,58 @@
   line-height: 1.45;
 }
 
+.sc-box {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1px solid #637087;
+  border-radius: 2px;
+  vertical-align: -1px;
+  margin-right: 3px;
+}
+
+.sc-box.on {
+  background: var(--fs-petrol);
+  border-color: var(--fs-petrol);
+}
+
+.sc-sig {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sc-slot {
+  flex: 1;
+  border: 1px dashed #dde3ee;
+  border-radius: 7px;
+  padding: 8px;
+  text-align: center;
+  font-size: 8.5px;
+  color: #637087;
+}
+
+.sc-qr {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  border-top: 1px solid #dde3ee;
+  padding-top: 8px;
+  font-size: 10px;
+}
+
+.sc-qrbox {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  background: repeating-linear-gradient(90deg, #16255a 0 4px, #fff 4px 8px),
+    repeating-linear-gradient(0deg, #16255a 0 4px, #fff 4px 8px);
+  background-blend-mode: multiply;
+  border: 3px solid #fff;
+  outline: 1px solid #dde3ee;
+}
+
 .asp-partner-hint {
   font-size: 10px;
   color: var(--fs-muted);

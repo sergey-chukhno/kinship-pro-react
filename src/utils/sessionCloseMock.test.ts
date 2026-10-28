@@ -1,3 +1,4 @@
+import type { FormationSession } from '../types/formationSession';
 import {
   addSessionPartnerMock,
   closeAndDeliverMock,
@@ -9,7 +10,6 @@ import {
   setJuryDecisionMock,
   validInvalidCounts,
 } from './sessionCloseMock';
-import type { FormationSession } from '../types/formationSession';
 
 const session = (over: Partial<FormationSession> = {}): FormationSession => ({
   id: '76',
