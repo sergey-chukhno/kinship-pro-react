@@ -369,6 +369,33 @@
   padding: 8px 2px 4px;
 }
 
+/* P2.13 — optional axe filters on the competence screen (not a wizard step). */
+.att-axe-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.att-axe-chip {
+  border: 1px solid #dde3ee;
+  background: #fff;
+  border-radius: 22px;
+  padding: 5px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #3a4560;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.att-axe-chip.on {
+  border: 2px solid #1d3d8f;
+  background: #f3f6fd;
+  color: #16255a;
+  padding: 4px 11px;
+}
+
 .att-crow {
   display: flex;
   align-items: flex-start;

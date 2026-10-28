@@ -411,11 +411,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     };
   }, [series, badgesBySeries]);
 
-  /** Tree-only axe step — no hardcoded Mer/Orienter axes (Patrick CR Fatima). */
-  const wizardHasAxeStep = useMemo(() => {
-    if (!seriesTree || !treeHasAxes(seriesTree)) return false;
-    return axesAsOptions(seriesTree).some((a) => a.badgeNames.length > 0);
-  }, [seriesTree]);
+  /**
+   * P2.13 V1.4.1 — no dedicated « Axe » step: all series competences on one screen,
+   * axes as section titles + optional filter chips (not a wizard step).
+   */
+  const wizardHasAxeStep = false;
 
   const treeAxeOptions = useMemo(() => {
     if (!seriesTree || !treeHasAxes(seriesTree)) return [];
@@ -621,14 +621,6 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     }
   }, [hasSerieScreen, series, step, wizardHasAxeStep]);
 
-  // When tree arrives with usable axes and user is still on competence without axe, move to axe
-  useEffect(() => {
-    if (!wizardHasAxeStep) return;
-    if (step === 'competence' && !selectedAxe && Object.keys(drafts).length === 0) {
-      setStep('axe');
-    }
-  }, [wizardHasAxeStep, step, selectedAxe, drafts]);
-
   const currentStepIndex = stepDefs.findIndex((s) => s.key === step);
 
   // Écran 11 : sortie en cours de liste. On ne redemande rien tant que rien
@@ -786,20 +778,50 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   };
 
   const namesForCompetenceStep = useMemo(() => {
-    if (wizardHasAxeStep && selectedAxe) {
+    const unfrozen = competenceNames.filter((n) => !frozenNames.has(n));
+    if (selectedAxe) {
       const fromTree = treeAxeOptions.find((a) => a.title === selectedAxe);
       if (fromTree) {
-        return competenceNames.filter((n) => fromTree.badgeNames.includes(n) && !frozenNames.has(n));
+        return unfrozen.filter((n) => fromTree.badgeNames.includes(n));
       }
+    }
+    if (treeAxeOptions.length > 0) {
+      // Full series on one screen (axes as titles) — no 4-item truncate.
+      return unfrozen;
     }
     if (seriesTree && !treeHasAxes(seriesTree)) {
       const fromRoot = badgeNamesForTree(seriesTree);
       if (fromRoot.length > 0) {
-        return competenceNames.filter((n) => fromRoot.includes(n) && !frozenNames.has(n));
+        return unfrozen.filter((n) => fromRoot.includes(n));
       }
     }
     return visibleNames;
-  }, [wizardHasAxeStep, selectedAxe, treeAxeOptions, competenceNames, frozenNames, visibleNames, seriesTree]);
+  }, [
+    selectedAxe,
+    treeAxeOptions,
+    competenceNames,
+    frozenNames,
+    visibleNames,
+    seriesTree,
+  ]);
+
+  /** Competence names grouped under axe titles (P2.13). */
+  const competenceGroups = useMemo(() => {
+    if (treeAxeOptions.length === 0 || selectedAxe) {
+      return [{ title: selectedAxe || null, names: namesForCompetenceStep }];
+    }
+    const used = new Set<string>();
+    const groups: { title: string | null; names: string[] }[] = [];
+    treeAxeOptions.forEach((axe) => {
+      const names = namesForCompetenceStep.filter((n) => axe.badgeNames.includes(n));
+      if (names.length === 0) return;
+      names.forEach((n) => used.add(n));
+      groups.push({ title: axe.title, names });
+    });
+    const orphan = namesForCompetenceStep.filter((n) => !used.has(n));
+    if (orphan.length > 0) groups.push({ title: null, names: orphan });
+    return groups;
+  }, [treeAxeOptions, selectedAxe, namesForCompetenceStep]);
 
   const handleSubmit = async () => {
     if (selectedDraftList.length === 0) {
@@ -1176,87 +1198,143 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                   ))}
                 </>
               )}
-              <div className="att-grp">
-                {seriesLabel(series)}
-                {selectedAxe ? ` · ${selectedAxe}` : ''}
-              </div>
+              <div className="att-grp">{seriesLabel(series)}</div>
               <div className="att-qline">Qu’avez-vous observé ?</div>
-              <p className="att-qhelp">La compétence, puis le niveau — sur le même écran.</p>
-              {namesForCompetenceStep.map((name) => {
-                const draft = drafts[name];
-                const picked = Boolean(draft);
-                const levels = levelsFor(name);
-                const level = draft?.level || levels[0] || '1';
-                const badge = badgeFor(name, level);
-                const comps = badge ? getBadgeCompetencies(badge) : [];
-                const isExpanded = expandedCompetence === name;
-                const cardClass = isExpanded ? 'att-card open' : picked ? 'att-card valid' : 'att-card';
-                return (
-                  <div key={name} className={cardClass}>
+              <p className="att-qhelp">
+                Toutes les compétences de la série — les axes en titres
+                {treeAxeOptions.length > 0 ? ' ; filtrez si besoin' : ''}.
+              </p>
+              {treeAxeOptions.length > 0 && (
+                <div className="att-axe-filters" role="group" aria-label="Filtrer par axe">
+                  <button
+                    type="button"
+                    className={`att-axe-chip ${!selectedAxe ? 'on' : ''}`}
+                    onClick={() => setSelectedAxe(null)}
+                  >
+                    Tous les axes
+                  </button>
+                  {treeAxeOptions.map((axe) => (
                     <button
+                      key={axe.id}
                       type="button"
-                      className="att-crow"
-                      style={{ border: 0, padding: 0, width: '100%' }}
-                      onClick={() => {
-                        if (!picked) selectCompetence(name, levels[0] || '1');
-                        setExpandedCompetence(isExpanded ? null : name);
-                      }}
+                      className={`att-axe-chip ${selectedAxe === axe.title ? 'on' : ''}`}
+                      onClick={() => setSelectedAxe(axe.title)}
                     >
-                      <span className="att-avatar" aria-hidden="true">
-                        {getBadgeDisplayName(name).trim().charAt(0)}
-                      </span>
-                      <span>{getBadgeDisplayName(name)}</span>
-                      {picked && !isExpanded && (
-                        <span className="att-ok">
-                          {getLevelLabel(series, level)}
-                          {comps.length > 0 ? ` · ${draft!.expertiseIds.length}/${comps.length}` : ''}
-                        </span>
-                      )}
-                      <span className="att-chev">{isExpanded ? '▾' : '▸'}</span>
+                      {axe.title}
                     </button>
-                    {isExpanded && (
-                      <div className="att-subs">
-                        {levels.length > 1 && (
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: comps.length > 0 ? 8 : 0 }}>
-                            {levels.map((lv) => (
-                              <button
-                                key={lv}
-                                type="button"
-                                className={`att-lv ${level === lv ? 'on' : ''}`}
-                                onClick={() => selectCompetence(name, lv)}
+                  ))}
+                </div>
+              )}
+              {competenceGroups.map((group) => (
+                <React.Fragment key={group.title || '__all__'}>
+                  {group.title && <div className="att-grp">{group.title}</div>}
+                  {group.names.map((name) => {
+                    const draft = drafts[name];
+                    const picked = Boolean(draft);
+                    const levels = levelsFor(name);
+                    const level = draft?.level || levels[0] || '1';
+                    const badge = badgeFor(name, level);
+                    const comps = badge ? getBadgeCompetencies(badge) : [];
+                    const isExpanded = expandedCompetence === name;
+                    const cardClass = isExpanded
+                      ? 'att-card open'
+                      : picked
+                        ? 'att-card valid'
+                        : 'att-card';
+                    return (
+                      <div key={name} className={cardClass}>
+                        <button
+                          type="button"
+                          className="att-crow"
+                          style={{ border: 0, padding: 0, width: '100%' }}
+                          onClick={() => {
+                            if (!picked) selectCompetence(name, levels[0] || '1');
+                            setExpandedCompetence(isExpanded ? null : name);
+                          }}
+                        >
+                          <span className="att-avatar" aria-hidden="true">
+                            {getBadgeDisplayName(name).trim().charAt(0)}
+                          </span>
+                          <span>{getBadgeDisplayName(name)}</span>
+                          {picked && !isExpanded && (
+                            <span className="att-ok">
+                              {getLevelLabel(series, level)}
+                              {comps.length > 0
+                                ? ` · ${draft!.expertiseIds.length}/${comps.length}`
+                                : ''}
+                            </span>
+                          )}
+                          <span className="att-chev">{isExpanded ? '▾' : '▸'}</span>
+                        </button>
+                        {isExpanded && (
+                          <div className="att-subs">
+                            {levels.length > 1 && (
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  gap: 6,
+                                  flexWrap: 'wrap',
+                                  marginBottom: comps.length > 0 ? 8 : 0,
+                                }}
                               >
-                                {getLevelLabel(series, lv)}
-                              </button>
-                            ))}
+                                {levels.map((lv) => (
+                                  <button
+                                    key={lv}
+                                    type="button"
+                                    className={`att-lv ${level === lv ? 'on' : ''}`}
+                                    onClick={() => selectCompetence(name, lv)}
+                                  >
+                                    {getLevelLabel(series, lv)}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {comps.length > 0 ? (
+                              <ChecklistItems
+                                comps={comps}
+                                checkedIds={draft?.expertiseIds || []}
+                                series={badge!.series}
+                                onToggle={(id) =>
+                                  toggleExpertise(
+                                    name,
+                                    id,
+                                    isSingleSelectCompetenceSeries(
+                                      badge!.series,
+                                      badge!.catalog_key
+                                    )
+                                  )
+                                }
+                                onToggleAll={() =>
+                                  toggleAllExpertise(
+                                    name,
+                                    comps.map((c) => c.id),
+                                    draft?.expertiseIds || []
+                                  )
+                                }
+                              />
+                            ) : (
+                              <p className="att-hint">
+                                Rien à cocher pour cette compétence — la sélection suffit.
+                              </p>
+                            )}
                           </div>
                         )}
-                        {comps.length > 0 ? (
-                          <ChecklistItems
-                            comps={comps}
-                            checkedIds={draft?.expertiseIds || []}
-                            series={badge!.series}
-                            onToggle={(id) =>
-                              toggleExpertise(
-                                name,
-                                id,
-                                isSingleSelectCompetenceSeries(badge!.series, badge!.catalog_key)
-                              )
-                            }
-                            onToggleAll={() => toggleAllExpertise(name, comps.map((c) => c.id), draft?.expertiseIds || [])}
-                          />
-                        ) : (
-                          <p className="att-hint">Rien à cocher pour cette compétence — la sélection suffit.</p>
-                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </React.Fragment>
+              ))}
               {!showAllCompetences &&
-                !selectedAxe &&
-                competenceNames.filter((n) => !frozenNames.has(n)).length > namesForCompetenceStep.length && (
-                  <button type="button" className="att-dash" onClick={() => setShowAllCompetences(true)}>
-                    ▸ toute la série ({competenceNames.filter((n) => !frozenNames.has(n)).length})
+                treeAxeOptions.length === 0 &&
+                competenceNames.filter((n) => !frozenNames.has(n)).length >
+                  namesForCompetenceStep.length && (
+                  <button
+                    type="button"
+                    className="att-dash"
+                    onClick={() => setShowAllCompetences(true)}
+                  >
+                    ▸ toute la série (
+                    {competenceNames.filter((n) => !frozenNames.has(n)).length})
                   </button>
                 )}
               <div className="att-bottombar">
