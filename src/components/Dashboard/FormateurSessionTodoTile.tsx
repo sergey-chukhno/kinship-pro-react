@@ -11,9 +11,14 @@ import {
   participantCountLabel,
   subscribeFormationSessions,
 } from '../../utils/formationSessionStore';
+import {
+  getSessionCloseMock,
+  subscribeSessionCloseMock,
+} from '../../utils/sessionCloseMock';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
 import './CatalogueSessionTodoTile.css';
 import './FormateurSessionTodoTile.css';
+import '../../styles/formation-tokens.css';
 
 function formatParticipantLine(count: number, title: string): string {
   return `${title} · ${participantCountLabel(count)}`;
@@ -24,6 +29,7 @@ const FormateurSessionTodoTile: React.FC = () => {
   const { state, setCurrentPage } = useAppContext();
   const navigate = useNavigate();
   const [tick, setTick] = useState(0);
+  const [closeTick, setCloseTick] = useState(0);
   const org = useMemo(
     () => resolveCatalogueOrg(state.user, state.showingPageType),
     [state.user, state.showingPageType]
@@ -31,6 +37,7 @@ const FormateurSessionTodoTile: React.FC = () => {
   const currentUserId = state.user?.id != null ? Number(state.user.id) : null;
 
   useEffect(() => subscribeFormationSessions(() => setTick((n) => n + 1)), []);
+  useEffect(() => subscribeSessionCloseMock(() => setCloseTick((n) => n + 1)), []);
 
   useEffect(() => {
     if (!org) return;
@@ -79,9 +86,11 @@ const FormateurSessionTodoTile: React.FC = () => {
     }> = [];
 
     needingStart.forEach((session, idx) => {
+      const cm = getSessionCloseMock(session.id);
+      if (cm.closed || cm.endDeclared) return;
       list.push({
         id: `start-${session.id}`,
-        accent: '#8A5A00',
+        accent: 'var(--fs-warn-ink)',
         kicker: `Début prévu le ${formatSessionDateFr(session.startDate)} — passé`,
         title: session.title,
         sub: "La session n'a pas commencé : son début est à déclarer. Les inscriptions restent ouvertes.",
@@ -95,9 +104,34 @@ const FormateurSessionTodoTile: React.FC = () => {
       });
     });
 
-    const presenceSession = mine.find(
-      (s) => s.startDeclared && s.attendanceSurveyOptIn && s.status !== 'ended'
-    );
+    const toDeclareEnd = mine.find((s) => {
+      const cm = getSessionCloseMock(s.id);
+      return s.startDeclared && !cm.endDeclared && !cm.closed;
+    });
+    if (toDeclareEnd) {
+      list.push({
+        id: `end-${toDeclareEnd.id}`,
+        accent: 'var(--fs-amber)',
+        kicker: 'Fin de session',
+        title: toDeclareEnd.title,
+        sub: "Déclarez la fin : l'organisme enregistrera la décision du jury, puis clôturera.",
+        cta: 'Déclarer la fin de la session →',
+        amber: list.every((c) => !c.amber),
+        onClick: () => {
+          openSessionAffiche(toDeclareEnd.id, 'formateur');
+          setCurrentPage('formation-affiche');
+          navigate(`/formation-affiche/${toDeclareEnd.id}`);
+        },
+      });
+    }
+
+    const presenceSession = mine.find((s) => {
+      const cm = getSessionCloseMock(s.id);
+      return (
+        s.startDeclared && s.attendanceSurveyOptIn && s.status !== 'ended' && !cm.closed
+      );
+    });
+    void closeTick;
     if (presenceSession) {
       const seance = presenceSession.seances[0];
       const pCount = presenceSession.people.filter((p) => p.role === 'participant').length;
@@ -159,7 +193,7 @@ const FormateurSessionTodoTile: React.FC = () => {
     });
 
     return list.slice(0, 3);
-  }, [needingStart, upcoming, mine, navigate, setCurrentPage]);
+  }, [needingStart, upcoming, mine, navigate, setCurrentPage, closeTick]);
 
   const showPresenceQuick = mine.some(
     (s) => s.startDeclared && s.attendanceSurveyOptIn && s.status !== 'ended'

@@ -17,9 +17,14 @@ import {
   getSelectedOrganizationContext,
   initialsFromOrgName,
 } from '../../utils/qualiopiOrg';
+import {
+  getSessionCloseMock,
+  subscribeSessionCloseMock,
+} from '../../utils/sessionCloseMock';
 import CatalogueSessionTodoTile from './CatalogueSessionTodoTile';
 import './CatalogueSessionTodoTile.css';
 import './FormationOrgDashboard.css';
+import '../../styles/formation-tokens.css';
 
 function statusChip(session: FormationSession): { label: string; cls: string } {
   const h = sessionHeroStatus(session);
@@ -42,6 +47,7 @@ const FormationOrgDashboard: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [tick, setTick] = useState(0);
+  const [closeTick, setCloseTick] = useState(0);
   const [loading, setLoading] = useState(true);
   const contextKey =
     location.search ||
@@ -57,6 +63,7 @@ const FormationOrgDashboard: React.FC = () => {
   );
 
   useEffect(() => subscribeFormationSessions(() => setTick((n) => n + 1)), []);
+  useEffect(() => subscribeSessionCloseMock(() => setCloseTick((n) => n + 1)), []);
 
   useEffect(() => {
     if (!org) {
@@ -89,6 +96,16 @@ const FormationOrgDashboard: React.FC = () => {
     if (!org) return [];
     return getSessionsNeedingStartDeclarationForOrg(org);
   }, [tick, org]);
+
+  const needingClose = useMemo(() => {
+    void tick;
+    void closeTick;
+    if (!org) return [];
+    return getFormationSessionsForOrg(org).filter((s) => {
+      const cm = getSessionCloseMock(s.id);
+      return cm.endDeclared && !cm.closed;
+    });
+  }, [tick, closeTick, org]);
 
   const inProgress = sessions.filter((s) => sessionHeroStatus(s) === 'in_progress');
   const coming = sessions.filter((s) => sessionHeroStatus(s) === 'coming');
@@ -190,7 +207,7 @@ const FormationOrgDashboard: React.FC = () => {
                   key={session.id}
                   type="button"
                   className="cst-card"
-                  style={{ ['--c' as string]: '#8A5A00' }}
+                  style={{ ['--c' as string]: 'var(--fs-warn-ink)' }}
                   onClick={() => openSession(session.id)}
                 >
                   <div className="cst-kicker">
@@ -202,6 +219,30 @@ const FormationOrgDashboard: React.FC = () => {
                     début reste à déclarer par {session.formateur.name}, formateur responsable.
                   </div>
                   <div className="cst-cta">Voir la session →</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {needingClose.length > 0 && (
+          <div className="cst-section fod-declare-section" aria-label="Sessions à clôturer">
+            <div className="fod-declare-grid">
+              {needingClose.map((session) => (
+                <button
+                  key={`close-${session.id}`}
+                  type="button"
+                  className="cst-card"
+                  style={{ ['--c' as string]: 'var(--fs-amber)' }}
+                  onClick={() => openSession(session.id)}
+                >
+                  <div className="cst-kicker">
+                    Fin déclarée · {session.formateur.name}
+                  </div>
+                  <div className="cst-title">{session.title}</div>
+                  <div className="cst-sub">
+                    Enregistrez la décision du jury, puis clôturez la session et délivrez.
+                  </div>
+                  <div className="cst-cta amber">Clôturer la session →</div>
                 </button>
               ))}
             </div>

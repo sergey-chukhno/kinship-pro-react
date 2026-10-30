@@ -15,10 +15,29 @@ import {
   sessionHeroStatus,
   subscribeFormationSessions,
 } from '../../utils/formationSessionStore';
+import {
+  getSessionCloseMock,
+  subscribeSessionCloseMock,
+  validInvalidCounts,
+} from '../../utils/sessionCloseMock';
+import {
+  formatDateShortFr,
+  formatDurationHoursLabel,
+  formatProofCodeDisplay,
+  nominativeAccessUntil,
+  printCertificatesLabel,
+  proofLabel,
+} from '../../utils/sessionCloseCopy';
 import { openPresenceSession } from '../../utils/presenceSessionStore';
 import { useToast } from '../../hooks/useToast';
+import DeclareSessionEndModal from '../SessionClose/DeclareSessionEndModal';
+import SessionClosePanel from '../SessionClose/SessionClosePanel';
+import SessionCloseConfirmModal from '../SessionClose/SessionCloseConfirmModal';
+import SessionProofBirthOverlay from '../SessionClose/SessionProofBirthOverlay';
+import SessionCertificateOrgView from '../SessionClose/SessionCertificateOrgView';
 import './FormationAffiche.css';
 import './FormationSessionAffichePage.css';
+import '../../styles/formation-tokens.css';
 
 type AfficheTab = 'overview' | 'seances' | 'participants' | 'equipe';
 
@@ -52,8 +71,15 @@ const FormationSessionAffichePage: React.FC = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [seanceLabel, setSeanceLabel] = useState('');
   const [seanceDate, setSeanceDate] = useState('');
+  const [closeTick, setCloseTick] = useState(0);
+  const [declareEndOpen, setDeclareEndOpen] = useState(false);
+  const [closePanelOpen, setClosePanelOpen] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [birthOpen, setBirthOpen] = useState(false);
+  const [certOpen, setCertOpen] = useState(false);
 
   useEffect(() => subscribeFormationSessions(() => setTick((n) => n + 1)), []);
+  useEffect(() => subscribeSessionCloseMock(() => setCloseTick((n) => n + 1)), []);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -147,6 +173,11 @@ const FormationSessionAffichePage: React.FC = () => {
     showSuccess('Session de présence ouverte (mock)');
   };
 
+  const closeMock = useMemo(
+    () => (sessionId ? getSessionCloseMock(sessionId) : getSessionCloseMock('')),
+    [sessionId, closeTick]
+  );
+
   if (!session) {
     return (
       <section className="fa-page fa-session fsa-page">
@@ -159,10 +190,16 @@ const FormationSessionAffichePage: React.FC = () => {
   }
 
   const hero = sessionHeroStatus(session);
-  const statusChip =
-    hero === 'in_progress' ? 'EN COURS' : hero === 'ended' ? 'TERMINÉE' : 'À VENIR';
+  const statusChip = closeMock.closed
+    ? 'TERMINÉE'
+    : hero === 'in_progress'
+      ? 'EN COURS'
+      : hero === 'ended'
+        ? 'TERMINÉE'
+        : 'À VENIR';
   const participants = session.people.filter((p) => p.role === 'participant');
   const team = session.people.filter((p) => p.role === 'formateur' || p.role === 'intervenant');
+  const partners = closeMock.partners;
   const modalityLabel =
     session.modality === 'presentiel'
       ? 'Présentiel'
@@ -173,12 +210,23 @@ const FormationSessionAffichePage: React.FC = () => {
           : session.modality || '';
 
   const showDeclareCta =
-    (viewerRole === 'formateur' || isResponsibleTrainer) && !session.startDeclared;
+    (viewerRole === 'formateur' || isResponsibleTrainer) &&
+    !session.startDeclared &&
+    !closeMock.closed;
+  const showDeclareEndCta =
+    (viewerRole === 'formateur' || isResponsibleTrainer) &&
+    session.startDeclared &&
+    !closeMock.endDeclared &&
+    !closeMock.closed;
+  const showCloseSessionCta =
+    viewerRole === 'structure' && closeMock.endDeclared && !closeMock.closed;
   const showPresenceCta =
     (viewerRole === 'formateur' || isResponsibleTrainer) &&
     session.startDeclared &&
-    session.attendanceSurveyOptIn;
-  const showCreateSeanceCta = viewerRole === 'structure' && !isResponsibleTrainer;
+    session.attendanceSurveyOptIn &&
+    !closeMock.closed;
+  const showCreateSeanceCta =
+    viewerRole === 'structure' && !isResponsibleTrainer && !closeMock.endDeclared && !closeMock.closed;
 
   const primaryCta = showDeclareCta
     ? {
@@ -186,22 +234,37 @@ const FormationSessionAffichePage: React.FC = () => {
         amber: true,
         onClick: () => setDeclareOpen(true),
       }
-    : showPresenceCta
+    : showDeclareEndCta
       ? {
-          label: 'Ouvrir la session de présence',
-          amber: false,
-          onClick: openPresence,
+          label: 'Déclarer la fin de la session',
+          amber: true,
+          onClick: () => setDeclareEndOpen(true),
         }
-      : showCreateSeanceCta
+      : showCloseSessionCta
         ? {
-            label: '+ Créer une séance',
-            amber: false,
-            onClick: () => {
-              setSeanceDate(session.startDate);
-              setCreateOpen(true);
-            },
+            label: 'Clôturer la session →',
+            amber: true,
+            onClick: () => setClosePanelOpen(true),
           }
-        : null;
+        : showPresenceCta
+          ? {
+              label: 'Ouvrir la session de présence',
+              amber: false,
+              onClick: openPresence,
+            }
+          : showCreateSeanceCta
+            ? {
+                label: '+ Créer une séance',
+                amber: false,
+                onClick: () => {
+                  setSeanceDate(session.startDate);
+                  setCreateOpen(true);
+                },
+              }
+            : null;
+
+  const { valid } = validInvalidCounts(closeMock);
+  const failedCerts = closeMock.certificates.filter((c) => c.status === 'failed').length;
 
   return (
     <section className="fa-page fa-session fsa-page" aria-label="Affiche de la session">
@@ -226,12 +289,22 @@ const FormationSessionAffichePage: React.FC = () => {
       <header className="fa-hero fa-hero-session">
         <div className="fa-hbody">
           <div className="fa-staterow">
-            <span className={`fa-chip ${statusChip === 'EN COURS' ? 'run' : 'come'}`}>
+            <span
+              className={`fa-chip ${
+                statusChip === 'EN COURS' ? 'run' : statusChip === 'TERMINÉE' ? 'done' : 'come'
+              }`}
+            >
               {statusChip}
             </span>
-            <span className="fa-chip date">
-              {formatSessionDateFr(session.startDate)} → {formatSessionDateFr(session.endDate)}
-            </span>
+            {closeMock.closed && closeMock.closedAt ? (
+              <span className="fa-chip date">
+                clôturée le {formatDateShortFr(closeMock.closedAt)}
+              </span>
+            ) : (
+              <span className="fa-chip date">
+                {formatSessionDateFr(session.startDate)} → {formatSessionDateFr(session.endDate)}
+              </span>
+            )}
           </div>
           <h2 className="fa-title">{session.title}</h2>
           {(session.orgName || org?.name || modalityLabel || session.financement) && (
@@ -243,15 +316,104 @@ const FormationSessionAffichePage: React.FC = () => {
           )}
           {session.description ? <p className="fa-desc">{session.description}</p> : null}
           <p className="fsa-meta-line">
-            {`Formateur responsable ${session.formateur.name} · ${participantCountLabel(participants.length)} · ${session.seances.length} séance${session.seances.length > 1 ? 's' : ''}`}
+            {`Formateur responsable ${session.formateur.name} · ${participantCountLabel(participants.length)} · ${session.seances.length} séance${session.seances.length > 1 ? 's' : ''}${
+              partners.length
+                ? ` · avec ${partners.map((p) => p.organization).join(', ')}`
+                : ''
+            }`}
           </p>
         </div>
       </header>
 
-      {!session.startDeclared && (
+      {!session.startDeclared && !closeMock.closed && (
         <div className="fsa-note">
           Début à déclarer par {session.formateur.name}, formateur responsable. Les inscriptions
           restent ouvertes.
+        </div>
+      )}
+
+      {closeMock.endDeclared && !closeMock.closed && viewerRole === 'structure' && (
+        <div className="fsa-note">
+          Fin déclarée
+          {closeMock.endDeclaredAt ? ` le ${formatDateShortFr(closeMock.endDeclaredAt)}` : ''} par{' '}
+          {session.formateur.name}. Enregistrez la décision du jury, puis clôturez.
+        </div>
+      )}
+
+      {closeMock.closed && (
+        <div className="fsa-panel" style={{ marginTop: 12 }}>
+          <div className="sc-blk">
+            <h4>
+              Preuve Formation — générée
+              {closeMock.proofCode
+                ? ` · ${formatProofCodeDisplay(closeMock.proofCode)}`
+                : ''}
+            </h4>
+            <div className="n">
+              {proofLabel(valid, false)} délivrée{valid > 1 ? 's' : ''} ·{' '}
+              {closeMock.certificates.length} certificat
+              {closeMock.certificates.length > 1 ? 's' : ''} de réalisation
+              {partners.some((p) => p.coAttestedAt) ? ' · co-attestée' : ''}
+            </div>
+            <div className="n" style={{ marginTop: 6 }}>
+              {[
+                formatDurationHoursLabel(session.durationHours),
+                `${session.seances.length || 1} séance${(session.seances.length || 1) > 1 ? 's' : ''} tenue${(session.seances.length || 1) > 1 ? 's' : ''}`,
+                'présences restituées par séance',
+                `accès nominatif jusqu'au ${nominativeAccessUntil(closeMock.closedAt)}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </div>
+            <div className="sc-btns">
+              <button type="button" className="sc-btn s sm">
+                Exporter PDF
+              </button>
+              <button type="button" className="sc-btn s sm">
+                Partager avec DGEFP / Qualiopi
+              </button>
+              <button type="button" className="sc-btn s sm">
+                Vérification publique
+              </button>
+            </div>
+            <div className="n" style={{ marginTop: 6 }}>
+              Le rapport de la session : envoyé au financeur
+              {closeMock.closedAt ? ` le ${formatDateShortFr(closeMock.closedAt)}` : ''}.
+            </div>
+            <div className="sc-btns">
+              <button type="button" className="sc-btn p sm">
+                Le rapport →
+              </button>
+            </div>
+            <div className="n" style={{ marginTop: 6, color: 'var(--fs-faint)' }}>
+              Le PDF porte le QR et le lien de la version en ligne — la version qui fait foi est la
+              consultation en ligne.
+            </div>
+          </div>
+          <div className="sc-blk">
+            <h4>
+              Certificats de réalisation — {closeMock.certificates.length} généré
+              {closeMock.certificates.length > 1 ? 's' : ''}
+            </h4>
+            <div className="n">
+              {closeMock.certificates.filter((c) => c.status === 'sent').length} envoyé
+              {closeMock.certificates.filter((c) => c.status === 'sent').length > 1 ? 's' : ''} par
+              e-mail
+              {failedCerts > 0
+                ? ` · ${failedCerts} à imprimer (e-mail en échec)`
+                : ''}
+            </div>
+            <div className="sc-btns">
+              <button type="button" className="sc-btn p sm" onClick={() => setCertOpen(true)}>
+                Voir les certificats
+              </button>
+              {failedCerts > 0 && (
+                <button type="button" className="sc-btn am sm" onClick={() => setCertOpen(true)}>
+                  {printCertificatesLabel(failedCerts)}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -468,6 +630,53 @@ const FormationSessionAffichePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <DeclareSessionEndModal
+        session={session}
+        open={declareEndOpen}
+        onClose={() => setDeclareEndOpen(false)}
+        onDeclared={() => {
+          setDeclareEndOpen(false);
+          setCloseTick((n) => n + 1);
+          showSuccess('Fin de session déclarée');
+        }}
+      />
+      {closePanelOpen && (
+        <SessionClosePanel
+          session={session}
+          mock={closeMock}
+          onCancel={() => setClosePanelOpen(false)}
+          onRequestConfirm={() => setConfirmCloseOpen(true)}
+          onMockChange={() => setCloseTick((n) => n + 1)}
+        />
+      )}
+      <SessionCloseConfirmModal
+        session={session}
+        mock={closeMock}
+        open={confirmCloseOpen}
+        onCancel={() => setConfirmCloseOpen(false)}
+        onConfirmed={() => {
+          setConfirmCloseOpen(false);
+          setClosePanelOpen(false);
+          setCloseTick((n) => n + 1);
+          setBirthOpen(true);
+        }}
+      />
+      <SessionProofBirthOverlay
+        session={session}
+        mock={getSessionCloseMock(session.id)}
+        open={birthOpen}
+        onContinue={() => {
+          setBirthOpen(false);
+          setCloseTick((n) => n + 1);
+        }}
+      />
+      <SessionCertificateOrgView
+        session={session}
+        mock={getSessionCloseMock(session.id)}
+        open={certOpen}
+        onClose={() => setCertOpen(false)}
+      />
     </section>
   );
 };

@@ -1,11 +1,10 @@
 # CR — Ajouter un participant + warnings import (contrat 49 V1.3 §11)
 
 **Branche :** `feat/fe-session-participants-import`  
+**Merge staging FE :** 2026-10-27 (GO Patrick)  
 **Contrat :** KINSHIP Contrat API — 49 V1.3 §11 (participants session OF)  
-**BE local :** `staging` @ `82d4333` (PR #395)  
 **Maquette panneau :** P4.4 (validé)  
-**Date smokes :** 2026-10-26  
-**Compte smoke :** Alicia Cordial · session BE **Formation Google Test** (id numérique)
+**Fix pré-merge :** astérisque inline « Nom ✱ » (`82d46a0`)
 
 ---
 
@@ -20,6 +19,7 @@
 | 201 → inscription + refresh liste · statut **inscrit** | **OK** |
 | Warning &lt; 15 ans sous la date (sans blocage) | **OK** |
 | 422 e-mail déjà utilisé → erreur dans la modale | **OK** |
+| Astérisque inline sur les libellés (P4.4) | **OK** |
 | `phone` facultatif | non affiché (écran Patrick) ; supporté côté API si fourni |
 
 ### A — Analyze import + `warnings`
@@ -33,27 +33,45 @@
 
 ---
 
-## Smokes locaux (2026-10-26)
+## Smokes staging (2026-10-27) — PASS
+
+**Env :** FE staging Vercel + API staging  
+**Compte :** Claire V. / CFPJ  
+**Session :** Journaliste — formation complète (RNCP40281) · id **76**  
+**E-mails de test :** `@example.org` uniquement
 
 | # | Parcours | Résultat | Détail |
 | - | -------- | -------- | ------ |
-| **B1** | Ajouter adulte (John Doe) | **PASS** | Participants (1) · **inscrit** |
-| **B2** | DOB &lt; 15 ans (Bob Fisher) | **PASS** | Warning · Ajouter OK · Participants (2) · **inscrit** |
-| **B3** | E-mail déjà utilisé (`john.doe@exemple.fr`) | **PASS** | Erreur dans la modale · pas de double ligne |
-| **A1** | Analyze `session_participants_a1_smoke.csv` | **PASS** | Warning sous Leo · 2 importables · pas dans écartés |
+| **B1** | Adulte Alice Dupont | **PASS** | Toast « Participant inscrit » · Participants (1) · e-mail visible · **inscrit** |
+| **B2** | &lt; 15 ans Leo Martin (12/03/2015) | **PASS** | Warning sous la date · Ajouter OK · Participants (2) · e-mail masqué (mineur) · **inscrit** |
+| **B3** | E-mail déjà utilisé (`alice.smoke.staging@example.org`) | **PASS** | Erreur modale « Adresse email est déjà utilisé(e) » · toujours Participants (2) |
+| **A1** | Import `session_participants_a1_smoke.csv` | **PASS** | 2 détectés · warning sous Tom · Importer les 2 · 2 inscrits · Participants (4) |
+
+### Captures
+
+Jointes à l’envoi (panneau B1–B3, aperçu A1 + warning, récap import, liste Participants (4)).
 
 ### Notes
 
-- Smoke sur session **BE** (URL id numérique) ; les anciennes URLs `sess-…` (store local) donnent 404.
-- B3 : message BE observé **« Adresse email est déjà utilisé(e) »** (contrat citait plutôt « Déjà inscrit à la session. ») — comportement conforme.
-- Affichage liste parfois `Prénom Nom` inversé vs saisie formulaire — hors scope de ce CR.
+- Session URL id **numérique** (76) ; pas de `sess-…` local.
+- B3 : message BE **« Adresse email est déjà utilisé(e) »** — conforme (ne pas retoucher côté FE).
+- Mineur : e-mail absents de la liste / réponse sérialisée (`exposed_email_for_user` / `is_minor?`) — attendu.
+- Ordre affichage liste prénom+nom : OK (saisie test parfois inversée hors scope).
+
+---
+
+## Smokes locaux (2026-10-26) — PASS (réf.)
+
+| # | Parcours | Résultat |
+| - | -------- | -------- |
+| B1–B3 + A1 | Alicia / session BE Formation Google Test | **PASS** |
 
 ---
 
 ## Fichiers clés
 
 - `src/api/FormationSessionPreRegister.ts`
-- `src/components/Pages/AddSessionParticipantModal.tsx`
+- `src/components/Pages/AddSessionParticipantModal.tsx` (+ `.css`)
 - `src/components/Pages/FormationSessionSpacePage.tsx`
 - `src/api/FormationSessionParticipantsImport.ts` (+ UI import)
 
@@ -63,4 +81,4 @@
 
 ## Hors scope
 
-Soft-delete, rapprochement UI, Postmark, Options de session, champ téléphone UI.
+Soft-delete, rapprochement UI, Postmark, Options de session, champ téléphone UI, fenêtre Attester (variables CSS — note séparée).
