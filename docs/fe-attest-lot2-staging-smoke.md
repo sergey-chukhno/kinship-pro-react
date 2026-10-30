@@ -38,19 +38,18 @@ Hors Attester (déjà sur la branche, smoke rapide si temps) : clôture session 
 
 ---
 
-## Liste à remplir — « ce que tu y crées » (staging)
+## Liste créée — smokes 30/10 (remplie)
 
-À coller dans le message Patrick après smokes.
+Voir CR `docs/fe-attest-lot2-staging-cr.md` · message `docs/fe-attest-lot2-message-patrick-staging.md`.
 
-| # | Type | Compétence / badge | Destinataire(s) | Projet | Date | Preuve / id si visible |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | Preuve de compétence | _ex. S1.2 · …_ | _Fisher B., Bodin L._ | _…_ | _jj/mm_ | _PB·… ou n°_ |
-| 2 | | | | | | |
-| 3 | | | | | | |
+| # | Type | Compétence | Destinataire(s) | Projet | Date |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Preuve de compétence | C1.1 et C1.2 · Renforcer… | Diego B. | Journaliste RNCP40281 | 30/10/2026 |
+| 2 | Preuve de compétence | idem | Sami P. | idem | 30/10/2026 |
+| 3 | Preuve de compétence | idem | Camille A. | idem | 30/10/2026 |
 
-**Comptes / org utilisés :**  
-**URL staging :**  
-**Écarts / bugs :** aucun / …
+**Compte / org :** Claire V. · CFPJ  
+**ST1–ST6 :** PASS
 
 ---
 
