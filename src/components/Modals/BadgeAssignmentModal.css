@@ -113,7 +113,20 @@
   flex-direction: column;
   gap: 8px;
   width: 100%;
-  max-width: 320px;
+  max-width: 360px;
+}
+
+.att-success-actions-row {
+  align-items: stretch;
+}
+
+.att-success-actions-row .att-back-link {
+  align-self: flex-start;
+  margin-bottom: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 13px;
 }
 
 .att-success-btn {
@@ -130,6 +143,67 @@
 
 .att-success-actions .att-go {
   width: 100%;
+}
+
+.att-success-follow {
+  font-size: 12.5px;
+  color: #6b6980;
+  margin: 8px 0 14px;
+  max-width: 360px;
+}
+
+.att-success-hero {
+  width: 100%;
+  max-width: 360px;
+  margin: 12px 0 4px;
+  text-align: left;
+}
+
+.att-success-hero-card {
+  border: 1.5px solid #e4e2ee;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.att-success-hero-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8f8d86;
+  margin-bottom: 6px;
+}
+
+.att-success-hero-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin-bottom: 6px;
+}
+
+.att-success-hero-meta {
+  font-size: 12.5px;
+  color: #4a4860;
+  margin-bottom: 8px;
+}
+
+.att-success-hero-items {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #4a4860;
+}
+
+.att-success-hero-items li {
+  margin-bottom: 2px;
+}
+
+.att-success-more {
+  margin-top: 10px;
+  display: inline-block;
+}
+
+.att-success-proof {
+  margin-top: 12px;
 }
 
 .att-participant-switch {
@@ -394,6 +468,98 @@
   background: #f3f6fd;
   color: #16255a;
   padding: 4px 11px;
+}
+
+.att-pill-tag {
+  font-size: 8px;
+  font-weight: 700;
+  color: #8c97ad;
+}
+
+.att-card-pastille {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.att-card-pastille .att-crow {
+  border-bottom: 0;
+  padding: 0;
+  align-items: center;
+}
+
+.att-card-pastille .att-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2f9;
+  flex-shrink: 0;
+}
+
+.att-card-pastille .att-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.att-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.att-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #16255a;
+  line-height: 1.3;
+}
+
+.att-card-phase {
+  font-size: 9px;
+  color: #8c97ad;
+  font-weight: 600;
+}
+
+.att-level-pills {
+  margin: 0;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+/* Patrick GO — pastilles CPS : intitulé + code, s’étirent et passent à la ligne */
+.att-pastille-long {
+  white-space: normal;
+  text-align: left;
+  line-height: 1.35;
+  max-width: 100%;
+  height: auto;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.att-pastille-long.on {
+  padding: 7px 11px;
+}
+
+.att-go-confirm {
+  background: #c0392b !important;
+  border-color: #c0392b !important;
+}
+
+.att-navhint {
+  font-size: 9px;
+  color: #8c97ad;
+  font-style: italic;
 }
 
 .att-crow {

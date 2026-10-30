@@ -16,7 +16,9 @@ import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import {
   axesAsOptions,
   badgeNamesForTree,
+  treeCompetencesAsCards,
   treeHasAxes,
+  treeHasCompetenceCards,
 } from '../../utils/seriesTreeHelpers';
 import { SeriesTree } from '../../types/badgeSeriesTree';
 import { PublicProofPayload } from '../../types/badgeProofApi';
@@ -30,6 +32,17 @@ import {
   getCompetencyDisplayName,
 } from './BadgeAssignmentModal';
 import { ProofCardCompact } from '../Proof/ProofCardCompact';
+import { readAttestLastSeries, writeAttestLastSeries } from '../../utils/attestLastSeries';
+import {
+  getCpsLocalBadgeImage,
+  isCompetencesPsychosocialesSeries,
+} from '../../utils/cpsSeries';
+import {
+  cpsPastilleLabelFromBadgeName,
+  formatBadgeHeadingWithCode,
+  phaseNumberFromCpsCompetenceCode,
+  sortBadgeNamesBySpfCode,
+} from '../../utils/cpsPastilleLabels';
 import './Modal.css';
 import './BadgeAssignmentModal.css';
 
@@ -268,13 +281,21 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   const [badges, setBadges] = useState<BadgeAPI[]>([]);
   const [loadingBadges, setLoadingBadges] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  /** P2.13 V1.4 — first click arms, second click submits (no confirm overlay). */
+  const [attestArmed, setAttestArmed] = useState(false);
   const [successState, setSuccessState] = useState<{
     count: number;
     badgeName: string;
     proofs: ProofData[];
+    participantNames: string[];
+    itemLabels: string[];
+    observedAtLabel: string;
   } | null>(null);
+  const [successShowAllProofs, setSuccessShowAllProofs] = useState(false);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+  /** User forced the série screen (Retour after last-series skip). */
+  const [serieScreenForced, setSerieScreenForced] = useState(false);
+  const [lastSeriesTag, setLastSeriesTag] = useState<string | null>(null);
   const [constatMode, setConstatMode] = useState<'groupe' | 'individuel'>('groupe');
   const [individualDrafts, setIndividualDrafts] = useState<Record<string, ParticipantConstat>>({});
   const [activeParticipantId, setActiveParticipantId] = useState<string | null>(null);
@@ -373,9 +394,14 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
   const availableSeries = useMemo(() => Object.keys(badgesBySeries), [badgesBySeries]);
 
-  useEffect(() => {
-    if (!series && availableSeries.length === 1) setSeries(availableSeries[0]);
-  }, [availableSeries, series]);
+  /** Patrick: attester never appears in the participant list. */
+  const attestParticipants = useMemo(() => {
+    const uid = state.user?.id != null ? String(state.user.id) : null;
+    if (!uid) return participants;
+    return participants.filter(
+      (p) => String(p.memberId) !== uid && String(p.id) !== uid
+    );
+  }, [participants, state.user?.id]);
 
   // F2 — load catalogue tree by badge_series_id or catalog_key from selected series badges (R1 / 01/10)
   useEffect(() => {
@@ -423,7 +449,8 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     return opts.some((a) => a.badgeNames.length > 0) ? opts : [];
   }, [seriesTree]);
 
-  const leafLabel = seriesTree?.leaf_label || 'Compétence';
+  /** Patrick P2.13 : étape 2 toujours « Compétence » (toutes séries). */
+  const leafLabel = 'Compétence';
 
   const seriesLabel = (seriesKey: string): string => {
     const sample = badgesBySeries[seriesKey]?.[0];
@@ -487,6 +514,16 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
       seriesBadges.find((b) => b.name === name && b.level === `level_${level}`),
     [seriesBadges]
   );
+
+  /** Resolve catalog identity for level labels (avoid id:N / key: falling through to Soft Skills). */
+  const levelLabelFor = (level: string, competenceName?: string): string => {
+    const sample =
+      (competenceName &&
+        (badgeFor(competenceName, level) ||
+          seriesBadges.find((b) => b.name === competenceName))) ||
+      seriesBadges[0];
+    return getLevelLabel(sample?.catalog_key || sample?.series || series, level);
+  };
 
   const competenceRecap = (draft: CompetenceDraft, badge: BadgeAPI | undefined) => {
     if (!badge) return null;
@@ -569,11 +606,13 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
   const filteredParticipants = useMemo(() => {
     const term = participantsSearchTerm.trim().toLowerCase();
-    if (!term) return participants;
-    return participants.filter(
-      (p) => (p.name || '').toLowerCase().includes(term) || (p.organization || '').toLowerCase().includes(term)
+    if (!term) return attestParticipants;
+    return attestParticipants.filter(
+      (p) =>
+        (p.name || '').toLowerCase().includes(term) ||
+        (p.organization || '').toLowerCase().includes(term)
     );
-  }, [participants, participantsSearchTerm]);
+  }, [attestParticipants, participantsSearchTerm]);
 
   const toggleParticipant = (memberId: string) => {
     if (isIndividual) return;
@@ -613,13 +652,43 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
   const [step, setStep] = useState<WizardStepKey>(firstStep);
   const [selectedAxe, setSelectedAxe] = useState<string | null>(null);
-  const [expandedCompetence, setExpandedCompetence] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hasSerieScreen && series && step === 'serie') {
       setStep(wizardHasAxeStep ? 'axe' : 'competence');
     }
   }, [hasSerieScreen, series, step, wizardHasAxeStep]);
+
+  useEffect(() => {
+    if (loadingBadges || availableSeries.length === 0) return;
+    if (series) return;
+
+    if (availableSeries.length === 1) {
+      setSeries(availableSeries[0]);
+      setStep('competence');
+      return;
+    }
+
+    if (serieScreenForced) return;
+
+    const saved = readAttestLastSeries(state.user?.id, projectId);
+    if (saved?.series && availableSeries.includes(saved.series)) {
+      setLastSeriesTag(saved.series);
+      setSeries(saved.series);
+      setStep('competence');
+    }
+  }, [
+    loadingBadges,
+    availableSeries,
+    series,
+    serieScreenForced,
+    state.user?.id,
+    projectId,
+  ]);
+
+  useEffect(() => {
+    setAttestArmed(false);
+  }, [step, drafts, selectedParticipants, constatMode, individualDrafts]);
 
   const currentStepIndex = stepDefs.findIndex((s) => s.key === step);
 
@@ -638,28 +707,31 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     setSeries(s);
     setDrafts({});
     setSelectedAxe(null);
-    setExpandedCompetence(null);
     setShowAllCompetences(false);
     setSeriesQuery('');
     setConstatMode('groupe');
     setIndividualDrafts({});
     setActiveParticipantId(null);
     setSeriesTree(null);
-    // Start on competence; tree effect upgrades to axe when axes exist
+    setSerieScreenForced(false);
     setStep('competence');
   };
 
-  // Choisir une compétence (et son niveau) affiche ses items juste en
-  // dessous, sur le même écran (niveau + skills ensemble) -- on ne part plus
-  // des participants avant d'avoir vu ce qu'il y a à cocher. On avance
-  // explicitement (bouton Continuer) une fois au moins un item coché.
   const selectCompetence = (name: string, level: string) => {
     setDrafts((prev) => {
       if (prev[name] && prev[name].level === level) return prev;
       const badge = badgeFor(name, level);
       const comps = badge ? getBadgeCompetencies(badge) : [];
       return {
-        [name]: { name, level, expanded: comps.length > 0, expertiseIds: [], comment: '', file: null, fileName: '' },
+        [name]: {
+          name,
+          level,
+          expanded: comps.length > 0,
+          expertiseIds: [],
+          comment: '',
+          file: null,
+          fileName: '',
+        },
       };
     });
     setConstatMode('groupe');
@@ -667,12 +739,20 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     setActiveParticipantId(null);
   };
 
+  /** P2.13 — pastille click selects competence+level and advances. */
+  const pickCompetenceAndAdvance = (name: string, level: string) => {
+    selectCompetence(name, level);
+    setStep(isIndividual ? 'constat' : 'participants');
+  };
+
   const goBack = () => {
     if (step === 'axe') {
+      setSerieScreenForced(true);
       setStep('serie');
       return;
     }
     if (step === 'competence') {
+      setSerieScreenForced(true);
       setStep(wizardHasAxeStep ? 'axe' : 'serie');
       return;
     }
@@ -701,7 +781,24 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   const pickedDraft = pickedName ? drafts[pickedName] : undefined;
   const pickedBadge = pickedDraft ? badgeFor(pickedDraft.name, pickedDraft.level) : undefined;
   const pickedComps = pickedBadge ? getBadgeCompetencies(pickedBadge) : [];
-  const canContinueFromCompetence = Boolean(pickedDraft) && (pickedComps.length === 0 || pickedDraft!.expertiseIds.length > 0);
+
+  /** Patrick reprise 4 — Attester inactif tant qu’aucun item n’est coché (s’il y a des items). */
+  const canAttest = useMemo(() => {
+    if (pickedComps.length === 0) return true;
+    if (!isIndividual && constatMode === 'individuel') {
+      return selectedParticipants.every(
+        (pid) => (individualDrafts[pid]?.expertiseIds.length ?? 0) >= 1
+      );
+    }
+    return (pickedDraft?.expertiseIds.length ?? 0) >= 1;
+  }, [
+    pickedComps.length,
+    isIndividual,
+    constatMode,
+    selectedParticipants,
+    individualDrafts,
+    pickedDraft?.expertiseIds.length,
+  ]);
 
   const selectedBadges = selectedDraftList
     .map((d) => badgeFor(d.name, d.level))
@@ -762,14 +859,15 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
   const handleOtherCompetence = () => {
     setSuccessState(null);
+    setSuccessShowAllProofs(false);
     setDrafts({});
-    setExpandedCompetence(null);
     resetConstatExtras();
     setStep(wizardHasAxeStep ? 'axe' : 'competence');
   };
 
   const handleSameCompetenceOtherParticipants = () => {
     setSuccessState(null);
+    setSuccessShowAllProofs(false);
     setSelectedParticipants([]);
     setParticipantsSearchTerm('');
     setParticipantsExpanded(false);
@@ -805,7 +903,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     seriesTree,
   ]);
 
-  /** Competence names grouped under axe titles (P2.13). */
+  /** Competence names grouped under axe titles (flat fallback — soft skills etc.). */
   const competenceGroups = useMemo(() => {
     if (treeAxeOptions.length === 0 || selectedAxe) {
       return [{ title: selectedAxe || null, names: namesForCompetenceStep }];
@@ -822,6 +920,27 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
     if (orphan.length > 0) groups.push({ title: null, names: orphan });
     return groups;
   }, [treeAxeOptions, selectedAxe, namesForCompetenceStep]);
+
+  /**
+   * P2.13 reprise 1 — parent competence cards (C1…) with CPS-spécifique pastilles.
+   * Empty → fall back to flat competenceGroups (one card per badge name).
+   */
+  const parentCompetenceCards = useMemo(() => {
+    if (!treeHasCompetenceCards(seriesTree)) return [];
+    const nameSet = new Set(namesForCompetenceStep);
+    return treeCompetencesAsCards(seriesTree)
+      .map((card) => ({
+        ...card,
+        badgeNames: card.badgeNames.filter((n) => nameSet.has(n)),
+      }))
+      .filter((card) => {
+        if (card.badgeNames.length === 0) return false;
+        if (!selectedAxe) return true;
+        return card.axeTitle === selectedAxe;
+      });
+  }, [seriesTree, namesForCompetenceStep, selectedAxe]);
+
+  const useParentCompetenceCards = parentCompetenceCards.length > 0;
 
   const handleSubmit = async () => {
     if (selectedDraftList.length === 0) {
@@ -983,10 +1102,19 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
         }
       }
 
+      if (lastBadge) {
+        writeAttestLastSeries(state.user?.id, projectId, {
+          series,
+          catalog_key: lastBadge.catalog_key ?? null,
+          badge_series_id: lastBadge.badge_series_id ?? null,
+        });
+        setLastSeriesTag(series);
+      }
+
       showSuccessToast(
         assigned > 1
-          ? `${assigned} preuves de compétences produites — une par personne, portant les constats cochés.`
-          : `Preuve de compétences produite pour « ${lastBadge ? getBadgeDisplayName(lastBadge.name) : 'la compétence'} ».`
+          ? `${assigned} preuves de compétence produites — une par personne, portant les constats cochés.`
+          : `Preuve de compétence produite pour « ${lastBadge ? getBadgeDisplayName(lastBadge.name) : 'la compétence'} ».`
       );
 
       const selectedParticipant = participants.find((p) => p.memberId === selectedParticipants[0]);
@@ -1013,10 +1141,27 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
           dateAttribution: new Date().toISOString(),
         });
       }
+      const itemLabels =
+        lastBadge && pickedDraft
+          ? getBadgeCompetencies(lastBadge)
+              .filter((c) => pickedDraft.expertiseIds.includes(c.id))
+              .map((c) => getCompetencyDisplayName(c.name || String(c.id), false))
+          : [];
+      const observedAtLabel = new Date().toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+      setSuccessShowAllProofs(false);
       setSuccessState({
         count: assigned,
-        badgeName: lastBadge ? getBadgeDisplayName(lastBadge.name) : 'la compétence',
+        badgeName: lastBadge
+          ? formatBadgeHeadingWithCode(getBadgeDisplayName(lastBadge.name))
+          : 'la compétence',
         proofs: collectedProofs,
+        participantNames: selectedParticipantNames,
+        itemLabels,
+        observedAtLabel,
       });
     } catch (error: any) {
       const apiMessage = error.response?.data?.message || error.response?.data?.error;
@@ -1077,38 +1222,76 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               <div className="att-success-icon">✓</div>
               <div className="att-success-title">
                 {successState.count > 1
-                  ? `${successState.count} preuves de compétences produites`
-                  : 'Preuve de compétences produite'}
+                  ? `${successState.count} preuves de compétence produites`
+                  : 'Preuve de compétence produite'}
               </div>
               <p className="att-success-sub">
                 {successState.count > 1
                   ? `Une par personne, portant les constats cochés pour « ${successState.badgeName} ».`
                   : `Pour « ${successState.badgeName} ».`}
               </p>
-              {successState.proofs.length > 0 && (
-                <div className="att-success-proof" style={{ margin: '16px 0', textAlign: 'left' }}>
-                  {successState.proofs.map((proof, idx) => (
-                    <div
-                      key={proof.proofNumber || `proof-${idx}`}
-                      style={{ marginBottom: idx < successState.proofs.length - 1 ? 12 : 0 }}
-                    >
-                      <ProofCardCompact proof={proof} />
-                    </div>
-                  ))}
+              <div className="att-success-hero">
+                <div className="att-success-hero-card">
+                  <div className="att-success-hero-kicker">Preuve Kinship · Compétence</div>
+                  <div className="att-success-hero-title">{successState.badgeName}</div>
+                  <div className="att-success-hero-meta">
+                    {successState.participantNames[0] ||
+                      successState.proofs[0]?.holderName ||
+                      'Participant'}
+                    {successState.observedAtLabel
+                      ? ` · constaté le ${successState.observedAtLabel}`
+                      : ''}
+                  </div>
+                  {successState.itemLabels.length > 0 && (
+                    <ul className="att-success-hero-items">
+                      {successState.itemLabels.map((label) => (
+                        <li key={label}>{label}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-              )}
-              <div className="att-success-actions">
-                {!isIndividual && (
-                  <button type="button" className="att-success-btn" onClick={handleSameCompetenceOtherParticipants}>
-                    Même compétence, autres participants
+                {successState.count > 1 && !successShowAllProofs && (
+                  <button
+                    type="button"
+                    className="att-back-link att-success-more"
+                    onClick={() => setSuccessShowAllProofs(true)}
+                  >
+                    Et {successState.count - 1} autre{successState.count - 1 > 1 ? 's' : ''} — voir
+                    les {successState.count} preuves
                   </button>
                 )}
+                {successShowAllProofs && successState.proofs.length > 0 && (
+                  <div className="att-success-proof">
+                    {successState.proofs.map((proof, idx) => (
+                      <div
+                        key={proof.proofNumber || `proof-${idx}`}
+                        style={{ marginBottom: idx < successState.proofs.length - 1 ? 12 : 0 }}
+                      >
+                        <ProofCardCompact proof={proof} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="att-success-follow">
+                Un autre constat ? Les mêmes participants restent sélectionnés.
+              </p>
+              <div className="att-success-actions att-success-actions-row">
+                <button type="button" className="att-back-link" onClick={onClose}>
+                  Terminer — retour au projet
+                </button>
                 <button type="button" className="att-success-btn" onClick={handleOtherCompetence}>
                   Autre compétence
                 </button>
-                <button type="button" className="att-go" onClick={onClose}>
-                  Terminé
-                </button>
+                {!isIndividual && (
+                  <button
+                    type="button"
+                    className="att-go"
+                    onClick={handleSameCompetenceOtherParticipants}
+                  >
+                    Même compétence, autres participants
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1117,28 +1300,51 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               <div className="pt-2 att-qline">Dans quelle série ?</div>
               <p className="att-qhelp">Un constat, un ou plusieurs participants.</p>
               {loadingBadges && <p className="att-hint">Chargement…</p>}
-              <input
-                className="att-search"
-                placeholder="Rechercher dès la première lettre…"
-                value={seriesQuery}
-                onChange={(e) => setSeriesQuery(e.target.value)}
-              />
+              {(groupedSeries.own.length + groupedSeries.catalogue.length > 10 || seriesQuery) && (
+                <input
+                  className="att-search"
+                  placeholder="Rechercher…"
+                  value={seriesQuery}
+                  onChange={(e) => setSeriesQuery(e.target.value)}
+                />
+              )}
               {groupedSeries.own.length > 0 && <div className="att-grp">Vos séries</div>}
-              {groupedSeries.own.map((s) => (
-                <button key={s} type="button" className={`att-srow ${s === series ? 'sel' : ''}`} onClick={() => chooseSeries(s)}>
-                  {seriesLabel(s)}
-                  <span className="ct">{s === series ? '✓ choisie' : `${(badgesBySeries[s] || []).length}`}</span>
-                </button>
-              ))}
+              {groupedSeries.own.length > 0 && (
+                <div className="att-axe-filters" role="list">
+                  {groupedSeries.own.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`att-axe-chip ${s === series ? 'on' : ''}`}
+                      onClick={() => chooseSeries(s)}
+                    >
+                      {seriesLabel(s)}
+                      {lastSeriesTag === s && (
+                        <span className="att-pill-tag"> · dernière utilisée</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Distribuées : groupe vide masqué (Patrick reprise 3) — series_owner BE */}
               {groupedSeries.catalogue.length > 0 && <div className="att-grp">Catalogue Kinship</div>}
-              {groupedSeries.catalogue.map((s) => (
-                <button key={s} type="button" className={`att-srow ${s === series ? 'sel' : ''}`} onClick={() => chooseSeries(s)}>
-                  {seriesLabel(s)}
-                  <span className="ct">{s === series ? '✓ choisie' : `${(badgesBySeries[s] || []).length}`}</span>
-                </button>
-              ))}
-              <div className="att-grp">Distribuées par vos autorités</div>
-              <p className="att-hint">— apparaissent quand votre structure en reçoit.</p>
+              {groupedSeries.catalogue.length > 0 && (
+                <div className="att-axe-filters" role="list">
+                  {groupedSeries.catalogue.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`att-axe-chip ${s === series ? 'on' : ''}`}
+                      onClick={() => chooseSeries(s)}
+                    >
+                      {seriesLabel(s)}
+                      {lastSeriesTag === s && (
+                        <span className="att-pill-tag"> · dernière utilisée</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -1159,7 +1365,6 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                     onClick={() => {
                       setSelectedAxe(axe.title);
                       setDrafts({});
-                      setExpandedCompetence(null);
                       setStep('competence');
                     }}
                   >
@@ -1201,8 +1406,8 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               <div className="att-grp">{seriesLabel(series)}</div>
               <div className="att-qline">Qu’avez-vous observé ?</div>
               <p className="att-qhelp">
-                Toutes les compétences de la série — les axes en titres
-                {treeAxeOptions.length > 0 ? ' ; filtrez si besoin' : ''}.
+                Un clic sur une pastille choisit la compétence et passe à l’étape suivante
+                {treeAxeOptions.length > 0 ? ' — filtrez par axe si besoin' : ''}.
               </p>
               {treeAxeOptions.length > 0 && (
                 <div className="att-axe-filters" role="group" aria-label="Filtrer par axe">
@@ -1225,105 +1430,141 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                   ))}
                 </div>
               )}
-              {competenceGroups.map((group) => (
-                <React.Fragment key={group.title || '__all__'}>
-                  {group.title && <div className="att-grp">{group.title}</div>}
-                  {group.names.map((name) => {
-                    const draft = drafts[name];
-                    const picked = Boolean(draft);
-                    const levels = levelsFor(name);
-                    const level = draft?.level || levels[0] || '1';
-                    const badge = badgeFor(name, level);
-                    const comps = badge ? getBadgeCompetencies(badge) : [];
-                    const isExpanded = expandedCompetence === name;
-                    const cardClass = isExpanded
-                      ? 'att-card open'
-                      : picked
-                        ? 'att-card valid'
-                        : 'att-card';
-                    return (
-                      <div key={name} className={cardClass}>
-                        <button
-                          type="button"
-                          className="att-crow"
-                          style={{ border: 0, padding: 0, width: '100%' }}
-                          onClick={() => {
-                            if (!picked) selectCompetence(name, levels[0] || '1');
-                            setExpandedCompetence(isExpanded ? null : name);
-                          }}
-                        >
-                          <span className="att-avatar" aria-hidden="true">
-                            {getBadgeDisplayName(name).trim().charAt(0)}
-                          </span>
-                          <span>{getBadgeDisplayName(name)}</span>
-                          {picked && !isExpanded && (
-                            <span className="att-ok">
-                              {getLevelLabel(series, level)}
-                              {comps.length > 0
-                                ? ` · ${draft!.expertiseIds.length}/${comps.length}`
-                                : ''}
-                            </span>
-                          )}
-                          <span className="att-chev">{isExpanded ? '▾' : '▸'}</span>
-                        </button>
-                        {isExpanded && (
-                          <div className="att-subs">
-                            {levels.length > 1 && (
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  gap: 6,
-                                  flexWrap: 'wrap',
-                                  marginBottom: comps.length > 0 ? 8 : 0,
-                                }}
-                              >
-                                {levels.map((lv) => (
-                                  <button
-                                    key={lv}
-                                    type="button"
-                                    className={`att-lv ${level === lv ? 'on' : ''}`}
-                                    onClick={() => selectCompetence(name, lv)}
-                                  >
-                                    {getLevelLabel(series, lv)}
-                                  </button>
-                                ))}
+              {useParentCompetenceCards
+                ? (() => {
+                    const byAxe = new Map<string | null, typeof parentCompetenceCards>();
+                    parentCompetenceCards.forEach((card) => {
+                      const k = selectedAxe ? null : card.axeTitle;
+                      const list = byAxe.get(k) || [];
+                      list.push(card);
+                      byAxe.set(k, list);
+                    });
+                    return Array.from(byAxe.entries()).map(([axeTitle, cards]) => (
+                      <React.Fragment key={axeTitle || '__all__'}>
+                        {axeTitle && <div className="att-grp">{axeTitle}</div>}
+                        {cards.map((card) => {
+                          const sampleName = card.badgeNames[0];
+                          const cpsIcon = getCpsLocalBadgeImage(sampleName);
+                          const phaseNum = phaseNumberFromCpsCompetenceCode(card.code);
+                          const phaseHint = phaseNum
+                            ? getLevelLabel(CATALOG_KEY_CPS, phaseNum)
+                            : null;
+                          const title = card.code
+                            ? `${card.code} · ${card.name}`
+                            : card.name;
+                          const anyPicked = card.badgeNames.some((n) => Boolean(drafts[n]));
+                          return (
+                            <div
+                              key={card.key}
+                              className={
+                                anyPicked
+                                  ? 'att-card valid att-card-pastille'
+                                  : 'att-card att-card-pastille'
+                              }
+                            >
+                              <div className="att-crow" style={{ border: 0, padding: 0, width: '100%' }}>
+                                <span className="att-avatar" aria-hidden="true">
+                                  {cpsIcon ? (
+                                    <img src={cpsIcon} alt="" width={28} height={28} />
+                                  ) : (
+                                    (card.code || card.name).trim().charAt(0)
+                                  )}
+                                </span>
+                                <span className="att-card-meta">
+                                  <span className="att-card-title">{title}</span>
+                                  {phaseHint && (
+                                    <span className="att-card-phase">{phaseHint}</span>
+                                  )}
+                                </span>
                               </div>
-                            )}
-                            {comps.length > 0 ? (
-                              <ChecklistItems
-                                comps={comps}
-                                checkedIds={draft?.expertiseIds || []}
-                                series={badge!.series}
-                                onToggle={(id) =>
-                                  toggleExpertise(
-                                    name,
-                                    id,
-                                    isSingleSelectCompetenceSeries(
-                                      badge!.series,
-                                      badge!.catalog_key
-                                    )
-                                  )
-                                }
-                                onToggleAll={() =>
-                                  toggleAllExpertise(
-                                    name,
-                                    comps.map((c) => c.id),
-                                    draft?.expertiseIds || []
-                                  )
-                                }
-                              />
-                            ) : (
-                              <p className="att-hint">
-                                Rien à cocher pour cette compétence — la sélection suffit.
-                              </p>
-                            )}
+                              <div className="att-axe-filters att-level-pills" role="group">
+                                {sortBadgeNamesBySpfCode(card.badgeNames).map((name) => {
+                                  const levels = levelsFor(name);
+                                  const lv = drafts[name]?.level || levels[0] || '1';
+                                  const on = Boolean(drafts[name]);
+                                  return (
+                                    <button
+                                      key={name}
+                                      type="button"
+                                      className={`att-axe-chip att-pastille-long ${on ? 'on' : ''}`}
+                                      onClick={() => pickCompetenceAndAdvance(name, lv)}
+                                    >
+                                      {cpsPastilleLabelFromBadgeName(getBadgeDisplayName(name))}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </React.Fragment>
+                    ));
+                  })()
+                : competenceGroups.map((group) => (
+                    <React.Fragment key={group.title || '__all__'}>
+                      {group.title && <div className="att-grp">{group.title}</div>}
+                      {group.names.map((name) => {
+                        const draft = drafts[name];
+                        const picked = Boolean(draft);
+                        const levels = levelsFor(name);
+                        const sampleBadge = badgeFor(name, levels[0] || '1');
+                        const cpsIcon = getCpsLocalBadgeImage(name);
+                        const labelSeries =
+                          sampleBadge?.catalog_key || sampleBadge?.series || series;
+                        const phaseHint =
+                          sampleBadge &&
+                          (isCompetencesPsychosocialesSeries(sampleBadge.series) ||
+                            sampleBadge.catalog_key === CATALOG_KEY_CPS)
+                            ? getLevelLabel(labelSeries, levels[0] || '1')
+                            : levels.length === 1
+                              ? getLevelLabel(labelSeries, levels[0])
+                              : null;
+                        return (
+                          <div
+                            key={name}
+                            className={
+                              picked
+                                ? 'att-card valid att-card-pastille'
+                                : 'att-card att-card-pastille'
+                            }
+                          >
+                            <div
+                              className="att-crow"
+                              style={{ border: 0, padding: 0, width: '100%' }}
+                            >
+                              <span className="att-avatar" aria-hidden="true">
+                                {cpsIcon ? (
+                                  <img src={cpsIcon} alt="" width={28} height={28} />
+                                ) : (
+                                  getBadgeDisplayName(name).trim().charAt(0)
+                                )}
+                              </span>
+                              <span className="att-card-meta">
+                                <span className="att-card-title">
+                                  {getBadgeDisplayName(name)}
+                                </span>
+                                {phaseHint && (
+                                  <span className="att-card-phase">{phaseHint}</span>
+                                )}
+                              </span>
+                            </div>
+                            <div className="att-axe-filters att-level-pills" role="group">
+                              {levels.map((lv) => (
+                                <button
+                                  key={lv}
+                                  type="button"
+                                  className={`att-axe-chip ${draft?.level === lv ? 'on' : ''}`}
+                                  onClick={() => pickCompetenceAndAdvance(name, lv)}
+                                >
+                                  {getLevelLabel(labelSeries, lv)}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
               {!showAllCompetences &&
                 treeAxeOptions.length === 0 &&
                 competenceNames.filter((n) => !frozenNames.has(n)).length >
@@ -1342,28 +1583,23 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                   <button type="button" className="att-back-link" onClick={goBack}>
                     Retour
                   </button>
-                  {pickedName ? `${getBadgeDisplayName(pickedName)} · ${getLevelLabel(series, pickedDraft?.level || '1')}` : 'Choisissez une compétence'}
+                  <span className="att-navhint">un clic sur une pastille passe à l’étape suivante</span>
                 </div>
-                <button
-                  type="button"
-                  className="att-go"
-                  disabled={!canContinueFromCompetence}
-                  onClick={() => setStep(isIndividual ? 'constat' : 'participants')}
-                >
-                  Continuer
-                </button>
               </div>
             </>
           )}
 
           {!successState && step === 'participants' && !isIndividual && (
             <>
-              <div className="att-grp">{pickedName ? getBadgeDisplayName(pickedName) : ''}</div>
+              <div className="att-grp">
+                {pickedName ? formatBadgeHeadingWithCode(getBadgeDisplayName(pickedName)) : ''}
+              </div>
               <div className="att-qline">Qui avez-vous observé ?</div>
               <p className="att-qhelp">Sélectionner les participants.</p>
               <div className="att-slab-row">
                 <div className="att-slab">
-                  Les participants du projet <span className="n">— {participants.length}</span>
+                  Participants du projet{' '}
+                  <span className="n">— {attestParticipants.length}</span>
                 </div>
                 <button type="button" className="att-tout-cocher" onClick={selectAllParticipants}>
                   Tout sélectionner
@@ -1371,7 +1607,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               </div>
               <input
                 className="att-search"
-                placeholder="Rechercher dès la première lettre"
+                placeholder="Rechercher…"
                 value={participantsSearchTerm}
                 onChange={(e) => setParticipantsSearchTerm(e.target.value)}
               />
@@ -1426,22 +1662,20 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
           {!successState && step === 'constat' && pickedName && pickedDraft && (
             <>
               <div className="att-grp">
-                {getBadgeDisplayName(pickedName)} · {getLevelLabel(series, pickedDraft.level)}
-                {pickedComps.length > 0 ? ` · ${pickedDraft.expertiseIds.length}/${pickedComps.length} coché${pickedDraft.expertiseIds.length > 1 ? 's' : ''}` : ''}
+                {formatBadgeHeadingWithCode(getBadgeDisplayName(pickedName))} ·{' '}
+                {levelLabelFor(pickedDraft.level, pickedName)}
+                {pickedComps.length > 0
+                  ? ` · ${pickedDraft.expertiseIds.length}/${pickedComps.length} coché${pickedDraft.expertiseIds.length > 1 ? 's' : ''}`
+                  : ''}
               </div>
 
               {pickedBadge &&
                 isIndividual &&
-                (commentRequiredFor(pickedBadge) ||
-                  documentRequiredFor(pickedBadge) ||
-                  pickedBadge.level === 'level_1' ||
-                  pickedBadge.level === 'level_2') && (
+                (commentRequiredFor(pickedBadge) || documentRequiredFor(pickedBadge)) && (
                   <div className="att-doctrine">
-                    {pickedBadge.level === 'level_1'
-                      ? `${getLevelLabel(series, '1')} — commentaire et document optionnels`
-                      : commentRequiredFor(pickedBadge)
-                        ? `Commentaire obligatoire ✱${pickedBadge.level === 'level_2' ? ' · document fortement conseillé' : documentRequiredFor(pickedBadge) ? ' · document obligatoire' : ''}`
-                        : 'Commentaire et document optionnels'}
+                    {commentRequiredFor(pickedBadge)
+                      ? `Commentaire obligatoire ✱${pickedBadge.level === 'level_2' ? ' · document fortement conseillé' : documentRequiredFor(pickedBadge) ? ' · document obligatoire' : ''}`
+                      : 'Commentaire et document optionnels'}
                   </div>
                 )}
 
@@ -1452,30 +1686,31 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
               )}
 
               {isIndividual ? (
-                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                  <input
-                    className="att-search"
-                    style={{ margin: 0, flex: 1, minWidth: 140 }}
-                    placeholder={pickedBadge && commentRequiredFor(pickedBadge) ? 'Commentaire ✱' : 'Commentaire (optionnel)'}
-                    value={pickedDraft.comment}
-                    onChange={(e) =>
-                      setDrafts((prev) => ({ ...prev, [pickedName]: { ...prev[pickedName], comment: e.target.value } }))
-                    }
-                  />
-                  <label className="att-attach">
-                    {pickedDraft.fileName || 'Joindre un document'}
-                    <input
-                      type="file"
-                      hidden
-                      accept=".pdf,.jpg,.jpeg,.png,.mp4,.mov,.doc,.docx,.mp3"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setDrafts((prev) => ({ ...prev, [pickedName]: { ...prev[pickedName], file, fileName: file.name } }));
-                      }}
+                <>
+                  {pickedComps.length > 0 && pickedBadge ? (
+                    <ChecklistItems
+                      comps={pickedComps}
+                      checkedIds={pickedDraft.expertiseIds}
+                      series={pickedBadge.catalog_key || pickedBadge.series}
+                      onToggle={(id) =>
+                        toggleExpertise(
+                          pickedName,
+                          id,
+                          isSingleSelectCompetenceSeries(pickedBadge.series, pickedBadge.catalog_key)
+                        )
+                      }
+                      onToggleAll={() =>
+                        toggleAllExpertise(
+                          pickedName,
+                          pickedComps.map((c) => c.id),
+                          pickedDraft.expertiseIds
+                        )
+                      }
                     />
-                  </label>
-                </div>
+                  ) : (
+                    <p className="att-hint">Rien à cocher pour cette compétence — la sélection suffit.</p>
+                  )}
+                </>
               ) : (
                 <>
                   <div className="att-slab-row">
@@ -1626,48 +1861,98 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                 </div>
               )}
 
-              {!isIndividual && (
-                <>
-                  <div className="att-facultatif-title">Facultatif — rien n’est exigé</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                    {!massNeedsDoc && !proofFieldOpen && (
-                      <button type="button" className="att-attach" onClick={() => setProofFieldOpen(true)}>
-                        + Preuve ou objet
-                      </button>
+              {(() => {
+                const needsDoc = isIndividual
+                  ? Boolean(pickedBadge && documentRequiredFor(pickedBadge))
+                  : massNeedsDoc;
+                const needsComment = isIndividual
+                  ? Boolean(pickedBadge && commentRequiredFor(pickedBadge))
+                  : massNeedsComment;
+                const showFacultatifTitle = !needsDoc && !needsComment;
+                const fileLabel = isIndividual
+                  ? pickedDraft?.fileName || 'Joindre un document'
+                  : fileName || 'Joindre un document';
+                const commentValue = isIndividual ? pickedDraft?.comment || '' : commentaire;
+                return (
+                  <>
+                    {showFacultatifTitle && (
+                      <div className="att-facultatif-title">Facultatif — rien n’est exigé</div>
                     )}
-                    {(massNeedsDoc || proofFieldOpen) && (
-                      <label className="att-attach">
-                        {fileName || 'Joindre un document'}
-                        <input
-                          type="file"
-                          hidden
-                          accept=".pdf,.jpg,.jpeg,.png,.mp4,.mov,.doc,.docx,.mp3"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            setFichier(file);
-                            setFileName(file.name);
-                          }}
-                        />
-                      </label>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                      {!needsDoc && !proofFieldOpen && (
+                        <button
+                          type="button"
+                          className="att-attach"
+                          onClick={() => setProofFieldOpen(true)}
+                        >
+                          + Preuve ou objet
+                        </button>
+                      )}
+                      {(needsDoc || proofFieldOpen) && (
+                        <label className="att-attach">
+                          {fileLabel}
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.jpg,.jpeg,.png,.mp4,.mov,.doc,.docx,.mp3"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              if (isIndividual && pickedName) {
+                                setDrafts((prev) => ({
+                                  ...prev,
+                                  [pickedName]: {
+                                    ...prev[pickedName],
+                                    file,
+                                    fileName: file.name,
+                                  },
+                                }));
+                              } else {
+                                setFichier(file);
+                                setFileName(file.name);
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                      {!needsComment && !commentFieldOpen && (
+                        <button
+                          type="button"
+                          className="att-attach"
+                          onClick={() => setCommentFieldOpen(true)}
+                        >
+                          + Commentaire
+                        </button>
+                      )}
+                    </div>
+                    {(needsComment || commentFieldOpen) && (
+                      <textarea
+                        className="att-comment"
+                        style={{ marginTop: 8 }}
+                        placeholder={
+                          isIndividual
+                            ? needsComment
+                              ? 'Commentaire ✱'
+                              : 'Commentaire (optionnel)'
+                            : 'Il vaut pour tous les participants cochés — il justifie l’attestation commune.'
+                        }
+                        value={commentValue}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (isIndividual && pickedName) {
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [pickedName]: { ...prev[pickedName], comment: v },
+                            }));
+                          } else {
+                            setCommentaire(v);
+                          }
+                        }}
+                      />
                     )}
-                    {!massNeedsComment && !commentFieldOpen && (
-                      <button type="button" className="att-attach" onClick={() => setCommentFieldOpen(true)}>
-                        + Commentaire
-                      </button>
-                    )}
-                  </div>
-                  {(massNeedsComment || commentFieldOpen) && (
-                    <textarea
-                      className="att-comment"
-                      style={{ marginTop: 8 }}
-                      placeholder="Il vaut pour tous les participants cochés — il justifie l’attestation commune."
-                      value={commentaire}
-                      onChange={(e) => setCommentaire(e.target.value)}
-                    />
-                  )}
-                </>
-              )}
+                  </>
+                );
+              })()}
 
               <div className="att-bottombar">
                 <div className="att-recap">
@@ -1676,28 +1961,49 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                   </button>
                   {isIndividual ? (
                     <>
-                      <b>Un geste — une preuve par compétence, pour elle</b>
-                      {proofCount > 0 ? ` — ici : ${proofCount} preuve${proofCount > 1 ? 's' : ''}.` : '.'}
+                      <b>Un geste — une preuve de compétence</b>
+                      {proofCount > 0 ? ` — ici : ${proofCount}.` : '.'}
                     </>
                   ) : constatMode === 'individuel' ? (
                     <>
-                      {selectedParticipants.length} participant{selectedParticipants.length > 1 ? 's' : ''} —{' '}
-                      {proofCount} preuve{proofCount > 1 ? 's' : ''} de compétences, chacune avec ses propres constats.
+                      {selectedParticipants.length} participant
+                      {selectedParticipants.length > 1 ? 's' : ''} —{' '}
+                      {proofCount} preuve{proofCount > 1 ? 's' : ''} de compétence, chacune avec
+                      ses propres constats.
                     </>
                   ) : (
                     <>
-                      {selectedParticipants.length} participant{selectedParticipants.length > 1 ? 's' : ''} —{' '}
-                      {proofCount} preuve{proofCount > 1 ? 's' : ''} de compétences
+                      {selectedParticipants.length} participant
+                      {selectedParticipants.length > 1 ? 's' : ''} —{' '}
+                      {proofCount} preuve{proofCount > 1 ? 's' : ''} de compétence
                       {pickedDraft.expertiseIds.length > 0
                         ? `, chacune portant ${pickedDraft.expertiseIds.length > 1 ? 'les' : 'le'} ${pickedDraft.expertiseIds.length} constat${pickedDraft.expertiseIds.length > 1 ? 's' : ''}.`
                         : '.'}
                     </>
                   )}
                 </div>
-                <button type="button" className="att-go" onClick={() => setConfirmOpen(true)} disabled={submitting}>
+                <button
+                  type="button"
+                  className={`att-go ${attestArmed ? 'att-go-confirm' : ''}`}
+                  disabled={submitting || !canAttest}
+                  onClick={() => {
+                    if (!canAttest) return;
+                    if (!attestArmed) {
+                      setAttestArmed(true);
+                      return;
+                    }
+                    void handleSubmit();
+                  }}
+                >
                   {submitting
                     ? 'Attestation…'
-                    : `Attester${!isIndividual && selectedParticipants.length > 0 ? ` — ${selectedParticipants.length} participant${selectedParticipants.length > 1 ? 's' : ''}` : ''}`}
+                    : attestArmed
+                      ? isIndividual
+                        ? 'Confirmer · c’est définitif'
+                        : `Confirmer — ${selectedParticipants.length} participant${selectedParticipants.length > 1 ? 's' : ''} · c’est définitif`
+                      : isIndividual
+                        ? 'Attester'
+                        : `Attester — ${selectedParticipants.length} participant${selectedParticipants.length > 1 ? 's' : ''}`}
                 </button>
               </div>
             </>
@@ -1705,83 +2011,6 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
         </div>
       </div>
     </div>
-
-    {confirmOpen && pickedName && pickedDraft && (
-      <div className="att-confirm-overlay" onClick={() => setConfirmOpen(false)}>
-        <div className="att-confirm-card" onClick={(e) => e.stopPropagation()}>
-          <h3 className="att-confirm-title">Attester ces constats ?</h3>
-          <p className="att-confirm-sub">
-            Vous allez produire <b>{proofCount} preuve{proofCount > 1 ? 's' : ''} de compétences</b>
-            {isIndividual
-              ? ''
-              : constatMode === 'individuel'
-                ? ' — une par participant, avec ses propres constats'
-                : ' — une par participant, portant les constats cochés'}
-            .
-          </p>
-          <div className="att-confirm-recap">
-            <div>
-              <b>Compétence</b> {getBadgeDisplayName(pickedName)} · {getLevelLabel(series, pickedDraft.level)}
-            </div>
-            {!isIndividual && constatMode === 'individuel' ? (
-              selectedParticipants.map((pid) => {
-                const p = participants.find((pp) => pp.memberId === pid);
-                const d = individualDrafts[pid];
-                const names =
-                  pickedComps
-                    .filter((c) => d?.expertiseIds.includes(c.id))
-                    .map((c) => getCompetencyDisplayName(c.name, false))
-                    .join(' · ') || '—';
-                return (
-                  <div key={pid}>
-                    <b>{p ? chipName(p.name) : pid}</b> {names}
-                  </div>
-                );
-              })
-            ) : (
-              <div>
-                <b>Constats</b>{' '}
-                {pickedComps
-                  .filter((c) => pickedDraft.expertiseIds.includes(c.id))
-                  .map((c) => getCompetencyDisplayName(c.name, false))
-                  .join(' · ') || '—'}
-              </div>
-            )}
-            {!(!isIndividual && constatMode === 'individuel') && (
-              <div>
-                <b>Participants</b> {isIndividual ? preselectedPerson?.name || 'Participant' : selectedParticipantNames.join(', ')}
-              </div>
-            )}
-            <div>
-              {/* V1.2 (28/09, mail Patrick) : "Constaté pendant" au lieu de "Selon" — récap écran 6. */}
-              <b>Constaté pendant</b>{' '}
-              {selon === 'event' && eventId
-                ? `un événement « ${projectEvents.find((e) => e.id === eventId)?.title || ''} »`
-                : `le projet « ${projectTitle || 'Projet'} »`}
-            </div>
-          </div>
-          <div className="att-confirm-warn">
-            C&apos;est définitif. Une preuve produite ne se modifie pas et ne se retire pas.
-          </div>
-          <div className="att-confirm-actions">
-            <button type="button" className="att-confirm-cancel" onClick={() => setConfirmOpen(false)}>
-              Annuler
-            </button>
-            <button
-              type="button"
-              className="att-go"
-              onClick={() => {
-                setConfirmOpen(false);
-                void handleSubmit();
-              }}
-              disabled={submitting}
-            >
-              {submitting ? 'Attestation…' : 'Attester'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
 
     {closeConfirmOpen && (
       <div className="att-confirm-overlay" onClick={() => setCloseConfirmOpen(false)}>
