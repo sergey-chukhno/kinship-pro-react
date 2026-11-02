@@ -94,6 +94,42 @@ describe('formationCatalogMapper', () => {
     process.env.REACT_APP_DB_BASE_URL = prev;
   });
 
+  it('maps 14 §2ter certification snapshot (european_level + certifiers) for LU AU REGISTRE', () => {
+    const fiche = entryToFiche(
+      {
+        id: '7ec3510b-7d77-4b41-8887-7cc931fe29fb',
+        status: 'listed',
+        title: 'Journaliste — formation complète (RNCP40281)',
+        targeted_certification_code: 'RNCP40281',
+        targeted_certification_snapshot: {
+          registry: 'RNCP',
+          code: 'RNCP40281',
+          title: 'Journaliste',
+          european_level: 6,
+          eqf_level: null,
+          active: true,
+          certifiers: [{ siret: '12345678901234', name: 'C.F.P.J' }],
+          partners: [{ siret: '999', name: 'Partner' }],
+          role_of_primary_organization: 'none',
+          blocks: [
+            { code: 'RNCP40281BC01', title: 'B1' },
+            { code: 'RNCP40281BC02', title: 'B2' },
+            { code: 'RNCP40281BC03', title: 'B3' },
+            { code: 'RNCP40281BC04', title: 'B4' },
+          ],
+          read_at: '2026-11-02T10:47:22Z',
+        },
+      },
+      org
+    );
+    expect(fiche.certificationRegistry).toEqual({
+      label: 'Journaliste',
+      level: '6',
+      certificateur: 'C.F.P.J',
+      blocks: 4,
+    });
+  });
+
   it('humanizes import issue codes', () => {
     expect(
       humanizeImportIssues([
@@ -103,6 +139,7 @@ describe('formationCatalogMapper', () => {
       ])
     ).toBe('la description manque · le programme manque · pas de titre');
   });
+
 
   it('maps fiche payload enums to BE', () => {
     const fiche: FormationFiche = {

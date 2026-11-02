@@ -240,8 +240,22 @@ function mapCertificationSnapshot(
   if (!snap || typeof snap !== 'object') return null;
   const label =
     snap.label || snap.intitule || snap.title || snap.official_title || snap.name || '';
-  const level = String(snap.eqf_level || snap.level || snap.niveau || '');
-  const certificateur = snap.certificateur || snap.certificate_authority || snap.organism || '';
+  // 14 §2ter / 62bis — BE writes european_level + certifiers[]; eqf_level may be null (role none).
+  const levelRaw =
+    snap.european_level ?? snap.eqf_level ?? snap.level ?? snap.niveau ?? '';
+  const level = levelRaw === '' || levelRaw == null ? '' : String(levelRaw);
+  const fromCertifiers = Array.isArray(snap.certifiers)
+    ? snap.certifiers
+        .map((c: { name?: string } | null) => (c && c.name ? String(c.name).trim() : ''))
+        .filter(Boolean)
+        .join(', ')
+    : '';
+  const certificateur =
+    fromCertifiers ||
+    snap.certificateur ||
+    snap.certificate_authority ||
+    snap.organism ||
+    '';
   const blocks = Array.isArray(snap.blocks) ? snap.blocks.length : Number(snap.blocks) || 0;
   if (!label && !level) return null;
   return { label: String(label), level, certificateur: String(certificateur), blocks };
