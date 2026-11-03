@@ -94,6 +94,23 @@ describe('formationCatalogMapper', () => {
     process.env.REACT_APP_DB_BASE_URL = prev;
   });
 
+  it('uses primary_organization_name from BE when orgHint is absent (no Company #id fallback)', () => {
+    const fiche = entryToFiche(
+      {
+        id: 'uuid-org-name',
+        status: 'listed',
+        title: 'Journaliste — formation complète',
+        primary_organization_type: 'Company',
+        primary_organization_id: 19,
+        primary_organization_name: 'CFPJ',
+      },
+      null
+    );
+    expect(fiche.orgName).toBe('CFPJ');
+    expect(fiche.schoolLabel).toBe('CFPJ');
+    expect(fiche.orgName).not.toMatch(/Company #\d+/);
+  });
+
   it('maps 14 §2ter certification snapshot (european_level + certifiers) for LU AU REGISTRE', () => {
     const fiche = entryToFiche(
       {

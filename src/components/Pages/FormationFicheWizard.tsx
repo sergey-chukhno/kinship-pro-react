@@ -187,8 +187,10 @@ const FormationFicheWizard: React.FC = () => {
     let cancelled = false;
     (async () => {
       if (id) {
+        // Pass org so card header uses real name (and BE primary_organization_name as backup).
+        if (!org) return;
         try {
-          const existing = await getCatalogueFiche(id);
+          const existing = await getCatalogueFiche(id, org);
           if (!cancelled && existing) {
             setFiche(existing);
             setEuMcChoice(existing.euMc);
