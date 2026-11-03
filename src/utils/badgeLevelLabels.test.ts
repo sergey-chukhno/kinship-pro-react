@@ -28,4 +28,9 @@ describe('getLevelLabel Compétences psychosociales', () => {
     expect(getLevelLabel(PSYCHOSOCIALES_SERIES, '1')).toBe('Phase 1');
     expect(getLevelLabel(PSYCHOSOCIALES_SERIES, '2')).toBe('Phase 2');
   });
+
+  it('accepts catalog_key and seriesGroupKey key: prefix (Attest modal)', () => {
+    expect(getLevelLabel('competences_psychosociales', '1')).toBe('Phase 1');
+    expect(getLevelLabel('key:competences_psychosociales', '2')).toBe('Phase 2');
+  });
 });

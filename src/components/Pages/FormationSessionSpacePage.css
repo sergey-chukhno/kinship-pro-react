@@ -1,0 +1,472 @@
+@import '../../styles/formationSessionTokens.css';
+
+.fss {
+  min-height: 100%;
+  background: var(--fs-page);
+  padding: 16px 20px 48px;
+  color: var(--fs-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.fss-shell {
+  max-width: 560px;
+  background: var(--fs-screen);
+  border: 1px solid var(--fs-line2);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.fss-crumb {
+  font-size: 12px;
+  color: var(--fs-muted2);
+  margin-bottom: 10px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.fss-crumb button {
+  border: none;
+  background: none;
+  color: var(--fs-petrol);
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.fss-hero {
+  background: var(--fs-petrol);
+  color: #fff;
+  padding: 16px 18px 14px;
+}
+
+.fss-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.fss-hchip {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.fss-hchip.venir {
+  background: var(--fs-venir-bg);
+  color: var(--fs-venir);
+  border-color: transparent;
+}
+
+.fss-hchip.cours {
+  background: var(--fs-cours-bg);
+  color: var(--fs-cours);
+  border-color: transparent;
+}
+
+.fss-hero h1 {
+  margin: 0 0 8px;
+  font-size: 15.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.fss-drow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font-size: 11px;
+}
+
+.fss-hcert {
+  background: #fff;
+  color: var(--fs-petrol);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.fss-seeaff {
+  margin-left: auto;
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  background: transparent;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.fss-hnote {
+  margin-top: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.fss-mtabs {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid var(--fs-line);
+}
+
+.fss-mtabs button {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 11px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fs-muted2);
+  cursor: pointer;
+  font-family: inherit;
+  border-bottom: 2.5px solid transparent;
+}
+
+.fss-mtabs button.on {
+  color: var(--fs-petrol);
+  border-bottom-color: var(--fs-petrol);
+}
+
+.fss-body {
+  padding: 14px 18px 18px;
+}
+
+.fss-recap {
+  background: #fff;
+  border: 1px solid var(--fs-line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 9px;
+}
+
+.fss-recap-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--fs-petrol);
+  margin-bottom: 8px;
+}
+
+.fss-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f1efe9;
+  font-size: 11.5px;
+}
+
+.fss-row:last-child {
+  border-bottom: none;
+}
+
+.fss-row .k {
+  color: var(--fs-muted2);
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.fss-row .v {
+  flex: 1;
+  font-weight: 600;
+}
+
+.fss-row .edit {
+  border: none;
+  background: none;
+  color: var(--fs-petrol);
+  font-weight: 700;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.fss-hint {
+  font-size: 10.5px;
+  color: var(--fs-muted2);
+  margin: 8px 0 0;
+}
+
+.fss-viewrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 11px;
+}
+
+.fss-tog {
+  display: inline-flex;
+  border: 1.5px solid var(--fs-petrol);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.fss-tog button {
+  border: none;
+  background: #fff;
+  color: var(--fs-petrol);
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.fss-tog button.on {
+  background: var(--fs-petrol);
+  color: #fff;
+}
+
+.fss-sec {
+  background: #fff;
+  border: 1px solid var(--fs-line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 9px;
+}
+
+.fss-sec h4 {
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--fs-petrol);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fss-add {
+  border: 1px solid var(--fs-petrol);
+  background: #fff;
+  color: var(--fs-petrol);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  text-transform: none;
+}
+
+.fss-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fss-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1efe9;
+  font-size: 11.5px;
+}
+
+.fss-list li:last-child {
+  border-bottom: none;
+}
+
+.fss-list .st {
+  color: var(--fs-petrol);
+  font-weight: 700;
+  font-size: 10.5px;
+  text-align: right;
+}
+
+.fss-sub {
+  font-size: 10.5px;
+  color: var(--fs-muted2);
+  margin: 8px 0 0;
+  line-height: 1.4;
+}
+
+.fss-link {
+  border: none;
+  background: none;
+  color: var(--fs-petrol);
+  font-weight: 800;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.fss-ropts {
+  display: flex;
+  gap: 6px;
+}
+
+.fss-ropt {
+  border: 1.5px solid var(--fs-input);
+  background: #fff;
+  border-radius: 9px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.fss-ropt.sel {
+  border-color: var(--fs-petrol);
+  background: var(--fs-petrol-soft);
+  color: var(--fs-petrol);
+}
+
+.fss-lockl {
+  font-size: 10.5px;
+  color: var(--fs-muted);
+  margin: 8px 0;
+  line-height: 1.4;
+}
+
+.fss-jury {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.fss-jury input {
+  border: 1px solid var(--fs-input);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.fss-foot {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.fss-btn {
+  border-radius: 9px;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1.5px solid transparent;
+}
+
+.fss-btn.p {
+  background: var(--fs-petrol);
+  color: #fff;
+}
+
+.fss-btn.s {
+  background: #fff;
+  border-color: var(--fs-petrol);
+  color: var(--fs-petrol);
+}
+
+.fss-btn.g {
+  background: #fff;
+  border-color: #b9b6ac;
+  color: var(--fs-muted);
+}
+
+.fss-err {
+  background: var(--fs-danger-bg);
+  border-left: 4px solid var(--fs-danger);
+  color: #7a2a20;
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.fss-banner {
+  background: #eef2f8;
+  border: 1px solid #c9d2e4;
+  color: #33518e;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
+.fss-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(233, 230, 223, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  padding: 16px;
+}
+
+.fss-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  max-width: 420px;
+  width: 100%;
+  border: 1px solid var(--fs-line2);
+}
+
+.fss-modal h2 {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+}
+
+.fss-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.fss-modal input {
+  border: 1px solid var(--fs-input);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.fss-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fss-vis {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--fs-petrol-soft);
+  color: var(--fs-petrol);
+}

@@ -31,21 +31,30 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     return getSoftSkillsLabel(levelNumber);
   }
 
+  // Attest modal series keys may be `key:catalog_key` (seriesGroupKey).
+  const normalized = series.startsWith('key:') ? series.slice(4) : series;
+
   // Accept catalog_key or display name (R1)
-  if (series === 'soft_skills' || isSoftSkillsSeries(series)) {
+  if (normalized === 'soft_skills' || isSoftSkillsSeries(normalized)) {
     return getSoftSkillsLabel(levelNumber);
   }
 
   // Compétences psychosociales: "Phase 1" / "Phase 2" only (Patrick — nothing after)
-  if (series === 'competences_psychosociales' || series === COMPETENCES_PSYCHOSOCIALES_SERIES) {
+  if (
+    normalized === 'competences_psychosociales' ||
+    normalized === COMPETENCES_PSYCHOSOCIALES_SERIES
+  ) {
     return `Phase ${levelNumber}`;
   }
 
-  if (series === 'parcours_des_possibles' || series === 'Série Parcours des possibles') {
+  if (
+    normalized === 'parcours_des_possibles' ||
+    normalized === 'Série Parcours des possibles'
+  ) {
     return `Niveau ${levelNumber}`;
   }
 
-  if (series === 'audiovisuelle' || series === 'Série Audiovisuelle') {
+  if (normalized === 'audiovisuelle' || normalized === 'Série Audiovisuelle') {
     switch (levelNumber) {
       case '1':
         return 'Niveau 1: Observable';
@@ -60,7 +69,10 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  if (series === 'parcours_professionnel' || series === 'Série Parcours professionnel') {
+  if (
+    normalized === 'parcours_professionnel' ||
+    normalized === 'Série Parcours professionnel'
+  ) {
     switch (levelNumber) {
       case '1':
         return 'Niveau 1: Découverte';
@@ -75,11 +87,14 @@ export const getLevelLabel = (series: string, levelNumber: string): string => {
     }
   }
 
-  if (series === 'metiers_de_la_mer' || series === 'Série Métiers de la mer') {
+  if (normalized === 'metiers_de_la_mer' || normalized === 'Série Métiers de la mer') {
     return `Niveau ${levelNumber}`;
   }
 
-  if (series === 'competences_orienter_college' || series === "Série Compétences à s'orienter - Collège") {
+  if (
+    normalized === 'competences_orienter_college' ||
+    normalized === "Série Compétences à s'orienter - Collège"
+  ) {
     switch (levelNumber) {
       case '1':
         return 'Niveau 1 – Aperçu';

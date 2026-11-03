@@ -10,7 +10,7 @@ import {
   newLearningOutcome,
   serializeLearningOutcomes,
 } from '../../data/euMcCatalog';
-import { LearningOutcome, MOCK_OF_ORG, FinancementType, FINANCEMENT_OPTIONS } from '../../data/mockFormations';
+import { LearningOutcome, FinancementType, FINANCEMENT_OPTIONS } from '../../data/mockFormations';
 import { BadgeAPI, OrganizationContext } from '../../types';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { openProjectSpace } from '../../utils/projectSpaceStore';
@@ -23,6 +23,10 @@ import {
   validateImages,
 } from '../../utils/projectMapper';
 import EuMcSeriesPicker from './EuMcSeriesPicker';
+import { getCatalogueFlags } from '../../api/FormationCatalogue';
+import { resolveCatalogueOrg } from '../../api/formationCatalogOrg';
+import { CatalogueServerFlags } from '../../types/formationCatalogue';
+import { getEuMcGateCheckboxLabel } from '../../utils/euMcGateCopy';
 import './CreateProjectPage.css';
 
 type CreateKind = 'project' | 'stage' | 'formation';
@@ -100,8 +104,18 @@ const CreateProjectPage: React.FC = () => {
     }
   }, [typeFromUrl, navigate, setCurrentPage]);
   const [euMc, setEuMc] = useState(false);
+  const [catalogueFlags, setCatalogueFlags] = useState<CatalogueServerFlags | null>(null);
   const [selectedOrgKey, setSelectedOrgKey] = useState<string>('');
   const ofReady = canCreateFormation();
+
+  useEffect(() => {
+    const org = resolveCatalogueOrg(state.user, state.showingPageType);
+    if (!org) {
+      setCatalogueFlags({ eu_mc_gate: { allowed: false, reason: 'setting' }, certification_links_enabled: false });
+      return;
+    }
+    getCatalogueFlags(org).then(setCatalogueFlags).catch(() => setCatalogueFlags(null));
+  }, [state.user, state.showingPageType]);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -178,21 +192,22 @@ const CreateProjectPage: React.FC = () => {
     }
 
     if (pageType === 'of') {
-      const selectedId = getSelectedOrganizationId(state.user, pageType);
       const ofOrgs = (contexts as { formation_organizations?: OrganizationContext[] } | undefined)
         ?.formation_organizations || [];
-      const current = ofOrgs.find((c) => c.id === selectedId) || ofOrgs[0];
-      if (current) return [fromOrg(current, 'Organisme de formation')];
-      return [
-        {
-          key: MOCK_OF_ORG.id,
-          name: MOCK_OF_ORG.name,
-          subtitle: MOCK_OF_ORG.kind,
-          initials: MOCK_OF_ORG.initials,
-          qualiopi: true,
-          trustLevel: 'STRATEGIC_PARTNER',
-        },
-      ];
+      if (ofOrgs.length) return ofOrgs.map((c) => fromOrg(c, 'Organisme de formation'));
+      const catalogueOrg = resolveCatalogueOrg(state.user, state.showingPageType);
+      if (catalogueOrg) {
+        return [
+          {
+            key: catalogueOrg.key,
+            name: catalogueOrg.name,
+            subtitle: catalogueOrg.type === 'School' ? 'Établissement scolaire' : 'Entreprise',
+            initials: catalogueOrg.initials,
+            organizationId: catalogueOrg.id,
+          },
+        ];
+      }
+      return [];
     }
 
     return [];
@@ -464,9 +479,6 @@ const CreateProjectPage: React.FC = () => {
         {step === 1 ? (
           <div className="cp-inner">
             <h1 className="cp-title">Que voulez-vous créer&nbsp;?</h1>
-            <p className="cp-sub">
-              Trois choix pour commencer — ils deviendront définitifs au premier enregistrement.
-            </p>
 
             <section className="cp-blk">
               <h2>
@@ -482,7 +494,7 @@ const CreateProjectPage: React.FC = () => {
                     <div className="cp-orgsub">{selectedOrg.subtitle}</div>
                   </div>
                   {showQualiopi && (
-                    <span className="cp-cart">◆ Reconnu et certifié par Qualiopi</span>
+                    <span className="cp-cart">✓ Organisme de formation certifié</span>
                   )}
                   <div className="cp-lock">définitive</div>
                 </div>
@@ -517,37 +529,52 @@ const CreateProjectPage: React.FC = () => {
                   onClick={() => setKind('project')}
                 >
                   Projet
-                  <small>il raconte ce qui s’est fait</small>
+                  <small>Participants, étapes, compétences attestées</small>
                 </button>
                 <div className="cp-card off">
                   Stage
-                  <small>en milieu professionnel — bientôt disponible</small>
+                  <small>Période en milieu professionnel</small>
                 </div>
-                <div className="cp-card off">
+                <button
+                  type="button"
+                  className={`cp-card ${kind === 'formation' ? 'sel' : ''}`}
+                  onClick={() => setKind('formation')}
+                >
                   Formation
-                  <small>bientôt disponible</small>
-                </div>
+                  <small>Programme, sessions, participants</small>
+                </button>
               </div>
             </section>
 
             <section className="cp-blk">
               <h2>
-                Le cadre <sup>2</sup>
+                Le cadre <sup>3</sup>
               </h2>
-              <div className="cp-mc">
-                <input type="checkbox" checked={false} disabled />
-                <div>
-                  <b>Microcertification européenne</b> — bientôt disponible
-                </div>
-              </div>
+              {(() => {
+                const gate = catalogueFlags?.eu_mc_gate || { allowed: false, reason: 'setting' as const };
+                const label = getEuMcGateCheckboxLabel(gate);
+                return (
+                  <label className="cp-mc" style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                    <input
+                      type="checkbox"
+                      checked={euMc}
+                      disabled={label.disabled || kind !== 'formation'}
+                      onChange={(e) => setEuMc(e.target.checked)}
+                    />
+                    <div>
+                      <b>Microcertification européenne</b> — {label.body}
+                    </div>
+                  </label>
+                );
+              })()}
             </section>
 
-            {euMc && (
+            {euMc && kind === 'formation' && (
               <div className="cp-orbar">
-                <div className="cp-orcnt">3/11</div>
+                <div className="cp-orcnt">4/11</div>
                 <div className="cp-orlbl">
-                  <b>Le compteur européen s’allume.</b> Pays, organisme et assurance qualité sont déjà
-                  garantis — le formulaire conquiert le reste.
+                  <b>Le compteur européen s’allume.</b> Pays, organisme, assurance qualité et niveau
+                  sont déjà renseignés. La fiche complète le cadre.
                 </div>
               </div>
             )}
@@ -556,9 +583,6 @@ const CreateProjectPage: React.FC = () => {
               ⚠
               <div>
                 <b>Ces trois choix seront définitifs au premier enregistrement</b> — brouillon compris.
-                {euMc
-                  ? ' Décocher la case avant lui videra le cadre européen saisi.'
-                  : ' Avant lui, vous pouvez revenir en arrière librement.'}
               </div>
             </div>
 
@@ -570,7 +594,24 @@ const CreateProjectPage: React.FC = () => {
                 type="button"
                 className="cp-btn primary"
                 disabled={!canContinueStep1}
-                onClick={() => setStep(2)}
+                onClick={() => {
+                  if (kind === 'formation' && selectedOrg) {
+                    sessionStorage.setItem(
+                      'kinship.ficheDraft',
+                      JSON.stringify({
+                        orgKey: selectedOrg.key,
+                        orgName: selectedOrg.name,
+                        orgInitials: selectedOrg.initials,
+                        orgCertified: Boolean(showQualiopi),
+                        euMc: euMc && Boolean(catalogueFlags?.eu_mc_gate.allowed),
+                      })
+                    );
+                    setCurrentPage('formation-fiche');
+                    navigate('/formation-fiche');
+                    return;
+                  }
+                  setStep(2);
+                }}
               >
                 Continuer →
               </button>
@@ -584,13 +625,11 @@ const CreateProjectPage: React.FC = () => {
                 <div className="cp-orlbl">
                   {euGoldCount >= 9 ? (
                     <>
-                      <b>Cadre européen complet.</b> Vos inscrits porteront le compteur à 10 — la
-                      clôture écrira le onzième.
+                      <b>Cadre européen complet.</b> Les inscrits de la session porteront le
+                      compteur à 10 ; la clôture écrira le onzième.
                     </>
                   ) : (
-                    <>
-                      <b>Le cadre européen avance.</b> La création exigera le compteur à 9/11.
-                    </>
+                    <b>Le cadre européen n’est pas complet.</b>
                   )}
                 </div>
               </div>

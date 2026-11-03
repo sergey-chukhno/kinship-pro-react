@@ -19,7 +19,9 @@ import PublicProofPage from './components/Pages/PublicProofPage';
 import ProofIndex from './components/Pages/ProofIndex';
 // import PikDroits from './components/Pages/PikDroits';
 import FamilleLanding from './components/Pages/FamilleLanding';
+import SessionCoAttestPage from './components/Pages/SessionCoAttestPage';
 import './App.css';
+import './styles/formation-tokens.css';
 
 function App() {
   return (
@@ -38,6 +40,7 @@ function App() {
             <Route path="/shared-project/:token" element={<SharedProjectInfo />} />
             <Route path="/shared/:token" element={<SharedProjectInfo />} />
             <Route path="/shared-event/:token" element={<SharedEventInfo />} />
+            <Route path="/session-co-attest/:token" element={<SessionCoAttestPage />} />
             <Route path="/verify" element={<Verify />} />
             <Route path="/financeur" element={<FunderHubPage />} />
             <Route path="/proof" element={<ProofIndex />} />
