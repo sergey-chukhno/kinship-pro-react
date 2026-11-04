@@ -827,7 +827,7 @@ const ProjectAffichePage: React.FC = () => {
       const mem = await getProjectMembers(Number(projectId));
       setMembers(Array.isArray(mem) ? mem : []);
       // Refresh project so Co-responsables row updates from co_owners.
-      const full = await getProjectById(String(projectId));
+      const full = await getProjectById(Number(projectId));
       const raw = full?.data || full;
       if (raw) {
         setApiProject(raw);
