@@ -63,6 +63,11 @@ import {
   resolveProjectSpaceId,
   setProjectSpaceExtras,
 } from '../../utils/projectSpaceStore';
+import {
+  partnershipMatchesQuery,
+  partnershipOtherOrgName,
+  rankPartnershipsByRecency,
+} from '../../utils/partnershipDisplay';
 import EuMcGoldSummary from './EuMcGoldSummary';
 import AttestCompetenceModal from '../Modals/AttestCompetenceModal';
 import './ProjectAffichePage.css';
@@ -128,7 +133,10 @@ const ROLE_ORDER = [
 const ROLE_OPTIONS: { value: ProjectPersonRole; hint: string }[] = [
   { value: 'Participant', hint: '' },
   { value: 'Encadrant', hint: 'formateur, intervenant, animateur… — atteste des compétences' },
-  { value: 'Admin', hint: 'voit l’affiche comme un co-responsable' },
+  {
+    value: 'Co-responsable',
+    hint: 'apparaît dans Co-responsables ; atteste et ajoute des membres de sa structure',
+  },
 ];
 const VIS_CYCLE: DocVisibility[] = ['team', 'participants', 'public'];
 const VIS_LABEL: Record<DocVisibility, string> = {
@@ -239,8 +247,7 @@ function seriesColor(series: string): string {
 }
 
 function partnershipLabel(p: Partnership, currentOrg?: string): string {
-  const other = p.partners?.find((x) => x.name !== currentOrg)?.name;
-  return p.name || other || p.partners?.[0]?.name || 'Partenaire';
+  return partnershipOtherOrgName(p, currentOrg);
 }
 
 function isUnder15(birthday?: string): boolean {
@@ -486,14 +493,17 @@ const ProjectAffichePage: React.FC = () => {
     }
   }, [isVisitor, documents]);
 
+  const memberApiRole = (member: any): string | undefined =>
+    member?.project_role || member?.role;
+
   const rolePill = isOwner
     ? 'Responsable du projet'
     : isCoOwner
       ? 'Co-responsable'
       : isEncadrant
         ? 'Encadrant'
-        : currentMember?.role === 'admin'
-          ? 'Admin'
+        : memberApiRole(currentMember) === 'admin'
+          ? 'Co-responsable'
           : isParticipant
             ? 'Participant'
             : '';
@@ -523,12 +533,15 @@ const ProjectAffichePage: React.FC = () => {
       .filter(Boolean) as string[]
   );
 
-  const memberRole = (member: any): 'owner' | 'co_owner' | 'admin' | 'encadrant' | 'member' => {
+  const memberRole = (member: any): 'owner' | 'co_owner' | 'encadrant' | 'member' => {
     const id = resolveProjectMemberUserId(member);
+    const apiRole = memberApiRole(member);
     if (id && id === ownerId) return 'owner';
     if (id && coOwnerIds.has(id)) return 'co_owner';
-    if (member.role === 'co_owner' || member.is_co_owner) return 'co_owner';
-    if (member.role === 'admin') return 'admin';
+    if (apiRole === 'owner') return 'owner';
+    if (apiRole === 'co_owner' || member.is_co_owner) return 'co_owner';
+    // Legacy admin rows (pre-migration) display as co-responsable.
+    if (apiRole === 'admin') return 'co_owner';
     if (member.can_assign_badges_in_project) return 'encadrant';
     return 'member';
   };
@@ -536,7 +549,6 @@ const ProjectAffichePage: React.FC = () => {
   const roleLabel = (role: ReturnType<typeof memberRole>) => {
     if (role === 'owner') return 'Responsable du projet';
     if (role === 'co_owner') return 'Co-responsable';
-    if (role === 'admin') return 'Admin';
     if (role === 'encadrant') return 'Encadrant';
     return 'Participant';
   };
@@ -555,10 +567,17 @@ const ProjectAffichePage: React.FC = () => {
   }, [orgPeople, personQuery, members]);
 
   const filteredPartnerships = useMemo(() => {
-    const q = partnerQuery.trim().toLowerCase();
-    const ranked = partnerships.slice().sort((a, b) => String(b.confirmed_at || b.updated_at).localeCompare(String(a.confirmed_at || a.updated_at)));
+    const orgName = project?.organization;
+    // Panneau « Partenariat administratif » — kind filter (Patrick GO).
+    const kindFiltered = partnerships.filter(
+      (p) => !p.partnership_kind || p.partnership_kind === 'administratif'
+    );
+    const ranked = rankPartnershipsByRecency(kindFiltered);
+    const q = partnerQuery.trim();
     if (!q) return ranked.slice(0, 5);
-    return ranked.filter((p) => partnershipLabel(p, project?.organization).toLowerCase().includes(q)).slice(0, 8);
+    return ranked
+      .filter((p) => partnershipMatchesQuery(p, q, orgName))
+      .slice(0, 8);
   }, [partnerships, partnerQuery, project?.organization]);
 
   /** Affiche C2/C16 — options identity = catalog_key | badge_series_id; label = FR name. */
@@ -681,10 +700,16 @@ const ProjectAffichePage: React.FC = () => {
     if (!uid || !projectId) return;
     try {
       await addProjectMember(Number(projectId), uid);
-      if (role === 'Admin') {
-        await updateProjectMember(Number(projectId), uid, { role: 'admin' });
+      if (role === 'Co-responsable') {
+        await updateProjectMember(Number(projectId), uid, {
+          role: 'co_owner',
+          can_assign_badges_in_project: false,
+        });
       } else if (role === 'Encadrant') {
-        await updateProjectMember(Number(projectId), uid, { can_assign_badges_in_project: true });
+        await updateProjectMember(Number(projectId), uid, {
+          role: 'member',
+          can_assign_badges_in_project: true,
+        });
       }
       const mem = await getProjectMembers(Number(projectId));
       setMembers(Array.isArray(mem) ? mem : []);
@@ -783,15 +808,31 @@ const ProjectAffichePage: React.FC = () => {
     const uid = Number(memberId(member));
     if (!uid || !projectId) return;
     try {
-      if (role === 'Admin') {
-        await updateProjectMember(Number(projectId), uid, { role: 'admin', can_assign_badges_in_project: false });
+      if (role === 'Co-responsable') {
+        await updateProjectMember(Number(projectId), uid, {
+          role: 'co_owner',
+          can_assign_badges_in_project: false,
+        });
       } else if (role === 'Encadrant') {
-        await updateProjectMember(Number(projectId), uid, { role: 'member', can_assign_badges_in_project: true });
+        await updateProjectMember(Number(projectId), uid, {
+          role: 'member',
+          can_assign_badges_in_project: true,
+        });
       } else {
-        await updateProjectMember(Number(projectId), uid, { role: 'member', can_assign_badges_in_project: false });
+        await updateProjectMember(Number(projectId), uid, {
+          role: 'member',
+          can_assign_badges_in_project: false,
+        });
       }
       const mem = await getProjectMembers(Number(projectId));
       setMembers(Array.isArray(mem) ? mem : []);
+      // Refresh project so Co-responsables row updates from co_owners.
+      const full = await getProjectById(Number(projectId));
+      const raw = full?.data || full;
+      if (raw) {
+        setApiProject(raw);
+        setProject(mapApiProjectToFrontendProject(raw, state.showingPageType, userRef.current));
+      }
     } catch (e: any) {
       showError(e?.response?.data?.message || 'Impossible de changer le rôle.');
     }
@@ -1065,7 +1106,7 @@ const ProjectAffichePage: React.FC = () => {
 
   const status = STATUS_CHIP[project.status] || { label: project.status, cls: 'ended' };
   const canChangeRole = (role: ReturnType<typeof memberRole>) =>
-    canAddParticipants && role !== 'owner' && role !== 'co_owner';
+    canAddParticipants && role !== 'owner';
   const canRemoveMember = (role: ReturnType<typeof memberRole>) =>
     (isOwner || isCoOwner) && !isEnded && !isSuperadminReadOnly && role !== 'owner';
 
@@ -1112,7 +1153,13 @@ const ProjectAffichePage: React.FC = () => {
         {canChangeRole(role) ? (
           <select
             className="pa-seldd"
-            value={role === 'encadrant' ? 'Encadrant' : role === 'admin' ? 'Admin' : 'Participant'}
+            value={
+              role === 'co_owner'
+                ? 'Co-responsable'
+                : role === 'encadrant'
+                  ? 'Encadrant'
+                  : 'Participant'
+            }
             onChange={(e) => void changeMemberRole(member, e.target.value as ProjectPersonRole)}
           >
             {ROLE_OPTIONS.map((opt) => (
@@ -1299,9 +1346,9 @@ const ProjectAffichePage: React.FC = () => {
                 {partners.length === 0 && <div className="pa-graygl">Aucun partenaire.</div>}
                 {partners.map((p) => (
                   <div key={p.id} className="pa-erow">
-                    <div className="pa-logo">{initialsOf(p.name || p.organization)}</div>
+                    <div className="pa-logo">{initialsOf(p.organization || p.name)}</div>
                     <div>
-                      {p.name || p.organization}
+                      {p.organization || p.name}
                       <small>partenariat administratif</small>
                     </div>
                   </div>
