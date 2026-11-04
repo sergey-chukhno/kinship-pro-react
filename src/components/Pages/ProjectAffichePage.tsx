@@ -493,6 +493,9 @@ const ProjectAffichePage: React.FC = () => {
     }
   }, [isVisitor, documents]);
 
+  const memberApiRole = (member: any): string | undefined =>
+    member?.project_role || member?.role;
+
   const rolePill = isOwner
     ? 'Responsable du projet'
     : isCoOwner
@@ -529,9 +532,6 @@ const ProjectAffichePage: React.FC = () => {
       .map((c: any) => resolveProjectMemberUserId(c))
       .filter(Boolean) as string[]
   );
-
-  const memberApiRole = (member: any): string | undefined =>
-    member?.project_role || member?.role;
 
   const memberRole = (member: any): 'owner' | 'co_owner' | 'encadrant' | 'member' => {
     const id = resolveProjectMemberUserId(member);
