@@ -42,4 +42,21 @@ describe('mapApiProjectToFrontendProject', () => {
     const mapped = mapApiProjectToFrontendProject({ ...baseApiProject, private: false }, 'user');
     expect(mapped.visibility).toBe('public');
   });
+
+  it('excludes project owner from coResponsibles even if present in co_owners', () => {
+    const mapped = mapApiProjectToFrontendProject(
+      {
+        ...baseApiProject,
+        owner_id: 7,
+        co_owners: [
+          { id: 7, first_name: 'Jane', last_name: 'Doe', full_name: 'Jane Doe' },
+          { id: 9, first_name: 'Pat', last_name: 'Lee', full_name: 'Pat Lee' }
+        ]
+      },
+      'user'
+    );
+
+    expect((mapped.coResponsibles ?? []).map((c) => c.id)).toEqual(['9']);
+    expect(mapped.responsible?.id).toBe('7');
+  });
 });
