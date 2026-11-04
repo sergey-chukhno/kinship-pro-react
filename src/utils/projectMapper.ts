@@ -547,8 +547,15 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         };
     };
 
-    // Use added_from_organization (API) or partner_organization when organization_source === 'partner'
-    const coResponsibles = rawCoResponsibles.map((coOwner: any) => {
+    // Use added_from_organization (API) or partner_organization when organization_source === 'partner'.
+    // Owner is shown only on the Responsable line — never also as Co-responsable.
+    const coResponsibles = rawCoResponsibles
+        .filter((coOwner: any) => {
+            const coId = coOwner?.user_id ?? coOwner?.user?.id ?? coOwner?.id;
+            if (coId == null || !ownerUserId) return true;
+            return String(coId) !== String(ownerUserId);
+        })
+        .map((coOwner: any) => {
         const coId = coOwner?.user_id ?? coOwner?.user?.id ?? coOwner?.id;
         const added = coOwner.added_from_organization;
         const orgLabel =
@@ -607,11 +614,17 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
             }
             const first = details[0];
             const firstOrg = first?.partner_organizations?.[0];
+            const displayName =
+              firstOrg?.name ||
+              (typeof first.partnership_name === 'string'
+                ? first.partnership_name.replace(/\s+Partnership$/, '').trim()
+                : '') ||
+              '';
             return {
                 id: first.partnership_id?.toString() || '',
-                name: first.partnership_name || (firstOrg?.name ? `Partenariat ${firstOrg.name}` : ''),
+                name: displayName,
                 logo: firstOrg?.logo_url || '',
-                organization: firstOrg?.name || ''
+                organization: firstOrg?.name || displayName
             };
         })(),
         partners: (() => {
@@ -621,11 +634,17 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
             }
             return details.map((d: any) => {
                 const firstOrg = d?.partner_organizations?.[0];
+                const displayName =
+                  firstOrg?.name ||
+                  (typeof d.partnership_name === 'string'
+                    ? d.partnership_name.replace(/\s+Partnership$/, '').trim()
+                    : '') ||
+                  '';
                 return {
                     id: d.partnership_id?.toString() || '',
-                    name: d.partnership_name || (firstOrg?.name ? `Partenariat ${firstOrg.name}` : ''),
+                    name: displayName,
                     logo: firstOrg?.logo_url || '',
-                    organization: firstOrg?.name || ''
+                    organization: firstOrg?.name || displayName
                 };
             });
         })(),

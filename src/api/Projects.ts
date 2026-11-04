@@ -1858,7 +1858,7 @@ export const updateProjectMember = async (
     projectId: number,
     userId: number,
     updates: {
-        role?: 'member' | 'admin';
+        role?: 'member' | 'co_owner' | 'admin';
         status?: 'pending' | 'confirmed';
         can_assign_badges_in_project?: boolean;
     }
@@ -1898,7 +1898,7 @@ export const addProjectMember = async (
 export const addProjectMembersBulk = async (
     projectId: number,
     userIds: number[],
-    role: 'member' | 'co_responsible' | 'admin' = 'member'
+    role: 'member' | 'co_responsible' | 'co_owner' | 'admin' = 'member'
 ): Promise<{
     message: string;
     data: { added: any[]; skipped: any[]; errors: any[] };
