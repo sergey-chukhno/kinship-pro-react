@@ -26,6 +26,7 @@ import {
   ProgrammeLine,
 } from '../../types/formationCatalogue';
 import { getEuMcGateCheckboxLabel } from '../../utils/euMcGateCopy';
+import { ORGANISME_FORMATION_CERTIFIE_LABEL } from '../../utils/qualityFrameworkLabel';
 import './FormationFicheWizard.css';
 
 const DRAFT_KEY = 'kinship.ficheDraft';
@@ -284,7 +285,7 @@ const FormationFicheWizard: React.FC = () => {
       const created = await createCatalogueDraft(
         {
           euMc: euMcChoice && Boolean(flags?.eu_mc_gate.allowed),
-          orgCertified: lock?.orgCertified ?? true,
+          orgCertified: lock?.orgCertified ?? false,
         },
         org
       );
@@ -514,8 +515,8 @@ const FormationFicheWizard: React.FC = () => {
                     <div className="ffw-orgname">{lock?.orgName || 'Organisme de formation'}</div>
                     <div className="ffw-orgsub">
                       Organisme de formation
-                      {(lock?.orgCertified ?? true) && (
-                        <span className="ffw-cert">✓ Organisme de formation certifié</span>
+                      {(lock?.orgCertified ?? false) && (
+                        <span className="ffw-cert">{ORGANISME_FORMATION_CERTIFIE_LABEL}</span>
                       )}
                     </div>
                   </div>

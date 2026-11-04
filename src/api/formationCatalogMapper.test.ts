@@ -58,6 +58,7 @@ describe('formationCatalogMapper', () => {
     expect(fiche.financement).toBe('CPF');
     expect(fiche.compliance?.count).toBe(8);
     expect(fiche.durationHours).toBe('48');
+    expect(fiche.orgCertified).toBe(false);
     const prev = process.env.REACT_APP_DB_BASE_URL;
     process.env.REACT_APP_DB_BASE_URL = 'https://api.example.test';
     const withPic = entryToFiche(

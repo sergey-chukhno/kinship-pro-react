@@ -8,6 +8,18 @@ export interface CatalogueOrgRef {
   name: string;
   initials: string;
   key: string;
+  /** Company Qualiopi agreement active (API). Schools are always false. */
+  qualiopi?: boolean;
+  /** Live org trust_level — STRATEGIC_PARTNER dérive de Qualiopi dans la grille. */
+  trustLevel?: string | null;
+}
+
+/** Cartouche OF certifié : Qualiopi vérifié ou STRATEGIC_PARTNER (Patrick GO 04/11). */
+export function isCatalogueOrgCertified(
+  org?: Pick<CatalogueOrgRef, 'qualiopi' | 'trustLevel'> | null
+): boolean {
+  if (!org) return false;
+  return Boolean(org.qualiopi || org.trustLevel === 'STRATEGIC_PARTNER');
 }
 
 function initialsFromName(name: string): string {
@@ -54,6 +66,8 @@ export function resolveCatalogueOrg(
         name: company.name,
         initials: initialsFromName(company.name),
         key: `company-${company.id}`,
+        qualiopi: Boolean(company.qualiopi),
+        trustLevel: company.trust_level,
       };
     }
   }
@@ -71,6 +85,8 @@ export function resolveCatalogueOrg(
         name: school.name,
         initials: initialsFromName(school.name),
         key: `school-${school.id}`,
+        qualiopi: Boolean(school.qualiopi),
+        trustLevel: school.trust_level,
       };
     }
   }
@@ -83,6 +99,8 @@ export function resolveCatalogueOrg(
       name: company.name,
       initials: initialsFromName(company.name),
       key: `company-${company.id}`,
+      qualiopi: Boolean(company.qualiopi),
+      trustLevel: company.trust_level,
     };
   }
   const school = user.available_contexts?.schools?.[0];
@@ -93,6 +111,8 @@ export function resolveCatalogueOrg(
       name: school.name,
       initials: initialsFromName(school.name),
       key: `school-${school.id}`,
+      qualiopi: Boolean(school.qualiopi),
+      trustLevel: school.trust_level,
     };
   }
 
