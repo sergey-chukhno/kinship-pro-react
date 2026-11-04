@@ -547,8 +547,15 @@ export const mapApiProjectToFrontendProject = (apiProject: any, showingPageType:
         };
     };
 
-    // Use added_from_organization (API) or partner_organization when organization_source === 'partner'
-    const coResponsibles = rawCoResponsibles.map((coOwner: any) => {
+    // Use added_from_organization (API) or partner_organization when organization_source === 'partner'.
+    // Owner is shown only on the Responsable line — never also as Co-responsable.
+    const coResponsibles = rawCoResponsibles
+        .filter((coOwner: any) => {
+            const coId = coOwner?.user_id ?? coOwner?.user?.id ?? coOwner?.id;
+            if (coId == null || !ownerUserId) return true;
+            return String(coId) !== String(ownerUserId);
+        })
+        .map((coOwner: any) => {
         const coId = coOwner?.user_id ?? coOwner?.user?.id ?? coOwner?.id;
         const added = coOwner.added_from_organization;
         const orgLabel =
