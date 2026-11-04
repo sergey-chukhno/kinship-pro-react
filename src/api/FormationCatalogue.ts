@@ -180,7 +180,7 @@ export async function createCatalogueDraft(
       },
     });
     const fiche = entryToFiche(res.data?.data || res.data, resolved);
-    return { ...fiche, orgCertified: lock.orgCertified ?? true };
+    return { ...fiche, orgCertified: lock.orgCertified ?? false };
   } catch (err: any) {
     throw new Error(apiErrorMessage(err, 'Création de la fiche impossible.'));
   }

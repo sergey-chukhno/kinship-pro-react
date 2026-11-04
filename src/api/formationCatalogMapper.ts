@@ -7,7 +7,7 @@ import {
   IdentityAtAssessment,
   ParticipationMode,
 } from '../types/formationCatalogue';
-import { CatalogueOrgRef } from './formationCatalogOrg';
+import { CatalogueOrgRef, isCatalogueOrgCertified } from './formationCatalogOrg';
 
 const MODALITY_TO_BE: Record<string, string> = {
   presentiel: 'on_site',
@@ -113,7 +113,7 @@ export function entryToFiche(entry: BeCatalogEntry, orgHint?: CatalogueOrgRef | 
     orgKey: orgHint?.key || `${String(orgType).toLowerCase()}-${orgId}`,
     orgName,
     orgInitials: orgHint?.initials || orgName.slice(0, 2).toUpperCase(),
-    orgCertified: true,
+    orgCertified: isCatalogueOrgCertified(orgHint),
     euMc: Boolean(entry.is_eu_mc_declared),
     title: entry.title || '',
     description: entry.description || '',

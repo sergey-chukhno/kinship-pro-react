@@ -16,6 +16,7 @@ import { getSelectedOrganizationId } from '../../utils/contextUtils';
 import { openProjectSpace } from '../../utils/projectSpaceStore';
 import { openFormationSpace, upsertFormation } from '../../utils/formationStore';
 import { canCreateFormation } from '../../utils/ofActivationStore';
+import { ORGANISME_FORMATION_CERTIFIE_LABEL } from '../../utils/qualityFrameworkLabel';
 import {
   getContextFromPageType,
   getTagIdByPathway,
@@ -106,8 +107,6 @@ const CreateProjectPage: React.FC = () => {
   const [euMc, setEuMc] = useState(false);
   const [catalogueFlags, setCatalogueFlags] = useState<CatalogueServerFlags | null>(null);
   const [selectedOrgKey, setSelectedOrgKey] = useState<string>('');
-  const ofReady = canCreateFormation();
-
   useEffect(() => {
     const org = resolveCatalogueOrg(state.user, state.showingPageType);
     if (!org) {
@@ -204,6 +203,8 @@ const CreateProjectPage: React.FC = () => {
             subtitle: catalogueOrg.type === 'School' ? 'Établissement scolaire' : 'Entreprise',
             initials: catalogueOrg.initials,
             organizationId: catalogueOrg.id,
+            qualiopi: Boolean(catalogueOrg.qualiopi),
+            trustLevel: catalogueOrg.trustLevel,
           },
         ];
       }
@@ -215,7 +216,10 @@ const CreateProjectPage: React.FC = () => {
 
   const selectedOrg = carrierOrgs.find((o) => o.key === selectedOrgKey) || carrierOrgs[0];
   const orgLocked = carrierOrgs.length <= 1;
-  const showQualiopi = Boolean(selectedOrg?.qualiopi || selectedOrg?.trustLevel === 'STRATEGIC_PARTNER' || ofReady);
+  // Cartouche = Qualiopi vérifié (ou STRATEGIC_PARTNER qui en découle). Jamais canCreateFormation().
+  const showQualiopi = Boolean(
+    selectedOrg?.qualiopi || selectedOrg?.trustLevel === 'STRATEGIC_PARTNER'
+  );
   const isFormation = kind === 'formation';
 
   useEffect(() => {
@@ -494,7 +498,7 @@ const CreateProjectPage: React.FC = () => {
                     <div className="cp-orgsub">{selectedOrg.subtitle}</div>
                   </div>
                   {showQualiopi && (
-                    <span className="cp-cart">✓ Organisme de formation certifié</span>
+                    <span className="cp-cart">{ORGANISME_FORMATION_CERTIFIE_LABEL}</span>
                   )}
                   <div className="cp-lock">définitive</div>
                 </div>

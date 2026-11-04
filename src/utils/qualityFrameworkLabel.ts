@@ -6,8 +6,11 @@
 // (organization.quality_framework, exposé depuis le 29/09 par UserBadge#organization_display_hash
 // sur /users/me/badges et les listes schools/teachers/companies — confirmé par Sergey).
 // Règle V1.0.4 ③ : le mot « Qualiopi » ne doit jamais apparaître sur une preuve.
+/** Grille des pièces V1.0.4 — cartouche Créer / fiche (Patrick GO 04/11). */
+export const ORGANISME_FORMATION_CERTIFIE_LABEL = '◆ Organisme de formation certifié';
+
 const QUALITY_FRAMEWORK_LABELS: Record<string, string> = {
-  qualiopi: '◆ Organisme de formation certifié',
+  qualiopi: ORGANISME_FORMATION_CERTIFIE_LABEL,
   rncp: '⬡ Organisme certificateur — répertoire national des certifications professionnelles',
   accreditation: '⬡ Établissement accrédité par l\'État — diplômes nationaux',
   rs: '✓ Organisme certificateur — répertoire spécifique',
