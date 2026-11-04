@@ -831,7 +831,7 @@ const ProjectAffichePage: React.FC = () => {
       const raw = full?.data || full;
       if (raw) {
         setApiProject(raw);
-        setProject(mapApiProjectToFrontendProject(raw));
+        setProject(mapApiProjectToFrontendProject(raw, state.showingPageType, userRef.current));
       }
     } catch (e: any) {
       showError(e?.response?.data?.message || 'Impossible de changer le rôle.');
