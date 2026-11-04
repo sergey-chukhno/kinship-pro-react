@@ -56,7 +56,7 @@ describe('mapApiProjectToFrontendProject', () => {
       'user'
     );
 
-    expect(mapped.coResponsibles.map((c) => c.id)).toEqual(['9']);
+    expect((mapped.coResponsibles ?? []).map((c) => c.id)).toEqual(['9']);
     expect(mapped.responsible?.id).toBe('7');
   });
 });
