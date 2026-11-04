@@ -1054,7 +1054,8 @@ const ProjectManagement: React.FC = () => {
     switch (role) {
       case 'owner': return 'Propriétaire';
       case 'co-owner': return 'Co-propriétaire';
-      case 'admin': return 'Admin';
+      case 'admin': return 'Co-responsable';
+      case 'co_owner': return 'Co-responsable';
       case 'participant avec droit de preuves': return 'Participant avec droit de preuves';
       case 'participant': return 'Participant';
       default: return '';
@@ -4542,7 +4543,8 @@ const ProjectManagement: React.FC = () => {
       case 'co-owner': return 'Co-responsable du projet';
       case 'member': return 'Participant';
       case 'member-with-badges': return 'Participant avec droit de preuves';
-      case 'admin': return 'Admin';
+      case 'admin': return 'Co-responsable';
+      case 'co_owner': return 'Co-responsable';
       default: return value;
     }
   };
@@ -7405,8 +7407,7 @@ const ProjectManagement: React.FC = () => {
                         </div>
                         <div className={`member-badge ${participant.role === 'owner' ? 'badge-admin' : participant.role === 'co-owner' ? 'badge-admin' : participant.role === 'admin' ? 'badge-admin' : ''}`}>
                           {participant.role === 'owner' ? 'Responsable du projet' :
-                            participant.role === 'co-owner' ? 'Co-responsable du projet' :
-                              participant.role === 'admin' ? 'Admin' :
+                            participant.role === 'co-owner' || participant.role === 'admin' ? 'Co-responsable du projet' :
                                 'Membre'}
                         </div>
                         <div className="member-skills">

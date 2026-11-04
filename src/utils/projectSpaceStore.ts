@@ -1,4 +1,5 @@
-export type ProjectPersonRole = 'Admin' | 'Encadrant' | 'Participant';
+/** Affiche / Space — labels map to BE member / encadrant(flag) / co_owner. */
+export type ProjectPersonRole = 'Co-responsable' | 'Encadrant' | 'Participant';
 
 export type DocVisibility = 'team' | 'participants' | 'public';
 

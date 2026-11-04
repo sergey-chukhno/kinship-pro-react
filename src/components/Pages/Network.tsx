@@ -1606,7 +1606,7 @@ const Network: React.FC = () => {
       // Build payload with hardcoded values
       const payload: CreatePartnershipPayload = {
         partnership_type: 'bilateral',
-        name: `${selectedOrganization.name} Partnership`,
+        name: selectedOrganization.name,
         description: partnershipData.description || '',
         partner_company_ids: isPartnerCompany ? [partnerId] : [],
         partner_school_ids: isPartnerSchool ? [partnerId] : [],

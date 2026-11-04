@@ -60,6 +60,11 @@ import {
   setProjectSpaceExtras,
   setProjectSpaceTab,
 } from '../../utils/projectSpaceStore';
+import {
+  partnershipMatchesQuery,
+  partnershipOtherOrgName,
+  rankPartnershipsByRecency,
+} from '../../utils/partnershipDisplay';
 import { useToast } from '../../hooks/useToast';
 import { LearningOutcome } from '../../data/mockFormations';
 import {
@@ -472,12 +477,15 @@ const ProjectSpacePage: React.FC = () => {
   }, [orgPeople, personQuery, members]);
 
   const filteredPartnerships = useMemo(() => {
-    const q = partnerQuery.trim().toLowerCase();
-    return partnerships.filter((p) => {
-      const name = (p.name || p.partners?.map((x) => x.name).join(' ') || '').toLowerCase();
-      return !q || name.includes(q);
-    }).slice(0, 8);
-  }, [partnerships, partnerQuery]);
+    const orgName = project?.organization;
+    const kindFiltered = partnerships.filter(
+      (p) => !p.partnership_kind || p.partnership_kind === 'administratif'
+    );
+    const ranked = rankPartnershipsByRecency(kindFiltered);
+    const q = partnerQuery.trim();
+    if (!q) return ranked.slice(0, 8);
+    return ranked.filter((p) => partnershipMatchesQuery(p, q, orgName)).slice(0, 8);
+  }, [partnerships, partnerQuery, project?.organization]);
 
   const showCloseBanner = shouldShowEndDateWarningBanner(project?.status, project?.showEndDateWarning);
 
@@ -667,10 +675,16 @@ const ProjectSpacePage: React.FC = () => {
     if (!uid || !projectId) return;
     try {
       await addProjectMember(Number(projectId), uid);
-      if (role === 'Admin') {
-        await updateProjectMember(Number(projectId), uid, { role: 'admin' });
+      if (role === 'Co-responsable') {
+        await updateProjectMember(Number(projectId), uid, {
+          role: 'co_owner',
+          can_assign_badges_in_project: false,
+        });
       } else if (role === 'Encadrant') {
-        await updateProjectMember(Number(projectId), uid, { can_assign_badges_in_project: true });
+        await updateProjectMember(Number(projectId), uid, {
+          role: 'member',
+          can_assign_badges_in_project: true,
+        });
       }
       const mem = await getProjectMembers(Number(projectId));
       setMembers(Array.isArray(mem) ? mem : []);
@@ -1534,7 +1548,7 @@ const ProjectSpacePage: React.FC = () => {
                                 <span className="ps-nm">{memberName(p)}</span> <small>· {orgRoleLabel(p)}</small>
                               </div>
                               <div className="ps-seg">
-                                {(['Admin', 'Encadrant', 'Participant'] as const).map((r) => (
+                                {(['Co-responsable', 'Encadrant', 'Participant'] as const).map((r) => (
                                   <button key={r} type="button" className={role === r ? 'on' : ''} onClick={() => setPersonRoles((prev) => ({ ...prev, [id]: r }))}>
                                     {r}
                                   </button>
@@ -1547,7 +1561,7 @@ const ProjectSpacePage: React.FC = () => {
                         {personQuery.trim() && filteredPeople.length === 0 && (
                           <p className="ps-sub">Personne introuvable dans votre organisation — utilisez la pré-inscription.</p>
                         )}
-                        <p className="ps-hint">Encadrant : formateur, intervenant extérieur ou interne, animateur… — atteste des compétences</p>
+                        <p className="ps-hint">Encadrant : formateur, intervenant… — atteste. Co-responsable : ligne Co-responsables ; ajoute des membres de sa structure.</p>
                         <div className="ps-plabel">Ajouter une pré-inscription</div>
                         <div className="ps-two">
                           <input className="ps-in" placeholder="Prénom ✱" value={prepFirst} onChange={(e) => setPrepFirst(e.target.value)} />
@@ -1595,7 +1609,7 @@ const ProjectSpacePage: React.FC = () => {
                     <div className="ps-steps">Votre réseau, puis la recherche dès la première lettre</div>
                     <input className="ps-in" value={partnerQuery} onChange={(e) => setPartnerQuery(e.target.value)} placeholder="Rechercher…" />
                     {filteredPartnerships.map((p) => {
-                      const label = p.name || p.partners?.map((x) => x.name).join(' · ') || `Partenariat #${p.id}`;
+                      const label = partnershipOtherOrgName(p, project?.organization);
                       const already = partners.some((x) => x.id === String(p.id));
                       return (
                         <button
