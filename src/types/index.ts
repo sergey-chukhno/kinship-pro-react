@@ -12,7 +12,9 @@ export interface Member {
   availability: string[];
   avatar: string;
   isTrusted: boolean;
-  badges: string[]; // Array of badge IDs
+  badges: string[]; // Array of badge IDs (legacy) or API { data, meta } at runtime
+  /** Approved preuves total from API badges_count (Point 13) */
+  badgesCount?: number;
   latestBadges?: Array<{
     id: number;
     badge: {
