@@ -319,7 +319,7 @@ const MembershipRequests: React.FC = () => {
             <i className="fas fa-arrow-left"></i>
           </button>
           <img src="/icons_logo/Icon=Membres.svg" alt="Demandes d'adhésion" className="section-icon" />
-          <h2>Gérer demandes d'adhésion</h2>
+          <h2>Gérer les demandes d'adhésion</h2>
         </div>
       </div>
 

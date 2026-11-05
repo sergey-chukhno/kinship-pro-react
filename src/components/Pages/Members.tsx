@@ -719,7 +719,7 @@ const Members: React.FC = () => {
 
   const fetchPendingRequestsCount = useCallback(async () => {
     // Skip for teachers - they don't have permission to view pending membership requests
-    // Only admins/superadmins can see the "Gérer demandes d'adhésion" button
+    // Only admins/superadmins can see the "Gérer les demandes d'adhésion" button
     if (isTeacherContext) {
       setPendingRequestsCount(0);
       return;
@@ -1806,7 +1806,7 @@ const Members: React.FC = () => {
       <div className="members-header">
         <div className="section-title-left">
           <img src="/icons_logo/Icon=Membres.svg" alt="Membres" className="section-icon" />
-          <h2>Gestion des Membres</h2>
+          <h2>Gestion des membres</h2>
         </div>
         <div className="page-actions">
           <div className="action-group">
@@ -1822,7 +1822,7 @@ const Members: React.FC = () => {
               <div className="relative">
                 <button className="btn btn-outline" onClick={handleMembershipRequests}>
                   <i className="fas fa-user-plus"></i>
-                  Gérer demandes d'adhésion
+                  Gérer les demandes d'adhésion
                   {pendingRequestsCount > 0 && (
                     <span 
                       className="pending-requests-badge"
@@ -1867,7 +1867,7 @@ const Members: React.FC = () => {
                   onClick={() => setIsCsvImportModalOpen(true)}
                 >
                   <i className="fas fa-upload"></i>
-                  Importer de csv
+                  Importer un CSV
                 </button>
               )}
             </div>
