@@ -46,6 +46,7 @@ import { getSelectedOrganizationId as getSelectedOrgId } from '../../utils/conte
 import { getTeacherProjects } from '../../api/Projects';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { getBadgeLevelDisplayLabel, getLevelLabel, SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
+import { getPublicProofPath } from '../../utils/publicProofRoute';
 import './Dashboard.css';
 import { DEFAULT_AVATAR_SRC } from '../UI/AvatarImage';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
@@ -1713,8 +1714,16 @@ const Dashboard: React.FC = () => {
                       const badgeImage = ub.badge?.image_url ||
                         getLocalBadgeImage(ub.badge?.name, ub.badge?.level, ub.badge?.series) ||
                         '/TouKouLeur-Jaune.png';
+                      const proofPath = getPublicProofPath(ub.share_token, ub.proof_type);
                       return (
-                        <li key={ub.id} className="personal-dashboard-badge-item">
+                        <li
+                          key={ub.id}
+                          className="personal-dashboard-badge-item"
+                          role={proofPath ? 'link' : undefined}
+                          style={proofPath ? { cursor: 'pointer' } : undefined}
+                          title={proofPath ? `Voir la preuve — ${ub.badge?.name ?? 'Compétence'}` : undefined}
+                          onClick={proofPath ? () => navigate(proofPath) : undefined}
+                        >
                           <div className="personal-dashboard-badge-item-icon">
                             <img src={badgeImage} alt={ub.badge?.name ?? 'Compétence'} />
                           </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Member } from '../../types';
 import RolePill from '../UI/RolePill';
 import './MemberCard.css';
@@ -9,6 +10,7 @@ import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
 import MemberCardBadgeProgressModal from '../Modals/MemberCardBadgeProgressModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import { getPublicProofPath } from '../../utils/publicProofRoute';
 
 interface MemberCardProps {
   categoryTag?: { label: string; color: string };// Optional pill tag
@@ -43,6 +45,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
   showCartographyLinkWhenHasBadges = false,
   hideContactButton = false
 }) => {
+  const navigate = useNavigate();
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [showAllClasses, setShowAllClasses] = useState(false);
   const [showAllSchools, setShowAllSchools] = useState<Record<string, boolean>>({});
@@ -338,6 +341,11 @@ const MemberCard: React.FC<MemberCardProps> = ({
             {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
               const badge = latestBadge.badge;
               const badgeLevel = badge.level || 'level_1';
+              const proofPath = getPublicProofPath(latestBadge.share_token, latestBadge.proof_type);
+              const openProof = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                if (proofPath) navigate(proofPath);
+              };
               const isProgressBadge =
                 badge?.series &&
                 isSeriesWithCompetenceProgress(badge.series) &&
@@ -354,6 +362,10 @@ const MemberCard: React.FC<MemberCardProps> = ({
                     fullExpertiseNames={fullExpertiseNames}
                     receivedExpertiseNames={receivedExpertiseNames}
                     onClick={() => {
+                      if (proofPath) {
+                        navigate(proofPath);
+                        return;
+                      }
                       setProgressModalBadge({
                         badge,
                         fullExpertiseNames,
@@ -370,6 +382,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
               return (
                 <div
                   key={`${latestBadge.id}-${index}`}
+                  role={proofPath ? 'link' : undefined}
                   style={{
                     position: 'relative',
                     width: '48px',
@@ -377,11 +390,15 @@ const MemberCard: React.FC<MemberCardProps> = ({
                     borderRadius: '8px',
                     overflow: 'hidden',
                     border: '1px solid #e5e7eb',
-                    cursor: 'pointer',
+                    cursor: proofPath ? 'pointer' : 'default',
                     transition: 'transform 0.2s ease',
                   }}
-                  title={`${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`}
+                  title={proofPath
+                    ? `Voir la preuve — ${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`
+                    : `${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`}
+                  onClick={proofPath ? openProof : undefined}
                   onMouseEnter={(e) => {
+                    if (!proofPath) return;
                     e.currentTarget.style.transform = 'scale(1.1)';
                     e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
                   }}

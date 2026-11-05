@@ -32,6 +32,9 @@ export interface Member {
       name: string;
     };
     assigned_at: string;
+    /** Public proof share token — open /pb|/pe/:token (Point 12) */
+    share_token?: string | null;
+    proof_type?: 'PB' | 'PE' | string | null;
   }>; // Latest badges received from API
   organization?: string;
   organizationType?: 'school' | 'company'; // Type of organization for styling

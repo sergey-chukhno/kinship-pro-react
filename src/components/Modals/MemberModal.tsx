@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { mockBadges } from '../../data/mockData';
 import { Badge, Member } from '../../types';
@@ -12,6 +13,7 @@ import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import { getPublicProofPath } from '../../utils/publicProofRoute';
 import {
   listSchoolParentLinkCodes,
   regenerateSchoolParentLinkCode,
@@ -131,6 +133,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
   schoolId,
   companyId
 }) => {
+  const navigate = useNavigate();
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
   // Profession should be the actual job, not translated system role
@@ -1270,6 +1273,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                       {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
                         const badge = latestBadge.badge;
                         const badgeLevel = badge.level || 'level_1';
+                        const proofPath = getPublicProofPath(latestBadge.share_token, latestBadge.proof_type);
                         const isProgressBadge =
                           badge?.series &&
                           isSeriesWithCompetenceProgress(badge.series) &&
@@ -1285,6 +1289,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                               badge={badge}
                               fullExpertiseNames={fullExpertiseNames}
                               receivedExpertiseNames={receivedExpertiseNames}
+                              onClick={proofPath ? () => navigate(proofPath) : undefined}
                             />
                           );
                         }
@@ -1297,7 +1302,10 @@ const MemberModal: React.FC<MemberModalProps> = ({
                             key={latestBadge.id || `${badge.id}-${badgeLevel}-${index}`}
                             src={badgeImage}
                             alt={badge.name}
-                            title={`${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`}
+                            title={proofPath
+                              ? `Voir la preuve — ${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`
+                              : `${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`}
+                            onClick={proofPath ? () => navigate(proofPath) : undefined}
                             style={{
                               width: '48px',
                               height: '48px',
@@ -1306,6 +1314,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                               border: '1px solid #e5e7eb',
                               padding: '4px',
                               backgroundColor: '#f9fafb',
+                              cursor: proofPath ? 'pointer' : 'default',
                             }}
                           />
                         );
