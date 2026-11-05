@@ -1183,14 +1183,12 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     );
                   }
 
+                  if (!hasSkills && !isEditing) return null;
+
                   return (
                     <div className="info-section">
                       <h3>Compétences</h3>
-                      {!hasSkills ? (
-                        <p className="w-full text-center no-badges">Aucune compétence renseignée</p>
-                      ) : (
-                        skillsContent
-                      )}
+                      {skillsContent}
                     </div>
                   );
                 })()}
@@ -1233,14 +1231,12 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     );
                   }
 
+                  if (!hasAvailability && !isEditing) return null;
+
                   return (
                     <div className="info-section">
                       <h3>Disponibilités</h3>
-                      {!hasAvailability ? (
-                        <p className="w-full text-center no-badges">Aucune disponibilité renseignée</p>
-                      ) : (
-                        availabilityContent
-                      )}
+                      {availabilityContent}
                     </div>
                   );
                 })()}
