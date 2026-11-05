@@ -11,6 +11,7 @@ import CompactProgressBadge from '../Badges/CompactProgressBadge';
 import MemberCardBadgeProgressModal from '../Modals/MemberCardBadgeProgressModal';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
 import { getPublicProofPath } from '../../utils/publicProofRoute';
+import { formatPreuvesCountLabel } from '../../utils/memberBadgeCount';
 
 interface MemberCardProps {
   categoryTag?: { label: string; color: string };// Optional pill tag
@@ -500,15 +501,19 @@ const MemberCard: React.FC<MemberCardProps> = ({
             if (!badgeCartographyUrl) e.preventDefault();
           }}
           style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-          aria-label={badgeCartographyUrl ? `Voir la cartographie des preuves de compétences de ${member.firstName} ${member.lastName}` : undefined}
+          aria-label={
+            badgeCartographyUrl
+              ? `Voir la cartographie des preuves de compétences de ${member.firstName} ${member.lastName} (${formatPreuvesCountLabel(badgeCount)})`
+              : formatPreuvesCountLabel(badgeCount)
+          }
         >
-          <img src="/icons_logo/Icon=Badges.svg" alt="Preuve" className="badge-icon" />
-          <span>{badgeCount}</span>
+          <img src="/icons_logo/Icon=Badges.svg" alt="" className="badge-icon" />
+          <span>{formatPreuvesCountLabel(badgeCount)}</span>
         </a>
       ) : (
-        <div className="badge-counter">
-          <img src="/icons_logo/Icon=Badges.svg" alt="Preuve" className="badge-icon" />
-          <span>{badgeCount}</span>
+        <div className="badge-counter" aria-label={formatPreuvesCountLabel(badgeCount)}>
+          <img src="/icons_logo/Icon=Badges.svg" alt="" className="badge-icon" />
+          <span>{formatPreuvesCountLabel(badgeCount)}</span>
         </div>
       )}
     </div>

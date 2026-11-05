@@ -33,6 +33,7 @@ import '../Modals/Modal.css';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { displayPersonName, CIVIL_DATA_ERASED_SENTINEL } from '../../utils/civilDataErased';
 import { getSelectedOrganizationId, getSelectedSchoolId, getSelectedCompanyId, getSelectedOrganizationRole } from '../../utils/contextUtils';
+import { resolveMemberBadgeCount } from '../../utils/memberBadgeCount';
 
 const AVAILABILITY_OPTIONS = [
   'Lundi',
@@ -283,6 +284,7 @@ const Members: React.FC = () => {
             skills: [],
             availability: [],
             badges: badges,
+            badgesCount: typeof s.badges_count === 'number' ? s.badges_count : undefined,
             latestBadges: s.latest_badges || [],
             experience: [],
             education: [],
@@ -394,6 +396,7 @@ const Members: React.FC = () => {
           avatar: m.avatar_url || DEFAULT_AVATAR_SRC,
           isTrusted: m.status === 'confirmed',
           badges: badges,
+          badgesCount: typeof m.badges_count === 'number' ? m.badges_count : undefined,
           latestBadges: m.latest_badges || [],
           organization: '',
           canProposeStage: m.take_trainee || false,
@@ -640,6 +643,7 @@ const Members: React.FC = () => {
           avatar: vol.avatar_url || vol.user?.avatar || DEFAULT_AVATAR_SRC,
           isTrusted: (vol.status || '').toLowerCase() === 'confirmed',
           badges: vol.badges?.map((b: any) => b.id?.toString()) || [],
+          badgesCount: typeof vol.badges_count === 'number' ? vol.badges_count : undefined,
           latestBadges: vol.latest_badges || [],
           organization: vol.organization || '',
           canProposeStage: vol.take_trainee || vol.user?.take_trainee || false,
@@ -1106,12 +1110,7 @@ const Members: React.FC = () => {
   // Use latestBadges as fallback so school dashboard shows link when API omits/undercounts badges
   const selectedMemberHasBadges = useMemo(() => {
     if (!selectedMember) return false;
-    const count = Array.isArray(selectedMember.badges)
-      ? selectedMember.badges.length
-      : (selectedMember.badges as any)?.meta?.total_count ?? (selectedMember.badges as any)?.data?.length ?? 0;
-    if (Number(count) > 0) return true;
-    const latestCount = (selectedMember as any).latestBadges?.length ?? 0;
-    return latestCount > 0;
+    return resolveMemberBadgeCount(selectedMember) > 0;
   }, [selectedMember]);
 
   const isCartographyLoadingForSelected =
@@ -2023,10 +2022,7 @@ const Members: React.FC = () => {
                     renderMembersLoading()
                   ) : staffMembers.length > 0 ? (
                     staffMembers.map((member: Member) => {
-                      // Handle both old format (array) and new format (object with data/meta)
-                      const totalBadgeCount = Array.isArray(member.badges) 
-                        ? member.badges.length 
-                        : (member.badges as any)?.meta?.total_count || (member.badges as any)?.data?.length || 0;
+                      const totalBadgeCount = resolveMemberBadgeCount(member);
                       const memberForDisplay = {
                         ...member,
                         roles: translateRoles(member.roles),
@@ -2114,11 +2110,7 @@ const Members: React.FC = () => {
           </div>
           <div className="members-grid">
                 {isMembersLoading && membersInitialLoad ? renderMembersLoading() : filteredStudents.length > 0 ? filteredStudents.map((member) => {
-              // Handle both old format (array) and new format (object with data/meta); fallback to latestBadges for school API
-              const fromBadges = Array.isArray(member.badges)
-                ? member.badges.length
-                : (member.badges as any)?.meta?.total_count ?? (member.badges as any)?.data?.length ?? 0;
-              const totalBadgeCount = Number(fromBadges) > 0 ? fromBadges : ((member as any).latestBadges?.length ?? 0);
+              const totalBadgeCount = resolveMemberBadgeCount(member);
               const memberForDisplay = {
                 ...member,
                 roles: translateRoles(member.roles),
@@ -2504,7 +2496,7 @@ const Members: React.FC = () => {
                       <MemberCard
                         key={communityItem.id}
                         member={communityForDisplay}
-                        badgeCount={communityItem.badges?.length || 0}
+                        badgeCount={resolveMemberBadgeCount(communityItem)}
                         onClick={() => setSelectedMember(communityItem)}
                         onContactClick={() => {
                           setContactEmail(communityItem.email);

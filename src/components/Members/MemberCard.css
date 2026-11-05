@@ -244,7 +244,8 @@
   font-weight: 600;
   box-shadow: 0 3px 8px rgba(16, 185, 129, 0.4);
   min-width: 45px;
-  max-width: 60px;
+  max-width: none;
+  white-space: nowrap;
   justify-content: center;
   z-index: 10;
   height: 28px;
