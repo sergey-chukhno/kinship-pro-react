@@ -73,7 +73,8 @@
   word-wrap: break-word;
   overflow-wrap: break-word;
   line-height: 1.4;
-  hyphens: auto;
+  hyphens: none;
+  -webkit-hyphens: none;
 }
 
 .member-profession {
@@ -83,9 +84,9 @@
   width: 80%;
   text-align: center;
   word-wrap: break-word;
-  word-break: break-word;
   overflow-wrap: break-word;
-  hyphens: auto;
+  hyphens: none;
+  -webkit-hyphens: none;
   max-width: 100%;
   line-height: 1.5;
 }
