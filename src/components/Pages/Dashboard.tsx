@@ -1701,13 +1701,12 @@ const Dashboard: React.FC = () => {
             )}
           </div>
           <div className="personal-dashboard-second-row">
+            {(userLast3BadgesLoading || userLast3Badges.length > 0) && (
             <div className="personal-dashboard-card personal-dashboard-badges-card">
               <h3 className="personal-dashboard-card-title">3 dernières preuves de compétences</h3>
               <div className="personal-dashboard-card-content">
                 {userLast3BadgesLoading ? (
                   <p className="personal-dashboard-loading">Chargement…</p>
-                ) : userLast3Badges.length === 0 ? (
-                  <p className="personal-dashboard-empty">Aucune Preuve de compétences</p>
                 ) : (
                   <ul className="personal-dashboard-badges-list">
                     {userLast3Badges.map((ub: any) => {
@@ -1738,6 +1737,7 @@ const Dashboard: React.FC = () => {
                 Voir toutes mes preuves →
               </button>
             </div>
+            )}
             <div className="personal-dashboard-card personal-dashboard-stats-card">
               <h3 className="personal-dashboard-card-title">Mes statistiques</h3>
               <div className="personal-dashboard-card-content">

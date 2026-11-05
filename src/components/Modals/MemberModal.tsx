@@ -1267,11 +1267,9 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 )}
 
                 {/* Recent Preuves de compétences — D-LINK-SURFACES-01 §2.1bis / DoD ㉑ */}
+                {member.latestBadges && member.latestBadges.length > 0 && (
                 <div className="info-section">
                   <h3>3 dernières preuves de compétences</h3>
-                  {!member.latestBadges || member.latestBadges.length === 0 ? (
-                    <p className="w-full text-center no-badges">Aucune Preuve de compétences</p>
-                  ) : (
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                       {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
                         const badge = latestBadge.badge;
@@ -1317,8 +1315,8 @@ const MemberModal: React.FC<MemberModalProps> = ({
                         );
                       })}
                     </div>
-                  )}
                 </div>
+                )}
 
                 {/* Badges reçus section - hidden as not used */}
                 {false && (
