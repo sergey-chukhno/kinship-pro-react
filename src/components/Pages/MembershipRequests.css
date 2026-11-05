@@ -146,7 +146,8 @@
   margin: 0 0 0.25rem 0;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  hyphens: auto;
+  hyphens: none;
+  -webkit-hyphens: none;
   line-height: 1.4;
 }
 
