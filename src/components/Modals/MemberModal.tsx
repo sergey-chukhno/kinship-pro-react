@@ -1268,7 +1268,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
 
                 {/* Recent Preuves de compétences — D-LINK-SURFACES-01 §2.1bis / DoD ㉑ */}
                 <div className="info-section">
-                  <h3>3 dernières Preuves de compétences</h3>
+                  <h3>3 dernières preuves de compétences</h3>
                   {!member.latestBadges || member.latestBadges.length === 0 ? (
                     <p className="w-full text-center no-badges">Aucune Preuve de compétences</p>
                   ) : (

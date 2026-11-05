@@ -1702,7 +1702,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="personal-dashboard-second-row">
             <div className="personal-dashboard-card personal-dashboard-badges-card">
-              <h3 className="personal-dashboard-card-title">3 dernières Preuves de compétences</h3>
+              <h3 className="personal-dashboard-card-title">3 dernières preuves de compétences</h3>
               <div className="personal-dashboard-card-content">
                 {userLast3BadgesLoading ? (
                   <p className="personal-dashboard-loading">Chargement…</p>

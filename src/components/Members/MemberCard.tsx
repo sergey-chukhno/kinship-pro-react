@@ -327,7 +327,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
             marginBottom: '12px',
             marginTop: 0
           }}>
-            3 dernières Preuves de compétences
+            3 dernières preuves de compétences
           </h4>
           <div style={{ 
             display: 'flex', 
