@@ -13,9 +13,9 @@ describe('cpsSeries', () => {
     expect(getCpsCompetenceKeyFromBadgeName('Atteindre ses buts personnels (C2.1)')).toBe('C2');
   });
 
-  it('maps competence key to local icon path', () => {
+  it('maps competence key to local icon path (EXPORTS_S8 SVG)', () => {
     expect(getCpsLocalBadgeImage('Communiquer de façon empathique (S1.2)')).toBe(
-      '/badges_competences_psychosociales/CPS_S1.png'
+      '/badges_competences_psychosociales/CPS_S1.svg'
     );
   });
 });
