@@ -41,6 +41,10 @@ const SOFT_SKILL_BY_NAME: Record<string, SoftSkillKey> = {
   'informatique & numerique': 'informatique_numerique',
   'informatique et numerique': 'informatique_numerique',
   'informatique numerique': 'informatique_numerique',
+  // Catalog / tree title on staging (Patrick smoke 06/11) — not "Informatique & …"
+  'information numerique': 'informatique_numerique',
+  'information & numerique': 'informatique_numerique',
+  'information et numerique': 'informatique_numerique',
 };
 
 const SOFT_SKILL_AXE: Record<SoftSkillKey, keyof typeof SOFT_SKILLS_AXE_COLORS> = {

@@ -21,4 +21,14 @@ describe('softSkillsSeries pictos', () => {
       'informatique_numerique'
     );
   });
+
+  it('maps catalog name Information Numérique (staging alias)', () => {
+    expect(getSoftSkillKeyFromName('Information Numérique')).toBe(
+      'informatique_numerique'
+    );
+    expect(getSoftSkillsLocalPicto('Information Numérique')).toBe(
+      '/badges_competences_transversales/informatique_numerique.svg'
+    );
+    expect(getSoftSkillsAxeColor('Information Numérique')).toBe('#783A7F');
+  });
 });
