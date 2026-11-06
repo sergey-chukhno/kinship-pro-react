@@ -31,4 +31,20 @@ describe('softSkillsSeries pictos', () => {
     );
     expect(getSoftSkillsAxeColor('Information Numérique')).toBe('#783A7F');
   });
+
+  it('informatique_numerique.svg uses fill for CSS mask (not stroke-only)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs') as typeof import('fs');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const path = require('path') as typeof import('path');
+    const svg = fs.readFileSync(
+      path.join(
+        __dirname,
+        '../../public/badges_competences_transversales/informatique_numerique.svg'
+      ),
+      'utf8'
+    );
+    expect(svg).toMatch(/fill="currentColor"/);
+    expect(svg).not.toMatch(/stroke="currentColor"/);
+  });
 });
