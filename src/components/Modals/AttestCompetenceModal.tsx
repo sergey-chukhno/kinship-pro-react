@@ -48,6 +48,11 @@ import {
   getSoftSkillsAxeColor,
   getSoftSkillsLocalPicto,
 } from '../../utils/softSkillsSeries';
+import {
+  filterAttestSelectableLevels,
+  softSkillsPastilleLevels,
+  uniqueLevelNumbers,
+} from '../../utils/attestSoftSkillsPastilles';
 import './Modal.css';
 import './BadgeAssignmentModal.css';
 
@@ -533,24 +538,16 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
   const levelsFor = useCallback(
     (name: string): string[] => {
-      const levels = seriesBadges
-        .filter((b) => b.name === name)
-        .map((b) => b.level.replace('level_', ''))
-        .filter((v, i, a) => a.indexOf(v) === i)
-        .sort();
-      const base = levels.length ? levels : ['1'];
+      const base = uniqueLevelNumbers(seriesBadges.filter((b) => b.name === name));
       // CPS: only Phase 1 and 2 — detect via catalog_key on series badges (R1 / 01/10)
-      if (seriesBadges.some((b) => b.catalog_key === CATALOG_KEY_CPS)) {
-        return base.filter((lv) => lv === '1' || lv === '2');
-      }
       // Soft Skills: Découverte / Appropriation only (Patrick 06/11)
-      if (
+      const restrictToPhaseOrSoftLevels =
+        seriesBadges.some((b) => b.catalog_key === CATALOG_KEY_CPS) ||
         isSoftSkillsSeries(series) ||
-        seriesBadges.some((b) => isSoftSkillsCatalog({ catalog_key: b.catalog_key, series: b.series }))
-      ) {
-        return base.filter((lv) => lv === '1' || lv === '2');
-      }
-      return base;
+        seriesBadges.some((b) =>
+          isSoftSkillsCatalog({ catalog_key: b.catalog_key, series: b.series })
+        );
+      return filterAttestSelectableLevels(base, { restrictToPhaseOrSoftLevels });
     },
     [seriesBadges, series]
   );
@@ -1518,15 +1515,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                             ? getLevelLabel(CATALOG_KEY_CPS, phaseNum)
                             : null;
                           const softLevels = attestingSoftSkills
-                            ? (() => {
-                                const lv = seriesBadges
-                                  .filter((b) => card.badgeNames.includes(b.name))
-                                  .map((b) => b.level.replace('level_', ''))
-                                  .filter((v, i, a) => a.indexOf(v) === i)
-                                  .filter((v) => v === '1' || v === '2')
-                                  .sort();
-                                return lv.length ? lv : ['1', '2'];
-                              })()
+                            ? softSkillsPastilleLevels(seriesBadges, card.badgeNames)
                             : [];
                           const softBadgeName = sampleName || card.name;
                           return (
