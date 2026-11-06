@@ -73,7 +73,8 @@
   word-wrap: break-word;
   overflow-wrap: break-word;
   line-height: 1.4;
-  hyphens: auto;
+  hyphens: none;
+  -webkit-hyphens: none;
 }
 
 .member-profession {
@@ -83,9 +84,9 @@
   width: 80%;
   text-align: center;
   word-wrap: break-word;
-  word-break: break-word;
   overflow-wrap: break-word;
-  hyphens: auto;
+  hyphens: none;
+  -webkit-hyphens: none;
   max-width: 100%;
   line-height: 1.5;
 }
@@ -243,7 +244,8 @@
   font-weight: 600;
   box-shadow: 0 3px 8px rgba(16, 185, 129, 0.4);
   min-width: 45px;
-  max-width: 60px;
+  max-width: none;
+  white-space: nowrap;
   justify-content: center;
   z-index: 10;
   height: 28px;

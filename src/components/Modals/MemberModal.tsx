@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { mockBadges } from '../../data/mockData';
 import { Badge, Member } from '../../types';
@@ -12,6 +13,7 @@ import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { getBadgeLevelDisplayLabel } from '../../utils/badgeLevelLabels';
 import CompactProgressBadge from '../Badges/CompactProgressBadge';
 import { isSeriesWithCompetenceProgress } from '../../constants/badgeAxes';
+import { getPublicProofPath } from '../../utils/publicProofRoute';
 import {
   listSchoolParentLinkCodes,
   regenerateSchoolParentLinkCode,
@@ -131,6 +133,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
   schoolId,
   companyId
 }) => {
+  const navigate = useNavigate();
   const { state } = useAppContext();
   const displayRoles = translateRoles(member.roles);
   // Profession should be the actual job, not translated system role
@@ -1183,14 +1186,12 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     );
                   }
 
+                  if (!hasSkills && !isEditing) return null;
+
                   return (
                     <div className="info-section">
                       <h3>Compétences</h3>
-                      {!hasSkills ? (
-                        <p className="w-full text-center no-badges">Aucune compétence renseignée</p>
-                      ) : (
-                        skillsContent
-                      )}
+                      {skillsContent}
                     </div>
                   );
                 })()}
@@ -1233,14 +1234,12 @@ const MemberModal: React.FC<MemberModalProps> = ({
                     );
                   }
 
+                  if (!hasAvailability && !isEditing) return null;
+
                   return (
                     <div className="info-section">
                       <h3>Disponibilités</h3>
-                      {!hasAvailability ? (
-                        <p className="w-full text-center no-badges">Aucune disponibilité renseignée</p>
-                      ) : (
-                        availabilityContent
-                      )}
+                      {availabilityContent}
                     </div>
                   );
                 })()}
@@ -1267,15 +1266,14 @@ const MemberModal: React.FC<MemberModalProps> = ({
                 )}
 
                 {/* Recent Preuves de compétences — D-LINK-SURFACES-01 §2.1bis / DoD ㉑ */}
+                {member.latestBadges && member.latestBadges.length > 0 && (
                 <div className="info-section">
-                  <h3>3 dernières Preuves de compétences</h3>
-                  {!member.latestBadges || member.latestBadges.length === 0 ? (
-                    <p className="w-full text-center no-badges">Aucune Preuve de compétences</p>
-                  ) : (
+                  <h3>3 dernières preuves de compétences</h3>
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                       {member.latestBadges.slice(0, 3).map((latestBadge, index) => {
                         const badge = latestBadge.badge;
                         const badgeLevel = badge.level || 'level_1';
+                        const proofPath = getPublicProofPath(latestBadge.share_token, latestBadge.proof_type);
                         const isProgressBadge =
                           badge?.series &&
                           isSeriesWithCompetenceProgress(badge.series) &&
@@ -1291,6 +1289,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
                               badge={badge}
                               fullExpertiseNames={fullExpertiseNames}
                               receivedExpertiseNames={receivedExpertiseNames}
+                              onClick={proofPath ? () => navigate(proofPath) : undefined}
                             />
                           );
                         }
@@ -1303,7 +1302,10 @@ const MemberModal: React.FC<MemberModalProps> = ({
                             key={latestBadge.id || `${badge.id}-${badgeLevel}-${index}`}
                             src={badgeImage}
                             alt={badge.name}
-                            title={`${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`}
+                            title={proofPath
+                              ? `Voir la preuve — ${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`
+                              : `${badge.name} - ${getBadgeLevelDisplayLabel(badge.series, badgeLevel)}`}
+                            onClick={proofPath ? () => navigate(proofPath) : undefined}
                             style={{
                               width: '48px',
                               height: '48px',
@@ -1312,13 +1314,14 @@ const MemberModal: React.FC<MemberModalProps> = ({
                               border: '1px solid #e5e7eb',
                               padding: '4px',
                               backgroundColor: '#f9fafb',
+                              cursor: proofPath ? 'pointer' : 'default',
                             }}
                           />
                         );
                       })}
                     </div>
-                  )}
                 </div>
+                )}
 
                 {/* Badges reçus section - hidden as not used */}
                 {false && (

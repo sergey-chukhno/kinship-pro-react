@@ -319,7 +319,7 @@ const MembershipRequests: React.FC = () => {
             <i className="fas fa-arrow-left"></i>
           </button>
           <img src="/icons_logo/Icon=Membres.svg" alt="Demandes d'adhésion" className="section-icon" />
-          <h2>Gérer demandes d'adhésion</h2>
+          <h2>Gérer les demandes d'adhésion</h2>
         </div>
       </div>
 
@@ -353,54 +353,54 @@ const MembershipRequests: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="request-skills">
-                  <h4>Compétences</h4>
-                  {(() => {
-                    const { mainSkills, subSkills } = organizeSkills(request.skills);
-                    return (
-                      <>
-                        <div className="skills-list">
-                          {mainSkills.length > 0 ? (
-                            mainSkills.map((skill, index) => (
+                {(() => {
+                  const { mainSkills, subSkills } = organizeSkills(request.skills);
+                  const hasSkills = mainSkills.length > 0 || subSkills.length > 0;
+                  if (!hasSkills) return null;
+                  return (
+                    <div className="request-skills">
+                      {mainSkills.length > 0 && (
+                        <>
+                          <h4>Compétences</h4>
+                          <div className="skills-list">
+                            {mainSkills.map((skill, index) => (
                               <span key={index} className="skill-pill">
                                 {translateSkill(skill)}
                               </span>
-                            ))
-                          ) : (
-                            <span className="no-data">Aucune compétence renseignée</span>
-                          )}
-                        </div>
-                        {subSkills.length > 0 && (
-                          <>
-                            <h4 style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>Sous-compétences</h4>
-                            <div className="skills-list">
-                              {subSkills.map((skill, index) => (
-                                <span key={index} className="sub-skill-pill">
-                                  {translateSubSkill(skill)}
-                                </span>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      {subSkills.length > 0 && (
+                        <>
+                          <h4 style={{ marginTop: mainSkills.length > 0 ? '1rem' : undefined, marginBottom: '0.5rem' }}>
+                            Sous-compétences
+                          </h4>
+                          <div className="skills-list">
+                            {subSkills.map((skill, index) => (
+                              <span key={index} className="sub-skill-pill">
+                                {translateSubSkill(skill)}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
 
-                <div className="request-availability">
-                  <h4>Disponibilités</h4>
-                  <div className="availability-list">
-                    {request.availability.length > 0 ? (
-                      request.availability.map((day, index) => (
+                {request.availability.length > 0 && (
+                  <div className="request-availability">
+                    <h4>Disponibilités</h4>
+                    <div className="availability-list">
+                      {request.availability.map((day, index) => (
                         <span key={index} className="availability-pill">
                           {day}
                         </span>
-                      ))
-                    ) : (
-                      <span className="no-data">Non spécifié</span>
-                    )}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="request-actions">
                   <div className="role-selection">

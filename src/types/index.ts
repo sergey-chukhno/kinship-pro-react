@@ -12,7 +12,9 @@ export interface Member {
   availability: string[];
   avatar: string;
   isTrusted: boolean;
-  badges: string[]; // Array of badge IDs
+  badges: string[]; // Array of badge IDs (legacy) or API { data, meta } at runtime
+  /** Approved preuves total from API badges_count (Point 13) */
+  badgesCount?: number;
   latestBadges?: Array<{
     id: number;
     badge: {
@@ -32,6 +34,9 @@ export interface Member {
       name: string;
     };
     assigned_at: string;
+    /** Public proof share token — open /pb|/pe/:token (Point 12) */
+    share_token?: string | null;
+    proof_type?: 'PB' | 'PE' | string | null;
   }>; // Latest badges received from API
   organization?: string;
   organizationType?: 'school' | 'company'; // Type of organization for styling

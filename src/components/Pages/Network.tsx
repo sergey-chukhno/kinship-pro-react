@@ -26,6 +26,7 @@ import SchoolTeacherPartnershipRequestDetailsModal from '../Modals/SchoolTeacher
 import { useToast } from '../../hooks/useToast';
 import { translateSkill } from '../../translations/skills';
 import { isUnder15 } from '../../utils/ageUtils';
+import { resolveMemberBadgeCount } from '../../utils/memberBadgeCount';
 import './Network.css';
 
 interface Organization {
@@ -102,6 +103,8 @@ interface NetworkUser {
     companies?: Array<{ id: number; name: string; role: string }>;
   };
   common_organizations: Array<{ id: number; name: string; type: string }>;
+  /** Point 13 — approved preuves total */
+  badges_count?: number;
 }
 
 const availabilityToLabels = (availability: any = {}) => {
@@ -1503,6 +1506,7 @@ const Network: React.FC = () => {
           avatar: m.avatar_url || '',
           isTrusted: false,
           badges: m.badges || [],
+          badgesCount: typeof m.badges_count === 'number' ? m.badges_count : 0,
           organization: m.organization_name || m.company_name || m.school_name || '',
           organizationType: m.school_name ? 'school' as const : (m.company_name || m.organization_name) ? 'company' as const : undefined,
           take_trainee: m.take_trainee || false,
@@ -2121,6 +2125,7 @@ const Network: React.FC = () => {
           avatar: user.avatar_url || '',
           isTrusted: false,
           badges: [],
+          badgesCount: typeof user.badges_count === 'number' ? user.badges_count : 0,
           organization: (() => {
             // Use user's own organizations (from organizations field) - priority
             if (user.organizations) {
@@ -3378,7 +3383,7 @@ const Network: React.FC = () => {
                   <MemberCard
                     key={member.id}
                     member={member}
-                    badgeCount={member.badges?.length || 0}
+                    badgeCount={resolveMemberBadgeCount(member)}
                     categoryTag={{ label: 'Membre individuel', color: '#ec4899' }}
                     onClick={() => {
                       setSelectedNetworkMember(member);
@@ -3418,7 +3423,7 @@ const Network: React.FC = () => {
                   <MemberCard
                     key={member.id}
                     member={member}
-                    badgeCount={member.badges?.length || 0}
+                    badgeCount={resolveMemberBadgeCount(member)}
                     categoryTag={{ label: 'Membre individuel', color: '#ec4899' }}
                     onClick={() => {
                       setSelectedNetworkMember(member);
@@ -3448,7 +3453,7 @@ const Network: React.FC = () => {
               <MemberCard
                 key={member.id}
                 member={member}
-                badgeCount={member.badges?.length || 0}
+                badgeCount={resolveMemberBadgeCount(member)}
                 categoryTag={{ label: 'Membre individuel', color: '#ec4899' }}
                 onClick={() => {
                   // Handle member card click - could open a profile modal
