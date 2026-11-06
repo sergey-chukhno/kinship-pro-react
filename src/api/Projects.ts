@@ -1781,50 +1781,9 @@ export const declineFundedProject = async (token: string, organizationId?: numbe
     });
 };
 
-export const proposeFunderAttachment = async (token: string, organizationId?: number): Promise<void> => {
-    await apiClient.post(`/api/v1/funded_projects/${token}/propose_attachment`, undefined, {
-        params: organizationId ? { organization_id: organizationId } : undefined,
-    });
-};
-
 export const lookupFunderOrganization = async (email: string): Promise<{ id: number; type: string; name: string; city?: string; email: string } | null> => {
     const response = await apiClient.get('/api/v1/funder_lookup', { params: { email } });
     return response.data?.data || null;
-};
-
-export interface FunderAttachment {
-    id: number;
-    status: 'pending' | 'confirmed' | 'rejected';
-    created_at: string;
-    confirmed_at?: string | null;
-    rejected_at?: string | null;
-    funder_company?: { id: number; type: string; name: string; city?: string };
-    carrier?: { id: number; type: string; name: string; city?: string };
-    project_title?: string | null;
-    direction?: 'sent' | 'received';
-}
-
-export const getFunderAttachments = async (
-    organizationId: number,
-    organizationType: 'company' | 'school' = 'company'
-): Promise<{ sent: FunderAttachment[]; received: FunderAttachment[]; funders_count: number; funded_structures_count: number }> => {
-    const response = await apiClient.get('/api/v1/funder_attachments', {
-        params: { organization_id: organizationId, organization_type: organizationType },
-    });
-    return {
-        sent: response.data?.data?.sent || [],
-        received: response.data?.data?.received || [],
-        funders_count: response.data?.meta?.funders_count || 0,
-        funded_structures_count: response.data?.meta?.funded_structures_count || 0,
-    };
-};
-
-export const confirmFunderAttachment = async (id: number): Promise<void> => {
-    await apiClient.post(`/api/v1/funder_attachments/${id}/confirm`);
-};
-
-export const rejectFunderAttachment = async (id: number): Promise<void> => {
-    await apiClient.post(`/api/v1/funder_attachments/${id}/reject`);
 };
 
 /**

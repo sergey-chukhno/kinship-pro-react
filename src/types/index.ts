@@ -450,7 +450,6 @@ export type PageType =
   | 'pik'
   | 'membership-requests'
   | 'partnership-requests'
-  | 'funder-attachments'
   | 'project-management'
   | 'presence-session'
   | 'formation-detail'

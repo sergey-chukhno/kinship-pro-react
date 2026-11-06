@@ -159,8 +159,6 @@ const Network: React.FC = () => {
   const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | 'join-organization' | 'teacher-partnership-requests' | 'school-teacher-partnership-requests' | null>(
     isOrgDashboardInitial || isPersonalUserForType ? null : 'schools'
   );
-  // D-FORMATION-SHARE-01 V1.5.2 — funder_attachments removed; tiles wait partnership_kind=financeur counts.
-  const [funderTileCounts] = useState({ funders: 0, funded: 0 });
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
@@ -2617,16 +2615,6 @@ const Network: React.FC = () => {
                 )}
               </button>
               <button
-                className="btn btn-outline"
-                onClick={() => {
-                  setCurrentPage('funder-attachments');
-                  navigate('/funder-attachments');
-                }}
-              >
-                <i className="fas fa-landmark"></i>
-                Gérer les demandes de rattachement financeur
-              </button>
-              <button
                 className="btn btn-primary"
                 onClick={() => {
                   setActiveCard(null);
@@ -2661,34 +2649,6 @@ const Network: React.FC = () => {
               <p>Mes partenaires</p>
             </div>
           </div>
-          {(funderTileCounts.funders > 0 || funderTileCounts.funded > 0) && (
-            <div
-              className="summary-card"
-              onClick={() => {
-                setCurrentPage('funder-attachments');
-                navigate('/funder-attachments');
-              }}
-              style={{ cursor: 'pointer' }}
-            >
-              <div className="summary-icon">
-                <img src="/icons_logo/Icon=Reseau.svg" alt="Rattachements financeur" className="summary-icon-img" />
-              </div>
-              <div className="summary-content">
-                {funderTileCounts.funders > 0 && (
-                  <>
-                    <h3>{funderTileCounts.funders}</h3>
-                    <p>Mes financeurs</p>
-                  </>
-                )}
-                {funderTileCounts.funded > 0 && (
-                  <>
-                    <h3>{funderTileCounts.funded}</h3>
-                    <p>Structures financées</p>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
           <div 
             className={`summary-card ${activeCard === 'branches' ? 'active' : ''}`}
             onClick={() => {
