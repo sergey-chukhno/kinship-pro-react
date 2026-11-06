@@ -500,12 +500,39 @@
   justify-content: center;
   background: #eef2f9;
   flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #16255a;
 }
 
 .att-card-pastille .att-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* EXPORTS_S8 — pastille DS (26px, fond axe 13 %, picto 18px currentColor via mask) */
+.att-picto {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--axe, #16255a) 13%, white);
+  color: var(--axe, #16255a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.att-picto-icon {
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
 .att-card-meta {
