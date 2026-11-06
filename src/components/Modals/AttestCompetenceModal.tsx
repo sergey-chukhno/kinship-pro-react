@@ -7,12 +7,12 @@ import { isSoftSkillsSeries, hasTypedSavoirSavoirFaireItems } from '../../consta
 import {
   CATALOG_KEY_AUDIOVISUELLE,
   CATALOG_KEY_CPS,
+  CATALOG_KEY_SOFT_SKILLS,
   isSoftSkillsCatalog,
   seriesGroupKey,
 } from '../../constants/catalogSeries';
-import { SOFT_SKILLS_SERIES_NAME } from '../../utils/badgeLevelLabels';
+import { SOFT_SKILLS_SERIES_NAME, getLevelLabel } from '../../utils/badgeLevelLabels';
 import { isSingleSelectCompetenceSeries } from '../../utils/badgeAssignmentCompetenceSelection';
-import { getLevelLabel } from '../../utils/badgeLevelLabels';
 import {
   axesAsOptions,
   badgeNamesForTree,
@@ -34,6 +34,7 @@ import {
 import { ProofCardCompact } from '../Proof/ProofCardCompact';
 import { readAttestLastSeries, writeAttestLastSeries } from '../../utils/attestLastSeries';
 import {
+  getCpsAxeColor,
   getCpsLocalBadgeImage,
   isCompetencesPsychosocialesSeries,
 } from '../../utils/cpsSeries';
@@ -43,8 +44,51 @@ import {
   phaseNumberFromCpsCompetenceCode,
   sortBadgeNamesBySpfCode,
 } from '../../utils/cpsPastilleLabels';
+import {
+  getSoftSkillsAxeColor,
+  getSoftSkillsLocalPicto,
+} from '../../utils/softSkillsSeries';
+import {
+  filterAttestSelectableLevels,
+  softSkillsPastilleLevels,
+  uniqueLevelNumbers,
+} from '../../utils/attestSoftSkillsPastilles';
 import './Modal.css';
 import './BadgeAssignmentModal.css';
+
+/** DS pastille 26px — SVG via mask so currentColor / axe tint applies. */
+function AttestCompetencePicto({
+  src,
+  axeColor,
+  fallbackLetter,
+}: {
+  src?: string;
+  axeColor?: string;
+  fallbackLetter: string;
+}) {
+  if (!src) {
+    return <>{fallbackLetter}</>;
+  }
+  const color = axeColor || '#16255a';
+  return (
+    <span
+      className="att-picto"
+      style={
+        {
+          ['--axe' as string]: color,
+        } as React.CSSProperties
+      }
+    >
+      <span
+        className="att-picto-icon"
+        style={{
+          WebkitMaskImage: `url(${src})`,
+          maskImage: `url(${src})`,
+        }}
+      />
+    </span>
+  );
+}
 
 function mapAssignProofToProofData(proof: PublicProofPayload): ProofData {
   const normalized = normalizeBadgeProofResponse(
@@ -494,19 +538,25 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
 
   const levelsFor = useCallback(
     (name: string): string[] => {
-      const levels = seriesBadges
-        .filter((b) => b.name === name)
-        .map((b) => b.level.replace('level_', ''))
-        .filter((v, i, a) => a.indexOf(v) === i)
-        .sort();
-      const base = levels.length ? levels : ['1'];
+      const base = uniqueLevelNumbers(seriesBadges.filter((b) => b.name === name));
       // CPS: only Phase 1 and 2 — detect via catalog_key on series badges (R1 / 01/10)
-      if (seriesBadges.some((b) => b.catalog_key === CATALOG_KEY_CPS)) {
-        return base.filter((lv) => lv === '1' || lv === '2');
-      }
-      return base;
+      // Soft Skills: Découverte / Appropriation only (Patrick 06/11)
+      const restrictToPhaseOrSoftLevels =
+        seriesBadges.some((b) => b.catalog_key === CATALOG_KEY_CPS) ||
+        isSoftSkillsSeries(series) ||
+        seriesBadges.some((b) =>
+          isSoftSkillsCatalog({ catalog_key: b.catalog_key, series: b.series })
+        );
+      return filterAttestSelectableLevels(base, { restrictToPhaseOrSoftLevels });
     },
-    [seriesBadges]
+    [seriesBadges, series]
+  );
+
+  const attestingSoftSkills = useMemo(
+    () =>
+      isSoftSkillsSeries(series) ||
+      seriesBadges.some((b) => isSoftSkillsCatalog({ catalog_key: b.catalog_key, series: b.series })),
+    [series, seriesBadges]
   );
 
   const badgeFor = useCallback(
@@ -1444,15 +1494,30 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                         {axeTitle && <div className="att-grp">{axeTitle}</div>}
                         {cards.map((card) => {
                           const sampleName = card.badgeNames[0];
-                          const cpsIcon = getCpsLocalBadgeImage(sampleName);
-                          const phaseNum = phaseNumberFromCpsCompetenceCode(card.code);
-                          const phaseHint = phaseNum
-                            ? getLevelLabel(CATALOG_KEY_CPS, phaseNum)
-                            : null;
                           const title = card.code
                             ? `${card.code} · ${card.name}`
                             : card.name;
                           const anyPicked = card.badgeNames.some((n) => Boolean(drafts[n]));
+                          const softPicto = attestingSoftSkills
+                            ? getSoftSkillsLocalPicto(card.name) || getSoftSkillsLocalPicto(sampleName)
+                            : undefined;
+                          const softAxe = attestingSoftSkills
+                            ? getSoftSkillsAxeColor(card.name) || getSoftSkillsAxeColor(sampleName)
+                            : undefined;
+                          const cpsIcon = !attestingSoftSkills
+                            ? getCpsLocalBadgeImage(sampleName)
+                            : undefined;
+                          const cpsAxe = !attestingSoftSkills ? getCpsAxeColor(sampleName) : undefined;
+                          const phaseNum = !attestingSoftSkills
+                            ? phaseNumberFromCpsCompetenceCode(card.code)
+                            : null;
+                          const phaseHint = phaseNum
+                            ? getLevelLabel(CATALOG_KEY_CPS, phaseNum)
+                            : null;
+                          const softLevels = attestingSoftSkills
+                            ? softSkillsPastilleLevels(seriesBadges, card.badgeNames)
+                            : [];
+                          const softBadgeName = sampleName || card.name;
                           return (
                             <div
                               key={card.key}
@@ -1464,11 +1529,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                             >
                               <div className="att-crow" style={{ border: 0, padding: 0, width: '100%' }}>
                                 <span className="att-avatar" aria-hidden="true">
-                                  {cpsIcon ? (
-                                    <img src={cpsIcon} alt="" width={28} height={28} />
-                                  ) : (
-                                    (card.code || card.name).trim().charAt(0)
-                                  )}
+                                  <AttestCompetencePicto
+                                    src={softPicto || cpsIcon}
+                                    axeColor={softAxe || cpsAxe}
+                                    fallbackLetter={(card.code || card.name).trim().charAt(0)}
+                                  />
                                 </span>
                                 <span className="att-card-meta">
                                   <span className="att-card-title">{title}</span>
@@ -1478,21 +1543,40 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                                 </span>
                               </div>
                               <div className="att-axe-filters att-level-pills" role="group">
-                                {sortBadgeNamesBySpfCode(card.badgeNames).map((name) => {
-                                  const levels = levelsFor(name);
-                                  const lv = drafts[name]?.level || levels[0] || '1';
-                                  const on = Boolean(drafts[name]);
-                                  return (
-                                    <button
-                                      key={name}
-                                      type="button"
-                                      className={`att-axe-chip att-pastille-long ${on ? 'on' : ''}`}
-                                      onClick={() => pickCompetenceAndAdvance(name, lv)}
-                                    >
-                                      {cpsPastilleLabelFromBadgeName(getBadgeDisplayName(name))}
-                                    </button>
-                                  );
-                                })}
+                                {attestingSoftSkills
+                                  ? softLevels.map((lv) => {
+                                      const on = drafts[softBadgeName]?.level === lv;
+                                      return (
+                                        <button
+                                          key={lv}
+                                          type="button"
+                                          className={`att-axe-chip ${on ? 'on' : ''}`}
+                                          onClick={() =>
+                                            pickCompetenceAndAdvance(softBadgeName, lv)
+                                          }
+                                        >
+                                          {getLevelLabel(
+                                            CATALOG_KEY_SOFT_SKILLS,
+                                            lv
+                                          )}
+                                        </button>
+                                      );
+                                    })
+                                  : sortBadgeNamesBySpfCode(card.badgeNames).map((name) => {
+                                      const levels = levelsFor(name);
+                                      const lv = drafts[name]?.level || levels[0] || '1';
+                                      const on = Boolean(drafts[name]);
+                                      return (
+                                        <button
+                                          key={name}
+                                          type="button"
+                                          className={`att-axe-chip att-pastille-long ${on ? 'on' : ''}`}
+                                          onClick={() => pickCompetenceAndAdvance(name, lv)}
+                                        >
+                                          {cpsPastilleLabelFromBadgeName(getBadgeDisplayName(name))}
+                                        </button>
+                                      );
+                                    })}
                               </div>
                             </div>
                           );
@@ -1508,7 +1592,10 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                         const picked = Boolean(draft);
                         const levels = levelsFor(name);
                         const sampleBadge = badgeFor(name, levels[0] || '1');
+                        const softPicto = getSoftSkillsLocalPicto(name);
+                        const softAxe = getSoftSkillsAxeColor(name);
                         const cpsIcon = getCpsLocalBadgeImage(name);
+                        const cpsAxe = getCpsAxeColor(name);
                         const labelSeries =
                           sampleBadge?.catalog_key || sampleBadge?.series || series;
                         const phaseHint =
@@ -1533,11 +1620,11 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                               style={{ border: 0, padding: 0, width: '100%' }}
                             >
                               <span className="att-avatar" aria-hidden="true">
-                                {cpsIcon ? (
-                                  <img src={cpsIcon} alt="" width={28} height={28} />
-                                ) : (
-                                  getBadgeDisplayName(name).trim().charAt(0)
-                                )}
+                                <AttestCompetencePicto
+                                  src={softPicto || cpsIcon}
+                                  axeColor={softAxe || cpsAxe}
+                                  fallbackLetter={getBadgeDisplayName(name).trim().charAt(0)}
+                                />
                               </span>
                               <span className="att-card-meta">
                                 <span className="att-card-title">

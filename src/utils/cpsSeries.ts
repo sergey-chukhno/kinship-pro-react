@@ -24,13 +24,14 @@ export const CPS_COMPETENCE_AXE: Record<CpsCompetenceKey, keyof typeof CPS_AXE_C
   S2: "sociales",
 };
 
+/** EXPORTS_S8 SVG (preferred) — PNG kept as fallback for older builds. */
 const CPS_ICON_BY_KEY: Record<CpsCompetenceKey, string> = {
-  C1: "/badges_competences_psychosociales/CPS_C1.png",
-  C2: "/badges_competences_psychosociales/CPS_C2.png",
-  E1: "/badges_competences_psychosociales/CPS_E1.png",
-  E2: "/badges_competences_psychosociales/CPS_E2.png",
-  S1: "/badges_competences_psychosociales/CPS_S1.png",
-  S2: "/badges_competences_psychosociales/CPS_S2.png",
+  C1: "/badges_competences_psychosociales/CPS_C1.svg",
+  C2: "/badges_competences_psychosociales/CPS_C2.svg",
+  E1: "/badges_competences_psychosociales/CPS_E1.svg",
+  E2: "/badges_competences_psychosociales/CPS_E2.svg",
+  S1: "/badges_competences_psychosociales/CPS_S1.svg",
+  S2: "/badges_competences_psychosociales/CPS_S2.svg",
 };
 
 export function isCompetencesPsychosocialesSeries(series?: string | null): boolean {
