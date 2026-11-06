@@ -35,6 +35,7 @@ function followViewFromProjectApi(payload: Awaited<ReturnType<typeof getProjectF
     closed: payload.closed,
     declined: payload.declined,
     declinedOn: payload.declined_on || undefined,
+    revoked: Boolean(payload.revoked || payload.end_entry === 'C'),
     closedOn: payload.closed_on || undefined,
     title: payload.title || '',
     org: payload.org || '',

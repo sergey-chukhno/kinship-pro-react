@@ -13,7 +13,7 @@ import { Member } from '../../types';
 import { translateRole, translateRoles } from '../../utils/roleTranslations';
 import { displayPersonName } from '../../utils/civilDataErased';
 import { getSchools, getCompanies, searchOrganizations } from '../../api/RegistrationRessource';
-import { getPartnerships, getTeacherSchoolPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest, getFunderAttachments } from '../../api/Projects';
+import { getPartnerships, getTeacherSchoolPartnerships, Partnership, acceptPartnership, rejectPartnership, getSubOrganizations, createPartnership, CreatePartnershipPayload, getPersonalUserNetwork, joinSchool, joinCompany, getPersonalUserOrganizations, getUserMembershipRequests, createSchoolBranchRequest, createCompanyBranchRequest, getBranchRequests, confirmBranchRequest, rejectBranchRequest, deleteBranchRequest, BranchRequest, getOrganizationNetwork, getTeacherPartnershipRequests, deleteTeacherPartnershipRequest, getSchoolTeacherPartnershipRequests, approveSchoolTeacherPartnershipRequest, rejectSchoolTeacherPartnershipRequest, TeacherPartnershipRequest } from '../../api/Projects';
 import { removeSchoolAssociation, removeCompanyAssociation } from '../../api/UserDashBoard/Profile';
 import { isStudentRole } from '../../utils/roleUtils';
 import { getSkills } from '../../api/Skills';
@@ -159,16 +159,8 @@ const Network: React.FC = () => {
   const [selectedType, setSelectedType] = useState<'schools' | 'companies' | 'partner' | 'partnership-requests' | 'sub-organizations' | 'branch-requests' | 'my-requests' | 'search' | 'join-organization' | 'teacher-partnership-requests' | 'school-teacher-partnership-requests' | null>(
     isOrgDashboardInitial || isPersonalUserForType ? null : 'schools'
   );
-  const [funderTileCounts, setFunderTileCounts] = useState({ funders: 0, funded: 0 });
-
-  useEffect(() => {
-    const orgId = getSelectedOrganizationId(state.user, state.showingPageType);
-    if (!orgId || (state.showingPageType !== 'pro' && state.showingPageType !== 'edu')) return;
-    const type = state.showingPageType === 'edu' ? 'school' : 'company';
-    void getFunderAttachments(orgId, type)
-      .then((res) => setFunderTileCounts({ funders: res.funders_count, funded: res.funded_structures_count }))
-      .catch(() => setFunderTileCounts({ funders: 0, funded: 0 }));
-  }, [state.user, state.showingPageType]);
+  // D-FORMATION-SHARE-01 V1.5.2 — funder_attachments removed; tiles wait partnership_kind=financeur counts.
+  const [funderTileCounts] = useState({ funders: 0, funded: 0 });
   const [schools, setSchools] = useState<School[]>([]);
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);

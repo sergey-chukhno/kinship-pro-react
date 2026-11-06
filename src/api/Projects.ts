@@ -1679,10 +1679,14 @@ export const removeProjectFunder = async (projectId: number, funderId: number): 
 
 export interface ProjectFunderFollow {
     token: string;
-    kind: 'project';
+    kind: 'project' | 'formation';
     closed: boolean;
     declined?: boolean;
     declined_on?: string | null;
+    revoked?: boolean;
+    end_page?: boolean;
+    end_entry?: 'A' | 'B' | 'C' | string;
+    message?: string | null;
     closed_on?: string | null;
     title?: string;
     org?: string | null;

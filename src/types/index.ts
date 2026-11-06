@@ -152,6 +152,8 @@ export interface Project {
   participants: number;
   badges: number;
   hasFunders?: boolean;
+  /** D-FORMATION-SHARE-01 V1.5.2 — hide Clôturer when false (garde + bouton ensemble). */
+  canCloseProject?: boolean;
   pendingRequests?: number; // Number of pending participation requests
   startDate: string;
   endDate: string;

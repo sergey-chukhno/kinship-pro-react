@@ -70,6 +70,19 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
     );
   }
 
+  // §2bis entry C — revoked by organism (before closed report / closure copy).
+  if (data.revoked) {
+    return (
+      <div className={`fv-ended ${preview ? 'preview' : ''}`}>
+        <KinshipMark muted />
+        <p className="fv-ended-title">Ce lien de suivi a été retiré par l&apos;organisme.</p>
+        <p className="fv-ended-sub">
+          Pour toute question sur cette session, adressez-vous à lui.
+        </p>
+      </div>
+    );
+  }
+
   if (data.closed && data.kind === 'project' && data.report) {
     return <ProjectFunderReport data={data} preview={preview} />;
   }
