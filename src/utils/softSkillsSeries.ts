@@ -1,6 +1,7 @@
 /**
  * Soft Skills (Compétences transversales) — pictos EXPORTS_S8 + axe colors (Patrick 06/11).
  * SVG under public/badges_competences_transversales/ (currentColor).
+ * Attest uses CSS mask — icons need opaque fill="currentColor" shapes (stroke-only = empty pill).
  */
 
 export const SOFT_SKILLS_AXE_COLORS: Record<
