@@ -46,6 +46,7 @@ import {
   mapApiProjectToFrontendProject,
 } from '../../utils/projectMapper';
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
+import { formatFunderInformedDate } from '../../utils/funderInformedLabel';
 import {
   getProjectSpaceExtras,
   getProjectSpaceTab,
@@ -852,8 +853,9 @@ const ProjectSpacePage: React.FC = () => {
   const funderStatusLabel = (f: ProjectFunder) => {
     if (isDraft) return 'préparé — informé au démarrage';
     if (f.closed_notified_at) return 'rapport transmis';
+    const informedDate = formatFunderInformedDate(f.informed_on || f.started_notified_at);
+    if (informedDate) return `informé le ${informedDate} · lien de suivi envoyé`;
     if (f.designation_kind === 'punctual') return 'désignation ponctuelle · sera informé au démarrage';
-    if (f.started_notified_at) return 'informé · lien de suivi envoyé';
     return 'rattaché · sera informé au démarrage · rapport à la clôture';
   };
 

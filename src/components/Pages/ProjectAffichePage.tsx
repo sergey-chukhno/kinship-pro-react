@@ -46,6 +46,7 @@ import {
   resolveProjectMemberUserId,
 } from '../../utils/projectPermissions';
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
+import { funderCardInformedLine } from '../../utils/funderInformedLabel';
 import { translateRole } from '../../utils/roleTranslations';
 import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import { displayLabelForCatalogKey } from '../../constants/catalogSeries';
@@ -1389,7 +1390,13 @@ const ProjectAffichePage: React.FC = () => {
                         <div className="pa-logo">{f.initials || initialsOf(f.name)}</div>
                         <div>
                           {f.name}
-                          <small>financeur · {f.share_mode === 'anonyme' ? 'vue anonymisée' : 'vue nominative'}</small>
+                          <small>
+                            {funderCardInformedLine({
+                              startedNotifiedAt: f.started_notified_at,
+                              informedOn: f.informed_on,
+                              shareMode: f.share_mode,
+                            })}
+                          </small>
                         </div>
                       </div>
                     ))}

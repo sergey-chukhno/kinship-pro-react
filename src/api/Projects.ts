@@ -1654,6 +1654,8 @@ export interface ProjectFunder {
     has_linked_account: boolean;
     started_notified_at: string | null;
     closed_notified_at: string | null;
+    /** Alias serializer de started_notified_at — carte « informé le ». */
+    informed_on?: string | null;
     confirmation_status?: 'pending' | 'confirmed' | 'declined';
     designation_kind?: 'email_only' | 'punctual' | 'attached';
     needs_confirmation?: boolean;

@@ -140,6 +140,8 @@ export interface FormationFunder {
   email?: string;
   shareMode: 'nominatif' | 'anonyme';
   initials: string;
+  /** ISO date — demo / alignement carte « informé le ». */
+  startedNotifiedAt?: string | null;
 }
 
 export interface FormationPartner {
@@ -180,7 +182,13 @@ function defaultPeople(formationId: string): PeopleState {
         ...base.slice(0, 9),
       ],
       funders: [
-        { id: 'oa', name: 'OPCO Atlas', shareMode: 'nominatif', initials: 'OA' },
+        {
+          id: 'oa',
+          name: 'OPCO Atlas',
+          shareMode: 'nominatif',
+          initials: 'OA',
+          startedNotifiedAt: '2026-01-05',
+        },
       ],
       partners: [],
     };
