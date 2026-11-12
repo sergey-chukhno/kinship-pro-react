@@ -30,6 +30,8 @@ export interface FunderFollowData {
   closed: boolean;
   closedOn?: string;
   kind?: 'project' | 'formation';
+  /** BE end-page source of truth (§2bis A/B/C). */
+  message?: string | null;
   title: string;
   org: string;
   dateRange: string;
