@@ -89,11 +89,11 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             className={`btn ${style.confirmButton}`} 
             onClick={onConfirm}
             style={{
-              background: variant === 'danger' 
+              background: variant === 'danger'
                 ? 'linear-gradient(135deg, #ef4444, #dc2626)'
                 : variant === 'warning'
                 ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                : 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                : 'var(--primary, #115E59)',
               color: '#fff',
               border: 'none'
             }}

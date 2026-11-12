@@ -408,8 +408,9 @@
 }
 
 .project-actions .btn {
-  flex: 1;
+  flex: 1 1 auto;
   justify-content: center;
+  white-space: nowrap;
 }
 
 /* Scoped btn-danger styles - only apply within project-card */

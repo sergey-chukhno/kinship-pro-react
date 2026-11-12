@@ -10,6 +10,7 @@ interface ProjectCardProps {
   onDelete?: (project: Project) => void;
   onClose?: (project: Project) => void;
   onDuplicate?: (project: Project) => void;
+  onConcretiser?: (project: Project) => void;
   isPersonalUser?: boolean;
   canManage?: boolean;
   canDelete?: boolean;
@@ -24,6 +25,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   onDelete,
   onClose,
   onDuplicate,
+  onConcretiser,
   isPersonalUser = false,
   canManage = false,
   canDelete = false,
@@ -218,6 +220,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         </div>
 
         <div className="project-actions" onClick={(e) => e.stopPropagation()}>
+          {onConcretiser && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => onConcretiser(project)}>
+              Concrétiser
+            </button>
+          )}
           {onClose && project.status === 'in_progress' && (
             <button type="button" className="btn btn-outline btn-sm" onClick={() => onClose(project)}>
               Clôturer
