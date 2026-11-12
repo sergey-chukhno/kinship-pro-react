@@ -1688,7 +1688,6 @@ export interface ProjectFunderFollow {
     revoked?: boolean;
     end_page?: boolean;
     end_entry?: 'A' | 'B' | 'C' | string;
-    kind?: 'project' | 'formation' | string;
     message?: string | null;
     closed_on?: string | null;
     title?: string;
