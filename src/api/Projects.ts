@@ -237,6 +237,8 @@ export interface CreateProjectPayload {
         project_kind?: 'standard' | 'stage' | 'formation';
         is_eu_mc_declared?: boolean;
         learning_outcomes?: string;
+        /** Signed ActiveStorage id, to copy an existing picture without re-upload. */
+        main_picture_signed_id?: string;
         participation_mode?: 'on_site' | 'online' | 'blended';
         workload_hours?: number | string;
         workload_ects?: number | string;

@@ -112,6 +112,9 @@ const INNER_AFFICHE_TABS: [AfficheTab, string][] = [
 ];
 
 const STATUS_CHIP: Record<string, { label: string; cls: string }> = {
+  draft: { label: 'Brouillon', cls: 'coming' },
+  to_process: { label: 'À traiter', cls: 'coming' },
+  pending_validation: { label: 'En validation', cls: 'coming' },
   coming: { label: 'À VENIR', cls: 'coming' },
   in_progress: { label: 'EN COURS', cls: 'run' },
   ended: { label: 'TERMINÉ', cls: 'ended' },
@@ -184,19 +187,15 @@ function memberId(member: any): string {
 }
 
 function orgRoleLabel(member: any): string {
-  const role = member?.role || member?.organization_role || member?.user?.role || 'membre';
-  const map: Record<string, string> = {
-    superadmin: 'super admin',
-    admin: 'admin',
-    referent: 'référent',
-    intervenant: 'intervenant',
-    member: 'membre',
-    eleve_primaire: 'élève',
-    collegien: 'collégien',
-    lyceen: 'lycéen',
-    etudiant: 'étudiant',
-  };
-  return map[role] || String(role).replace(/_/g, ' ');
+  const role = member?.role || member?.organization_role || member?.user?.role || '';
+  return role ? translateRole(role) : 'Membre';
+}
+
+function personMeta(profession?: string, role?: string): string {
+  return [profession, role]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => translateRole(value))
+    .join(' · ');
 }
 
 function memberOrg(member: any, fallback: string): string {
@@ -207,7 +206,9 @@ function memberOrg(member: any, fallback: string): string {
 }
 
 function memberJob(member: any): string {
-  return member?.user?.job || member?.job || orgRoleLabel(member);
+  const job = member?.user?.job || member?.job;
+  if (typeof job === 'string' && job.trim()) return translateRole(job);
+  return orgRoleLabel(member);
 }
 
 function memberSkills(member: any): string[] {
@@ -1303,7 +1304,7 @@ const ProjectAffichePage: React.FC = () => {
                     <div className="pa-av">{initialsOf(project.responsible.name)}</div>
                     <div>
                       {project.responsible.name}
-                      <small>{[project.responsible.profession, project.responsible.role].filter(Boolean).join(' · ')}</small>
+                      <small>{personMeta(project.responsible.profession, project.responsible.role)}</small>
                     </div>
                     <div className="mail">
                       {project.responsible.organization}
@@ -1323,7 +1324,7 @@ const ProjectAffichePage: React.FC = () => {
                     <div className="pa-av">{initialsOf(co.name)}</div>
                     <div>
                       {co.name}
-                      <small>{[co.profession, co.role].filter(Boolean).join(' · ')}</small>
+                      <small>{personMeta(co.profession, co.role)}</small>
                     </div>
                     <div className="mail">
                       {co.organization}
