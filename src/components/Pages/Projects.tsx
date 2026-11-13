@@ -2713,6 +2713,7 @@ const Projects: React.FC = () => {
                 (Array.isArray(project.pathways) && project.pathways.includes('mlds'));
               const cardStatus = String(project.status || rawApiProject?.status || '');
               const canConcretiser =
+                isMldsTab &&
                 isMldsCard &&
                 (cardStatus === 'in_progress' || cardStatus === 'ended' || cardStatus === 'archived') &&
                 state.showingPageType !== 'user' &&
