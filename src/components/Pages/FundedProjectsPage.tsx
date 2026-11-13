@@ -5,7 +5,6 @@ import {
   declineFundedProject,
   FundedProjectCard,
   getFundedProjects,
-  proposeFunderAttachment,
 } from '../../api/Projects';
 import { useAppContext } from '../../context/AppContext';
 import { getSelectedOrganizationId } from '../../utils/contextUtils';
@@ -68,11 +67,8 @@ const FundedProjectsPage: React.FC<{ embedded?: boolean }> = ({ embedded }) => {
     setCards((prev) => prev.map((c) => (c.token === next.token ? next : c)));
   };
 
-  const handleConfirm = async (token: string, propose?: boolean) => {
-    if (propose) {
-      await proposeFunderAttachment(token, companyId);
-      return;
-    }
+  // D-FORMATION-SHARE-01 — durable funder attachment moves to 24bis (partnership_kind=financeur).
+  const handleConfirm = async (token: string) => {
     const next = await confirmFundedProject(token, companyId);
     if (next) refreshCard(next);
   };
@@ -185,11 +181,10 @@ function FundedCard({
   card: FundedProjectCard;
   ended?: boolean;
   onFollow: () => void;
-  onConfirm?: (token: string, propose?: boolean) => Promise<void>;
+  onConfirm?: (token: string) => Promise<void>;
   onDecline?: (token: string) => Promise<void>;
 }) {
   const [declining, setDeclining] = useState(false);
-  const [justConfirmed, setJustConfirmed] = useState(false);
   const pending = Boolean(card.needs_confirmation) && !ended;
 
   return (
@@ -237,7 +232,7 @@ function FundedCard({
                 type="button"
                 className="fp-btn-confirm"
                 onClick={() => {
-                  void onConfirm?.(card.token).then(() => setJustConfirmed(true));
+                  void onConfirm?.(card.token);
                 }}
               >
                 Confirmer
@@ -257,14 +252,6 @@ function FundedCard({
             {ended ? 'Le rapport →' : 'Suivre →'}
           </button>
         </div>
-      )}
-      {justConfirmed && (
-        <label className="fp-propose">
-          <input type="checkbox" onChange={(e) => {
-            if (e.target.checked) void onConfirm?.(card.token, true);
-          }} />
-          Proposer un rattachement financeur à {card.org || 'cette structure'} ?
-        </label>
       )}
     </article>
   );

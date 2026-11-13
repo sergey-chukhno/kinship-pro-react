@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FunderFollowData, FunderSignal } from '../../data/mockFunderView';
+import { funderEndPageCopy } from '../../utils/funderEndPageCopy';
 import './FunderView.css';
 import '../Pages/FundedProjectsPage.css';
 
@@ -59,13 +60,34 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   if (data.declined) {
+    const declinedCopy = funderEndPageCopy({
+      message:
+        data.message ||
+        `Ce lien de suivi a pris fin. Votre organisation a décliné cette désignation${
+          data.declinedOn ? ` le ${data.declinedOn}` : ''
+        }.`,
+    });
     return (
       <div className={`fv-ended ${preview ? 'preview' : ''}`}>
         <KinshipMark muted />
-        <p className="fv-ended-title">Ce lien de suivi a pris fin.</p>
-        <p className="fv-ended-sub">
-          Votre organisation a décliné cette désignation{data.declinedOn ? ` le ${data.declinedOn}` : ''}.
-        </p>
+        <p className="fv-ended-title">{declinedCopy.title}</p>
+        <p className="fv-ended-sub">{declinedCopy.sub}</p>
+      </div>
+    );
+  }
+
+  // §2bis entry C — revoked by organism (before closed report / closure copy).
+  if (data.revoked) {
+    const revokedCopy = funderEndPageCopy({
+      message:
+        data.message ||
+        "Ce lien de suivi a été retiré par l'organisme. Pour toute question sur cette session, adressez-vous à lui.",
+    });
+    return (
+      <div className={`fv-ended ${preview ? 'preview' : ''}`}>
+        <KinshipMark muted />
+        <p className="fv-ended-title">{revokedCopy.title}</p>
+        <p className="fv-ended-sub">{revokedCopy.sub}</p>
       </div>
     );
   }
@@ -75,13 +97,16 @@ const FunderFollowView: React.FC<FunderFollowViewProps> = ({
   }
 
   if (data.closed) {
+    const closedCopy = funderEndPageCopy({
+      kind: data.kind,
+      closedOn: data.closedOn,
+      message: data.message,
+    });
     return (
       <div className={`fv-ended ${preview ? 'preview' : ''}`}>
         <KinshipMark muted />
-        <p className="fv-ended-title">
-          {data.kind === 'project' ? 'Ce projet est clôturé le' : 'Cette formation est clôturée le'} {data.closedOn ?? '—'}.
-        </p>
-        <p className="fv-ended-sub">Le rapport vous a été transmis par email.</p>
+        <p className="fv-ended-title">{closedCopy.title}</p>
+        <p className="fv-ended-sub">{closedCopy.sub}</p>
         {!preview && viewerIsLoggedIn && data.kind !== 'project' && (
           <button type="button" className="fv-link" onClick={() => navigate('/projects?tab=je-finance')}>
             ← Formations suivies

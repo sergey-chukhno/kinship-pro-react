@@ -30,6 +30,8 @@ export interface FunderFollowData {
   closed: boolean;
   closedOn?: string;
   kind?: 'project' | 'formation';
+  /** BE end-page source of truth (§2bis A/B/C). */
+  message?: string | null;
   title: string;
   org: string;
   dateRange: string;
@@ -58,6 +60,8 @@ export interface FunderFollowData {
   signals: FunderSignal[];
   declined?: boolean;
   declinedOn?: string;
+  /** D-FORMATION-SHARE-01 V1.5.2 §2bis entry C — follow revoked by carrier. */
+  revoked?: boolean;
   needsConfirmation?: boolean;
   orgKind?: string;
   weekCurrent?: number;

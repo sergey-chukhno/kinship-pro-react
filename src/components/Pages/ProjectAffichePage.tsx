@@ -5,7 +5,6 @@ import { getProjectBadges } from '../../api/Badges';
 import { getCompanyGroup, getCompanyGroups, CompanyGroup } from '../../api/CompanyDashboard/Groups';
 import {
   addProjectDocuments,
-  addProjectFunder,
   addProjectMember,
   preRegisterProjectParticipant,
   closeProject,
@@ -47,6 +46,7 @@ import {
   resolveProjectMemberUserId,
 } from '../../utils/projectPermissions';
 import { shouldShowEndDateWarningBanner } from '../../utils/projectStateGuards';
+import { funderCardInformedLine } from '../../utils/funderInformedLabel';
 import { translateRole } from '../../utils/roleTranslations';
 import { displayCivilLabel, displayPersonName } from '../../utils/civilDataErased';
 import { displayLabelForCatalogKey } from '../../constants/catalogSeries';
@@ -312,9 +312,6 @@ const ProjectAffichePage: React.FC = () => {
   const [systemRoles, setSystemRoles] = useState<{ value: string }[]>([]);
   const [showPrepForm, setShowPrepForm] = useState(false);
   const [partnerQuery, setPartnerQuery] = useState('');
-  const [funderName, setFunderName] = useState('');
-  const [funderEmail, setFunderEmail] = useState('');
-  const [funderShare, setFunderShare] = useState<'nominatif' | 'anonyme'>('nominatif');
   const [linkLabel, setLinkLabel] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [docFile, setDocFile] = useState<File | null>(null);
@@ -475,6 +472,11 @@ const ProjectAffichePage: React.FC = () => {
   const isSuperadminReadOnly = isUserSuperadminOfProjectOrg(apiProject, state.user) && !isOwner && !isCoOwner && !isParticipant;
   const isVisitor = !isOwner && !isCoOwner && !isParticipant && !isSuperadminReadOnly && !isEncadrant;
   const canGovern = isOwner && !isEnded && !isSuperadminReadOnly;
+  // V1.5.2 — API garde by kind; when field absent keep previous owner-only UX.
+  const canClose =
+    !isEnded &&
+    (project?.canCloseProject === true ||
+      (project?.canCloseProject === undefined && canGovern));
   const canAttest = (isOwner || isCoOwner || isEncadrant) && !isEnded && !isSuperadminReadOnly;
   const canAddParticipants = (isOwner || isCoOwner) && !isEnded && !isSuperadminReadOnly;
   const canManageTeams = (isOwner || isCoOwner) && !isEnded && !isSuperadminReadOnly;
@@ -783,26 +785,6 @@ const ProjectAffichePage: React.FC = () => {
     await patchProject({ partnership_ids: next }, 'Partenaire ajouté.');
     setAddPanel(null);
     setPartnerQuery('');
-  };
-
-  const addFunder = async () => {
-    const email = funderEmail.trim();
-    const name = funderName.trim() || email;
-    if (!email) {
-      showError('Indiquez l’email du financeur — c’est lui qui recevra le lien de suivi.');
-      return;
-    }
-    if (!projectId) return;
-    try {
-      const added = await addProjectFunder(Number(projectId), { name, email, share_mode: funderShare });
-      setFunders((current) => [added, ...current.filter((f) => f.id !== added.id)]);
-      setFunderName('');
-      setFunderEmail('');
-      setAddPanel(null);
-      showSuccess('Financeur ajouté.');
-    } catch (e: any) {
-      showError(e?.response?.data?.details?.[0] || e?.response?.data?.message || 'Impossible d’ajouter ce financeur.');
-    }
   };
 
   const changeMemberRole = async (member: any, role: ProjectPersonRole) => {
@@ -1190,7 +1172,7 @@ const ProjectAffichePage: React.FC = () => {
             <button type="button" className="pa-back" onClick={goBack} aria-label="Retour">←</button>
             <div className="pa-pt">Le projet</div>
             <div className="pa-sp">
-              {canGovern && project.status === 'in_progress' && (
+              {canClose && project.status === 'in_progress' && (
                 <button type="button" className="pa-bt-ghost" onClick={() => setCloseOpen(true)}>✓ Clôturer le projet</button>
               )}
               {isOwner && project.status === 'ended' && !isSuperadminReadOnly && (
@@ -1391,7 +1373,11 @@ const ProjectAffichePage: React.FC = () => {
                     <div className="pa-elabel">
                       Financeurs ({funders.length}) ⓘ
                       {canGovern && (
-                        <button type="button" onClick={() => setAddPanel(addPanel === 'funder' ? null : 'funder')}>
+                        <button
+                          type="button"
+                          disabled
+                          title="Disponible après mise en production D-FORMATION-SHARE-01"
+                        >
                           + Ajouter un financeur
                         </button>
                       )}
@@ -1405,37 +1391,17 @@ const ProjectAffichePage: React.FC = () => {
                         <div className="pa-logo">{f.initials || initialsOf(f.name)}</div>
                         <div>
                           {f.name}
-                          <small>financeur · {f.share_mode === 'anonyme' ? 'vue anonymisée' : 'vue nominative'}</small>
+                          <small>
+                            {funderCardInformedLine({
+                              startedNotifiedAt: f.started_notified_at,
+                              informedOn: f.informed_on,
+                              shareMode: f.share_mode,
+                            })}
+                          </small>
                         </div>
                       </div>
                     ))}
                     <div className="pa-graygl">Visible par l’équipe et les partenaires — jamais par les visiteurs. Un financeur n’est pas un partenaire.</div>
-                    {addPanel === 'funder' && canGovern && (
-                      <div className="pa-panel">
-                        <h5>Ajouter un financeur</h5>
-                        <div className="pa-field">
-                          <label>Organisation</label>
-                          <input className="pa-fin" value={funderName} onChange={(e) => setFunderName(e.target.value)} placeholder="Nom du financeur" />
-                        </div>
-                        <div className="pa-field">
-                          <label>Email <em>✱</em></label>
-                          <input className="pa-fin" value={funderEmail} onChange={(e) => setFunderEmail(e.target.value)} placeholder="il recevra le lien de suivi" />
-                        </div>
-                        <div className="pa-klabel">mode de suivi</div>
-                        <button type="button" className={`pa-radio ${funderShare === 'nominatif' ? 'on' : ''}`} onClick={() => setFunderShare('nominatif')}>
-                          <span className="dot">{funderShare === 'nominatif' ? <i /> : null}</span>
-                          <div>Nominatif</div>
-                        </button>
-                        <button type="button" className={`pa-radio ${funderShare === 'anonyme' ? 'on' : ''}`} onClick={() => setFunderShare('anonyme')}>
-                          <span className="dot">{funderShare === 'anonyme' ? <i /> : null}</span>
-                          <div>Anonyme</div>
-                        </button>
-                        <div className="pa-actions-end">
-                          <button type="button" className="pa-bt-ghost" onClick={() => setAddPanel(null)}>Annuler</button>
-                          <button type="button" className="pa-addb" onClick={() => void addFunder()}>Ajouter</button>
-                        </div>
-                      </div>
-                    )}
                   </>
                 )}
               </>
@@ -1449,7 +1415,9 @@ const ProjectAffichePage: React.FC = () => {
                 <br />
                 <b>La date de fin est passée.</b> Votre projet est-il terminé ? La clôture permet de générer sa Preuve Projet — authentique et vérifiable.
               </div>
-              <button type="button" className="vb" onClick={() => setCloseOpen(true)}>Clôturer le projet</button>
+              {canClose && (
+                <button type="button" className="vb" onClick={() => setCloseOpen(true)}>Clôturer le projet</button>
+              )}
             </div>
           )}
 
