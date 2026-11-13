@@ -10,6 +10,8 @@ interface ConfirmModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   variant?: 'danger' | 'warning' | 'info';
+  confirmDisabled?: boolean;
+  children?: React.ReactNode;
 }
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -20,7 +22,9 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = 'Annuler',
   onConfirm,
   onCancel,
-  variant = 'danger'
+  variant = 'danger',
+  confirmDisabled = false,
+  children,
 }) => {
   if (!isOpen) return null;
 
@@ -79,6 +83,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           }}>
             {message}
           </p>
+          {children}
         </div>
 
         <div className="modal-footer">
@@ -88,14 +93,17 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button 
             className={`btn ${style.confirmButton}`} 
             onClick={onConfirm}
+            disabled={confirmDisabled}
             style={{
               background: variant === 'danger' 
                 ? 'linear-gradient(135deg, #ef4444, #dc2626)'
                 : variant === 'warning'
                 ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                : 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                : 'var(--couleur-espace, var(--primary, #115E59))',
               color: '#fff',
-              border: 'none'
+              border: 'none',
+              opacity: confirmDisabled ? 0.55 : 1,
+              cursor: confirmDisabled ? 'not-allowed' : 'pointer',
             }}
           >
             {confirmText}

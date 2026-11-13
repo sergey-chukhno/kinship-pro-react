@@ -14,18 +14,18 @@ import './Projects.css';
 
 // Imports API (Ajustez les chemins si nécessaire, basés sur la structure de Members.tsx)
 import { getCurrentUser } from '../../api/Authentication';
-import { deleteProject, getAllProjects, getAllUserProjects, getUserOrganizationProjects } from '../../api/Project';
+import { deleteProject, getAllProjects, getAllUserProjects, getProjectById, getUserOrganizationProjects } from '../../api/Project';
 import { getCompanyProjects, getSchoolProjects, getTeacherClasses } from '../../api/Dashboard';
-import { closeProject, getTeacherProjects, postMldsBilan } from '../../api/Projects';
+import { closeProject, createProject, getTeacherProjects, postMldsBilan } from '../../api/Projects';
 import {
   getOrganizationType,
   mapApiProjectToFrontendProject,
   projectBelongsToOrganizationContext,
 } from '../../utils/projectMapper';
-import { getSelectedOrganizationId as getSelectedOrgId, getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
+import { creatableOrganizations, concretiseOrganizationKey, defaultConcretiseOrganizationKey, getSelectedOrganizationId as getSelectedOrgId, getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
 import FundedProjectsPage from './FundedProjectsPage';
 import { openProjectAffiche, openProjectSpace } from '../../utils/projectSpaceStore';
-import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner } from '../../utils/projectPermissions';
+import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner, isUserSuperadmin } from '../../utils/projectPermissions';
 import { useToast } from '../../hooks/useToast';
 import { isUnder15 } from '../../utils/ageUtils';
 import { getSchoolLevels } from '../../api/SchoolDashboard/Levels';
@@ -46,6 +46,7 @@ import {
   fetchAllUserProjectsPages,
 } from '../../utils/mldsProjectFetch';
 import { buildMyOrgProjectsParams } from '../../utils/orgProjectsApiParams';
+import { buildMldsClassicSeed, formatMldsClassicRecap, MldsClassicSeed } from '../../utils/mldsToClassicSeed';
 
 type ProjectsHubTab =
   | 'nouveautes'
@@ -61,7 +62,7 @@ type ProjectsHubTab =
 
 const Projects: React.FC = () => {
   const { state, updateProject, setCurrentPage, setSelectedProject } = useAppContext();
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const navigate = useNavigate();
   const { selectedProject } = state;
   const financedCount = getFinancedProjectsCount(state.user, state.showingPageType);
@@ -78,6 +79,10 @@ const Projects: React.FC = () => {
   const [isClosingProject, setIsClosingProject] = useState(false);
   const [bornProofProject, setBornProofProject] = useState<Project | null>(null);
   const [duplicateSourceProject, setDuplicateSourceProject] = useState<Project | null>(null);
+  const [concretiseSeed, setConcretiseSeed] = useState<MldsClassicSeed | null>(null);
+  const [concretiseOrgKey, setConcretiseOrgKey] = useState('');
+  const [isCreatingConcretise, setIsCreatingConcretise] = useState(false);
+  const creatingConcretiseRef = React.useRef(false);
   
   // State local pour stocker les projets récupérés de l'API
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1432,6 +1437,99 @@ const Projects: React.FC = () => {
     }
   };
 
+  const handleConcretiserProject = async (project: Project) => {
+    const id = Number(project.id);
+    if (!Number.isFinite(id)) {
+      showError('Identifiant du projet invalide.');
+      return;
+    }
+    try {
+      const response = await getProjectById(id);
+      const raw = (response as { data?: { data?: unknown } })?.data?.data
+        || (response as { data?: unknown })?.data
+        || response;
+      const seed = buildMldsClassicSeed(raw);
+      setConcretiseOrgKey(defaultConcretiseOrganizationKey({
+        user: state.user,
+        showingPageType: state.showingPageType,
+        search: `?${searchParams.toString()}`,
+      }));
+      setConcretiseSeed(seed);
+    } catch {
+      showError('Impossible de préparer le projet classique à partir de ce projet MLDS.');
+    }
+  };
+
+  const confirmConcretiserProject = async () => {
+    if (!concretiseSeed || isCreatingConcretise || creatingConcretiseRef.current) return;
+    const selectedOrg = creatableOrganizations(state.user).find(
+      (org) => concretiseOrganizationKey(org) === concretiseOrgKey
+    );
+    if (!selectedOrg) {
+      showError('Choisissez l’organisation du brouillon.');
+      return;
+    }
+    if (!concretiseSeed.title.trim() || !concretiseSeed.description.trim() || !concretiseSeed.startDate || !concretiseSeed.endDate) {
+      showError('Titre, description et dates sont nécessaires pour créer le brouillon.');
+      return;
+    }
+    creatingConcretiseRef.current = true;
+    setIsCreatingConcretise(true);
+    try {
+      const context = selectedOrg.type === 'Company' ? 'company' : 'school';
+      const created = await createProject({
+        context,
+        organization_id: selectedOrg.id,
+        project: {
+          title: concretiseSeed.title.trim(),
+          description: concretiseSeed.description.trim(),
+          start_date: concretiseSeed.startDate,
+          end_date: concretiseSeed.endDate,
+          status: 'draft',
+          private: true,
+          project_kind: 'standard',
+          learning_outcomes: concretiseSeed.learningOutcomes || undefined,
+          main_picture_signed_id: concretiseSeed.mainPictureSignedId || undefined,
+          participation_mode: 'on_site',
+          partnership_ids: concretiseSeed.partnershipIds.length ? concretiseSeed.partnershipIds : undefined,
+          co_responsible_ids: concretiseSeed.coResponsibleIds.length ? concretiseSeed.coResponsibleIds : undefined,
+          co_responsible_contexts: concretiseSeed.coResponsibleContexts.length
+            ? concretiseSeed.coResponsibleContexts
+            : undefined,
+        },
+      });
+      const createdBody = created as unknown as { id?: number; data?: { id?: number } };
+      const createdId = createdBody.data?.id ?? created.id;
+      const mapped = mapApiProjectToFrontendProject(
+        createdBody.data?.id != null ? createdBody.data : created,
+        state.showingPageType,
+        state.user
+      );
+      if (!mapped.id && createdId != null) mapped.id = String(createdId);
+      showSuccess('Brouillon créé.');
+      setConcretiseSeed(null);
+      setConcretiseOrgKey('');
+      void fetchDraftProjects().catch(() => undefined);
+      if (mapped.id) {
+        setSelectedProject(mapped);
+        openProjectAffiche(mapped.id);
+        openProjectSpace(mapped.id, 'informations');
+        setCurrentPage('project-affiche');
+        navigate('/project-affiche');
+      }
+    } catch (error: any) {
+      const details = error?.response?.data?.details;
+      showError(
+        Array.isArray(details)
+          ? details.join(', ')
+          : (error?.response?.data?.message || 'Création du brouillon impossible.')
+      );
+    } finally {
+      creatingConcretiseRef.current = false;
+      setIsCreatingConcretise(false);
+    }
+  };
+
   const handleSaveProject = async (projectData: Omit<Project, 'id'>) => {
     if (selectedProject) {
       // Mettre à jour localement et via le contexte (si besoin de persistance API, ajouter l'appel ici)
@@ -2608,6 +2706,18 @@ const Projects: React.FC = () => {
                 isProjectEnded &&
                 isOwner &&
                 state.showingPageType !== 'user';
+              const isMldsCard =
+                (project as { mlds_information?: unknown }).mlds_information != null ||
+                rawApiProject?.mlds_information != null ||
+                project.pathway === 'mlds' ||
+                (Array.isArray(project.pathways) && project.pathways.includes('mlds'));
+              const cardStatus = String(project.status || rawApiProject?.status || '');
+              const canConcretiser =
+                isMldsCard &&
+                (cardStatus === 'in_progress' || cardStatus === 'ended' || cardStatus === 'archived') &&
+                state.showingPageType !== 'user' &&
+                !isMinorPersonalUser &&
+                (isUserSuperadmin(state.user) || canManage || isOwnerOrCoOwner);
               
               return (
                 <ProjectCard
@@ -2622,6 +2732,7 @@ const Projects: React.FC = () => {
                   canDelete={canDeleteProject}
                   onDuplicate={ () => handleDuplicateProject(project) }
                   canDuplicate={canDuplicateProject}
+                  onConcretiser={canConcretiser ? () => { void handleConcretiserProject(project); } : undefined}
                   isOwnerOrCoOwner={isOwnerOrCoOwner}
                 />
               );
@@ -2770,6 +2881,50 @@ const Projects: React.FC = () => {
           featureName="La création de projets"
         />
       )}
+
+      <ConfirmModal
+        isOpen={concretiseSeed != null}
+        title="Concrétiser en brouillon dans un premier temps"
+        message={concretiseSeed ? formatMldsClassicRecap(concretiseSeed) : ''}
+        confirmText={isCreatingConcretise ? 'Création…' : 'Créer le brouillon'}
+        cancelText="Annuler"
+        variant="info"
+        onConfirm={() => { void confirmConcretiserProject(); }}
+        confirmDisabled={!concretiseOrgKey || isCreatingConcretise}
+        onCancel={() => {
+          if (!isCreatingConcretise) {
+            setConcretiseSeed(null);
+            setConcretiseOrgKey('');
+          }
+        }}
+      >
+        <label htmlFor="concretise-org" style={{ display: 'block', marginTop: '1.25rem' }}>
+          <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.4rem', color: '#111827' }}>
+            Organisation du brouillon
+          </span>
+          <select
+            id="concretise-org"
+            value={concretiseOrgKey}
+            disabled={isCreatingConcretise}
+            onChange={(event) => setConcretiseOrgKey(event.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.6rem 0.75rem',
+              borderRadius: 8,
+              border: '1px solid #d1d5db',
+              fontSize: '1rem',
+              background: '#fff',
+            }}
+          >
+            <option value="">Choisir une organisation</option>
+            {creatableOrganizations(state.user).map((org) => (
+              <option key={concretiseOrganizationKey(org)} value={concretiseOrganizationKey(org)}>
+                {org.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </ConfirmModal>
 
       {isDeleteModalOpen && projectToDelete && (
         <ConfirmModal

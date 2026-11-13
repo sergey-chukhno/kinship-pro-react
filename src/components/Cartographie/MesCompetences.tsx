@@ -2,12 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getBadges, getUserBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
+import { getCartographieAxesForSeries } from '../../constants/badgeAxes';
 import {
   CARTOGRAPHIE_V1_1_CATALOG_KEYS,
   CATALOG_KEY_ORIENTER,
-  getCartographieAxesForSeries,
-} from '../../constants/badgeAxes';
-import { displayLabelForCatalogKey } from '../../constants/catalogSeries';
+  displayLabelForCatalogKey,
+} from '../../constants/catalogSeries';
 import { getAxeColor, displayAxeTitle, displayCompetenceName } from '../../constants/cartographieColors';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import { RingNiveau } from './CompetenceRing';

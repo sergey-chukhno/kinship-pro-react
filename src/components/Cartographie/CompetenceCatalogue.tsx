@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getBadges } from '../../api/Badges';
 import { BadgeAPI } from '../../types';
-import { CARTOGRAPHIE_V1_1_CATALOG_KEYS, getCartographieAxesForSeries } from '../../constants/badgeAxes';
-import { displayLabelForCatalogKey } from '../../constants/catalogSeries';
+import { getCartographieAxesForSeries } from '../../constants/badgeAxes';
+import { CARTOGRAPHIE_V1_1_CATALOG_KEYS, displayLabelForCatalogKey } from '../../constants/catalogSeries';
 import { getAxeColor, displayAxeTitle, displayCompetenceName } from '../../constants/cartographieColors';
 import { getLocalBadgeImage } from '../../utils/badgeImages';
 import CompetenceRing, { RingNiveau } from './CompetenceRing';
