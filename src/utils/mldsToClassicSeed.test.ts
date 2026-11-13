@@ -24,6 +24,9 @@ describe('buildMldsClassicSeed', () => {
         { user_id: 8, first_name: 'Lina', last_name: 'Martin' },
       ],
       main_picture_url: ' http://localhost:3000/rails/active_storage/blobs/redirect/abc--def/cover.jpg ',
+      primary_organization_type: 'School',
+      primary_organization_id: 21,
+      primary_organization_name: 'Réseau FOQUAL Draguignan',
       mlds_information: {
         objectives: 'Tenir jusqu’au brevet.',
         action_objectives: ['professional_discovery'],
@@ -42,6 +45,10 @@ describe('buildMldsClassicSeed', () => {
     ]);
     expect(seed.mainPictureUrl).toBe('http://localhost:3000/rails/active_storage/blobs/redirect/abc--def/cover.jpg');
     expect(seed.mainPictureSignedId).toBe('abc--def');
+    expect(seed.organizationId).toBe(21);
+    expect(seed.organizationType).toBe('School');
+    expect(seed.organizationName).toBe('Réseau FOQUAL Draguignan');
+    expect(formatMldsClassicRecap(seed)).not.toContain('Organisation');
     expect(formatMldsClassicRecap(seed)).toContain('Présentiel');
     expect(formatMldsClassicRecap(seed)).toContain('Reprise');
     expect(formatMldsClassicRecap(seed)).toContain('S’exprimer à l’oral');

@@ -23,7 +23,7 @@ import {
   mapApiProjectToFrontendProject,
   projectBelongsToOrganizationContext,
 } from '../../utils/projectMapper';
-import { getSelectedOrganizationId as getSelectedOrgId, getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
+import { creatableOrganizations, concretiseOrganizationKey, defaultConcretiseOrganizationKey, getSelectedOrganizationId as getSelectedOrgId, getFinancedProjectsCount, jeFinanceLabel } from '../../utils/contextUtils';
 import FundedProjectsPage from './FundedProjectsPage';
 import { openProjectAffiche, openProjectSpace } from '../../utils/projectSpaceStore';
 import { canUserManageProject, canUserDeleteProject, isUserProjectOwner, isUserProjectCoOwner, isUserSuperadmin } from '../../utils/projectPermissions';
@@ -81,6 +81,7 @@ const Projects: React.FC = () => {
   const [bornProofProject, setBornProofProject] = useState<Project | null>(null);
   const [duplicateSourceProject, setDuplicateSourceProject] = useState<Project | null>(null);
   const [concretiseSeed, setConcretiseSeed] = useState<MldsClassicSeed | null>(null);
+  const [concretiseOrgKey, setConcretiseOrgKey] = useState('');
   const [isCreatingConcretise, setIsCreatingConcretise] = useState(false);
   const creatingConcretiseRef = React.useRef(false);
   
@@ -1448,7 +1449,14 @@ const Projects: React.FC = () => {
       const raw = (response as { data?: { data?: unknown } })?.data?.data
         || (response as { data?: unknown })?.data
         || response;
-      setConcretiseSeed(buildMldsClassicSeed(raw));
+      const seed = buildMldsClassicSeed(raw);
+      setConcretiseOrgKey(defaultConcretiseOrganizationKey({
+        user: state.user,
+        showingPageType: state.showingPageType,
+        search: `?${searchParams.toString()}`,
+      }));
+      setConcretiseSeed(seed);
+
     } catch {
       showError('Impossible de préparer le projet classique à partir de ce projet MLDS.');
     }
@@ -1456,6 +1464,13 @@ const Projects: React.FC = () => {
 
   const confirmConcretiserProject = async () => {
     if (!concretiseSeed || isCreatingConcretise || creatingConcretiseRef.current) return;
+    const selectedOrg = creatableOrganizations(state.user).find(
+      (org) => concretiseOrganizationKey(org) === concretiseOrgKey
+    );
+    if (!selectedOrg) {
+      showError('Choisissez l’organisation du brouillon.');
+      return;
+    }
     if (!concretiseSeed.title.trim() || !concretiseSeed.description.trim() || !concretiseSeed.startDate || !concretiseSeed.endDate) {
       showError('Titre, description et dates sont nécessaires pour créer le brouillon.');
       return;
@@ -1463,9 +1478,10 @@ const Projects: React.FC = () => {
     creatingConcretiseRef.current = true;
     setIsCreatingConcretise(true);
     try {
+      const context = selectedOrg.type === 'Company' ? 'company' : 'school';
       const created = await createProject({
-        context: getContextFromPageType(state.showingPageType),
-        organization_id: getSelectedOrgId(state.user, state.showingPageType) ?? undefined,
+        context,
+        organization_id: selectedOrg.id,
         project: {
           title: concretiseSeed.title.trim(),
           description: concretiseSeed.description.trim(),
@@ -1494,6 +1510,7 @@ const Projects: React.FC = () => {
       if (!mapped.id && createdId != null) mapped.id = String(createdId);
       showSuccess('Brouillon créé.');
       setConcretiseSeed(null);
+      setConcretiseOrgKey('');
       void fetchDraftProjects().catch(() => undefined);
       if (mapped.id) {
         setSelectedProject(mapped);
@@ -2875,10 +2892,41 @@ const Projects: React.FC = () => {
         cancelText="Annuler"
         variant="info"
         onConfirm={() => { void confirmConcretiserProject(); }}
+        confirmDisabled={!concretiseOrgKey || isCreatingConcretise}
         onCancel={() => {
-          if (!isCreatingConcretise) setConcretiseSeed(null);
+          if (!isCreatingConcretise) {
+            setConcretiseSeed(null);
+            setConcretiseOrgKey('');
+          }
         }}
-      />
+      >
+        <label htmlFor="concretise-org" style={{ display: 'block', marginTop: '1.25rem' }}>
+          <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.4rem', color: '#111827' }}>
+            Organisation du brouillon
+          </span>
+          <select
+            id="concretise-org"
+            value={concretiseOrgKey}
+            disabled={isCreatingConcretise}
+            onChange={(event) => setConcretiseOrgKey(event.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.6rem 0.75rem',
+              borderRadius: 8,
+              border: '1px solid #d1d5db',
+              fontSize: '1rem',
+              background: '#fff',
+            }}
+          >
+            <option value="">Choisir une organisation</option>
+            {creatableOrganizations(state.user).map((org) => (
+              <option key={concretiseOrganizationKey(org)} value={concretiseOrganizationKey(org)}>
+                {org.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </ConfirmModal>
 
       {isDeleteModalOpen && projectToDelete && (
         <ConfirmModal

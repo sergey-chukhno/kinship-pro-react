@@ -19,6 +19,10 @@ export interface MldsClassicSeed {
   mainPictureUrl: string;
   /** Identifiant signé ActiveStorage, pour recopier le fichier sans le retélécharger. */
   mainPictureSignedId: string;
+  /** Organisation porteuse du projet MLDS — le brouillon classique reste sur cette structure. */
+  organizationId: number | null;
+  organizationType: 'School' | 'Company' | '';
+  organizationName: string;
 }
 
 function signedBlobId(url: string): string {
@@ -119,11 +123,24 @@ function partnershipsFromApi(raw: any): Pick<MldsClassicSeed, 'partnershipIds' |
   };
 }
 
+function sourceOrganization(raw: any): Pick<MldsClassicSeed, 'organizationId' | 'organizationType' | 'organizationName'> {
+  const id = Number(raw?.primary_organization_id);
+  const type = raw?.primary_organization_type === 'Company' || raw?.primary_organization_type === 'School'
+    ? raw.primary_organization_type
+    : '';
+  return {
+    organizationId: Number.isFinite(id) && id > 0 ? id : null,
+    organizationType: type,
+    organizationName: typeof raw?.primary_organization_name === 'string' ? raw.primary_organization_name.trim() : '',
+  };
+}
+
 export function buildMldsClassicSeed(raw: any): MldsClassicSeed {
   const mlds = raw?.mlds_information;
   const competencies = typeof mlds?.competencies_developed === 'string' ? mlds.competencies_developed.trim() : '';
   const co = coResponsiblesFromApi(raw);
   const partnerships = partnershipsFromApi(raw);
+  const organization = sourceOrganization(raw);
   return {
     title: typeof raw?.title === 'string' ? raw.title : '',
     description: typeof raw?.description === 'string' ? raw.description : '',
@@ -137,6 +154,9 @@ export function buildMldsClassicSeed(raw: any): MldsClassicSeed {
     coResponsibleContexts: co.coResponsibleContexts,
     mainPictureUrl: typeof raw?.main_picture_url === 'string' ? raw.main_picture_url.trim() : '',
     mainPictureSignedId: signedBlobId(typeof raw?.main_picture_url === 'string' ? raw.main_picture_url.trim() : ''),
+    organizationId: organization.organizationId,
+    organizationType: organization.organizationType,
+    organizationName: organization.organizationName,
   };
 }
 

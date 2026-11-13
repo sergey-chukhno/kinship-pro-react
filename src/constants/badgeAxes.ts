@@ -8,7 +8,6 @@ import {
   CATALOG_KEY_MER,
   CATALOG_KEY_ORIENTER,
   CATALOG_KEY_SOFT_SKILLS,
-  CARTOGRAPHIE_V1_1_CATALOG_KEYS,
   displayLabelForCatalogKey,
   isCpsCatalog,
   isMerCatalog,
@@ -244,9 +243,6 @@ export const CARTOGRAPHIE_V1_1_SERIES = [
   PSYCHOSOCIALES_SERIES,
 ] as const;
 
-/** Prefer catalog keys for cartographie tabs (R1). */
-export { CARTOGRAPHIE_V1_1_CATALOG_KEYS };
-
 /** Nom du "3e étage" (niveau / CPS spécifique) selon la série — spec §1. */
 export function getNiveauWordForSeries(seriesName: string): string {
   if (isCpsCatalog({ catalog_key: seriesName, series: seriesName })) return 'CPS spécifique';
@@ -290,6 +286,3 @@ export function getCartographieAxesForSeries(seriesName: string): BadgeAxe[] {
       : seriesName;
   return getAxesForSeries(asName);
 }
-
-// Re-export keys used by carto consumers
-export { CATALOG_KEY_SOFT_SKILLS, CATALOG_KEY_CPS, CATALOG_KEY_ORIENTER, CATALOG_KEY_MER };

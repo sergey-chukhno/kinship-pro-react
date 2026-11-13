@@ -1,4 +1,4 @@
-import { User, ShowingPageType } from '../types';
+import { User, ShowingPageType, OrganizationContext } from '../types';
 
 /** Mock formation hub cards — shelved; Je finance count comes from API only. */
 const FORMATION_FUNDER_HUB_COUNT = 0;
@@ -114,6 +114,81 @@ export const getSelectedOrganizationId = (
   
   return undefined;
 };
+
+/**
+ * Organisation du sélecteur (sidebar), pas la première du compte ni celle d’un partenariat.
+ * `?ctx=` prime sur un localStorage périmé, comme le surlignage du menu.
+ */
+export function activeOrganizationForCreate(options: {
+  user?: User | null;
+  showingPageType: ShowingPageType;
+  search: string;
+}): { id: number; type: 'School' | 'Company'; name: string } | null {
+  const switched = resolveSwitcherContext({
+    search: options.search,
+    showingPageType: options.showingPageType,
+  });
+  if (!switched || (switched.type !== 'school' && switched.type !== 'company')) return null;
+  const id = Number(switched.id);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const contexts = options.user?.available_contexts;
+  if (switched.type === 'school') {
+    const school = contexts?.schools?.find((item) => Number(item.id) === id);
+    return { id, type: 'School', name: school?.name || '' };
+  }
+  const company = contexts?.companies?.find((item) => Number(item.id) === id);
+  return { id, type: 'Company', name: company?.name || '' };
+}
+
+export type CreatableOrganization = {
+  id: number;
+  type: 'School' | 'Company';
+  name: string;
+};
+
+function adminOrganizations(
+  items: OrganizationContext[] | undefined,
+  type: CreatableOrganization['type']
+): CreatableOrganization[] {
+  return (items ?? []).flatMap((item) => {
+    if (item.role !== 'admin' && item.role !== 'superadmin') return [];
+    const id = Number(item.id);
+    const name = item.name.trim();
+    if (!Number.isFinite(id) || id <= 0 || !name) return [];
+    return [{ id, type, name }];
+  });
+}
+
+/** Écoles et entreprises que le menu « Changer d’organisation » propose. */
+export function creatableOrganizations(user?: User | null): CreatableOrganization[] {
+  return [
+    ...adminOrganizations(user?.available_contexts?.schools, 'School'),
+    ...adminOrganizations(user?.available_contexts?.companies, 'Company'),
+  ];
+}
+
+export function concretiseOrganizationKey(org: Pick<CreatableOrganization, 'type' | 'id'>): string {
+  return `${org.type}:${org.id}`;
+}
+
+/**
+ * Organisation présélectionnée avant de créer le brouillon.
+ * Le contexte du menu prime. Sinon rien : on ne retombe pas sur la première école du compte.
+ */
+export function defaultConcretiseOrganizationKey(options: {
+  user?: User | null;
+  showingPageType: ShowingPageType;
+  search: string;
+}): string {
+  const optionsList = creatableOrganizations(options.user);
+  const active = activeOrganizationForCreate(options);
+  if (active) {
+    const key = concretiseOrganizationKey(active);
+    if (optionsList.some((org) => concretiseOrganizationKey(org) === key)) return key;
+  }
+  if (optionsList.length === 1) return concretiseOrganizationKey(optionsList[0]);
+  return '';
+}
 
 /**
  * Get selected school ID (for school/teacher contexts)
