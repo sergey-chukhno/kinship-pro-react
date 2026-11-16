@@ -74,6 +74,9 @@ import {
 import EuMcGoldSummary from './EuMcGoldSummary';
 import CloseProjectBirthOverlay from '../Modals/CloseProjectBirthOverlay';
 import CloseProjectModal from '../Modals/CloseProjectModal';
+import ProjectStepsCard from '../ProjectSteps/ProjectStepsCard';
+import ProjectStepFormModal from '../ProjectSteps/ProjectStepFormModal';
+import { listProjectSteps, type ProjectStep } from '../../api/ProjectSteps';
 import './ProjectSpacePage.css';
 
 type AddPanel = 'person' | 'partner' | 'funder' | 'media' | null;
@@ -209,6 +212,9 @@ const ProjectSpacePage: React.FC = () => {
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeSubmitting, setCloseSubmitting] = useState(false);
   const [bornProof, setBornProof] = useState(false);
+  const [projectSteps, setProjectSteps] = useState<ProjectStep[]>([]);
+  const [stepFormOpen, setStepFormOpen] = useState(false);
+  const [editingStep, setEditingStep] = useState<ProjectStep | null>(null);
   // Patrick « Une classe entière » (teacher + école)
   const [entireClasses, setEntireClasses] = useState<any[]>([]);
   const [entireClassSearch, setEntireClassSearch] = useState('');
@@ -267,18 +273,21 @@ const ProjectSpacePage: React.FC = () => {
       );
       setExtras(getProjectSpaceExtras(mapped.id));
       try {
-        const [mem, docs, funderList] = await Promise.all([
+        const [mem, docs, funderList, steps] = await Promise.all([
           getProjectMembers(Number(projectId)),
           getProjectDocuments(Number(projectId)),
           getProjectFunders(Number(projectId)),
+          listProjectSteps(Number(projectId)).catch(() => [] as ProjectStep[]),
         ]);
         setMembers(Array.isArray(mem) ? mem : []);
         setDocuments(docs?.data || []);
         setFunders(Array.isArray(funderList) ? funderList : []);
+        setProjectSteps(Array.isArray(steps) ? steps : []);
       } catch {
         setMembers([]);
         setDocuments([]);
         setFunders([]);
+        setProjectSteps([]);
       }
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Impossible de charger le projet.');
@@ -1528,6 +1537,22 @@ const ProjectSpacePage: React.FC = () => {
                 </p>
               </section>
 
+              <section className="ps-sec" style={{ padding: 0, border: 'none', background: 'transparent' }}>
+                <ProjectStepsCard
+                  steps={projectSteps}
+                  mode="creation"
+                  canEdit={!isEnded}
+                  onAdd={() => {
+                    setEditingStep(null);
+                    setStepFormOpen(true);
+                  }}
+                  onEdit={(s) => {
+                    setEditingStep(s);
+                    setStepFormOpen(true);
+                  }}
+                />
+              </section>
+
               <section className="ps-sec">
                 <h2>
                   Partenaires ({partners.length})
@@ -1728,6 +1753,24 @@ const ProjectSpacePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {stepFormOpen && projectId && (
+        <ProjectStepFormModal
+          projectId={Number(projectId)}
+          projectTitle={project.title}
+          projectKind={project.projectKind || apiProject?.project_kind}
+          step={editingStep}
+          onClose={() => {
+            setStepFormOpen(false);
+            setEditingStep(null);
+          }}
+          onSaved={() => {
+            void listProjectSteps(Number(projectId))
+              .then((steps) => setProjectSteps(Array.isArray(steps) ? steps : []))
+              .catch(() => undefined);
+          }}
+        />
+      )}
 
       <CloseProjectModal
         isOpen={closeOpen}
