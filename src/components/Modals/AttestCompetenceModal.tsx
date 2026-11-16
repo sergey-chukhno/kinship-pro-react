@@ -48,6 +48,7 @@ import {
   getSoftSkillsAxeColor,
   getSoftSkillsLocalPicto,
 } from '../../utils/softSkillsSeries';
+import { projectStepAttestLabel } from '../../utils/projectStepLabels';
 import {
   filterAttestSelectableLevels,
   softSkillsPastilleLevels,
@@ -320,7 +321,9 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
   const [eventOpen, setEventOpen] = useState(false);
   const [commentFieldOpen, setCommentFieldOpen] = useState(false);
   const [proofFieldOpen, setProofFieldOpen] = useState(false);
-  const [projectEvents, setProjectEvents] = useState<Array<{ id: number; title: string; date?: string }>>([]);
+  const [projectEvents, setProjectEvents] = useState<
+    Array<{ id: number; title: string; date?: string; event_type?: string }>
+  >([]);
   const [frozen, setFrozen] = useState<FrozenProof[]>([]);
   const [badges, setBadges] = useState<BadgeAPI[]>([]);
   const [loadingBadges, setLoadingBadges] = useState(false);
@@ -1914,7 +1917,13 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                 <div className="att-selon">
                   <b>Constaté pendant :</b>
                   <button type="button" className="att-tog on" onClick={() => setEventOpen((v) => !v)}>
-                    {selon === 'event' && eventId ? projectEvents.find((e) => e.id === eventId)?.title || 'un événement' : 'Le projet'} ▾
+                    {selon === 'event' && eventId
+                      ? (() => {
+                          const ev = projectEvents.find((e) => e.id === eventId);
+                          return ev ? projectStepAttestLabel(ev) : 'un événement';
+                        })()
+                      : 'Le projet'}{' '}
+                    ▾
                   </button>
                 </div>
               )}
@@ -1942,7 +1951,7 @@ const AttestCompetenceModal: React.FC<AttestCompetenceModalProps> = ({
                         setEventOpen(false);
                       }}
                     >
-                      {ev.title}
+                      {projectStepAttestLabel(ev)}
                     </button>
                   ))}
                 </div>

@@ -70,6 +70,9 @@ import {
 } from '../../utils/partnershipDisplay';
 import EuMcGoldSummary from './EuMcGoldSummary';
 import AttestCompetenceModal from '../Modals/AttestCompetenceModal';
+import ProjectStepsCard from '../ProjectSteps/ProjectStepsCard';
+import ProjectStepFormModal from '../ProjectSteps/ProjectStepFormModal';
+import { listProjectSteps, type ProjectStep } from '../../api/ProjectSteps';
 import './ProjectAffichePage.css';
 
 /** Famille A — porteur: holder_display first; never show CIVIL_DATA_ERASED literal. */
@@ -98,11 +101,11 @@ function displayProofSender(b: any, fallback: string = '—'): string {
   );
 }
 
-type AfficheTab = 'overview' | 'requests' | 'participants' | 'teams' | 'proofs' | 'documents';
+type AfficheTab = 'overview' | 'requests' | 'participants' | 'steps' | 'teams' | 'proofs' | 'documents';
 type AddPanel = 'person' | 'partner' | 'funder' | 'document' | 'link' | 'team' | null;
 type ViewMode = 'cards' | 'list';
 
-const INNER_AFFICHE_TABS: [AfficheTab, string][] = [
+const INNER_AFFICHE_TABS_BASE: [AfficheTab, string][] = [
   ['overview', 'Vue d’ensemble'],
   ['requests', 'Demandes'],
   ['participants', 'Participants'],
@@ -297,6 +300,9 @@ const ProjectAffichePage: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [stats, setStats] = useState<ProjectStats | null>(null);
   const [badges, setBadges] = useState<any[]>([]);
+  const [projectSteps, setProjectSteps] = useState<ProjectStep[]>([]);
+  const [stepFormOpen, setStepFormOpen] = useState(false);
+  const [editingStep, setEditingStep] = useState<ProjectStep | null>(null);
   const [orgPeople, setOrgPeople] = useState<any[]>([]);
   const [partnerships, setPartnerships] = useState<Partnership[]>([]);
   const [groups, setGroups] = useState<CompanyGroup[]>([]);
@@ -358,13 +364,14 @@ const ProjectAffichePage: React.FC = () => {
       setApiProject(raw);
       setProject(mapped);
       setExtras(getProjectSpaceExtras(mapped.id));
-      const [mem, docs, funderList, teamList, statsRes, badgeRes] = await Promise.all([
+      const [mem, docs, funderList, teamList, statsRes, badgeRes, steps] = await Promise.all([
         getProjectMembers(Number(projectId)).catch(() => []),
         getProjectDocuments(Number(projectId)).catch(() => ({ data: [] as ProjectDocument[] })),
         getProjectFunders(Number(projectId)).catch(() => [] as ProjectFunder[]),
         getProjectTeams(Number(projectId)).catch(() => [] as Team[]),
         getProjectStats(Number(projectId)).catch(() => null),
         getProjectBadges(Number(projectId), 1, 50).catch(() => ({ data: [] as any[] })),
+        listProjectSteps(Number(projectId)).catch(() => [] as ProjectStep[]),
       ]);
       setMembers(Array.isArray(mem) ? mem : []);
       setDocuments(docs?.data || []);
@@ -372,12 +379,23 @@ const ProjectAffichePage: React.FC = () => {
       setTeams(Array.isArray(teamList) ? teamList : []);
       setStats(statsRes);
       setBadges(Array.isArray(badgeRes?.data) ? badgeRes.data : []);
+      setProjectSteps(Array.isArray(steps) ? steps : []);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Impossible de charger l’affiche.');
     } finally {
       setLoading(false);
     }
   }, [projectId, state.showingPageType]);
+
+  const refreshProjectSteps = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const steps = await listProjectSteps(Number(projectId));
+      setProjectSteps(Array.isArray(steps) ? steps : []);
+    } catch {
+      /* keep current */
+    }
+  }, [projectId]);
 
   // Recharge les compteurs (participants, preuves) après une action qui les change —
   // sans quoi ils restent figés jusqu'au rechargement de la page (Patrick 29/09, point 4d).
@@ -480,9 +498,21 @@ const ProjectAffichePage: React.FC = () => {
   const canAttest = (isOwner || isCoOwner || isEncadrant) && !isEnded && !isSuperadminReadOnly;
   const canAddParticipants = (isOwner || isCoOwner) && !isEnded && !isSuperadminReadOnly;
   const canManageTeams = (isOwner || isCoOwner) && !isEnded && !isSuperadminReadOnly;
+  const canManageSteps = (isOwner || isCoOwner) && !isEnded && !isSuperadminReadOnly;
   const canSeeInner = !isVisitor;
   const canSeeFunders = !isVisitor;
   const showCloseBanner = canGovern && shouldShowEndDateWarningBanner(project?.status, project?.showEndDateWarning);
+
+  // Patrick V0.7 — onglet Étapes seulement dès la 1re étape (après Participants).
+  const INNER_AFFICHE_TABS = useMemo((): [AfficheTab, string][] => {
+    if (projectSteps.length === 0) return INNER_AFFICHE_TABS_BASE;
+    const tabs: [AfficheTab, string][] = [];
+    for (const [id, label] of INNER_AFFICHE_TABS_BASE) {
+      tabs.push([id, label]);
+      if (id === 'participants') tabs.push(['steps', 'Étapes']);
+    }
+    return tabs;
+  }, [projectSteps.length]);
 
   useEffect(() => {
     if (!apiProject) return;
@@ -495,6 +525,12 @@ const ProjectAffichePage: React.FC = () => {
       setTab('documents');
     }
   }, [isVisitor, documents]);
+
+  useEffect(() => {
+    if (tab === 'steps' && projectSteps.length === 0) {
+      setTab('overview');
+    }
+  }, [tab, projectSteps.length]);
 
   const memberApiRole = (member: any): string | undefined =>
     member?.project_role || member?.role;
@@ -1462,6 +1498,22 @@ const ProjectAffichePage: React.FC = () => {
                     <h4>Description</h4>
                     <div className="pa-desc">{desc || 'Aucune description.'}</div>
                   </div>
+                  <div className="pa-sec" style={{ padding: 0, border: 'none', background: 'transparent' }}>
+                    <ProjectStepsCard
+                      steps={projectSteps}
+                      mode="overview"
+                      canEdit={canManageSteps}
+                      onAdd={() => {
+                        setEditingStep(null);
+                        setStepFormOpen(true);
+                      }}
+                      onEdit={(s) => {
+                        setEditingStep(s);
+                        setStepFormOpen(true);
+                      }}
+                      onSeeAll={() => setTab('steps')}
+                    />
+                  </div>
                   {project?.isEuMcDeclared && (
                     <div className="pa-sec">
                       <h4>Cadre européen</h4>
@@ -1668,6 +1720,24 @@ const ProjectAffichePage: React.FC = () => {
                       </tbody>
                     </table>
                   )}
+                </div>
+              )}
+
+              {canSeeInner && tab === 'steps' && projectSteps.length > 0 && (
+                <div className="pa-sec" style={{ padding: 0, border: 'none', background: 'transparent' }}>
+                  <ProjectStepsCard
+                    steps={projectSteps}
+                    mode="full"
+                    canEdit={canManageSteps}
+                    onAdd={() => {
+                      setEditingStep(null);
+                      setStepFormOpen(true);
+                    }}
+                    onEdit={(s) => {
+                      setEditingStep(s);
+                      setStepFormOpen(true);
+                    }}
+                  />
                 </div>
               )}
 
@@ -2041,6 +2111,22 @@ const ProjectAffichePage: React.FC = () => {
         </div>
       )}
 
+      {stepFormOpen && projectId && project && (
+        <ProjectStepFormModal
+          projectId={Number(projectId)}
+          projectTitle={project.title}
+          projectKind={project.projectKind || apiProject?.project_kind}
+          step={editingStep}
+          onClose={() => {
+            setStepFormOpen(false);
+            setEditingStep(null);
+          }}
+          onSaved={() => {
+            void refreshProjectSteps();
+          }}
+        />
+      )}
+
       {isAttestOpen && project && (
         <AttestCompetenceModal
           onClose={() => {
@@ -2056,6 +2142,7 @@ const ProjectAffichePage: React.FC = () => {
               /* keep current list */
             }
             refreshStats();
+            void refreshProjectSteps();
           }}
           participants={confirmedMembers.map((m) => ({
             id: memberId(m),
