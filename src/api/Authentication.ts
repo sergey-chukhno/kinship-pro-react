@@ -29,7 +29,9 @@ interface formData {
     companyZipCode?: string;
     companyCity?: string;
     companyEmail?: string;
+    countryCode?: string;
     siretNumber?: string;
+    enterpriseNumber?: string;
     website?: string
     referentPhoneNumber?: string;
     acceptPrivacyPolicy?: boolean;
