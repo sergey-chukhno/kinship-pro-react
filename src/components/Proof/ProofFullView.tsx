@@ -24,6 +24,9 @@ const EVIDENCE_ICONS: Record<string, string> = {
 const PROOF_PAGE_VISIBILITY = {
   integrityHashes: false,
   exportJson: false,
+  /** Petite poussée 02/11 — code reste, boutons cachés (A1). */
+  copyLink: false,
+  addToProfile: false,
 } as const;
 
 export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
@@ -226,15 +229,17 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
           <div className="proof-zone-label">Partager et exporter</div>
           <div className="proof-share-row">
             <div className="proof-share-url">{proof.shareUrl}</div>
-            <button type="button" className="proof-copy-btn" onClick={handleCopyLink}>
-              {copyLabel}
-            </button>
+            {PROOF_PAGE_VISIBILITY.copyLink && (
+              <button type="button" className="proof-copy-btn" onClick={handleCopyLink}>
+                {copyLabel}
+              </button>
+            )}
           </div>
           <div className="proof-export-grid">
             <button type="button" className="proof-export-btn">
               <span className="proof-export-icon">📄</span>
               <span className="proof-export-label">Télécharger PDF</span>
-              <span className="proof-export-sub">Avec QR code /verify</span>
+              <span className="proof-export-sub">Avec QR code</span>
             </button>
             {PROOF_PAGE_VISIBILITY.exportJson && (
               <button type="button" className="proof-export-btn" disabled>
@@ -243,11 +248,13 @@ export const ProofFullView: React.FC<ProofFullViewProps> = ({ proof }) => {
                 <span className="proof-export-sub">Bientôt disponible</span>
               </button>
             )}
-            <button type="button" className="proof-export-btn">
-              <span className="proof-export-icon">🏅</span>
-              <span className="proof-export-label">Ajouter à un profil</span>
-              <span className="proof-export-sub">LinkedIn · Credly · Badgr</span>
-            </button>
+            {PROOF_PAGE_VISIBILITY.addToProfile && (
+              <button type="button" className="proof-export-btn">
+                <span className="proof-export-icon">🏅</span>
+                <span className="proof-export-label">Ajouter à un profil</span>
+                <span className="proof-export-sub">LinkedIn · Credly · Badgr</span>
+              </button>
+            )}
           </div>
         </div>
       ) : null}
