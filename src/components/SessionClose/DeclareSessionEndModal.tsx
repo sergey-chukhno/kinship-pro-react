@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { FormationSession } from '../../types/formationSession';
-import { declareSessionEndMock, deliversMicrocert } from '../../utils/sessionCloseMock';
+import { deliversMicrocert } from '../../utils/sessionCloseMock';
 import { formatDateShortFr } from '../../utils/sessionCloseCopy';
 import './SessionClose.css';
 
@@ -8,10 +8,18 @@ type Props = {
   session: FormationSession;
   open: boolean;
   onClose: () => void;
-  onDeclared: () => void;
+  /** Parent calls API declare_end then refreshes. */
+  onDeclare: (message: string) => void | Promise<void>;
+  submitting?: boolean;
 };
 
-const DeclareSessionEndModal: React.FC<Props> = ({ session, open, onClose, onDeclared }) => {
+const DeclareSessionEndModal: React.FC<Props> = ({
+  session,
+  open,
+  onClose,
+  onDeclare,
+  submitting = false,
+}) => {
   const [message, setMessage] = useState('');
   if (!open) return null;
 
@@ -33,25 +41,27 @@ const DeclareSessionEndModal: React.FC<Props> = ({ session, open, onClose, onDec
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Consignes pour l'organisme ou le jury…"
+            disabled={submitting}
           />
         </div>
         <p>
           L&apos;organisme est notifié : il enregistre la décision du jury, puis clôture la session
           et délivre les {mc ? 'microcertifications' : 'preuves de formation'}.
         </p>
+        <p>L&apos;organisme vérifiera la conformité avant de clôturer.</p>
         <div className="sc-foot" style={{ borderTop: 'none', paddingTop: 4 }}>
-          <button type="button" className="sc-btn g" onClick={onClose}>
+          <button type="button" className="sc-btn g" onClick={onClose} disabled={submitting}>
             Annuler
           </button>
           <button
             type="button"
             className="sc-btn am"
+            disabled={submitting}
             onClick={() => {
-              declareSessionEndMock(session.id, message);
-              onDeclared();
+              void onDeclare(message);
             }}
           >
-            Déclarer la fin
+            {submitting ? 'Déclaration…' : 'Déclarer la fin'}
           </button>
         </div>
       </div>
